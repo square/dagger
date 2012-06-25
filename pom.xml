@@ -31,16 +31,12 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Compilation -->
-        <android-maven.version>3.2.0</android-maven.version>
         <java.version>1.6</java.version>
-
-        <!-- Dependencies -->
-        <android.version>2.2.1</android.version>
-        <android.platform>8</android.platform>
 
         <!-- Test Dependencies -->
         <junit.version>4.10</junit.version>
         <fest.version>1.4</fest.version>
+        <javax.inject.version>1</javax.inject.version>
     </properties>
 
     <scm>
@@ -70,7 +66,7 @@
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
-            <version>1</version>
+            <version>${javax.inject.version}</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -90,12 +86,6 @@
         <finalName>square-${project.artifactId}-${project.version}</finalName>
 
         <plugins>
-            <plugin>
-                <groupId>com.jayway.maven.plugins.android.generation2</groupId>
-                <artifactId>android-maven-plugin</artifactId>
-                <version>${android-maven.version}</version>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
