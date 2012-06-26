@@ -33,7 +33,7 @@ final class Linker {
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> unattachedBindings = new LinkedList<Binding<?>>();
 
-  /** True unless calls to getBinding() were unable to satisfy the binding. */
+  /** True unless calls to requestBinding() were unable to satisfy the binding. */
   private boolean currentAttachSuccess = true;
 
   public Linker(Injector injector) {
@@ -111,7 +111,7 @@ final class Linker {
    * null. The injector will create that binding later and reattach the
    * caller's binding.
    */
-  public <T> Binding<T> getBinding(final Key<T> key, final Object requiredBy) {
+  public <T> Binding<T> requestBinding(final Key<T> key, final Object requiredBy) {
     Binding<T> binding = injector.getBinding(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!

@@ -48,7 +48,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     for (int i = 0; i < fields.length; i++) {
       Field field = fields[i];
       Key<Object> fieldKey = Key.get(field.getGenericType(), field.getAnnotations(), field);
-      fieldBindings[i] = linker.getBinding(fieldKey, field);
+      fieldBindings[i] = linker.requestBinding(fieldKey, field);
     }
 
     // Constructor bindings.
@@ -57,7 +57,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     parameters = new Binding[types.length];
     for (int i = 0; i < parameters.length; i++) {
       String name = constructor + " parameter " + i;
-      parameters[i] = linker.getBinding(Key.get(types[i], annotations[i], name), constructor);
+      parameters[i] = linker.requestBinding(Key.get(types[i], annotations[i], name), constructor);
     }
   }
 

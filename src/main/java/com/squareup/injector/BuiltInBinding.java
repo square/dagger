@@ -32,7 +32,7 @@ final class BuiltInBinding<T> extends Binding<T> {
 
   @Override void attach(Linker linker) {
     Type providedType = ((ParameterizedType) key.type).getActualTypeArguments()[0];
-    delegate = linker.getBinding(new Key<T>(providedType, key.annotation), requiredBy);
+    delegate = linker.requestBinding(new Key<T>(providedType, key.annotation), requiredBy);
   }
 
   @Override public void injectMembers(T t) {

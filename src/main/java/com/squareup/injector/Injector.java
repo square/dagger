@@ -82,7 +82,7 @@ public final class Injector {
     }
 
     Linker linker = new Linker(this);
-    linker.getBinding(key, "root injection"); // Seed this requirement early.
+    linker.requestBinding(key, "root injection"); // Seed this requirement early.
     linker.link(bindings.values());
 
     if (!errors.isEmpty()) {
@@ -94,7 +94,7 @@ public final class Injector {
       throw new IllegalArgumentException(message.toString());
     }
 
-    return linker.getBinding(key, "root injection").get();
+    return linker.requestBinding(key, "root injection").get();
   }
 
   private void install(Object module) {

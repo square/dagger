@@ -44,7 +44,7 @@ final class ProviderMethodBinding<T> extends Binding<T> {
     parameters = new Binding[types.length];
     for (int i = 0; i < parameters.length; i++) {
       String name = method + " parameter " + i;
-      parameters[i] = linker.getBinding(Key.get(types[i], annotations[i], name), method);
+      parameters[i] = linker.requestBinding(Key.get(types[i], annotations[i], name), method);
     }
   }
 
