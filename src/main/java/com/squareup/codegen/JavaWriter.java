@@ -182,7 +182,7 @@ public final class JavaWriter {
   }
 
   /**
-   * @param s a code statement like "int i = 5". Shouldn't contain any trialing
+   * @param s a code statement like "int i = 5". Shouldn't contain a trailing
    * semicolon or newline character.
    */
   public void statement(String s) throws IOException {
