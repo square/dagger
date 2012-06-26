@@ -42,7 +42,8 @@ final class Linker {
 
   /**
    * Links the bindings in {@code bindings}, creating JIT bindings as necessary
-   * to fill in the gaps.
+   * to fill in the gaps. When this returns all bindings and their dependencies
+   * will be attached.
    */
   public void link(Collection<Binding<?>> bindings) {
     unattachedBindings.addAll(bindings);

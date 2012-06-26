@@ -94,7 +94,8 @@ public final class Injector {
       throw new IllegalArgumentException(message.toString());
     }
 
-    return linker.requestBinding(key, "root injection").get();
+    Binding<T> root = linker.requestBinding(key, "root injection");
+    return root.get(); // Linker.link() guarantees that this will be non-null.
   }
 
   private void install(Object module) {
