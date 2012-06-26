@@ -109,7 +109,7 @@ public final class InjectorTest {
     }
   }
 
-  static class MembersInjectors {
+  public static class MembersInjectors {
     @Inject MembersInjector<G> gInjector;
   }
 
@@ -120,7 +120,7 @@ public final class InjectorTest {
     assertThat(h.aProvider.get()).isNotSameAs(h.aProvider.get());
   }
 
-  static class H {
+  public static class H {
     @Inject Provider<A> aProvider;
   }
 
@@ -293,5 +293,14 @@ public final class InjectorTest {
       fail();
     } catch (IllegalArgumentException expected) {
     }
+  }
+
+  @Test public void singletonsInjectedOnlyIntoProviders() {
+    H h = new Injector().inject(H.class, new Object() {
+      @Provides @Singleton A provideA() {
+        return new A();
+      }
+    });
+    assertThat(h.aProvider.get()).isSameAs(h.aProvider.get());
   }
 }

@@ -17,8 +17,8 @@ package com.squareup.injector;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Queue;
 import javax.inject.Provider;
 
@@ -31,7 +31,7 @@ final class Linker {
   private final Injector injector;
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
-  private final Queue<Binding<?>> unattachedBindings = new ArrayDeque<Binding<?>>();
+  private final Queue<Binding<?>> unattachedBindings = new LinkedList<Binding<?>>();
 
   /** True unless calls to getBinding() were unable to satisfy the binding. */
   private boolean currentAttachSuccess = true;
@@ -57,14 +57,19 @@ final class Linker {
     }
   }
 
-  private void attachBinding(Binding binding) {
-    currentAttachSuccess = true;
-    binding.attach(this);
-    if (!currentAttachSuccess) {
-      unattachedBindings.add(binding);
-    }
-  }
-
+  /**
+   * Creates a just-in-time binding for the key in {@code deferred}. The type of
+   * binding to be created depends on the key's type:
+   * <ul>
+   *   <li>Injections of {@code Provider<Foo>} and {@code MembersInjector<Bar>}
+   *       will delegate to the bindings of {@code Foo} and {@code Bar}
+   *       respectively.
+   *   <li>Injections of other types will use the injectable constructors of
+   *       those classes.
+   * </ul>
+   * Once the just-in-time binding has been created, it is enqueued to be
+   * attached until its own dependencies have been satisfied.
+   */
   private <T> void promoteDeferredBinding(DeferredBinding<T> deferred) {
     try {
       Binding<T> promoted;
@@ -85,6 +90,19 @@ final class Linker {
     } catch (Exception e) {
       injector.addError(e.getMessage() + " required by " + deferred.requiredBy);
       injector.putBinding(new UnresolvedBinding<T>(deferred.requiredBy, deferred.key));
+    }
+  }
+
+  /**
+   * Attempts to attach {@code binding} to its dependencies. If any dependency
+   * is not available, the attach will fail. We'll enqueue creation of that
+   * dependency and retry the attachment later.
+   */
+  private void attachBinding(Binding binding) {
+    currentAttachSuccess = true;
+    binding.attach(this);
+    if (!currentAttachSuccess) {
+      unattachedBindings.add(binding);
     }
   }
 

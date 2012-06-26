@@ -38,7 +38,7 @@ import javax.inject.Provider;
  *   <li>{@code @Provides} methods annotated {@code @Singleton}.
  *   <li>Constructor-injected classes annotated {@code @Singleton}.
  *   <li>Injection of {@link Provider}s.
- *   <li>Binding annotations on injected parameters and fields.
+ *   <li>Qualifier annotations on injected parameters and fields.
  *   <li>JSR 330 annotations.
  * </ul>
  *
@@ -65,8 +65,7 @@ public final class Injector {
    * must contain {@code @Provides} methods.
    */
   public <T> T inject(Class<T> type, Object... modules) {
-    Key<T> key = new Key<T>(type, null);
-    return new Injector().inject(key, modules);
+    return inject(new Key<T>(type, null), modules);
   }
 
   private <T> T inject(Key<T> key, Object[] modules) {

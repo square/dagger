@@ -136,7 +136,7 @@ final class ConstructorBinding<T> extends Binding<T> {
         throw new IllegalArgumentException("No injectable constructor on " + type);
       }
       try {
-        injectedConstructor = type.getDeclaredConstructor();
+        injectedConstructor = type.getConstructor();
       } catch (NoSuchMethodException e) {
         throw new IllegalArgumentException("No injectable constructor on " + type);
       }

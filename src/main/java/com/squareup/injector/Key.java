@@ -25,6 +25,13 @@ import javax.inject.Qualifier;
  * @author Jesse Wilson
  */
 final class Key<T> {
+  private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
+      = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {
+    @Override protected Boolean create(Class<? extends Annotation> annotationType) {
+      return annotationType.isAnnotationPresent(Qualifier.class);
+    }
+  };
+
   final Type type;
   final Annotation annotation;
 
@@ -36,7 +43,7 @@ final class Key<T> {
   static <T> Key<T> get(Type type, Annotation[] annotations, Object subject) {
     Annotation bindingAnnotation = null;
     for (Annotation a : annotations) {
-      if (a.annotationType().getAnnotation(Qualifier.class) == null) {
+      if (!IS_QUALIFIER_ANNOTATION.get(a.annotationType())) {
         continue;
       }
       if (bindingAnnotation != null) {
