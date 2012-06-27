@@ -15,6 +15,9 @@
  */
 package com.squareup.injector;
 
+import com.squareup.injector.internal.Binding;
+import com.squareup.injector.internal.Keys;
+import com.squareup.injector.internal.Linker;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -31,20 +34,20 @@ final class ProviderMethodBinding<T> extends Binding<T> {
   private final Method method;
   private final Object instance;
 
-  public ProviderMethodBinding(Method method, Key<T> key, Object instance) {
+  public ProviderMethodBinding(Method method, String key, Object instance) {
     super(method, key);
     this.method = method;
     this.instance = instance;
     method.setAccessible(true);
   }
 
-  @Override void attach(Linker linker) {
+  @Override public void attach(Linker linker) {
     Type[] types = method.getGenericParameterTypes();
     Annotation[][] annotations = method.getParameterAnnotations();
     parameters = new Binding[types.length];
     for (int i = 0; i < parameters.length; i++) {
       String name = method + " parameter " + i;
-      parameters[i] = linker.requestBinding(Key.get(types[i], annotations[i], name), method);
+      parameters[i] = linker.requestBinding(Keys.get(types[i], annotations[i], name), method);
     }
   }
 

@@ -255,6 +255,10 @@ public final class JavaWriter {
     }
   }
 
+  public void close() throws IOException {
+    out.close();
+  }
+
   /**
    * Emit modifier names.
    */

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.squareup.injector;
+package com.squareup.injector.internal;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -36,18 +36,19 @@ final class ConstructorBinding<T> extends Binding<T> {
   private Binding<?>[] parameters;
   private Binding<?>[] fieldBindings;
 
-  private ConstructorBinding(Class<?> type, Key<T> key, Constructor<T> constructor, Field[] fields) {
+  private ConstructorBinding(Class<?> type, String key,
+      Constructor<T> constructor, Field[] fields) {
     super(type, key);
     this.constructor = constructor;
     this.fields = fields;
   }
 
-  @Override void attach(Linker linker) {
+  @Override public void attach(Linker linker) {
     // Field bindings.
     fieldBindings = new Binding<?>[fields.length];
     for (int i = 0; i < fields.length; i++) {
       Field field = fields[i];
-      Key<Object> fieldKey = Key.get(field.getGenericType(), field.getAnnotations(), field);
+      String fieldKey = Keys.get(field.getGenericType(), field.getAnnotations(), field);
       fieldBindings[i] = linker.requestBinding(fieldKey, field);
     }
 
@@ -57,7 +58,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     parameters = new Binding[types.length];
     for (int i = 0; i < parameters.length; i++) {
       String name = constructor + " parameter " + i;
-      parameters[i] = linker.requestBinding(Key.get(types[i], annotations[i], name), constructor);
+      parameters[i] = linker.requestBinding(Keys.get(types[i], annotations[i], name), constructor);
     }
   }
 
@@ -94,14 +95,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     return constructor.getDeclaringClass().isAnnotationPresent(Singleton.class);
   }
 
-  public static <T> Binding<T> create(Key<T> key) {
-    if (!(key.type instanceof Class) || key.annotation != null) {
-      throw new IllegalArgumentException("No binding for " + key);
-    }
-
-    @SuppressWarnings("unchecked") // The key type implies the class type.
-    Class<T> type = (Class<T>) key.type;
-
+  public static <T> Binding<T> create(Class<T> type) {
     /*
      * Lookup the injectable fields and their corresponding keys.
      */
@@ -142,7 +136,7 @@ final class ConstructorBinding<T> extends Binding<T> {
       }
     }
 
-    return new ConstructorBinding<T>(type, key, injectedConstructor,
+    return new ConstructorBinding<T>(type, Keys.get(type, null), injectedConstructor,
         injectedFields.toArray(new Field[injectedFields.size()]));
   }
 }

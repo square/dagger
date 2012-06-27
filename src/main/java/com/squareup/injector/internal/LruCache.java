@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.squareup.injector;
+package com.squareup.injector.internal;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

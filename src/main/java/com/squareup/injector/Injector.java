@@ -15,9 +15,9 @@
  */
 package com.squareup.injector;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import com.squareup.injector.internal.Binding;
+import com.squareup.injector.internal.InternalInjector;
+import com.squareup.injector.internal.Keys;
 import java.util.Map;
 
 /**
@@ -49,84 +49,17 @@ import java.util.Map;
  * @author Jesse Wilson
  */
 public final class Injector {
-  private static final Object UNINITIALIZED = new Object();
-
-  /** All errors encountered during injection. */
-  private final List<String> errors = new ArrayList<String>();
-
-  /** All of the injector's bindings. */
-  private final Map<Key<?>, Binding<?>> bindings = new HashMap<Key<?>, Binding<?>>();
-
   /**
    * Creates an injector defined by {@code modules} and immediately uses it to
    * create an instance of {@code type}. The modules can be of any type, and
    * must contain {@code @Provides} methods.
    */
   public <T> T inject(Class<T> type, Object... modules) {
-    return inject(new Key<T>(type, null), modules);
-  }
-
-  private <T> T inject(Key<T> key, Object[] modules) {
-    if (!bindings.isEmpty()) {
-      throw new IllegalStateException("Injectors may only inject once.");
-    }
-
-    Map<Key<?>, Binding<?>> combined = Modules.moduleToMap(Modules.combine(modules));
+    InternalInjector injector = new InternalInjector();
+    Map<String, Binding<?>> combined = Modules.moduleToMap(Modules.combine(modules));
     for (Binding<?> binding : combined.values()) {
-      putBinding(binding);
+      injector.putBinding(binding);
     }
-
-    Linker linker = new Linker(this);
-    linker.requestBinding(key, "root injection"); // Seed this requirement early.
-    linker.link(bindings.values());
-
-    if (!errors.isEmpty()) {
-      StringBuilder message = new StringBuilder();
-      message.append("Errors creating injector:");
-      for (String error : errors) {
-        message.append("\n  ").append(error);
-      }
-      throw new IllegalArgumentException(message.toString());
-    }
-
-    Binding<T> root = linker.requestBinding(key, "root injection");
-    return root.get(); // Linker.link() guarantees that this will be non-null.
-  }
-
-  @SuppressWarnings("unchecked") // Typesafe heterogeneous container.
-  <T> Binding<T> getBinding(Key<T> key) {
-    return (Binding<T>) bindings.get(key);
-  }
-
-  <T> void putBinding(final Binding<T> binding) {
-    Binding<T> toInsert = binding;
-    if (binding.isSingleton()) {
-      toInsert = new Binding<T>(binding.requiredBy, binding.key) {
-        private Object onlyInstance = UNINITIALIZED;
-        @Override void attach(Linker linker) {
-          binding.attach(linker);
-        }
-        @Override public void injectMembers(T t) {
-          binding.injectMembers(t);
-        }
-        @Override public T get() {
-          if (onlyInstance == UNINITIALIZED) {
-            onlyInstance = binding.get();
-          }
-          return (T) onlyInstance;
-        }
-        @Override public boolean isSingleton() {
-          return binding.isSingleton();
-        }
-      };
-    }
-
-    if (bindings.put(toInsert.key, toInsert) != null) {
-      throw new IllegalArgumentException("Duplicate binding: " + toInsert.key);
-    }
-  }
-
-  void addError(String message) {
-    errors.add(message);
+    return (T) injector.inject(Keys.get(type));
   }
 }
