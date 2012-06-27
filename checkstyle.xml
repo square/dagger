@@ -4,7 +4,7 @@
     "http://www.puppycrawl.com/dtds/configuration_1_2.dtd">
 
 <module name="Checker">
-    <module name="NewlineAtEndOfFile"/>
+    <!--module name="NewlineAtEndOfFile"/-->
     <module name="FileLength"/>
     <module name="FileTabCharacter"/>
 
@@ -20,9 +20,9 @@
         <!-- Checks for Javadoc comments.                     -->
         <!-- See http://checkstyle.sf.net/config_javadoc.html -->
         <!--module name="JavadocMethod"/-->
-        <module name="JavadocType"/>
+        <!--module name="JavadocType"/-->
         <!--module name="JavadocVariable"/-->
-        <module name="JavadocStyle"/>
+        <!--module name="JavadocStyle"/-->
 
 
         <!-- Checks for Naming Conventions.                  -->
@@ -51,20 +51,20 @@
         <module name="LineLength">
             <property name="max" value="120"/>
         </module>
-        <module name="MethodLength"/>
-        <module name="ParameterNumber"/>
+        <!--module name="MethodLength"/-->
+        <!--module name="ParameterNumber"/-->
 
 
         <!-- Checks for whitespace                               -->
         <!-- See http://checkstyle.sf.net/config_whitespace.html -->
         <module name="GenericWhitespace"/>
-        <module name="EmptyForIteratorPad"/>
+        <!--<module name="EmptyForIteratorPad"/>-->
         <module name="MethodParamPad"/>
         <module name="NoWhitespaceAfter"/>
         <module name="NoWhitespaceBefore"/>
         <module name="OperatorWrap"/>
         <module name="ParenPad"/>
-        <module name="TypecastParenPad"/>
+        <!--module name="TypecastParenPad"/-->
         <module name="WhitespaceAfter"/>
         <module name="WhitespaceAround"/>
 
@@ -77,10 +77,10 @@
 
         <!-- Checks for blocks. You know, those {}'s         -->
         <!-- See http://checkstyle.sf.net/config_blocks.html -->
-        <module name="AvoidNestedBlocks"/>
+        <!--module name="AvoidNestedBlocks"/-->
         <!--module name="EmptyBlock"/-->
         <module name="LeftCurly"/>
-        <module name="NeedBraces"/>
+        <!--module name="NeedBraces"/-->
         <module name="RightCurly"/>
 
 
@@ -94,7 +94,7 @@
         <module name="EqualsHashCode"/>
         <!--module name="HiddenField"/-->
         <module name="IllegalInstantiation"/>
-        <module name="InnerAssignment"/>
+        <!--<module name="InnerAssignment"/>-->
         <!--module name="MagicNumber"/-->
         <module name="MissingSwitchDefault"/>
         <module name="RedundantThrows"/>
@@ -104,17 +104,17 @@
         <!-- Checks for class design                         -->
         <!-- See http://checkstyle.sf.net/config_design.html -->
         <!--module name="DesignForExtension"/-->
-        <module name="FinalClass"/>
-        <module name="HideUtilityClassConstructor"/>
-        <module name="InterfaceIsType"/>
-        <!--s/module name="VisibilityModifier"/-->
+        <!--module name="FinalClass"/-->
+        <!--module name="HideUtilityClassConstructor"/-->
+        <!--module name="InterfaceIsType"/-->
+        <!--module name="VisibilityModifier"/-->
 
 
         <!-- Miscellaneous other checks.                   -->
         <!-- See http://checkstyle.sf.net/config_misc.html -->
-        <module name="ArrayTypeStyle"/>
+        <!--module name="ArrayTypeStyle"/-->
         <!--module name="FinalParameters"/-->
-        <module name="TodoComment"/>
+        <!--module name="TodoComment"/-->
         <module name="UpperEll"/>
     </module>
 </module>

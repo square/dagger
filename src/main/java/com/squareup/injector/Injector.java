@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.inject.Provider;
 
 /**
  * Dependency injector.
@@ -36,7 +35,7 @@ import javax.inject.Provider;
  *   <li>Injection of {@code @Provides} method parameters.
  *   <li>{@code @Provides} methods annotated {@code @Singleton}.
  *   <li>Constructor-injected classes annotated {@code @Singleton}.
- *   <li>Injection of {@link Provider}s.
+ *   <li>Injection of {@link javax.inject.Provider}s.
  *   <li>Qualifier annotations on injected parameters and fields.
  *   <li>JSR 330 annotations.
  * </ul>
