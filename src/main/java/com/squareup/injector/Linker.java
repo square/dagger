@@ -72,6 +72,10 @@ final class Linker {
    * attached until its own dependencies have been satisfied.
    */
   private <T> void promoteDeferredBinding(DeferredBinding<T> deferred) {
+    if (injector.getBinding(deferred.key) != null) {
+      return; // A binding for this key has already been promoted.
+    }
+
     try {
       Binding<T> promoted;
       if (deferred.key.type instanceof ParameterizedType) {
