@@ -27,6 +27,9 @@ import java.util.Map;
  * @author Jesse Wilson
  */
 public final class Modules {
+  private Modules() {
+  }
+
   /**
    * Returns a map containing the bindings in {@code object}.
    *
