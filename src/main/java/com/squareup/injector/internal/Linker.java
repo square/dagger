@@ -13,22 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.squareup.injector;
+package com.squareup.injector.internal;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Queue;
-import javax.inject.Provider;
 
 /**
  * Links bindings to their dependencies.
  *
  * @author Jesse Wilson
  */
-final class Linker {
-  private final Injector injector;
+public final class Linker {
+  private final InternalInjector injector;
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> unattachedBindings = new LinkedList<Binding<?>>();
@@ -36,7 +33,7 @@ final class Linker {
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
   private boolean currentAttachSuccess = true;
 
-  public Linker(Injector injector) {
+  public Linker(InternalInjector injector) {
     this.injector = injector;
   }
 
@@ -51,7 +48,18 @@ final class Linker {
     Binding binding;
     while ((binding = unattachedBindings.poll()) != null) {
       if (binding instanceof DeferredBinding) {
-        promoteDeferredBinding((DeferredBinding<?>) binding);
+        if (injector.getBinding(binding.key) != null) {
+          continue; // A binding for this key has already been promoted.
+        }
+        try {
+          Binding<?> jitBinding = createJitBinding((DeferredBinding<?>) binding);
+          // Enqueue the JIT binding so its own dependencies can be linked.
+          unattachedBindings.add(jitBinding);
+          injector.putBinding(jitBinding);
+        } catch (Exception e) {
+          injector.addError(e.getMessage() + " required by " + binding.requiredBy);
+          injector.putBinding(new UnresolvedBinding<Object>(binding.requiredBy, binding.key));
+        }
       } else {
         attachBinding(binding);
       }
@@ -68,34 +76,20 @@ final class Linker {
    *   <li>Injections of other types will use the injectable constructors of
    *       those classes.
    * </ul>
-   * Once the just-in-time binding has been created, it is enqueued to be
-   * attached until its own dependencies have been satisfied.
    */
-  private <T> void promoteDeferredBinding(DeferredBinding<T> deferred) {
-    if (injector.getBinding(deferred.key) != null) {
-      return; // A binding for this key has already been promoted.
+  private Binding<?> createJitBinding(DeferredBinding<?> deferred) throws ClassNotFoundException {
+    String delegateKey = Keys.getDelegateKey(deferred.key);
+    if (delegateKey != null) {
+      return new BuiltInBinding<Object>(deferred.key, deferred.requiredBy, delegateKey);
     }
 
-    try {
-      Binding<T> promoted;
-      if (deferred.key.type instanceof ParameterizedType) {
-        Type rawType = ((ParameterizedType) deferred.key.type).getRawType();
-        if (rawType == Provider.class || rawType == MembersInjector.class) {
-          // Handle injections like Provider<Foo> and MembersInjector<Foo> by delegating.
-          promoted = new BuiltInBinding<T>(deferred.key, deferred.requiredBy);
-        } else {
-          throw new IllegalArgumentException("No binding for " + deferred.key);
-        }
-      } else {
-        // Handle all other injections with constructor bindings.
-        promoted = ConstructorBinding.create(deferred.key);
-      }
-      unattachedBindings.add(promoted);
-      injector.putBinding(promoted);
-    } catch (Exception e) {
-      injector.addError(e.getMessage() + " required by " + deferred.requiredBy);
-      injector.putBinding(new UnresolvedBinding<T>(deferred.requiredBy, deferred.key));
+    String className = Keys.getClassName(deferred.key);
+    if (className != null && !Keys.isAnnotated(deferred.key)) {
+      // Handle all other injections with constructor bindings.
+      return ConstructorBinding.create(Class.forName(className));
     }
+
+    throw new IllegalArgumentException("No binding for " + deferred.key);
   }
 
   /**
@@ -116,24 +110,24 @@ final class Linker {
    * null. The injector will create that binding later and reattach the
    * caller's binding.
    */
-  public <T> Binding<T> requestBinding(final Key<T> key, final Object requiredBy) {
-    Binding<T> binding = injector.getBinding(key);
+  public Binding<?> requestBinding(String key, final Object requiredBy) {
+    Binding<?> binding = injector.getBinding(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
-      unattachedBindings.add(new DeferredBinding<T>(requiredBy, key));
+      unattachedBindings.add(new DeferredBinding<Object>(requiredBy, key));
       currentAttachSuccess = false;
     }
     return binding;
   }
 
   private static class DeferredBinding<T> extends Binding<T> {
-    private DeferredBinding(Object requiredBy, Key<T> key) {
+    private DeferredBinding(Object requiredBy, String key) {
       super(requiredBy, key);
     }
   }
 
   private static class UnresolvedBinding<T> extends Binding<T> {
-    private UnresolvedBinding(Object definedBy, Key<T> key) {
+    private UnresolvedBinding(Object definedBy, String key) {
       super(definedBy, key);
     }
   }

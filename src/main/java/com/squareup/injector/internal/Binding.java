@@ -13,34 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.squareup.injector;
+package com.squareup.injector.internal;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+import com.squareup.injector.MembersInjector;
+import javax.inject.Provider;
 
 /**
- * Injects a Provider or a MembersInjector.
+ * Injects a value of a specific type.
  *
  * @author Jesse Wilson
  */
-final class BuiltInBinding<T> extends Binding<T> {
-  private Binding<?> delegate;
+public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
+  final Object requiredBy;
+  public final String key;
 
-  public BuiltInBinding(Key<T> key, Object requiredBy) {
-    super(requiredBy, key);
+  protected Binding(Object requiredBy, String key) {
+    this.requiredBy = requiredBy;
+    this.key = key;
   }
 
-  @Override void attach(Linker linker) {
-    Type providedType = ((ParameterizedType) key.type).getActualTypeArguments()[0];
-    delegate = linker.requestBinding(new Key<T>(providedType, key.annotation), requiredBy);
+  /**
+   * Links this binding to its dependencies.
+   */
+  public void attach(Linker linker) {
   }
 
   @Override public void injectMembers(T t) {
     throw new UnsupportedOperationException();
   }
 
-  @SuppressWarnings("unchecked") // At runtime we know 'T' is a Provider.
   @Override public T get() {
-    return (T) delegate;
+    throw new UnsupportedOperationException();
+  }
+
+  public boolean isSingleton() {
+    return false;
   }
 }

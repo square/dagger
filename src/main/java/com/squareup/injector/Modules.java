@@ -15,6 +15,8 @@
  */
 package com.squareup.injector;
 
+import com.squareup.injector.internal.Binding;
+import com.squareup.injector.internal.Keys;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,9 +38,9 @@ public final class Modules {
    * @param  module either a {@code map} of bindings, or an instance of a class
    *     that declares one or more {@code @Provides} methods.
    */
-  static Map<Key<?>, Binding<?>> moduleToMap(Object module) {
+  static Map<String, Binding<?>> moduleToMap(Object module) {
     if (module instanceof Map) {
-      return (Map<Key<?>, Binding<?>>) module;
+      return (Map<String, Binding<?>>) module;
     }
     return extractBindings(module);
   }
@@ -48,8 +50,8 @@ public final class Modules {
    * returned bindings are not attached to a particular injector and cannot be
    * used to inject values.
    */
-  private static Map<Key<?>, Binding<?>> extractBindings(Object module) {
-    Map<Key<?>, Binding<?>> result = new HashMap<Key<?>, Binding<?>>();
+  private static Map<String, Binding<?>> extractBindings(Object module) {
+    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
     for (Class<?> c = module.getClass(); c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         if (method.getAnnotation(Provides.class) == null) {
@@ -66,7 +68,7 @@ public final class Modules {
   }
 
   private static <T> Binding<T> methodToBinding(Object module, Method method) {
-    Key<T> key = Key.get(method.getGenericReturnType(), method.getAnnotations(), method);
+    String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
     return new ProviderMethodBinding<T>(method, key, module);
   }
 
@@ -76,7 +78,7 @@ public final class Modules {
    * modules, the binding from {@code overrides} is retained.
    */
   public static Object override(Object base, Object overrides) {
-    Map<Key<?>, Binding<?>> result = new HashMap<Key<?>, Binding<?>>();
+    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
     result.putAll(moduleToMap(base));
     result.putAll(moduleToMap(overrides));
     return result;
@@ -86,10 +88,10 @@ public final class Modules {
    * Returns a module containing all bindings in {@code modules}.
    */
   public static Object combine(Object... modules) {
-    Map<Key<?>, Binding<?>> result = new HashMap<Key<?>, Binding<?>>();
+    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
     int expectedSize = 0;
     for (Object module : modules) {
-      Map<Key<?>, Binding<?>> moduleBindings = moduleToMap(module);
+      Map<String, Binding<?>> moduleBindings = moduleToMap(module);
       expectedSize += moduleBindings.size();
       result.putAll(moduleBindings);
     }
