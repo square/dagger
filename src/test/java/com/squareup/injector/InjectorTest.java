@@ -303,4 +303,25 @@ public final class InjectorTest {
     });
     assertThat(h.aProvider.get()).isSameAs(h.aProvider.get());
   }
+
+  @Test public void moduleOverrides() {
+    Object base = new Object() {
+      @Provides F provideF() {
+        throw new AssertionError();
+      }
+      @Provides E provideE(F f) {
+        return new E(f);
+      }
+    };
+
+    Object overrides = new Object() {
+      @Provides F provideF() {
+        return new F();
+      }
+    };
+
+    E e = new Injector().inject(E.class, Modules.override(base, overrides));
+    assertThat(e).isNotNull();
+    assertThat(e.f).isNotNull();
+  }
 }

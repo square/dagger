@@ -147,7 +147,7 @@ public final class JavaWriter {
   }
 
   /**
-   * Emits a method declaration.
+   * Emit a method declaration.
    *
    * @param returnType the method's return type, or null for constructors.
    * @param parameters alternating parameter types and names.

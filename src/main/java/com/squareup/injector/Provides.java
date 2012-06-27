@@ -31,4 +31,5 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * @author Bob Lee
  */
 @Documented @Target(METHOD) @Retention(RUNTIME)
-public @interface Provides {}
+public @interface Provides {
+}

@@ -15,12 +15,10 @@
  */
 package com.squareup.injector;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.inject.Provider;
 
 /**
  * Dependency injector.
@@ -37,7 +35,7 @@ import javax.inject.Provider;
  *   <li>Injection of {@code @Provides} method parameters.
  *   <li>{@code @Provides} methods annotated {@code @Singleton}.
  *   <li>Constructor-injected classes annotated {@code @Singleton}.
- *   <li>Injection of {@link Provider}s.
+ *   <li>Injection of {@link javax.inject.Provider}s.
  *   <li>Qualifier annotations on injected parameters and fields.
  *   <li>JSR 330 annotations.
  * </ul>
@@ -73,12 +71,9 @@ public final class Injector {
       throw new IllegalStateException("Injectors may only inject once.");
     }
 
-    for (Object module : modules) {
-      try {
-        install(module);
-      } catch (Exception e) {
-        errors.add(e.getMessage());
-      }
+    Map<Key<?>, Binding<?>> combined = Modules.moduleToMap(Modules.combine(modules));
+    for (Binding<?> binding : combined.values()) {
+      putBinding(binding);
     }
 
     Linker linker = new Linker(this);
@@ -98,34 +93,15 @@ public final class Injector {
     return root.get(); // Linker.link() guarantees that this will be non-null.
   }
 
-  private void install(Object module) {
-    boolean hasProvidesMethods = false;
-    for (Class<?> c = module.getClass(); c != Object.class; c = c.getSuperclass()) {
-      for (Method method : c.getDeclaredMethods()) {
-        if (method.getAnnotation(Provides.class) != null) {
-          install(module, method);
-          hasProvidesMethods = true;
-        }
-      }
-    }
-    if (!hasProvidesMethods) {
-      throw new IllegalArgumentException("No @Provides methods on " + module);
-    }
-  }
-
-  private <T> void install(Object module, Method method) {
-    Key<T> key = Key.get(method.getGenericReturnType(), method.getAnnotations(), method);
-    putBinding(new ProviderMethodBinding<T>(method, key, module));
-  }
-
   @SuppressWarnings("unchecked") // Typesafe heterogeneous container.
   <T> Binding<T> getBinding(Key<T> key) {
     return (Binding<T>) bindings.get(key);
   }
 
   <T> void putBinding(final Binding<T> binding) {
+    Binding<T> toInsert = binding;
     if (binding.isSingleton()) {
-      bindings.put(binding.key, new Binding<T>(binding.requiredBy, binding.key) {
+      toInsert = new Binding<T>(binding.requiredBy, binding.key) {
         private Object onlyInstance = UNINITIALIZED;
         @Override void attach(Linker linker) {
           binding.attach(linker);
@@ -142,9 +118,11 @@ public final class Injector {
         @Override public boolean isSingleton() {
           return binding.isSingleton();
         }
-      });
-    } else {
-      bindings.put(binding.key, binding);
+      };
+    }
+
+    if (bindings.put(toInsert.key, toInsert) != null) {
+      throw new IllegalArgumentException("Duplicate binding: " + toInsert.key);
     }
   }
 
