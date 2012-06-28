@@ -67,7 +67,7 @@ final class GeneratorKeys {
     result.append('@');
     result.append(((TypeElement) qualifier.getAnnotationType().asElement()).getQualifiedName());
     result.append('(');
-    for (Map.Entry<? extends ExecutableElement,? extends AnnotationValue> entry
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry
         : qualifier.getElementValues().entrySet()) {
       result.append(entry.getKey().getSimpleName());
       result.append('=');

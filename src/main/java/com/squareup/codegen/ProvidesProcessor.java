@@ -54,9 +54,9 @@ import static java.lang.reflect.Modifier.STATIC;
 @SupportedAnnotationTypes("com.squareup.injector.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
-  private static final String bindingsMap = CodeGen.parameterizedType(
+  private static final String BINDINGS_MAP = CodeGen.parameterizedType(
       Map.class, String.class.getName(), Binding.class.getName() + "<?>");
-  private static final String bindingsHashMap = CodeGen.parameterizedType(
+  private static final String BINDINGS_HASH_MAP = CodeGen.parameterizedType(
       HashMap.class, String.class.getName(), Binding.class.getName() + "<?>");
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
@@ -132,8 +132,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
         CodeGen.parameterizedType(ModuleAdapter.class, typeName));
 
     writer.annotation(Override.class);
-    writer.beginMethod(bindingsMap, "getBindings", PUBLIC, typeName, "module");
-    writer.statement("%s result = new %s()", bindingsMap, bindingsHashMap);
+    writer.beginMethod(BINDINGS_MAP, "getBindings", PUBLIC, typeName, "module");
+    writer.statement("%s result = new %s()", BINDINGS_MAP, BINDINGS_HASH_MAP);
     for (ExecutableElement providerMethod : providerMethods) {
       String key = GeneratorKeys.get(providerMethod);
       writer.statement("result.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
