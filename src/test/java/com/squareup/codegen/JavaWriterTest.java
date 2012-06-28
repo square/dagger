@@ -179,7 +179,7 @@ public final class JavaWriterTest {
     javaWriter.beginControlFlow("try");
     javaWriter.statement("int j = s.length() + %s", 13);
     javaWriter.nextControlFlow("catch (RuntimeException e)");
-    javaWriter.statement("%s.printStackTrace()", "e");
+    javaWriter.statement("e.printStackTrace()");
     javaWriter.nextControlFlow("finally");
     javaWriter.statement("int k = %s", 13);
     javaWriter.endControlFlow();

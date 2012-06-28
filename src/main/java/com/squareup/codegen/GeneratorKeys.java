@@ -27,12 +27,19 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Creates keys using javac's mirror APIs.
+ * Creates keys using javac's mirror APIs. Unlike {@code Keys}, this class uses
+ * APIs not available on Android.
  *
  * @author Jesse Wilson
  */
-public final class GeneratorKeys {
-  GeneratorKeys() {
+final class GeneratorKeys {
+  private GeneratorKeys() {
+  }
+
+  public static String get(TypeElement type) {
+    StringBuilder result = new StringBuilder();
+    typeToString(type.asType(), result);
+    return result.toString();
   }
 
   public static String get(ExecutableElement method) {
