@@ -80,17 +80,17 @@ public final class Keys {
    *     This array may contain at most one qualifier annotation.
    */
   public static String get(Type type, Annotation[] annotations, Object subject) {
-    Annotation bindingAnnotation = null;
+    Annotation qualifier = null;
     for (Annotation a : annotations) {
       if (!IS_QUALIFIER_ANNOTATION.get(a.annotationType())) {
         continue;
       }
-      if (bindingAnnotation != null) {
-        throw new IllegalArgumentException("Too many binding annotations on " + subject);
+      if (qualifier != null) {
+        throw new IllegalArgumentException("Too many qualifier annotations on " + subject);
       }
-      bindingAnnotation = a;
+      qualifier = a;
     }
-    return get(type, bindingAnnotation);
+    return get(type, qualifier);
   }
 
   private static void typeToString(Type type, StringBuilder result) {

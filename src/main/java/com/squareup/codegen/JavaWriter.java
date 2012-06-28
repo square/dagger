@@ -17,6 +17,7 @@ package com.squareup.codegen;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +32,7 @@ import java.util.regex.Pattern;
  * @author Jesse Wilson
  */
 public final class JavaWriter {
-  private static final Pattern TYPE_PATTERN = Pattern.compile("[\\w.$]+\\.([A-Z][\\w.$]+)");
+  private static final Pattern TYPE_PATTERN = Pattern.compile("(?:[\\w$]+\\.)*([\\w$]+)");
   private static final String INDENT = "  ";
 
   /** Map fully qualified type names to their short names. */
@@ -63,7 +64,14 @@ public final class JavaWriter {
   }
 
   /**
-   * Emit an import for the named class. For the duration of the file, all
+   * Equivalent to {@code addImport(type.getName())}.
+   */
+  public void addImport(Class<?> type) throws IOException {
+    addImport(type.getName());
+  }
+
+  /**
+   * Emit an import for {@code type}. For the duration of the file, all
    * references to this class will be automatically shortened.
    */
   public void addImport(String type) throws IOException {
@@ -80,21 +88,41 @@ public final class JavaWriter {
   }
 
   /**
-   * Emits a type name, shorting it from an import if possible.
+   * Emits a name like {@code java.lang.String} or {@code
+   * java.util.List<java.lang.String>}, shorting it with imports if
+   * possible.
    */
   private void type(String type) throws IOException {
     if (this.packagePrefix == null) {
       throw new IllegalStateException();
     }
-    String imported;
-    if ((imported = importedTypes.get(type)) != null) {
-      out.write(imported);
-    } else if (type.startsWith(packagePrefix)) {
-      out.write(type.substring(packagePrefix.length()));
-    } else if (type.startsWith("java.lang.")) {
-      out.write(type.substring("java.lang.".length()));
-    } else {
-      out.write(type);
+
+    Matcher m = TYPE_PATTERN.matcher(type);
+    int pos = 0;
+    while (true) {
+      boolean found = m.find(pos);
+
+      // copy non-matching characters like "<"
+      int typeStart = found ? m.start() : type.length();
+      out.write(type, pos, typeStart - pos);
+
+      if (!found) {
+        break;
+      }
+
+      // copy a single class name, shortening it if possible
+      String name = m.group(0);
+      String imported;
+      if ((imported = importedTypes.get(name)) != null) {
+        out.write(imported);
+      } else if (name.startsWith(packagePrefix)) {
+        out.write(name.substring(packagePrefix.length()));
+      } else if (name.startsWith("java.lang.")) {
+        out.write(name.substring("java.lang.".length()));
+      } else {
+        out.write(name);
+      }
+      pos = m.end();
     }
   }
 
@@ -104,11 +132,39 @@ public final class JavaWriter {
    * @param kind such as "class", "interface" or "enum".
    */
   public void beginType(String type, String kind, int modifiers) throws IOException {
+    beginType(type, kind, modifiers, null);
+  }
+
+  /**
+   * Emits a type declaration.
+   *
+   * @param kind such as "class", "interface" or "enum".
+   * @param extendsType the class to extend, or null for no extends clause.
+   */
+  public void beginType(String type, String kind, int modifiers,
+      String extendsType, String... implementsTypes) throws IOException {
     indent();
     modifiers(modifiers);
     out.write(kind);
     out.write(" ");
     type(type);
+    if (extendsType != null) {
+      out.write("\n");
+      indent();
+      out.write("    extends ");
+      type(extendsType);
+    }
+    if (implementsTypes.length > 0) {
+      out.write("\n");
+      indent();
+      out.write("    implements ");
+      for (int i = 0; i < implementsTypes.length; i++) {
+        if (i != 0) {
+          out.write(", ");
+        }
+        type(implementsTypes[i]);
+      }
+    }
     out.write(" {\n");
     pushScope(Scope.TYPE_DECLARATION);
   }
@@ -127,21 +183,21 @@ public final class JavaWriter {
   /**
    * Emits a field declaration.
    */
-  public void field(String type, String name, int modifiers, String... initialValue)
-      throws IOException {
-    if (initialValue.length > 1) {
-      throw new IllegalArgumentException("expected at most one declaration");
-    }
+  public void field(String type, String name, int modifiers) throws IOException {
+    field(type, name, modifiers, null);
+  }
 
+  public void field(String type, String name, int modifiers, String initialValue)
+      throws IOException {
     indent();
     modifiers(modifiers);
     type(type);
     out.write(" ");
     out.write(name);
 
-    if (initialValue.length == 1) {
+    if (initialValue != null) {
       out.write(" = ");
-      out.write(initialValue[0]);
+      out.write(initialValue);
     }
     out.write(";\n");
   }
@@ -182,13 +238,31 @@ public final class JavaWriter {
   }
 
   /**
-   * @param s a code statement like "int i = 5". Shouldn't contain a trailing
-   * semicolon or newline character.
+   * Annotates the next element with {@code annotation}. The annotation has no
+   * attributes.
    */
-  public void statement(String s) throws IOException {
+  public void annotation(String annotation) throws IOException {
+    indent();
+    out.write("@");
+    type(annotation);
+    out.write("\n");
+  }
+
+  /**
+   * Equivalent to {@code annotation(annotationType.getName())}.
+   */
+  public void annotation(Class<? extends Annotation> annotationType) throws IOException {
+    annotation(annotationType.getName());
+  }
+
+  /**
+   * @param pattern a code pattern like "int i = %s". Shouldn't contain a
+   * trailing semicolon or newline character.
+   */
+  public void statement(String pattern, Object... args) throws IOException {
     checkInMethod();
     indent();
-    out.write(s);
+    out.write(String.format(pattern, args));
     out.write(";\n");
   }
 
@@ -220,22 +294,23 @@ public final class JavaWriter {
     out.write(" {\n");
   }
 
+  public void endControlFlow() throws IOException {
+    endControlFlow(null);
+  }
+
   /**
    * @param controlFlow the optional control flow construct and its code, such
    *     as "while(foo == 20)". Only used for "do/while" control flows.
    */
-  public void endControlFlow(String... controlFlow) throws IOException {
-    if (controlFlow.length > 1) {
-      throw new IllegalArgumentException("expected 'while' part of do loop");
-    }
+  public void endControlFlow(String controlFlow) throws IOException {
     if (popScope() != Scope.CONTROL_FLOW) {
       throw new IllegalArgumentException();
     }
 
     indent();
-    if (controlFlow.length == 1) {
+    if (controlFlow != null) {
       out.write("} ");
-      out.write(controlFlow[0]);
+      out.write(controlFlow);
       out.write(";\n");
     } else {
       out.write("}\n");
@@ -253,6 +328,45 @@ public final class JavaWriter {
     } else if (popped != Scope.ABSTRACT_METHOD) {
       throw new IllegalStateException();
     }
+  }
+
+  /**
+   * Returns the string literal representing {@code data}, including wrapping
+   * quotes.
+   */
+  public static String stringLiteral(String data) {
+    StringBuilder result = new StringBuilder();
+    result.append('"');
+    for (int i = 0; i < data.length(); i++) {
+      char c = data.charAt(i);
+      switch (c) {
+        case '"':
+          result.append("\\\"");
+          break;
+        case '\\':
+          result.append("\\\\");
+          break;
+        case '\t':
+          result.append("\\\t");
+          break;
+        case '\b':
+          result.append("\\\b");
+          break;
+        case '\n':
+          result.append("\\\n");
+          break;
+        case '\r':
+          result.append("\\\r");
+          break;
+        case '\f':
+          result.append("\\\f");
+          break;
+        default:
+          result.append(c);
+      }
+    }
+    result.append('"');
+    return result.toString();
   }
 
   public void close() throws IOException {
