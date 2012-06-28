@@ -165,7 +165,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       TypeMirror parameterType = parameters.get(p).asType();
       writer.field(CodeGen.parameterizedType(Binding.class, parameterType.toString()),
-          "p" + p, PRIVATE);
+          parameterName(p), PRIVATE);
     }
 
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
@@ -178,8 +178,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       VariableElement parameter = parameters.get(p);
       String parameterKey = GeneratorKeys.get(parameter);
-      writer.statement("p%d = (%s) linker.requestBinding(%s, %s.class)",
-          p,
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
+          parameterName(p),
           CodeGen.parameterizedType(Binding.class, parameter.asType().toString()),
           JavaWriter.stringLiteral(parameterKey), moduleType);
     }
@@ -192,7 +192,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       if (p != 0) {
         args.append(", ");
       }
-      args.append(String.format("p%d.get()", p));
+      args.append(String.format("%s.get()", parameterName(p)));
     }
     writer.statement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
@@ -203,5 +203,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.endMethod();
 
     writer.endType();
+  }
+
+  private String parameterName(int index) {
+    return "p" + index;
   }
 }
