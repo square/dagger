@@ -54,9 +54,9 @@ import static java.lang.reflect.Modifier.STATIC;
 @SupportedAnnotationTypes("com.squareup.injector.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
-  private static final String bindingsMap = CodeGen.parameterizedType(
+  private static final String BINDINGS_MAP = CodeGen.parameterizedType(
       Map.class, String.class.getName(), Binding.class.getName() + "<?>");
-  private static final String bindingsHashMap = CodeGen.parameterizedType(
+  private static final String BINDINGS_HASH_MAP = CodeGen.parameterizedType(
       HashMap.class, String.class.getName(), Binding.class.getName() + "<?>");
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
@@ -132,8 +132,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
         CodeGen.parameterizedType(ModuleAdapter.class, typeName));
 
     writer.annotation(Override.class);
-    writer.beginMethod(bindingsMap, "getBindings", PUBLIC, typeName, "module");
-    writer.statement("%s result = new %s()", bindingsMap, bindingsHashMap);
+    writer.beginMethod(BINDINGS_MAP, "getBindings", PUBLIC, typeName, "module");
+    writer.statement("%s result = new %s()", BINDINGS_MAP, BINDINGS_HASH_MAP);
     for (ExecutableElement providerMethod : providerMethods) {
       String key = GeneratorKeys.get(providerMethod);
       writer.statement("result.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
@@ -165,7 +165,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       TypeMirror parameterType = parameters.get(p).asType();
       writer.field(CodeGen.parameterizedType(Binding.class, parameterType.toString()),
-          "p" + p, PRIVATE);
+          parameterName(p), PRIVATE);
     }
 
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
@@ -178,8 +178,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       VariableElement parameter = parameters.get(p);
       String parameterKey = GeneratorKeys.get(parameter);
-      writer.statement("p%d = (%s) linker.requestBinding(%s, %s.class)",
-          p,
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
+          parameterName(p),
           CodeGen.parameterizedType(Binding.class, parameter.asType().toString()),
           JavaWriter.stringLiteral(parameterKey), moduleType);
     }
@@ -192,7 +192,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       if (p != 0) {
         args.append(", ");
       }
-      args.append(String.format("p%d.get()", p));
+      args.append(String.format("%s.get()", parameterName(p)));
     }
     writer.statement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
@@ -203,5 +203,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.endMethod();
 
     writer.endType();
+  }
+
+  private String parameterName(int index) {
+    return "p" + index;
   }
 }

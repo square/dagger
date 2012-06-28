@@ -107,12 +107,12 @@ public final class InjectProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       TypeMirror parameterType = parameters.get(p).asType();
       writer.field(CodeGen.parameterizedType(Binding.class, parameterType.toString()),
-          "c" + p, PRIVATE);
+          constructorParameterName(p), PRIVATE);
     }
     for (int f = 0; f < fields.size(); f++) {
       TypeMirror fieldType = fields.get(f).asType();
       writer.field(CodeGen.parameterizedType(Binding.class, fieldType.toString()),
-          "f" + f, PRIVATE);
+          fieldName(f), PRIVATE);
     }
 
     writer.beginMethod(null, type.getSimpleName() + "$InjectAdapter", PUBLIC);
@@ -124,17 +124,17 @@ public final class InjectProcessor extends AbstractProcessor {
     for (int p = 0; p < constructor.getParameters().size(); p++) {
       TypeMirror parameterType = constructor.getParameters().get(p).asType();
       writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-          "c" + p,
+          constructorParameterName(p),
           CodeGen.parameterizedType(Binding.class, parameterType.toString()),
           JavaWriter.stringLiteral(GeneratorKeys.get(constructor.getParameters().get(p))),
           typeName);
     }
-    for (int p = 0; p < fields.size(); p++) {
-      TypeMirror parameterType = fields.get(p).asType();
+    for (int f = 0; f < fields.size(); f++) {
+      TypeMirror parameterType = fields.get(f).asType();
       writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-          "f" + p,
+          fieldName(f),
           CodeGen.parameterizedType(Binding.class, parameterType.toString()),
-          JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) fields.get(p))),
+          JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) fields.get(f))),
           typeName);
     }
     writer.endMethod();
@@ -147,7 +147,7 @@ public final class InjectProcessor extends AbstractProcessor {
       if (p != 0) {
         newInstance.append(", ");
       }
-      newInstance.append("c").append(p).append(".get()");
+      newInstance.append(constructorParameterName(p)).append(".get()");
     }
     newInstance.append(')');
     writer.statement(newInstance.toString());
@@ -160,7 +160,7 @@ public final class InjectProcessor extends AbstractProcessor {
     for (int f = 0; f < fields.size(); f++) {
       writer.statement("object.%s = %s.get()",
           fields.get(f).getSimpleName().toString(),
-          "f" + f);
+          fieldName(f));
     }
     writer.endMethod();
 
@@ -171,6 +171,14 @@ public final class InjectProcessor extends AbstractProcessor {
 
     writer.endType();
     writer.close();
+  }
+
+  private String fieldName(int index) {
+    return "f" + index;
+  }
+
+  private String constructorParameterName(int index) {
+    return "c" + index;
   }
 
   static class InjectedClass {

@@ -173,26 +173,15 @@ public final class Keys {
   }
 
   private static Type boxIfPrimitive(Type type) {
-    if (type == byte.class) {
-      return Byte.class;
-    } if (type == short.class) {
-      return Short.class;
-    } if (type == int.class) {
-      return Integer.class;
-    } else if (type == long.class) {
-      return Long.class;
-    } else if (type == char.class) {
-      return Character.class;
-    } else if (type == boolean.class) {
-      return Boolean.class;
-    } else if (type == float.class) {
-      return Float.class;
-    } else if (type == double.class) {
-      return Double.class;
-    } else if (type == void.class) {
-      return Void.class;
-    } else {
-      return type;
-    }
+    if (type == byte.class) return Byte.class;
+    if (type == short.class) return Short.class;
+    if (type == int.class) return Integer.class;
+    if (type == long.class) return Long.class;
+    if (type == char.class) return Character.class;
+    if (type == boolean.class) return Boolean.class;
+    if (type == float.class) return Float.class;
+    if (type == double.class) return Double.class;
+    if (type == void.class) return Void.class;
+    return type;
   }
 }
