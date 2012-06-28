@@ -24,7 +24,7 @@ import javax.lang.model.element.PackageElement;
  *
  * @author Jesse Wilson
  */
-public final class CodeGen {
+final class CodeGen {
   private CodeGen() {
   }
 
