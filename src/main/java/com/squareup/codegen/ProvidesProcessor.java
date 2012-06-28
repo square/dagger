@@ -34,7 +34,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
@@ -55,16 +54,16 @@ import static java.lang.reflect.Modifier.STATIC;
 @SupportedAnnotationTypes("com.squareup.injector.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
-  private final String bindingsMap = parameterizedType(Map.class,
-      String.class.getName(), Binding.class.getName() + "<?>");
-  private final String bindingsHashMap = parameterizedType(HashMap.class,
-      String.class.getName(), Binding.class.getName() + "<?>");
+  private static final String bindingsMap = CodeGen.parameterizedType(
+      Map.class, String.class.getName(), Binding.class.getName() + "<?>");
+  private static final String bindingsHashMap = CodeGen.parameterizedType(
+      HashMap.class, String.class.getName(), Binding.class.getName() + "<?>");
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
       Map<TypeElement, List<ExecutableElement>> providerMethods = providerMethodsByClass(env);
       for (Map.Entry<TypeElement, List<ExecutableElement>> module : providerMethods.entrySet()) {
-        generateProvides(module.getKey(), module.getValue());
+        writeModuleAdapter(module.getKey(), module.getValue());
       }
     } catch (IOException e) {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Code gen failed: " + e);
@@ -112,13 +111,17 @@ public final class ProvidesProcessor extends AbstractProcessor {
     return result;
   }
 
-  private void generateProvides(TypeElement type, List<ExecutableElement> providerMethods)
+  /**
+   * Write a companion class for {@code type} that implements {@link
+   * ModuleAdapter} to expose its provider methods.
+   */
+  private void writeModuleAdapter(TypeElement type, List<ExecutableElement> providerMethods)
       throws IOException {
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(type.getQualifiedName() + "$ModuleAdapter", type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
-    writer.addPackage(getPackage(type).getQualifiedName().toString());
+    writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
     writer.addImport(Binding.class);
     writer.addImport(ModuleAdapter.class);
     writer.addImport(Map.class);
@@ -126,7 +129,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     String typeName = type.getQualifiedName().toString();
     writer.beginType(typeName + "$ModuleAdapter", "class", PUBLIC | FINAL, null,
-        parameterizedType(ModuleAdapter.class, typeName));
+        CodeGen.parameterizedType(ModuleAdapter.class, typeName));
 
     writer.annotation(Override.class);
     writer.beginMethod(bindingsMap, "getBindings", PUBLIC, typeName, "module");
@@ -147,38 +150,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.close();
   }
 
-  /**
-   * Returns a string like {@code java.util.List<java.lang.String>}.
-   */
-  private static String parameterizedType(Class<?> raw, String... parameters) {
-    StringBuilder result = new StringBuilder();
-    result.append(raw.getName());
-    result.append("<");
-    for (int i = 0; i < parameters.length; i++) {
-      if (i != 0) {
-        result.append(", ");
-      }
-      result.append(parameters[i]);
-    }
-    result.append(">");
-    return result.toString();
-  }
-
   private void writeBindingClass(JavaWriter writer, ExecutableElement providerMethod)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
     String key = GeneratorKeys.get(providerMethod);
-    String moduleType = typeToString(providerMethod.getEnclosingElement().asType());
+    String moduleType = providerMethod.getEnclosingElement().asType().toString();
     String className = providerMethod.getSimpleName() + "Binding";
-    String returnType = typeToString(providerMethod.getReturnType());
+    String returnType = providerMethod.getReturnType().toString();
 
     writer.beginType(className, "class", PRIVATE | STATIC,
-        parameterizedType(Binding.class, returnType));
+        CodeGen.parameterizedType(Binding.class, returnType));
     writer.field(moduleType, "module", PRIVATE | FINAL);
     List<? extends VariableElement> parameters = providerMethod.getParameters();
     for (int p = 0; p < parameters.size(); p++) {
       TypeMirror parameterType = parameters.get(p).asType();
-      writer.field(parameterizedType(Binding.class, typeToString(parameterType)), "p" + p, PRIVATE);
+      writer.field(CodeGen.parameterizedType(Binding.class, parameterType.toString()),
+          "p" + p, PRIVATE);
     }
 
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
@@ -191,9 +178,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       VariableElement parameter = parameters.get(p);
       String parameterKey = GeneratorKeys.get(parameter);
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-          "p" + p,
-          parameterizedType(Binding.class, typeToString(parameter.asType())),
+      writer.statement("p%d = (%s) linker.requestBinding(%s, %s.class)",
+          p,
+          CodeGen.parameterizedType(Binding.class, parameter.asType().toString()),
           JavaWriter.stringLiteral(parameterKey), moduleType);
     }
     writer.endMethod();
@@ -205,7 +192,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       if (p != 0) {
         args.append(", ");
       }
-      args.append(String.format("%s.get()", "p" + p));
+      args.append(String.format("p%d.get()", p));
     }
     writer.statement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
@@ -216,16 +203,5 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.endMethod();
 
     writer.endType();
-  }
-
-  private String typeToString(TypeMirror type) {
-    return type.toString();
-  }
-
-  private PackageElement getPackage(Element type) {
-    while (type.getKind() != ElementKind.PACKAGE) {
-      type = type.getEnclosingElement();
-    }
-    return (PackageElement) type;
   }
 }
