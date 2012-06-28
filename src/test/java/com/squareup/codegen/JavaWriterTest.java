@@ -106,7 +106,7 @@ public final class JavaWriterTest {
     javaWriter.addPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
-    javaWriter.statement("int j = s.length() + 13");
+    javaWriter.statement("int j = s.length() + %s", 13);
     javaWriter.endMethod();
     javaWriter.endType();
     assertCode(""
@@ -137,7 +137,7 @@ public final class JavaWriterTest {
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.beginControlFlow("if (s.isEmpty())");
-    javaWriter.statement("int j = s.length() + 13");
+    javaWriter.statement("int j = s.length() + %s", 13);
     javaWriter.endControlFlow();
     javaWriter.endMethod();
     javaWriter.endType();
@@ -157,7 +157,7 @@ public final class JavaWriterTest {
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.beginControlFlow("do");
-    javaWriter.statement("int j = s.length() + 13");
+    javaWriter.statement("int j = s.length() + %s", 13);
     javaWriter.endControlFlow("while (s.isEmpty())");
     javaWriter.endMethod();
     javaWriter.endType();
@@ -177,11 +177,11 @@ public final class JavaWriterTest {
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.beginControlFlow("try");
-    javaWriter.statement("int j = s.length() + 13");
+    javaWriter.statement("int j = s.length() + %s", 13);
     javaWriter.nextControlFlow("catch (RuntimeException e)");
     javaWriter.statement("e.printStackTrace()");
     javaWriter.nextControlFlow("finally");
-    javaWriter.statement("int k = 13");
+    javaWriter.statement("int k = %s", 13);
     javaWriter.endControlFlow();
     javaWriter.endMethod();
     javaWriter.endType();
@@ -198,6 +198,59 @@ public final class JavaWriterTest {
         + "    }\n"
         + "  }\n"
         + "}\n");
+  }
+
+  @Test public void annotatedType() throws IOException {
+    javaWriter.addPackage("com.squareup");
+    javaWriter.addImport("javax.inject.Singleton");
+    javaWriter.annotation("javax.inject.Singleton");
+    javaWriter.beginType("com.squareup.Foo", "class", 0);
+    javaWriter.endType();
+    assertCode(""
+        + "package com.squareup;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Singleton\n"
+        + "class Foo {\n"
+        + "}\n");
+  }
+
+  @Test public void annotatedMember() throws IOException {
+    javaWriter.addPackage("com.squareup");
+    javaWriter.beginType("com.squareup.Foo", "class", 0);
+    javaWriter.annotation(Deprecated.class);
+    javaWriter.field("java.lang.String", "s", 0);
+    javaWriter.endType();
+    assertCode(""
+        + "package com.squareup;\n"
+        + "class Foo {\n"
+        + "  @Deprecated\n"
+        + "  String s;\n"
+        + "}\n");
+  }
+
+  @Test public void parameterizedType() throws IOException {
+    javaWriter.addPackage("com.squareup");
+    javaWriter.addImport("java.util.Map");
+    javaWriter.addImport("java.util.Date");
+    javaWriter.beginType("com.squareup.Foo", "class", 0);
+    javaWriter.field("java.util.Map<java.lang.String, java.util.Date>", "map", 0);
+    javaWriter.endType();
+    assertCode(""
+        + "package com.squareup;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Date;\n"
+        + "class Foo {\n"
+        + "  Map<String, Date> map;\n"
+        + "}\n");
+  }
+
+  @Test public void testStringLiteral() {
+    assertThat(JavaWriter.stringLiteral("")).isEqualTo("\"\"");
+    assertThat(JavaWriter.stringLiteral("JavaWriter")).isEqualTo("\"JavaWriter\"");
+    assertThat(JavaWriter.stringLiteral("\\")).isEqualTo("\"\\\\\"");
+    assertThat(JavaWriter.stringLiteral("\"")).isEqualTo("\"\\\"\"");
+    assertThat(JavaWriter.stringLiteral("\t")).isEqualTo("\"\\\t\"");
+    assertThat(JavaWriter.stringLiteral("\n")).isEqualTo("\"\\\n\"");
   }
 
   private void assertCode(String expected) {

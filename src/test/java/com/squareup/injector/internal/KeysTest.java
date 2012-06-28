@@ -76,7 +76,8 @@ public final class KeysTest {
   }
 
   @Named("foo") String annotated;
-  @Test public void testIsAnnotatedTrue() throws NoSuchFieldException {
+  @Test public void testAnnotated() throws NoSuchFieldException {
+    assertThat(fieldKey("annotated")).isEqualTo("@javax.inject.Named(value=foo)/java.lang.String");
     assertThat(Keys.isAnnotated(fieldKey("annotated"))).isTrue();
   }
 
