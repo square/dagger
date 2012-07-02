@@ -18,6 +18,7 @@ package com.squareup.codegen;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Support for annotation processors.
@@ -33,6 +34,20 @@ final class CodeGen {
       type = type.getEnclosingElement();
     }
     return (PackageElement) type;
+  }
+
+  /**
+   * Returns a fully qualified class name to complement {@code type}. The
+   * returned class is in the same package as {@code type}. This supports nested
+   * classes by using a '$' instead of '.' for nesting:  "java.util.Map.Entry"
+   * becomes "java.util.Map$Entry".
+   */
+  public static String adapterName(TypeElement typeName, String suffix) {
+    String packageName = CodeGen.getPackage(typeName).getQualifiedName().toString();
+    String qualifiedName = typeName.getQualifiedName().toString();
+    return packageName + '.'
+        + qualifiedName.substring(packageName.length() + 1).replace('.', '$')
+        + suffix;
   }
 
   /**

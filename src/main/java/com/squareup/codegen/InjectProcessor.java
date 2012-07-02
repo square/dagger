@@ -20,6 +20,7 @@ import com.squareup.injector.internal.Linker;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,7 +62,7 @@ public final class InjectProcessor extends AbstractProcessor {
     } catch (IOException e) {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Code gen failed: " + e);
     }
-    return !types.isEmpty();
+    return true;
   }
 
   private Map<TypeElement, InjectedClass> getInjectedClasses(RoundEnvironment env) {
@@ -80,18 +81,51 @@ public final class InjectProcessor extends AbstractProcessor {
         injectedClass.constructor = (ExecutableElement) element;
       }
     }
+
+    // Find no-args constructors for classes that don't have @Inject constructors.
+    for (Iterator<Map.Entry<TypeElement, InjectedClass>> i = classes.entrySet().iterator();
+        i.hasNext(); ) {
+      Map.Entry<TypeElement, InjectedClass> entry = i.next();
+      TypeElement typeElement = entry.getKey();
+      InjectedClass injectedClass = entry.getValue();
+      if (injectedClass.constructor == null) {
+        injectedClass.constructor = getNoArgsConstructor(typeElement);
+        if (injectedClass.constructor == null) {
+          processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+              "no injectable constructor for " + typeElement.getQualifiedName());
+          i.remove();
+        }
+      }
+    }
+
     return classes;
   }
 
   /**
-   * Write a companion class for {@code type} that implements {@link
-   * com.squareup.injector.internal.ModuleAdapter} to expose its provider methods.
+   * Returns the no args constructor for {@code typeElement}, or null if no such
+   * constructor exists.
+   */
+  private ExecutableElement getNoArgsConstructor(TypeElement typeElement) {
+    for (Element element : typeElement.getEnclosedElements()) {
+      if (element.getKind() != ElementKind.CONSTRUCTOR) {
+        continue;
+      }
+      ExecutableElement constructor = (ExecutableElement) element;
+      if (constructor.getParameters().isEmpty()) {
+        return constructor;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Write a companion class for {@code type} that extends {@link Binding}.
    */
   private void writeInjectAdapter(TypeElement type, ExecutableElement constructor,
       List<Element> fields) throws IOException {
     String key = GeneratorKeys.get(type);
     String typeName = type.getQualifiedName().toString();
-    String adapterName = typeName + "$InjectAdapter";
+    String adapterName = CodeGen.adapterName(type, "$InjectAdapter");
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
@@ -115,7 +149,7 @@ public final class InjectProcessor extends AbstractProcessor {
           fieldName(f), PRIVATE);
     }
 
-    writer.beginMethod(null, type.getSimpleName() + "$InjectAdapter", PUBLIC);
+    writer.beginMethod(null, adapterName, PUBLIC);
     writer.statement("super(%s.class, %s)", typeName, JavaWriter.stringLiteral(key));
     writer.endMethod();
 
