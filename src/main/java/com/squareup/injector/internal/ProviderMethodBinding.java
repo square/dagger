@@ -15,9 +15,6 @@
  */
 package com.squareup.injector.internal;
 
-import com.squareup.injector.internal.Binding;
-import com.squareup.injector.internal.Keys;
-import com.squareup.injector.internal.Linker;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

@@ -71,28 +71,20 @@ public final class DependencyGraph {
     Class<?>[] entryPoints = annotation.entryPoints();
     Class<?>[] modules = annotation.modules();
 
-    /*
-     * Create a linker and install all of the user's modules. Modules provided
-     * at runtime may override modules provided in the @Injector annotation.
-     */
+    // Create a linker and install all of the user's modules. Modules provided
+    // at runtime may override modules provided in the @Injector annotation.
     Linker linker = new Linker();
     linker.installModules(classesToObjects(modules));
     linker.installModules(overrides);
 
-    /*
-     * Request the bindings we'll need from the linker. This will cause the
-     * linker to link these bindings in the link step.
-     */
+    // Request the bindings we'll need from the linker. This will cause the
+    // linker to link these bindings in the link step.
     getEntryPointsMap(linker, injectorClass, entryPoints);
 
-    /*
-     * Fill out the graph, creating JIT bindings as necessary.
-     */
+    // Fill out the graph, creating JIT bindings as necessary.
     linker.link();
 
-    /*
-     * Link success. Return a new linked dependency graph.
-     */
+    // Link success. Return a new linked dependency graph.
     return new DependencyGraph(injectorClass,
         getEntryPointsMap(linker, injectorClass, entryPoints));
   }

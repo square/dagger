@@ -27,6 +27,6 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE) public @interface Injector {
-  Class<?>[] modules() default {};
-  Class<?>[] entryPoints() default {};
+  Class<?>[] modules() default { };
+  Class<?>[] entryPoints() default { };
 }

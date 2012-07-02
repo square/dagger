@@ -160,7 +160,7 @@ public final class Linker {
         @Override public void injectMembers(T t) {
           binding.injectMembers(t);
         }
-        @SuppressWarnings("unchecked") // 'onlyInstance is either UNINITIALIZED' or a 'T'.
+        @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
         @Override public T get() {
           if (onlyInstance == UNINITIALIZED) {
             onlyInstance = binding.get();
