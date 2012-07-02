@@ -18,6 +18,7 @@ package com.squareup.injector;
 import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Keys;
 import com.squareup.injector.internal.Linker;
+import com.squareup.injector.internal.StaticInjection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -50,10 +51,13 @@ import java.util.Map;
  * @author Jesse Wilson
  */
 public final class DependencyGraph {
+  private final StaticInjection[] staticInjections;
   private final Class<?> injectorClass;
   private final Map<Class<?>, Binding<?>> bindings;
 
-  private DependencyGraph(Class<?> injectorClass, Map<Class<?>, Binding<?>> bindings) {
+  private DependencyGraph(StaticInjection[] staticInjections,
+      Class<?> injectorClass, Map<Class<?>, Binding<?>> bindings) {
+    this.staticInjections = staticInjections;
     this.injectorClass = injectorClass;
     this.bindings = bindings;
   }
@@ -61,6 +65,10 @@ public final class DependencyGraph {
   /**
    * Returns a new dependency graph using the {@literal @}{@link
    * Injector}-annotated object and {@code modules}.
+   *
+   * <p>This <strong>does not</strong> inject any members. Most applications
+   * should call {@link #injectStatics} to inject static members and/or {@link
+   * #inject} to inject instance members when this method has returned.
    */
   public static DependencyGraph get(Object injector, Object... overrides) {
     Class<?> injectorClass = injector.getClass();
@@ -70,6 +78,13 @@ public final class DependencyGraph {
     }
     Class<?>[] entryPoints = annotation.entryPoints();
     Class<?>[] modules = annotation.modules();
+    Class<?>[] staticInjectionClasses = annotation.staticInjections();
+
+    // Create static injections.
+    StaticInjection[] staticInjections = new StaticInjection[staticInjectionClasses.length];
+    for (int i = 0; i < staticInjectionClasses.length; i++) {
+      staticInjections[i] = StaticInjection.get(staticInjectionClasses[i]);
+    }
 
     // Create a linker and install all of the user's modules. Modules provided
     // at runtime may override modules provided in the @Injector annotation.
@@ -80,13 +95,22 @@ public final class DependencyGraph {
     // Request the bindings we'll need from the linker. This will cause the
     // linker to link these bindings in the link step.
     getEntryPointsMap(linker, injectorClass, entryPoints);
+    for (StaticInjection staticInjection : staticInjections) {
+      staticInjection.attach(linker);
+    }
 
     // Fill out the graph, creating JIT bindings as necessary.
     linker.link();
 
+    // Attach all necessary injections. Now that we've linked, all bindings will be available.
+    Map<Class<?>, Binding<?>> entryPointsMap =
+        getEntryPointsMap(linker, injectorClass, entryPoints);
+    for (StaticInjection staticInjection : staticInjections) {
+      staticInjection.attach(linker);
+    }
+
     // Link success. Return a new linked dependency graph.
-    return new DependencyGraph(injectorClass,
-        getEntryPointsMap(linker, injectorClass, entryPoints));
+    return new DependencyGraph(staticInjections, injectorClass, entryPointsMap);
   }
 
   private static Object[] classesToObjects(Class<?>[] moduleClasses) {
@@ -124,6 +148,23 @@ public final class DependencyGraph {
     return result;
   }
 
+  /**
+   * Injects the static fields of the classes listed in the injector's {@code
+   * staticInjections} property.
+   */
+  public void injectStatics() {
+    for (StaticInjection staticInjection : staticInjections) {
+      staticInjection.inject();
+    }
+  }
+
+  /**
+   * Injects the members of {@code instance}, including injectable members
+   * inherited from its supertypes.
+   *
+   * @throws IllegalArgumentException if the runtime type of {@code instance} is
+   *     not the injector's type or one of its entry point types.
+   */
   @SuppressWarnings("unchecked") // bindings is a typesafe heterogeneous container
   public void inject(Object instance) {
     Binding<Object> binding = (Binding<Object>) bindings.get(instance.getClass());

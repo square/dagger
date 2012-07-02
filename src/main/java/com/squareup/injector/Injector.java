@@ -29,4 +29,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE) public @interface Injector {
   Class<?>[] modules() default { };
   Class<?>[] entryPoints() default { };
+  Class<?>[] staticInjections() default { };
 }
