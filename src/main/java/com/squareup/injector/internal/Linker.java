@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2012 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,11 @@
  */
 package com.squareup.injector.internal;
 
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 /**
@@ -25,7 +28,7 @@ import java.util.Queue;
  * @author Jesse Wilson
  */
 public final class Linker {
-  private final InternalInjector injector;
+  private static final Object UNINITIALIZED = new Object();
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> unattachedBindings = new LinkedList<Binding<?>>();
@@ -33,8 +36,21 @@ public final class Linker {
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
   private boolean currentAttachSuccess = true;
 
-  public Linker(InternalInjector injector) {
-    this.injector = injector;
+  /** All errors encountered during injection. */
+  private final List<String> errors = new ArrayList<String>();
+
+  /** All of the injector's bindings. */
+  private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
+
+  /**
+   * Adds the {@code @Provides} bindings from {@code modules}. There may not
+   * be any duplicated bindings in {@code modules}, though multiple calls to
+   * this method may contain duplicates: last installed wins.
+   */
+  public void installModules(Object[] modules) {
+    for (Binding<?> binding : Modules.getBindings(modules).values()) {
+      putBinding(binding);
+    }
   }
 
   /**
@@ -42,27 +58,36 @@ public final class Linker {
    * to fill in the gaps. When this returns all bindings and their dependencies
    * will be attached.
    */
-  public void link(Collection<Binding<?>> bindings) {
-    unattachedBindings.addAll(bindings);
+  public void link() {
+    unattachedBindings.addAll(bindings.values());
 
     Binding binding;
     while ((binding = unattachedBindings.poll()) != null) {
       if (binding instanceof DeferredBinding) {
-        if (injector.getBinding(binding.key) != null) {
+        if (getBinding(binding.key) != null) {
           continue; // A binding for this key has already been promoted.
         }
         try {
           Binding<?> jitBinding = createJitBinding((DeferredBinding<?>) binding);
           // Enqueue the JIT binding so its own dependencies can be linked.
           unattachedBindings.add(jitBinding);
-          injector.putBinding(jitBinding);
+          putBinding(jitBinding);
         } catch (Exception e) {
-          injector.addError(e.getMessage() + " required by " + binding.requiredBy);
-          injector.putBinding(new UnresolvedBinding<Object>(binding.requiredBy, binding.key));
+          addError(e.getMessage() + " required by " + binding.requiredBy);
+          putBinding(new UnresolvedBinding<Object>(binding.requiredBy, binding.key));
         }
       } else {
         attachBinding(binding);
       }
+    }
+
+    if (!errors.isEmpty()) {
+      StringBuilder message = new StringBuilder();
+      message.append("Errors creating injector:");
+      for (String error : errors) {
+        message.append("\n  ").append(error);
+      }
+      throw new IllegalArgumentException(message.toString());
     }
   }
 
@@ -111,13 +136,48 @@ public final class Linker {
    * caller's binding.
    */
   public Binding<?> requestBinding(String key, final Object requiredBy) {
-    Binding<?> binding = injector.getBinding(key);
+    Binding<?> binding = getBinding(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
       unattachedBindings.add(new DeferredBinding<Object>(requiredBy, key));
       currentAttachSuccess = false;
     }
     return binding;
+  }
+
+  private Binding<?> getBinding(String key) {
+    return bindings.get(key);
+  }
+
+  private <T> void putBinding(final Binding<T> binding) {
+    Binding<T> toInsert = binding;
+    if (binding.isSingleton()) {
+      toInsert = new Binding<T>(binding.requiredBy, binding.key) {
+        private Object onlyInstance = UNINITIALIZED;
+        @Override public void attach(Linker linker) {
+          binding.attach(linker);
+        }
+        @Override public void injectMembers(T t) {
+          binding.injectMembers(t);
+        }
+        @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
+        @Override public T get() {
+          if (onlyInstance == UNINITIALIZED) {
+            onlyInstance = binding.get();
+          }
+          return (T) onlyInstance;
+        }
+        @Override public boolean isSingleton() {
+          return binding.isSingleton();
+        }
+      };
+    }
+
+    bindings.put(toInsert.key, toInsert);
+  }
+
+  private void addError(String message) {
+    errors.add(message);
   }
 
   private static class DeferredBinding<T> extends Binding<T> {

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2007 Google Inc.
  * Copyright (C) 2012 Square, Inc.
  *

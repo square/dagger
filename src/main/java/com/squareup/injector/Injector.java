@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2012 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,51 +15,18 @@
  */
 package com.squareup.injector;
 
-import com.squareup.injector.internal.Binding;
-import com.squareup.injector.internal.InternalInjector;
-import com.squareup.injector.internal.Keys;
-import java.util.Map;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Dependency injector.
- *
- * <p>The following injection features are supported:
- * <ul>
- *   <li>Field injection. A class may have any number of field injections, and
- *       fields may be of any visibility. Static fields will be injected each
- *       time an instance is injected.
- *   <li>Constructor injection. A class may have a single {@code
- *       @Inject}-annotated constructor. Classes that have fields injected
- *       may omit the {@link @Inject} annotation if they have a public
- *       no-arguments constructor.
- *   <li>Injection of {@code @Provides} method parameters.
- *   <li>{@code @Provides} methods annotated {@code @Singleton}.
- *   <li>Constructor-injected classes annotated {@code @Singleton}.
- *   <li>Injection of {@link javax.inject.Provider}s.
- *   <li>Qualifier annotations on injected parameters and fields.
- *   <li>JSR 330 annotations.
- * </ul>
- *
- * <p>The following injection features are not currently supported:
- * <ul>
- *   <li>Method injection.</li>
- *   <li>Circular dependencies.</li>
- * </ul>
+ * Annotates the root of the dependency graph.
  *
  * @author Jesse Wilson
  */
-public final class Injector {
-  /**
-   * Creates an injector defined by {@code modules} and immediately uses it to
-   * create an instance of {@code type}. The modules can be of any type, and
-   * must contain {@code @Provides} methods.
-   */
-  public <T> T inject(Class<T> type, Object... modules) {
-    InternalInjector injector = new InternalInjector();
-    Map<String, Binding<?>> combined = Modules.moduleToMap(Modules.combine(modules));
-    for (Binding<?> binding : combined.values()) {
-      injector.putBinding(binding);
-    }
-    return (T) injector.inject(Keys.get(type));
-  }
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE) public @interface Injector {
+  Class<?>[] modules() default { };
+  Class<?>[] entryPoints() default { };
 }

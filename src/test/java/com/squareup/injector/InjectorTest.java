@@ -32,15 +32,23 @@ import static org.junit.Assert.fail;
  */
 @SuppressWarnings("unused")
 public final class InjectorTest {
+
+  @Injector
+  public static class GInjector extends AbstractInjector<GInjector> {
+    @Inject Provider<G> gProvider;
+  }
+
   @Test public void basicInjection() {
-    G g = new Injector().inject(G.class, new Object() {
+    GInjector gInjector = new GInjector().inject(new Object() {
       @Provides E provideE(F f) {
         return new E(f);
       }
+
       @Provides F provideF() {
         return new F();
       }
     });
+    G g = gInjector.gProvider.get();
 
     assertThat(g.a).isNotNull();
     assertThat(g.b).isNotNull();
@@ -50,11 +58,17 @@ public final class InjectorTest {
     assertThat(g.e.f).isNotNull();
   }
 
+  @Injector
+  public static class GMembersInjector extends AbstractInjector<GMembersInjector> {
+    @Inject MembersInjector<G> gInjector;
+  }
+
   @Test public void memberInjection() {
-    MembersInjectors membersInjectors = new Injector().inject(MembersInjectors.class, new Object() {
+    GMembersInjector membersInjectors = new GMembersInjector().inject(new Object() {
       @Provides E provideE(F f) {
         return new E(f);
       }
+
       @Provides F provideF() {
         return new F();
       }
@@ -109,29 +123,26 @@ public final class InjectorTest {
     }
   }
 
-  public static class MembersInjectors {
-    @Inject MembersInjector<G> gInjector;
-  }
-
   @Test public void providerInjection() {
-    H h = new Injector().inject(H.class);
-    assertThat(h.aProvider.get()).isNotNull();
-    assertThat(h.aProvider.get()).isNotNull();
-    assertThat(h.aProvider.get()).isNotSameAs(h.aProvider.get());
+    AProviderInjector aProviderInjector = new AProviderInjector().inject();
+    assertThat(aProviderInjector.aProvider.get()).isNotNull();
+    assertThat(aProviderInjector.aProvider.get()).isNotNull();
+    assertThat(aProviderInjector.aProvider.get()).isNotSameAs(aProviderInjector.aProvider.get());
   }
 
-  public static class H {
+  @Injector
+  public static class AProviderInjector extends AbstractInjector<AProviderInjector> {
     @Inject Provider<A> aProvider;
   }
 
   @Test public void singletons() {
-    J j = new Injector().inject(J.class, new Object() {
+    FiInjector fiInjector = new FiInjector().inject(new Object() {
       @Provides @Singleton F provideK() {
         return new F();
       }
     });
-    assertThat(j.fProvider.get()).isSameAs(j.fProvider.get());
-    assertThat(j.iProvider.get()).isSameAs(j.iProvider.get());
+    assertThat(fiInjector.fProvider.get()).isSameAs(fiInjector.fProvider.get());
+    assertThat(fiInjector.iProvider.get()).isSameAs(fiInjector.iProvider.get());
   }
 
   @Singleton
@@ -139,17 +150,17 @@ public final class InjectorTest {
     @Inject I() {}
   }
 
-  static class J {
+  @Injector
+  public static class FiInjector extends AbstractInjector<FiInjector> {
     @Inject Provider<F> fProvider;
     @Inject Provider<I> iProvider;
-    @Inject J() {}
   }
 
   @Test public void bindingAnnotations() {
     final A one = new A();
     final A two = new A();
 
-    K k = new Injector().inject(K.class, new Object() {
+    NamedInjector k = new NamedInjector().inject(new Object() {
       @Provides @Named("one") A getOne() {
         return one;
       }
@@ -163,7 +174,8 @@ public final class InjectorTest {
     assertThat(two).isSameAs(k.aTwo);
   }
 
-  public static class K {
+  @Injector
+  public static class NamedInjector extends AbstractInjector<NamedInjector> {
     @Inject A a;
     @Inject @Named("one") A aOne;
     @Inject @Named("two") A aTwo;
@@ -173,18 +185,25 @@ public final class InjectorTest {
     final AtomicReference<A> a1 = new AtomicReference<A>();
     final AtomicReference<A> a2 = new AtomicReference<A>();
 
-    L l = new Injector().inject(L.class, new Object() {
+    LInjector lInjector = new LInjector().inject(new Object() {
       @Provides @Singleton @Named("one") F provideF(Provider<A> aProvider) {
         a1.set(aProvider.get());
         a2.set(aProvider.get());
         return new F();
       }
     });
+    lInjector.lProvider.get();
 
     assertThat(a1.get()).isNotNull();
     assertThat(a2.get()).isNotNull();
     assertThat(a1.get()).isNotSameAs(a2.get());
+    L l = lInjector.lProvider.get();
     assertThat(l).isSameAs(l.lProvider.get());
+  }
+
+  @Injector
+  public static class LInjector extends AbstractInjector<LInjector> {
+    @Inject Provider<L> lProvider;
   }
 
   @Singleton
@@ -194,22 +213,23 @@ public final class InjectorTest {
   }
 
   @Test public void singletonInGraph() {
-    M m = new Injector().inject(M.class, new Object() {
+    MultipleInjector multipleInjector = new MultipleInjector().inject(new Object() {
       @Provides @Singleton F provideF() {
         return new F();
       }
     });
 
-    assertThat(m.f1).isSameAs(m.f2);
-    assertThat(m.f1).isSameAs(m.n1.f1);
-    assertThat(m.f1).isSameAs(m.n1.f2);
-    assertThat(m.f1).isSameAs(m.n2.f1);
-    assertThat(m.f1).isSameAs(m.n2.f2);
-    assertThat(m.f1).isSameAs(m.n1.fProvider.get());
-    assertThat(m.f1).isSameAs(m.n2.fProvider.get());
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.f2);
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n1.f1);
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n1.f2);
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n2.f1);
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n2.f2);
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n1.fProvider.get());
+    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n2.fProvider.get());
   }
 
-  public static class M {
+  @Injector
+  public static class MultipleInjector extends AbstractInjector<MultipleInjector> {
     @Inject N n1;
     @Inject N n2;
     @Inject F f1;
@@ -224,23 +244,29 @@ public final class InjectorTest {
 
   @Test public void noJitBindingsForAnnotations() {
     try {
-      new Injector().inject(O.class);
+      new AnnotatedJitInjector().inject();
       fail();
     } catch (IllegalArgumentException expected) {
     }
   }
 
-  public static class O {
+  @Injector
+  public static class AnnotatedJitInjector extends AbstractInjector<AnnotatedJitInjector> {
     @Inject @Named("a") A a;
   }
 
   @Test public void subclasses() {
-    Q q = new Injector().inject(Q.class, new Object() {
+    QInjector qInjector = new QInjector().inject(new Object() {
       @Provides F provideF() {
         return new F();
       }
     });
-    assertThat(q.f).isNotNull();
+    assertThat(qInjector.q.f).isNotNull();
+  }
+
+  @Injector
+  public static class QInjector extends AbstractInjector<QInjector> {
+    @Inject Q q;
   }
 
   public static class P {
@@ -255,7 +281,7 @@ public final class InjectorTest {
     final AtomicBoolean sInjected = new AtomicBoolean();
 
     R.injected = false;
-    new Injector().inject(A.class, new Object() {
+    AProviderInjector aProviderInjector = new AProviderInjector().inject(new Object() {
       @Provides F provideF(R r) {
         return new F();
       }
@@ -282,10 +308,11 @@ public final class InjectorTest {
 
   @Test public void providerMethodsConflict() {
     try {
-      new Injector().inject(G.class, new Object() {
+      new GInjector().inject(new Object() {
         @Provides A provideA1() {
           throw new AssertionError();
         }
+
         @Provides A provideA2() {
           throw new AssertionError();
         }
@@ -296,7 +323,7 @@ public final class InjectorTest {
   }
 
   @Test public void singletonsInjectedOnlyIntoProviders() {
-    H h = new Injector().inject(H.class, new Object() {
+    AProviderInjector h = new AProviderInjector().inject(new Object() {
       @Provides @Singleton A provideA() {
         return new A();
       }
@@ -305,23 +332,37 @@ public final class InjectorTest {
   }
 
   @Test public void moduleOverrides() {
-    Object base = new Object() {
-      @Provides F provideF() {
-        throw new AssertionError();
-      }
-      @Provides E provideE(F f) {
-        return new E(f);
-      }
-    };
-
     Object overrides = new Object() {
       @Provides F provideF() {
         return new F();
       }
     };
 
-    E e = new Injector().inject(E.class, Modules.override(base, overrides));
+    EProviderInjector injector = new EProviderInjector().inject(overrides);
+    E e = injector.eProvider.get();
     assertThat(e).isNotNull();
     assertThat(e.f).isNotNull();
+  }
+
+  @Injector(modules = { BaseModule.class })
+  public static class EProviderInjector extends AbstractInjector<EProviderInjector> {
+    @Inject Provider<E> eProvider;
+  }
+
+  static class BaseModule {
+    @Provides F provideF() {
+      throw new AssertionError();
+    }
+    @Provides E provideE(F f) {
+      return new E(f);
+    }
+  }
+
+  public static abstract class AbstractInjector<T> {
+    @SuppressWarnings("unchecked")
+    public T inject(Object... modules) {
+      DependencyGraph.get(this, modules).inject(this);
+      return (T) this;
+    }
   }
 }
