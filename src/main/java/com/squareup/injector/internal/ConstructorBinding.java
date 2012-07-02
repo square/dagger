@@ -19,6 +19,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +103,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     final List<Field> injectedFields = new ArrayList<Field>();
     for (Class<?> c = type; c != Object.class; c = c.getSuperclass()) {
       for (Field field : c.getDeclaredFields()) {
-        if (field.getAnnotation(Inject.class) == null) {
+        if (field.getAnnotation(Inject.class) == null || Modifier.isStatic(field.getModifiers())) {
           continue;
         }
         field.setAccessible(true);
