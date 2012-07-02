@@ -68,7 +68,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     } catch (IOException e) {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Code gen failed: " + e);
     }
-    return !types.isEmpty();
+    return true;
   }
 
   /**
@@ -117,8 +117,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
    */
   private void writeModuleAdapter(TypeElement type, List<ExecutableElement> providerMethods)
       throws IOException {
+    String adapterName = CodeGen.adapterName(type, "$ModuleAdapter");
     JavaFileObject sourceFile = processingEnv.getFiler()
-        .createSourceFile(type.getQualifiedName() + "$ModuleAdapter", type);
+        .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
     writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
@@ -128,7 +129,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.addImport(Linker.class);
 
     String typeName = type.getQualifiedName().toString();
-    writer.beginType(typeName + "$ModuleAdapter", "class", PUBLIC | FINAL, null,
+    writer.beginType(adapterName, "class", PUBLIC | FINAL, null,
         CodeGen.parameterizedType(ModuleAdapter.class, typeName));
 
     writer.annotation(Override.class);

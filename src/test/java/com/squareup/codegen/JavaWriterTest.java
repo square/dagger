@@ -91,7 +91,7 @@ public final class JavaWriterTest {
   @Test public void constructorDeclaration() throws IOException {
     javaWriter.addPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
-    javaWriter.beginMethod(null, "Foo", Modifier.PUBLIC, "java.lang.String", "s");
+    javaWriter.beginMethod(null, "com.squareup.Foo", Modifier.PUBLIC, "java.lang.String", "s");
     javaWriter.endMethod();
     javaWriter.endType();
     assertCode(""

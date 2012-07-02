@@ -207,7 +207,8 @@ public final class JavaWriter {
    *
    * @param returnType the method's return type, or null for constructors.
    * @param parameters alternating parameter types and names.
-   * @param name the method name, or the class name for constructors.
+   * @param name the method name, or the fully qualified class name for
+   *     constructors.
    */
   public void beginMethod(String returnType, String name, int modifiers, String... parameters)
       throws IOException {
@@ -216,8 +217,10 @@ public final class JavaWriter {
     if (returnType != null) {
       type(returnType);
       out.write(" ");
+      out.write(name);
+    } else {
+      type(name);
     }
-    out.write(name);
     out.write("(");
     for (int p = 0; p < parameters.length; ) {
       if (p != 0) {
