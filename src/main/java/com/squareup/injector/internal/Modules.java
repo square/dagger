@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2012 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.squareup.injector;
+package com.squareup.injector.internal;
 
-import com.squareup.injector.internal.Binding;
-import com.squareup.injector.internal.Keys;
+import com.squareup.injector.Provides;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,21 +27,27 @@ import java.util.Map;
  *
  * @author Jesse Wilson
  */
-public final class Modules {
+final class Modules {
   private Modules() {
   }
 
   /**
-   * Returns a map containing the bindings in {@code object}.
+   * Returns a module containing all bindings in {@code modules}.
    *
-   * @param  module either a {@code map} of bindings, or an instance of a class
-   *     that declares one or more {@code @Provides} methods.
+   * @throws IllegalArgumentException if any bindings are duplicated.
    */
-  static Map<String, Binding<?>> moduleToMap(Object module) {
-    if (module instanceof Map) {
-      return (Map<String, Binding<?>>) module;
+  public static Map<String, Binding<?>> getBindings(Object... modules) {
+    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
+    int expectedSize = 0;
+    for (Object module : modules) {
+      Map<String, Binding<?>> moduleBindings = extractBindings(module);
+      expectedSize += moduleBindings.size();
+      result.putAll(moduleBindings);
     }
-    return extractBindings(module);
+    if (result.size() != expectedSize) {
+      throw new IllegalArgumentException("Duplicate bindings!");
+    }
+    return result;
   }
 
   /**
@@ -70,34 +75,5 @@ public final class Modules {
   private static <T> Binding<T> methodToBinding(Object module, Method method) {
     String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
     return new ProviderMethodBinding<T>(method, key, module);
-  }
-
-  /**
-   * Returns a module containing the union of the bindings of {@code base} and
-   * the bindings of {@code overrides}. If any key is represented in both
-   * modules, the binding from {@code overrides} is retained.
-   */
-  public static Object override(Object base, Object overrides) {
-    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
-    result.putAll(moduleToMap(base));
-    result.putAll(moduleToMap(overrides));
-    return result;
-  }
-
-  /**
-   * Returns a module containing all bindings in {@code modules}.
-   */
-  public static Object combine(Object... modules) {
-    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
-    int expectedSize = 0;
-    for (Object module : modules) {
-      Map<String, Binding<?>> moduleBindings = moduleToMap(module);
-      expectedSize += moduleBindings.size();
-      result.putAll(moduleBindings);
-    }
-    if (result.size() != expectedSize) {
-      throw new IllegalArgumentException("Duplicate bindings!");
-    }
-    return result;
   }
 }

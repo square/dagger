@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2012 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.squareup.injector;
+package com.squareup.injector.internal;
 
 import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Keys;
