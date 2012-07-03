@@ -132,6 +132,18 @@ public final class JavaWriterTest {
         + "}\n");
   }
 
+  @Test public void addImportFromSubpackage() throws IOException {
+    javaWriter.addPackage("com.squareup");
+    javaWriter.beginType("com.squareup.Foo", "class", Modifier.PUBLIC | Modifier.FINAL);
+    javaWriter.field("com.squareup.bar.Baz", "baz", 0);
+    javaWriter.endType();
+    assertCode(""
+        + "package com.squareup;\n"
+        + "public final class Foo {\n"
+        + "  com.squareup.bar.Baz baz;\n"
+        + "}\n");
+  }
+
   @Test public void ifControlFlow() throws IOException {
     javaWriter.addPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);

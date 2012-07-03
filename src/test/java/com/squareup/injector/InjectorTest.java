@@ -358,6 +358,36 @@ public final class InjectorTest {
     }
   }
 
+  @Test public void manuallyCreatedModuleNoOverride() {
+    try {
+      new ManuallyCreatedModuleInjector().inject();
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test public void manuallyCreatedModuleWithOverride() {
+    ManuallyCreatedModuleInjector module = new ManuallyCreatedModuleInjector()
+        .inject(new ManuallyCreatedModule("runtime argument"));
+    assertThat(module.string).isEqualTo("runtime argument");
+  }
+
+  @Injector(modules = { ManuallyCreatedModule.class })
+  public static class ManuallyCreatedModuleInjector
+      extends AbstractInjector<ManuallyCreatedModuleInjector> {
+    @Inject String string;
+  }
+
+  static class ManuallyCreatedModule {
+    final String string;
+    public ManuallyCreatedModule(String string) {
+      this.string = string;
+    }
+    @Provides String provideString() {
+      return string;
+    }
+  }
+
   public static abstract class AbstractInjector<T> {
     @SuppressWarnings("unchecked")
     public T inject(Object... modules) {

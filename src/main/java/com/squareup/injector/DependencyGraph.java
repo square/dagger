@@ -19,7 +19,9 @@ import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Keys;
 import com.squareup.injector.internal.Linker;
 import com.squareup.injector.internal.StaticInjection;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -114,18 +116,19 @@ public final class DependencyGraph {
   }
 
   private static Object[] classesToObjects(Class<?>[] moduleClasses) {
-    try {
-      Object[] moduleObjects = new Object[moduleClasses.length];
-      for (int i = 0; i < moduleClasses.length; i++) {
-        Class<?> module = moduleClasses[i];
-        moduleObjects[i] = module.newInstance();
+    List<Object> moduleObjects = new ArrayList<Object>();
+    for (Class<?> module : moduleClasses) {
+      try {
+        moduleObjects.add(module.newInstance());
+      } catch (InstantiationException e) {
+        // No no-args constructor. Assume there's an override.
+      } catch (RuntimeException e) {
+        throw e;
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
-      return moduleObjects;
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new RuntimeException(e);
     }
+    return moduleObjects.toArray();
   }
 
   /**
