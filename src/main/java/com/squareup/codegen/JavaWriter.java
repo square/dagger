@@ -115,7 +115,8 @@ public final class JavaWriter {
       String imported;
       if ((imported = importedTypes.get(name)) != null) {
         out.write(imported);
-      } else if (name.startsWith(packagePrefix)) {
+      } else if (name.startsWith(packagePrefix)
+          && name.indexOf('.', packagePrefix.length()) == -1) {
         out.write(name.substring(packagePrefix.length()));
       } else if (name.startsWith("java.lang.")) {
         out.write(name.substring("java.lang.".length()));
