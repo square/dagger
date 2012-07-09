@@ -59,7 +59,8 @@ final class Modules {
     Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
     for (Class<?> c = module.getClass(); c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
-        if (method.getAnnotation(Provides.class) == null) {
+        if (method.getAnnotation(Provides.class) == null
+            && method.getAnnotation(com.google.inject.Provides.class) == null) {
           continue;
         }
         Binding<Object> binding = methodToBinding(module, method);

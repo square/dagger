@@ -22,6 +22,7 @@ import com.squareup.injector.internal.ModuleAdapter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,8 +49,6 @@ import static java.lang.reflect.Modifier.STATIC;
 /**
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
- *
- * @author Jesse Wilson
  */
 @SupportedAnnotationTypes("com.squareup.injector.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
@@ -77,7 +76,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
   private Map<TypeElement, List<ExecutableElement>> providerMethodsByClass(RoundEnvironment env) {
     Map<TypeElement, List<ExecutableElement>> result
         = new HashMap<TypeElement, List<ExecutableElement>>();
-    for (Element providerMethod : env.getElementsAnnotatedWith(Provides.class)) {
+    for (Element providerMethod : providesMethods(env)) {
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
       if (type.getKind() != ElementKind.CLASS) {
@@ -108,6 +107,13 @@ public final class ProvidesProcessor extends AbstractProcessor {
       methods.add((ExecutableElement) providerMethod);
     }
 
+    return result;
+  }
+
+  private Set<? extends Element> providesMethods(RoundEnvironment env) {
+    Set<Element> result = new LinkedHashSet<Element>();
+    result.addAll(env.getElementsAnnotatedWith(Provides.class));
+    result.addAll(env.getElementsAnnotatedWith(com.google.inject.Provides.class));
     return result;
   }
 

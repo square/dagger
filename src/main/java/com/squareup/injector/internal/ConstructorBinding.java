@@ -121,9 +121,8 @@ final class ConstructorBinding<T> extends Binding<T> {
         continue;
       }
       if (injectedConstructor != null) {
-        throw new IllegalArgumentException("Too many injectable constructors on " + type);
+        throw new IllegalArgumentException("Too many injectable constructors on " + type.getName());
       }
-      constructor.setAccessible(true);
       injectedConstructor = constructor;
     }
     if (injectedConstructor == null) {
@@ -135,6 +134,10 @@ final class ConstructorBinding<T> extends Binding<T> {
       } catch (NoSuchMethodException e) {
         throw new IllegalArgumentException("No injectable constructor on " + type);
       }
+    }
+
+    if (injectedConstructor != null) {
+      injectedConstructor.setAccessible(true);
     }
 
     return new ConstructorBinding<T>(type, Keys.get(type, null), injectedConstructor,
