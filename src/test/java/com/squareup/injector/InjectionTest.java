@@ -27,11 +27,8 @@ import org.junit.Test;
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
-/**
- * @author Jesse Wilson
- */
 @SuppressWarnings("unused")
-public final class InjectorTest {
+public final class InjectionTest {
 
   @Injector
   public static class GInjector extends AbstractInjector<GInjector> {
@@ -50,32 +47,6 @@ public final class InjectorTest {
     });
     G g = gInjector.gProvider.get();
 
-    assertThat(g.a).isNotNull();
-    assertThat(g.b).isNotNull();
-    assertThat(g.c).isNotNull();
-    assertThat(g.d).isNotNull();
-    assertThat(g.e).isNotNull();
-    assertThat(g.e.f).isNotNull();
-  }
-
-  @Injector
-  public static class GMembersInjector extends AbstractInjector<GMembersInjector> {
-    @Inject MembersInjector<G> gInjector;
-  }
-
-  @Test public void memberInjection() {
-    GMembersInjector membersInjectors = new GMembersInjector().inject(new Object() {
-      @Provides E provideE(F f) {
-        return new E(f);
-      }
-
-      @Provides F provideF() {
-        return new F();
-      }
-    });
-
-    G g = new G(new C(), new D());
-    membersInjectors.gInjector.injectMembers(g);
     assertThat(g.a).isNotNull();
     assertThat(g.b).isNotNull();
     assertThat(g.c).isNotNull();
@@ -391,7 +362,7 @@ public final class InjectorTest {
   public static abstract class AbstractInjector<T> {
     @SuppressWarnings("unchecked")
     public T inject(Object... modules) {
-      DependencyGraph.get(this, modules).inject(this);
+      ObjectGraph.get(this, modules).inject(this);
       return (T) this;
     }
   }

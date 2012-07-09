@@ -23,8 +23,6 @@ import javax.inject.Singleton;
 
 /**
  * Invokes a method to provide a value. The method's parameters are injected.
- *
- * @author Jesse Wilson
  */
 final class ProviderMethodBinding<T> extends Binding<T> {
   private Binding[] parameters;
@@ -32,7 +30,7 @@ final class ProviderMethodBinding<T> extends Binding<T> {
   private final Object instance;
 
   public ProviderMethodBinding(Method method, String key, Object instance) {
-    super(method, key);
+    super(key, method.isAnnotationPresent(Singleton.class), false, method);
     this.method = method;
     this.instance = instance;
     method.setAccessible(true);
@@ -43,8 +41,8 @@ final class ProviderMethodBinding<T> extends Binding<T> {
     Annotation[][] annotations = method.getParameterAnnotations();
     parameters = new Binding[types.length];
     for (int i = 0; i < parameters.length; i++) {
-      String name = method + " parameter " + i;
-      parameters[i] = linker.requestBinding(Keys.get(types[i], annotations[i], name), method);
+      String key = Keys.get(types[i], annotations[i], method + " parameter " + i);
+      parameters[i] = linker.requestBinding(key, method, false);
     }
   }
 
@@ -61,9 +59,5 @@ final class ProviderMethodBinding<T> extends Binding<T> {
     } catch (InvocationTargetException e) {
       throw new RuntimeException(e.getCause());
     }
-  }
-
-  @Override public boolean isSingleton() {
-    return method.isAnnotationPresent(Singleton.class);
   }
 }

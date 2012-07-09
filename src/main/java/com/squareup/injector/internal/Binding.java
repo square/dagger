@@ -20,16 +20,21 @@ import javax.inject.Provider;
 
 /**
  * Injects a value of a specific type.
- *
- * @author Jesse Wilson
  */
 public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
     com.google.inject.Provider<T>, com.google.inject.MembersInjector<T> {
-  final Object requiredBy;
   public final String key;
+  public final boolean singleton;
+  public final boolean injectMembersOnly;
+  public final Object requiredBy;
 
-  protected Binding(Object requiredBy, String key) {
+  protected Binding(String key, boolean singleton, boolean injectMembersOnly, Object requiredBy) {
+    if (singleton && injectMembersOnly) {
+      throw new IllegalArgumentException();
+    }
     this.requiredBy = requiredBy;
+    this.singleton = singleton;
+    this.injectMembersOnly = injectMembersOnly;
     this.key = key;
   }
 
@@ -45,9 +50,5 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
 
   @Override public T get() {
     throw new UnsupportedOperationException();
-  }
-
-  public boolean isSingleton() {
-    return false;
   }
 }

@@ -161,9 +161,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
     String key = GeneratorKeys.get(providerMethod);
-    String moduleType = providerMethod.getEnclosingElement().asType().toString();
+    String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
     String className = providerMethod.getSimpleName() + "Binding";
-    String returnType = providerMethod.getReturnType().toString();
+    String returnType = CodeGen.typeToString(providerMethod.getReturnType());
 
     writer.beginType(className, "class", PRIVATE | STATIC,
         CodeGen.parameterizedType(Binding.class, returnType));
@@ -171,12 +171,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
     List<? extends VariableElement> parameters = providerMethod.getParameters();
     for (int p = 0; p < parameters.size(); p++) {
       TypeMirror parameterType = parameters.get(p).asType();
-      writer.field(CodeGen.parameterizedType(Binding.class, parameterType.toString()),
+      writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameterType)),
           parameterName(p), PRIVATE);
     }
 
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
-    writer.statement("super(%s.class, %s)", moduleType, JavaWriter.stringLiteral(key));
+    boolean singleton = true; // TODO
+    boolean injectMembersOnly = false;
+    writer.statement("super(%s, %s, %s, %s.class)",
+        JavaWriter.stringLiteral(key), singleton, injectMembersOnly, moduleType);
     writer.statement("this.module = module");
     writer.endMethod();
 
@@ -185,9 +188,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       VariableElement parameter = parameters.get(p);
       String parameterKey = GeneratorKeys.get(parameter);
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
           parameterName(p),
-          CodeGen.parameterizedType(Binding.class, parameter.asType().toString()),
+          CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameter.asType())),
           JavaWriter.stringLiteral(parameterKey), moduleType);
     }
     writer.endMethod();
@@ -202,11 +205,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
       args.append(String.format("%s.get()", parameterName(p)));
     }
     writer.statement("return module.%s(%s)", methodName, args.toString());
-    writer.endMethod();
-
-    writer.annotation(Override.class);
-    writer.beginMethod(boolean.class.getName(), "isSingleton", PUBLIC);
-    writer.statement("return %s", true);
     writer.endMethod();
 
     writer.endType();

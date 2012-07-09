@@ -40,14 +40,14 @@ public final class GuiceSupportTest {
 
   @Test public void testGuiceProviderGet() {
     GuiceInjector injector = new GuiceInjector();
-    DependencyGraph.get(injector).inject(injector);
+    ObjectGraph.get(injector).inject(injector);
     Injectable provided = injector.provider.get();
     assertThat(provided.string).isEqualTo("injected");
   }
 
   @Test public void testGuiceMembersInjector() {
     GuiceInjector injector = new GuiceInjector();
-    DependencyGraph.get(injector).inject(injector);
+    ObjectGraph.get(injector).inject(injector);
     Injectable injectable = new Injectable();
     injector.membersInjector.injectMembers(injectable);
     assertThat(injectable.string).isEqualTo("injected");

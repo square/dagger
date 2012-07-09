@@ -23,14 +23,10 @@ import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * Creates keys using javac's mirror APIs. Unlike {@code Keys}, this class uses
  * APIs not available on Android.
- *
- * @author Jesse Wilson
  */
 final class GeneratorKeys {
   private GeneratorKeys() {
@@ -38,7 +34,7 @@ final class GeneratorKeys {
 
   public static String get(TypeElement type) {
     StringBuilder result = new StringBuilder();
-    typeToString(type.asType(), result);
+    CodeGen.typeToString(type.asType(), result);
     return result.toString();
   }
 
@@ -48,7 +44,7 @@ final class GeneratorKeys {
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    typeToString(method.getReturnType(), result);
+    CodeGen.typeToString(method.getReturnType(), result);
     return result.toString();
   }
 
@@ -58,7 +54,7 @@ final class GeneratorKeys {
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    typeToString(parameter.asType(), result);
+    CodeGen.typeToString(parameter.asType(), result);
     return result.toString();
   }
 
@@ -89,25 +85,5 @@ final class GeneratorKeys {
       qualifier = annotation;
     }
     return qualifier;
-  }
-
-  private static void typeToString(TypeMirror type, StringBuilder result) {
-    if (type instanceof DeclaredType) {
-      DeclaredType declaredType = (DeclaredType) type;
-      result.append(((TypeElement) declaredType.asElement()).getQualifiedName().toString());
-      List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
-      if (!typeArguments.isEmpty()) {
-        result.append("<");
-        for (int i = 0; i < typeArguments.size(); i++) {
-          if (i != 0) {
-            result.append(", ");
-          }
-          typeToString(typeArguments.get(i), result);
-        }
-        result.append(">");
-      }
-    } else {
-      throw new UnsupportedOperationException("Uninjectable type " + type);
-    }
   }
 }
