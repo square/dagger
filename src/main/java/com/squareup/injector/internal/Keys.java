@@ -30,12 +30,15 @@ import javax.inject.Qualifier;
  * This currently formats keys by concatenating the annotation name, a slash
  * "/", and the type name. Parameterized types are formatted with ", " between
  * type parameters. The exact key format may change in a future release.
- *
- * @author Jesse Wilson
  */
 public final class Keys {
   private static final String PROVIDER_PREFIX = Provider.class.getName() + "<";
   private static final String MEMBERS_INJECTOR_PREFIX = MembersInjector.class.getName() + "<";
+  private static final String GUICE_MEMBERS_INJECTOR_PREFIX
+      = com.google.inject.MembersInjector.class.getName() + "<";
+  private static final String GUICE_PROVIDER_PREFIX
+      = com.google.inject.Provider.class.getName() + "<";
+
   private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
       = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {
     @Override protected Boolean create(Class<? extends Annotation> annotationType) {
@@ -139,15 +142,26 @@ public final class Keys {
     }
 
     String wrapperPrefix;
-    if (key.regionMatches(start, PROVIDER_PREFIX, 0, PROVIDER_PREFIX.length())) {
+    if (substringStartsWith(key, start, PROVIDER_PREFIX)) {
       wrapperPrefix = PROVIDER_PREFIX;
-    } else if (key.regionMatches(start, MEMBERS_INJECTOR_PREFIX, 0, MEMBERS_INJECTOR_PREFIX.length())) {
+    } else if (substringStartsWith(key, start, GUICE_PROVIDER_PREFIX)) {
+      wrapperPrefix = GUICE_PROVIDER_PREFIX;
+    } else if (substringStartsWith(key, start, MEMBERS_INJECTOR_PREFIX)) {
       wrapperPrefix = MEMBERS_INJECTOR_PREFIX;
+    } else if (substringStartsWith(key, start, GUICE_MEMBERS_INJECTOR_PREFIX)) {
+      wrapperPrefix = GUICE_MEMBERS_INJECTOR_PREFIX;
     } else {
       return null;
     }
     return key.substring(0, start)
         + key.substring(start + wrapperPrefix.length(), key.length() - 1);
+  }
+
+  /**
+   * Returns true if {@code string.substring(offset).startsWith(substring)}.
+   */
+  private static boolean substringStartsWith(String string, int offset, String substring) {
+    return string.regionMatches(offset, substring, 0, substring.length());
   }
 
   /**

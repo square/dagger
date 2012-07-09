@@ -23,7 +23,8 @@ import javax.inject.Provider;
  *
  * @author Jesse Wilson
  */
-public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
+public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
+    com.google.inject.Provider<T>, com.google.inject.MembersInjector<T> {
   final Object requiredBy;
   public final String key;
 

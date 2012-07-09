@@ -37,6 +37,7 @@
         <junit.version>4.10</junit.version>
         <fest.version>1.4</fest.version>
         <javax.inject.version>1</javax.inject.version>
+        <guice.version>3.0</guice.version>
     </properties>
 
     <scm>
@@ -67,6 +68,12 @@
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
             <version>${javax.inject.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <version>${guice.version}</version>
+            <classifier>no_aop</classifier>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
