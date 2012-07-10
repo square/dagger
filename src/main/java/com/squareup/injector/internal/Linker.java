@@ -24,8 +24,6 @@ import java.util.Queue;
 
 /**
  * Links bindings to their dependencies.
- *
- * @author Jesse Wilson
  */
 public final class Linker {
   private static final Object UNINITIALIZED = new Object();
@@ -135,12 +133,15 @@ public final class Linker {
    * null. The injector will create that binding later and reattach the
    * caller's binding.
    */
-  public Binding<?> requestBinding(String key, final Object requiredBy) {
+  public Binding<?> requestBinding(String key, Object requiredBy, boolean needMembersOnly) {
     Binding<?> binding = getBinding(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
       unattachedBindings.add(new DeferredBinding<Object>(requiredBy, key));
       currentAttachSuccess = false;
+    } else if (!needMembersOnly && binding.injectMembersOnly) {
+      errors.add(requiredBy + " injects " + binding.key
+          + ", but that type supports members injection only");
     }
     return binding;
   }
@@ -151,8 +152,8 @@ public final class Linker {
 
   private <T> void putBinding(final Binding<T> binding) {
     Binding<T> toInsert = binding;
-    if (binding.isSingleton()) {
-      toInsert = new Binding<T>(binding.requiredBy, binding.key) {
+    if (binding.singleton) {
+      toInsert = new Binding<T>(binding.key, true, binding.injectMembersOnly, binding.requiredBy) {
         private Object onlyInstance = UNINITIALIZED;
         @Override public void attach(Linker linker) {
           binding.attach(linker);
@@ -167,9 +168,6 @@ public final class Linker {
           }
           return (T) onlyInstance;
         }
-        @Override public boolean isSingleton() {
-          return binding.isSingleton();
-        }
       };
     }
 
@@ -182,13 +180,13 @@ public final class Linker {
 
   private static class DeferredBinding<T> extends Binding<T> {
     private DeferredBinding(Object requiredBy, String key) {
-      super(requiredBy, key);
+      super(key, false, false, requiredBy);
     }
   }
 
   private static class UnresolvedBinding<T> extends Binding<T> {
     private UnresolvedBinding(Object definedBy, String key) {
-      super(definedBy, key);
+      super(key, false, false, definedBy);
     }
   }
 }

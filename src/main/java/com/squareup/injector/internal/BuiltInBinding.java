@@ -17,27 +17,27 @@ package com.squareup.injector.internal;
 
 /**
  * Injects a Provider or a MembersInjector.
- *
- * @author Jesse Wilson
  */
 final class BuiltInBinding<T> extends Binding<T> {
-  private String delegateKey;
+  private final String delegateKey;
+  private final boolean needMembersOnly;
   private Binding<?> delegate;
 
   public BuiltInBinding(String key, Object requiredBy, String delegateKey) {
-    super(requiredBy, key);
+    super(key, false, false, requiredBy);
     this.delegateKey = delegateKey;
+    this.needMembersOnly = Keys.isMembersInjector(key);
   }
 
   @Override public void attach(Linker linker) {
-    delegate = linker.requestBinding(delegateKey, requiredBy);
+    delegate = linker.requestBinding(delegateKey, requiredBy, needMembersOnly);
   }
 
   @Override public void injectMembers(T t) {
     throw new UnsupportedOperationException();
   }
 
-  @SuppressWarnings("unchecked") // At runtime we know 'T' is a Provider.
+  @SuppressWarnings("unchecked") // At runtime we know 'T' is a Provider or MembersInjector.
   @Override public T get() {
     return (T) delegate;
   }

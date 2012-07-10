@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A dependency graph.
+ * A graph of objects linked by their dependencies.
  *
  * <p>The following injection features are supported:
  * <ul>
@@ -49,16 +49,14 @@ import java.util.Map;
  *   <li>Method injection.</li>
  *   <li>Circular dependencies.</li>
  * </ul>
- *
- * @author Jesse Wilson
  */
-public final class DependencyGraph {
+public final class ObjectGraph {
   private final StaticInjection[] staticInjections;
   private final Class<?> injectorClass;
   private final Map<Class<?>, Binding<?>> bindings;
 
-  private DependencyGraph(StaticInjection[] staticInjections,
-      Class<?> injectorClass, Map<Class<?>, Binding<?>> bindings) {
+  private ObjectGraph(StaticInjection[] staticInjections, Class<?> injectorClass,
+      Map<Class<?>, Binding<?>> bindings) {
     this.staticInjections = staticInjections;
     this.injectorClass = injectorClass;
     this.bindings = bindings;
@@ -72,7 +70,7 @@ public final class DependencyGraph {
    * should call {@link #injectStatics} to inject static members and/or {@link
    * #inject} to inject instance members when this method has returned.
    */
-  public static DependencyGraph get(Object injector, Object... overrides) {
+  public static ObjectGraph get(Object injector, Object... overrides) {
     Class<?> injectorClass = injector.getClass();
     Injector annotation = injectorClass.getAnnotation(Injector.class);
     if (annotation == null) {
@@ -112,7 +110,7 @@ public final class DependencyGraph {
     }
 
     // Link success. Return a new linked dependency graph.
-    return new DependencyGraph(staticInjections, injectorClass, entryPointsMap);
+    return new ObjectGraph(staticInjections, injectorClass, entryPointsMap);
   }
 
   private static Object[] classesToObjects(Class<?>[] moduleClasses) {
@@ -144,9 +142,9 @@ public final class DependencyGraph {
   private static Map<Class<?>, Binding<?>> getEntryPointsMap(Linker linker, Class<?> injectorClass,
       Class<?>[] entryPoints) {
     Map<Class<?>, Binding<?>> result = new HashMap<Class<?>, Binding<?>>();
-    result.put(injectorClass, linker.requestBinding(Keys.get(injectorClass), "injector"));
+    result.put(injectorClass, linker.requestBinding(Keys.get(injectorClass), "injector", false));
     for (Class<?> entryPoint : entryPoints) {
-      result.put(entryPoint, linker.requestBinding(Keys.get(entryPoint), "entry point"));
+      result.put(entryPoint, linker.requestBinding(Keys.get(entryPoint), "entry point", false));
     }
     return result;
   }

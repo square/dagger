@@ -54,8 +54,8 @@ public final class StaticInjection {
     bindings = new Binding<?>[fields.length];
     for (int i = 0; i < fields.length; i++) {
       Field field = fields[i];
-      String fieldKey = Keys.get(field.getGenericType(), field.getAnnotations(), field);
-      bindings[i] = linker.requestBinding(fieldKey, field);
+      String key = Keys.get(field.getGenericType(), field.getAnnotations(), field);
+      bindings[i] = linker.requestBinding(key, field, false);
     }
   }
 

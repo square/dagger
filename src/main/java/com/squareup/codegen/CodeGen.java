@@ -15,15 +15,17 @@
  */
 package com.squareup.codegen;
 
+import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Support for annotation processors.
- *
- * @author Jesse Wilson
  */
 final class CodeGen {
   private CodeGen() {
@@ -50,9 +52,7 @@ final class CodeGen {
         + suffix;
   }
 
-  /**
-   * Returns a string like {@code java.util.List<java.lang.String>}.
-   */
+  /** Returns a string like {@code java.util.List<java.lang.String>}. */
   public static String parameterizedType(Class<?> raw, String... parameters) {
     StringBuilder result = new StringBuilder();
     result.append(raw.getName());
@@ -65,5 +65,59 @@ final class CodeGen {
     }
     result.append(">");
     return result.toString();
+  }
+
+  /** Returns a string for {@code type}. Primitive types are always boxed. */
+  public static String typeToString(TypeMirror type) {
+    StringBuilder result = new StringBuilder();
+    typeToString(type, result);
+    return result.toString();
+  }
+
+  public static void typeToString(TypeMirror type, StringBuilder result) {
+    if (type instanceof DeclaredType) {
+      DeclaredType declaredType = (DeclaredType) type;
+      result.append(((TypeElement) declaredType.asElement()).getQualifiedName().toString());
+      List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
+      if (!typeArguments.isEmpty()) {
+        result.append("<");
+        for (int i = 0; i < typeArguments.size(); i++) {
+          if (i != 0) {
+            result.append(", ");
+          }
+          typeToString(typeArguments.get(i), result);
+        }
+        result.append(">");
+      }
+    } else if (type instanceof PrimitiveType) {
+      result.append(box((PrimitiveType) type).getName());
+    } else {
+      throw new UnsupportedOperationException("Uninjectable type " + type);
+    }
+  }
+
+  private static Class<?> box(PrimitiveType primitiveType) {
+    switch (primitiveType.getKind()) {
+      case BYTE:
+        return Byte.class;
+      case SHORT:
+        return Short.class;
+      case INT:
+        return Integer.class;
+      case LONG:
+        return Long.class;
+      case FLOAT:
+        return Float.class;
+      case DOUBLE:
+        return Double.class;
+      case BOOLEAN:
+        return Boolean.class;
+      case CHAR:
+        return Character.class;
+      case VOID:
+        return Void.class;
+      default:
+        throw new AssertionError();
+    }
   }
 }

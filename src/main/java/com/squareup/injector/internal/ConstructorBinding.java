@@ -28,8 +28,6 @@ import javax.inject.Singleton;
 
 /**
  * A binding that uses the constructor of a concrete class.
- *
- * @author Jesse Wilson
  */
 final class ConstructorBinding<T> extends Binding<T> {
   private final Constructor<T> constructor;
@@ -37,9 +35,13 @@ final class ConstructorBinding<T> extends Binding<T> {
   private Binding<?>[] parameters;
   private Binding<?>[] fieldBindings;
 
-  private ConstructorBinding(Class<?> type, String key,
+  /**
+   * @param constructor the injectable constructor, or null if this binding
+   *     supports members injection only.
+   */
+  private ConstructorBinding(String key, boolean singleton, Class<?> type,
       Constructor<T> constructor, Field[] fields) {
-    super(type, key);
+    super(key, singleton, constructor == null, type);
     this.constructor = constructor;
     this.fields = fields;
   }
@@ -50,20 +52,25 @@ final class ConstructorBinding<T> extends Binding<T> {
     for (int i = 0; i < fields.length; i++) {
       Field field = fields[i];
       String fieldKey = Keys.get(field.getGenericType(), field.getAnnotations(), field);
-      fieldBindings[i] = linker.requestBinding(fieldKey, field);
+      fieldBindings[i] = linker.requestBinding(fieldKey, field, false);
     }
 
     // Constructor bindings.
-    Type[] types = constructor.getGenericParameterTypes();
-    Annotation[][] annotations = constructor.getParameterAnnotations();
-    parameters = new Binding[types.length];
-    for (int i = 0; i < parameters.length; i++) {
-      String name = constructor + " parameter " + i;
-      parameters[i] = linker.requestBinding(Keys.get(types[i], annotations[i], name), constructor);
+    if (constructor != null) {
+      Type[] types = constructor.getGenericParameterTypes();
+      Annotation[][] annotations = constructor.getParameterAnnotations();
+      parameters = new Binding[types.length];
+      for (int i = 0; i < parameters.length; i++) {
+        String key = Keys.get(types[i], annotations[i], constructor + " parameter " + i);
+        parameters[i] = linker.requestBinding(key, constructor, false);
+      }
     }
   }
 
   @Override public T get() {
+    if (constructor == null) {
+      throw new UnsupportedOperationException();
+    }
     Object[] args = new Object[parameters.length];
     for (int i = 0; i < parameters.length; i++) {
       args[i] = parameters[i].get();
@@ -92,10 +99,6 @@ final class ConstructorBinding<T> extends Binding<T> {
     }
   }
 
-  @Override public boolean isSingleton() {
-    return constructor.getDeclaringClass().isAnnotationPresent(Singleton.class);
-  }
-
   public static <T> Binding<T> create(Class<T> type) {
     /*
      * Lookup the injectable fields and their corresponding keys.
@@ -113,7 +116,8 @@ final class ConstructorBinding<T> extends Binding<T> {
 
     /*
      * Lookup @Inject-annotated constructors. If there's no @Inject-annotated
-     * constructor, use a default constructor if the class has other injections.
+     * constructor, use a default public constructor if the class has other
+     * injections. Otherwise treat the class as non-injectable.
      */
     Constructor<T> injectedConstructor = null;
     for (Constructor<T> constructor : (Constructor<T>[]) type.getDeclaredConstructors()) {
@@ -127,12 +131,12 @@ final class ConstructorBinding<T> extends Binding<T> {
     }
     if (injectedConstructor == null) {
       if (injectedFields.isEmpty()) {
-        throw new IllegalArgumentException("No injectable constructor on " + type);
+        throw new IllegalArgumentException("No injectable constructor on " + type.getName());
       }
       try {
-        injectedConstructor = type.getConstructor();
+        injectedConstructor = type.getDeclaredConstructor();
       } catch (NoSuchMethodException e) {
-        throw new IllegalArgumentException("No injectable constructor on " + type);
+        injectedConstructor = null;
       }
     }
 
@@ -140,7 +144,13 @@ final class ConstructorBinding<T> extends Binding<T> {
       injectedConstructor.setAccessible(true);
     }
 
-    return new ConstructorBinding<T>(type, Keys.get(type, null), injectedConstructor,
+    boolean singleton = type.isAnnotationPresent(Singleton.class);
+    if (singleton && injectedConstructor == null) {
+      throw new IllegalArgumentException(
+          "No injectable constructor on @Singleton " + type.getName());
+    }
+
+    return new ConstructorBinding<T>(Keys.get(type, null), singleton, type, injectedConstructor,
         injectedFields.toArray(new Field[injectedFields.size()]));
   }
 }

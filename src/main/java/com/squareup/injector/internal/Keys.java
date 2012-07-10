@@ -49,16 +49,12 @@ public final class Keys {
   Keys() {
   }
 
-  /**
-   * Returns a key for {@code type} with no annotation.
-   */
+  /** Returns a key for {@code type} with no annotation. */
   public static String get(Type type) {
     return get(type, null);
   }
 
-  /**
-   * Returns a key for {@code type} annotated by {@code annotation}.
-   */
+  /** Returns a key for {@code type} annotated by {@code annotation}. */
   public static String get(Type type, Annotation annotation) {
     type = boxIfPrimitive(type);
     if (annotation == null
@@ -157,16 +153,21 @@ public final class Keys {
         + key.substring(start + wrapperPrefix.length(), key.length() - 1);
   }
 
-  /**
-   * Returns true if {@code string.substring(offset).startsWith(substring)}.
-   */
+  /** Returns true if {@code string.substring(offset).startsWith(substring)}. */
   private static boolean substringStartsWith(String string, int offset, String substring) {
     return string.regionMatches(offset, substring, 0, substring.length());
   }
 
-  /**
-   * Returns true if {@code key} has a qualifier annotation.
-   */
+  /** Returns true if {@code key} is a binding to a {@code MembersInjector}. */
+  public static boolean isMembersInjector(String key) {
+    int start = 0;
+    if (key.startsWith("@")) {
+      start = key.lastIndexOf('/') + 1;
+    }
+    return key.regionMatches(start, MEMBERS_INJECTOR_PREFIX, 0, MEMBERS_INJECTOR_PREFIX.length());
+  }
+
+  /** Returns true if {@code key} has a qualifier annotation. */
   public static boolean isAnnotated(String key) {
     return key.startsWith("@");
   }

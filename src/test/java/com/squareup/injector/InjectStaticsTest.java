@@ -21,9 +21,7 @@ import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
 
-/**
- * @author Jesse Wilson
- */
+@SuppressWarnings("unused")
 public final class InjectStaticsTest {
   @Before public void setUp() {
     InjectsOneField.staticField = null;
@@ -41,7 +39,7 @@ public final class InjectStaticsTest {
   }
 
   @Test public void injectStatics() {
-    DependencyGraph graph = DependencyGraph.get(new InjectorA(), new Object() {
+    ObjectGraph graph = ObjectGraph.get(new InjectorA(), new Object() {
       @Provides String provideString() {
         return "static";
       }
@@ -65,7 +63,7 @@ public final class InjectStaticsTest {
   }
 
   @Test public void instanceFieldsNotInjectedByInjectStatics() {
-    DependencyGraph graph = DependencyGraph.get(new InjectorB(), new Object() {
+    ObjectGraph graph = ObjectGraph.get(new InjectorB(), new Object() {
       @Provides String provideString() {
         return "static";
       }
@@ -79,7 +77,7 @@ public final class InjectStaticsTest {
   }
 
   @Test public void staticFieldsNotInjectedByInjectMembers() {
-    DependencyGraph graph = DependencyGraph.get(new InjectorB(), new Object() {
+    ObjectGraph graph = ObjectGraph.get(new InjectorB(), new Object() {
       @Provides String provideString() {
         throw new AssertionError();
       }
