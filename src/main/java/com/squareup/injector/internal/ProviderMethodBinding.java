@@ -60,4 +60,8 @@ final class ProviderMethodBinding<T> extends Binding<T> {
       throw new RuntimeException(e.getCause());
     }
   }
+
+  @Override public String toString() {
+    return method.toString();
+  }
 }

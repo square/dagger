@@ -164,7 +164,8 @@ public final class Keys {
     if (key.startsWith("@")) {
       start = key.lastIndexOf('/') + 1;
     }
-    return key.regionMatches(start, MEMBERS_INJECTOR_PREFIX, 0, MEMBERS_INJECTOR_PREFIX.length());
+    return substringStartsWith(key, start, MEMBERS_INJECTOR_PREFIX)
+        || substringStartsWith(key, start, GUICE_MEMBERS_INJECTOR_PREFIX);
   }
 
   /** Returns true if {@code key} has a qualifier annotation. */

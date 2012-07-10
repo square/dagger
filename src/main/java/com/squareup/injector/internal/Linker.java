@@ -15,6 +15,7 @@
  */
 package com.squareup.injector.internal;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -45,7 +46,7 @@ public final class Linker {
    * be any duplicated bindings in {@code modules}, though multiple calls to
    * this method may contain duplicates: last installed wins.
    */
-  public void installModules(Object[] modules) {
+  public void installModules(Iterable<Object> modules) {
     for (Binding<?> binding : Modules.getBindings(modules).values()) {
       putBinding(binding);
     }
@@ -108,8 +109,11 @@ public final class Linker {
 
     String className = Keys.getClassName(deferred.key);
     if (className != null && !Keys.isAnnotated(deferred.key)) {
-      // Handle all other injections with constructor bindings.
-      return ConstructorBinding.create(Class.forName(className));
+      // Handle concrete class injections with constructor bindings.
+      Class<?> c = Class.forName(className);
+      if (!c.isInterface() && !Modifier.isAbstract(c.getModifiers())) {
+        return ConstructorBinding.create(c);
+      }
     }
 
     throw new IllegalArgumentException("No binding for " + deferred.key);

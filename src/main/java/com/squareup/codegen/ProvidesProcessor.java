@@ -87,7 +87,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
       if (typeModifiers.contains(Modifier.PRIVATE)
           || typeModifiers.contains(Modifier.ABSTRACT)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Unexpected modifiers on type declaring @Provides method: " + providerMethod);
+            "Classes declaring @Provides methods must not be private or abstract: "
+                + type.getQualifiedName());
       }
 
       Set<Modifier> methodModifiers = providerMethod.getModifiers();
@@ -95,7 +96,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
           || methodModifiers.contains(Modifier.ABSTRACT)
           || methodModifiers.contains(Modifier.STATIC)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Unexpected modifiers on @Provides method: " + providerMethod);
+            "@Provides methods must not be private, abstract or static: "
+                + type.getQualifiedName() + "." + providerMethod);
         continue;
       }
 
@@ -178,8 +180,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
     boolean singleton = true; // TODO
     boolean injectMembersOnly = false;
-    writer.statement("super(%s, %s, %s, %s.class)",
-        JavaWriter.stringLiteral(key), singleton, injectMembersOnly, moduleType);
+    writer.statement("super(%s, %s, %s, %s.class)", JavaWriter.stringLiteral(key), singleton,
+        injectMembersOnly, moduleType);
     writer.statement("this.module = module");
     writer.endMethod();
 

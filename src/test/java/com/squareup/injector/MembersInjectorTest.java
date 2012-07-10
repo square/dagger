@@ -30,19 +30,26 @@ import static org.junit.Assert.fail;
 @SuppressWarnings("unused")
 public final class MembersInjectorTest {
   @Test public void injectMembers() {
-    InjectInjectable injector = new InjectInjectable().inject();
+    class TestEntryPoint {
+      @Inject MembersInjector<Injectable> membersInjector;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class StringModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new StringModule()).inject(entryPoint);
     Injectable injectable = new Injectable();
-    injector.membersInjector.injectMembers(injectable);
+    entryPoint.membersInjector.injectMembers(injectable);
     assertThat(injectable.injected).isEqualTo("injected");
   }
 
   static class Injectable {
     @Inject String injected;
-  }
-
-  @Injector(modules = StringModule.class)
-  static class InjectInjectable extends AbstractInjector<InjectInjectable> {
-    @Inject MembersInjector<Injectable> membersInjector;
   }
 
   static class Unconstructable {
@@ -54,57 +61,81 @@ public final class MembersInjectorTest {
   }
 
   @Test public void membersInjectorOfUnconstructableIsOkay() {
-    UnconstructableMembersInjector injector = new UnconstructableMembersInjector().inject();
+    class TestEntryPoint {
+      @Inject MembersInjector<Unconstructable> membersInjector;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class StringModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new StringModule()).inject(entryPoint);
     Unconstructable object = new Unconstructable("constructor");
-    injector.membersInjector.injectMembers(object);
+    entryPoint.membersInjector.injectMembers(object);
     assertThat(object.constructor).isEqualTo("constructor");
     assertThat(object.injected).isEqualTo("injected");
   }
 
-  @Injector(modules = StringModule.class)
-  static class UnconstructableMembersInjector
-      extends AbstractInjector<UnconstructableMembersInjector> {
-    @Inject MembersInjector<Unconstructable> membersInjector;
-  }
 
   @Test public void injectionOfUnconstructableFails() {
-    try {
-      ObjectGraph.get(new UnconstructableInjector());
-      fail();
-    } catch (Exception expected) {
+    class TestEntryPoint {
+      @Inject Unconstructable unconstructable;
     }
-  }
 
-  @Injector(modules = StringModule.class)
-  static class UnconstructableInjector {
-    @Inject Unconstructable unconstructable;
-  }
-
-  @Test public void instanceInjectionOfMembersOnlyType() {
-    try {
-      ObjectGraph.get(new UnconstructableProviderInjector());
-      fail();
-    } catch (Exception expected) {
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
     }
-  }
 
-  @Injector(modules = StringModule.class)
-  static class UnconstructableProviderInjector {
-    @Inject Provider<Unconstructable> provider;
-  }
-
-  @Test public void rejectUnconstructableSingleton() {
     try {
-      ObjectGraph.get(new UnconstructableSingletonInjector());
+      ObjectGraph.get(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
   }
 
-  @Injector(modules = StringModule.class)
-  static class UnconstructableSingletonInjector
-      extends AbstractInjector<UnconstructableSingletonInjector> {
-    @Inject MembersInjector<UnconstructableSingleton> membersInjector;
+  @Test public void instanceInjectionOfMembersOnlyType() {
+    class TestEntryPoint {
+      @Inject Provider<Unconstructable> provider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
+    try {
+      ObjectGraph.get(new TestModule());
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test public void rejectUnconstructableSingleton() {
+    class TestEntryPoint {
+      @Inject MembersInjector<UnconstructableSingleton> membersInjector;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
+    try {
+      ObjectGraph.get(new TestModule());
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Singleton
@@ -120,43 +151,41 @@ public final class MembersInjectorTest {
     @Inject String injected;
   }
 
-  @Injector(modules = StringModule.class)
-  static class NonStaticInnerMembersInjector
-      extends AbstractInjector<NonStaticInnerMembersInjector> {
-    @Inject MembersInjector<NonStaticInner> membersInjector;
-  }
-
   @Test public void membersInjectorOfNonStaticInnerIsOkay() {
-    NonStaticInnerMembersInjector injector = new NonStaticInnerMembersInjector().inject();
+    class TestEntryPoint {
+      @Inject MembersInjector<NonStaticInner> membersInjector;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
     NonStaticInner nonStaticInner = new NonStaticInner();
-    injector.membersInjector.injectMembers(nonStaticInner);
+    entryPoint.membersInjector.injectMembers(nonStaticInner);
     assertThat(nonStaticInner.injected).isEqualTo("injected");
   }
 
-  @Injector(modules = StringModule.class)
-  static class NonStaticInnerInjector {
-    @Inject NonStaticInner nonStaticInner;
-  }
-
   @Test public void instanceInjectionOfNonStaticInnerFailsEarly() {
+    class TestEntryPoint {
+      @Inject NonStaticInner nonStaticInner;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
     try {
-      ObjectGraph.get(new NonStaticInnerInjector());
+      ObjectGraph.get(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
-    }
-  }
-
-  public static abstract class AbstractInjector<T> {
-    @SuppressWarnings("unchecked")
-    public T inject(Object... modules) {
-      ObjectGraph.get(this, modules).inject(this);
-      return (T) this;
-    }
-  }
-
-  static class StringModule {
-    @Provides String provideString() {
-      return "injected";
     }
   }
 }
