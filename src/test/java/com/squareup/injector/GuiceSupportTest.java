@@ -22,34 +22,44 @@ import static org.fest.assertions.Assertions.assertThat;
 
 @SuppressWarnings("unused")
 public final class GuiceSupportTest {
-  @Injector(modules = StringModule.class)
-  public static class GuiceInjector {
-    @Inject com.google.inject.Provider<Injectable> provider;
-    @Inject com.google.inject.MembersInjector<Injectable> membersInjector;
-  }
-
-  public static class Injectable {
+  static class Injectable {
     @Inject String string;
   }
 
-  static class StringModule {
-    @Provides String provideString() {
-      return "injected";
-    }
-  }
-
   @Test public void testGuiceProviderGet() {
-    GuiceInjector injector = new GuiceInjector();
-    ObjectGraph.get(injector).inject(injector);
-    Injectable provided = injector.provider.get();
+    class TestEntryPoint {
+      @Inject com.google.inject.Provider<Injectable> provider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class StringModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new StringModule()).inject(entryPoint);
+    Injectable provided = entryPoint.provider.get();
     assertThat(provided.string).isEqualTo("injected");
   }
 
   @Test public void testGuiceMembersInjector() {
-    GuiceInjector injector = new GuiceInjector();
-    ObjectGraph.get(injector).inject(injector);
+    class TestEntryPoint {
+      @Inject com.google.inject.MembersInjector<Injectable> membersInjector;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class StringModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new StringModule()).inject(entryPoint);
     Injectable injectable = new Injectable();
-    injector.membersInjector.injectMembers(injectable);
+    entryPoint.membersInjector.injectMembers(injectable);
     assertThat(injectable.string).isEqualTo("injected");
   }
 }

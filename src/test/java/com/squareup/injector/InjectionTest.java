@@ -16,8 +16,8 @@
  */
 package com.squareup.injector;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.AbstractList;
+import java.util.RandomAccess;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Provider;
@@ -29,24 +29,24 @@ import static org.junit.Assert.fail;
 
 @SuppressWarnings("unused")
 public final class InjectionTest {
-
-  @Injector
-  public static class GInjector extends AbstractInjector<GInjector> {
-    @Inject Provider<G> gProvider;
-  }
-
   @Test public void basicInjection() {
-    GInjector gInjector = new GInjector().inject(new Object() {
+    class TestEntryPoint {
+      @Inject Provider<G> gProvider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
       @Provides E provideE(F f) {
         return new E(f);
       }
-
       @Provides F provideF() {
         return new F();
       }
-    });
-    G g = gInjector.gProvider.get();
+    }
 
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    G g = entryPoint.gProvider.get();
     assertThat(g.a).isNotNull();
     assertThat(g.b).isNotNull();
     assertThat(g.c).isNotNull();
@@ -95,25 +95,43 @@ public final class InjectionTest {
   }
 
   @Test public void providerInjection() {
-    AProviderInjector aProviderInjector = new AProviderInjector().inject();
-    assertThat(aProviderInjector.aProvider.get()).isNotNull();
-    assertThat(aProviderInjector.aProvider.get()).isNotNull();
-    assertThat(aProviderInjector.aProvider.get()).isNotSameAs(aProviderInjector.aProvider.get());
+    class TestEntryPoint {
+      @Inject Provider<A> aProvider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+
+    assertThat(entryPoint.aProvider.get()).isNotNull();
+    assertThat(entryPoint.aProvider.get()).isNotNull();
+    assertThat(entryPoint.aProvider.get()).isNotSameAs(entryPoint.aProvider.get());
   }
 
-  @Injector
-  public static class AProviderInjector extends AbstractInjector<AProviderInjector> {
-    @Inject Provider<A> aProvider;
-  }
 
   @Test public void singletons() {
-    FiInjector fiInjector = new FiInjector().inject(new Object() {
-      @Provides @Singleton F provideK() {
+    class TestEntryPoint {
+      @Inject Provider<F> fProvider;
+      @Inject Provider<I> iProvider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides @Singleton F provideF() {
         return new F();
       }
-    });
-    assertThat(fiInjector.fProvider.get()).isSameAs(fiInjector.fProvider.get());
-    assertThat(fiInjector.iProvider.get()).isSameAs(fiInjector.iProvider.get());
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.fProvider.get()).isSameAs(entryPoint.fProvider.get());
+    assertThat(entryPoint.iProvider.get()).isSameAs(entryPoint.iProvider.get());
   }
 
   @Singleton
@@ -121,60 +139,59 @@ public final class InjectionTest {
     @Inject I() {}
   }
 
-  @Injector
-  public static class FiInjector extends AbstractInjector<FiInjector> {
-    @Inject Provider<F> fProvider;
-    @Inject Provider<I> iProvider;
-  }
-
   @Test public void bindingAnnotations() {
     final A one = new A();
     final A two = new A();
 
-    NamedInjector k = new NamedInjector().inject(new Object() {
+    class TestEntryPoint {
+      @Inject A a;
+      @Inject @Named("one") A aOne;
+      @Inject @Named("two") A aTwo;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
       @Provides @Named("one") A getOne() {
         return one;
       }
       @Provides @Named("two") A getTwo() {
         return two;
       }
-    });
+    }
 
-    assertThat(k.a).isNotNull();
-    assertThat(one).isSameAs(k.aOne);
-    assertThat(two).isSameAs(k.aTwo);
-  }
-
-  @Injector
-  public static class NamedInjector extends AbstractInjector<NamedInjector> {
-    @Inject A a;
-    @Inject @Named("one") A aOne;
-    @Inject @Named("two") A aTwo;
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.a).isNotNull();
+    assertThat(one).isSameAs(entryPoint.aOne);
+    assertThat(two).isSameAs(entryPoint.aTwo);
   }
 
   @Test public void singletonBindingAnnotationAndProvider() {
-    final AtomicReference<A> a1 = new AtomicReference<A>();
-    final AtomicReference<A> a2 = new AtomicReference<A>();
+    class TestEntryPoint {
+      @Inject Provider<L> lProvider;
+    }
 
-    LInjector lInjector = new LInjector().inject(new Object() {
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      A a1;
+      A a2;
+
       @Provides @Singleton @Named("one") F provideF(Provider<A> aProvider) {
-        a1.set(aProvider.get());
-        a2.set(aProvider.get());
+        a1 = aProvider.get();
+        a2 = aProvider.get();
         return new F();
       }
-    });
-    lInjector.lProvider.get();
+    }
 
-    assertThat(a1.get()).isNotNull();
-    assertThat(a2.get()).isNotNull();
-    assertThat(a1.get()).isNotSameAs(a2.get());
-    L l = lInjector.lProvider.get();
-    assertThat(l).isSameAs(l.lProvider.get());
-  }
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    TestModule module = new TestModule();
+    ObjectGraph.get(module).inject(entryPoint);
+    entryPoint.lProvider.get();
 
-  @Injector
-  public static class LInjector extends AbstractInjector<LInjector> {
-    @Inject Provider<L> lProvider;
+    assertThat(module.a1).isNotNull();
+    assertThat(module.a2).isNotNull();
+    assertThat(module.a1).isNotSameAs(module.a2);
+    assertThat(entryPoint.lProvider.get()).isSameAs(entryPoint.lProvider.get());
   }
 
   @Singleton
@@ -184,27 +201,30 @@ public final class InjectionTest {
   }
 
   @Test public void singletonInGraph() {
-    MultipleInjector multipleInjector = new MultipleInjector().inject(new Object() {
+    class TestEntryPoint {
+      @Inject N n1;
+      @Inject N n2;
+      @Inject F f1;
+      @Inject F f2;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
       @Provides @Singleton F provideF() {
         return new F();
       }
-    });
+    }
 
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.f2);
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n1.f1);
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n1.f2);
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n2.f1);
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n2.f2);
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n1.fProvider.get());
-    assertThat(multipleInjector.f1).isSameAs(multipleInjector.n2.fProvider.get());
-  }
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
 
-  @Injector
-  public static class MultipleInjector extends AbstractInjector<MultipleInjector> {
-    @Inject N n1;
-    @Inject N n2;
-    @Inject F f1;
-    @Inject F f2;
+    assertThat(entryPoint.f1).isSameAs(entryPoint.f2);
+    assertThat(entryPoint.f1).isSameAs(entryPoint.n1.f1);
+    assertThat(entryPoint.f1).isSameAs(entryPoint.n1.f2);
+    assertThat(entryPoint.f1).isSameAs(entryPoint.n2.f1);
+    assertThat(entryPoint.f1).isSameAs(entryPoint.n2.f2);
+    assertThat(entryPoint.f1).isSameAs(entryPoint.n1.fProvider.get());
+    assertThat(entryPoint.f1).isSameAs(entryPoint.n2.fProvider.get());
   }
 
   public static class N {
@@ -214,30 +234,39 @@ public final class InjectionTest {
   }
 
   @Test public void noJitBindingsForAnnotations() {
+    class TestEntryPoint {
+      @Inject @Named("a") A a;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
     try {
-      new AnnotatedJitInjector().inject();
+      ObjectGraph.get(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
   }
 
-  @Injector
-  public static class AnnotatedJitInjector extends AbstractInjector<AnnotatedJitInjector> {
-    @Inject @Named("a") A a;
-  }
-
   @Test public void subclasses() {
-    QInjector qInjector = new QInjector().inject(new Object() {
+    class TestEntryPoint {
+      @Inject Q q;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
       @Provides F provideF() {
         return new F();
       }
-    });
-    assertThat(qInjector.q.f).isNotNull();
-  }
+    }
 
-  @Injector
-  public static class QInjector extends AbstractInjector<QInjector> {
-    @Inject Q q;
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.q.f).isNotNull();
   }
 
   public static class P {
@@ -249,22 +278,31 @@ public final class InjectionTest {
   }
 
   @Test public void singletonsAreNotEager() {
-    final AtomicBoolean sInjected = new AtomicBoolean();
+    class TestEntryPoint {
+      @Inject Provider<A> aProvider;
+    }
 
-    R.injected = false;
-    AProviderInjector aProviderInjector = new AProviderInjector().inject(new Object() {
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      boolean sInjected = false;
+
       @Provides F provideF(R r) {
         return new F();
       }
 
       @Provides @Singleton S provideS() {
-        sInjected.set(true);
+        sInjected = true;
         return new S();
       }
-    });
+    }
+
+    R.injected = false;
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    TestModule module = new TestModule();
+    ObjectGraph.get(module).inject(entryPoint);
 
     assertThat(R.injected).isFalse();
-    assertThat(sInjected.get()).isFalse();
+    assertThat(module.sInjected).isFalse();
   }
 
   @Singleton
@@ -278,92 +316,104 @@ public final class InjectionTest {
   static class S {}
 
   @Test public void providerMethodsConflict() {
-    try {
-      new GInjector().inject(new Object() {
-        @Provides A provideA1() {
-          throw new AssertionError();
-        }
+    @Module
+    class TestModule {
+      @Provides A provideA1() {
+        throw new AssertionError();
+      }
+      @Provides A provideA2() {
+        throw new AssertionError();
+      }
+    }
 
-        @Provides A provideA2() {
-          throw new AssertionError();
-        }
-      });
+    try {
+      ObjectGraph.get(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
   }
 
   @Test public void singletonsInjectedOnlyIntoProviders() {
-    AProviderInjector h = new AProviderInjector().inject(new Object() {
+    class TestEntryPoint {
+      @Inject Provider<A> aProvider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
       @Provides @Singleton A provideA() {
         return new A();
       }
-    });
-    assertThat(h.aProvider.get()).isSameAs(h.aProvider.get());
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.aProvider.get()).isSameAs(entryPoint.aProvider.get());
   }
 
   @Test public void moduleOverrides() {
-    Object overrides = new Object() {
+    class TestEntryPoint {
+      @Inject Provider<E> eProvider;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class BaseModule {
+      @Provides F provideF() {
+        throw new AssertionError();
+      }
+      @Provides E provideE(F f) {
+        return new E(f);
+      }
+    }
+
+    @Module(overrides = true)
+    class OverridesModule {
       @Provides F provideF() {
         return new F();
       }
-    };
+    }
 
-    EProviderInjector injector = new EProviderInjector().inject(overrides);
-    E e = injector.eProvider.get();
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new BaseModule(), new OverridesModule()).inject(entryPoint);
+    E e = entryPoint.eProvider.get();
     assertThat(e).isNotNull();
     assertThat(e.f).isNotNull();
   }
 
-  @Injector(modules = { BaseModule.class })
-  public static class EProviderInjector extends AbstractInjector<EProviderInjector> {
-    @Inject Provider<E> eProvider;
-  }
-
-  static class BaseModule {
-    @Provides F provideF() {
-      throw new AssertionError();
+  @Test public void noJitBindingsForInterfaces() {
+    class TestEntryPoint {
+      @Inject RandomAccess randomAccess;
     }
-    @Provides E provideE(F f) {
-      return new E(f);
-    }
-  }
 
-  @Test public void manuallyCreatedModuleNoOverride() {
+    @Module(entryPoints = TestEntryPoint.class)
+    class BaseModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
     try {
-      new ManuallyCreatedModuleInjector().inject();
+      ObjectGraph.get(new BaseModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
   }
 
-  @Test public void manuallyCreatedModuleWithOverride() {
-    ManuallyCreatedModuleInjector module = new ManuallyCreatedModuleInjector()
-        .inject(new ManuallyCreatedModule("runtime argument"));
-    assertThat(module.string).isEqualTo("runtime argument");
-  }
-
-  @Injector(modules = { ManuallyCreatedModule.class })
-  public static class ManuallyCreatedModuleInjector
-      extends AbstractInjector<ManuallyCreatedModuleInjector> {
-    @Inject String string;
-  }
-
-  static class ManuallyCreatedModule {
-    final String string;
-    public ManuallyCreatedModule(String string) {
-      this.string = string;
+  @Test public void noJitBindingsForAbstractClasses() {
+    class TestEntryPoint {
+      @Inject AbstractList abstractList;
     }
-    @Provides String provideString() {
-      return string;
-    }
-  }
 
-  public static abstract class AbstractInjector<T> {
-    @SuppressWarnings("unchecked")
-    public T inject(Object... modules) {
-      ObjectGraph.get(this, modules).inject(this);
-      return (T) this;
+    @Module(entryPoints = TestEntryPoint.class)
+    class BaseModule {
+      @Provides Object unused() {
+        throw new AssertionError();
+      }
+    }
+
+    try {
+      ObjectGraph.get(new BaseModule());
+      fail();
+    } catch (IllegalArgumentException expected) {
     }
   }
 }

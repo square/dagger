@@ -36,16 +36,10 @@ final class Modules {
    *
    * @throws IllegalArgumentException if any bindings are duplicated.
    */
-  public static Map<String, Binding<?>> getBindings(Object... modules) {
+  public static Map<String, Binding<?>> getBindings(Iterable<Object> modules) {
     Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
-    int expectedSize = 0;
     for (Object module : modules) {
-      Map<String, Binding<?>> moduleBindings = extractBindings(module);
-      expectedSize += moduleBindings.size();
-      result.putAll(moduleBindings);
-    }
-    if (result.size() != expectedSize) {
-      throw new IllegalArgumentException("Duplicate bindings!");
+      extractBindings(module, result);
     }
     return result;
   }
@@ -55,22 +49,26 @@ final class Modules {
    * returned bindings are not attached to a particular injector and cannot be
    * used to inject values.
    */
-  private static Map<String, Binding<?>> extractBindings(Object module) {
-    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
+  private static void extractBindings(Object module, Map<String, Binding<?>> result) {
+    int count = 0;
     for (Class<?> c = module.getClass(); c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         if (method.getAnnotation(Provides.class) == null
             && method.getAnnotation(com.google.inject.Provides.class) == null) {
           continue;
         }
-        Binding<Object> binding = methodToBinding(module, method);
-        result.put(binding.key, binding);
+        count++;
+        Binding<?> binding = methodToBinding(module, method);
+        Binding<?> clobbered = result.put(binding.key, binding);
+        if (clobbered != null) {
+          throw new IllegalArgumentException("Duplicate bindings:\n    "
+              + clobbered + "\n    " + binding);
+        }
       }
     }
-    if (result.isEmpty()) {
+    if (count == 0) {
       throw new IllegalArgumentException("No @Provides methods on " + module);
     }
-    return result;
   }
 
   private static <T> Binding<T> methodToBinding(Object module, Method method) {

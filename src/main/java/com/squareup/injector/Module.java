@@ -21,13 +21,19 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotates the root of the dependency graph.
- *
- * @author Jesse Wilson
+ * Annotates a class that contributes to the object graph.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE) public @interface Injector {
-  Class<?>[] modules() default { };
+@Target(ElementType.TYPE)
+public @interface Module {
   Class<?>[] entryPoints() default { };
   Class<?>[] staticInjections() default { };
+
+  /**
+   * True if @Provides methods from this module are permitted to override those
+   * of other modules. This is a dangerous feature as it permits binding
+   * conflicts to go unnoticed. It should only be used in test and development
+   * modules.
+   */
+  boolean overrides() default false;
 }
