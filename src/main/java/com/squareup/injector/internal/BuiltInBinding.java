@@ -41,4 +41,8 @@ final class BuiltInBinding<T> extends Binding<T> {
   @Override public T get() {
     return (T) delegate;
   }
+
+  public Binding<?> getDelegate() {
+    return delegate;
+  }
 }

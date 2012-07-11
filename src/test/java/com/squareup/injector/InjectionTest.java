@@ -385,14 +385,14 @@ public final class InjectionTest {
     }
 
     @Module(entryPoints = TestEntryPoint.class)
-    class BaseModule {
+    class TestModule {
       @Provides Object unused() {
         throw new AssertionError();
       }
     }
 
     try {
-      ObjectGraph.get(new BaseModule());
+      ObjectGraph.get(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -404,16 +404,20 @@ public final class InjectionTest {
     }
 
     @Module(entryPoints = TestEntryPoint.class)
-    class BaseModule {
+    class TestModule {
       @Provides Object unused() {
         throw new AssertionError();
       }
     }
 
     try {
-      ObjectGraph.get(new BaseModule());
+      ObjectGraph.get(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
   }
+
+  // TODO: test injecting parameterized types
+  // TODO: test injecting wildcard types
+  // TODO: test constructor binding for a class that has a type parameter
 }

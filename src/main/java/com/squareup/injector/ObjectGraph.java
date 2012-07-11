@@ -18,6 +18,7 @@ package com.squareup.injector;
 import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Keys;
 import com.squareup.injector.internal.Linker;
+import com.squareup.injector.internal.ProblemDetector;
 import com.squareup.injector.internal.StaticInjection;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -126,6 +127,10 @@ public final class ObjectGraph {
 
     // Link success. Return a new linked dependency graph.
     return new ObjectGraph(staticInjections, entryPointsMap);
+  }
+
+  public void detectProblems() {
+    new ProblemDetector().detectProblems(bindings.values());
   }
 
   /**

@@ -99,6 +99,20 @@ final class ConstructorBinding<T> extends Binding<T> {
     }
   }
 
+  @Override public Binding<?>[] getDependencies() {
+    if (parameters == null) {
+      return fieldBindings;
+    }
+    Binding<?>[] result = new Binding<?>[parameters.length + fieldBindings.length];
+    System.arraycopy(parameters, 0, result, 0, parameters.length);
+    System.arraycopy(fieldBindings, 0, result, parameters.length, fieldBindings.length);
+    return result;
+  }
+
+  @Override public String toString() {
+    return key;
+  }
+
   public static <T> Binding<T> create(Class<T> type) {
     /*
      * Lookup the injectable fields and their corresponding keys.

@@ -172,6 +172,12 @@ public final class Linker {
           }
           return (T) onlyInstance;
         }
+        @Override public Binding<?>[] getDependencies() {
+          return binding.getDependencies();
+        }
+        @Override public String toString() {
+          return binding.toString();
+        }
       };
     }
 
