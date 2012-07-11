@@ -61,6 +61,10 @@ final class ProviderMethodBinding<T> extends Binding<T> {
     }
   }
 
+  @Override public Binding<?>[] getDependencies() {
+    return parameters;
+  }
+
   @Override public String toString() {
     return method.toString();
   }

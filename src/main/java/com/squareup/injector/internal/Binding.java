@@ -51,4 +51,8 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
   @Override public T get() {
     throw new UnsupportedOperationException();
   }
+
+  public Binding<?>[] getDependencies() {
+    throw new UnsupportedOperationException();
+  }
 }

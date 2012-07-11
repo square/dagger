@@ -20,9 +20,12 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
+import javax.lang.model.util.SimpleTypeVisitor6;
 
 /**
  * Support for annotation processors.
@@ -74,26 +77,39 @@ final class CodeGen {
     return result.toString();
   }
 
-  public static void typeToString(TypeMirror type, StringBuilder result) {
-    if (type instanceof DeclaredType) {
-      DeclaredType declaredType = (DeclaredType) type;
-      result.append(((TypeElement) declaredType.asElement()).getQualifiedName().toString());
-      List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
-      if (!typeArguments.isEmpty()) {
-        result.append("<");
-        for (int i = 0; i < typeArguments.size(); i++) {
-          if (i != 0) {
-            result.append(", ");
+  public static void typeToString(final TypeMirror type, final StringBuilder result) {
+    type.accept(new SimpleTypeVisitor6<Void, Void>() {
+      @Override public Void visitDeclared(DeclaredType declaredType, Void v) {
+        result.append(((TypeElement) declaredType.asElement()).getQualifiedName().toString());
+        List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
+        if (!typeArguments.isEmpty()) {
+          result.append("<");
+          for (int i = 0; i < typeArguments.size(); i++) {
+            if (i != 0) {
+              result.append(", ");
+            }
+            typeToString(typeArguments.get(i), result);
           }
-          typeToString(typeArguments.get(i), result);
+          result.append(">");
         }
-        result.append(">");
+        return null;
       }
-    } else if (type instanceof PrimitiveType) {
-      result.append(box((PrimitiveType) type).getName());
-    } else {
-      throw new UnsupportedOperationException("Uninjectable type " + type);
-    }
+      @Override public Void visitPrimitive(PrimitiveType primitiveType, Void aVoid) {
+        result.append(box((PrimitiveType) type).getName());
+        return null;
+      }
+      @Override public Void visitArray(ArrayType arrayType, Void aVoid) {
+        typeToString(arrayType.getComponentType(), result);
+        result.append("[]");
+        return null;
+      }
+      @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
+        return null;
+      }
+      @Override protected Void defaultAction(TypeMirror typeMirror, Void aVoid) {
+        throw new UnsupportedOperationException("Unexpected type " + typeMirror);
+      }
+    }, null);
   }
 
   private static Class<?> box(PrimitiveType primitiveType) {
