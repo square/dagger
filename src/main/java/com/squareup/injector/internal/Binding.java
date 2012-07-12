@@ -27,6 +27,7 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
   public final boolean singleton;
   public final boolean injectMembersOnly;
   public final Object requiredBy;
+  public boolean linked;
 
   protected Binding(String key, boolean singleton, boolean injectMembersOnly, Object requiredBy) {
     if (singleton && injectMembersOnly) {

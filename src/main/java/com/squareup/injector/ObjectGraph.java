@@ -21,12 +21,10 @@ import com.squareup.injector.internal.Linker;
 import com.squareup.injector.internal.ProblemDetector;
 import com.squareup.injector.internal.StaticInjection;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A graph of objects linked by their dependencies.
@@ -55,12 +53,15 @@ import java.util.Set;
  * </ul>
  */
 public final class ObjectGraph {
-  private final List<StaticInjection> staticInjections;
-  private final Map<Class<?>, Binding<?>> bindings;
+  private final Linker linker;
+  private final Map<Class<?>, StaticInjection> staticInjections;
+  private final Map<Class<?>, Class<?>> entryPoints;
 
-  private ObjectGraph(List<StaticInjection> staticInjections, Map<Class<?>, Binding<?>> bindings) {
+  public ObjectGraph(Linker linker, Map<Class<?>, StaticInjection> staticInjections,
+      Map<Class<?>, Class<?>> entryPoints) {
+    this.linker = linker;
     this.staticInjections = staticInjections;
-    this.bindings = bindings;
+    this.entryPoints = entryPoints;
   }
 
   /**
@@ -72,8 +73,17 @@ public final class ObjectGraph {
    * #inject} to inject instance members when this method has returned.
    */
   public static ObjectGraph get(Object... modules) {
+    return get(false, modules);
+  }
+
+  public static ObjectGraph getLazy(Object... modules) {
+    return get(true, modules);
+  }
+
+  private static ObjectGraph get(boolean lazy, Object... modules) {
     Map<Class<?>, Class<?>> entryPoints = new LinkedHashMap<Class<?>, Class<?>>();
-    Set<Class<?>> staticInjectionClasses = new LinkedHashSet<Class<?>>();
+    Map<Class<?>, StaticInjection> staticInjections
+        = new LinkedHashMap<Class<?>, StaticInjection>();
 
     List<Object> baseModules = new ArrayList<Object>();
     List<Object> overrideModules = new ArrayList<Object>();
@@ -83,11 +93,11 @@ public final class ObjectGraph {
       if (annotation == null) {
         throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
       }
-      for (Class<?> entryPoint : annotation.entryPoints()) {
-        entryPoints.put(entryPoint, moduleClass);
+      for (Class<?> c : annotation.entryPoints()) {
+        entryPoints.put(c, moduleClass);
       }
-      for (Class<?> staticInjection : annotation.staticInjections()) {
-        staticInjectionClasses.add(staticInjection);
+      for (Class<?> c : annotation.staticInjections()) {
+        staticInjections.put(c, lazy ? null : StaticInjection.get(c));
       }
       if (annotation.overrides()) {
         overrideModules.add(module);
@@ -96,62 +106,49 @@ public final class ObjectGraph {
       }
     }
 
-    // Create static injections.
-    List<StaticInjection> staticInjections = new ArrayList<StaticInjection>();
-    for (Class<?> c : staticInjectionClasses) {
-      staticInjections.add(StaticInjection.get(c));
-    }
-
     // Create a linker and install all of the user's modules. Modules provided
     // at runtime may override modules provided in the @Module annotation.
     Linker linker = new Linker();
     linker.installModules(baseModules);
     linker.installModules(overrideModules);
 
-    // Request the bindings we'll need from the linker. This will cause the
-    // linker to link these bindings in the link step.
-    getEntryPointsMap(linker, entryPoints);
-    for (StaticInjection staticInjection : staticInjections) {
-      staticInjection.attach(linker);
+    ObjectGraph result = new ObjectGraph(linker, staticInjections, entryPoints);
+
+    // Link all bindings (unless this injector is lazy).
+    if (!lazy) {
+      result.linkStaticInjections();
+      result.linkEntryPoints();
+      linker.linkAll();
     }
 
-    // Fill out the graph, creating JIT bindings as necessary.
-    linker.link();
-
-    // Attach all necessary injections. Now that we've linked, all bindings will be available.
-    Map<Class<?>, Binding<?>> entryPointsMap =
-        getEntryPointsMap(linker, entryPoints);
-    for (StaticInjection staticInjection : staticInjections) {
-      staticInjection.attach(linker);
-    }
-
-    // Link success. Return a new linked dependency graph.
-    return new ObjectGraph(staticInjections, entryPointsMap);
+    return result;
   }
 
-  public void detectProblems() {
-    new ProblemDetector().detectProblems(bindings.values());
+  private void linkStaticInjections() {
+    for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
+      StaticInjection staticInjection = entry.getValue();
+      if (staticInjection == null) {
+        staticInjection = StaticInjection.get(entry.getKey());
+        entry.setValue(staticInjection);
+      }
+      staticInjection.attach(linker);
+    }
+  }
+
+  private void linkEntryPoints() {
+    for (Map.Entry<Class<?>, Class<?>> entry : entryPoints.entrySet()) {
+      linker.requestBinding(Keys.get(entry.getKey()), entry.getValue(), true);
+    }
   }
 
   /**
-   * Returns a map from class to entry point.
-   *
-   * <p>If executed before {@code link()}, this tells the linker which keys are
-   * required. Since the bindings haven't been linked, the returned map may
-   * contain null bindings and should not be used.
-   *
-   * <p>If executed after {@code link()}, the bindings will not be null and the
-   * map can be used.
+   * Do full graph problem detection.
    */
-  private static Map<Class<?>, Binding<?>> getEntryPointsMap(Linker linker,
-      Map<Class<?>, Class<?>> entryPoints) {
-    Map<Class<?>, Binding<?>> result = new HashMap<Class<?>, Binding<?>>();
-    for (Map.Entry<Class<?>, Class<?>> entry : entryPoints.entrySet()) {
-      Class<?> entryPoint = entry.getKey();
-      Class<?> moduleClass = entry.getValue();
-      result.put(entryPoint, linker.requestBinding(Keys.get(entryPoint), moduleClass, false));
-    }
-    return result;
+  public void detectProblems() {
+    linkStaticInjections();
+    linkEntryPoints();
+    Collection<Binding<?>> allBindings = linker.linkAll();
+    new ProblemDetector().detectProblems(allBindings);
   }
 
   /**
@@ -159,8 +156,17 @@ public final class ObjectGraph {
    * staticInjections} property.
    */
   public void injectStatics() {
-    for (StaticInjection staticInjection : staticInjections) {
-      staticInjection.inject();
+    // We call linkStaticInjections() twice on purpose. The first time through
+    // we request all of the bindings we need. The linker returns null for
+    // bindings it doesn't have. Then we ask the linker to link all of those
+    // requested bindings. Finally we call linkStaticInjections() again: this
+    // time the linker won't return null because everything has been linked.
+    linkStaticInjections();
+    linker.linkRequested();
+    linkStaticInjections();
+
+    for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
+      entry.getValue().inject();
     }
   }
 
@@ -171,13 +177,20 @@ public final class ObjectGraph {
    * @throws IllegalArgumentException if the runtime type of {@code instance} is
    *     not the injector's type or one of its entry point types.
    */
-  @SuppressWarnings("unchecked") // bindings is a typesafe heterogeneous container
+  @SuppressWarnings("unchecked") // the linker matches keys to bindings by their type
   public void inject(Object instance) {
-    Binding<Object> binding = (Binding<Object>) bindings.get(instance.getClass());
-    if (binding == null) {
-      throw new IllegalArgumentException("No binding for " + instance.getClass().getName() + ". "
+    Class<?> type = instance.getClass();
+    Class<?> moduleClass = entryPoints.get(type);
+    if (moduleClass == null) {
+      throw new IllegalArgumentException("No binding for " + type.getName() + ". "
           + "You must explicitly add it as an entry point.");
     }
-    binding.injectMembers(instance);
+    String key = Keys.get(type);
+    Binding<?> binding = linker.requestBinding(key, moduleClass, true);
+    if (binding == null || !binding.linked) {
+      linker.linkRequested();
+      binding = linker.requestBinding(key, moduleClass, true);
+    }
+    ((Binding<Object>) binding).injectMembers(instance);
   }
 }
