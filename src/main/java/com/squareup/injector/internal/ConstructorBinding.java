@@ -120,7 +120,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     final List<Field> injectedFields = new ArrayList<Field>();
     for (Class<?> c = type; c != Object.class; c = c.getSuperclass()) {
       for (Field field : c.getDeclaredFields()) {
-        if (field.getAnnotation(Inject.class) == null || Modifier.isStatic(field.getModifiers())) {
+        if (!field.isAnnotationPresent(Inject.class) || Modifier.isStatic(field.getModifiers())) {
           continue;
         }
         field.setAccessible(true);
@@ -135,7 +135,7 @@ final class ConstructorBinding<T> extends Binding<T> {
      */
     Constructor<T> injectedConstructor = null;
     for (Constructor<T> constructor : (Constructor<T>[]) type.getDeclaredConstructors()) {
-      if (constructor.getAnnotation(Inject.class) == null) {
+      if (!constructor.isAnnotationPresent(Inject.class)) {
         continue;
       }
       if (injectedConstructor != null) {
@@ -145,7 +145,8 @@ final class ConstructorBinding<T> extends Binding<T> {
     }
     if (injectedConstructor == null) {
       if (injectedFields.isEmpty()) {
-        throw new IllegalArgumentException("No injectable constructor on " + type.getName());
+        throw new IllegalArgumentException("No injectable members on " + type.getName()
+            + ". Do you want to add an injectable constructor?");
       }
       try {
         injectedConstructor = type.getDeclaredConstructor();

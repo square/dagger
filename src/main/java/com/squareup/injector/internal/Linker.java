@@ -17,6 +17,7 @@ package com.squareup.injector.internal;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,15 +31,15 @@ public final class Linker {
   private static final Object UNINITIALIZED = new Object();
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
-  private final Queue<Binding<?>> unattachedBindings = new LinkedList<Binding<?>>();
+  private final Queue<Binding<?>> toLink = new LinkedList<Binding<?>>();
 
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
-  private boolean currentAttachSuccess = true;
+  private boolean attachSuccess = true;
 
   /** All errors encountered during injection. */
   private final List<String> errors = new ArrayList<String>();
 
-  /** All of the injector's bindings. */
+  /** All of the injector's bindings. This may contain unlinked bindings. */
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
   /**
@@ -53,30 +54,53 @@ public final class Linker {
   }
 
   /**
-   * Links the bindings in {@code bindings}, creating JIT bindings as necessary
-   * to fill in the gaps. When this returns all bindings and their dependencies
-   * will be attached.
+   * Links requested bindings and installed bindings, plus all of their
+   * transitive dependencies. This creates JIT bindings as necessary to fill in
+   * the gaps.
+   *
+   * @return all bindings known by this linker, which will all be linked.
    */
-  public void link() {
-    unattachedBindings.addAll(bindings.values());
+  public Collection<Binding<?>> linkAll() {
+    for (Binding<?> binding : bindings.values()) {
+      if (!binding.linked) {
+        toLink.add(binding);
+      }
+    }
+    linkRequested();
+    return bindings.values();
+  }
 
+  /**
+   * Links all requested bindings plus their transitive dependencies. This
+   * creates JIT bindings as necessary to fill in the gaps.
+   */
+  public void linkRequested() {
     Binding binding;
-    while ((binding = unattachedBindings.poll()) != null) {
+    while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
-        if (getBinding(binding.key) != null) {
-          continue; // A binding for this key has already been promoted.
+        if (bindings.get(binding.key) != null) {
+          continue; // A binding for this key has since been linked.
         }
         try {
           Binding<?> jitBinding = createJitBinding((DeferredBinding<?>) binding);
           // Enqueue the JIT binding so its own dependencies can be linked.
-          unattachedBindings.add(jitBinding);
+          toLink.add(jitBinding);
           putBinding(jitBinding);
         } catch (Exception e) {
           addError(e.getMessage() + " required by " + binding.requiredBy);
           putBinding(new UnresolvedBinding<Object>(binding.requiredBy, binding.key));
         }
       } else {
-        attachBinding(binding);
+        // Attempt to attach the binding to its dependencies. If any dependency
+        // is not available, the attach will fail. We'll enqueue creation of
+        // that dependency and retry the attachment later.
+        attachSuccess = true;
+        binding.attach(this);
+        if (attachSuccess) {
+          binding.linked = true;
+        } else {
+          toLink.add(binding);
+        }
       }
     }
 
@@ -120,38 +144,30 @@ public final class Linker {
   }
 
   /**
-   * Attempts to attach {@code binding} to its dependencies. If any dependency
-   * is not available, the attach will fail. We'll enqueue creation of that
-   * dependency and retry the attachment later.
-   */
-  private void attachBinding(Binding binding) {
-    currentAttachSuccess = true;
-    binding.attach(this);
-    if (!currentAttachSuccess) {
-      unattachedBindings.add(binding);
-    }
-  }
-
-  /**
    * Returns the binding if it exists immediately. Otherwise this returns
-   * null. The injector will create that binding later and reattach the
-   * caller's binding.
+   * null. If the returned binding didn't exist or was unlinked, it will be
+   * enqueued to be linked.
    */
   public Binding<?> requestBinding(String key, Object requiredBy, boolean needMembersOnly) {
-    Binding<?> binding = getBinding(key);
+    Binding<?> binding = bindings.get(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
-      unattachedBindings.add(new DeferredBinding<Object>(requiredBy, key));
-      currentAttachSuccess = false;
-    } else if (!needMembersOnly && binding.injectMembersOnly) {
+      toLink.add(new DeferredBinding<Object>(requiredBy, key));
+      attachSuccess = false;
+      return null;
+    }
+
+    if (!binding.linked) {
+      toLink.add(binding); // This binding was never linked; link it now!
+    }
+
+    if (!needMembersOnly && binding.injectMembersOnly) {
       errors.add(requiredBy + " injects " + binding.key
           + ", but that type supports members injection only");
+      return null;
     }
-    return binding;
-  }
 
-  private Binding<?> getBinding(String key) {
-    return bindings.get(key);
+    return binding;
   }
 
   private <T> void putBinding(final Binding<T> binding) {
