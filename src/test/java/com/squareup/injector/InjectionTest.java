@@ -398,7 +398,7 @@ public final class InjectionTest {
     }
   }
 
-  @Test public void noJitBindingsForAbstractClasses() {
+  @Test public void noProvideBindingsForAbstractClasses() {
     class TestEntryPoint {
       @Inject AbstractList abstractList;
     }
@@ -415,6 +415,37 @@ public final class InjectionTest {
       fail();
     } catch (IllegalArgumentException expected) {
     }
+  }
+
+  static class ExtendsParameterizedType extends AbstractList<Integer> {
+    @Inject String string;
+    @Override public Integer get(int i) {
+      return i;
+    }
+    @Override public int size() {
+      return 5;
+    }
+  }
+
+  /**
+   * We've had bugs where we look for the wrong keys when a class extends a
+   * parameterized class. Explicitly test that we can inject such classes.
+   */
+  @Test public void extendsParameterizedType() {
+    class TestEntryPoint {
+      @Inject ExtendsParameterizedType extendsParameterizedType;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.extendsParameterizedType.string).isEqualTo("injected");
   }
 
   // TODO: test injecting parameterized types

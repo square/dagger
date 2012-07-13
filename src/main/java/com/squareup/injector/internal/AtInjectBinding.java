@@ -32,19 +32,21 @@ import javax.inject.Singleton;
 final class AtInjectBinding<T> extends Binding<T> {
   private final Constructor<T> constructor;
   private final Field[] fields;
+  private final Class<?> supertype;
   private Binding<?>[] parameters;
   private Binding<?>[] fieldBindings;
-  // TODO: delegate to supertype members injector (which may be generated)
+  private Binding<? super T> supertypeBinding;
 
   /**
    * @param constructor the injectable constructor, or null if this binding
    *     supports members injection only.
    */
   private AtInjectBinding(String key, String membersKey, boolean singleton, Class<?> type,
-      Constructor<T> constructor, Field[] fields) {
+      Constructor<T> constructor, Field[] fields, Class<?> supertype) {
     super(key, membersKey, singleton, type);
     this.constructor = constructor;
     this.fields = fields;
+    this.supertype = supertype;
   }
 
   @Override public void attach(Linker linker) {
@@ -65,6 +67,12 @@ final class AtInjectBinding<T> extends Binding<T> {
         String key = Keys.get(types[i], annotations[i], constructor + " parameter " + i);
         parameters[i] = linker.requestBinding(key, constructor);
       }
+    }
+
+    // Supertype binding.
+    if (supertype != null && !Keys.isPlatformType(supertype.getName())) {
+      supertypeBinding = (Binding<? super T>) linker.requestBinding(
+          Keys.getMembersKey(supertype), membersKey);
     }
   }
 
@@ -94,6 +102,9 @@ final class AtInjectBinding<T> extends Binding<T> {
     try {
       for (int i = 0; i < fields.length; i++) {
         fields[i].set(t, fieldBindings[i].get());
+      }
+      if (supertypeBinding != null) {
+        supertypeBinding.injectMembers(t);
       }
     } catch (IllegalAccessException e) {
       throw new AssertionError(e);
@@ -176,6 +187,6 @@ final class AtInjectBinding<T> extends Binding<T> {
 
     String membersKey = Keys.getMembersKey(type);
     return new AtInjectBinding<T>(key, membersKey, singleton, type, injectedConstructor,
-        injectedFields.toArray(new Field[injectedFields.size()]));
+        injectedFields.toArray(new Field[injectedFields.size()]), type.getSuperclass());
   }
 }

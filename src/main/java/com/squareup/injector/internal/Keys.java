@@ -199,6 +199,11 @@ public final class Keys {
         : null;
   }
 
+  /** Returns true if {@code name} is the name of a platform-provided class. */
+  public static boolean isPlatformType(String name) {
+    return name.startsWith("java.") || name.startsWith("javax.") || name.startsWith("android.");
+  }
+
   private static Type boxIfPrimitive(Type type) {
     if (type == byte.class) return Byte.class;
     if (type == short.class) return Short.class;

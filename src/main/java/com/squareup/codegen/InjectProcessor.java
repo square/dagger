@@ -172,15 +172,15 @@ public final class InjectProcessor extends AbstractProcessor {
           fieldName(f), PRIVATE);
     }
     if (supertype != null) {
-      writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(supertype)),
-          "supertype", PRIVATE);
+      writer.field(CodeGen.parameterizedType(Binding.class,
+          CodeGen.rawTypeToString(supertype, '.')), "supertype", PRIVATE);
     }
 
     writer.beginMethod(null, adapterName, PUBLIC);
     String key = (constructor != null)
-        ? JavaWriter.stringLiteral(GeneratorKeys.get(type))
+        ? JavaWriter.stringLiteral(GeneratorKeys.get(type.asType()))
         : null;
-    String membersKey = JavaWriter.stringLiteral(GeneratorKeys.getMembersKey(type.asType()));
+    String membersKey = JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(type.asType()));
     boolean singleton = type.getAnnotation(Singleton.class) != null;
     writer.statement("super(%s, %s, %s /*singleton*/, %s.class)",
         key, membersKey, singleton, typeName);
@@ -209,8 +209,8 @@ public final class InjectProcessor extends AbstractProcessor {
     if (supertype != null) {
       writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
           "supertype",
-          CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(supertype)),
-          JavaWriter.stringLiteral(GeneratorKeys.getMembersKey(supertype)),
+          CodeGen.parameterizedType(Binding.class, CodeGen.rawTypeToString(supertype, '.')),
+          JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(supertype)),
           typeName);
     }
     writer.endMethod();

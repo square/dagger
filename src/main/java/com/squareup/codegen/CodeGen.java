@@ -15,6 +15,7 @@
  */
 package com.squareup.codegen;
 
+import com.squareup.injector.internal.Keys;
 import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -48,14 +49,7 @@ final class CodeGen {
    */
   public static TypeMirror getApplicationSupertype(TypeElement type) {
     TypeMirror supertype = type.getSuperclass();
-    String supertypeName = supertype.toString();
-    if (supertypeName.startsWith("android.")
-        || supertypeName.startsWith("java.")
-        || supertypeName.startsWith("javax.")) {
-      return null;
-    } else {
-      return supertype;
-    }
+    return Keys.isPlatformType(supertype.toString()) ? null : supertype;
   }
 
   /** Returns a fully qualified class name to complement {@code type}. */
@@ -85,6 +79,17 @@ final class CodeGen {
   public static String typeToString(TypeMirror type) {
     StringBuilder result = new StringBuilder();
     typeToString(type, result, '.');
+    return result.toString();
+  }
+
+  /** Returns a string for the raw type of {@code type}. Primitive types are always boxed. */
+  public static String rawTypeToString(TypeMirror type, char innerClassSeparator) {
+    if (!(type instanceof DeclaredType)) {
+      throw new IllegalArgumentException("Unexpected type: " + type);
+    }
+    StringBuilder result = new StringBuilder();
+    DeclaredType declaredType = (DeclaredType) type;
+    rawTypeToString(result, (TypeElement) declaredType.asElement(), innerClassSeparator);
     return result.toString();
   }
 
@@ -134,7 +139,7 @@ final class CodeGen {
     }, null);
   }
 
-  private static void rawTypeToString(StringBuilder result, TypeElement type,
+  static void rawTypeToString(StringBuilder result, TypeElement type,
       char innerClassSeparator) {
     String packageName = getPackage(type).getQualifiedName().toString();
     String qualifiedName = type.getQualifiedName().toString();
