@@ -33,21 +33,23 @@ final class GeneratorKeys {
   private GeneratorKeys() {
   }
 
-  public static String get(TypeElement type) {
-    return get(type.asType());
+  /**
+   * Returns the members injector key for the raw type of {@code type}.
+   * Parameterized types are not currently supported for members injection in
+   * generated code.
+   */
+  public static String rawMembersKey(TypeMirror type) {
+    return "members/" + CodeGen.rawTypeToString(type, '$');
   }
 
-
-  public static String getMembersKey(TypeMirror type) {
-    return "members/" + get(type);
-  }
-
+  /** Returns the provider key for {@code type}. */
   public static String get(TypeMirror type) {
     StringBuilder result = new StringBuilder();
     CodeGen.typeToString(type, result, '$');
     return result.toString();
   }
 
+  /** Returns the provided key for {@code method}. */
   public static String get(ExecutableElement method) {
     StringBuilder result = new StringBuilder();
     AnnotationMirror qualifier = getQualifier(method.getAnnotationMirrors(), method);
@@ -58,6 +60,7 @@ final class GeneratorKeys {
     return result.toString();
   }
 
+  /** Returns the provider key for {@code parameter}. */
   public static String get(VariableElement parameter) {
     StringBuilder result = new StringBuilder();
     AnnotationMirror qualifier = getQualifier(parameter.getAnnotationMirrors(), parameter);
