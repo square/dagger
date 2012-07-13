@@ -420,10 +420,10 @@ public final class InjectionTest {
   static class ExtendsParameterizedType extends AbstractList<Integer> {
     @Inject String string;
     @Override public Integer get(int i) {
-      return i;
+      throw new AssertionError();
     }
     @Override public int size() {
-      return 5;
+      throw new AssertionError();
     }
   }
 
