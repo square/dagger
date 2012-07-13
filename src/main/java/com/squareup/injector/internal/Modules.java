@@ -16,8 +16,9 @@
 package com.squareup.injector.internal;
 
 import com.squareup.injector.Provides;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -37,7 +38,7 @@ final class Modules {
    * @throws IllegalArgumentException if any bindings are duplicated.
    */
   public static Map<String, Binding<?>> getBindings(Iterable<Object> modules) {
-    Map<String, Binding<?>> result = new HashMap<String, Binding<?>>();
+    UniqueMap<String, Binding<?>> result = new UniqueMap<String, Binding<?>>();
     for (Object module : modules) {
       extractBindings(module, result);
     }
@@ -49,21 +50,32 @@ final class Modules {
    * returned bindings are not attached to a particular injector and cannot be
    * used to inject values.
    */
-  private static void extractBindings(Object module, Map<String, Binding<?>> result) {
+  private static void extractBindings(Object module, UniqueMap<String, Binding<?>> bindings) {
+    // First look for a generated ModuleAdapter.
+    try {
+      String adapter = module.getClass().getName() + "$ModuleAdapter";
+      Class<?> c = Class.forName(adapter);
+      Constructor<?> constructor = c.getConstructor();
+      constructor.setAccessible(true);
+      @SuppressWarnings("unchecked") // We only generate matching module adapters.
+      ModuleAdapter<Object> moduleAdapter = (ModuleAdapter) constructor.newInstance();
+      moduleAdapter.getBindings(module, bindings);
+      return;
+    } catch (Exception ignored) {
+      // TODO: verbose log that code gen isn't enabled for this module
+    }
+
+    // Fall back to runtime reflection.
     int count = 0;
     for (Class<?> c = module.getClass(); c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
-        if (method.getAnnotation(Provides.class) == null
-            && method.getAnnotation(com.google.inject.Provides.class) == null) {
+        if (!method.isAnnotationPresent(Provides.class)
+            && !method.isAnnotationPresent(com.google.inject.Provides.class)) {
           continue;
         }
         count++;
         Binding<?> binding = methodToBinding(module, method);
-        Binding<?> clobbered = result.put(binding.key, binding);
-        if (clobbered != null) {
-          throw new IllegalArgumentException("Duplicate bindings:\n    "
-              + clobbered + "\n    " + binding);
-        }
+        bindings.put(binding.provideKey, binding);
       }
     }
     if (count == 0) {
@@ -74,5 +86,23 @@ final class Modules {
   private static <T> Binding<T> methodToBinding(Object module, Method method) {
     String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
     return new ProviderMethodBinding<T>(method, key, module);
+  }
+
+  /**
+   * A map that fails when existing values are clobbered.
+   */
+  private static class UniqueMap<K, V> extends LinkedHashMap<K, V> {
+    @Override public V put(K key, V value) {
+      V clobbered = super.put(key, value);
+      if (clobbered != null) {
+        throw new IllegalArgumentException("Duplicate:\n    " + clobbered + "\n    " + value);
+      }
+      return null;
+    }
+    @Override public void putAll(Map<? extends K, ? extends V> map) {
+      for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
+        put(entry.getKey(), entry.getValue());
+      }
+    }
   }
 }

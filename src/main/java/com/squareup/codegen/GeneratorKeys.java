@@ -23,6 +23,7 @@ import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Creates keys using javac's mirror APIs. Unlike {@code Keys}, this class uses
@@ -33,8 +34,17 @@ final class GeneratorKeys {
   }
 
   public static String get(TypeElement type) {
+    return get(type.asType());
+  }
+
+
+  public static String getMembersKey(TypeMirror type) {
+    return "members/" + get(type);
+  }
+
+  public static String get(TypeMirror type) {
     StringBuilder result = new StringBuilder();
-    CodeGen.typeToString(type.asType(), result);
+    CodeGen.typeToString(type, result, '$');
     return result.toString();
   }
 
@@ -44,7 +54,7 @@ final class GeneratorKeys {
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    CodeGen.typeToString(method.getReturnType(), result);
+    CodeGen.typeToString(method.getReturnType(), result, '$');
     return result.toString();
   }
 
@@ -54,7 +64,7 @@ final class GeneratorKeys {
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    CodeGen.typeToString(parameter.asType(), result);
+    CodeGen.typeToString(parameter.asType(), result, '$');
     return result.toString();
   }
 

@@ -30,6 +30,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
+import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -50,13 +51,18 @@ import static java.lang.reflect.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
-@SupportedAnnotationTypes("com.squareup.injector.Provides")
+@SupportedAnnotationTypes(
+    value = {
+        "com.squareup.injector.Provides",
+        "com.google.inject.Provides"
+    }
+)
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
   private static final String BINDINGS_MAP = CodeGen.parameterizedType(
       Map.class, String.class.getName(), Binding.class.getName() + "<?>");
-  private static final String BINDINGS_HASH_MAP = CodeGen.parameterizedType(
-      HashMap.class, String.class.getName(), Binding.class.getName() + "<?>");
+
+  // TODO: include @Provides methods from the superclass
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
@@ -141,14 +147,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
         CodeGen.parameterizedType(ModuleAdapter.class, typeName));
 
     writer.annotation(Override.class);
-    writer.beginMethod(BINDINGS_MAP, "getBindings", PUBLIC, typeName, "module");
-    writer.statement("%s result = new %s()", BINDINGS_MAP, BINDINGS_HASH_MAP);
+    writer.beginMethod("void", "getBindings", PUBLIC, typeName, "module", BINDINGS_MAP, "map");
     for (ExecutableElement providerMethod : providerMethods) {
       String key = GeneratorKeys.get(providerMethod);
-      writer.statement("result.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+      writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
           providerMethod.getSimpleName().toString() + "Binding");
     }
-    writer.statement("return result");
     writer.endMethod();
 
     for (ExecutableElement providerMethod : providerMethods) {
@@ -162,7 +166,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
   private void writeBindingClass(JavaWriter writer, ExecutableElement providerMethod)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
-    String key = GeneratorKeys.get(providerMethod);
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
     String className = providerMethod.getSimpleName() + "Binding";
     String returnType = CodeGen.typeToString(providerMethod.getReturnType());
@@ -178,10 +181,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
 
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
-    boolean singleton = true; // TODO
-    boolean injectMembersOnly = false;
-    writer.statement("super(%s, %s, %s, %s.class)", JavaWriter.stringLiteral(key), singleton,
-        injectMembersOnly, moduleType);
+    boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
+    String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
+    String membersKey = null;
+    writer.statement("super(%s, %s, %s /*singleton*/, %s.class)",
+        key, membersKey, singleton, moduleType);
     writer.statement("this.module = module");
     writer.endMethod();
 
@@ -190,7 +194,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (int p = 0; p < parameters.size(); p++) {
       VariableElement parameter = parameters.get(p);
       String parameterKey = GeneratorKeys.get(parameter);
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
           parameterName(p),
           CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameter.asType())),
           JavaWriter.stringLiteral(parameterKey), moduleType);

@@ -41,7 +41,7 @@ public final class ProblemDetector {
       if (done.add(root)) {
         try {
           detectCircularDependencies(root);
-        } catch (Exception e) {
+        } catch (IllegalStateException e) {
           if (message == null) {
             message = new StringBuilder().append("Graph problems:");
           }
@@ -62,10 +62,10 @@ public final class ProblemDetector {
           .append("Dependency cycle:");
       for (int i = index; i < path.size(); i++) {
         message.append("\n    ").append(i - index).append(". ")
-            .append(path.get(i).key).append(" bound by ").append(path.get(i));
+            .append(path.get(i).provideKey).append(" bound by ").append(path.get(i));
       }
-      message.append("\n    ").append(0).append(". ").append(binding.key);
-      throw new RuntimeException(message.toString());
+      message.append("\n    ").append(0).append(". ").append(binding.provideKey);
+      throw new IllegalStateException(message.toString());
     }
 
     path.add(binding);

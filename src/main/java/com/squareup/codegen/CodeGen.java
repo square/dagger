@@ -42,17 +42,28 @@ final class CodeGen {
   }
 
   /**
-   * Returns a fully qualified class name to complement {@code type}. The
-   * returned class is in the same package as {@code type}. This supports nested
-   * classes by using a '$' instead of '.' for nesting:  "java.util.Map.Entry"
-   * becomes "java.util.Map$Entry".
+   * Returns the supertype, or {@code null} if the supertype is a platform
+   * class. This is intended for annotation processors that assume platform
+   * classes will never be annotated with application annotations.
    */
-  public static String adapterName(TypeElement typeName, String suffix) {
-    String packageName = CodeGen.getPackage(typeName).getQualifiedName().toString();
-    String qualifiedName = typeName.getQualifiedName().toString();
-    return packageName + '.'
-        + qualifiedName.substring(packageName.length() + 1).replace('.', '$')
-        + suffix;
+  public static TypeMirror getApplicationSupertype(TypeElement type) {
+    TypeMirror supertype = type.getSuperclass();
+    String supertypeName = supertype.toString();
+    if (supertypeName.startsWith("android.")
+        || supertypeName.startsWith("java.")
+        || supertypeName.startsWith("javax.")) {
+      return null;
+    } else {
+      return supertype;
+    }
+  }
+
+  /** Returns a fully qualified class name to complement {@code type}. */
+  public static String adapterName(TypeElement typeElement, String suffix) {
+    StringBuilder builder = new StringBuilder();
+    rawTypeToString(builder, typeElement, '$');
+    builder.append(suffix);
+    return builder.toString();
   }
 
   /** Returns a string like {@code java.util.List<java.lang.String>}. */
@@ -73,14 +84,25 @@ final class CodeGen {
   /** Returns a string for {@code type}. Primitive types are always boxed. */
   public static String typeToString(TypeMirror type) {
     StringBuilder result = new StringBuilder();
-    typeToString(type, result);
+    typeToString(type, result, '.');
     return result.toString();
   }
 
-  public static void typeToString(final TypeMirror type, final StringBuilder result) {
+  /**
+   * Appends a string for {@code type} to {@code result}. Primitive types are
+   * always boxed.
+   *
+   * @param innerClassSeparator either '.' or '$', which will appear in a
+   *     class name like "java.lang.Map.Entry" or "java.lang.Map$Entry".
+   *     Use '.' for references to existing types in code. Use '$' to define new
+   *     class names and for strings that will be used by runtime reflection.
+   */
+  public static void typeToString(final TypeMirror type, final StringBuilder result,
+      final char innerClassSeparator) {
     type.accept(new SimpleTypeVisitor6<Void, Void>() {
       @Override public Void visitDeclared(DeclaredType declaredType, Void v) {
-        result.append(((TypeElement) declaredType.asElement()).getQualifiedName().toString());
+        TypeElement typeElement = (TypeElement) declaredType.asElement();
+        rawTypeToString(result, typeElement, innerClassSeparator);
         List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
         if (!typeArguments.isEmpty()) {
           result.append("<");
@@ -88,7 +110,7 @@ final class CodeGen {
             if (i != 0) {
               result.append(", ");
             }
-            typeToString(typeArguments.get(i), result);
+            typeToString(typeArguments.get(i), result, innerClassSeparator);
           }
           result.append(">");
         }
@@ -99,7 +121,7 @@ final class CodeGen {
         return null;
       }
       @Override public Void visitArray(ArrayType arrayType, Void aVoid) {
-        typeToString(arrayType.getComponentType(), result);
+        typeToString(arrayType.getComponentType(), result, innerClassSeparator);
         result.append("[]");
         return null;
       }
@@ -110,6 +132,16 @@ final class CodeGen {
         throw new UnsupportedOperationException("Unexpected type " + typeMirror);
       }
     }, null);
+  }
+
+  private static void rawTypeToString(StringBuilder result, TypeElement type,
+      char innerClassSeparator) {
+    String packageName = getPackage(type).getQualifiedName().toString();
+    String qualifiedName = type.getQualifiedName().toString();
+    result.append(packageName);
+    result.append('.');
+    result.append(
+        qualifiedName.substring(packageName.length() + 1).replace('.', innerClassSeparator));
   }
 
   private static Class<?> box(PrimitiveType primitiveType) {

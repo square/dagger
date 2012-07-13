@@ -188,4 +188,37 @@ public final class MembersInjectorTest {
     } catch (IllegalArgumentException expected) {
     }
   }
+
+  @Test public void providesMethodsAndMembersInjectionDoNotConflict() {
+    class InjectsString {
+      @Inject String value;
+    }
+
+    class TestEntryPoint {
+      @Inject Provider<InjectsString> provider;
+      @Inject MembersInjector<InjectsString> membersInjector;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides InjectsString provideInjectsString() {
+        InjectsString result = new InjectsString();
+        result.value = "provides";
+        return result;
+      }
+      @Provides String provideString() {
+        return "members";
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+
+    InjectsString provided = entryPoint.provider.get();
+    assertThat(provided.value).isEqualTo("provides");
+
+    InjectsString membersInjected = new InjectsString();
+    entryPoint.membersInjector.injectMembers(membersInjected);
+    assertThat(membersInjected.value).isEqualTo("members");
+  }
 }

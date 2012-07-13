@@ -19,15 +19,15 @@ import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Linker;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -44,69 +44,82 @@ import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PUBLIC;
 
 /**
- * Generates an implementation of {@link Binding} that binds an injectable
- * class.
+ * Generates an implementation of {@link Binding} that injects the
+ * {@literal @}{@code Inject}-annotated members of a class.
  */
 @SupportedAnnotationTypes("javax.inject.Inject")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      // TODO: inject superclass fields
-      Map<TypeElement, InjectedClass> injectedClasses = getInjectedClasses(env);
-      for (Map.Entry<TypeElement, InjectedClass> entry : injectedClasses.entrySet()) {
-        InjectedClass injectedClass = entry.getValue();
-        writeInjectAdapter(entry.getKey(), injectedClass.constructor, injectedClass.fields);
+      for (InjectedClass injectedClass : getInjectedClasses(env)) {
+        writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
       }
     } catch (IOException e) {
-      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Code gen failed: " + e);
+      error("Code gen failed: %s", e);
     }
     return true;
   }
 
-  private Map<TypeElement, InjectedClass> getInjectedClasses(RoundEnvironment env) {
-    Map<TypeElement, InjectedClass> classes = new HashMap<TypeElement, InjectedClass>();
+  private Set<InjectedClass> getInjectedClasses(RoundEnvironment env) {
+    // First gather the set of classes that have @Inject-annotated members.
+    Set<TypeElement> injectedTypes = new LinkedHashSet<TypeElement>();
     for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
-      TypeElement declaringType = (TypeElement) element.getEnclosingElement();
-      InjectedClass injectedClass = classes.get(declaringType);
-      if (injectedClass == null) {
-        injectedClass = new InjectedClass();
-        classes.put(declaringType, injectedClass);
-      }
-      if (element.getKind() == ElementKind.FIELD) {
-        injectedClass.fields.add(element);
-      }
-      if (element.getKind() == ElementKind.CONSTRUCTOR) {
-        // TODO: explode if there are multiple @Inject-annotated constructors
-        injectedClass.constructor = (ExecutableElement) element;
-      }
+      injectedTypes.add((TypeElement) element.getEnclosingElement());
     }
 
-    // Find no-args constructors for non-abstract classes that don't have @Inject constructors.
-    for (Map.Entry<TypeElement, InjectedClass> entry : classes.entrySet()) {
-      TypeElement typeElement = entry.getKey();
-      InjectedClass injectedClass = entry.getValue();
-      if (typeElement.getModifiers().contains(Modifier.ABSTRACT)) {
-        if (injectedClass.constructor != null) {
-          processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Abstract class "
-              + typeElement.getQualifiedName() + " must not have an @Injectable constructor.");
-          injectedClass.constructor = null;
-        }
+    // Next get the InjectedClass for each of those.
+    Set<InjectedClass> result = new LinkedHashSet<InjectedClass>();
+    for (TypeElement type : injectedTypes) {
+      result.add(getInjectedClass(type));
+    }
+
+    return result;
+  }
+
+  /**
+   * @param type a type with an @Inject-annotated member.
+   */
+  private InjectedClass getInjectedClass(TypeElement type) {
+    boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
+    ExecutableElement constructor = null;
+    List<Element> fields = new ArrayList<Element>();
+    for (Element member : type.getEnclosedElements()) {
+      if (member.getAnnotation(Inject.class) == null) {
         continue;
       }
-      if (injectedClass.constructor == null) {
-        injectedClass.constructor = getNoArgsConstructor(typeElement);
+
+      switch (member.getKind()) {
+        case FIELD:
+          fields.add(member);
+          break;
+        case CONSTRUCTOR:
+          if (constructor != null) {
+            error("Too many injectable constructors on %s.", type.getQualifiedName());
+          } else if (isAbstract) {
+            error("Abstract class %s must not have an @Inject-annotated constructor.",
+                type.getQualifiedName());
+          }
+          constructor = (ExecutableElement) member;
+          break;
+        default:
+          error("Cannot inject %s", member);
+          break;
       }
     }
 
-    return classes;
+    if (constructor == null && !isAbstract) {
+      constructor = findNoArgsConstructor(type);
+    }
+
+    return new InjectedClass(type, constructor, fields);
   }
 
   /**
    * Returns the no args constructor for {@code typeElement}, or null if no such
    * constructor exists.
    */
-  private ExecutableElement getNoArgsConstructor(TypeElement typeElement) {
+  private ExecutableElement findNoArgsConstructor(TypeElement typeElement) {
     for (Element element : typeElement.getEnclosedElements()) {
       if (element.getKind() != ElementKind.CONSTRUCTOR) {
         continue;
@@ -119,6 +132,10 @@ public final class InjectProcessor extends AbstractProcessor {
     return null;
   }
 
+  private void error(String format, Object... args) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
+  }
+
   /**
    * Write a companion class for {@code type} that extends {@link Binding}.
    *
@@ -127,8 +144,8 @@ public final class InjectProcessor extends AbstractProcessor {
    */
   private void writeInjectAdapter(TypeElement type, ExecutableElement constructor,
       List<Element> fields) throws IOException {
-    String key = GeneratorKeys.get(type);
     String typeName = type.getQualifiedName().toString();
+    TypeMirror supertype = CodeGen.getApplicationSupertype(type);
     String adapterName = CodeGen.adapterName(type, "$InjectAdapter");
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
@@ -154,12 +171,19 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
           fieldName(f), PRIVATE);
     }
+    if (supertype != null) {
+      writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(supertype)),
+          "supertype", PRIVATE);
+    }
 
     writer.beginMethod(null, adapterName, PUBLIC);
-    boolean singleton = true; // TODO
-    boolean injectMembersOnly = constructor == null;
-    writer.statement("super(%s, %s, %s, %s.class)",
-        JavaWriter.stringLiteral(key), singleton, injectMembersOnly, typeName);
+    String key = (constructor != null)
+        ? JavaWriter.stringLiteral(GeneratorKeys.get(type))
+        : null;
+    String membersKey = JavaWriter.stringLiteral(GeneratorKeys.getMembersKey(type.asType()));
+    boolean singleton = type.getAnnotation(Singleton.class) != null;
+    writer.statement("super(%s, %s, %s /*singleton*/, %s.class)",
+        key, membersKey, singleton, typeName);
     writer.endMethod();
 
     writer.annotation(Override.class);
@@ -167,7 +191,7 @@ public final class InjectProcessor extends AbstractProcessor {
     if (constructor != null) {
       for (int p = 0; p < constructor.getParameters().size(); p++) {
         TypeMirror parameterType = constructor.getParameters().get(p).asType();
-        writer.statement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
+        writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
             constructorParameterName(p),
             CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameterType)),
             JavaWriter.stringLiteral(GeneratorKeys.get(constructor.getParameters().get(p))),
@@ -176,10 +200,17 @@ public final class InjectProcessor extends AbstractProcessor {
     }
     for (int f = 0; f < fields.size(); f++) {
       TypeMirror fieldType = fields.get(f).asType();
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
           fieldName(f),
           CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
           JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) fields.get(f))),
+          typeName);
+    }
+    if (supertype != null) {
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
+          "supertype",
+          CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(supertype)),
+          JavaWriter.stringLiteral(GeneratorKeys.getMembersKey(supertype)),
           typeName);
     }
     writer.endMethod();
@@ -211,6 +242,9 @@ public final class InjectProcessor extends AbstractProcessor {
           fields.get(f).getSimpleName().toString(),
           fieldName(f));
     }
+    if (supertype != null) {
+      writer.statement("supertype.injectMembers(object)");
+    }
     writer.endMethod();
 
     writer.endType();
@@ -226,7 +260,14 @@ public final class InjectProcessor extends AbstractProcessor {
   }
 
   static class InjectedClass {
-    ExecutableElement constructor;
-    List<Element> fields = new ArrayList<Element>();
+    final TypeElement type;
+    final ExecutableElement constructor;
+    final List<Element> fields;
+
+    InjectedClass(TypeElement type, ExecutableElement constructor, List<Element> fields) {
+      this.type = type;
+      this.constructor = constructor;
+      this.fields = fields;
+    }
   }
 }

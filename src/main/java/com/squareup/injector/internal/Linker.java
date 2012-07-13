@@ -15,7 +15,7 @@
  */
 package com.squareup.injector.internal;
 
-import java.lang.reflect.Modifier;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -49,7 +49,7 @@ public final class Linker {
    */
   public void installModules(Iterable<Object> modules) {
     for (Binding<?> binding : Modules.getBindings(modules).values()) {
-      putBinding(binding);
+      bindings.put(binding.provideKey, scope(binding));
     }
   }
 
@@ -78,17 +78,22 @@ public final class Linker {
     Binding binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
-        if (bindings.get(binding.key) != null) {
+        String key = ((DeferredBinding<?>) binding).deferredKey;
+        if (bindings.get(key) != null) {
           continue; // A binding for this key has since been linked.
         }
         try {
-          Binding<?> jitBinding = createJitBinding((DeferredBinding<?>) binding);
+          Binding<?> jitBinding = createJitBinding(key, binding.requiredBy);
+          // Fail if the type of binding we got wasn't capable of what was requested.
+          if (!key.equals(jitBinding.provideKey) && !key.equals(jitBinding.membersKey)) {
+            throw new IllegalStateException("Unable to create binding for " + key);
+          }
           // Enqueue the JIT binding so its own dependencies can be linked.
           toLink.add(jitBinding);
           putBinding(jitBinding);
         } catch (Exception e) {
           addError(e.getMessage() + " required by " + binding.requiredBy);
-          putBinding(new UnresolvedBinding<Object>(binding.requiredBy, binding.key));
+          bindings.put(key, Binding.UNRESOLVED);
         }
       } else {
         // Attempt to attach the binding to its dependencies. If any dependency
@@ -125,22 +130,32 @@ public final class Linker {
    *       those classes.
    * </ul>
    */
-  private Binding<?> createJitBinding(DeferredBinding<?> deferred) throws ClassNotFoundException {
-    String delegateKey = Keys.getDelegateKey(deferred.key);
+  private Binding<?> createJitBinding(String key, Object requiredBy) throws ClassNotFoundException {
+    String delegateKey = Keys.getDelegateKey(key);
     if (delegateKey != null) {
-      return new BuiltInBinding<Object>(deferred.key, deferred.requiredBy, delegateKey);
+      return new BuiltInBinding<Object>(key, requiredBy, delegateKey);
     }
 
-    String className = Keys.getClassName(deferred.key);
-    if (className != null && !Keys.isAnnotated(deferred.key)) {
-      // Handle concrete class injections with constructor bindings.
+    String className = Keys.getClassName(key);
+    if (className != null && !Keys.isAnnotated(key)) {
+      // First look for a generated InjectAdapter.
+      try {
+        Class<?> c = Class.forName(className + "$InjectAdapter");
+        Constructor<?> constructor = c.getConstructor();
+        constructor.setAccessible(true);
+        return (Binding<?>) constructor.newInstance();
+      } catch (Exception ignored) {
+        // TODO: verbose log that code gen isn't enabled for this class
+      }
+
+      // Handle class bindings by injecting @Inject-annotated members.
       Class<?> c = Class.forName(className);
-      if (!c.isInterface() && !Modifier.isAbstract(c.getModifiers())) {
-        return ConstructorBinding.create(c);
+      if (!c.isInterface()) {
+        return AtInjectBinding.create(c, Keys.isMembersInjection(key));
       }
     }
 
-    throw new IllegalArgumentException("No binding for " + deferred.key);
+    throw new IllegalArgumentException("No binding for " + key);
   }
 
   /**
@@ -148,11 +163,12 @@ public final class Linker {
    * null. If the returned binding didn't exist or was unlinked, it will be
    * enqueued to be linked.
    */
-  public Binding<?> requestBinding(String key, Object requiredBy, boolean needMembersOnly) {
+  public Binding<?> requestBinding(String key, Object requiredBy) {
     Binding<?> binding = bindings.get(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
-      toLink.add(new DeferredBinding<Object>(requiredBy, key));
+      DeferredBinding<Object> deferredBinding = new DeferredBinding<Object>(key, requiredBy);
+      toLink.add(deferredBinding);
       attachSuccess = false;
       return null;
     }
@@ -161,43 +177,64 @@ public final class Linker {
       toLink.add(binding); // This binding was never linked; link it now!
     }
 
-    if (!needMembersOnly && binding.injectMembersOnly) {
-      errors.add(requiredBy + " injects " + binding.key
-          + ", but that type supports members injection only");
-      return null;
-    }
-
     return binding;
   }
 
-  private <T> void putBinding(final Binding<T> binding) {
-    Binding<T> toInsert = binding;
-    if (binding.singleton) {
-      toInsert = new Binding<T>(binding.key, true, binding.injectMembersOnly, binding.requiredBy) {
-        private Object onlyInstance = UNINITIALIZED;
-        @Override public void attach(Linker linker) {
-          binding.attach(linker);
-        }
-        @Override public void injectMembers(T t) {
-          binding.injectMembers(t);
-        }
-        @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
-        @Override public T get() {
-          if (onlyInstance == UNINITIALIZED) {
-            onlyInstance = binding.get();
-          }
-          return (T) onlyInstance;
-        }
-        @Override public Binding<?>[] getDependencies() {
-          return binding.getDependencies();
-        }
-        @Override public String toString() {
-          return binding.toString();
-        }
-      };
+  private <T> void putBinding(Binding<T> binding) {
+    binding = scope(binding);
+
+    // At binding insertion time it's possible that another binding for the same
+    // key to already exist. This occurs when an @Provides method returns a type T
+    // and we also inject the members of that type.
+    if (binding.provideKey != null) {
+      putIfAbsent(bindings, binding.provideKey, binding);
+    }
+    if (binding.membersKey != null) {
+      putIfAbsent(bindings, binding.membersKey, binding);
+    }
+  }
+
+  /**
+   * Returns a scoped binding for {@code binding}.
+   */
+  private <T> Binding<T> scope(final Binding<T> binding) {
+    if (!binding.singleton) {
+      return binding;
     }
 
-    bindings.put(toInsert.key, toInsert);
+    return new Binding<T>(binding.provideKey, binding.membersKey, true, binding.requiredBy) {
+      private Object onlyInstance = UNINITIALIZED;
+      @Override public void attach(Linker linker) {
+        binding.attach(linker);
+      }
+      @Override public void injectMembers(T t) {
+        binding.injectMembers(t);
+      }
+      @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
+      @Override public T get() {
+        if (onlyInstance == UNINITIALIZED) {
+          onlyInstance = binding.get();
+        }
+        return (T) onlyInstance;
+      }
+      @Override public Binding<?>[] getDependencies() {
+        return binding.getDependencies();
+      }
+      @Override public String toString() {
+        return binding.toString();
+      }
+    };
+  }
+
+  /**
+   * Puts the mapping {@code key, value} in {@code map} if no mapping for {@code
+   * key} already exists.
+   */
+  private <K, V> void putIfAbsent(Map<K, V> map, K key, V value) {
+    V replaced = map.put(key, value); // Optimistic: prefer only one hash operation lookup.
+    if (replaced != null) {
+      map.put(key, replaced);
+    }
   }
 
   private void addError(String message) {
@@ -205,14 +242,10 @@ public final class Linker {
   }
 
   private static class DeferredBinding<T> extends Binding<T> {
-    private DeferredBinding(Object requiredBy, String key) {
-      super(key, false, false, requiredBy);
-    }
-  }
-
-  private static class UnresolvedBinding<T> extends Binding<T> {
-    private UnresolvedBinding(Object definedBy, String key) {
-      super(key, false, false, definedBy);
+    final String deferredKey;
+    private DeferredBinding(String deferredKey, Object requiredBy) {
+      super(null, null, false, requiredBy);
+      this.deferredKey = deferredKey;
     }
   }
 }
