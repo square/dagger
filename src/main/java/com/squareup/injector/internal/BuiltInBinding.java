@@ -20,17 +20,15 @@ package com.squareup.injector.internal;
  */
 final class BuiltInBinding<T> extends Binding<T> {
   private final String delegateKey;
-  private final boolean needMembersOnly;
   private Binding<?> delegate;
 
   public BuiltInBinding(String key, Object requiredBy, String delegateKey) {
-    super(key, false, false, requiredBy);
+    super(key, null, false, requiredBy);
     this.delegateKey = delegateKey;
-    this.needMembersOnly = Keys.isMembersInjector(key);
   }
 
   @Override public void attach(Linker linker) {
-    delegate = linker.requestBinding(delegateKey, requiredBy, needMembersOnly);
+    delegate = linker.requestBinding(delegateKey, requiredBy);
   }
 
   @Override public void injectMembers(T t) {

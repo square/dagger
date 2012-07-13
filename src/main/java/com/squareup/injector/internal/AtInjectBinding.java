@@ -27,21 +27,22 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * A binding that uses the constructor of a concrete class.
+ * A binding that injects the constructor and fields of a class.
  */
-final class ConstructorBinding<T> extends Binding<T> {
+final class AtInjectBinding<T> extends Binding<T> {
   private final Constructor<T> constructor;
   private final Field[] fields;
   private Binding<?>[] parameters;
   private Binding<?>[] fieldBindings;
+  // TODO: delegate to supertype members injector (which may be generated)
 
   /**
    * @param constructor the injectable constructor, or null if this binding
    *     supports members injection only.
    */
-  private ConstructorBinding(String key, boolean singleton, Class<?> type,
+  private AtInjectBinding(String key, String membersKey, boolean singleton, Class<?> type,
       Constructor<T> constructor, Field[] fields) {
-    super(key, singleton, constructor == null, type);
+    super(key, membersKey, singleton, type);
     this.constructor = constructor;
     this.fields = fields;
   }
@@ -52,7 +53,7 @@ final class ConstructorBinding<T> extends Binding<T> {
     for (int i = 0; i < fields.length; i++) {
       Field field = fields[i];
       String fieldKey = Keys.get(field.getGenericType(), field.getAnnotations(), field);
-      fieldBindings[i] = linker.requestBinding(fieldKey, field, false);
+      fieldBindings[i] = linker.requestBinding(fieldKey, field);
     }
 
     // Constructor bindings.
@@ -62,7 +63,7 @@ final class ConstructorBinding<T> extends Binding<T> {
       parameters = new Binding[types.length];
       for (int i = 0; i < parameters.length; i++) {
         String key = Keys.get(types[i], annotations[i], constructor + " parameter " + i);
-        parameters[i] = linker.requestBinding(key, constructor, false);
+        parameters[i] = linker.requestBinding(key, constructor);
       }
     }
   }
@@ -110,10 +111,15 @@ final class ConstructorBinding<T> extends Binding<T> {
   }
 
   @Override public String toString() {
-    return key;
+    return provideKey != null ? provideKey : membersKey;
   }
 
-  public static <T> Binding<T> create(Class<T> type) {
+  /**
+   * @param forMembersInjection true if the binding is being created to inject
+   *     members only. Such injections do not require {@code @Inject}
+   *     annotations.
+   */
+  public static <T> Binding<T> create(Class<T> type, boolean forMembersInjection) {
     /*
      * Lookup the injectable fields and their corresponding keys.
      */
@@ -143,29 +149,33 @@ final class ConstructorBinding<T> extends Binding<T> {
       }
       injectedConstructor = constructor;
     }
+
     if (injectedConstructor == null) {
-      if (injectedFields.isEmpty()) {
+      if (injectedFields.isEmpty() && !forMembersInjection) {
         throw new IllegalArgumentException("No injectable members on " + type.getName()
             + ". Do you want to add an injectable constructor?");
       }
       try {
         injectedConstructor = type.getDeclaredConstructor();
-      } catch (NoSuchMethodException e) {
-        injectedConstructor = null;
+      } catch (NoSuchMethodException ignored) {
       }
     }
 
-    if (injectedConstructor != null) {
-      injectedConstructor.setAccessible(true);
-    }
-
+    String key;
     boolean singleton = type.isAnnotationPresent(Singleton.class);
-    if (singleton && injectedConstructor == null) {
-      throw new IllegalArgumentException(
-          "No injectable constructor on @Singleton " + type.getName());
+    if (injectedConstructor != null) {
+      key = Keys.get(type);
+      injectedConstructor.setAccessible(true);
+    } else {
+      key = null;
+      if (singleton) {
+        throw new IllegalArgumentException(
+            "No injectable constructor on @Singleton " + type.getName());
+      }
     }
 
-    return new ConstructorBinding<T>(Keys.get(type, null), singleton, type, injectedConstructor,
+    String membersKey = Keys.getMembersKey(type);
+    return new AtInjectBinding<T>(key, membersKey, singleton, type, injectedConstructor,
         injectedFields.toArray(new Field[injectedFields.size()]));
   }
 }

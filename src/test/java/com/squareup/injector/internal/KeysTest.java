@@ -104,7 +104,7 @@ public final class KeysTest {
   @Named("/@") String injectedType;
   @Test public void testGetDelegateKeyWithMembersInjector() throws NoSuchFieldException {
     assertThat(Keys.getDelegateKey(fieldKey("membersInjectorOfType")))
-        .isEqualTo(fieldKey("injectedType"));
+        .isEqualTo("members/java.lang.String");
   }
 
   private String fieldKey(String fieldName) throws NoSuchFieldException {

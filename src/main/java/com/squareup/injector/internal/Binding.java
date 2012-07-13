@@ -21,22 +21,30 @@ import javax.inject.Provider;
 /**
  * Injects a value of a specific type.
  */
-public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
+public class Binding<T> implements Provider<T>, MembersInjector<T>,
     com.google.inject.Provider<T>, com.google.inject.MembersInjector<T> {
-  public final String key;
+  public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null);
+
+  /** The key used to provide instances of 'T', or null if this binding cannot provide instances. */
+  public final String provideKey;
+
+  /** The key used to inject members of 'T', or null if this binding cannot inject members. */
+  public final String membersKey;
+
+  /** True if the provided instance is always the same object. */
   public final boolean singleton;
-  public final boolean injectMembersOnly;
+
   public final Object requiredBy;
   public boolean linked;
 
-  protected Binding(String key, boolean singleton, boolean injectMembersOnly, Object requiredBy) {
-    if (singleton && injectMembersOnly) {
+  protected Binding(String provideKey, String membersKey, boolean singleton, Object requiredBy) {
+    if (singleton && provideKey == null) {
       throw new IllegalArgumentException();
     }
-    this.requiredBy = requiredBy;
+    this.provideKey = provideKey;
+    this.membersKey = membersKey;
     this.singleton = singleton;
-    this.injectMembersOnly = injectMembersOnly;
-    this.key = key;
+    this.requiredBy = requiredBy;
   }
 
   /**
@@ -46,14 +54,15 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T>,
   }
 
   @Override public void injectMembers(T t) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException(getClass().getName());
   }
 
   @Override public T get() {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException(getClass().getName());
   }
 
+  // TODO: split up dependencies for get() and injectMembers().
   public Binding<?>[] getDependencies() {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException(getClass().getName());
   }
 }

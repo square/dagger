@@ -30,7 +30,7 @@ final class ProviderMethodBinding<T> extends Binding<T> {
   private final Object instance;
 
   public ProviderMethodBinding(Method method, String key, Object instance) {
-    super(key, method.isAnnotationPresent(Singleton.class), false, method);
+    super(key, null, method.isAnnotationPresent(Singleton.class), method);
     this.method = method;
     this.instance = instance;
     method.setAccessible(true);
@@ -42,7 +42,7 @@ final class ProviderMethodBinding<T> extends Binding<T> {
     parameters = new Binding[types.length];
     for (int i = 0; i < parameters.length; i++) {
       String key = Keys.get(types[i], annotations[i], method + " parameter " + i);
-      parameters[i] = linker.requestBinding(key, method, false);
+      parameters[i] = linker.requestBinding(key, method);
     }
   }
 

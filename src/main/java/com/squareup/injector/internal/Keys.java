@@ -24,12 +24,17 @@ import javax.inject.Provider;
 import javax.inject.Qualifier;
 
 /**
- * Formats strings that identify the value to be injected.
- *
- * <h3>Implementation Note</h3>
- * This currently formats keys by concatenating the annotation name, a slash
- * "/", and the type name. Parameterized types are formatted with ", " between
- * type parameters. The exact key format may change in a future release.
+ * Formats strings that identify the value to be injected. Keys are of one of
+ * three forms:
+ * <ol>
+ *   <li>{@code com.square.Foo}: provides instances of Foo.
+ *   <li>{@code @com.square.Bar/com.square.Foo}: provides instances of Foo
+ *       qualified by the annotation.
+ *   <li>{@code members/com.square.Foo}: injects members of Foo.
+ * </ol>
+ * Bindings from {@code @Provides} methods are of the first two types. Bindings
+ * created from {@code @Inject}-annotated members of a class are of the first
+ * and last types.
  */
 public final class Keys {
   private static final String PROVIDER_PREFIX = Provider.class.getName() + "<";
@@ -52,6 +57,12 @@ public final class Keys {
   /** Returns a key for {@code type} with no annotation. */
   public static String get(Type type) {
     return get(type, null);
+  }
+
+
+  /** Returns a key for the members of {@code type}. */
+  public static String getMembersKey(Class<?> key) {
+    return "members/" + get(key);
   }
 
   /** Returns a key for {@code type} annotated by {@code annotation}. */
@@ -137,19 +148,24 @@ public final class Keys {
       start = key.lastIndexOf('/') + 1;
     }
 
+    String delegatePrefix;
     String wrapperPrefix;
     if (substringStartsWith(key, start, PROVIDER_PREFIX)) {
+      delegatePrefix = key.substring(0, start);
       wrapperPrefix = PROVIDER_PREFIX;
     } else if (substringStartsWith(key, start, GUICE_PROVIDER_PREFIX)) {
+      delegatePrefix = key.substring(0, start);
       wrapperPrefix = GUICE_PROVIDER_PREFIX;
     } else if (substringStartsWith(key, start, MEMBERS_INJECTOR_PREFIX)) {
+      delegatePrefix = "members/";
       wrapperPrefix = MEMBERS_INJECTOR_PREFIX;
     } else if (substringStartsWith(key, start, GUICE_MEMBERS_INJECTOR_PREFIX)) {
+      delegatePrefix = "members/";
       wrapperPrefix = GUICE_MEMBERS_INJECTOR_PREFIX;
     } else {
       return null;
     }
-    return key.substring(0, start)
+    return delegatePrefix
         + key.substring(start + wrapperPrefix.length(), key.length() - 1);
   }
 
@@ -158,14 +174,9 @@ public final class Keys {
     return string.regionMatches(offset, substring, 0, substring.length());
   }
 
-  /** Returns true if {@code key} is a binding to a {@code MembersInjector}. */
-  public static boolean isMembersInjector(String key) {
-    int start = 0;
-    if (key.startsWith("@")) {
-      start = key.lastIndexOf('/') + 1;
-    }
-    return substringStartsWith(key, start, MEMBERS_INJECTOR_PREFIX)
-        || substringStartsWith(key, start, GUICE_MEMBERS_INJECTOR_PREFIX);
+  /** Returns true if {@code key} is a binding that supports members injection. */
+  public static boolean isMembersInjection(String key) {
+    return key.startsWith("members/");
   }
 
   /** Returns true if {@code key} has a qualifier annotation. */
@@ -180,7 +191,7 @@ public final class Keys {
    */
   public static String getClassName(String key) {
     int start = 0;
-    if (key.startsWith("@")) {
+    if (key.startsWith("@") || key.startsWith("members/")) {
       start = key.lastIndexOf('/') + 1;
     }
     return (key.indexOf('<', start) == -1 && key.indexOf('[') == -1)

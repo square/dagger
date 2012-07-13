@@ -23,5 +23,5 @@ import java.util.Map;
  * @author Jesse Wilson
  */
 public interface ModuleAdapter<T> {
-  Map<String, Binding<?>> getBindings(T t);
+  void getBindings(T t, Map<String, Binding<?>> map);
 }
