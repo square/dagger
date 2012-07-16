@@ -16,6 +16,7 @@
 package com.squareup.injector.internal;
 
 import com.squareup.injector.MembersInjector;
+import java.util.Set;
 import javax.inject.Provider;
 
 /**
@@ -61,8 +62,18 @@ public class Binding<T> implements Provider<T>, MembersInjector<T>,
     throw new UnsupportedOperationException(getClass().getName());
   }
 
-  // TODO: split up dependencies for get() and injectMembers().
-  public Binding<?>[] getDependencies() {
+  /**
+   * Populates {@code getBindings} and {@code injectMembersBindings} with the
+   * bindings used by this binding to satisfy {@link #get} and {@link
+   * #injectMembers} calls, respectively.
+   *
+   * @param getBindings the bindings required by this binding's {@code get}
+   *     method. Although {@code get} usually calls into {@code injectMembers},
+   *     this <i>does not</i> contain the injectMembers bindings.
+   * @param injectMembersBindings the bindings required by this binding's {@code
+   *     injectMembers} method.
+   */
+  public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
     throw new UnsupportedOperationException(getClass().getName());
   }
 }

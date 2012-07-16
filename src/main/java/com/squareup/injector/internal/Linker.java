@@ -15,6 +15,7 @@
  */
 package com.squareup.injector.internal;
 
+import com.squareup.injector.ObjectGraph;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,11 +24,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Links bindings to their dependencies.
  */
 public final class Linker {
+  private static final Logger LOGGER = Logger.getLogger(ObjectGraph.class.getName());
   private static final Object UNINITIALIZED = new Object();
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
@@ -144,8 +149,9 @@ public final class Linker {
         Constructor<?> constructor = c.getConstructor();
         constructor.setAccessible(true);
         return (Binding<?>) constructor.newInstance();
-      } catch (Exception ignored) {
-        // TODO: verbose log that code gen isn't enabled for this class
+      } catch (Exception e) {
+        LOGGER.log(Level.FINE, "No generated inject adapter for " + className
+            + ". Falling back to reflection.", e);
       }
 
       // Handle class bindings by injecting @Inject-annotated members.
@@ -217,8 +223,8 @@ public final class Linker {
         }
         return (T) onlyInstance;
       }
-      @Override public Binding<?>[] getDependencies() {
-        return binding.getDependencies();
+      @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+        binding.getDependencies(get, injectMembers);
       }
       @Override public String toString() {
         return binding.toString();

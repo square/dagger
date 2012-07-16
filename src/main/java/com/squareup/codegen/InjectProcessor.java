@@ -154,6 +154,7 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
     writer.addImport(Binding.class);
     writer.addImport(Linker.class);
+    writer.addImport(Set.class);
 
     writer.beginType(adapterName, "class", FINAL,
         CodeGen.parameterizedType(Binding.class, typeName));
@@ -244,6 +245,23 @@ public final class InjectProcessor extends AbstractProcessor {
     }
     if (supertype != null) {
       writer.statement("supertype.injectMembers(object)");
+    }
+    writer.endMethod();
+
+    writer.annotation(Override.class);
+    String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
+    writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
+        setOfBindings, "injectMembersBindings");
+    if (constructor != null) {
+      for (int p = 0; p < constructor.getParameters().size(); p++) {
+        writer.statement("getBindings.add(%s)", constructorParameterName(p));
+      }
+    }
+    for (int f = 0; f < fields.size(); f++) {
+      writer.statement("injectMembersBindings.add(%s)", fieldName(f));
+    }
+    if (supertype != null) {
+      writer.statement("injectMembersBindings.add(%s)", "supertype");
     }
     writer.endMethod();
 

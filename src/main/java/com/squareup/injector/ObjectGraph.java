@@ -34,14 +34,15 @@ import java.util.Map;
  *   <li>Field injection. A class may have any number of field injections, and
  *       fields may be of any visibility. Static fields will be injected each
  *       time an instance is injected.
- *   <li>Constructor injection. A class may have a single {@code
- *       @Inject}-annotated constructor. Classes that have fields injected
- *       may omit the {@link @Inject} annotation if they have a public
+ *   <li>Constructor injection. A class may have a single
+ *       {@code @Inject}-annotated constructor. Classes that have fields
+ *       injected may omit the {@link @Inject} annotation if they have a public
  *       no-arguments constructor.
  *   <li>Injection of {@code @Provides} method parameters.
  *   <li>{@code @Provides} methods annotated {@code @Singleton}.
  *   <li>Constructor-injected classes annotated {@code @Singleton}.
  *   <li>Injection of {@link javax.inject.Provider}s.
+ *   <li>Injection of {@link MembersInjector}s.
  *   <li>Qualifier annotations on injected parameters and fields.
  *   <li>JSR 330 annotations.
  * </ul>
@@ -57,7 +58,7 @@ public final class ObjectGraph {
   private final Map<Class<?>, StaticInjection> staticInjections;
   private final Map<Class<?>, Class<?>> entryPoints;
 
-  public ObjectGraph(Linker linker, Map<Class<?>, StaticInjection> staticInjections,
+  private ObjectGraph(Linker linker, Map<Class<?>, StaticInjection> staticInjections,
       Map<Class<?>, Class<?>> entryPoints) {
     this.linker = linker;
     this.staticInjections = staticInjections;

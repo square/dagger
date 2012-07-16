@@ -19,6 +19,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.util.Set;
 import javax.inject.Singleton;
 
 /**
@@ -61,8 +62,10 @@ final class ProviderMethodBinding<T> extends Binding<T> {
     }
   }
 
-  @Override public Binding<?>[] getDependencies() {
-    return parameters;
+  @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+    for (Binding binding : parameters) {
+      get.add(binding);
+    }
   }
 
   @Override public String toString() {

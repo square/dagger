@@ -17,6 +17,7 @@ package com.squareup.injector.internal;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -26,8 +27,6 @@ import java.util.Set;
  * Detects problems like cyclic dependencies.
  */
 public final class ProblemDetector {
-  // TODO: perform 2-phase injection to avoid some circular dependency problems
-
   Set<Binding<?>> done = new HashSet<Binding<?>>();
   Queue<Binding<?>> roots = new LinkedList<Binding<?>>();
   List<Binding<?>> path = new LinkedList<Binding<?>>();
@@ -70,7 +69,10 @@ public final class ProblemDetector {
 
     path.add(binding);
     try {
-      for (Binding<?> dependency : binding.getDependencies()) {
+      // TODO: perform 2-phase injection to avoid some circular dependency problems
+      Set<Binding<?>> dependencies = new LinkedHashSet<Binding<?>>();
+      binding.getDependencies(dependencies, dependencies);
+      for (Binding<?> dependency : dependencies) {
         if (dependency instanceof BuiltInBinding) {
           roots.add(((BuiltInBinding<?>) dependency).getDelegate());
         } else {
