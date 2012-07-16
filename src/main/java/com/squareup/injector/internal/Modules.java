@@ -52,17 +52,20 @@ final class Modules {
    */
   private static void extractBindings(Object module, UniqueMap<String, Binding<?>> bindings) {
     // First look for a generated ModuleAdapter.
+    ModuleAdapter<Object> moduleAdapter = null;
     try {
       String adapter = module.getClass().getName() + "$ModuleAdapter";
       Class<?> c = Class.forName(adapter);
       Constructor<?> constructor = c.getConstructor();
       constructor.setAccessible(true);
-      @SuppressWarnings("unchecked") // We only generate matching module adapters.
-      ModuleAdapter<Object> moduleAdapter = (ModuleAdapter) constructor.newInstance();
-      moduleAdapter.getBindings(module, bindings);
-      return;
+      moduleAdapter = (ModuleAdapter) constructor.newInstance();
     } catch (Exception ignored) {
       // TODO: verbose log that code gen isn't enabled for this module
+    }
+
+    if (moduleAdapter != null) {
+      moduleAdapter.getBindings(module, bindings);
+      return;
     }
 
     // Fall back to runtime reflection.
@@ -95,6 +98,7 @@ final class Modules {
     @Override public V put(K key, V value) {
       V clobbered = super.put(key, value);
       if (clobbered != null) {
+        super.put(key, clobbered); // Put things back as they were.
         throw new IllegalArgumentException("Duplicate:\n    " + clobbered + "\n    " + value);
       }
       return null;
