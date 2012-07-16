@@ -15,11 +15,14 @@
  */
 package com.squareup.injector.internal;
 
+import com.squareup.injector.ObjectGraph;
 import com.squareup.injector.Provides;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Helper methods for dealing with collections of bindings. Any object whose
@@ -29,6 +32,8 @@ import java.util.Map;
  * @author Jesse Wilson
  */
 final class Modules {
+  private static final Logger LOGGER = Logger.getLogger(ObjectGraph.class.getName());
+
   private Modules() {
   }
 
@@ -59,8 +64,9 @@ final class Modules {
       Constructor<?> constructor = c.getConstructor();
       constructor.setAccessible(true);
       moduleAdapter = (ModuleAdapter) constructor.newInstance();
-    } catch (Exception ignored) {
-      // TODO: verbose log that code gen isn't enabled for this module
+    } catch (Exception e) {
+      LOGGER.log(Level.FINE, "No generated module for " + module.getClass().getName()
+          + ". Falling back to reflection.", e);
     }
 
     if (moduleAdapter != null) {

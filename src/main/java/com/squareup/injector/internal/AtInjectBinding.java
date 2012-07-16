@@ -23,6 +23,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -111,14 +112,18 @@ final class AtInjectBinding<T> extends Binding<T> {
     }
   }
 
-  @Override public Binding<?>[] getDependencies() {
-    if (parameters == null) {
-      return fieldBindings;
+  @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+    if (parameters != null) {
+      for (Binding<?> binding : parameters) {
+        get.add(binding);
+      }
     }
-    Binding<?>[] result = new Binding<?>[parameters.length + fieldBindings.length];
-    System.arraycopy(parameters, 0, result, 0, parameters.length);
-    System.arraycopy(fieldBindings, 0, result, parameters.length, fieldBindings.length);
-    return result;
+    for (Binding<?> binding : fieldBindings) {
+      injectMembers.add(binding);
+    }
+    if (supertypeBinding != null) {
+      injectMembers.add(supertypeBinding);
+    }
   }
 
   @Override public String toString() {

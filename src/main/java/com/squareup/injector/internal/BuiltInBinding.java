@@ -15,6 +15,8 @@
  */
 package com.squareup.injector.internal;
 
+import java.util.Set;
+
 /**
  * Injects a Provider or a MembersInjector.
  */
@@ -42,5 +44,9 @@ final class BuiltInBinding<T> extends Binding<T> {
 
   public Binding<?> getDelegate() {
     return delegate;
+  }
+
+  @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+    // We don't add 'delegate' because it isn't actually used by get() or injectMembers().
   }
 }

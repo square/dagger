@@ -17,6 +17,8 @@
 package com.squareup.injector;
 
 import java.util.AbstractList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.RandomAccess;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -448,7 +450,62 @@ public final class InjectionTest {
     assertThat(entryPoint.extendsParameterizedType.string).isEqualTo("injected");
   }
 
-  // TODO: test injecting parameterized types
-  // TODO: test injecting wildcard types
-  // TODO: test constructor binding for a class that has a type parameter
+  @Test public void injectParameterizedType() {
+    class TestEntryPoint {
+      @Inject List<String> listOfStrings;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides List<String> provideList() {
+        return Arrays.asList("a", "b");
+      }
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.listOfStrings).isEqualTo(Arrays.asList("a", "b"));
+  }
+
+  @Test public void injectWilcardType() {
+    class TestEntryPoint {
+      @Inject List<? extends Number> listOfNumbers;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides List<? extends Number> provideList() {
+        return Arrays.asList(1, 2);
+      }
+    }
+
+    try {
+      ObjectGraph.get(new TestModule());
+      fail();
+    } catch (UnsupportedOperationException expected) {
+    }
+  }
+
+  @Test public void noConstructorInjectionsForClassesWithTypeParameters() {
+    class Parameterized<T> {
+      @Inject String string;
+    }
+
+    class TestEntryPoint {
+      @Inject Parameterized<Long> parameterized;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    try {
+      ObjectGraph.get(new TestModule());
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+  }
 }

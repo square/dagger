@@ -213,6 +213,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.statement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
 
+    writer.annotation(Override.class);
+    String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
+    writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
+        setOfBindings, "injectMembersBindings");
+    for (int p = 0; p < parameters.size(); p++) {
+      writer.statement("getBindings.add(%s)", parameterName(p));
+    }
+    writer.endMethod();
+
     writer.endType();
   }
 
