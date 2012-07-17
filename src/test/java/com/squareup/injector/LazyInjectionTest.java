@@ -24,9 +24,6 @@ public final class LazyInjectionTest {
   @Test public void getLazyDoesNotCauseEntryPointsToBeLoaded() {
     @Module(entryPoints = LazyEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     ObjectGraph.getLazy(new TestModule());
@@ -81,9 +78,6 @@ public final class LazyInjectionTest {
   @Test public void getLazyDoesNotCauseStaticsToBeLoaded() {
     @Module(staticInjections = LazyInjectStatics.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     ObjectGraph.getLazy(new TestModule());

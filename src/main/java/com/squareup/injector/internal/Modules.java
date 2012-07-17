@@ -75,20 +75,15 @@ final class Modules {
     }
 
     // Fall back to runtime reflection.
-    int count = 0;
     for (Class<?> c = module.getClass(); c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         if (!method.isAnnotationPresent(Provides.class)
             && !method.isAnnotationPresent(com.google.inject.Provides.class)) {
           continue;
         }
-        count++;
         Binding<?> binding = methodToBinding(module, method);
         bindings.put(binding.provideKey, binding);
       }
-    }
-    if (count == 0) {
-      throw new IllegalArgumentException("No @Provides methods on " + module);
     }
   }
 

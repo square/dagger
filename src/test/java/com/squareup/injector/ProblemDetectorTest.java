@@ -28,9 +28,6 @@ public final class ProblemDetectorTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     ObjectGraph graph = ObjectGraph.get(new TestModule());

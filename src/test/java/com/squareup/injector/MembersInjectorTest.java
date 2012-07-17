@@ -88,9 +88,6 @@ public final class MembersInjectorTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
@@ -107,9 +104,6 @@ public final class MembersInjectorTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
@@ -126,9 +120,6 @@ public final class MembersInjectorTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
@@ -177,9 +168,6 @@ public final class MembersInjectorTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
