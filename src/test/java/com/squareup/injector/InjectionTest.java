@@ -103,9 +103,6 @@ public final class InjectionTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
@@ -242,9 +239,6 @@ public final class InjectionTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
@@ -388,9 +382,6 @@ public final class InjectionTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
@@ -407,9 +398,6 @@ public final class InjectionTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides Object unused() {
-        throw new AssertionError();
-      }
     }
 
     try {
@@ -507,5 +495,13 @@ public final class InjectionTest {
       fail();
     } catch (IllegalArgumentException expected) {
     }
+  }
+
+  @Test public void moduleWithNoProvidesMethods() {
+    @Module
+    class TestModule {
+    }
+
+    ObjectGraph.get(new TestModule());
   }
 }
