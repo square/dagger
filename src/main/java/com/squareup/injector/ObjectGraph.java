@@ -18,12 +18,12 @@ package com.squareup.injector;
 import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Keys;
 import com.squareup.injector.internal.Linker;
+import com.squareup.injector.internal.ModuleAdapter;
 import com.squareup.injector.internal.ProblemDetector;
 import com.squareup.injector.internal.StaticInjection;
-import java.util.ArrayList;
+import com.squareup.injector.internal.UniqueMap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -56,10 +56,10 @@ import java.util.Map;
 public final class ObjectGraph {
   private final Linker linker;
   private final Map<Class<?>, StaticInjection> staticInjections;
-  private final Map<Class<?>, Class<?>> entryPoints;
+  private final Map<String, Class<?>> entryPoints;
 
   private ObjectGraph(Linker linker, Map<Class<?>, StaticInjection> staticInjections,
-      Map<Class<?>, Class<?>> entryPoints) {
+      Map<String, Class<?>> entryPoints) {
     this.linker = linker;
     this.staticInjections = staticInjections;
     this.entryPoints = entryPoints;
@@ -82,36 +82,31 @@ public final class ObjectGraph {
   }
 
   private static ObjectGraph get(boolean lazy, Object... modules) {
-    Map<Class<?>, Class<?>> entryPoints = new LinkedHashMap<Class<?>, Class<?>>();
+    Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
     Map<Class<?>, StaticInjection> staticInjections
         = new LinkedHashMap<Class<?>, StaticInjection>();
 
-    List<Object> baseModules = new ArrayList<Object>();
-    List<Object> overrideModules = new ArrayList<Object>();
+    // Extract bindings in the 'base' and 'overrides' set. Within each set no
+    // duplicates are permitted.
+    Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
+    Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
     for (Object module : modules) {
       Class<?> moduleClass = module.getClass();
-      Module annotation = moduleClass.getAnnotation(Module.class);
-      if (annotation == null) {
-        throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
+      ModuleAdapter<Object> adapter = ModuleAdapter.get(module);
+      for (String key : adapter.entryPoints) {
+        entryPoints.put(key, moduleClass);
       }
-      for (Class<?> c : annotation.entryPoints()) {
-        entryPoints.put(c, moduleClass);
-      }
-      for (Class<?> c : annotation.staticInjections()) {
+      for (Class<?> c : adapter.staticInjections) {
         staticInjections.put(c, lazy ? null : StaticInjection.get(c));
       }
-      if (annotation.overrides()) {
-        overrideModules.add(module);
-      } else {
-        baseModules.add(module);
-      }
+      Map<String, Binding<?>> addTo = adapter.overrides ? overrideBindings : baseBindings;
+      adapter.getBindings(module, addTo);
     }
 
-    // Create a linker and install all of the user's modules. Modules provided
-    // at runtime may override modules provided in the @Module annotation.
+    // Create a linker and install all of the user's bindings.
     Linker linker = new Linker();
-    linker.installModules(baseModules);
-    linker.installModules(overrideModules);
+    linker.installBindings(baseBindings);
+    linker.installBindings(overrideBindings);
 
     ObjectGraph result = new ObjectGraph(linker, staticInjections, entryPoints);
 
@@ -137,8 +132,8 @@ public final class ObjectGraph {
   }
 
   private void linkEntryPoints() {
-    for (Map.Entry<Class<?>, Class<?>> entry : entryPoints.entrySet()) {
-      linker.requestBinding(Keys.getMembersKey(entry.getKey()), entry.getValue());
+    for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
+      linker.requestBinding(entry.getKey(), entry.getValue());
     }
   }
 
@@ -180,13 +175,12 @@ public final class ObjectGraph {
    */
   @SuppressWarnings("unchecked") // the linker matches keys to bindings by their type
   public void inject(Object instance) {
-    Class<?> type = instance.getClass();
-    Class<?> moduleClass = entryPoints.get(type);
+    String key = Keys.getMembersKey(instance.getClass());
+    Class<?> moduleClass = entryPoints.get(key);
     if (moduleClass == null) {
-      throw new IllegalArgumentException("No entry point for " + type.getName() + ". "
-          + "You must explicitly add an entry point to one of your modules.");
+      throw new IllegalArgumentException("No entry point for " + instance.getClass().getName()
+          + ". You must explicitly add an entry point to one of your modules.");
     }
-    String key = Keys.getMembersKey(type);
     Binding<?> binding = linker.requestBinding(key, moduleClass);
     if (binding == null || !binding.linked) {
       linker.linkRequested();

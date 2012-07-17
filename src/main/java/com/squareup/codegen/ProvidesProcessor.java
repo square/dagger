@@ -15,6 +15,7 @@
  */
 package com.squareup.codegen;
 
+import com.squareup.injector.Module;
 import com.squareup.injector.Provides;
 import com.squareup.injector.internal.Binding;
 import com.squareup.injector.internal.Linker;
@@ -71,9 +72,13 @@ public final class ProvidesProcessor extends AbstractProcessor {
         writeModuleAdapter(module.getKey(), module.getValue());
       }
     } catch (IOException e) {
-      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Code gen failed: " + e);
+      error("Code gen failed: " + e);
     }
     return true;
+  }
+
+  private void error(String message) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
   }
 
   /**
@@ -131,6 +136,16 @@ public final class ProvidesProcessor extends AbstractProcessor {
    */
   private void writeModuleAdapter(TypeElement type, List<ExecutableElement> providerMethods)
       throws IOException {
+    Map<String, Object> module = CodeGen.getAnnotation(Module.class, type);
+    if (module == null) {
+      error(type + " has @Provides methods but no @Module annotation");
+      return;
+    }
+
+    Object[] staticInjections = (Object[]) module.get("staticInjections");
+    Object[] entryPoints = (Object[]) module.get("entryPoints");
+    boolean overrides = (Boolean) module.get("overrides");
+
     String adapterName = CodeGen.adapterName(type, "$ModuleAdapter");
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
@@ -143,8 +158,31 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.addImport(Linker.class);
 
     String typeName = type.getQualifiedName().toString();
-    writer.beginType(adapterName, "class", PUBLIC | FINAL, null,
+    writer.beginType(adapterName, "class", PUBLIC | FINAL,
         CodeGen.parameterizedType(ModuleAdapter.class, typeName));
+
+    StringBuilder entryPointsField = new StringBuilder().append("{ ");
+    for (Object entryPoint : entryPoints) {
+      TypeMirror typeMirror = (TypeMirror) entryPoint;
+      String key = GeneratorKeys.rawMembersKey(typeMirror);
+      entryPointsField.append(JavaWriter.stringLiteral(key)).append(", ");
+    }
+    entryPointsField.append("}");
+    writer.field("String[]", "ENTRY_POINTS", PRIVATE | STATIC | FINAL,
+        entryPointsField.toString());
+
+    StringBuilder staticInjectionsField = new StringBuilder().append("{ ");
+    for (Object staticInjection : staticInjections) {
+      TypeMirror typeMirror = (TypeMirror) staticInjection;
+      staticInjectionsField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
+    }
+    staticInjectionsField.append("}");
+    writer.field("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
+        staticInjectionsField.toString());
+
+    writer.beginMethod(null, adapterName, PUBLIC);
+    writer.statement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s)", overrides);
+    writer.endMethod();
 
     writer.annotation(Override.class);
     writer.beginMethod("void", "getBindings", PUBLIC, typeName, "module", BINDINGS_MAP, "map");
