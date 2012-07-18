@@ -48,12 +48,11 @@ public final class Linker {
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
   /**
-   * Adds the {@code @Provides} bindings from {@code modules}. There may not
-   * be any duplicated bindings in {@code modules}, though multiple calls to
-   * this method may contain duplicates: last installed wins.
+   * Adds all the bindings from {@code toInstall}. The bindings must be linked
+   * before they can be used.
    */
-  public void installModules(Iterable<Object> modules) {
-    for (Binding<?> binding : Modules.getBindings(modules).values()) {
+  public void installBindings(Map<String, Binding<?>> toInstall) {
+    for (Binding<?> binding : toInstall.values()) {
       bindings.put(binding.provideKey, scope(binding));
     }
   }
@@ -84,7 +83,7 @@ public final class Linker {
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
         String key = ((DeferredBinding<?>) binding).deferredKey;
-        if (bindings.get(key) != null) {
+        if (bindings.containsKey(key)) {
           continue; // A binding for this key has since been linked.
         }
         try {

@@ -16,9 +16,16 @@
 package com.squareup.codegen;
 
 import com.squareup.injector.internal.Keys;
+import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -26,6 +33,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
 /**
@@ -137,6 +145,48 @@ final class CodeGen {
         throw new UnsupportedOperationException("Unexpected type " + typeMirror);
       }
     }, null);
+  }
+
+  private static final AnnotationValueVisitor<Object, Void> VALUE_EXTRACTOR
+      = new SimpleAnnotationValueVisitor6<Object, Void>() {
+    @Override protected Object defaultAction(Object o, Void v) {
+      return o;
+    }
+    @Override public Object visitArray(List<? extends AnnotationValue> values, Void v) {
+      Object[] result = new Object[values.size()];
+      for (int i = 0; i < values.size(); i++) {
+        result[i] = values.get(i).accept(this, null);
+      }
+      return result;
+    }
+  };
+
+  /**
+   * Returns the annotation on {@code element} formatted as a Map. This returns
+   * a Map rather than an instance of the annotation interface to work-around
+   * the fact that Class and Class[] fields won't work at code generation time.
+   * See http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5089128
+   */
+  public static Map<String, Object> getAnnotation(Class<?> annotationType, Element element) {
+    for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
+      if (!annotation.getAnnotationType().toString().equals(annotationType.getName())) {
+        continue;
+      }
+
+      Map<String, Object> result = new LinkedHashMap<String, Object>();
+      for (Method m : annotationType.getMethods()) {
+        result.put(m.getName(), m.getDefaultValue());
+      }
+      for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e
+          : annotation.getElementValues().entrySet()) {
+        String name = e.getKey().getSimpleName().toString();
+        Object value = e.getValue().accept(VALUE_EXTRACTOR, null);
+        result.put(name, value);
+      }
+      return result;
+    }
+
+    return null; // Annotation not found.
   }
 
   static void rawTypeToString(StringBuilder result, TypeElement type,

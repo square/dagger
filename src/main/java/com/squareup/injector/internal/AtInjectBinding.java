@@ -31,49 +31,52 @@ import javax.inject.Singleton;
  * A binding that injects the constructor and fields of a class.
  */
 final class AtInjectBinding<T> extends Binding<T> {
-  private final Constructor<T> constructor;
   private final Field[] fields;
+  private final Constructor<T> constructor;
   private final Class<?> supertype;
-  private Binding<?>[] parameters;
+  private final String[] keys;
   private Binding<?>[] fieldBindings;
+  private Binding<?>[] parameterBindings;
   private Binding<? super T> supertypeBinding;
 
   /**
+   * @param keys keys for the fields, constructor parameters and supertype in
+   *     that order. These are precomputed to minimize reflection when {@code
+   *     attach} is called multiple times.
    * @param constructor the injectable constructor, or null if this binding
    *     supports members injection only.
+   * @param supertype the injectable supertype, or null if the supertype is a
    */
-  private AtInjectBinding(String key, String membersKey, boolean singleton, Class<?> type,
-      Constructor<T> constructor, Field[] fields, Class<?> supertype) {
-    super(key, membersKey, singleton, type);
+  private AtInjectBinding(String provideKey, String membersKey, boolean singleton, Class<?> type,
+      Field[] fields, Constructor<T> constructor, int parameterCount, Class<?> supertype,
+      String[] keys) {
+    super(provideKey, membersKey, singleton, type);
     this.constructor = constructor;
     this.fields = fields;
     this.supertype = supertype;
+    this.keys = keys;
+    this.parameterBindings = new Binding<?>[parameterCount];
+    this.fieldBindings = new Binding<?>[fields.length];
   }
 
   @Override public void attach(Linker linker) {
-    // Field bindings.
-    fieldBindings = new Binding<?>[fields.length];
+    int k = 0;
     for (int i = 0; i < fields.length; i++) {
-      Field field = fields[i];
-      String fieldKey = Keys.get(field.getGenericType(), field.getAnnotations(), field);
-      fieldBindings[i] = linker.requestBinding(fieldKey, field);
+      if (fieldBindings[i] == null) {
+        fieldBindings[i] = linker.requestBinding(keys[k], fields[i]);
+      }
+      k++;
     }
-
-    // Constructor bindings.
     if (constructor != null) {
-      Type[] types = constructor.getGenericParameterTypes();
-      Annotation[][] annotations = constructor.getParameterAnnotations();
-      parameters = new Binding[types.length];
-      for (int i = 0; i < parameters.length; i++) {
-        String key = Keys.get(types[i], annotations[i], constructor + " parameter " + i);
-        parameters[i] = linker.requestBinding(key, constructor);
+      for (int i = 0; i < parameterBindings.length; i++) {
+        if (parameterBindings[i] == null) {
+          parameterBindings[i] = linker.requestBinding(keys[k], constructor);
+        }
+        k++;
       }
     }
-
-    // Supertype binding.
-    if (supertype != null && !Keys.isPlatformType(supertype.getName())) {
-      supertypeBinding = (Binding<? super T>) linker.requestBinding(
-          Keys.getMembersKey(supertype), membersKey);
+    if (supertype != null && supertypeBinding == null) {
+      supertypeBinding = (Binding<? super T>) linker.requestBinding(keys[k], membersKey);
     }
   }
 
@@ -81,9 +84,9 @@ final class AtInjectBinding<T> extends Binding<T> {
     if (constructor == null) {
       throw new UnsupportedOperationException();
     }
-    Object[] args = new Object[parameters.length];
-    for (int i = 0; i < parameters.length; i++) {
-      args[i] = parameters[i].get();
+    Object[] args = new Object[parameterBindings.length];
+    for (int i = 0; i < parameterBindings.length; i++) {
+      args[i] = parameterBindings[i].get();
     }
     T result;
     try {
@@ -113,8 +116,8 @@ final class AtInjectBinding<T> extends Binding<T> {
   }
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
-    if (parameters != null) {
-      for (Binding<?> binding : parameters) {
+    if (parameterBindings != null) {
+      for (Binding<?> binding : parameterBindings) {
         get.add(binding);
       }
     }
@@ -136,10 +139,11 @@ final class AtInjectBinding<T> extends Binding<T> {
    *     annotations.
    */
   public static <T> Binding<T> create(Class<T> type, boolean forMembersInjection) {
-    /*
-     * Lookup the injectable fields and their corresponding keys.
-     */
-    final List<Field> injectedFields = new ArrayList<Field>();
+    boolean singleton = type.isAnnotationPresent(Singleton.class);
+    List<String> keys = new ArrayList<String>();
+
+    // Lookup the injectable fields and their corresponding keys.
+    List<Field> injectedFields = new ArrayList<Field>();
     for (Class<?> c = type; c != Object.class; c = c.getSuperclass()) {
       for (Field field : c.getDeclaredFields()) {
         if (!field.isAnnotationPresent(Inject.class) || Modifier.isStatic(field.getModifiers())) {
@@ -147,14 +151,13 @@ final class AtInjectBinding<T> extends Binding<T> {
         }
         field.setAccessible(true);
         injectedFields.add(field);
+        keys.add(Keys.get(field.getGenericType(), field.getAnnotations(), field));
       }
     }
 
-    /*
-     * Lookup @Inject-annotated constructors. If there's no @Inject-annotated
-     * constructor, use a default public constructor if the class has other
-     * injections. Otherwise treat the class as non-injectable.
-     */
+    // Look up @Inject-annotated constructors. If there's no @Inject-annotated
+    // constructor, use a default public constructor if the class has other
+    // injections. Otherwise treat the class as non-injectable.
     Constructor<T> injectedConstructor = null;
     for (Constructor<T> constructor : (Constructor<T>[]) type.getDeclaredConstructors()) {
       if (!constructor.isAnnotationPresent(Inject.class)) {
@@ -165,7 +168,6 @@ final class AtInjectBinding<T> extends Binding<T> {
       }
       injectedConstructor = constructor;
     }
-
     if (injectedConstructor == null) {
       if (injectedFields.isEmpty() && !forMembersInjection) {
         throw new IllegalArgumentException("No injectable members on " + type.getName()
@@ -177,21 +179,40 @@ final class AtInjectBinding<T> extends Binding<T> {
       }
     }
 
-    String key;
-    boolean singleton = type.isAnnotationPresent(Singleton.class);
+    int parameterCount;
+    String provideKey;
     if (injectedConstructor != null) {
-      key = Keys.get(type);
+      provideKey = Keys.get(type);
       injectedConstructor.setAccessible(true);
+      Type[] types = injectedConstructor.getGenericParameterTypes();
+      parameterCount = types.length;
+      if (parameterCount != 0) {
+        Annotation[][] annotations = injectedConstructor.getParameterAnnotations();
+        for (int p = 0; p < types.length; p++) {
+          keys.add(Keys.get(types[p], annotations[p], injectedConstructor));
+        }
+      }
     } else {
-      key = null;
+      provideKey = null;
+      parameterCount = 0;
       if (singleton) {
         throw new IllegalArgumentException(
             "No injectable constructor on @Singleton " + type.getName());
       }
     }
 
+    Class<? super T> supertype = type.getSuperclass();
+    if (supertype != null) {
+      if (Keys.isPlatformType(supertype.getName())) {
+        supertype = null;
+      } else {
+        keys.add(Keys.getMembersKey(supertype));
+      }
+    }
+
     String membersKey = Keys.getMembersKey(type);
-    return new AtInjectBinding<T>(key, membersKey, singleton, type, injectedConstructor,
-        injectedFields.toArray(new Field[injectedFields.size()]), type.getSuperclass());
+    return new AtInjectBinding<T>(provideKey, membersKey, singleton, type,
+        injectedFields.toArray(new Field[injectedFields.size()]), injectedConstructor,
+        parameterCount, supertype, keys.toArray(new String[keys.size()]));
   }
 }
