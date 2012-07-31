@@ -91,14 +91,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
       if (type.getKind() != ElementKind.CLASS) {
-        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Unexpected @Provides on " + providerMethod);
+        error("Unexpected @Provides on " + providerMethod);
         continue;
       }
       if (typeModifiers.contains(Modifier.PRIVATE)
           || typeModifiers.contains(Modifier.ABSTRACT)) {
-        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Classes declaring @Provides methods must not be private or abstract: "
+        error("Classes declaring @Provides methods must not be private or abstract: "
                 + type.getQualifiedName());
       }
 
@@ -106,8 +104,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       if (methodModifiers.contains(Modifier.PRIVATE)
           || methodModifiers.contains(Modifier.ABSTRACT)
           || methodModifiers.contains(Modifier.STATIC)) {
-        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "@Provides methods must not be private, abstract or static: "
+        error("@Provides methods must not be private, abstract or static: "
                 + type.getQualifiedName() + "." + providerMethod);
         continue;
       }
