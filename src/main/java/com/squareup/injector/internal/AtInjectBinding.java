@@ -59,6 +59,7 @@ final class AtInjectBinding<T> extends Binding<T> {
     this.fieldBindings = new Binding<?>[fields.length];
   }
 
+  @SuppressWarnings("unchecked") // The linker promises it's safe to cast to Binding<? super T>.
   @Override public void attach(Linker linker) {
     int k = 0;
     for (int i = 0; i < fields.length; i++) {

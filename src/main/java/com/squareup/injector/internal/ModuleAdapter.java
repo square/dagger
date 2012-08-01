@@ -92,8 +92,7 @@ public abstract class ModuleAdapter<T> {
       // Fall back to runtime reflection.
       for (Class<?> c = moduleClass; c != Object.class; c = c.getSuperclass()) {
         for (Method method : c.getDeclaredMethods()) {
-          if (!method.isAnnotationPresent(Provides.class)
-              && !method.isAnnotationPresent(com.google.inject.Provides.class)) {
+          if (!method.isAnnotationPresent(Provides.class)) {
             continue;
           }
           Binding<?> binding = methodToBinding(module, method);

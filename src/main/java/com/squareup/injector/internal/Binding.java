@@ -22,8 +22,7 @@ import javax.inject.Provider;
 /**
  * Injects a value of a specific type.
  */
-public class Binding<T> implements Provider<T>, MembersInjector<T>,
-    com.google.inject.Provider<T>, com.google.inject.MembersInjector<T> {
+public class Binding<T> implements Provider<T>, MembersInjector<T> {
   public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null);
 
   /** The key used to provide instances of 'T', or null if this binding cannot provide instances. */

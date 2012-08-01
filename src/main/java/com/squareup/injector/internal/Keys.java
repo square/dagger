@@ -39,10 +39,6 @@ import javax.inject.Qualifier;
 public final class Keys {
   private static final String PROVIDER_PREFIX = Provider.class.getName() + "<";
   private static final String MEMBERS_INJECTOR_PREFIX = MembersInjector.class.getName() + "<";
-  private static final String GUICE_MEMBERS_INJECTOR_PREFIX
-      = com.google.inject.MembersInjector.class.getName() + "<";
-  private static final String GUICE_PROVIDER_PREFIX
-      = com.google.inject.Provider.class.getName() + "<";
 
   private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
       = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {
@@ -153,15 +149,9 @@ public final class Keys {
     if (substringStartsWith(key, start, PROVIDER_PREFIX)) {
       delegatePrefix = key.substring(0, start);
       wrapperPrefix = PROVIDER_PREFIX;
-    } else if (substringStartsWith(key, start, GUICE_PROVIDER_PREFIX)) {
-      delegatePrefix = key.substring(0, start);
-      wrapperPrefix = GUICE_PROVIDER_PREFIX;
     } else if (substringStartsWith(key, start, MEMBERS_INJECTOR_PREFIX)) {
       delegatePrefix = "members/";
       wrapperPrefix = MEMBERS_INJECTOR_PREFIX;
-    } else if (substringStartsWith(key, start, GUICE_MEMBERS_INJECTOR_PREFIX)) {
-      delegatePrefix = "members/";
-      wrapperPrefix = GUICE_MEMBERS_INJECTOR_PREFIX;
     } else {
       return null;
     }
