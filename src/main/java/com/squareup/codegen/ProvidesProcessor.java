@@ -52,12 +52,7 @@ import static java.lang.reflect.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
-@SupportedAnnotationTypes(
-    value = {
-        "com.squareup.injector.Provides",
-        "com.google.inject.Provides"
-    }
-)
+@SupportedAnnotationTypes("com.squareup.injector.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
   private static final String BINDINGS_MAP = CodeGen.parameterizedType(
@@ -123,7 +118,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
   private Set<? extends Element> providesMethods(RoundEnvironment env) {
     Set<Element> result = new LinkedHashSet<Element>();
     result.addAll(env.getElementsAnnotatedWith(Provides.class));
-    result.addAll(env.getElementsAnnotatedWith(com.google.inject.Provides.class));
     return result;
   }
 

@@ -85,7 +85,8 @@ public final class InjectProcessor extends AbstractProcessor {
     ExecutableElement constructor = null;
     List<Element> fields = new ArrayList<Element>();
     for (Element member : type.getEnclosedElements()) {
-      if (member.getAnnotation(Inject.class) == null) {
+      if (member.getAnnotation(Inject.class) == null
+          || member.getModifiers().contains(Modifier.STATIC)) {
         continue;
       }
 
