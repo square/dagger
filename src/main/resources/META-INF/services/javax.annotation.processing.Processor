@@ -1,0 +1,2 @@
+com.squareup.objectgraph.internal.codegen.InjectProcessor
+com.squareup.objectgraph.internal.codegen.ProvidesProcessor
