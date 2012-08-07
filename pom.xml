@@ -30,6 +30,7 @@
 
     <modules>
         <module>core</module>
+        <module>androidmanifest</module>
     </modules>
 
     <properties>
@@ -98,7 +99,6 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
-                    <compilerArgument>-proc:none</compilerArgument>
                 </configuration>
             </plugin>
 
