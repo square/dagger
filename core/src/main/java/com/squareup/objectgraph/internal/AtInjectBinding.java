@@ -28,7 +28,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * A binding that injects the constructor and fields of a class.
+ * A runtime binding that injects the constructor and fields of a class.
  */
 final class AtInjectBinding<T> extends Binding<T> {
   private final Field[] fields;

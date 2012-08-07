@@ -20,6 +20,7 @@ import com.squareup.objectgraph.internal.Keys;
 import com.squareup.objectgraph.internal.Linker;
 import com.squareup.objectgraph.internal.ModuleAdapter;
 import com.squareup.objectgraph.internal.ProblemDetector;
+import com.squareup.objectgraph.internal.RuntimeLinker;
 import com.squareup.objectgraph.internal.StaticInjection;
 import com.squareup.objectgraph.internal.UniqueMap;
 import java.util.Collection;
@@ -104,7 +105,7 @@ public final class ObjectGraph {
     }
 
     // Create a linker and install all of the user's bindings.
-    Linker linker = new Linker();
+    Linker linker = new RuntimeLinker();
     linker.installBindings(baseBindings);
     linker.installBindings(overrideBindings);
 

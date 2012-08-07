@@ -60,14 +60,14 @@ final class GeneratorKeys {
     return result.toString();
   }
 
-  /** Returns the provider key for {@code parameter}. */
-  public static String get(VariableElement parameter) {
+  /** Returns the provider key for {@code variable}. */
+  public static String get(VariableElement variable) {
     StringBuilder result = new StringBuilder();
-    AnnotationMirror qualifier = getQualifier(parameter.getAnnotationMirrors(), parameter);
+    AnnotationMirror qualifier = getQualifier(variable.getAnnotationMirrors(), variable);
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    CodeGen.typeToString(parameter.asType(), result, '$');
+    CodeGen.typeToString(variable.asType(), result, '$');
     return result.toString();
   }
 
