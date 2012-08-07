@@ -18,6 +18,8 @@ package com.squareup.objectgraph.internal.codegen;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.Modifier;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
@@ -237,6 +239,31 @@ public final class JavaWriterTest {
         + "class Foo {\n"
         + "  @Deprecated\n"
         + "  String s;\n"
+        + "}\n");
+  }
+
+  @Test public void annotatedWithAttributes() throws IOException {
+    Map<String, Object> attributes = new LinkedHashMap<String, Object>();
+    attributes.put("overrides", true);
+    attributes.put("entryPoints", new Object[] { "entryPointA", "entryPointB", "entryPointC" });
+    attributes.put("staticInjections", "com.squareup.Quux");
+
+    javaWriter.addPackage("com.squareup");
+    javaWriter.annotation("Module", attributes);
+    javaWriter.beginType("com.squareup.FooModule", "class", 0);
+    javaWriter.endType();
+    assertCode(""
+        + "package com.squareup;\n"
+        + "@Module(\n"
+        + "  overrides = true,\n"
+        + "  entryPoints = [\n"
+        + "    entryPointA,\n"
+        + "    entryPointB,\n"
+        + "    entryPointC\n"
+        + "  ],\n"
+        + "  staticInjections = com.squareup.Quux\n"
+        + ")\n"
+        + "class FooModule {\n"
         + "}\n");
   }
 
