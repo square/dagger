@@ -20,6 +20,7 @@ import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -174,9 +175,7 @@ public final class JavaWriter {
    * Completes the current type declaration.
    */
   public void endType() throws IOException {
-    if (popScope() != Scope.TYPE_DECLARATION) {
-      throw new IllegalStateException();
-    }
+    popScope(Scope.TYPE_DECLARATION);
     indent();
     out.write("}\n");
   }
@@ -242,21 +241,89 @@ public final class JavaWriter {
   }
 
   /**
-   * Annotates the next element with {@code annotation}. The annotation has no
-   * attributes.
+   * Equivalent to {@code annotation(annotation, emptyMap())}.
    */
   public void annotation(String annotation) throws IOException {
+    annotation(annotation, Collections.<String, Object>emptyMap());
+  }
+
+  /**
+   * Equivalent to {@code annotation(annotationType.getName(), emptyMap())}.
+   */
+  public void annotation(Class<? extends Annotation> annotationType) throws IOException {
+    annotation(annotationType.getName(), Collections.<String, Object>emptyMap());
+  }
+
+  /**
+   * Equivalent to {@code annotation(annotationType.getName(), attributes)}.
+   */
+  public void annotation(Class<? extends Annotation> annotationType,Map<String, ?> attributes)
+      throws IOException {
+    annotation(annotationType.getName(), attributes);
+  }
+
+  /**
+   * Annotates the next element with {@code annotation} and {@code attributes}.
+   *
+   * @param attributes a map from annotation attribute names to their values.
+   *     Values are encoded using Object.toString(); use {@link #stringLiteral}
+   *     for String values. Object arrays are written one element per line.
+   */
+  public void annotation(String annotation, Map<String, ?> attributes) throws IOException {
     indent();
     out.write("@");
     type(annotation);
+    if (!attributes.isEmpty()) {
+      out.write("(");
+      pushScope(Scope.ANNOTATION_ATTRIBUTE);
+      boolean firstAttribute = true;
+      for (Map.Entry<String, ?> entry : attributes.entrySet()) {
+        if (firstAttribute) {
+          firstAttribute = false;
+          out.write("\n");
+        } else {
+          out.write(",\n");
+        }
+        indent();
+        out.write(entry.getKey());
+        out.write(" = ");
+        Object value = entry.getValue();
+        annotationValue(value);
+      }
+      popScope(Scope.ANNOTATION_ATTRIBUTE);
+      out.write("\n");
+      indent();
+      out.write(")");
+    }
     out.write("\n");
   }
 
   /**
-   * Equivalent to {@code annotation(annotationType.getName())}.
+   * Writes a single annotation value. If the value is an array, each element in
+   * the array will be written to its own line.
    */
-  public void annotation(Class<? extends Annotation> annotationType) throws IOException {
-    annotation(annotationType.getName());
+  private void annotationValue(Object value) throws IOException {
+    if (value instanceof Object[]) {
+      out.write("[");
+      boolean firstValue = true;
+      pushScope(Scope.ANNOTATION_ARRAY_VALUE);
+      for (Object o : ((Object[]) value)) {
+        if (firstValue) {
+          firstValue = false;
+          out.write("\n");
+        } else {
+          out.write(",\n");
+        }
+        indent();
+        out.write(o.toString());
+      }
+      popScope(Scope.ANNOTATION_ARRAY_VALUE);
+      out.write("\n");
+      indent();
+      out.write("]");
+    } else {
+      out.write(value.toString());
+    }
   }
 
   /**
@@ -287,10 +354,7 @@ public final class JavaWriter {
    *     "else if (foo == 10)". Shouldn't contain braces or newline characters.
    */
   public void nextControlFlow(String controlFlow) throws IOException {
-    if (popScope() != Scope.CONTROL_FLOW) {
-      throw new IllegalArgumentException();
-    }
-
+    popScope(Scope.CONTROL_FLOW);
     indent();
     pushScope(Scope.CONTROL_FLOW);
     out.write("} ");
@@ -307,10 +371,7 @@ public final class JavaWriter {
    *     as "while(foo == 20)". Only used for "do/while" control flows.
    */
   public void endControlFlow(String controlFlow) throws IOException {
-    if (popScope() != Scope.CONTROL_FLOW) {
-      throw new IllegalArgumentException();
-    }
-
+    popScope(Scope.CONTROL_FLOW);
     indent();
     if (controlFlow != null) {
       out.write("} ");
@@ -435,10 +496,18 @@ public final class JavaWriter {
     return scopes.remove(scopes.size() - 1);
   }
 
+  private void popScope(Scope expected) {
+    if (scopes.remove(scopes.size() - 1) != expected) {
+      throw new IllegalStateException();
+    }
+  }
+
   private enum Scope {
     TYPE_DECLARATION,
     ABSTRACT_METHOD,
     NON_ABSTRACT_METHOD,
     CONTROL_FLOW,
+    ANNOTATION_ATTRIBUTE,
+    ANNOTATION_ARRAY_VALUE,
   }
 }
