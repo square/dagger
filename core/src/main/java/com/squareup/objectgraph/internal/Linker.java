@@ -15,8 +15,6 @@
  */
 package com.squareup.objectgraph.internal;
 
-import com.squareup.objectgraph.ObjectGraph;
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,14 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Links bindings to their dependencies.
  */
-public final class Linker {
-  private static final Logger LOGGER = Logger.getLogger(ObjectGraph.class.getName());
+public abstract class Linker {
   private static final Object UNINITIALIZED = new Object();
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
@@ -48,13 +43,21 @@ public final class Linker {
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
   /**
-   * Adds all the bindings from {@code toInstall}. The bindings must be linked
-   * before they can be used.
+   * Equivalent to calling {@link #installBinding} on each entry in {@code
+   * toInstall}.
    */
-  public void installBindings(Map<String, Binding<?>> toInstall) {
-    for (Binding<?> binding : toInstall.values()) {
-      bindings.put(binding.provideKey, scope(binding));
+  public final void installBindings(Map<String, Binding<?>> toInstall) {
+    for (Map.Entry<String, Binding<?>> entry : toInstall.entrySet()) {
+      installBinding(entry.getKey(), entry.getValue());
     }
+  }
+
+  /**
+   * Adds the binding. The caller must call either {@link #linkAll} or {@link
+   * #requestBinding} and {@link #linkRequested} before the binding can be used.
+   */
+  public final void installBinding(String key, Binding<?> binding) {
+    bindings.put(key, scope(binding));
   }
 
   /**
@@ -64,7 +67,7 @@ public final class Linker {
    *
    * @return all bindings known by this linker, which will all be linked.
    */
-  public Collection<Binding<?>> linkAll() {
+  public final Collection<Binding<?>> linkAll() {
     for (Binding<?> binding : bindings.values()) {
       if (!binding.linked) {
         toLink.add(binding);
@@ -78,7 +81,7 @@ public final class Linker {
    * Links all requested bindings plus their transitive dependencies. This
    * creates JIT bindings as necessary to fill in the gaps.
    */
-  public void linkRequested() {
+  public final void linkRequested() {
     Binding binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
@@ -113,13 +116,10 @@ public final class Linker {
       }
     }
 
-    if (!errors.isEmpty()) {
-      StringBuilder message = new StringBuilder();
-      message.append("Errors creating object graph:");
-      for (String error : errors) {
-        message.append("\n  ").append(error);
-      }
-      throw new IllegalArgumentException(message.toString());
+    try {
+      reportErrors(errors);
+    } finally {
+      errors.clear();
     }
   }
 
@@ -142,21 +142,9 @@ public final class Linker {
 
     String className = Keys.getClassName(key);
     if (className != null && !Keys.isAnnotated(key)) {
-      // First look for a generated InjectAdapter.
-      try {
-        Class<?> c = Class.forName(className + "$InjectAdapter");
-        Constructor<?> constructor = c.getConstructor();
-        constructor.setAccessible(true);
-        return (Binding<?>) constructor.newInstance();
-      } catch (Exception e) {
-        LOGGER.log(Level.FINE, "No generated inject adapter for " + className
-            + ". Falling back to reflection.", e);
-      }
-
-      // Handle class bindings by injecting @Inject-annotated members.
-      Class<?> c = Class.forName(className);
-      if (!c.isInterface()) {
-        return AtInjectBinding.create(c, Keys.isMembersInjection(key));
+      Binding<?> atInjectBinding = createAtInjectBinding(key, className);
+      if (atInjectBinding != null) {
+        return atInjectBinding;
       }
     }
 
@@ -164,11 +152,18 @@ public final class Linker {
   }
 
   /**
+   * Returns a binding that uses {@code @Inject} annotations, or null if no such
+   * binding can be created.
+   */
+  protected abstract Binding<?> createAtInjectBinding(String key, String className)
+      throws ClassNotFoundException;
+
+  /**
    * Returns the binding if it exists immediately. Otherwise this returns
    * null. If the returned binding didn't exist or was unlinked, it will be
    * enqueued to be linked.
    */
-  public Binding<?> requestBinding(String key, Object requiredBy) {
+  public final Binding<?> requestBinding(String key, Object requiredBy) {
     Binding<?> binding = bindings.get(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
@@ -242,9 +237,19 @@ public final class Linker {
     }
   }
 
+  /** Enqueue {@code message} as a fatal error to be reported to the user. */
   private void addError(String message) {
     errors.add(message);
   }
+
+  /**
+   * Fail if any errors have been enqueued and clear the list of errors.
+   * Implementations may throw exceptions or report the errors through another
+   * channel.
+   *
+   * @param errors a potentially empty list of error messages.
+   */
+  protected abstract void reportErrors(List<String> errors);
 
   private static class DeferredBinding<T> extends Binding<T> {
     final String deferredKey;
