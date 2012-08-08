@@ -98,7 +98,7 @@ final class AtInjectBinding extends Binding<Object> {
   }
 
   private static boolean hasAtInject(Element enclosed) {
-    return enclosed.getAnnotation(Inject.class) == null;
+    return enclosed.getAnnotation(Inject.class) != null;
   }
 
   @Override public void attach(Linker linker) {

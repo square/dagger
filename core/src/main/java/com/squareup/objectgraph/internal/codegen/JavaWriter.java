@@ -257,7 +257,7 @@ public final class JavaWriter {
   /**
    * Equivalent to {@code annotation(annotationType.getName(), attributes)}.
    */
-  public void annotation(Class<? extends Annotation> annotationType,Map<String, ?> attributes)
+  public void annotation(Class<? extends Annotation> annotationType, Map<String, ?> attributes)
       throws IOException {
     annotation(annotationType.getName(), attributes);
   }

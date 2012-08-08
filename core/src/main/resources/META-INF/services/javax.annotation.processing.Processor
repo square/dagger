@@ -1,4 +1,3 @@
 com.squareup.objectgraph.internal.codegen.InjectProcessor
 com.squareup.objectgraph.internal.codegen.ProvidesProcessor
-# TODO: Enable full graph processing.
-#com.squareup.objectgraph.internal.codegen.FullGraphProcessor
+com.squareup.objectgraph.internal.codegen.FullGraphProcessor

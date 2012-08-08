@@ -30,10 +30,24 @@ public @interface Module {
   Class<?>[] staticInjections() default { };
 
   /**
-   * True if @Provides methods from this module are permitted to override those
-   * of other modules. This is a dangerous feature as it permits binding
-   * conflicts to go unnoticed. It should only be used in test and development
-   * modules.
+   * True if {@code @Provides} methods from this module are permitted to
+   * override those of other modules. This is a dangerous feature as it permits
+   * binding conflicts to go unnoticed. It should only be used in test and
+   * development modules.
    */
   boolean overrides() default false;
+
+  /**
+   * Additional {@code @Module}-annotated classes that this module is composed
+   * of. The contributions of the modules in {@code children}, and of their
+   * children recursively, are all contributed to the object graph.
+   */
+  Class<?>[] children() default { };
+
+  /**
+   * True if all of the bindings required by this module can also be satisfied
+   * by this module. If a module is complete it is eligible for additional
+   * static checking: tools can detect if required bindings are not available.
+   */
+  boolean complete() default false;
 }

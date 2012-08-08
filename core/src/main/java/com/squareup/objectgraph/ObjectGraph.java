@@ -23,6 +23,7 @@ import com.squareup.objectgraph.internal.ProblemDetector;
 import com.squareup.objectgraph.internal.RuntimeLinker;
 import com.squareup.objectgraph.internal.StaticInjection;
 import com.squareup.objectgraph.internal.UniqueMap;
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -83,6 +84,7 @@ public final class ObjectGraph {
   }
 
   private static ObjectGraph get(boolean lazy, Object... modules) {
+    modules = getAllModules(modules);
     Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
     Map<Class<?>, StaticInjection> staticInjections
         = new LinkedHashMap<Class<?>, StaticInjection>();
@@ -119,6 +121,56 @@ public final class ObjectGraph {
     }
 
     return result;
+  }
+
+  /** Returns a full set of modules, including child modules. */
+  private static Object[] getAllModules(Object... modules) {
+    // TODO: move this work to ModuleAdapter to avoid runtime reflection.
+    Map<Class<?>, Object> modulesByType = new LinkedHashMap<Class<?>, Object>();
+
+    // First add all of the modules that we have instances for. This way we
+    // won't instantiate module types that the user has supplied.
+    for (Object module : modules) {
+      modulesByType.put(module.getClass(), module);
+    }
+
+    // Next add 'Class<?>' keys for the modules that we need to construct. This
+    // creates default instances when necessary.
+    for (Object module : modules) {
+      collectChildModulesRecursively(module.getClass(), modulesByType);
+    }
+
+    return modulesByType.values().toArray();
+  }
+
+  /**
+   * Fills {@code result} with the child modules of {@code c}, and their child
+   * modules recursively. Creates default instances for module types if
+   * necessary.
+   */
+  private static void collectChildModulesRecursively(Class<?> c, Map<Class<?>, Object> result) {
+    Module annotation = c.getAnnotation(Module.class);
+    if (annotation == null) {
+      throw new IllegalArgumentException("Expected @Module on " + c.getName());
+    }
+
+    for (Class<?> childClass : annotation.children()) {
+      if (!result.containsKey(childClass)) {
+        result.put(childClass, newInstance(childClass));
+        collectChildModulesRecursively(childClass, result);
+      }
+    }
+  }
+
+  /** Returns an instance of {@code c} by invoking its 0-arg constructor. */
+  private static Object newInstance(Class<?> c) {
+    try {
+      Constructor<?> childConstructor = c.getDeclaredConstructor();
+      childConstructor.setAccessible(true);
+      return childConstructor.newInstance();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Unable to instantiate " + c.getName(), e);
+    }
   }
 
   private void linkStaticInjections() {
