@@ -26,6 +26,7 @@ import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -222,5 +223,36 @@ final class CodeGen {
       default:
         throw new AssertionError();
     }
+  }
+
+  /**
+   * Returns the no-args constructor for {@code type}, or null if no such
+   * constructor exists.
+   */
+  public static ExecutableElement getNoArgsConstructor(TypeElement type) {
+    for (Element enclosed : type.getEnclosedElements()) {
+      if (enclosed.getKind() != ElementKind.CONSTRUCTOR) {
+        continue;
+      }
+      ExecutableElement constructor = (ExecutableElement) enclosed;
+      if (constructor.getParameters().isEmpty()) {
+        return constructor;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns true if generated code can invoke {@code constructor}. That is, if
+   * the constructor is non-private and its enclosing class is either a
+   * top-level class or a static nested class.
+   */
+  public static boolean isCallableConstructor(ExecutableElement constructor) {
+    if (constructor.getModifiers().contains(Modifier.PRIVATE)) {
+      return false;
+    }
+    TypeElement type = (TypeElement) constructor.getEnclosingElement();
+    return type.getEnclosingElement().getKind() == ElementKind.PACKAGE
+        || type.getModifiers().contains(Modifier.STATIC);
   }
 }

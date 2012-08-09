@@ -45,6 +45,7 @@ import javax.tools.JavaFileObject;
 
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PROTECTED;
 import static java.lang.reflect.Modifier.PUBLIC;
 import static java.lang.reflect.Modifier.STATIC;
 
@@ -135,7 +136,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     Object[] staticInjections = (Object[]) module.get("staticInjections");
     Object[] entryPoints = (Object[]) module.get("entryPoints");
+    Object[] children = (Object[]) module.get("children");
     boolean overrides = (Boolean) module.get("overrides");
+    boolean complete = (Boolean) module.get("complete");
 
     String adapterName = CodeGen.adapterName(type, "$ModuleAdapter");
     JavaFileObject sourceFile = processingEnv.getFiler()
@@ -171,16 +174,36 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.field("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
         staticInjectionsField.toString());
 
+    StringBuilder childrenField = new StringBuilder().append("{ ");
+    for (Object child : children) {
+      TypeMirror typeMirror = (TypeMirror) child;
+      childrenField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
+    }
+    childrenField.append("}");
+    writer.field("Class<?>[]", "CHILDREN", PRIVATE | STATIC | FINAL, childrenField.toString());
+
     writer.beginMethod(null, adapterName, PUBLIC);
-    writer.statement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s)", overrides);
+    writer.statement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
+        + "CHILDREN, %s /*complete*/)", overrides, complete);
     writer.endMethod();
 
     writer.annotation(Override.class);
-    writer.beginMethod("void", "getBindings", PUBLIC, typeName, "module", BINDINGS_MAP, "map");
+    writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
     for (ExecutableElement providerMethod : providerMethods) {
       String key = GeneratorKeys.get(providerMethod);
       writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
           providerMethod.getSimpleName().toString() + "Binding");
+    }
+    writer.endMethod();
+
+    writer.annotation(Override.class);
+    writer.beginMethod(typeName, "newModule", PROTECTED);
+    ExecutableElement noArgsConstructor = CodeGen.getNoArgsConstructor(type);
+    if (noArgsConstructor != null && CodeGen.isCallableConstructor(noArgsConstructor)) {
+      writer.statement("return new %s()", typeName);
+    } else {
+      writer.statement("throw new UnsupportedOperationException(%s)",
+          JavaWriter.stringLiteral("No no-args constructor on " + type));
     }
     writer.endMethod();
 
