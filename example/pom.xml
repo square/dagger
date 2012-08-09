@@ -25,9 +25,9 @@
         <version>1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>objectgraph-androidmanifest</artifactId>
+    <artifactId>objectgraph-example</artifactId>
     <packaging>jar</packaging>
-    <name>ObjectGraph AndroidManifest.xml Module Generator</name>
+    <name>ObjectGraph Example</name>
 
     <dependencies>
         <dependency>
