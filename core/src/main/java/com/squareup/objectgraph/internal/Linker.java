@@ -43,21 +43,14 @@ public abstract class Linker {
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
   /**
-   * Equivalent to calling {@link #installBinding} on each entry in {@code
-   * toInstall}.
+   * Adds all bindings in {@code toInstall}. The caller must call either {@link
+   * #linkAll} or {@link #requestBinding} and {@link #linkRequested} before the
+   * bindings can be used.
    */
-  public final void installBindings(Map<String, Binding<?>> toInstall) {
-    for (Map.Entry<String, Binding<?>> entry : toInstall.entrySet()) {
-      installBinding(entry.getKey(), entry.getValue());
+  public final void installBindings(Map<String, ? extends Binding<?>> toInstall) {
+    for (Map.Entry<String, ? extends Binding<?>> entry : toInstall.entrySet()) {
+      bindings.put(entry.getKey(), scope(entry.getValue()));
     }
-  }
-
-  /**
-   * Adds the binding. The caller must call either {@link #linkAll} or {@link
-   * #requestBinding} and {@link #linkRequested} before the binding can be used.
-   */
-  public final void installBinding(String key, Binding<?> binding) {
-    bindings.put(key, scope(binding));
   }
 
   /**
