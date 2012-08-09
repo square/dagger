@@ -23,7 +23,6 @@ import com.squareup.objectgraph.internal.ProblemDetector;
 import com.squareup.objectgraph.internal.RuntimeLinker;
 import com.squareup.objectgraph.internal.StaticInjection;
 import com.squareup.objectgraph.internal.UniqueMap;
-import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -84,7 +83,8 @@ public final class ObjectGraph {
   }
 
   private static ObjectGraph get(boolean lazy, Object... modules) {
-    modules = getAllModules(modules);
+    ModuleAdapter<?>[] moduleAdapters = getAllModuleAdapters(modules);
+
     Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
     Map<Class<?>, StaticInjection> staticInjections
         = new LinkedHashMap<Class<?>, StaticInjection>();
@@ -93,17 +93,15 @@ public final class ObjectGraph {
     // duplicates are permitted.
     Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
     Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
-    for (Object module : modules) {
-      Class<?> moduleClass = module.getClass();
-      ModuleAdapter<Object> adapter = ModuleAdapter.get(module);
+    for (ModuleAdapter<?> adapter : moduleAdapters) {
       for (String key : adapter.entryPoints) {
-        entryPoints.put(key, moduleClass);
+        entryPoints.put(key, adapter.getModule().getClass());
       }
       for (Class<?> c : adapter.staticInjections) {
         staticInjections.put(c, lazy ? null : StaticInjection.get(c));
       }
       Map<String, Binding<?>> addTo = adapter.overrides ? overrideBindings : baseBindings;
-      adapter.getBindings(module, addTo);
+      adapter.getBindings(addTo);
     }
 
     // Create a linker and install all of the user's bindings.
@@ -123,53 +121,49 @@ public final class ObjectGraph {
     return result;
   }
 
-  /** Returns a full set of modules, including child modules. */
-  private static Object[] getAllModules(Object... modules) {
-    // TODO: move this work to ModuleAdapter to avoid runtime reflection.
-    Map<Class<?>, Object> modulesByType = new LinkedHashMap<Class<?>, Object>();
-
-    // First add all of the modules that we have instances for. This way we
-    // won't instantiate module types that the user has supplied.
-    for (Object module : modules) {
-      modulesByType.put(module.getClass(), module);
+  /**
+   * Returns a full set of module adapters, including module adapters for child
+   * modules.
+   */
+  private static ModuleAdapter<?>[] getAllModuleAdapters(Object[] seedModules) {
+    // Create a module adapter for each seed module.
+    ModuleAdapter<?>[] seedAdapters = new ModuleAdapter<?>[seedModules.length];
+    int s = 0;
+    for (Object module : seedModules) {
+      seedAdapters[s++] = ModuleAdapter.get(module.getClass(), module);
     }
 
-    // Next add 'Class<?>' keys for the modules that we need to construct. This
-    // creates default instances when necessary.
-    for (Object module : modules) {
-      collectChildModulesRecursively(module.getClass(), modulesByType);
+    Map<Class<?>, ModuleAdapter<?>> adaptersByModuleType
+        = new LinkedHashMap<Class<?>, ModuleAdapter<?>>();
+
+    // Add the adapters that we have module instances for. This way we won't
+    // construct module objects when we have a user-supplied instance.
+    for (ModuleAdapter<?> adapter : seedAdapters) {
+      adaptersByModuleType.put(adapter.getModule().getClass(), adapter);
     }
 
-    return modulesByType.values().toArray();
+    // Next add adapters for the modules that we need to construct. This creates
+    // instances of modules as necessary.
+    for (ModuleAdapter<?> adapter : seedAdapters) {
+      collectChildModulesRecursively(adapter, adaptersByModuleType);
+    }
+
+    return adaptersByModuleType.values().toArray(
+        new ModuleAdapter<?>[adaptersByModuleType.size()]);
   }
 
   /**
-   * Fills {@code result} with the child modules of {@code c}, and their child
-   * modules recursively. Creates default instances for module types if
-   * necessary.
+   * Fills {@code result} with the module adapters for the children of {@code
+   * adapter}, and their children recursively.
    */
-  private static void collectChildModulesRecursively(Class<?> c, Map<Class<?>, Object> result) {
-    Module annotation = c.getAnnotation(Module.class);
-    if (annotation == null) {
-      throw new IllegalArgumentException("Expected @Module on " + c.getName());
-    }
-
-    for (Class<?> childClass : annotation.children()) {
-      if (!result.containsKey(childClass)) {
-        result.put(childClass, newInstance(childClass));
-        collectChildModulesRecursively(childClass, result);
+  private static void collectChildModulesRecursively(ModuleAdapter<?> adapter,
+      Map<Class<?>, ModuleAdapter<?>> result) {
+    for (Class<?> child : adapter.children) {
+      if (!result.containsKey(child)) {
+        ModuleAdapter<Object> childAdapter = ModuleAdapter.get(child, null);
+        result.put(child, childAdapter);
+        collectChildModulesRecursively(childAdapter, result);
       }
-    }
-  }
-
-  /** Returns an instance of {@code c} by invoking its 0-arg constructor. */
-  private static Object newInstance(Class<?> c) {
-    try {
-      Constructor<?> childConstructor = c.getDeclaredConstructor();
-      childConstructor.setAccessible(true);
-      return childConstructor.newInstance();
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Unable to instantiate " + c.getName(), e);
     }
   }
 
