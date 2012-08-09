@@ -16,6 +16,7 @@
 package com.squareup.objectgraph.internal.codegen;
 
 import com.squareup.objectgraph.internal.Binding;
+import com.squareup.objectgraph.internal.Keys;
 import com.squareup.objectgraph.internal.Linker;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -49,7 +50,7 @@ final class BuildTimeLinker extends Linker {
     if (type.getKind() == ElementKind.INTERFACE) {
       return null;
     }
-    return AtInjectBinding.create(type);
+    return AtInjectBinding.create(type, Keys.isMembersInjection(key));
   }
 
   @Override protected void reportErrors(List<String> errors) {
