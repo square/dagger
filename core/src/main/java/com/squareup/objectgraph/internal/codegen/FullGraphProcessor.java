@@ -34,6 +34,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
 
 /**
  * Performs full graph analysis on a module.
@@ -60,8 +61,13 @@ public final class FullGraphProcessor extends AbstractProcessor {
     collectChildModulesRecursively(rootModule, allModules);
 
     Linker linker = new BuildTimeLinker(processingEnv);
+    Map<String, ProviderMethodBinding> baseBindings
+        = new LinkedHashMap<String, ProviderMethodBinding>();
+    Map<String, ProviderMethodBinding> overrideBindings
+        = new LinkedHashMap<String, ProviderMethodBinding>();
     for (TypeElement module : allModules.values()) {
       Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
+      boolean overrides = (Boolean) annotation.get("overrides");
 
       // Gather the entry points from the annotation.
       for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
@@ -79,13 +85,29 @@ public final class FullGraphProcessor extends AbstractProcessor {
         }
         ExecutableElement providerMethod = (ExecutableElement) enclosed;
         String key = GeneratorKeys.get(providerMethod);
-        linker.installBinding(key, new ProviderMethodBinding(key, providerMethod));
+        ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
+        Map<String, ProviderMethodBinding> addTo = overrides ? overrideBindings : baseBindings;
+        ProviderMethodBinding clobbered = addTo.put(key, binding);
+        if (clobbered != null) {
+          processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+              "Duplicate bindings for " + key
+                  + ": " + shortMethodName(clobbered.method)
+                  + ", " + shortMethodName(binding.method));
+        }
       }
     }
+
+    linker.installBindings(baseBindings);
+    linker.installBindings(overrideBindings);
 
     // Link the bindings. This will traverse the dependency graph, and report
     // errors if any dependencies are missing.
     linker.linkAll();
+  }
+
+  private String shortMethodName(ExecutableElement method) {
+    return method.getEnclosingElement().getSimpleName().toString()
+        + "." + method.getSimpleName() + "()";
   }
 
   private void collectChildModulesRecursively(TypeElement module, Map<String, TypeElement> result) {
