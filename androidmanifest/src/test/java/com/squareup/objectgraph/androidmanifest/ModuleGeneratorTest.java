@@ -94,15 +94,15 @@ public final class ModuleGeneratorTest {
     String packageName = "com.squareup.badhorse";
     List<String> nameReferences = Arrays.asList(
         "com.squareup.badhorse.SinActivity", "com.squareup.badhorse.LeagueOfEvilActivity");
-    generator.generate(packageName, nameReferences, new JavaWriter(stringWriter));
+    generator.generate(packageName, nameReferences, "ManifestModule", new JavaWriter(stringWriter));
     assertCode(""
         + "package com.squareup.badhorse;\n"
         + "import com.squareup.objectgraph.Module;\n"
         + "@Module(\n"
-        + "  entryPoints = [\n"
+        + "  entryPoints = {\n"
         + "    com.squareup.badhorse.LeagueOfEvilActivity.class,\n"
         + "    com.squareup.badhorse.SinActivity.class\n"
-        + "  ]\n"
+        + "  }\n"
         + ")\n"
         + "public final class ManifestModule {\n"
         + "}\n");

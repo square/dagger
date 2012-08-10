@@ -18,7 +18,10 @@ package com.squareup.objectgraph.androidmanifest;
 import com.squareup.objectgraph.Module;
 import com.squareup.objectgraph.internal.codegen.JavaWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,7 +39,6 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-// TODO: support inner classes
 // TODO: support relative class name references like ".FooActivity"
 
 /**
@@ -51,9 +53,9 @@ public final class ModuleGenerator {
    *
    * @param baseDir the directory where generated files are to be created.
    */
-  public File path(Document manifest, File baseDir) {
+  public File path(Document manifest, String moduleName, File baseDir) {
     String packageName = packageName(manifest);
-    return new File(baseDir, packageName.replace('.', '/') + "/ManifestModule.java");
+    return new File(baseDir, packageName.replace('.', '/') + "/" + moduleName + ".java");
   }
 
   String packageName(Document manifest) {
@@ -68,15 +70,15 @@ public final class ModuleGenerator {
     return packageAttr.getValue();
   }
 
-  public void generate(Document manifest, JavaWriter out) throws IOException {
+  public void generate(Document manifest, String moduleName, JavaWriter out) throws IOException {
     String packageName = packageName(manifest);
     List<String> nameReferences = getNameReferences(manifest);
-    generate(packageName, nameReferences, out);
+    generate(packageName, nameReferences, moduleName, out);
   }
 
-  void generate(String packageName, List<String> nameReferences, JavaWriter out)
+  void generate(String packageName, List<String> nameReferences, String moduleName, JavaWriter out)
       throws IOException {
-    String className = packageName + ".ManifestModule";
+    String className = packageName + "." + moduleName;
     out.addPackage(packageName);
     out.addImport(Module.class);
 
@@ -97,7 +99,7 @@ public final class ModuleGenerator {
   private List<String> namesToClassLiterals(List<String> classNameReferences) {
     List<String> result = new ArrayList<String>();
     for (String name : classNameReferences) {
-      result.add(name + ".class");
+      result.add(name.replace('$', '.') + ".class");
     }
     return result;
   }
@@ -151,5 +153,44 @@ public final class ModuleGenerator {
     documentBuilderFactory.setNamespaceAware(true);
     DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
     return documentBuilder.parse(androidManifestIn);
+  }
+
+  public static void main(String[] args) throws Exception {
+    if (args.length != 3) {
+      printUsage();
+      return;
+    }
+
+    File manifestXml = new File(args[0]);
+    String moduleName = args[1];
+    File baseDir = new File(args[2]);
+
+    if (!manifestXml.exists()) {
+      System.out.println("No such file: " + manifestXml);
+      printUsage();
+      return;
+    }
+
+    if (!baseDir.isDirectory()) {
+      System.out.println("No such directory: " + baseDir);
+      printUsage();
+      return;
+    }
+
+    ModuleGenerator moduleGenerator = new ModuleGenerator();
+    InputSource in = new InputSource(new FileInputStream(manifestXml));
+    Document document = moduleGenerator.manifestToDocument(in);
+    File file = moduleGenerator.path(document, moduleName, baseDir);
+    file.getParentFile().mkdirs();
+    JavaWriter out = new JavaWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF-8"));
+    moduleGenerator.generate(document, moduleName, out);
+    out.close();
+  }
+
+  private static void printUsage() {
+    System.out.println("Usage: ModuleGenerator manifest module out");
+    System.out.println("  manifest: path to AndroidManifest.xml");
+    System.out.println("    module: name of the generated class, like 'ManifestModule'");
+    System.out.println("       out: base directory for generated .java source files");
   }
 }

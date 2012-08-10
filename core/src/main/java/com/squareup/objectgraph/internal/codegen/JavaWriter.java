@@ -304,7 +304,7 @@ public final class JavaWriter {
    */
   private void annotationValue(Object value) throws IOException {
     if (value instanceof Object[]) {
-      out.write("[");
+      out.write("{");
       boolean firstValue = true;
       pushScope(Scope.ANNOTATION_ARRAY_VALUE);
       for (Object o : ((Object[]) value)) {
@@ -320,7 +320,7 @@ public final class JavaWriter {
       popScope(Scope.ANNOTATION_ARRAY_VALUE);
       out.write("\n");
       indent();
-      out.write("]");
+      out.write("}");
     } else {
       out.write(value.toString());
     }
