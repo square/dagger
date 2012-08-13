@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.w3c.dom.Document;
@@ -63,13 +64,14 @@ public final class ModuleGeneratorTest {
         + "    android:versionCode=\"42\"\n"
         + "    android:versionName=\"42.0\">\n"
         + "</manifest>");
-    assertThat(generator.packageName(document)).isEqualTo("com.squareup.badhorse");
+    assertThat(generator.packageName(document, "ActivitiesModule"))
+        .isEqualTo("com.squareup.badhorse");
   }
 
   @Test public void packageNameWrongDocumentType() throws Exception {
     Document document = document("<html package=\"com.squareup.badhorse\"/>");
     try {
-      generator.packageName(document);
+      generator.packageName(document, "ActivitiesModule");
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -78,10 +80,16 @@ public final class ModuleGeneratorTest {
   @Test public void packageNameNoPackage() throws Exception {
     Document document = document("<manifest/>");
     try {
-      generator.packageName(document);
+      generator.packageName(document, "ActivitiesModule");
       fail();
     } catch (IllegalArgumentException expected) {
     }
+  }
+
+  @Test public void packageNameUserSpecified() throws Exception {
+    Document document = document("<manifest package=\"com.squareup.badhorse\"/>");
+    assertThat(generator.packageName(document, "com.squareup.captainhammer.Module"))
+        .isEqualTo("com.squareup.captainhammer");
   }
 
   @Test public void extractEntryPointNames() throws Exception {
@@ -94,7 +102,8 @@ public final class ModuleGeneratorTest {
     String packageName = "com.squareup.badhorse";
     List<String> nameReferences = Arrays.asList(
         "com.squareup.badhorse.SinActivity", "com.squareup.badhorse.LeagueOfEvilActivity");
-    generator.generate(packageName, nameReferences, "ManifestModule", new JavaWriter(stringWriter));
+    generator.generate(packageName, nameReferences, "ActivitiesModule",
+        new JavaWriter(stringWriter));
     assertCode(""
         + "package com.squareup.badhorse;\n"
         + "import com.squareup.objectgraph.Module;\n"
@@ -104,7 +113,23 @@ public final class ModuleGeneratorTest {
         + "    com.squareup.badhorse.SinActivity.class\n"
         + "  }\n"
         + ")\n"
-        + "public final class ManifestModule {\n"
+        + "public final class ActivitiesModule {\n"
+        + "}\n");
+  }
+
+  @Test public void generateWithUserSpecifiedPackageName() throws IOException {
+    String packageName = "com.squareup.badhorse";
+    List<String> nameReferences = Collections.emptyList();
+    generator.generate(packageName, nameReferences, packageName + ".ActivitiesModule",
+        new JavaWriter(stringWriter));
+    assertCode(""
+        + "package com.squareup.badhorse;\n"
+        + "import com.squareup.objectgraph.Module;\n"
+        + "@Module(\n"
+        + "  entryPoints = {\n"
+        + "  }\n"
+        + ")\n"
+        + "public final class ActivitiesModule {\n"
         + "}\n");
   }
 
