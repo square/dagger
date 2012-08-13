@@ -176,6 +176,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     StringBuilder childrenField = new StringBuilder().append("{ ");
     for (Object child : children) {
+      if (!(child instanceof TypeMirror)) {
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
+            "Unexpected value: " + child + " in children attribute of " + type);
+        continue;
+      }
       TypeMirror typeMirror = (TypeMirror) child;
       childrenField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
     }

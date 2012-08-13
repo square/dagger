@@ -118,6 +118,11 @@ public final class FullGraphProcessor extends AbstractProcessor {
     Types typeUtils = processingEnv.getTypeUtils();
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
     for (Object child : (Object[]) annotation.get("children")) {
+      if (!(child instanceof TypeMirror)) {
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
+            "Unexpected value for child: " + child + " in " + module);
+        continue;
+      }
       TypeElement childModule = (TypeElement) typeUtils.asElement((TypeMirror) child);
       collectChildModulesRecursively(childModule, result);
     }

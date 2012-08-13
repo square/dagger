@@ -54,11 +54,19 @@ public final class ModuleGenerator {
    * @param baseDir the directory where generated files are to be created.
    */
   public File path(Document manifest, String moduleName, File baseDir) {
-    String packageName = packageName(manifest);
+    String packageName = packageName(manifest, moduleName);
+    int dot = moduleName.lastIndexOf('.');
+    if (dot != -1) {
+      moduleName = moduleName.substring(dot + 1);
+    }
     return new File(baseDir, packageName.replace('.', '/') + "/" + moduleName + ".java");
   }
 
-  String packageName(Document manifest) {
+  String packageName(Document manifest, String moduleName) {
+    int dot = moduleName.lastIndexOf('.');
+    if (dot != -1) {
+      return moduleName.substring(0, dot);
+    }
     Element root = manifest.getDocumentElement();
     if (!root.getTagName().equals("manifest")) {
       throw new IllegalArgumentException("Expected <manifest> but was <" + root.getTagName() + ">");
@@ -71,14 +79,16 @@ public final class ModuleGenerator {
   }
 
   public void generate(Document manifest, String moduleName, JavaWriter out) throws IOException {
-    String packageName = packageName(manifest);
+    String packageName = packageName(manifest, moduleName);
     List<String> nameReferences = getNameReferences(manifest);
     generate(packageName, nameReferences, moduleName, out);
   }
 
   void generate(String packageName, List<String> nameReferences, String moduleName, JavaWriter out)
       throws IOException {
-    String className = packageName + "." + moduleName;
+    String className = moduleName.contains(".")
+        ? moduleName
+        : packageName + "." + moduleName;
     out.addPackage(packageName);
     out.addImport(Module.class);
 
@@ -190,7 +200,8 @@ public final class ModuleGenerator {
   private static void printUsage() {
     System.out.println("Usage: ModuleGenerator manifest module out");
     System.out.println("  manifest: path to AndroidManifest.xml");
-    System.out.println("    module: name of the generated class, like 'ManifestModule'");
+    System.out.println("    module: name of the generated class, like 'ActivitiesModule'.");
+    System.out.println("            May be fully-qualified like 'com.squareup.ActivitiesModule'.");
     System.out.println("       out: base directory for generated .java source files");
   }
 }
