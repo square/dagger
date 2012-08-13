@@ -30,29 +30,6 @@ import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
 public final class ModuleGeneratorTest {
-  private static final String MANIFEST_XML = ""
-      + "<manifest"
-      + "    xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
-      + "    package=\"com.squareup.badhorse\">\n"
-      + "  <uses-permission android:name=\"not.an.entry.point\"/>\n"
-      + "  <permission android:name=\"not.an.entry.point\"/>\n"
-      + "  <application android:name=\"not.an.entry.point\">\n"
-      + "    <uses-library android:name=\"not.an.entry.point\"/>\n"
-      + "    <activity android:name=\"result.a.Activity\">\n"
-      + "      <intent-filter>\n"
-      + "        <action android:name=\"not.an.entry.point\"/>\n"
-      + "        <category android:name=\"not.an.entry.point\"/>\n"
-      + "      </intent-filter>\n"
-      + "    </activity>\n"
-      + "    <provider android:name=\"result.b.Provider\"/>\n"
-      + "    <receiver android:name=\"result.c.Receiver\">\n"
-      + "      <intent-filter>\n"
-      + "        <action android:name=\"not.an.entry.point\"/>\n"
-      + "      </intent-filter>\n"
-      + "    </receiver>\n"
-      + "    <service android:name=\"result.d.Service\"/>\n"
-      + "  </application>\n"
-      + "</manifest>\n";
   private ModuleGenerator generator = new ModuleGenerator();
   private StringWriter stringWriter = new StringWriter();
 
@@ -93,9 +70,49 @@ public final class ModuleGeneratorTest {
   }
 
   @Test public void extractEntryPointNames() throws Exception {
-    Document document = document(MANIFEST_XML);
+    String manifestXml = ""
+        + "<manifest"
+        + "    xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+        + "    package=\"com.squareup.badhorse\">\n"
+        + "  <uses-permission android:name=\"not.an.entry.point\"/>\n"
+        + "  <permission android:name=\"not.an.entry.point\"/>\n"
+        + "  <application android:name=\"not.an.entry.point\">\n"
+        + "    <uses-library android:name=\"not.an.entry.point\"/>\n"
+        + "    <activity android:name=\"result.a.Activity\">\n"
+        + "      <intent-filter>\n"
+        + "        <action android:name=\"not.an.entry.point\"/>\n"
+        + "        <category android:name=\"not.an.entry.point\"/>\n"
+        + "      </intent-filter>\n"
+        + "    </activity>\n"
+        + "    <provider android:name=\"result.b.Provider\"/>\n"
+        + "    <receiver android:name=\"result.c.Receiver\">\n"
+        + "      <intent-filter>\n"
+        + "        <action android:name=\"not.an.entry.point\"/>\n"
+        + "      </intent-filter>\n"
+        + "    </receiver>\n"
+        + "    <service android:name=\"result.d.Service\"/>\n"
+        + "  </application>\n"
+        + "</manifest>\n";
+    Document document = document(manifestXml);
     assertThat(generator.getNameReferences(document)).isEqualTo(Arrays.asList(
         "result.a.Activity", "result.b.Provider", "result.c.Receiver", "result.d.Service"));
+  }
+
+  @Test public void excludedEntryPointNames() throws Exception {
+    String manifestXml = ""
+        + "<manifest"
+        + "    xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+        + "    xmlns:objectgraph=\"http://github.com/square/objectgraph\"\n"
+        + "    package=\"com.squareup.badhorse\">\n"
+        + "  <application>\n"
+        + "    <activity android:name=\"false.Activity\" objectgraph:entryPoint=\"false\"/>\n"
+        + "    <activity android:name=\"true.Activity\" objectgraph:entryPoint=\"true\"/>\n"
+        + "    <activity android:name=\"default.Activity\"/>\n"
+        + "  </application>\n"
+        + "</manifest>\n";
+    Document document = document(manifestXml);
+    assertThat(generator.getNameReferences(document))
+        .isEqualTo(Arrays.asList("true.Activity", "default.Activity"));
   }
 
   @Test public void generate() throws IOException {

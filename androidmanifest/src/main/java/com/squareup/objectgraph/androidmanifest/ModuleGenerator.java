@@ -46,7 +46,8 @@ import org.xml.sax.SAXException;
  * classes referenced in an {@code AndroidManifest.xml} file.
  */
 public final class ModuleGenerator {
-  private static final String NAMESPACE = "http://schemas.android.com/apk/res/android";
+  private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
+  private static final String OBJECTGRAPH_NS = "http://github.com/square/objectgraph";
 
   /**
    * Returns the path of the generated ManifestModule.java for {@code manifest}.
@@ -135,9 +136,13 @@ public final class ModuleGenerator {
             || tagName.equals("provider")
             || tagName.equals("receiver")
             || tagName.equals("service")) {
-          Attr nameAttr = ee.getAttributeNodeNS(NAMESPACE, "name");
+          Attr nameAttr = ee.getAttributeNodeNS(ANDROID_NS, "name");
           if (nameAttr == null) {
             throw new IllegalArgumentException("Expected a name attribute on " + ee);
+          }
+          Attr entryPointAttr = ee.getAttributeNodeNS(OBJECTGRAPH_NS, "entryPoint");
+          if (entryPointAttr != null && !Boolean.valueOf(entryPointAttr.getValue())) {
+            continue;
           }
           result.add(nameAttr.getValue());
         }
