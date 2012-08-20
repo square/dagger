@@ -48,6 +48,7 @@ public @interface Module {
    * True if all of the bindings required by this module can also be satisfied
    * by this module. If a module is complete it is eligible for additional
    * static checking: tools can detect if required bindings are not available.
+   * Modules that have external dependencies must use {@code complete = false}.
    */
-  boolean complete() default false;
+  boolean complete() default true;
 }
