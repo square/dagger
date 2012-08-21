@@ -128,8 +128,7 @@ public final class ModuleGeneratorTest {
         + "  entryPoints = {\n"
         + "    com.squareup.badhorse.LeagueOfEvilActivity.class,\n"
         + "    com.squareup.badhorse.SinActivity.class\n"
-        + "  },\n"
-        + "  complete = false\n"
+        + "  }\n"
         + ")\n"
         + "public final class ActivitiesModule {\n"
         + "}\n");
@@ -145,8 +144,7 @@ public final class ModuleGeneratorTest {
         + "import com.squareup.objectgraph.Module;\n"
         + "@Module(\n"
         + "  entryPoints = {\n"
-        + "  },\n"
-        + "  complete = false\n"
+        + "  }\n"
         + ")\n"
         + "public final class ActivitiesModule {\n"
         + "}\n");
