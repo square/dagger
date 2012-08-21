@@ -25,7 +25,7 @@ import java.io.OutputStreamWriter;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.xml.parsers.DocumentBuilder;
@@ -95,8 +95,9 @@ public final class ModuleGenerator {
 
     List<String> classLiterals = namesToClassLiterals(nameReferences);
     Collections.sort(classLiterals);
-    Map<String, Object> attributes = new HashMap<String, Object>();
+    Map<String, Object> attributes = new LinkedHashMap<String, Object>();
     attributes.put("entryPoints", classLiterals.toArray());
+    attributes.put("complete", "false");
 
     out.annotation(Module.class, attributes);
     out.beginType(className, "class", Modifier.PUBLIC | Modifier.FINAL);
