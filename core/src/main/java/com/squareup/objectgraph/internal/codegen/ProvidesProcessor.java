@@ -94,6 +94,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
           || typeModifiers.contains(Modifier.ABSTRACT)) {
         error("Classes declaring @Provides methods must not be private or abstract: "
                 + type.getQualifiedName());
+        continue;
       }
 
       Set<Modifier> methodModifiers = providerMethod.getModifiers();
