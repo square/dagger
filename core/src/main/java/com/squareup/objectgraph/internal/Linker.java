@@ -117,20 +117,23 @@ public abstract class Linker {
   }
 
   /**
-   * Creates a just-in-time binding for the key in {@code deferred}. The type of
-   * binding to be created depends on the key's type:
+   * Creates a just-in-time binding for the key in {@code deferred}. The type of binding
+   * to be created depends on the key's type:
    * <ul>
-   *   <li>Injections of {@code Provider<Foo>} and {@code MembersInjector<Bar>}
-   *       will delegate to the bindings of {@code Foo} and {@code Bar}
-   *       respectively.
-   *   <li>Injections of other types will use the injectable constructors of
-   *       those classes.
+   *   <li>Injections of {@code Provider<Foo>}, {@code MembersInjector<Bar>}, and
+   *       {@code Lazy<Blah>} will delegate to the bindings of {@code Foo}, {@code Bar}, and
+   *       {@code Blah} respectively.
+   *   <li>Injections of other types will use the injectable constructors of those classes.
    * </ul>
    */
   private Binding<?> createJitBinding(String key, Object requiredBy) throws ClassNotFoundException {
-    String delegateKey = Keys.getDelegateKey(key);
-    if (delegateKey != null) {
-      return new BuiltInBinding<Object>(key, requiredBy, delegateKey);
+    String builtInBindingsKey = Keys.getBuiltInBindingsKey(key);
+    if (builtInBindingsKey != null) {
+      return new BuiltInBinding<Object>(key, requiredBy, builtInBindingsKey);
+    }
+    String lazyKey = Keys.getLazyKey(key);
+    if (lazyKey != null) {
+      return new LazyBinding<Object>(key, requiredBy, lazyKey);
     }
 
     String className = Keys.getClassName(key);

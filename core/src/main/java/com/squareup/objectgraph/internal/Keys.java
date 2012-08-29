@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Square, Inc.
+ * Copyright (C) 2012 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
  */
 package com.squareup.objectgraph.internal;
 
+import com.squareup.objectgraph.Lazy;
 import com.squareup.objectgraph.MembersInjector;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.GenericArrayType;
@@ -39,6 +41,7 @@ import javax.inject.Qualifier;
 public final class Keys {
   private static final String PROVIDER_PREFIX = Provider.class.getName() + "<";
   private static final String MEMBERS_INJECTOR_PREFIX = MembersInjector.class.getName() + "<";
+  private static final String LAZY_PREFIX = Lazy.class.getName() + "<";
 
   private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
       = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {
@@ -138,25 +141,55 @@ public final class Keys {
    * key for {@code Foo}. This retains annotations and supports both Provider
    * keys and MembersInjector keys.
    */
-  public static String getDelegateKey(String key) {
-    int start = 0;
-    if (key.startsWith("@")) {
-      start = key.lastIndexOf('/') + 1;
-    }
-
-    String delegatePrefix;
-    String wrapperPrefix;
+  static String getBuiltInBindingsKey(String key) {
+    int start = startOfType(key);
     if (substringStartsWith(key, start, PROVIDER_PREFIX)) {
-      delegatePrefix = key.substring(0, start);
-      wrapperPrefix = PROVIDER_PREFIX;
+      return extractKey(key, start, key.substring(0, start), PROVIDER_PREFIX);
     } else if (substringStartsWith(key, start, MEMBERS_INJECTOR_PREFIX)) {
-      delegatePrefix = "members/";
-      wrapperPrefix = MEMBERS_INJECTOR_PREFIX;
+      return extractKey(key, start, "members/", MEMBERS_INJECTOR_PREFIX);
     } else {
       return null;
     }
-    return delegatePrefix
-        + key.substring(start + wrapperPrefix.length(), key.length() - 1);
+  }
+
+  /**
+   * Returns a key for the underlying binding of a Lazy<T> value. For example,
+   * if this is a key for a {@code Lazy<Foo>}, this returns the key for
+   * {@code Foo}. This retains annotations.
+   */
+  static String getLazyKey(String key) {
+    int start = startOfType(key);
+    if (substringStartsWith(key, start, LAZY_PREFIX)) {
+      return extractKey(key, start, key.substring(0, start), LAZY_PREFIX);
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the start of a key if it is a plain key, and the start of the
+   * underlying key if it is an annotated key
+   */
+  private static int startOfType(String key) {
+    return (key.startsWith("@")) ? key.lastIndexOf('/') + 1 : 0;
+  }
+
+  /**
+   * Returns an unwrapped key (the key for T from a Provider<T> for example),
+   * removing all wrapping key information, but preserving annotations or known
+   * prefixes.
+   *
+   * @param key the key from which the delegate key should be extracted.
+   * @param start
+   *          an index into the key representing the key's "real" start after
+   *          any annotations.
+   * @param delegatePrefix
+   *          key prefix elements extracted from the underlying delegate
+   *          (annotations, "members/", etc.)
+   * @param prefix the prefix to strip.
+   */
+  private static String extractKey(String key, int start, String delegatePrefix, String prefix) {
+    return delegatePrefix + key.substring(start + prefix.length(), key.length() - 1);
   }
 
   /** Returns true if {@code string.substring(offset).startsWith(substring)}. */
@@ -206,4 +239,5 @@ public final class Keys {
     if (type == void.class) return Void.class;
     return type;
   }
+
 }
