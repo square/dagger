@@ -15,6 +15,7 @@
  */
 package com.squareup.objectgraph.internal;
 
+import com.squareup.objectgraph.Lazy;
 import com.squareup.objectgraph.MembersInjector;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -89,22 +90,39 @@ public final class KeysTest {
   Provider<String> providerOfType;
   String providedType;
   @Test public void testGetDelegateKey() throws NoSuchFieldException {
-    assertThat(Keys.getDelegateKey(fieldKey("providerOfType")))
+    assertThat(Keys.getBuiltInBindingsKey(fieldKey("providerOfType")))
         .isEqualTo(fieldKey("providedType"));
   }
 
   @Named("/@") Provider<String> providerOfTypeAnnotated;
   @Named("/@") String providedTypeAnnotated;
   @Test public void testGetDelegateKeyWithAnnotation() throws NoSuchFieldException {
-    assertThat(Keys.getDelegateKey(fieldKey("providerOfTypeAnnotated")))
+    assertThat(Keys.getBuiltInBindingsKey(fieldKey("providerOfTypeAnnotated")))
         .isEqualTo(fieldKey("providedTypeAnnotated"));
   }
 
   @Named("/@") MembersInjector<String> membersInjectorOfType;
   @Named("/@") String injectedType;
   @Test public void testGetDelegateKeyWithMembersInjector() throws NoSuchFieldException {
-    assertThat(Keys.getDelegateKey(fieldKey("membersInjectorOfType")))
+    assertThat(Keys.getBuiltInBindingsKey(fieldKey("membersInjectorOfType")))
         .isEqualTo("members/java.lang.String");
+  }
+
+  @Named("/@") Lazy<String> lazyAnnotatedString;
+  @Named("/@") String eagerAnnotatedString;
+  @Test public void testAnnotatedGetLazyKey() throws NoSuchFieldException {
+    assertThat(Keys.getLazyKey(fieldKey("lazyAnnotatedString")))
+        .isEqualTo(fieldKey("eagerAnnotatedString"));
+  }
+
+  Lazy<String> lazyString;
+  String eagerString;
+  @Test public void testGetLazyKey() throws NoSuchFieldException {
+    assertThat(Keys.getLazyKey(fieldKey("lazyString"))).isEqualTo(fieldKey("eagerString"));
+  }
+
+  @Test public void testGetLazyKey_WrongKeyType() throws NoSuchFieldException {
+    assertThat(Keys.getLazyKey(fieldKey("providerOfTypeAnnotated"))).isNull();
   }
 
   private String fieldKey(String fieldName) throws NoSuchFieldException {
