@@ -60,7 +60,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectChildModulesRecursively(rootModule, allModules);
 
-    Linker linker = new BuildTimeLinker(processingEnv);
+    Linker linker = new BuildTimeLinker(processingEnv, rootModule.getQualifiedName().toString());
     Map<String, ProviderMethodBinding> baseBindings
         = new LinkedHashMap<String, ProviderMethodBinding>();
     Map<String, ProviderMethodBinding> overrideBindings

@@ -233,6 +233,120 @@ Supply qualified values by annotating the corresponding `@Provides` method.
 
 Dependencies may not have multiple qualifier annotations.
 
+### Static Injection
+
+**Warning:** This feature should be used sparingly because static dependencies are difficult to test and reuse.
+
+ObjectGraph can inject static fields. Classes that declare static fields with `@Inject` annotations must be listed as `staticInjections` in a module annotation.
+
+```java
+@Module(
+    staticInjections = LegacyCoffeeUtils.class
+)
+class LegacyModule {
+}
+```
+
+Use `ObjectGraph.injectStatics()` to populate these static fields with their injected values:
+
+```java
+ObjectGraph objectGraph = ObjectGraph.get(new LegacyModule());
+objectGraph.injectStatics();
+```
+
+### Compile-time Validation
+
+ObjectGraph includes an [annotation processor][2] that validates modules and injections. This processor is strict and will cause a compiler error if any bindings are invalid or incomplete. For example, this module is missing a binding for `Executor`:
+
+```java
+@Module
+class DripCoffeeModule {
+  @Provides Heater provideHeater(Executor executor) {
+    return new CpuHeater(executor);
+  }
+}
+```
+
+When compiling it, `javac` rejects the missing binding:
+
+```
+[ERROR] COMPILATION ERROR : 
+[ERROR] error: No binding for java.util.concurrent.Executor
+               required by provideHeater(java.util.concurrent.Executor)
+```
+
+Fix the problem either by adding the an `@Provides`-annotated method for `Executor`, or by marking the module as incomplete. Incomplete modules are permitted to have missing dependencies.
+
+```java
+@Module(complete = false)
+class DripCoffeeModule {
+  @Provides Heater provideHeater(Executor executor) {
+    return new CpuHeater(executor);
+  }
+}
+```
+
+To get the most out of compile-time validation, create a module that includes all of your application's modules as children. The annotation processor will detect problems across the modules and report them.
+
+```java
+@Module(
+    children = {
+        DripCoffeeModule.class,
+        ExecutorModule.class
+    }
+)
+public class CoffeeAppModule {
+}
+```
+
+The annotation processor is enabled automatically when you include ObjectGraph's jar file on your compile classpath.
+
+### Compile-time Code Generation
+
+ObjectGraph's annotation processor may also generate source files with names like `CoffeeMaker$InjectAdapter.java` or `DripCoffeeModule$ModuleAdapter`. These files are ObjectGraph implementation details. You shouldn't need to use them directly, though they can be handy when step-debugging through an injection.
+
+### Module overrides
+
+ObjectGraph will fail with an error if there are multiple competing `@Provides` methods for the same dependency. But sometimes it's necessary to replace production code with a substitute for development or testing. Using `overrides = true` in a module annotation lets you take precedence over the bindings of other modules.
+
+This JUnit test overrides `DripCoffeeModule`'s binding for `Heater` with a mock object from [Mockito][3]. The mock gets injected into the `CoffeeMaker` and also into the test.
+
+```java
+public class CoffeeMakerTest {
+  @Inject CoffeeMaker coffeeMaker;
+  @Inject Heater heater;
+
+  @Before public void setUp() {
+    ObjectGraph.get(new TestModule()).inject(this);
+  }
+
+  @Module(
+      children = DripCoffeeModule.class,
+      entryPoints = CoffeeMakerTest.class,
+      overrides = true
+  )
+  static class TestModule {
+    @Provides @Singleton Heater provideHeater() {
+      return Mockito.mock(Heater.class);
+    }
+  }
+
+  @Test public void testHeaterIsTurnedOnAndThenOff() {
+    Mockito.when(heater.isHot()).thenReturn(true);
+    coffeeMaker.brew();
+    Mockito.verify(heater, Mockito.times(1)).on();
+    Mockito.verify(heater, Mockito.times(1)).off();
+  }
+}
+```
+
+Overrides are best suited for small variations on the application:
+
+* Replacing the real implementation with a mock for unit tests.
+* Replacing LDAP authentication with fake authentication for development.
+
+For more substantial variations it's often simpler to use a different combination of modules.
+
 
 Upgrading from Guice
 ====================
@@ -258,7 +372,7 @@ during compilation indicate errors in your style and can be viewed in the
 `checkstyle-result.xml` file.
 
 Before your code can be accepted into the project you must also sign the
-[Individual Contributor License Agreement (CLA)][2].
+[Individual Contributor License Agreement (CLA)][4].
 
 
 License
@@ -279,4 +393,6 @@ License
     limitations under the License.
 
  [1]: http://atinject.googlecode.com/svn/trunk/javadoc/javax/inject/package-summary.html
- [2]: https://spreadsheets.google.com/spreadsheet/viewform?formkey=dDViT2xzUHAwRkI3X3k5Z0lQM091OGc6MQ&ndplr=1
+ [2]: http://docs.oracle.com/javase/6/docs/api/javax/annotation/processing/package-summary.html
+ [3]: http://mockito.googlecode.com/
+ [4]: https://spreadsheets.google.com/spreadsheet/viewform?formkey=dDViT2xzUHAwRkI3X3k5Z0lQM091OGc6MQ&ndplr=1

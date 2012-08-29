@@ -32,9 +32,11 @@ import javax.tools.Diagnostic;
  */
 final class BuildTimeLinker extends Linker {
   private final ProcessingEnvironment processingEnv;
+  private final String moduleName;
 
-  BuildTimeLinker(ProcessingEnvironment processingEnv) {
+  BuildTimeLinker(ProcessingEnvironment processingEnv, String moduleName) {
     this.processingEnv = processingEnv;
+    this.moduleName = moduleName;
   }
 
   @Override protected Binding<?> createAtInjectBinding(String key, String className) {
@@ -55,7 +57,7 @@ final class BuildTimeLinker extends Linker {
 
   @Override protected void reportErrors(List<String> errors) {
     for (String error : errors) {
-      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, error);
+      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, error + " for " + moduleName);
     }
   }
 }
