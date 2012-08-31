@@ -2,14 +2,16 @@ package coffee;
 
 import javax.inject.Inject;
 
+import com.squareup.objectgraph.Lazy;
+
 class CoffeeMaker {
-  @Inject Heater heater;
+  @Inject Lazy<Heater> heater; // Don't want to create a possibly costly heater until we need it.
   @Inject Pump pump;
 
   public void brew() {
-    heater.on();
+    heater.get().on();
     pump.pump();
     System.out.println(" [_]P coffee! [_]P ");
-    heater.off();
+    heater.get().off();
   }
 }
