@@ -22,6 +22,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Set;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
 
@@ -42,6 +43,7 @@ public final class Keys {
   private static final String PROVIDER_PREFIX = Provider.class.getName() + "<";
   private static final String MEMBERS_INJECTOR_PREFIX = MembersInjector.class.getName() + "<";
   private static final String LAZY_PREFIX = Lazy.class.getName() + "<";
+  private static final String SET_PREFIX = Set.class.getName() + "<";
 
   private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
       = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {
@@ -67,17 +69,38 @@ public final class Keys {
   /** Returns a key for {@code type} annotated by {@code annotation}. */
   public static String get(Type type, Annotation annotation) {
     type = boxIfPrimitive(type);
-    if (annotation == null
-        && type instanceof Class
-        && !((Class<?>) type).isArray()) {
+    if (annotation == null && type instanceof Class && !((Class<?>) type).isArray()) {
       return ((Class<?>) type).getName();
     }
-
     StringBuilder result = new StringBuilder();
     if (annotation != null) {
       result.append(annotation).append("/");
     }
     typeToString(type, result);
+    return result.toString();
+  }
+
+
+  /**
+   * Returns a key for {@code type} annotated with {@code annotations},
+   * wrapped by {@code Set}, reporting failures against {@code subject}.
+   *
+   * @param annotations the annotations on a single method, field or parameter.
+   *     This array may contain at most one qualifier annotation.
+   */
+  public static String getElementKey(Type type, Annotation[] annotations, Object subject) {
+    Annotation qualifier = validateQualifier(annotations, subject);
+    type = boxIfPrimitive(type);
+    if (qualifier == null && type instanceof Class && !((Class<?>) type).isArray()) {
+      return SET_PREFIX + ((Class<?>) type).getName() + ">";
+    }
+    StringBuilder result = new StringBuilder();
+    if (qualifier != null) {
+      result.append(qualifier).append("/");
+    }
+    result.append(SET_PREFIX);
+    typeToString(type, result);
+    result.append(">");
     return result.toString();
   }
 
@@ -89,6 +112,15 @@ public final class Keys {
    *     This array may contain at most one qualifier annotation.
    */
   public static String get(Type type, Annotation[] annotations, Object subject) {
+    return get(type, validateQualifier(annotations, subject));
+  }
+
+  /**
+   * Validates that among {@code annotations} there exists only one annotation which is, itself
+   * qualified by {@code \@Qualifier}
+   */
+  private static Annotation validateQualifier(Annotation[] annotations,
+      Object subject) {
     Annotation qualifier = null;
     for (Annotation a : annotations) {
       if (!IS_QUALIFIER_ANNOTATION.get(a.annotationType())) {
@@ -99,7 +131,7 @@ public final class Keys {
       }
       qualifier = a;
     }
-    return get(type, qualifier);
+    return qualifier;
   }
 
   private static void typeToString(Type type, StringBuilder result) {
