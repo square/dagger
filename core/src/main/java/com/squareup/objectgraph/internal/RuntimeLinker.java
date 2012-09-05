@@ -35,9 +35,8 @@ public final class RuntimeLinker extends Linker {
       Constructor<?> constructor = c.getConstructor();
       constructor.setAccessible(true);
       return (Binding<?>) constructor.newInstance();
-    } catch (Exception e) {
-      LOGGER.log(Level.FINE, "No generated inject adapter for " + className
-          + ". Falling back to reflection.", e);
+    } catch (Exception ignored) {
+      // Fall back to reflection.
     }
 
     // Handle class bindings by injecting @Inject-annotated members.
