@@ -18,7 +18,6 @@ package com.squareup.objectgraph.internal;
 import com.squareup.objectgraph.ObjectGraph;
 import java.lang.reflect.Constructor;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
