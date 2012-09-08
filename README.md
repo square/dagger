@@ -162,37 +162,45 @@ class CoffeeMaker {
 }
 ```
 
-### Providers
+### Lazy injections
 
-Not to be confused with `@Provides`, a `Provider` is a special dependency that can be used to retrieve any number of instances. Use a `Provider` to make a dependency lazy:
+Sometimes you need to make a dependency lazily created.  For any binding `T`, you can create a `Lazy<T>` which defers instantiation until the first call to `Lazy<T>`'s `get()` method. If `T` is a singleton, then `Lazy<T>` will be the same instance for all injections within the ObjectGraph.  Otherwise, each injection site will get its own `Lazy<T>` instance.  Regardless, subsequent calls to any given instance of `Lazy<T>` will return the same underlying instance of `T`.
 
 ```java
 class GridingCoffeeMaker {
-  @Inject Provider<Grinder> grinderProvider;
+  @Inject Lazy<Grinder> lazyGrinder;
 
   public void brew() {
-    if (needsGrinding()) {
-      Grinder grinder = grinderProvider.get();
-      ...
+    while (needsGrinding()) {
+	  // Grinder created once on first call to .get() and cached.
+      lazyGrinder.get().grind();
     }
   }
 }
 ```
 
-Or when multiple values are required:
+### Provider injections
+
+Sometimes you need multiple instances to be returned instead of just injecting a single value.  In this case, if you are dealing with data objects (value objects) you might want to create and bind a Factory of some sort to manage these objects.  However, sometimes you need new instances of an object, e.g. if the object relies on volatile configuration and may change between calls.  In this case, you can inject a `Provider<T>` instead of just `T`, and you will get an object which creates a new instance each time `.get()` is called.
 
 ```java
+
 class BigCoffeeMaker {
   @Inject Provider<Filter> filterProvider;
 
   public void brew(int numberOfPots) {
+	...
     for (int p = 0; p < numberOfPots; p++) {
-      Filter coffeeFilter = filterProvider.get();
+      maker.addFilter(filterProvider.get()); //new filter every time.
+      maker.addCoffee(...);
+      maker.percolate();
       ...
     }
   }
 }
 ```
+
+***Note:*** *Generally, injecting Provider<T> is not preferred, as most cases should use a Factory or a Lazy<T>.  But it can be invaluable in cases where legacy architecture doesn't line up with your ObjectGraph's object lifetimes (e.g. servlets are singletons by design, but only are valid in the context of request-specfic data).*
 
 ### Qualifiers
 
