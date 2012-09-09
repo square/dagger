@@ -181,7 +181,7 @@ class GridingCoffeeMaker {
 
 ### Provider injections
 
-Sometimes you need multiple instances to be returned instead of just injecting a single value.  While you have many options (Factories, Builders, etc.)   sometimes you need new instances of a collaborator if, for example, the object relies on volatile configuration or a piece of local context may change between calls.  In this case, you can inject a `Provider<T>` instead of just `T`, and you will get an object which creates a new instance each time `.get()` is called.
+Sometimes you need multiple instances to be returned instead of just injecting a single value.  While you have several options (Factories, Builders, etc.)   one option is to inject a `Provider<T>` instead of just `T`.  A `Provider<T>` creates a new instance of `T` each time `.get()` is called.
 
 ```java
 
@@ -200,7 +200,7 @@ class BigCoffeeMaker {
 }
 ```
 
-***Note:*** *Generally, injecting `Provider<T>` is not preferred, as most cases should use a `Factory<T>` or a `Lazy<T>` or re-organize the lifetimes and structure of your code to be able to just inject a `T`.  Injecting `Provider<T>` can, however, be invaluable in cases where legacy architecture doesn't line up with your ObjectGraph's object lifetimes (e.g. servlets are singletons by design, but only are valid in the context of request-specfic data).*
+***Note:*** *Injecting `Provider<T>` has the possibility of creating confusing code, and may be a design smell of mis-scoped or mis-structured objects in your graph.  Often you will want to use a `Factory<T>` or a `Lazy<T>` or re-organize the lifetimes and structure of your code to be able to just inject a `T`.  Injecting `Provider<T>` can, however, be a life saver in some cases.  A common use is when you must use a legacy architecture that doesn't line up with your object's natural lifetimes (e.g. servlets are singletons by design, but only are valid in the context of request-specfic data).*
 
 ### Qualifiers
 
