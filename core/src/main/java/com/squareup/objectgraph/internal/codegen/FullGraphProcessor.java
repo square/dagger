@@ -58,7 +58,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   private void validateComplete(TypeElement rootModule) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
-    collectChildModulesRecursively(rootModule, allModules);
+    collectIncludesRecursively(rootModule, allModules);
 
     Linker linker = new BuildTimeLinker(processingEnv, rootModule.getQualifiedName().toString());
     Map<String, ProviderMethodBinding> baseBindings
@@ -110,21 +110,25 @@ public final class FullGraphProcessor extends AbstractProcessor {
         + "." + method.getSimpleName() + "()";
   }
 
-  private void collectChildModulesRecursively(TypeElement module, Map<String, TypeElement> result) {
+  private void collectIncludesRecursively(TypeElement module, Map<String, TypeElement> result) {
     // Add the module.
     result.put(module.getQualifiedName().toString(), module);
 
-    // Recurse for each child module.
+    // Recurse for each included module.
     Types typeUtils = processingEnv.getTypeUtils();
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
-    for (Object child : (Object[]) annotation.get("children")) {
-      if (!(child instanceof TypeMirror)) {
+    @SuppressWarnings("deprecation") // Use known deprecated method. TODO(cgruber): remove.
+    Object[] includes = ArrayUtil.concatenate(
+        (Object[]) annotation.get("includes"),
+        (Object[]) annotation.get("children"));
+    for (Object include : includes) {
+      if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-            "Unexpected value for child: " + child + " in " + module);
+            "Unexpected value for include: " + include + " in " + module);
         continue;
       }
-      TypeElement childModule = (TypeElement) typeUtils.asElement((TypeMirror) child);
-      collectChildModulesRecursively(childModule, result);
+      TypeElement includedModule = (TypeElement) typeUtils.asElement((TypeMirror) include);
+      collectIncludesRecursively(includedModule, result);
     }
   }
 
