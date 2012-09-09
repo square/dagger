@@ -15,14 +15,15 @@
  */
 package com.squareup.objectgraph.internal;
 
-import com.squareup.objectgraph.Module;
-import com.squareup.objectgraph.ObjectGraph;
-import com.squareup.objectgraph.Provides;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.squareup.objectgraph.Module;
+import com.squareup.objectgraph.ObjectGraph;
+import com.squareup.objectgraph.Provides;
 
 /**
  * Extracts bindings from an {@code @Module}-annotated class.
@@ -33,16 +34,16 @@ public abstract class ModuleAdapter<T> {
   public final String[] entryPoints;
   public final Class<?>[] staticInjections;
   public final boolean overrides;
-  public final Class<?>[] children;
+  public final Class<?>[] includes;
   public final boolean complete;
   protected T module;
 
   protected ModuleAdapter(String[] entryPoints, Class<?>[] staticInjections, boolean overrides,
-      Class<?>[] children, boolean complete) {
+      Class<?>[] includes, boolean complete) {
     this.entryPoints = entryPoints;
     this.staticInjections = staticInjections;
     this.overrides = overrides;
-    this.children = children;
+    this.includes = includes;
     this.complete = complete;
   }
 
@@ -91,10 +92,33 @@ public abstract class ModuleAdapter<T> {
   static class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     final Class<?> moduleClass;
 
+    @SuppressWarnings("deprecation") // explicitly handles deprecated case
     ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
-      super(toMemberKeys(annotation.entryPoints()), annotation.staticInjections(),
-          annotation.overrides(), annotation.children(), annotation.complete());
+      super(toMemberKeys(
+          annotation.entryPoints()),
+          annotation.staticInjections(),
+          annotation.overrides(),
+          concatenate(annotation.includes(), annotation.children()),
+          annotation.complete());
       this.moduleClass = moduleClass;
+    }
+
+    /**
+     * A class that returns the concatenation of two {@code Class<T>[]}s.
+     *
+     * TODO(cgruber): Remove this method when module children are removed.
+     *
+     * @deprecated this method exists only to support a legacy deprecation case
+     */
+    @Deprecated
+    private static Class<?>[] concatenate(Class<?>[] first, Class<?>[] second) {
+      if (second == null || second.length == 0) {
+        return first;
+      }
+      final Class<?>[] result = new Class<?>[second.length + first.length];
+      System.arraycopy(second, 0, result, 0, second.length);
+      System.arraycopy(first, 0, result, second.length, first.length);
+      return result;
     }
 
     private static String[] toMemberKeys(Class<?>[] entryPoints) {
@@ -125,9 +149,9 @@ public abstract class ModuleAdapter<T> {
 
     @Override protected Object newModule() {
       try {
-        Constructor<?> childConstructor = moduleClass.getDeclaredConstructor();
-        childConstructor.setAccessible(true);
-        return childConstructor.newInstance();
+        Constructor<?> includeConstructor = moduleClass.getDeclaredConstructor();
+        includeConstructor.setAccessible(true);
+        return includeConstructor.newInstance();
       } catch (Exception e) {
         throw new IllegalArgumentException("Unable to instantiate " + moduleClass.getName(), e);
       }
