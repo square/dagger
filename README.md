@@ -172,7 +172,7 @@ class GridingCoffeeMaker {
 
   public void brew() {
     while (needsGrinding()) {
-	  // Grinder created once on first call to .get() and cached.
+      // Grinder created once on first call to .get() and cached.
       lazyGrinder.get().grind();
     }
   }
@@ -181,7 +181,7 @@ class GridingCoffeeMaker {
 
 ### Provider injections
 
-Sometimes you need multiple instances to be returned instead of just injecting a single value.  In this case, if you are dealing with data objects (value objects) you might want to create and bind a Factory of some sort to manage these objects.  However, sometimes you need new instances of an object, e.g. if the object relies on volatile configuration and may change between calls.  In this case, you can inject a `Provider<T>` instead of just `T`, and you will get an object which creates a new instance each time `.get()` is called.
+Sometimes you need multiple instances to be returned instead of just injecting a single value.  While you have many options (Factories, Builders, etc.)   sometimes you need new instances of a collaborator if, for example, the object relies on volatile configuration or a piece of local context may change between calls.  In this case, you can inject a `Provider<T>` instead of just `T`, and you will get an object which creates a new instance each time `.get()` is called.
 
 ```java
 
@@ -200,7 +200,7 @@ class BigCoffeeMaker {
 }
 ```
 
-***Note:*** *Generally, injecting Provider<T> is not preferred, as most cases should use a Factory or a Lazy<T>.  But it can be invaluable in cases where legacy architecture doesn't line up with your ObjectGraph's object lifetimes (e.g. servlets are singletons by design, but only are valid in the context of request-specfic data).*
+***Note:*** *Generally, injecting `Provider<T>` is not preferred, as most cases should use a `Factory<T>` or a `Lazy<T>` or re-organize the lifetimes and structure of your code to be able to just inject a `T`.  Injecting `Provider<T>` can, however, be invaluable in cases where legacy architecture doesn't line up with your ObjectGraph's object lifetimes (e.g. servlets are singletons by design, but only are valid in the context of request-specfic data).*
 
 ### Qualifiers
 
