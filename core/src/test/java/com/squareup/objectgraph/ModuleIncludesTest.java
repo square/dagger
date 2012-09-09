@@ -15,14 +15,15 @@
  */
 package com.squareup.objectgraph;
 
-import javax.inject.Inject;
-import org.junit.Test;
-
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
+import javax.inject.Inject;
+
+import org.junit.Test;
+
 @SuppressWarnings("unused")
-public final class ChildModuleTest {
+public final class ModuleIncludesTest {
   static class TestEntryPoint {
     @Inject String s;
   }
@@ -32,7 +33,7 @@ public final class ChildModuleTest {
   }
 
   @Test public void childModuleWithEntryPoint() {
-    @Module(children = ModuleWithEntryPoint.class)
+    @Module(includes = ModuleWithEntryPoint.class)
     class TestModule {
       @Provides String provideString() {
         return "injected";
@@ -54,7 +55,7 @@ public final class ChildModuleTest {
   }
 
   @Test public void childModuleWithStaticInjection() {
-    @Module(children = ModuleWithStaticInjection.class)
+    @Module(includes = ModuleWithStaticInjection.class)
     class TestModule {
       @Provides String provideString() {
         return "injected";
@@ -81,7 +82,7 @@ public final class ChildModuleTest {
 
     @Module(
         entryPoints = TestEntryPoint.class,
-        children = ModuleWithBinding.class
+        includes = ModuleWithBinding.class
     )
     class TestModule {
     }
@@ -92,7 +93,7 @@ public final class ChildModuleTest {
     assertThat(entryPoint.s).isEqualTo("injected");
   }
 
-  @Module(children = ModuleWithBinding.class)
+  @Module(includes = ModuleWithBinding.class)
   static class ModuleWithChildModule {
   }
 
@@ -103,7 +104,7 @@ public final class ChildModuleTest {
 
     @Module(
         entryPoints = TestEntryPoint.class,
-        children = ModuleWithChildModule.class
+        includes = ModuleWithChildModule.class
     )
     class TestModule {
     }
@@ -128,7 +129,7 @@ public final class ChildModuleTest {
   }
 
   @Test public void childModuleMissingManualConstruction() {
-    @Module(children = ModuleWithConstructor.class)
+    @Module(includes = ModuleWithConstructor.class)
     class TestModule {
     }
 
@@ -146,7 +147,7 @@ public final class ChildModuleTest {
 
     @Module(
         entryPoints = TestEntryPoint.class,
-        children = ModuleWithConstructor.class
+        includes = ModuleWithConstructor.class
     )
     class TestModule {
     }
@@ -156,4 +157,48 @@ public final class ChildModuleTest {
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("a");
   }
+
+  // Legacy Tests //
+
+  @Test public void childrenButNoIncludes() {
+    class TestEntryPoint {
+      @Inject String s;
+    }
+    @Module(entryPoints = TestEntryPoint.class, children = ModuleWithBinding.class)
+    class TestModule {
+    }
+
+    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
+    assertThat(ep.s).isEqualTo("injected");
+  }
+
+  @Module(complete = false)
+  static class ModuleWithInteger {
+    @Provides Integer provideString() { return 1; }
+  }
+
+  @Test public void bothIncludesAndChildren() {
+    class TestEntryPoint {
+      @Inject String s;
+      @Inject Integer i;
+    }
+    @Module(
+        entryPoints = TestEntryPoint.class,
+        includes = ModuleWithInteger.class,
+        children = ModuleWithBinding.class)
+    class TestModule {
+    }
+
+    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
+    assertThat(ep.s).isEqualTo("injected");
+    assertThat(ep.i).isEqualTo(1);
+  }
+
+  private <T> T injectWithModule(T ep, Object ... modules) {
+    // TODO(cgruber): Make og.inject(foo) return foo properly.
+    ObjectGraph og = ObjectGraph.get(modules);
+    og.inject(ep);
+    return ep;
+  }
+
 }

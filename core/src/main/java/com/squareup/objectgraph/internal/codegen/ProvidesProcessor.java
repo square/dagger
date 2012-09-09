@@ -15,11 +15,12 @@
  */
 package com.squareup.objectgraph.internal.codegen;
 
-import com.squareup.objectgraph.Module;
-import com.squareup.objectgraph.Provides;
-import com.squareup.objectgraph.internal.Binding;
-import com.squareup.objectgraph.internal.Linker;
-import com.squareup.objectgraph.internal.ModuleAdapter;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PROTECTED;
+import static java.lang.reflect.Modifier.PUBLIC;
+import static java.lang.reflect.Modifier.STATIC;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -43,11 +45,11 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PROTECTED;
-import static java.lang.reflect.Modifier.PUBLIC;
-import static java.lang.reflect.Modifier.STATIC;
+import com.squareup.objectgraph.Module;
+import com.squareup.objectgraph.Provides;
+import com.squareup.objectgraph.internal.Binding;
+import com.squareup.objectgraph.internal.Linker;
+import com.squareup.objectgraph.internal.ModuleAdapter;
 
 /**
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
@@ -137,7 +139,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     Object[] staticInjections = (Object[]) module.get("staticInjections");
     Object[] entryPoints = (Object[]) module.get("entryPoints");
-    Object[] children = (Object[]) module.get("children");
+    @SuppressWarnings("deprecation") // use deprecated until children removed.
+    Object[] includes = ArrayUtil.concatenate(
+        (Object[]) module.get("includes"),
+        (Object[]) module.get("children"));
+
     boolean overrides = (Boolean) module.get("overrides");
     boolean complete = (Boolean) module.get("complete");
 
@@ -175,22 +181,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.field("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
         staticInjectionsField.toString());
 
-    StringBuilder childrenField = new StringBuilder().append("{ ");
-    for (Object child : children) {
-      if (!(child instanceof TypeMirror)) {
+    StringBuilder includesField = new StringBuilder().append("{ ");
+    for (Object include : includes) {
+      if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-            "Unexpected value: " + child + " in children attribute of " + type);
+            "Unexpected value: " + include + " in includes or children attribute of " + type);
         continue;
       }
-      TypeMirror typeMirror = (TypeMirror) child;
-      childrenField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
+      TypeMirror typeMirror = (TypeMirror) include;
+      includesField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
     }
-    childrenField.append("}");
-    writer.field("Class<?>[]", "CHILDREN", PRIVATE | STATIC | FINAL, childrenField.toString());
+    includesField.append("}");
+    writer.field("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
 
     writer.beginMethod(null, adapterName, PUBLIC);
     writer.statement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
-        + "CHILDREN, %s /*complete*/)", overrides, complete);
+        + "INCLUDES, %s /*complete*/)", overrides, complete);
     writer.endMethod();
 
     writer.annotation(Override.class);
