@@ -122,7 +122,7 @@ public final class ObjectGraph {
   }
 
   /**
-   * Returns a full set of module adapters, including module adapters for child
+   * Returns a full set of module adapters, including module adapters for included
    * modules.
    */
   private static ModuleAdapter<?>[] getAllModuleAdapters(Object[] seedModules) {
@@ -145,7 +145,7 @@ public final class ObjectGraph {
     // Next add adapters for the modules that we need to construct. This creates
     // instances of modules as necessary.
     for (ModuleAdapter<?> adapter : seedAdapters) {
-      collectChildModulesRecursively(adapter, adaptersByModuleType);
+      collectIncludedModulesRecursively(adapter, adaptersByModuleType);
     }
 
     return adaptersByModuleType.values().toArray(
@@ -153,16 +153,16 @@ public final class ObjectGraph {
   }
 
   /**
-   * Fills {@code result} with the module adapters for the children of {@code
-   * adapter}, and their children recursively.
+   * Fills {@code result} with the module adapters for the includes of {@code
+   * adapter}, and their includes recursively.
    */
-  private static void collectChildModulesRecursively(ModuleAdapter<?> adapter,
+  private static void collectIncludedModulesRecursively(ModuleAdapter<?> adapter,
       Map<Class<?>, ModuleAdapter<?>> result) {
-    for (Class<?> child : adapter.children) {
-      if (!result.containsKey(child)) {
-        ModuleAdapter<Object> childAdapter = ModuleAdapter.get(child, null);
-        result.put(child, childAdapter);
-        collectChildModulesRecursively(childAdapter, result);
+    for (Class<?> include : adapter.includes) {
+      if (!result.containsKey(include)) {
+        ModuleAdapter<Object> includedModuleAdapter = ModuleAdapter.get(include, null);
+        result.put(include, includedModuleAdapter);
+        collectIncludedModulesRecursively(includedModuleAdapter, result);
       }
     }
   }

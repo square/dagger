@@ -38,11 +38,18 @@ public @interface Module {
   boolean overrides() default false;
 
   /**
-   * Additional {@code @Module}-annotated classes that this module is composed
-   * of. The contributions of the modules in {@code children}, and of their
-   * children recursively, are all contributed to the object graph.
+   * @deprecated Use module includes vs. children
    */
+  @Deprecated
   Class<?>[] children() default { };
+
+  /**
+   * Additional {@code @Module}-annotated classes from which this module is
+   * composed. The de-duplicated contributions of the modules in
+   * {@code includes}, and of their inclusions recursively, are all contributed
+   * to the object graph.
+   */
+  Class<?>[] includes() default { };
 
   /**
    * True if all of the bindings required by this module can also be satisfied
