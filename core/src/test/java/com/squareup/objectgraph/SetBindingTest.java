@@ -96,6 +96,38 @@ public final class SetBindingTest {
     assertThat(set1).isNotEqualTo(set2);
     assertTrue(set1.retainAll(set2));
     assertEquals(1, set1.size());
+  }
+
+  @Test public void multiValueBindings_WithSingletonsAcrossMultipleEntryPoints() {
+    class TestEntryPoint1 {
+      @Inject Set<Object> objects1;
+    }
+    class TestEntryPoint2 {
+      @Inject Set<Object> objects2;
+    }
+
+    @Module(entryPoints = { TestEntryPoint1.class, TestEntryPoint2.class })
+    class TestModule {
+      @Provides @Singleton @Element Object provideSingleObject() { return new Object(); }
+      @Provides @Element Object provideObjects() { return new Object(); }
+    }
+
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
+
+    TestEntryPoint1 ep1 = new TestEntryPoint1();
+    graph.inject(ep1);
+    Set<Object> set1 = new HashSet<Object>();
+    set1.addAll(ep1.objects1);
+    assertEquals(2, set1.size());
+
+    TestEntryPoint2 ep2 = new TestEntryPoint2();
+    graph.inject(ep2);
+    Set<Object> set2 = new HashSet<Object>();
+    set2.addAll(ep2.objects2);
+    assertEquals(2, set2.size());
+    assertThat(set1).isNotEqualTo(set2);
+    assertTrue(set1.retainAll(set2));
+    assertEquals(1, set1.size());
  }
 
   @Test public void multiValueBindings_WithQualifiers() {
@@ -121,7 +153,7 @@ public final class SetBindingTest {
     assertTrue(ep.fooStrings.contains("string4"));
   }
 
-  @Test public void sampleMultiLogger() {
+  @Test public void sampleMultiBindingLogger() {
 
     class TestEntryPoint {
       @Inject Logger logger;
