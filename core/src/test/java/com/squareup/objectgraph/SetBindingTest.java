@@ -16,10 +16,14 @@
  */
 package com.squareup.objectgraph;
 
+import java.util.HashSet;
 import java.util.Set;
 import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
 import org.junit.Test;
 
+import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -64,6 +68,53 @@ public final class SetBindingTest {
     assertTrue(ep.strings.contains("string1"));
     assertTrue(ep.strings.contains("string2"));
   }
+
+  @Test public void multiValueBindings_WithSingletonAndDefaultValues() {
+    class TestEntryPoint {
+      @Inject Set<Object> objects1;
+      @Inject Set<Object> objects2;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides @Element @Singleton Object provideSingleObject() { return new Object(); }
+      @Provides @Element Object provideObjects() { return new Object(); }
+    }
+
+    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
+    Set<Object> set1 = new HashSet<Object>();
+    set1.addAll(ep.objects1);
+    assertEquals(2, set1.size());
+    Set<Object> set2 = new HashSet<Object>();
+    set2.addAll(ep.objects2);
+    assertEquals(2, set2.size());
+    assertThat(set1).isNotEqualTo(set2);
+    assertTrue(set1.retainAll(set2));
+    assertEquals(1, set1.size());
+ }
+
+  @Test public void multiValueBindings_WithQualifiers() {
+    class TestEntryPoint {
+      @Inject Set<String> strings;
+      @Inject @Named("foo") Set<String> fooStrings;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides @Element String provideString1() { return "string1"; }
+      @Provides @Element String provideString2() { return "string2"; }
+      @Provides @Element @Named("foo") String provideString3() { return "string3"; }
+      @Provides @Element @Named("foo") String provideString4() { return "string4"; }
+    }
+
+    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
+    assertEquals(2, ep.strings.size());
+    assertEquals(2, ep.fooStrings.size());
+    assertTrue(ep.strings.contains("string1"));
+    assertTrue(ep.strings.contains("string2"));
+    assertTrue(ep.fooStrings.contains("string3"));
+    assertTrue(ep.fooStrings.contains("string4"));
+ }
 
   private <T> T injectWithModule(T ep, Object ... modules) {
     // TODO(cgruber): Make og.inject(foo) return foo properly.

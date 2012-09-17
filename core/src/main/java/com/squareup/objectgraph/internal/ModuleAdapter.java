@@ -120,7 +120,7 @@ public abstract class ModuleAdapter<T> {
                 elementBinding = createSetBinding(elementKey);;
                 bindings.put(elementBinding.provideKey, elementBinding);
               }
-              elementBinding.add(createUnitaryBinding(methodKey, method));
+              elementBinding.add(Linker.scope(createUnitaryBinding(methodKey, method)));
             //} else if (method.isAnnotationPresent(Entry.class)) {
             // TODO(cgruber): Map Binding
             } else{
