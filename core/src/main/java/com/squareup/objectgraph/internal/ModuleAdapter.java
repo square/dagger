@@ -115,15 +115,15 @@ public abstract class ModuleAdapter<T> {
             if (method.isAnnotationPresent(Element.class)) {
               String elementKey = Keys.getElementKey(method.getGenericReturnType(),
                   method.getAnnotations(), method);
-              SetBinding<?> elementBinding = (SetBinding<?>)bindings.get(elementKey);
+              SetBinding<?> elementBinding = (SetBinding<?>) bindings.get(elementKey);
               if (elementBinding == null) {
-                elementBinding = createSetBinding(elementKey);;
+                elementBinding = createSetBinding(elementKey);
                 bindings.put(elementBinding.provideKey, elementBinding);
               }
               elementBinding.add(Linker.scope(createUnitaryBinding(methodKey, method)));
             //} else if (method.isAnnotationPresent(Entry.class)) {
             // TODO(cgruber): Map Binding
-            } else{
+            } else {
               bindings.put(methodKey, createUnitaryBinding(methodKey, method));
             }
           }

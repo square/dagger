@@ -43,7 +43,7 @@ final class SetBinding<T> extends Binding<T> {
     for (Binding<?> contributor : contributors) {
       volatileResult.add(contributor.get()); // let runtime exceptions through.
     }
-    return (T)Collections.unmodifiableSet(volatileResult);
+    return (T) Collections.unmodifiableSet(volatileResult);
   }
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
