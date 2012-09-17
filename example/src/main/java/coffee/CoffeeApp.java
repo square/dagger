@@ -1,6 +1,6 @@
 package coffee;
 
-import com.squareup.objectgraph.ObjectGraph;
+import dagger.ObjectGraph;
 import javax.inject.Inject;
 
 class CoffeeApp implements Runnable {
