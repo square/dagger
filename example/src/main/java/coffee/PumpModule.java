@@ -1,7 +1,7 @@
 package coffee;
 
-import com.squareup.objectgraph.Module;
-import com.squareup.objectgraph.Provides;
+import dagger.Module;
+import dagger.Provides;
 
 @Module(complete = false)
 class PumpModule {
