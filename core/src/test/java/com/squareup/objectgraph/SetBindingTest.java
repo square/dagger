@@ -16,8 +16,11 @@
  */
 package com.squareup.objectgraph;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -25,6 +28,8 @@ import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -114,7 +119,68 @@ public final class SetBindingTest {
     assertTrue(ep.strings.contains("string2"));
     assertTrue(ep.fooStrings.contains("string3"));
     assertTrue(ep.fooStrings.contains("string4"));
- }
+  }
+
+  @Test public void sampleMultiLogger() {
+
+    class TestEntryPoint {
+      @Inject Logger logger;
+      public void doStuff() {
+        Throwable t = new NullPointerException("Naughty Naughty");
+        this.logger.log("Logging an error", t);
+      }
+    }
+
+    final AtomicReference<String> logoutput = new AtomicReference<String>();
+    @Module
+    class LogModule {
+      @Provides @Element LogSink outputtingLogSink() {
+        return new LogSink() {
+          @Override public void log(LogMessage message) {
+            StringWriter sw = new StringWriter();
+            message.error.printStackTrace(new PrintWriter(sw));
+            logoutput.set(message.message + "\n" + sw.getBuffer().toString());
+          }
+        };
+      }
+    }
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides @Element LogSink nullLogger() {
+        return new LogSink() { @Override public void log(LogMessage message) {} };
+      }
+    }
+
+    TestEntryPoint ep = injectWithModule(new TestEntryPoint(),new TestModule(), new LogModule());
+    assertNull(logoutput.get());
+    ep.doStuff();
+    assertNotNull(logoutput.get());
+    assertThat(logoutput.get()).contains("Naughty Naughty");
+    assertThat(logoutput.get()).contains("NullPointerException");
+  }
+
+  static class Logger {
+    @Inject Set<LogSink> loggers;
+    public void log(String text, Throwable error) {
+      LogMessage m = new LogMessage(text, error);
+      for (LogSink sink : loggers) {
+        sink.log(m);
+      }
+    }
+  }
+
+  static class LogMessage {
+    public final String message;
+    public final Throwable error;
+    public LogMessage (String message, Throwable error) {
+      this.message = message;
+      this.error = error;
+    }
+  }
+
+  static interface LogSink {
+    void log(LogMessage message);
+  }
 
   private <T> T injectWithModule(T ep, Object ... modules) {
     // TODO(cgruber): Make og.inject(foo) return foo properly.
