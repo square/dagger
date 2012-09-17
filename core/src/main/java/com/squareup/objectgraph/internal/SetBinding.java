@@ -48,9 +48,6 @@ final class SetBinding<T> extends Binding<T> {
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
     throw new UnsupportedOperationException("Doesn't support getDependencies()");
-    //for (Binding binding : parameters) {
-    //  get.add(binding);
-    //}
   }
 
   @Override public String toString() {
