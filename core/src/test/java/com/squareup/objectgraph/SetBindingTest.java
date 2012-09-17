@@ -28,7 +28,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Tests of injection of Lazy<T> bindings.
+ * Tests of injection of Set-based bindings using {@code @Element} with {@code @Provider}.
  */
 public final class SetBindingTest {
   @Test public void multiValueBindings_SingleModule() {

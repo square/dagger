@@ -21,7 +21,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Invokes a set of providers to obtain values contributed to a set.
+ * A {@code Binding<T>} which contains contributors (other bindings), to which it dispatches
+ * provision requests on an as-needed basis.
  */
 final class SetBinding<T> extends Binding<T> {
   private final Set<Binding<?>> contributors;
