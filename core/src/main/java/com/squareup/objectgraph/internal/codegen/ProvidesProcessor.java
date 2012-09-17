@@ -137,7 +137,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     Object[] staticInjections = (Object[]) module.get("staticInjections");
     Object[] entryPoints = (Object[]) module.get("entryPoints");
-    Object[] children = (Object[]) module.get("children");
+    @SuppressWarnings("deprecation") // use deprecated until children removed.
+    Object[] includes = ArrayUtil.concatenate(
+        (Object[]) module.get("includes"),
+        (Object[]) module.get("children"));
+
     boolean overrides = (Boolean) module.get("overrides");
     boolean complete = (Boolean) module.get("complete");
 
@@ -175,22 +179,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.field("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
         staticInjectionsField.toString());
 
-    StringBuilder childrenField = new StringBuilder().append("{ ");
-    for (Object child : children) {
-      if (!(child instanceof TypeMirror)) {
+    StringBuilder includesField = new StringBuilder().append("{ ");
+    for (Object include : includes) {
+      if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-            "Unexpected value: " + child + " in children attribute of " + type);
+            "Unexpected value: " + include + " in includes or children attribute of " + type);
         continue;
       }
-      TypeMirror typeMirror = (TypeMirror) child;
-      childrenField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
+      TypeMirror typeMirror = (TypeMirror) include;
+      includesField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
     }
-    childrenField.append("}");
-    writer.field("Class<?>[]", "CHILDREN", PRIVATE | STATIC | FINAL, childrenField.toString());
+    includesField.append("}");
+    writer.field("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
 
     writer.beginMethod(null, adapterName, PUBLIC);
     writer.statement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
-        + "CHILDREN, %s /*complete*/)", overrides, complete);
+        + "INCLUDES, %s /*complete*/)", overrides, complete);
     writer.endMethod();
 
     writer.annotation(Override.class);
