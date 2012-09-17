@@ -270,7 +270,7 @@ class DripCoffeeModule {
 When compiling it, `javac` rejects the missing binding:
 
 ```
-[ERROR] COMPILATION ERROR : 
+[ERROR] COMPILATION ERROR :
 [ERROR] error: No binding for java.util.concurrent.Executor
                required by provideHeater(java.util.concurrent.Executor)
 ```
@@ -359,22 +359,6 @@ Some notable Guice features that Dagger doesn't support:
 * Classes that lack `@Inject` annotations cannot be constructed by Dagger, even if they have a no-argument constructor.
 
 
-Contributing
-============
-
-If you would like to contribute code to Dagger you can do so through
-GitHub by forking the repository and sending a pull request.
-
-When submitting code, please make every effort to follow existing conventions
-and style in order to keep the code as readable as possible. Please also make
-sure your code compiles by running `mvn clean verify`. Checkstyle failures
-during compilation indicate errors in your style and can be viewed in the
-`checkstyle-result.xml` file.
-
-Before your code can be accepted into the project you must also sign the
-[Individual Contributor License Agreement (CLA)][4].
-
-
 License
 =======
 
@@ -395,4 +379,3 @@ License
  [1]: http://atinject.googlecode.com/svn/trunk/javadoc/javax/inject/package-summary.html
  [2]: http://docs.oracle.com/javase/6/docs/api/javax/annotation/processing/package-summary.html
  [3]: http://mockito.googlecode.com/
- [4]: https://spreadsheets.google.com/spreadsheet/viewform?formkey=dDViT2xzUHAwRkI3X3k5Z0lQM091OGc6MQ&ndplr=1
