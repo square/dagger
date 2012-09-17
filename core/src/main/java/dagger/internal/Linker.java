@@ -193,33 +193,12 @@ public abstract class Linker {
   /**
    * Returns a scoped binding for {@code binding}.
    */
-  private <T> Binding<T> scope(final Binding<T> binding) {
+  static <T> Binding<T> scope(final Binding<T> binding) {
     if (!binding.singleton) {
       return binding;
     }
-
-    return new Binding<T>(binding.provideKey, binding.membersKey, true, binding.requiredBy) {
-      private Object onlyInstance = UNINITIALIZED;
-      @Override public void attach(Linker linker) {
-        binding.attach(linker);
-      }
-      @Override public void injectMembers(T t) {
-        binding.injectMembers(t);
-      }
-      @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
-      @Override public T get() {
-        if (onlyInstance == UNINITIALIZED) {
-          onlyInstance = binding.get();
-        }
-        return (T) onlyInstance;
-      }
-      @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
-        binding.getDependencies(get, injectMembers);
-      }
-      @Override public String toString() {
-        return binding.toString();
-      }
-    };
+    if (binding instanceof SingletonBinding) throw new AssertionError();
+    return new SingletonBinding<T>(binding);
   }
 
   /**
@@ -246,6 +225,44 @@ public abstract class Linker {
    * @param errors a potentially empty list of error messages.
    */
   protected abstract void reportErrors(List<String> errors);
+
+  /**
+   * A Binding that implements singleton behaviour around an existing binding.
+   */
+  private static class SingletonBinding<T> extends Binding<T> {
+    private final Binding<T> binding;
+    private Object onlyInstance = UNINITIALIZED;
+
+    private SingletonBinding(Binding<T> binding) {
+      super(binding.provideKey, binding.membersKey, true, binding.requiredBy);
+      this.binding = binding;
+    }
+
+    @Override public void attach(Linker linker) {
+      binding.attach(linker);
+    }
+
+    @Override public void injectMembers(T t) {
+      binding.injectMembers(t);
+    }
+
+    @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
+    @Override public T get() {
+      // TODO (cgruber): Fix concurrency risk.
+      if (onlyInstance == UNINITIALIZED) {
+        onlyInstance = binding.get();
+      }
+      return (T) onlyInstance;
+    }
+
+    @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+      binding.getDependencies(get, injectMembers);
+    }
+
+    @Override public String toString() {
+      return "@Singleton/" + binding.toString();
+    }
+  }
 
   private static class DeferredBinding<T> extends Binding<T> {
     final String deferredKey;
