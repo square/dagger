@@ -1,3 +1,3 @@
-com.squareup.objectgraph.internal.codegen.InjectProcessor
-com.squareup.objectgraph.internal.codegen.ProvidesProcessor
-com.squareup.objectgraph.internal.codegen.FullGraphProcessor
+dagger.internal.codegen.InjectProcessor
+dagger.internal.codegen.ProvidesProcessor
+dagger.internal.codegen.FullGraphProcessor

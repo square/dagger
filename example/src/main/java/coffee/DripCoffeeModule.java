@@ -1,17 +1,15 @@
 package coffee;
 
-import com.squareup.objectgraph.Module;
-import com.squareup.objectgraph.Provides;
+import dagger.Module;
+import dagger.Provides;
 import javax.inject.Singleton;
 
 @Module(
-    entryPoints = CoffeeApp.class
+    entryPoints = CoffeeApp.class,
+    includes = PumpModule.class
 )
 class DripCoffeeModule {
   @Provides @Singleton Heater provideHeater() {
     return new ElectricHeater();
-  }
-  @Provides Pump providePump(Thermosiphon pump) {
-    return pump;
   }
 }

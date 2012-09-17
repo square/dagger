@@ -20,13 +20,13 @@
         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.squareup</groupId>
-    <artifactId>objectgraph-parent</artifactId>
+    <groupId>org.u2020</groupId>
+    <artifactId>dagger-parent</artifactId>
     <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
-    <name>ObjectGraph (Parent)</name>
+    <name>Dagger (Parent)</name>
     <description>A JSR-330 dependency injector for Android and Java.</description>
-    <url>https://github.com/square/objectgraph</url>
+    <url>https://github.com/u2020/dagger</url>
 
     <modules>
         <module>core</module>
@@ -47,14 +47,14 @@
     </properties>
 
     <scm>
-        <url>http://github.com/square/objectgraph/</url>
-        <connection>scm:git:git://github.com/square/objectgraph.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/square/objectgraph.git</developerConnection>
+        <url>http://github.com/u2020/dagger/</url>
+        <connection>scm:git:git://github.com/u2020/dagger.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/u2020/dagger.git</developerConnection>
     </scm>
 
     <issueManagement>
         <system>GitHub Issues</system>
-        <url>http://github.com/square/objectgraph/issues</url>
+        <url>http://github.com/u2020/dagger/issues</url>
     </issueManagement>
 
     <licenses>
@@ -90,7 +90,7 @@
     </dependencies>
 
     <build>
-        <finalName>square-${project.artifactId}-${project.version}</finalName>
+        <finalName>u2020-${project.artifactId}-${project.version}</finalName>
 
         <plugins>
             <plugin>

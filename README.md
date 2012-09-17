@@ -1,5 +1,5 @@
-ObjectGraph
-===========
+Dagger
+======
 
 A fast dependency injector for Android and Java.
 
@@ -9,7 +9,7 @@ The best classes in any application are the ones that do stuff: the `BarcodeDeco
 
 To contrast, the worst classes in any application are the ones that take up space without doing much at all: the `BarcodeDecoderFactory`, the `CameraServiceLoader`, and the `MutableContextWrapper`. These classes are the clumsy duct tape that wires the interesting stuff together.
 
-ObjectGraph is a replacement for these `FactoryFactory` classes. It allows you to focus on the interesting classes. Declare dependencies, specify how to satisfy them, and ship your app.
+Dagger is a replacement for these `FactoryFactory` classes. It allows you to focus on the interesting classes. Declare dependencies, specify how to satisfy them, and ship your app.
 
 By building on standard [javax.inject][1] annotations (JSR-330), each class is **easy to test**. You don't need a bunch of boilerplate just to swap the `RpcCreditCardService` out for a `FakeCreditCardService`.
 
@@ -17,9 +17,9 @@ Dependency injection isn't just for testing. It also makes it easy to create **r
 
 ### Declaring Dependencies
 
-ObjectGraph constructs instances of your application classes and satisfies their dependencies. It uses the `javax.inject.Inject` annotation to identify which constructors and fields it is interested in.
+Dagger constructs instances of your application classes and satisfies their dependencies. It uses the `javax.inject.Inject` annotation to identify which constructors and fields it is interested in.
 
-Use `@Inject` to annotate the constructor that ObjectGraph should use to create instances of a class. When a new instance is requested, ObjectGraph will obtain the required parameters values and invoke this constructor.
+Use `@Inject` to annotate the constructor that Dagger should use to create instances of a class. When a new instance is requested, Dagger will obtain the required parameters values and invoke this constructor.
 
 ```java
 class Thermosiphon implements Pump {
@@ -34,7 +34,7 @@ class Thermosiphon implements Pump {
 }
 ```
 
-ObjectGraph can inject fields directly. In this example it obtains a `Heater` instance for the `heater` field and a `Pump` instance for the `pump` field.
+Dagger can inject fields directly. In this example it obtains a `Heater` instance for the `heater` field and a `Pump` instance for the `pump` field.
 
 ```java
 class CoffeeMaker {
@@ -45,13 +45,13 @@ class CoffeeMaker {
 }
 ```
 
-If your class has `@Inject`-annotated fields but no `@Inject`-annotated constructor, ObjectGraph will use a no-argument constructor if it exists. Classes that lack `@Inject` annotations cannot be constructed by ObjectGraph.
+If your class has `@Inject`-annotated fields but no `@Inject`-annotated constructor, Dagger will use a no-argument constructor if it exists. Classes that lack `@Inject` annotations cannot be constructed by Dagger.
 
-ObjectGraph does not support method injection.
+Dagger does not support method injection.
 
 ### Satisfying Dependencies
 
-By default, ObjectGraph satisfies each dependency by constructing an instance of the requested type as described above. When you request a `CoffeeMaker`, it'll obtain one by calling `new CoffeeMaker()` and setting its injectable fields.
+By default, Dagger satisfies each dependency by constructing an instance of the requested type as described above. When you request a `CoffeeMaker`, it'll obtain one by calling `new CoffeeMaker()` and setting its injectable fields.
 
 But `@Inject` doesn't work everywhere:
 
@@ -245,7 +245,7 @@ Dependencies may not have multiple qualifier annotations.
 
 **Warning:** This feature should be used sparingly because static dependencies are difficult to test and reuse.
 
-ObjectGraph can inject static fields. Classes that declare static fields with `@Inject` annotations must be listed as `staticInjections` in a module annotation.
+Dagger can inject static fields. Classes that declare static fields with `@Inject` annotations must be listed as `staticInjections` in a module annotation.
 
 ```java
 @Module(
@@ -264,7 +264,7 @@ objectGraph.injectStatics();
 
 ### Compile-time Validation
 
-ObjectGraph includes an [annotation processor][2] that validates modules and injections. This processor is strict and will cause a compiler error if any bindings are invalid or incomplete. For example, this module is missing a binding for `Executor`:
+Dagger includes an [annotation processor][2] that validates modules and injections. This processor is strict and will cause a compiler error if any bindings are invalid or incomplete. For example, this module is missing a binding for `Executor`:
 
 ```java
 @Module
@@ -278,7 +278,7 @@ class DripCoffeeModule {
 When compiling it, `javac` rejects the missing binding:
 
 ```
-[ERROR] COMPILATION ERROR : 
+[ERROR] COMPILATION ERROR :
 [ERROR] error: No binding for java.util.concurrent.Executor
                required by provideHeater(java.util.concurrent.Executor)
 ```
@@ -307,15 +307,15 @@ public class CoffeeAppModule {
 }
 ```
 
-The annotation processor is enabled automatically when you include ObjectGraph's jar file on your compile classpath.
+The annotation processor is enabled automatically when you include Dagger's jar file on your compile classpath.
 
 ### Compile-time Code Generation
 
-ObjectGraph's annotation processor may also generate source files with names like `CoffeeMaker$InjectAdapter.java` or `DripCoffeeModule$ModuleAdapter`. These files are ObjectGraph implementation details. You shouldn't need to use them directly, though they can be handy when step-debugging through an injection.
+Dagger's annotation processor may also generate source files with names like `CoffeeMaker$InjectAdapter.java` or `DripCoffeeModule$ModuleAdapter`. These files are Dagger implementation details. You shouldn't need to use them directly, though they can be handy when step-debugging through an injection.
 
 ### Module overrides
 
-ObjectGraph will fail with an error if there are multiple competing `@Provides` methods for the same dependency. But sometimes it's necessary to replace production code with a substitute for development or testing. Using `overrides = true` in a module annotation lets you take precedence over the bindings of other modules.
+Dagger will fail with an error if there are multiple competing `@Provides` methods for the same dependency. But sometimes it's necessary to replace production code with a substitute for development or testing. Using `overrides = true` in a module annotation lets you take precedence over the bindings of other modules.
 
 This JUnit test overrides `DripCoffeeModule`'s binding for `Heater` with a mock object from [Mockito][3]. The mock gets injected into the `CoffeeMaker` and also into the test.
 
@@ -359,28 +359,12 @@ For more substantial variations it's often simpler to use a different combinatio
 Upgrading from Guice
 ====================
 
-Some notable Guice features that ObjectGraph doesn't support:
+Some notable Guice features that Dagger doesn't support:
 
-* Injecting `final` fields and `private` members. For best performance `ObjectGraph` generates code. Work around this by using constructor injection.
+* Injecting `final` fields and `private` members. For best performance Dagger generates code. Work around this by using constructor injection.
 * Eager singletons. Work around this by creating an `EagerSingletons` class that declares static fields for each eager singleton.
 * Method injection.
-* Classes that lack `@Inject` annotations cannot be constructed by ObjectGraph, even if they have a no-argument constructor.
-
-
-Contributing
-============
-
-If you would like to contribute code to ObjectGraph you can do so through
-GitHub by forking the repository and sending a pull request.
-
-When submitting code, please make every effort to follow existing conventions
-and style in order to keep the code as readable as possible. Please also make
-sure your code compiles by running `mvn clean verify`. Checkstyle failures
-during compilation indicate errors in your style and can be viewed in the
-`checkstyle-result.xml` file.
-
-Before your code can be accepted into the project you must also sign the
-[Individual Contributor License Agreement (CLA)][4].
+* Classes that lack `@Inject` annotations cannot be constructed by Dagger, even if they have a no-argument constructor.
 
 
 License
@@ -403,4 +387,3 @@ License
  [1]: http://atinject.googlecode.com/svn/trunk/javadoc/javax/inject/package-summary.html
  [2]: http://docs.oracle.com/javase/6/docs/api/javax/annotation/processing/package-summary.html
  [3]: http://mockito.googlecode.com/
- [4]: https://spreadsheets.google.com/spreadsheet/viewform?formkey=dDViT2xzUHAwRkI3X3k5Z0lQM091OGc6MQ&ndplr=1
