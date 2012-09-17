@@ -1,8 +1,7 @@
 package coffee;
 
+import dagger.Lazy;
 import javax.inject.Inject;
-
-import com.squareup.objectgraph.Lazy;
 
 class CoffeeMaker {
   @Inject Lazy<Heater> heater; // Don't want to create a possibly costly heater until we need it.

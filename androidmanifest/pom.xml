@@ -20,19 +20,19 @@
         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>com.squareup</groupId>
-        <artifactId>objectgraph-parent</artifactId>
+        <groupId>org.u2020</groupId>
+        <artifactId>dagger-parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>objectgraph-androidmanifest</artifactId>
+    <artifactId>dagger-androidmanifest</artifactId>
     <packaging>jar</packaging>
-    <name>ObjectGraph AndroidManifest.xml Module Generator</name>
+    <name>Dagger AndroidManifest.xml Module Generator</name>
 
     <dependencies>
         <dependency>
-            <groupId>com.squareup</groupId>
-            <artifactId>objectgraph</artifactId>
+            <groupId>org.u2020</groupId>
+            <artifactId>dagger</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
