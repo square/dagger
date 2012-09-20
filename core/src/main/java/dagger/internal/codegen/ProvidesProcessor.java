@@ -106,6 +106,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
+      if (providerMethod.getAnnotation(dagger.Element.class) != null) {
+        error("@Element binding not supported with code generation: "
+            + type.getQualifiedName() + "." + providerMethod);
+        continue;
+      }
+
       List<ExecutableElement> methods = result.get(type);
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();

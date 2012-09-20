@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Square, Inc.
+ * Copyright (C) 2012 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +16,8 @@
  */
 package dagger.internal;
 
+
+import dagger.Element;
 import dagger.Module;
 import dagger.ObjectGraph;
 import dagger.Provides;
@@ -129,18 +132,31 @@ public abstract class ModuleAdapter<T> {
       // Fall back to runtime reflection.
       for (Class<?> c = moduleClass; c != Object.class; c = c.getSuperclass()) {
         for (Method method : c.getDeclaredMethods()) {
-          if (!method.isAnnotationPresent(Provides.class)) {
-            continue;
+          if (method.isAnnotationPresent(Provides.class)) {
+            String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
+            if (method.isAnnotationPresent(Element.class)) {
+              handleSetBindings(bindings, method, key);
+            } else {
+              handleBindings(bindings, method, key);
+            }
           }
-          Binding<?> binding = methodToBinding(method);
-          bindings.put(binding.provideKey, binding);
         }
       }
     }
 
-    private <T> Binding<T> methodToBinding(Method method) {
-      String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
-      return new ProviderMethodBinding<T>(method, key, module);
+    private <T> void handleBindings(Map<String, Binding<?>> bindings, Method method, String key) {
+      bindings.put(key, new ProviderMethodBinding<T>(method, key, module));
+    }
+
+    private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key) {
+      String elementKey =
+          Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method);
+      SetBinding<T> elementBinding = (SetBinding<T>) bindings.get(elementKey);
+      if (elementBinding == null) {
+        elementBinding = new SetBinding<T>(elementKey);
+        bindings.put(elementBinding.provideKey, elementBinding);
+      }
+      elementBinding.add(Linker.scope(new ProviderMethodBinding<T>(method, key, module)));
     }
 
     @Override protected Object newModule() {
