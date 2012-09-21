@@ -15,9 +15,12 @@
  */
 package dagger.internal;
 
+import dagger.Element;
 import dagger.Lazy;
 import dagger.MembersInjector;
+import dagger.Provides;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import javax.inject.Named;
@@ -125,8 +128,26 @@ public final class KeysTest {
     assertThat(Keys.getLazyKey(fieldKey("providerOfTypeAnnotated"))).isNull();
   }
 
+  @Provides @Element String elementProvides() { return "foo"; }
+
+  @Test public void testGetElementKey_NoQualifier() throws NoSuchMethodException {
+    Method method = KeysTest.class.getDeclaredMethod("elementProvides", new Class<?>[]{});
+    assertThat(Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method))
+        .isEqualTo("java.util.Set<java.lang.String>");
+  }
+
+  @Named("foo")
+  @Provides @Element String qualifiedElementProvides() { return "foo"; }
+
+  @Test public void testGetElementKey_WithQualifier() throws NoSuchMethodException {
+    Method method = KeysTest.class.getDeclaredMethod("qualifiedElementProvides", new Class<?>[]{});
+    assertThat(Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method))
+        .isEqualTo("@javax.inject.Named(value=foo)/java.util.Set<java.lang.String>");
+  }
+
   private String fieldKey(String fieldName) throws NoSuchFieldException {
     Field field = KeysTest.class.getDeclaredField(fieldName);
     return Keys.get(field.getGenericType(), field.getAnnotations(), field);
   }
+
 }
