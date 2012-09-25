@@ -102,7 +102,7 @@ public final class ModuleGeneratorTest {
     String manifestXml = ""
         + "<manifest"
         + "    xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
-        + "    xmlns:dagger=\"https://github.com/u2020/dagger\"\n"
+        + "    xmlns:dagger=\"https://github.com/square/dagger\"\n"
         + "    package=\"com.squareup.badhorse\">\n"
         + "  <application>\n"
         + "    <activity android:name=\"false.Activity\" dagger:entryPoint=\"false\"/>\n"
