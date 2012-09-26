@@ -47,7 +47,7 @@ import org.xml.sax.SAXException;
  */
 public final class ModuleGenerator {
   private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
-  private static final String DAGGER_NS = "https://github.com/square/dagger";
+  private static final String DAGGER_NS = "http://github.com/square/dagger";
 
   /**
    * Returns the path of the generated ManifestModule.java for {@code manifest}.
