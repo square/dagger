@@ -21,7 +21,6 @@ import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
@@ -74,7 +73,7 @@ final class GeneratorKeys {
   private static void qualifierToString(AnnotationMirror qualifier, StringBuilder result) {
     // TODO: guarantee that element values are sorted by name (if there are multiple)
     result.append('@');
-    result.append(((TypeElement) qualifier.getAnnotationType().asElement()).getQualifiedName());
+    CodeGen.typeToString(qualifier.getAnnotationType(), result, '$');
     result.append('(');
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry
         : qualifier.getElementValues().entrySet()) {
