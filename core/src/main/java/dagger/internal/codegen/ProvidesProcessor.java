@@ -20,6 +20,7 @@ import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
+import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -106,12 +107,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
-      if (providerMethod.getAnnotation(dagger.Element.class) != null) {
-        error("@Element binding not supported with code generation: "
-            + type.getQualifiedName() + "." + providerMethod);
-        continue;
-      }
-
       List<ExecutableElement> methods = result.get(type);
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
@@ -158,6 +153,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
     writer.addImport(Binding.class);
+    writer.addImport(SetBinding.class);
     writer.addImport(ModuleAdapter.class);
     writer.addImport(Map.class);
     writer.addImport(Linker.class);
@@ -206,9 +202,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.annotation(Override.class);
     writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
     for (ExecutableElement providerMethod : providerMethods) {
-      String key = GeneratorKeys.get(providerMethod);
-      writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
-          providerMethod.getSimpleName().toString() + "Binding");
+      if (providerMethod.getAnnotation(dagger.Element.class) != null) {
+        String key = GeneratorKeys.getElementKey(providerMethod);
+        writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
+            providerMethod.getSimpleName().toString() + "Binding");
+      } else {
+        String key = GeneratorKeys.get(providerMethod);
+        writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+            providerMethod.getSimpleName().toString() + "Binding");
+      }
     }
     writer.endMethod();
 
