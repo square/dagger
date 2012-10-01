@@ -151,12 +151,7 @@ public abstract class ModuleAdapter<T> {
     private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key) {
       String elementKey =
           Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method);
-      SetBinding<T> elementBinding = (SetBinding<T>) bindings.get(elementKey);
-      if (elementBinding == null) {
-        elementBinding = new SetBinding<T>(elementKey);
-        bindings.put(elementBinding.provideKey, elementBinding);
-      }
-      elementBinding.add(Linker.scope(new ProviderMethodBinding<T>(method, key, module)));
+      SetBinding.<T>add(bindings, elementKey, new ProviderMethodBinding<T>(method, key, module));
     }
 
     @Override protected Object newModule() {

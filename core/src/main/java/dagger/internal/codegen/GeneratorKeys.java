@@ -17,6 +17,8 @@ package dagger.internal.codegen;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -29,6 +31,8 @@ import javax.lang.model.type.TypeMirror;
  * APIs not available on Android.
  */
 final class GeneratorKeys {
+  private static final String SET_PREFIX = Set.class.getName() + "<";
+
   private GeneratorKeys() {
   }
 
@@ -56,6 +60,19 @@ final class GeneratorKeys {
       qualifierToString(qualifier, result);
     }
     CodeGen.typeToString(method.getReturnType(), result, '$');
+    return result.toString();
+  }
+
+  /** Returns the provided key for {@code method} wrapped by {@code Set}. */
+  public static String getElementKey(ExecutableElement method) {
+    StringBuilder result = new StringBuilder();
+    AnnotationMirror qualifier = getQualifier(method.getAnnotationMirrors(), method);
+    if (qualifier != null) {
+      qualifierToString(qualifier, result);
+    }
+    result.append(SET_PREFIX);
+    CodeGen.typeToString(method.getReturnType(), result, '$');
+    result.append(">");
     return result.toString();
   }
 
