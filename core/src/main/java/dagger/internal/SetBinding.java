@@ -18,6 +18,7 @@ package dagger.internal;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -25,7 +26,17 @@ import java.util.Set;
  * {@code @Provides} {@code @Element}), to which it delegates provision
  * requests on an as-needed basis.
  */
-final class SetBinding<T> extends Binding<Set<T>> {
+public final class SetBinding<T> extends Binding<Set<T>> {
+
+  public static <T> void add(Map<String, Binding<?>> bindings, String elementKey, Binding<?> binding) {
+    SetBinding<T> elementBinding = (SetBinding<T>) bindings.get(elementKey);
+    if (elementBinding == null) {
+      elementBinding = new SetBinding<T>(elementKey);
+      bindings.put(elementBinding.provideKey, elementBinding);
+    }
+    elementBinding.contributors.add(Linker.scope(binding));
+  }
+
   private final Set<Binding<?>> contributors = new LinkedHashSet<Binding<?>>();
 
   public SetBinding(String key) {
@@ -48,9 +59,5 @@ final class SetBinding<T> extends Binding<Set<T>> {
 
   @Override public String toString() {
     return "SetBinding" + contributors;
-  }
-
-  public void add(Binding<?> binding) {
-    contributors.add(binding);
   }
 }
