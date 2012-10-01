@@ -19,6 +19,7 @@ import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
+import dagger.internal.SetBinding;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -61,13 +62,12 @@ public final class FullGraphProcessor extends AbstractProcessor {
     collectIncludesRecursively(rootModule, allModules);
 
     Linker linker = new BuildTimeLinker(processingEnv, rootModule.getQualifiedName().toString());
-    Map<String, ProviderMethodBinding> baseBindings
-        = new LinkedHashMap<String, ProviderMethodBinding>();
-    Map<String, ProviderMethodBinding> overrideBindings
-        = new LinkedHashMap<String, ProviderMethodBinding>();
+    Map<String, Binding<?>> baseBindings = new LinkedHashMap<String, Binding<?>>();
+    Map<String, Binding<?>> overrideBindings = new LinkedHashMap<String, Binding<?>>();
     for (TypeElement module : allModules.values()) {
       Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
       boolean overrides = (Boolean) annotation.get("overrides");
+      Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
       // Gather the entry points from the annotation.
       for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
@@ -86,13 +86,17 @@ public final class FullGraphProcessor extends AbstractProcessor {
         ExecutableElement providerMethod = (ExecutableElement) enclosed;
         String key = GeneratorKeys.get(providerMethod);
         ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
-        Map<String, ProviderMethodBinding> addTo = overrides ? overrideBindings : baseBindings;
-        ProviderMethodBinding clobbered = addTo.put(key, binding);
-        if (clobbered != null) {
-          processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Duplicate bindings for " + key
-                  + ": " + shortMethodName(clobbered.method)
-                  + ", " + shortMethodName(binding.method));
+        if (providerMethod.getAnnotation(dagger.Element.class) != null) {
+          String elementKey = GeneratorKeys.getElementKey(providerMethod);
+          SetBinding.add(addTo, elementKey, binding);
+        } else {
+          ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
+          if (clobbered != null) {
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Duplicate bindings for " + key
+                    + ": " + shortMethodName(clobbered.method)
+                    + ", " + shortMethodName(binding.method));
+          }
         }
       }
     }
