@@ -100,24 +100,9 @@ public abstract class ModuleAdapter<T> {
           annotation.entryPoints()),
           annotation.staticInjections(),
           annotation.overrides(),
-          concatenate(annotation.includes(), annotation.children()),
+          annotation.includes(),
           annotation.complete());
       this.moduleClass = moduleClass;
-    }
-
-    /**
-     * Returns the concatenation of two {@code Class<T>[]}s.
-     *
-     * TODO(cgruber): Remove this method when module children are removed.
-     *
-     * @deprecated this method exists only to support a legacy deprecation case
-     */
-    @Deprecated
-    private static Class<?>[] concatenate(Class<?>[] first, Class<?>[] second) {
-      final Class<?>[] result = new Class<?>[second.length + first.length];
-      System.arraycopy(second, 0, result, 0, second.length);
-      System.arraycopy(first, 0, result, second.length, first.length);
-      return result;
     }
 
     private static String[] toMemberKeys(Class<?>[] entryPoints) {

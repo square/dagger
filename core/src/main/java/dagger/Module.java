@@ -38,12 +38,6 @@ public @interface Module {
   boolean overrides() default false;
 
   /**
-   * @deprecated Use module includes vs. children
-   */
-  @Deprecated
-  Class<?>[] children() default { };
-
-  /**
    * Additional {@code @Module}-annotated classes from which this module is
    * composed. The de-duplicated contributions of the modules in
    * {@code includes}, and of their inclusions recursively, are all contributed

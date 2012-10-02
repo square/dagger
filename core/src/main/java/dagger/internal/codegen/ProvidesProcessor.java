@@ -138,10 +138,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     Object[] staticInjections = (Object[]) module.get("staticInjections");
     Object[] entryPoints = (Object[]) module.get("entryPoints");
-    @SuppressWarnings("deprecation") // use deprecated until children removed.
-    Object[] includes = ArrayUtil.concatenate(
-        (Object[]) module.get("includes"),
-        (Object[]) module.get("children"));
+    Object[] includes = (Object[]) module.get("includes");
 
     boolean overrides = (Boolean) module.get("overrides");
     boolean complete = (Boolean) module.get("complete");
@@ -185,7 +182,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (Object include : includes) {
       if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-            "Unexpected value: " + include + " in includes or children attribute of " + type);
+            "Unexpected value: " + include + " in includes of " + type);
         continue;
       }
       TypeMirror typeMirror = (TypeMirror) include;
