@@ -193,6 +193,21 @@ public final class ModuleGenerator {
       return;
     }
 
+    generate(manifestXml, moduleName, baseDir);
+  }
+
+  /**
+   * Generate a module from the specified <code>AndroidManifest.xml</code>.
+   *
+   * @param manifestXml Path to the <code>AndroidManifest.xml</code>.
+   * @param moduleName Name of the target module.
+   * @param baseDir Destination directory for the generated module.
+   * @throws IOException
+   * @throws SAXException
+   * @throws ParserConfigurationException
+   */
+  public static void generate(File manifestXml, String moduleName, File baseDir)
+      throws IOException, SAXException, ParserConfigurationException {
     ModuleGenerator moduleGenerator = new ModuleGenerator();
     InputSource in = new InputSource(new FileInputStream(manifestXml));
     Document document = moduleGenerator.manifestToDocument(in);
