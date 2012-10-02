@@ -157,47 +157,10 @@ public final class ModuleIncludesTest {
     assertThat(entryPoint.s).isEqualTo("a");
   }
 
-  // Legacy Tests //
-
-  @Test public void childrenButNoIncludes() {
-    class TestEntryPoint {
-      @Inject String s;
-    }
-    @Module(entryPoints = TestEntryPoint.class, children = ModuleWithBinding.class)
-    class TestModule {
-    }
-
-    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
-    assertThat(ep.s).isEqualTo("injected");
-  }
-
-  @Module(complete = false)
-  static class ModuleWithInteger {
-    @Provides Integer provideString() { return 1; }
-  }
-
-  @Test public void bothIncludesAndChildren() {
-    class TestEntryPoint {
-      @Inject String s;
-      @Inject Integer i;
-    }
-    @Module(
-        entryPoints = TestEntryPoint.class,
-        includes = ModuleWithInteger.class,
-        children = ModuleWithBinding.class)
-    class TestModule {
-    }
-
-    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
-    assertThat(ep.s).isEqualTo("injected");
-    assertThat(ep.i).isEqualTo(1);
-  }
-
   private <T> T injectWithModule(T ep, Object ... modules) {
     // TODO(cgruber): Make og.inject(foo) return foo properly.
     ObjectGraph og = ObjectGraph.get(modules);
     og.inject(ep);
     return ep;
   }
-
 }
