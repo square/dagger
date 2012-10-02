@@ -55,17 +55,17 @@ public final class SetBindingTest {
     }
 
     @Module
-    class TestChildModule {
+    class TestIncludesModule {
       @Provides @Element String provideSecondString() { return "string2"; }
     }
 
-    @Module(entryPoints = TestEntryPoint.class, children = TestChildModule.class)
+    @Module(entryPoints = TestEntryPoint.class, includes = TestIncludesModule.class)
     class TestModule {
       @Provides @Element String provideFirstString() { return "string1"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(),
-        new TestModule(), new TestChildModule());
+        new TestModule(), new TestIncludesModule());
     assertEquals(set("string1", "string2"), ep.strings);
   }
 

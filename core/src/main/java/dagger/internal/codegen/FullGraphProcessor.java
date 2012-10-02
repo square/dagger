@@ -121,10 +121,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     // Recurse for each included module.
     Types typeUtils = processingEnv.getTypeUtils();
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
-    @SuppressWarnings("deprecation") // Use known deprecated method. TODO(cgruber): remove.
-    Object[] includes = ArrayUtil.concatenate(
-        (Object[]) annotation.get("includes"),
-        (Object[]) annotation.get("children"));
+    Object[] includes = (Object[]) annotation.get("includes");
     for (Object include : includes) {
       if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
