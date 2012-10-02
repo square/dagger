@@ -25,7 +25,7 @@
         <version>1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>dagger-androidmanifest</artifactId>
+    <artifactId>dagger-androidmanifest-plugin</artifactId>
     <packaging>jar</packaging>
     <name>Dagger AndroidManifest.xml Module Generator</name>
 
@@ -34,6 +34,25 @@
             <groupId>com.squareup</groupId>
             <artifactId>dagger</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.easytesting</groupId>
+            <artifactId>fest-assert</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
