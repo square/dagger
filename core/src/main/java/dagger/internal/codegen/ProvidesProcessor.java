@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import dagger.Module;
+import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
@@ -199,7 +200,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.annotation(Override.class);
     writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
     for (ExecutableElement providerMethod : providerMethods) {
-      if (providerMethod.getAnnotation(dagger.Element.class) != null) {
+      if (providerMethod.getAnnotation(OneOf.class) != null) {
         String key = GeneratorKeys.getElementKey(providerMethod);
         writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
             providerMethod.getSimpleName().toString() + "Binding");

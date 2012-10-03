@@ -17,7 +17,7 @@
 package dagger.internal;
 
 
-import dagger.Element;
+import dagger.OneOf;
 import dagger.Module;
 import dagger.ObjectGraph;
 import dagger.Provides;
@@ -119,7 +119,7 @@ public abstract class ModuleAdapter<T> {
         for (Method method : c.getDeclaredMethods()) {
           if (method.isAnnotationPresent(Provides.class)) {
             String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
-            if (method.isAnnotationPresent(Element.class)) {
+            if (method.isAnnotationPresent(OneOf.class)) {
               handleSetBindings(bindings, method, key);
             } else {
               handleBindings(bindings, method, key);

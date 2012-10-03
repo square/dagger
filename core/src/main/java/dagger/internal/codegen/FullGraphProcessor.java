@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import dagger.Module;
+import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
@@ -86,7 +87,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         ExecutableElement providerMethod = (ExecutableElement) enclosed;
         String key = GeneratorKeys.get(providerMethod);
         ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
-        if (providerMethod.getAnnotation(dagger.Element.class) != null) {
+        if (providerMethod.getAnnotation(OneOf.class) != null) {
           String elementKey = GeneratorKeys.getElementKey(providerMethod);
           SetBinding.add(addTo, elementKey, binding);
         } else {
