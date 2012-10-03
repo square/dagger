@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import dagger.internal.Binding;
 import dagger.internal.Linker;
+import dagger.internal.StaticInjection;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -56,6 +57,9 @@ public final class InjectProcessor extends AbstractProcessor {
         if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
           writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
         }
+        if (!injectedClass.staticFields.isEmpty()) {
+          writeStaticInjection(injectedClass.type, injectedClass.staticFields);
+        }
       }
     } catch (IOException e) {
       error("Code gen failed: %s", e);
@@ -84,17 +88,21 @@ public final class InjectProcessor extends AbstractProcessor {
    */
   private InjectedClass getInjectedClass(TypeElement type) {
     boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
+    List<Element> staticFields = new ArrayList<Element>();
     ExecutableElement constructor = null;
     List<Element> fields = new ArrayList<Element>();
     for (Element member : type.getEnclosedElements()) {
-      if (member.getAnnotation(Inject.class) == null
-          || member.getModifiers().contains(Modifier.STATIC)) {
+      if (member.getAnnotation(Inject.class) == null) {
         continue;
       }
 
       switch (member.getKind()) {
         case FIELD:
-          fields.add(member);
+          if (member.getModifiers().contains(Modifier.STATIC)) {
+            staticFields.add(member);
+          } else {
+            fields.add(member);
+          }
           break;
         case CONSTRUCTOR:
           if (constructor != null) {
@@ -115,7 +123,7 @@ public final class InjectProcessor extends AbstractProcessor {
       constructor = findNoArgsConstructor(type);
     }
 
-    return new InjectedClass(type, constructor, fields);
+    return new InjectedClass(type, staticFields, constructor, fields);
   }
 
   /**
@@ -272,6 +280,55 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.close();
   }
 
+  /**
+   * Write a companion class for {@code type} that extends {@link StaticInjection}.
+   */
+  private void writeStaticInjection(TypeElement type, List<Element> fields) throws IOException {
+    String typeName = type.getQualifiedName().toString();
+    String adapterName = CodeGen.adapterName(type, "$StaticInjection");
+    JavaFileObject sourceFile = processingEnv.getFiler()
+        .createSourceFile(adapterName, type);
+    JavaWriter writer = new JavaWriter(sourceFile.openWriter());
+
+    writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
+    writer.addImport(StaticInjection.class);
+    writer.addImport(Binding.class);
+    writer.addImport(Linker.class);
+
+    writer.beginType(adapterName, "class", PUBLIC | FINAL, StaticInjection.class.getName());
+
+    for (int f = 0; f < fields.size(); f++) {
+      TypeMirror fieldType = fields.get(f).asType();
+      writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
+          fieldName(f), PRIVATE);
+    }
+
+    writer.annotation(Override.class);
+    writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
+    for (int f = 0; f < fields.size(); f++) {
+      TypeMirror fieldType = fields.get(f).asType();
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
+          fieldName(f),
+          CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
+          JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) fields.get(f))),
+          typeName);
+    }
+    writer.endMethod();
+
+    writer.annotation(Override.class);
+    writer.beginMethod("void", "inject", PUBLIC);
+    for (int f = 0; f < fields.size(); f++) {
+      writer.statement("%s.%s = %s.get()",
+          typeName,
+          fields.get(f).getSimpleName().toString(),
+          fieldName(f));
+    }
+    writer.endMethod();
+
+    writer.endType();
+    writer.close();
+  }
+
   private String fieldName(int index) {
     return "f" + index;
   }
@@ -282,11 +339,13 @@ public final class InjectProcessor extends AbstractProcessor {
 
   static class InjectedClass {
     final TypeElement type;
+    final List<Element> staticFields;
     final ExecutableElement constructor;
     final List<Element> fields;
 
-    InjectedClass(TypeElement type, ExecutableElement constructor, List<Element> fields) {
+    InjectedClass(TypeElement type, List<Element> staticFields, ExecutableElement constructor, List<Element> fields) {
       this.type = type;
+      this.staticFields = staticFields;
       this.constructor = constructor;
       this.fields = fields;
     }
