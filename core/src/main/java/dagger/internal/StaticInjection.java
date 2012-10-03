@@ -15,10 +15,14 @@
  */
 package dagger.internal;
 
+import dagger.ObjectGraph;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.inject.Inject;
 
 /**
@@ -26,17 +30,27 @@ import javax.inject.Inject;
  *
  * @author Jesse Wilson
  */
-public final class StaticInjection {
-  private final Field[] fields;
-  private Binding<?>[] bindings;
+public abstract class StaticInjection {
+  private static final Logger LOGGER = Logger.getLogger(ObjectGraph.class.getName());
 
-  private StaticInjection(Field[] fields) {
-    this.fields = fields;
-  }
+  public abstract void attach(Linker linker);
 
-  public static StaticInjection get(Class<?> c) {
+  public abstract void inject();
+
+  public static StaticInjection get(Class<?> injectedClass) {
+    try {
+      String adapter = injectedClass.getName() + "$StaticInjection";
+      Class<?> c = Class.forName(adapter);
+      Constructor<?> constructor = c.getConstructor();
+      constructor.setAccessible(true);
+      return (StaticInjection) constructor.newInstance();
+    } catch (Exception e) {
+      LOGGER.log(Level.FINE, "No generated static injection for " + injectedClass.getName()
+          + ". Falling back to reflection.", e);
+    }
+
     List<Field> fields = new ArrayList<Field>();
-    for (Field field : c.getDeclaredFields()) {
+    for (Field field : injectedClass.getDeclaredFields()) {
       if (field.getAnnotation(Inject.class) == null
           || !Modifier.isStatic(field.getModifiers())) {
         continue;
@@ -45,27 +59,38 @@ public final class StaticInjection {
       fields.add(field);
     }
     if (fields.isEmpty()) {
-      throw new IllegalArgumentException("No static injections: " + c.getName());
+      throw new IllegalArgumentException("No static injections: " + injectedClass.getName());
     }
-    return new StaticInjection(fields.toArray(new Field[fields.size()]));
+    return new ReflectiveStaticInjection(fields.toArray(new Field[fields.size()]));
   }
 
-  public void attach(Linker linker) {
-    bindings = new Binding<?>[fields.length];
-    for (int i = 0; i < fields.length; i++) {
-      Field field = fields[i];
-      String key = Keys.get(field.getGenericType(), field.getAnnotations(), field);
-      bindings[i] = linker.requestBinding(key, field);
-    }
-  }
+  static class ReflectiveStaticInjection extends StaticInjection {
+    private final Field[] fields;
+    private Binding<?>[] bindings;
 
-  public void inject() {
-    try {
-      for (int f = 0; f < fields.length; f++) {
-        fields[f].set(null, bindings[f].get());
+    private ReflectiveStaticInjection(Field[] fields) {
+      this.fields = fields;
+    }
+
+    @Override
+    public void attach(Linker linker) {
+      bindings = new Binding<?>[fields.length];
+      for (int i = 0; i < fields.length; i++) {
+        Field field = fields[i];
+        String key = Keys.get(field.getGenericType(), field.getAnnotations(), field);
+        bindings[i] = linker.requestBinding(key, field);
       }
-    } catch (IllegalAccessException e) {
-      throw new AssertionError(e);
+    }
+
+    @Override
+    public void inject() {
+      try {
+        for (int f = 0; f < fields.length; f++) {
+          fields[f].set(null, bindings[f].get());
+        }
+      } catch (IllegalAccessException e) {
+        throw new AssertionError(e);
+      }
     }
   }
 }
