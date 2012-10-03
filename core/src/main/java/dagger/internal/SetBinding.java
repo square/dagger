@@ -23,7 +23,7 @@ import java.util.Set;
 
 /**
  * A {@code Binding<T>} which contains contributors (other bindings marked with
- * {@code @Provides} {@code @Element}), to which it delegates provision
+ * {@code @Provides} {@code @OneOf}), to which it delegates provision
  * requests on an as-needed basis.
  */
 public final class SetBinding<T> extends Binding<Set<T>> {

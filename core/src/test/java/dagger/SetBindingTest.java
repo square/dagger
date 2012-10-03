@@ -41,8 +41,8 @@ public final class SetBindingTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @Element String provideFirstString() { return "string1"; }
-      @Provides @Element String provideSecondString() { return "string2"; }
+      @Provides @OneOf String provideFirstString() { return "string1"; }
+      @Provides @OneOf String provideSecondString() { return "string2"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
@@ -56,12 +56,12 @@ public final class SetBindingTest {
 
     @Module
     class TestIncludesModule {
-      @Provides @Element String provideSecondString() { return "string2"; }
+      @Provides @OneOf String provideSecondString() { return "string2"; }
     }
 
     @Module(entryPoints = TestEntryPoint.class, includes = TestIncludesModule.class)
     class TestModule {
-      @Provides @Element String provideFirstString() { return "string1"; }
+      @Provides @OneOf String provideFirstString() { return "string1"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(),
@@ -79,8 +79,8 @@ public final class SetBindingTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @Element @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
-      @Provides @Element Integer b() { return defaultCounter.getAndIncrement(); }
+      @Provides @OneOf @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
+      @Provides @OneOf Integer b() { return defaultCounter.getAndIncrement(); }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
@@ -100,8 +100,8 @@ public final class SetBindingTest {
 
     @Module(entryPoints = { TestEntryPoint1.class, TestEntryPoint2.class })
     class TestModule {
-      @Provides @Element @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
-      @Provides @Element Integer b() { return defaultCounter.getAndIncrement(); }
+      @Provides @OneOf @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
+      @Provides @OneOf Integer b() { return defaultCounter.getAndIncrement(); }
     }
 
     ObjectGraph graph = ObjectGraph.get(new TestModule());
@@ -122,10 +122,10 @@ public final class SetBindingTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @Element String provideString1() { return "string1"; }
-      @Provides @Element String provideString2() { return "string2"; }
-      @Provides @Element @Named("foo") String provideString3() { return "string3"; }
-      @Provides @Element @Named("foo") String provideString4() { return "string4"; }
+      @Provides @OneOf String provideString1() { return "string1"; }
+      @Provides @OneOf String provideString2() { return "string2"; }
+      @Provides @OneOf @Named("foo") String provideString3() { return "string3"; }
+      @Provides @OneOf @Named("foo") String provideString4() { return "string4"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
@@ -146,7 +146,7 @@ public final class SetBindingTest {
     final AtomicReference<String> logoutput = new AtomicReference<String>();
     @Module
     class LogModule {
-      @Provides @Element LogSink outputtingLogSink() {
+      @Provides @OneOf LogSink outputtingLogSink() {
         return new LogSink() {
           @Override public void log(LogMessage message) {
             StringWriter sw = new StringWriter();
@@ -158,7 +158,7 @@ public final class SetBindingTest {
     }
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @Element LogSink nullLogger() {
+      @Provides @OneOf LogSink nullLogger() {
         return new LogSink() { @Override public void log(LogMessage message) {} };
       }
     }
