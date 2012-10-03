@@ -34,6 +34,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * @author Christian Gruber
  */
 @Documented @Target(METHOD) @Retention(RUNTIME)
-public @interface Element {
+public @interface OneOf {
 
 }

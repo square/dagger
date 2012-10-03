@@ -15,7 +15,7 @@
  */
 package dagger.internal;
 
-import dagger.Element;
+import dagger.OneOf;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Provides;
@@ -128,7 +128,7 @@ public final class KeysTest {
     assertThat(Keys.getLazyKey(fieldKey("providerOfTypeAnnotated"))).isNull();
   }
 
-  @Provides @Element String elementProvides() { return "foo"; }
+  @Provides @OneOf String elementProvides() { return "foo"; }
 
   @Test public void testGetElementKey_NoQualifier() throws NoSuchMethodException {
     Method method = KeysTest.class.getDeclaredMethod("elementProvides", new Class<?>[]{});
@@ -137,7 +137,7 @@ public final class KeysTest {
   }
 
   @Named("foo")
-  @Provides @Element String qualifiedElementProvides() { return "foo"; }
+  @Provides @OneOf String qualifiedElementProvides() { return "foo"; }
 
   @Test public void testGetElementKey_WithQualifier() throws NoSuchMethodException {
     Method method = KeysTest.class.getDeclaredMethod("qualifiedElementProvides", new Class<?>[]{});
