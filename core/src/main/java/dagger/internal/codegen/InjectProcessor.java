@@ -53,7 +53,9 @@ public final class InjectProcessor extends AbstractProcessor {
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
       for (InjectedClass injectedClass : getInjectedClasses(env)) {
-        writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
+        if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
+          writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
+        }
       }
     } catch (IOException e) {
       error("Code gen failed: %s", e);
