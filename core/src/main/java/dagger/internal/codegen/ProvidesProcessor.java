@@ -203,11 +203,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
       if (providerMethod.getAnnotation(OneOf.class) != null) {
         String key = GeneratorKeys.getElementKey(providerMethod);
         writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
-            providerMethod.getSimpleName().toString() + "Binding");
+            bindingClassName(providerMethod));
       } else {
         String key = GeneratorKeys.get(providerMethod);
         writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
-            providerMethod.getSimpleName().toString() + "Binding");
+            bindingClassName(providerMethod));
       }
     }
     writer.endMethod();
@@ -231,11 +231,18 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.close();
   }
 
+  private String bindingClassName(ExecutableElement providerMethod) {
+    String methodName = providerMethod.getSimpleName().toString();
+    String uppercaseMethodName = Character.toUpperCase(methodName.charAt(0)) + methodName.substring(1);
+    String className = uppercaseMethodName + "Binding";
+    return className;
+  }
+
   private void writeBindingClass(JavaWriter writer, ExecutableElement providerMethod)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
-    String className = providerMethod.getSimpleName() + "Binding";
+    String className = bindingClassName(providerMethod);
     String returnType = CodeGen.typeToString(providerMethod.getReturnType());
 
     writer.beginType(className, "class", PRIVATE | STATIC,
