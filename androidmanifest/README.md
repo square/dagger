@@ -18,7 +18,7 @@ Maven Usage
     <execution>
       <phase>generate-sources</phase>
       <goals>
-        <goal>generate</goals>
+        <goal>generate</goal>
       </goals>
     </execution>
   </executions>
