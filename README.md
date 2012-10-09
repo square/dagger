@@ -102,7 +102,7 @@ The `@Inject` and `@Provides`-annotated classes form a graph of objects, linked 
 ObjectGraph objectGraph = ObjectGraph.get(new DripCoffeeModule());
 ```
 
-In order to put the graph to use we need to create an **entry point**. This is usually the main class that starts the application. In this example, the `CoffeeApp` class serves as the entry point. We construct an instance of this type and then ask the object graph to inject its fields.
+In order to put the graph to use we need to create an **entry point**. This is usually the main class that starts the application. In this example, the `CoffeeApp` class serves as the entry point. We ask the graph to provide an injected instance of this type:
 
 ```java
 class CoffeeApp implements Runnable {
@@ -114,8 +114,7 @@ class CoffeeApp implements Runnable {
 
   public static void main(String[] args) {
     ObjectGraph objectGraph = ObjectGraph.get(new DripCoffeeModule());
-    CoffeeApp coffeeApp = new CoffeeApp();
-    objectGraph.inject(coffeeApp);
+    CoffeeApp coffeeApp = objectGraph.getInstance(CoffeeApp.class);
     ...
   }
 }

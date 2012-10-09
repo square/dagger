@@ -40,8 +40,7 @@ public final class ModuleIncludesTest {
     }
 
     ObjectGraph objectGraph = ObjectGraph.get(new TestModule());
-    TestEntryPoint entryPoint = new TestEntryPoint();
-    objectGraph.inject(entryPoint);
+    TestEntryPoint entryPoint = objectGraph.getInstance(TestEntryPoint.class);
     assertThat(entryPoint.s).isEqualTo("injected");
   }
 
@@ -155,12 +154,5 @@ public final class ModuleIncludesTest {
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("a");
-  }
-
-  private <T> T injectWithModule(T ep, Object ... modules) {
-    // TODO(cgruber): Make og.inject(foo) return foo properly.
-    ObjectGraph og = ObjectGraph.get(modules);
-    og.inject(ep);
-    return ep;
   }
 }
