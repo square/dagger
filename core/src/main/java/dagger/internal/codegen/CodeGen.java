@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import dagger.internal.Keys;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -183,6 +184,15 @@ final class CodeGen {
           : annotation.getElementValues().entrySet()) {
         String name = e.getKey().getSimpleName().toString();
         Object value = e.getValue().accept(VALUE_EXTRACTOR, null);
+        Object defaultValue = result.get(name);
+        if (value.getClass() != defaultValue.getClass()) {
+          throw new IllegalStateException(String.format(
+              "Value class is %s but expected %s\n    value: %s\n    default: %s",
+              value.getClass().getName(),
+              defaultValue.getClass().getName(),
+              Arrays.deepToString(new Object[] {value}),
+              Arrays.deepToString(new Object[] {defaultValue})));
+        }
         result.put(name, value);
       }
       return result;
