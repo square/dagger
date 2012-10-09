@@ -21,13 +21,32 @@ import org.junit.Test;
 import static org.junit.Assert.fail;
 
 public final class ProblemDetectorTest {
-  @Test public void circularDependenciesDetected() {
+  @Test public void atInjectCircularDependenciesDetected() {
     class TestEntryPoint {
       @Inject Rock rock;
     }
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
+    }
+
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    try {
+      graph.validate();
+      fail();
+    } catch (RuntimeException expected) {
+    }
+  }
+
+  @Test public void providesCircularDependenciesDetected() {
+    @Module
+    class TestModule {
+      @Provides Integer provideInteger(String s) {
+        throw new AssertionError();
+      }
+      @Provides String provideString(Integer i) {
+        throw new AssertionError();
+      }
     }
 
     ObjectGraph graph = ObjectGraph.get(new TestModule());
