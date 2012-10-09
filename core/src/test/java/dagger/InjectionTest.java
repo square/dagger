@@ -241,8 +241,9 @@ public final class InjectionTest {
     class TestModule {
     }
 
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
     try {
-      ObjectGraph.get(new TestModule());
+      graph.validate();
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -384,8 +385,9 @@ public final class InjectionTest {
     class TestModule {
     }
 
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
     try {
-      ObjectGraph.get(new TestModule());
+      graph.validate();
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -400,8 +402,9 @@ public final class InjectionTest {
     class TestModule {
     }
 
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
     try {
-      ObjectGraph.get(new TestModule());
+      graph.validate();
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -490,8 +493,9 @@ public final class InjectionTest {
       }
     }
 
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
     try {
-      ObjectGraph.get(new TestModule());
+      graph.validate();
       fail();
     } catch (IllegalArgumentException expected) {
     }
