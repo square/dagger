@@ -15,72 +15,66 @@
  */
 package dagger.internal;
 
+import java.util.AbstractSet;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
-import java.util.Set;
 
 /**
  * Detects problems like cyclic dependencies.
  */
 public final class ProblemDetector {
-  Set<Binding<?>> done = new HashSet<Binding<?>>();
-  Queue<Binding<?>> roots = new LinkedList<Binding<?>>();
-  List<Binding<?>> path = new LinkedList<Binding<?>>();
-
   public void detectProblems(Collection<Binding<?>> bindings) {
-    roots.addAll(bindings);
+    detectCircularDependencies(bindings, new ArrayList<Binding<?>>());
+  }
 
-    StringBuilder message = null;
-    Binding<?> root;
-    while ((root = roots.poll()) != null) {
-      if (done.add(root)) {
-        try {
-          detectCircularDependencies(root);
-        } catch (IllegalStateException e) {
-          if (message == null) {
-            message = new StringBuilder().append("Graph problems:");
-          }
-          message.append("\n  ").append(e.getMessage());
-        }
+  public void detectCircularDependencies(Collection<Binding<?>> bindings, List<Binding<?>> path) {
+    for (Binding<?> binding : bindings) {
+      if (binding.isCycleFree()) {
+        continue;
       }
-    }
 
-    if (message != null) {
-      throw new RuntimeException(message.toString());
+      if (binding.isVisiting()) {
+        int index = path.indexOf(binding);
+        StringBuilder message = new StringBuilder()
+            .append("Dependency cycle:");
+        for (int i = index; i < path.size(); i++) {
+          message.append("\n    ").append(i - index).append(". ")
+              .append(path.get(i).provideKey).append(" bound by ").append(path.get(i));
+        }
+        message.append("\n    ").append(0).append(". ").append(binding.provideKey);
+        throw new IllegalStateException(message.toString());
+      }
+
+      binding.setVisiting(true);
+      path.add(binding);
+      try {
+        ArraySet<Binding<?>> dependencies = new ArraySet<Binding<?>>();
+        binding.getDependencies(dependencies, dependencies);
+        detectCircularDependencies(dependencies, path);
+        binding.setCycleFree(true);
+      } finally {
+        path.remove(path.size() - 1);
+        binding.setVisiting(false);
+      }
     }
   }
 
-  private void detectCircularDependencies(Binding<?> binding) {
-    int index = path.indexOf(binding);
-    if (index != -1) {
-      StringBuilder message = new StringBuilder()
-          .append("Dependency cycle:");
-      for (int i = index; i < path.size(); i++) {
-        message.append("\n    ").append(i - index).append(". ")
-            .append(path.get(i).provideKey).append(" bound by ").append(path.get(i));
-      }
-      message.append("\n    ").append(0).append(". ").append(binding.provideKey);
-      throw new IllegalStateException(message.toString());
+  static class ArraySet<T> extends AbstractSet<T> {
+    private ArrayList<T> list = new ArrayList<T>();
+
+    @Override public boolean add(T t) {
+      list.add(t);
+      return true;
     }
 
-    path.add(binding);
-    try {
-      // TODO: perform 2-phase injection to avoid some circular dependency problems
-      Set<Binding<?>> dependencies = new LinkedHashSet<Binding<?>>();
-      binding.getDependencies(dependencies, dependencies);
-      for (Binding<?> dependency : dependencies) {
-        if (dependency instanceof BuiltInBinding) {
-          roots.add(((BuiltInBinding<?>) dependency).getDelegate());
-        } else {
-          detectCircularDependencies(dependency);
-        }
-      }
-    } finally {
-      path.remove(path.size() - 1);
+    @Override public Iterator<T> iterator() {
+      return list.iterator();
+    }
+
+    @Override public int size() {
+      throw new UnsupportedOperationException();
     }
   }
 }
