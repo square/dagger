@@ -57,6 +57,21 @@ public final class ProblemDetectorTest {
     }
   }
 
+  @Test public void validateLazy() {
+    @Module
+    class TestModule {
+      @Provides Integer dependOnLazy(Lazy<String> lazyString) {
+        throw new AssertionError();
+      }
+      @Provides String provideLazyValue() {
+        throw new AssertionError();
+      }
+    }
+
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    graph.validate();
+  }
+
   static class Rock {
     @Inject Scissors scissors;
   }
