@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import dagger.internal.Keys;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -183,12 +184,40 @@ final class CodeGen {
           : annotation.getElementValues().entrySet()) {
         String name = e.getKey().getSimpleName().toString();
         Object value = e.getValue().accept(VALUE_EXTRACTOR, null);
+        Object defaultValue = result.get(name);
+        if (!lenientIsInstance(defaultValue.getClass(), value)) {
+          throw new IllegalStateException(String.format(
+              "Value of %s.%s is a %s but expected a %s\n    value: %s",
+              annotationType, name, value.getClass().getName(), defaultValue.getClass().getName(),
+              value instanceof Object[] ? Arrays.toString((Object[]) value) : value));
+        }
         result.put(name, value);
       }
       return result;
     }
 
     return null; // Annotation not found.
+  }
+
+  /**
+   * Returns true if {@code value} can be assigned to {@code expectedClass}.
+   * Like {@link Class#isInstance} but more lenient for {@code Class<?>} values.
+   */
+  private static boolean lenientIsInstance(Class<?> expectedClass, Object value) {
+    if (expectedClass.isArray()) {
+      Class<?> componentType = expectedClass.getComponentType();
+      if (!(value instanceof Object[])) {
+        return false;
+      }
+      for (Object element : (Object[]) value) {
+        if (!lenientIsInstance(componentType, element)) return false;
+      }
+      return true;
+    } else if (expectedClass == Class.class) {
+      return value instanceof TypeMirror;
+    } else {
+      return expectedClass == value.getClass();
+    }
   }
 
   static void rawTypeToString(StringBuilder result, TypeElement type,
