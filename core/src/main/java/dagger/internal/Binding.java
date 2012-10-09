@@ -31,6 +31,12 @@ public class Binding<T> implements Provider<T>, MembersInjector<T> {
   /** Set if this binding's {@link #attach} completed without any missing dependencies. */
   private static final int LINKED = 1 << 1;
 
+  /** Set if {@link ProblemDetector} is actively visiting this binding. */
+  private static final int VISITING = 1 << 2;
+
+  /** Set if {@link ProblemDetector} has confirmed this binding has no circular dependencies. */
+  private static final int CYCLE_FREE = 1 << 3;
+
   /** The key used to provide instances of 'T', or null if this binding cannot provide instances. */
   public final String provideKey;
 
@@ -91,5 +97,21 @@ public class Binding<T> implements Provider<T>, MembersInjector<T> {
 
   boolean isSingleton() {
     return (bits & SINGLETON) != 0;
+  }
+
+  public boolean isVisiting() {
+    return (bits & VISITING) != 0;
+  }
+
+  public void setVisiting(boolean visiting) {
+    this.bits = visiting ? (bits | VISITING) : (bits & ~VISITING);
+  }
+
+  public boolean isCycleFree() {
+    return (bits & CYCLE_FREE) != 0;
+  }
+
+  public void setCycleFree(boolean cycleFree) {
+    this.bits = cycleFree ? (bits | CYCLE_FREE) : (bits & ~CYCLE_FREE);
   }
 }
