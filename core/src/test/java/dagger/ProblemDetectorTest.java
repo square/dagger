@@ -32,7 +32,7 @@ public final class ProblemDetectorTest {
 
     ObjectGraph graph = ObjectGraph.get(new TestModule());
     try {
-      graph.detectProblems();
+      graph.validate();
       fail();
     } catch (RuntimeException expected) {
     }
