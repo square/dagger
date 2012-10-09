@@ -163,7 +163,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     StringBuilder entryPointsField = new StringBuilder().append("{ ");
     for (Object entryPoint : entryPoints) {
       TypeMirror typeMirror = (TypeMirror) entryPoint;
-      String key = GeneratorKeys.rawMembersKey(typeMirror);
+      String key = GeneratorKeys.get(typeMirror);
       entryPointsField.append(JavaWriter.stringLiteral(key)).append(", ");
     }
     entryPointsField.append("}");

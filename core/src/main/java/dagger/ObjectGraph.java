@@ -105,8 +105,7 @@ public final class ObjectGraph {
     linker.installBindings(baseBindings);
     linker.installBindings(overrideBindings);
 
-    ObjectGraph result = new ObjectGraph(linker, staticInjections, entryPoints);
-    return result;
+    return new ObjectGraph(linker, staticInjections, entryPoints);
   }
 
   /**
@@ -205,18 +204,43 @@ public final class ObjectGraph {
   }
 
   /**
+   * Returns an instance of {@code type}.
+   *
+   * @throws IllegalArgumentException if {@code type} is not one of this object
+   *     graph's entry point types.
+   */
+  public <T> T getInstance(Class<T> type) {
+    String key = Keys.get(type);
+    @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
+    Binding<T> binding = (Binding<T>) getEntryPointBinding(key, key);
+    return binding.get();
+  }
+
+  /**
    * Injects the members of {@code instance}, including injectable members
    * inherited from its supertypes.
    *
    * @throws IllegalArgumentException if the runtime type of {@code instance} is
-   *     not the object graph's type or one of its entry point types.
+   *     not one of this object graph's entry point types.
    */
-  @SuppressWarnings("unchecked") // the linker matches keys to bindings by their type
   public void inject(Object instance) {
-    String key = Keys.getMembersKey(instance.getClass());
-    Class<?> moduleClass = entryPoints.get(key);
+    String entryPointKey = Keys.get(instance.getClass());
+    String membersKey = Keys.getMembersKey(instance.getClass());
+    @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
+    Binding<Object> binding = (Binding<Object>) getEntryPointBinding(entryPointKey, membersKey);
+    binding.injectMembers(instance);
+  }
+
+  /**
+   * @param entryPointKey the key used to store the entry point. This is always
+   *     a regular (provider) key.
+   * @param key the key to use when retrieving the binding. This may be a
+   *     regular (provider) key or a members key.
+   */
+  private Binding<?> getEntryPointBinding(String entryPointKey, String key) {
+    Class<?> moduleClass = entryPoints.get(entryPointKey);
     if (moduleClass == null) {
-      throw new IllegalArgumentException("No entry point for " + instance.getClass().getName()
+      throw new IllegalArgumentException("No entry point for " + entryPointKey
           + ". You must explicitly add an entry point to one of your modules.");
     }
     Binding<?> binding = linker.requestBinding(key, moduleClass);
@@ -224,6 +248,6 @@ public final class ObjectGraph {
       linker.linkRequested();
       binding = linker.requestBinding(key, moduleClass);
     }
-    ((Binding<Object>) binding).injectMembers(instance);
+    return binding;
   }
 }
