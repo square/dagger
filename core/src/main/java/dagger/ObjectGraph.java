@@ -73,16 +73,12 @@ public final class ObjectGraph {
    * <p>This <strong>does not</strong> inject any members. Most applications
    * should call {@link #injectStatics} to inject static members and/or {@link
    * #inject} to inject instance members when this method has returned.
+   *
+   * <p>This <strong>does not</strong> validate the graph. Rely on build time
+   * tools for graph validation, or call {@link #validate} to find problems in
+   * the graph at runtime.
    */
   public static ObjectGraph get(Object... modules) {
-    return get(false, modules);
-  }
-
-  public static ObjectGraph getLazy(Object... modules) {
-    return get(true, modules);
-  }
-
-  private static ObjectGraph get(boolean lazy, Object... modules) {
     ModuleAdapter<?>[] moduleAdapters = getAllModuleAdapters(modules);
 
     Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
@@ -98,7 +94,7 @@ public final class ObjectGraph {
         entryPoints.put(key, adapter.getModule().getClass());
       }
       for (Class<?> c : adapter.staticInjections) {
-        staticInjections.put(c, lazy ? null : StaticInjection.get(c));
+        staticInjections.put(c, null);
       }
       Map<String, Binding<?>> addTo = adapter.overrides ? overrideBindings : baseBindings;
       adapter.getBindings(addTo);
@@ -110,14 +106,6 @@ public final class ObjectGraph {
     linker.installBindings(overrideBindings);
 
     ObjectGraph result = new ObjectGraph(linker, staticInjections, entryPoints);
-
-    // Link all bindings (unless this object graph is lazy).
-    if (!lazy) {
-      result.linkStaticInjections();
-      result.linkEntryPoints();
-      linker.linkAll();
-    }
-
     return result;
   }
 
@@ -185,9 +173,12 @@ public final class ObjectGraph {
   }
 
   /**
-   * Do full graph problem detection.
+   * Do runtime graph problem detection. For fastest graph creation, rely on
+   * build time tools for graph validation.
+   *
+   * @throws IllegalStateException if this graph has problems.
    */
-  public void detectProblems() {
+  public void validate() {
     linkStaticInjections();
     linkEntryPoints();
     Collection<Binding<?>> allBindings = linker.linkAll();

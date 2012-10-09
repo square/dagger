@@ -26,7 +26,7 @@ public final class LazyInjectionTest {
     class TestModule {
     }
 
-    ObjectGraph.getLazy(new TestModule());
+    ObjectGraph.get(new TestModule());
     assertThat(lazyEntryPointLoaded).isFalse();
   }
 
@@ -45,7 +45,7 @@ public final class LazyInjectionTest {
       }
     }
 
-    ObjectGraph.getLazy(new TestModule());
+    ObjectGraph.get(new TestModule());
     assertThat(lazyProvidesParameterLoaded).isFalse();
   }
 
@@ -64,7 +64,7 @@ public final class LazyInjectionTest {
       }
     }
 
-    ObjectGraph.getLazy(new TestModule());
+    ObjectGraph.get(new TestModule());
     assertThat(lazyProvidesResultLoaded).isFalse();
   }
 
@@ -80,7 +80,7 @@ public final class LazyInjectionTest {
     class TestModule {
     }
 
-    ObjectGraph.getLazy(new TestModule());
+    ObjectGraph.get(new TestModule());
     assertThat(LazyInjectStaticsLoaded).isFalse();
   }
 
@@ -106,7 +106,7 @@ public final class LazyInjectionTest {
       }
     }
 
-    ObjectGraph objectGraph = ObjectGraph.getLazy(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.get(new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.injected).isEqualTo("5");
