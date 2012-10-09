@@ -25,17 +25,22 @@ import javax.inject.Provider;
 public class Binding<T> implements Provider<T>, MembersInjector<T> {
   public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null);
 
+  /** Set if the provided instance is always the same object. */
+  private static final int SINGLETON = 1 << 0;
+
+  /** Set if this binding's {@link #attach} completed without any missing dependencies. */
+  private static final int LINKED = 1 << 1;
+
   /** The key used to provide instances of 'T', or null if this binding cannot provide instances. */
   public final String provideKey;
 
   /** The key used to inject members of 'T', or null if this binding cannot inject members. */
   public final String membersKey;
 
-  /** True if the provided instance is always the same object. */
-  public final boolean singleton;
+  /** Bitfield of states like SINGLETON and LINKED. */
+  private int bits;
 
   public final Object requiredBy;
-  public boolean linked;
 
   protected Binding(String provideKey, String membersKey, boolean singleton, Object requiredBy) {
     if (singleton && provideKey == null) {
@@ -43,7 +48,7 @@ public class Binding<T> implements Provider<T>, MembersInjector<T> {
     }
     this.provideKey = provideKey;
     this.membersKey = membersKey;
-    this.singleton = singleton;
+    this.bits = (singleton ? SINGLETON : 0);
     this.requiredBy = requiredBy;
   }
 
@@ -74,5 +79,17 @@ public class Binding<T> implements Provider<T>, MembersInjector<T> {
    */
   public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
     throw new UnsupportedOperationException(getClass().getName());
+  }
+
+  void setLinked() {
+    bits |= LINKED;
+  }
+
+  public boolean isLinked() {
+    return (bits & LINKED) != 0;
+  }
+
+  boolean isSingleton() {
+    return (bits & SINGLETON) != 0;
   }
 }

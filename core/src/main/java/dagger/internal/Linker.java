@@ -62,7 +62,7 @@ public abstract class Linker {
    */
   public final Collection<Binding<?>> linkAll() {
     for (Binding<?> binding : bindings.values()) {
-      if (!binding.linked) {
+      if (!binding.isLinked()) {
         toLink.add(binding);
       }
     }
@@ -102,7 +102,7 @@ public abstract class Linker {
         attachSuccess = true;
         binding.attach(this);
         if (attachSuccess) {
-          binding.linked = true;
+          binding.setLinked();
         } else {
           toLink.add(binding);
         }
@@ -169,7 +169,7 @@ public abstract class Linker {
       return null;
     }
 
-    if (!binding.linked) {
+    if (!binding.isLinked()) {
       toLink.add(binding); // This binding was never linked; link it now!
     }
 
@@ -194,7 +194,7 @@ public abstract class Linker {
    * Returns a scoped binding for {@code binding}.
    */
   static <T> Binding<T> scope(final Binding<T> binding) {
-    if (!binding.singleton) {
+    if (!binding.isSingleton()) {
       return binding;
     }
     if (binding instanceof SingletonBinding) throw new AssertionError();
