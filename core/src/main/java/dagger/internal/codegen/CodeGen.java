@@ -130,11 +130,11 @@ final class CodeGen {
         }
         return null;
       }
-      @Override public Void visitPrimitive(PrimitiveType primitiveType, Void aVoid) {
+      @Override public Void visitPrimitive(PrimitiveType primitiveType, Void v) {
         result.append(box((PrimitiveType) type).getName());
         return null;
       }
-      @Override public Void visitArray(ArrayType arrayType, Void aVoid) {
+      @Override public Void visitArray(ArrayType arrayType, Void v) {
         typeToString(arrayType.getComponentType(), result, innerClassSeparator);
         result.append("[]");
         return null;
@@ -142,8 +142,9 @@ final class CodeGen {
       @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
         return null;
       }
-      @Override protected Void defaultAction(TypeMirror typeMirror, Void aVoid) {
-        throw new UnsupportedOperationException("Unexpected type " + typeMirror);
+      @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
+        throw new UnsupportedOperationException(
+            "Unexpected TypeKind " + typeMirror.getKind() + " for "  + typeMirror);
       }
     }, null);
   }

@@ -229,7 +229,7 @@ public final class ObjectGraph {
           + ". You must explicitly add an entry point to one of your modules.");
     }
     Binding<?> binding = linker.requestBinding(key, moduleClass);
-    if (binding == null || !binding.linked) {
+    if (binding == null || !binding.isLinked()) {
       linker.linkRequested();
       binding = linker.requestBinding(key, moduleClass);
     }
