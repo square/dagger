@@ -19,8 +19,11 @@ import dagger.Module;
 import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
+import dagger.internal.GraphVisualizer;
 import dagger.internal.Linker;
 import dagger.internal.SetBinding;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +40,9 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
+import javax.tools.FileObject;
+import javax.tools.JavaFileManager;
+import javax.tools.StandardLocation;
 
 /**
  * Performs full graph analysis on a module.
@@ -49,16 +55,27 @@ public final class FullGraphProcessor extends AbstractProcessor {
    * the module's dependencies are satisfied.
    */
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
-    for (Element moduleType : env.getElementsAnnotatedWith(Module.class)) {
-      Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, moduleType);
-      if (annotation.get("complete").equals(Boolean.TRUE)) {
-        validateComplete((TypeElement) moduleType);
+    try {
+      for (Element element : env.getElementsAnnotatedWith(Module.class)) {
+        Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, element);
+        if (!annotation.get("complete").equals(Boolean.TRUE)) {
+          continue;
+        }
+        TypeElement moduleType = (TypeElement) element;
+        Map<String, Binding<?>> bindings = processCompleteModule(moduleType);
+        writeDotFile(moduleType, bindings);
       }
+    } catch (IOException e) {
+      error("Graph processing failed: " + e);
     }
     return true;
   }
 
-  private void validateComplete(TypeElement rootModule) {
+  private void error(String message) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
+  }
+
+  private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules);
 
@@ -107,7 +124,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
     // Link the bindings. This will traverse the dependency graph, and report
     // errors if any dependencies are missing.
-    linker.linkAll();
+    return linker.linkAll();
   }
 
   private String shortMethodName(ExecutableElement method) {
@@ -136,15 +153,38 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   static class ProviderMethodBinding extends Binding<Object> {
     private final ExecutableElement method;
+    private final Binding<?>[] parameters;
+
     protected ProviderMethodBinding(String provideKey, ExecutableElement method) {
       super(provideKey, null, method.getAnnotation(Singleton.class) != null, method.toString());
       this.method = method;
+      this.parameters = new Binding[method.getParameters().size()];
     }
+
     @Override public void attach(Linker linker) {
-      for (VariableElement parameter : method.getParameters()) {
+      for (int i = 0; i < method.getParameters().size(); i++) {
+        VariableElement parameter = method.getParameters().get(i);
         String parameterKey = GeneratorKeys.get(parameter);
-        linker.requestBinding(parameterKey, method.toString());
+        parameters[i] = linker.requestBinding(parameterKey, method.toString());
       }
     }
+
+    @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+      for (Binding binding : parameters) {
+        get.add(binding);
+      }
+    }
+  }
+
+  void writeDotFile(TypeElement module, Map<String, Binding<?>> bindings) throws IOException {
+    JavaFileManager.Location location = StandardLocation.SOURCE_OUTPUT;
+    String path = CodeGen.getPackage(module).getQualifiedName().toString();
+    String file = module.getQualifiedName().toString().substring(path.length() + 1) + ".dot";
+    FileObject resource = processingEnv.getFiler().createResource(location, path, file, module);
+
+    Writer writer = resource.openWriter();
+    DotWriter dotWriter = new DotWriter(writer);
+    new GraphVisualizer().write(bindings, dotWriter);
+    dotWriter.close();
   }
 }

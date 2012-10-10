@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
@@ -32,7 +33,7 @@ import java.util.regex.Pattern;
  *
  * @author Jesse Wilson
  */
-public final class JavaWriter {
+public final class JavaWriter implements Closeable {
   private static final Pattern TYPE_PATTERN = Pattern.compile("(?:[\\w$]+\\.)*([\\w$]+)");
   private static final String INDENT = "  ";
 
@@ -434,7 +435,7 @@ public final class JavaWriter {
     return result.toString();
   }
 
-  public void close() throws IOException {
+  @Override public void close() throws IOException {
     out.close();
   }
 

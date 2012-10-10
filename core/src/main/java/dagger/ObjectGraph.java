@@ -23,7 +23,6 @@ import dagger.internal.ProblemDetector;
 import dagger.internal.RuntimeLinker;
 import dagger.internal.StaticInjection;
 import dagger.internal.UniqueMap;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -181,8 +180,8 @@ public final class ObjectGraph {
   public void validate() {
     linkStaticInjections();
     linkEntryPoints();
-    Collection<Binding<?>> allBindings = linker.linkAll();
-    new ProblemDetector().detectProblems(allBindings);
+    Map<String, Binding<?>> allBindings = linker.linkAll();
+    new ProblemDetector().detectProblems(allBindings.values());
   }
 
   /**
