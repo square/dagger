@@ -17,9 +17,9 @@
 package dagger.internal;
 
 
+import dagger.OneOf;
 import dagger.Module;
 import dagger.ObjectGraph;
-import dagger.OneOf;
 import dagger.Provides;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -96,8 +96,8 @@ public abstract class ModuleAdapter<T> {
 
     @SuppressWarnings("deprecation") // explicitly handles deprecated case
     ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
-      super(
-          toKeys(annotation.entryPoints()),
+      super(toMemberKeys(
+          annotation.entryPoints()),
           annotation.staticInjections(),
           annotation.overrides(),
           annotation.includes(),
@@ -105,10 +105,10 @@ public abstract class ModuleAdapter<T> {
       this.moduleClass = moduleClass;
     }
 
-    private static String[] toKeys(Class<?>[] entryPoints) {
+    private static String[] toMemberKeys(Class<?>[] entryPoints) {
       String[] result = new String[entryPoints.length];
       for (int i = 0; i < entryPoints.length; i++) {
-        result[i] = Keys.get(entryPoints[i]);
+        result[i] = Keys.getMembersKey(entryPoints[i]);
       }
       return result;
     }

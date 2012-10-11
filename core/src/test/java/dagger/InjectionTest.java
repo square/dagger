@@ -20,7 +20,6 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.RandomAccess;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Provider;
@@ -28,7 +27,6 @@ import javax.inject.Singleton;
 import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 @SuppressWarnings("unused")
@@ -509,88 +507,5 @@ public final class InjectionTest {
     }
 
     ObjectGraph.get(new TestModule());
-  }
-
-  @Test public void getInstance() {
-    final AtomicInteger next = new AtomicInteger(0);
-
-    @Module(entryPoints = Integer.class)
-    class TestModule {
-      @Provides Integer provideInteger() {
-        return next.getAndIncrement();
-      }
-    }
-
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    assertEquals(0, (int) graph.getInstance(Integer.class));
-    assertEquals(1, (int) graph.getInstance(Integer.class));
-  }
-
-  @Test public void getInstanceRequiresEntryPoint() {
-    @Module
-    class TestModule {
-      @Provides Integer provideInteger() {
-        throw new AssertionError();
-      }
-    }
-
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    try {
-      graph.getInstance(Integer.class);
-      fail();
-    } catch (IllegalArgumentException expected) {
-    }
-  }
-
-  @Test public void getInstanceOfPrimitive() {
-    @Module(entryPoints = int.class)
-    class TestModule {
-      @Provides int provideInt() {
-        return 1;
-      }
-    }
-
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    assertEquals(1, (int) graph.getInstance(int.class));
-  }
-
-  @Test public void getInstanceOfArray() {
-    @Module(entryPoints = int[].class)
-    class TestModule {
-      @Provides int[] provideIntArray() {
-        return new int[] { 1, 2, 3 };
-      }
-    }
-
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    assertEquals("[1, 2, 3]", Arrays.toString(graph.getInstance(int[].class)));
-  }
-
-  @Test public void getInstanceAndInjectMembersUseDifferentKeys() {
-    class BoundTwoWays {
-      @Inject String s;
-    }
-
-    @Module(entryPoints = BoundTwoWays.class)
-    class TestModule {
-      @Provides
-      BoundTwoWays provideBoundTwoWays() {
-        BoundTwoWays result = new BoundTwoWays();
-        result.s = "Pepsi";
-        return result;
-      }
-
-      @Provides String provideString() {
-        return "Coke";
-      }
-    }
-
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    BoundTwoWays provided = graph.getInstance(BoundTwoWays.class);
-    assertEquals("Pepsi", provided.s);
-
-    BoundTwoWays membersInjected = new BoundTwoWays();
-    graph.inject(membersInjected);
-    assertEquals("Coke", membersInjected.s);
   }
 }
