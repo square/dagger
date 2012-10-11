@@ -135,11 +135,10 @@ final class AtInjectBinding<T> extends Binding<T> {
   }
 
   /**
-   * @param forMembersInjection true if the binding is being created to inject
-   *     members only. Such injections do not require {@code @Inject}
+   * @param mustBeInjectable true if the binding must have {@code @Inject}
    *     annotations.
    */
-  public static <T> Binding<T> create(Class<T> type, boolean forMembersInjection) {
+  public static <T> Binding<T> create(Class<T> type, boolean mustBeInjectable) {
     boolean singleton = type.isAnnotationPresent(Singleton.class);
     List<String> keys = new ArrayList<String>();
 
@@ -170,7 +169,7 @@ final class AtInjectBinding<T> extends Binding<T> {
       injectedConstructor = constructor;
     }
     if (injectedConstructor == null) {
-      if (injectedFields.isEmpty() && !forMembersInjection) {
+      if (injectedFields.isEmpty() && mustBeInjectable) {
         throw new IllegalArgumentException("No injectable members on " + type.getName()
             + ". Do you want to add an injectable constructor?");
       }

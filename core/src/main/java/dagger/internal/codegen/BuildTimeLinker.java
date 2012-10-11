@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import dagger.internal.Binding;
-import dagger.internal.Keys;
 import dagger.internal.Linker;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -39,7 +38,8 @@ final class BuildTimeLinker extends Linker {
     this.moduleName = moduleName;
   }
 
-  @Override protected Binding<?> createAtInjectBinding(String key, String className) {
+  @Override protected Binding<?> createAtInjectBinding(
+      String key, String className, boolean mustBeInjectable) {
     String sourceClassName = className.replace('$', '.');
     TypeElement type = processingEnv.getElementUtils().getTypeElement(sourceClassName);
     if (type == null) {
@@ -52,7 +52,7 @@ final class BuildTimeLinker extends Linker {
     if (type.getKind() == ElementKind.INTERFACE) {
       return null;
     }
-    return AtInjectBinding.create(type, Keys.isMembersInjection(key));
+    return AtInjectBinding.create(type, mustBeInjectable);
   }
 
   @Override protected void reportErrors(List<String> errors) {

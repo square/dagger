@@ -23,8 +23,8 @@ import java.util.List;
  * and falls back to reflection.
  */
 public final class RuntimeLinker extends Linker {
-  @Override protected Binding<?> createAtInjectBinding(String key, String className)
-      throws ClassNotFoundException {
+  @Override protected Binding<?> createAtInjectBinding(
+      String key, String className, boolean mustBeInjectable) throws ClassNotFoundException {
     try {
       Class<?> c = Class.forName(className + "$InjectAdapter");
       Constructor<?> constructor = c.getConstructor();
@@ -40,7 +40,7 @@ public final class RuntimeLinker extends Linker {
       return null;
     }
 
-    return AtInjectBinding.create(c, Keys.isMembersInjection(key));
+    return AtInjectBinding.create(c, mustBeInjectable);
   }
 
   @Override protected void reportErrors(List<String> errors) {
@@ -52,6 +52,6 @@ public final class RuntimeLinker extends Linker {
     for (String error : errors) {
       message.append("\n  ").append(error);
     }
-    throw new IllegalArgumentException(message.toString());
+    throw new IllegalStateException(message.toString());
   }
 }

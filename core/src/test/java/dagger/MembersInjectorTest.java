@@ -94,7 +94,7 @@ public final class MembersInjectorTest {
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -111,7 +111,7 @@ public final class MembersInjectorTest {
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -128,7 +128,7 @@ public final class MembersInjectorTest {
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -177,7 +177,7 @@ public final class MembersInjectorTest {
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
