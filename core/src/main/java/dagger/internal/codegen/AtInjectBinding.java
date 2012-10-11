@@ -44,11 +44,10 @@ final class AtInjectBinding extends Binding<Object> {
   }
 
   /**
-   * @param forMembersInjection true if the binding is being created to inject
-   *     members only. Such injections do not require {@code @Inject}
+   * @param mustBeInjectable true if the binding must have {@code @Inject}
    *     annotations.
    */
-  static AtInjectBinding create(TypeElement type, boolean forMembersInjection) {
+  static AtInjectBinding create(TypeElement type, boolean mustBeInjectable) {
     List<String> requiredKeys = new ArrayList<String>();
     boolean hasInjectAnnotatedConstructor = false;
     boolean isConstructable = false;
@@ -87,7 +86,7 @@ final class AtInjectBinding extends Binding<Object> {
       }
     }
 
-    if (!hasInjectAnnotatedConstructor && requiredKeys.isEmpty() && !forMembersInjection) {
+    if (!hasInjectAnnotatedConstructor && requiredKeys.isEmpty() && mustBeInjectable) {
       throw new IllegalArgumentException("No injectable members on "
           + type.getQualifiedName().toString() + ". Do you want to add an injectable constructor?");
     }

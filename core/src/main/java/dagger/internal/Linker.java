@@ -78,12 +78,14 @@ public abstract class Linker {
     Binding binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
-        String key = ((DeferredBinding<?>) binding).deferredKey;
+        DeferredBinding deferredBinding = (DeferredBinding) binding;
+        String key = deferredBinding.deferredKey;
+        boolean mustBeInjectable = deferredBinding.mustBeInjectable;
         if (bindings.containsKey(key)) {
           continue; // A binding for this key has since been linked.
         }
         try {
-          Binding<?> jitBinding = createJitBinding(key, binding.requiredBy);
+          Binding<?> jitBinding = createJitBinding(key, binding.requiredBy, mustBeInjectable);
           // Fail if the type of binding we got wasn't capable of what was requested.
           if (!key.equals(jitBinding.provideKey) && !key.equals(jitBinding.membersKey)) {
             throw new IllegalStateException("Unable to create binding for " + key);
@@ -126,7 +128,8 @@ public abstract class Linker {
    *   <li>Injections of other types will use the injectable constructors of those classes.
    * </ul>
    */
-  private Binding<?> createJitBinding(String key, Object requiredBy) throws ClassNotFoundException {
+  private Binding<?> createJitBinding(String key, Object requiredBy, boolean mustBeInjectable)
+      throws ClassNotFoundException {
     String builtInBindingsKey = Keys.getBuiltInBindingsKey(key);
     if (builtInBindingsKey != null) {
       return new BuiltInBinding<Object>(key, requiredBy, builtInBindingsKey);
@@ -138,7 +141,7 @@ public abstract class Linker {
 
     String className = Keys.getClassName(key);
     if (className != null && !Keys.isAnnotated(key)) {
-      Binding<?> atInjectBinding = createAtInjectBinding(key, className);
+      Binding<?> atInjectBinding = createAtInjectBinding(key, className, mustBeInjectable);
       if (atInjectBinding != null) {
         return atInjectBinding;
       }
@@ -151,8 +154,8 @@ public abstract class Linker {
    * Returns a binding that uses {@code @Inject} annotations, or null if no such
    * binding can be created.
    */
-  protected abstract Binding<?> createAtInjectBinding(String key, String className)
-      throws ClassNotFoundException;
+  protected abstract Binding<?> createAtInjectBinding(
+      String key, String className, boolean mustBeInjectable) throws ClassNotFoundException;
 
   /**
    * Returns the binding if it exists immediately. Otherwise this returns
@@ -160,10 +163,24 @@ public abstract class Linker {
    * enqueued to be linked.
    */
   public final Binding<?> requestBinding(String key, Object requiredBy) {
+    return requestBinding(key, true, requiredBy);
+  }
+
+  /**
+   * Like {@link #requestBinding}, but this doesn't require the referenced key
+   * to be injectable. This is necessary so that generic framework code can
+   * inject arbitrary entry points (like JUnit test cases or Android activities)
+   * without concern for whether the specific entry point is injectable.
+   */
+  public final Binding<?> requestEntryPoint(String key, Class<?> requiredByModule) {
+    return requestBinding(key, false, requiredByModule);
+  }
+
+  private Binding<?> requestBinding(String key, boolean mustBeInjectable, Object requiredBy) {
     Binding<?> binding = bindings.get(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
-      DeferredBinding<Object> deferredBinding = new DeferredBinding<Object>(key, requiredBy);
+      Binding<?> deferredBinding = new DeferredBinding(key, requiredBy, mustBeInjectable);
       toLink.add(deferredBinding);
       attachSuccess = false;
       return null;
@@ -264,11 +281,13 @@ public abstract class Linker {
     }
   }
 
-  private static class DeferredBinding<T> extends Binding<T> {
+  private static class DeferredBinding extends Binding<Object> {
     final String deferredKey;
-    private DeferredBinding(String deferredKey, Object requiredBy) {
+    final boolean mustBeInjectable;
+    private DeferredBinding(String deferredKey, Object requiredBy, boolean mustBeInjectable) {
       super(null, null, false, requiredBy);
       this.deferredKey = deferredKey;
+      this.mustBeInjectable = mustBeInjectable;
     }
   }
 }

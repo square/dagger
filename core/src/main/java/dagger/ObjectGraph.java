@@ -167,7 +167,7 @@ public final class ObjectGraph {
 
   private void linkEntryPoints() {
     for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
-      linker.requestBinding(entry.getKey(), entry.getValue());
+      linker.requestEntryPoint(entry.getKey(), entry.getValue());
     }
   }
 

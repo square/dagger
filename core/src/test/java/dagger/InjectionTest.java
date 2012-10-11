@@ -247,7 +247,7 @@ public final class InjectionTest {
     try {
       graph.validate();
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -391,7 +391,7 @@ public final class InjectionTest {
     try {
       graph.validate();
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -408,7 +408,7 @@ public final class InjectionTest {
     try {
       graph.validate();
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -499,7 +499,7 @@ public final class InjectionTest {
     try {
       graph.validate();
       fail();
-    } catch (IllegalArgumentException expected) {
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -592,5 +592,32 @@ public final class InjectionTest {
     BoundTwoWays membersInjected = new BoundTwoWays();
     graph.inject(membersInjected);
     assertEquals("Coke", membersInjected.s);
+  }
+
+  static class NoInjections {
+  }
+
+  @Test public void entryPointNeedsNoInjectAnnotation() {
+    @Module(entryPoints = NoInjections.class)
+    class TestModule {
+    }
+
+    ObjectGraph.get(new TestModule()).validate();
+  }
+
+  @Test public void nonEntryPointNeedsInjectAnnotation() {
+    @Module
+    class TestModule {
+      @Provides String provideString(NoInjections noInjections) {
+        throw new AssertionError();
+      }
+    }
+
+    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    try {
+      graph.validate();
+      fail();
+    } catch (IllegalStateException expected) {
+    }
   }
 }
