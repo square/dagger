@@ -76,7 +76,7 @@ public final class Keys {
     if (annotation != null) {
       result.append(annotation).append("/");
     }
-    typeToString(type, result);
+    typeToString(type, result, true);
     return result.toString();
   }
 
@@ -95,7 +95,7 @@ public final class Keys {
       result.append(qualifier).append("/");
     }
     result.append(SET_PREFIX);
-    typeToString(type, result);
+    typeToString(type, result, true);
     result.append(">");
     return result.toString();
   }
@@ -130,33 +130,40 @@ public final class Keys {
     return qualifier;
   }
 
-  private static void typeToString(Type type, StringBuilder result) {
+  /**
+   * @param topLevel true if this is a top-level type where primitive types
+   *     like 'int' are forbidden. Recursive calls pass 'false' to support
+   *     arrays like {@code int[]}.
+   */
+  private static void typeToString(Type type, StringBuilder result, boolean topLevel) {
     if (type instanceof Class) {
       Class<?> c = (Class<?>) type;
       if (c.isArray()) {
-        result.append(c.getComponentType().getName());
+        typeToString(c.getComponentType(), result, false);
         result.append("[]");
       } else if (c.isPrimitive()) {
-        // TODO: support this?
-        throw new UnsupportedOperationException("Uninjectable type " + type);
+        if (topLevel) {
+          throw new UnsupportedOperationException("Uninjectable type " + type);
+        }
+        result.append(c.getName());
       } else {
         result.append(c.getName());
       }
     } else if (type instanceof ParameterizedType) {
       ParameterizedType parameterizedType = (ParameterizedType) type;
-      typeToString(parameterizedType.getRawType(), result);
+      typeToString(parameterizedType.getRawType(), result, true);
       Type[] arguments = parameterizedType.getActualTypeArguments();
       result.append("<");
       for (int i = 0; i < arguments.length; i++) {
         if (i != 0) {
           result.append(", ");
         }
-        typeToString(arguments[i], result);
+        typeToString(arguments[i], result, true);
       }
       result.append(">");
     } else if (type instanceof GenericArrayType) {
       GenericArrayType genericArrayType = (GenericArrayType) type;
-      result.append(((Class<?>) genericArrayType.getGenericComponentType()).getName());
+      typeToString(genericArrayType.getGenericComponentType(), result, false);
       result.append("[]");
     } else {
       throw new UnsupportedOperationException("Uninjectable type " + type);
@@ -245,7 +252,7 @@ public final class Keys {
     if (key.startsWith("@") || key.startsWith("members/")) {
       start = key.lastIndexOf('/') + 1;
     }
-    return (key.indexOf('<', start) == -1 && key.indexOf('[') == -1)
+    return (key.indexOf('<', start) == -1 && key.indexOf('[', start) == -1)
         ? key.substring(start)
         : null;
   }

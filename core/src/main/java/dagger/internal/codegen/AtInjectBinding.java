@@ -19,6 +19,7 @@ import dagger.internal.Binding;
 import dagger.internal.Linker;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.lang.model.element.Element;
@@ -34,6 +35,7 @@ import javax.lang.model.type.TypeMirror;
 final class AtInjectBinding extends Binding<Object> {
   private final TypeElement type;
   private final List<String> keys;
+  private final Binding<?>[] bindings;
 
   private AtInjectBinding(String provideKey, String membersKey,
       TypeElement type, List<String> keys) {
@@ -41,6 +43,7 @@ final class AtInjectBinding extends Binding<Object> {
         type.getQualifiedName().toString());
     this.type = type;
     this.keys = keys;
+    this.bindings = new Binding<?>[keys.size()];
   }
 
   /**
@@ -108,8 +111,14 @@ final class AtInjectBinding extends Binding<Object> {
 
   @Override public void attach(Linker linker) {
     String requiredBy = type.getQualifiedName().toString();
-    for (String key : keys) {
-      linker.requestBinding(key, requiredBy);
+    for (int i = 0; i < keys.size(); i++) {
+      bindings[i] = linker.requestBinding(keys.get(i), requiredBy);
+    }
+  }
+
+  @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+    for (Binding binding : bindings) {
+      get.add(binding);
     }
   }
 }
