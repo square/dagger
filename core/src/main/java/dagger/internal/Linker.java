@@ -16,7 +16,6 @@
 package dagger.internal;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -60,14 +59,14 @@ public abstract class Linker {
    *
    * @return all bindings known by this linker, which will all be linked.
    */
-  public final Collection<Binding<?>> linkAll() {
+  public final Map<String, Binding<?>> linkAll() {
     for (Binding<?> binding : bindings.values()) {
       if (!binding.isLinked()) {
         toLink.add(binding);
       }
     }
     linkRequested();
-    return bindings.values();
+    return bindings;
   }
 
   /**
