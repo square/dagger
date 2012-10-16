@@ -114,4 +114,8 @@ public class Binding<T> implements Provider<T>, MembersInjector<T> {
   public void setCycleFree(boolean cycleFree) {
     this.bits = cycleFree ? (bits | CYCLE_FREE) : (bits & ~CYCLE_FREE);
   }
+
+  @Override public String toString() {
+    return "Binding[provideKey=\"" + provideKey + "\", memberskey=\"" + membersKey + "\"]";
+  }
 }
