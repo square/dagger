@@ -49,6 +49,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     }
   }
 
+  @SuppressWarnings("unchecked") // Bindings<T> are the only thing added to contributors.
   @Override public Set<T> get() {
     Set<T> result = new LinkedHashSet<T>(contributors.size());
     for (Binding<?> contributor : contributors) {

@@ -26,7 +26,7 @@ import javax.inject.Singleton;
  * Invokes a method to provide a value. The method's parameters are injected.
  */
 final class ProviderMethodBinding<T> extends Binding<T> {
-  private Binding[] parameters;
+  private Binding<?>[] parameters;
   private final Method method;
   private final Object instance;
 
@@ -63,7 +63,7 @@ final class ProviderMethodBinding<T> extends Binding<T> {
   }
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
-    for (Binding binding : parameters) {
+    for (Binding<?> binding : parameters) {
       get.add(binding);
     }
   }

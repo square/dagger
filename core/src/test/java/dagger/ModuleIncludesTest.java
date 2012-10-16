@@ -21,7 +21,6 @@ import org.junit.Test;
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
-@SuppressWarnings("unused")
 public final class ModuleIncludesTest {
   static class TestEntryPoint {
     @Inject String s;

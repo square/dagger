@@ -31,7 +31,6 @@ import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-@SuppressWarnings("unused")
 public final class InjectionTest {
   @Test public void basicInjection() {
     class TestEntryPoint {
@@ -397,7 +396,7 @@ public final class InjectionTest {
 
   @Test public void noProvideBindingsForAbstractClasses() {
     class TestEntryPoint {
-      @Inject AbstractList abstractList;
+      @Inject AbstractList<?> abstractList;
     }
 
     @Module(entryPoints = TestEntryPoint.class)
