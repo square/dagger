@@ -21,7 +21,6 @@ import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
 
-@SuppressWarnings("unused")
 public final class InjectStaticsTest {
   @Before public void setUp() {
     InjectsOneField.staticField = null;
