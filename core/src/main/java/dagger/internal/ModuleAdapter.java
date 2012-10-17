@@ -77,7 +77,7 @@ public abstract class ModuleAdapter<T> {
       Class<?> c = Class.forName(adapter);
       Constructor<?> constructor = c.getConstructor();
       constructor.setAccessible(true);
-      result = (ModuleAdapter) constructor.newInstance();
+      result = (ModuleAdapter<T>) constructor.newInstance();
     } catch (Exception e) {
       LOGGER.log(Level.FINE, "No generated module for " + moduleClass.getName()
           + ". Falling back to reflection.", e);
@@ -85,7 +85,7 @@ public abstract class ModuleAdapter<T> {
       if (annotation == null) {
         throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
       }
-      result = (ModuleAdapter) new ReflectiveModuleAdapter(moduleClass, annotation);
+      result = (ModuleAdapter<T>) new ReflectiveModuleAdapter(moduleClass, annotation);
     }
     result.module = (module != null) ? module : result.newModule();
     return result;
@@ -94,7 +94,6 @@ public abstract class ModuleAdapter<T> {
   static class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     final Class<?> moduleClass;
 
-    @SuppressWarnings("deprecation") // explicitly handles deprecated case
     ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
       super(
           toKeys(annotation.entryPoints()),

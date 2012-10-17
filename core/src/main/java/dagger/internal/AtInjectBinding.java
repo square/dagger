@@ -159,7 +159,7 @@ final class AtInjectBinding<T> extends Binding<T> {
     // constructor, use a default public constructor if the class has other
     // injections. Otherwise treat the class as non-injectable.
     Constructor<T> injectedConstructor = null;
-    for (Constructor<T> constructor : (Constructor<T>[]) type.getDeclaredConstructors()) {
+    for (Constructor<T> constructor : getConstructorsForType(type)) {
       if (!constructor.isAnnotationPresent(Inject.class)) {
         continue;
       }
@@ -214,5 +214,10 @@ final class AtInjectBinding<T> extends Binding<T> {
     return new AtInjectBinding<T>(provideKey, membersKey, singleton, type,
         injectedFields.toArray(new Field[injectedFields.size()]), injectedConstructor,
         parameterCount, supertype, keys.toArray(new String[keys.size()]));
+  }
+
+  @SuppressWarnings("unchecked") // type is Class<T> and can't have other than Constructor<T>
+  private static <T> Constructor<T>[] getConstructorsForType(Class<T> type) {
+    return (Constructor<T>[]) type.getDeclaredConstructors();
   }
 }

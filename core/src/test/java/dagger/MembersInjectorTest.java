@@ -27,7 +27,6 @@ import static org.junit.Assert.fail;
  * Tests MembersInjector injection, and how object graph features interact with
  * types unconstructable types (types that support members injection only).
  */
-@SuppressWarnings("unused")
 public final class MembersInjectorTest {
   @Test public void injectMembers() {
     class TestEntryPoint {

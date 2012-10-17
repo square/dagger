@@ -74,7 +74,7 @@ public abstract class Linker {
    * creates JIT bindings as necessary to fill in the gaps.
    */
   public final void linkRequested() {
-    Binding binding;
+    Binding<?> binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
         DeferredBinding deferredBinding = (DeferredBinding) binding;

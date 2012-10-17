@@ -117,7 +117,7 @@ final class AtInjectBinding extends Binding<Object> {
   }
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
-    for (Binding binding : bindings) {
+    for (Binding<?> binding : bindings) {
       get.add(binding);
     }
   }
