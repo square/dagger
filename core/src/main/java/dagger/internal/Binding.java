@@ -22,8 +22,12 @@ import javax.inject.Provider;
 /**
  * Injects a value of a specific type.
  */
-public class Binding<T> implements Provider<T>, MembersInjector<T> {
-  public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null);
+public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
+  public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null) {
+    @Override public void getDependencies(Set<Binding<?>> bindings, Set<Binding<?>> memBindings) {
+      // do nothing
+    }
+  };
 
   /** Set if the provided instance is always the same object. */
   private static final int SINGLETON = 1 << 0;
