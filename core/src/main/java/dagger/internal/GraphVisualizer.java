@@ -49,17 +49,11 @@ public final class GraphVisualizer {
     for (Map.Entry<Binding<?>, String> entry : namesIndex.entrySet()) {
       Binding<?> sourceBinding = entry.getKey();
       String sourceName = entry.getValue();
-      try {
-        Set<Binding<?>> dependencies = new HashSet<Binding<?>>();
-        if (sourceBinding != Binding.UNRESOLVED) {
-          sourceBinding.getDependencies(dependencies, dependencies);
-        }
-        for (Binding<?> targetBinding : dependencies) {
-          String targetName = namesIndex.get(targetBinding);
-          writer.edge(sourceName, targetName);
-        }
-      } catch (Exception e) {
-        throw new IllegalStateException("Could not write binding: \"" + sourceBinding + "\"", e);
+      Set<Binding<?>> dependencies = new HashSet<Binding<?>>();
+      sourceBinding.getDependencies(dependencies, dependencies);
+      for (Binding<?> targetBinding : dependencies) {
+        String targetName = namesIndex.get(targetBinding);
+        writer.edge(sourceName, targetName);
       }
     }
     writer.endGraph();
