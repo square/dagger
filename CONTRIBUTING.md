@@ -26,8 +26,9 @@ please ensure that the form is consistent with the existing files, and please
 note that a Square, Inc. copyright line must appear in every copyright notice.
 All files are released with the Apache 2.0 license.
 
-Checkstyle failures during compilation indicate errors in your style and can be
-viewed in the `checkstyle-result.xml` file.
+Checkstyle failures during compilation indicate errors in your style and will
+be displayed in the console output of the build (including in Travis-CI output),
+or can be viewed in the `checkstyle-result.xml` file.
 
 Before your code can be accepted into the project you must sign the
 [Individual Contributor License Agreement (CLA)][1].
