@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal;
+package dagger.internal.codegen;
 
+import dagger.internal.Keys;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Set;

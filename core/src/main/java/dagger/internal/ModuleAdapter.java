@@ -17,21 +17,12 @@
 package dagger.internal;
 
 
-import dagger.Module;
-import dagger.ObjectGraph;
-import dagger.OneOf;
-import dagger.Provides;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Extracts bindings from an {@code @Module}-annotated class.
  */
 public abstract class ModuleAdapter<T> {
-  private static final Logger LOGGER = Logger.getLogger(ObjectGraph.class.getName());
 
   public final String[] entryPoints;
   public final Class<?>[] staticInjections;
@@ -65,87 +56,5 @@ public abstract class ModuleAdapter<T> {
     return module;
   }
 
-  /**
-   * Returns a module adapter for {@code module}, preferring a code-generated
-   * implementation and falling back to a reflective implementation.
-   */
-  @SuppressWarnings("unchecked") // Runtime checks validate that the result type matches 'T'.
-  public static <T> ModuleAdapter<T> get(Class<? extends T> moduleClass, T module) {
-    ModuleAdapter<T> result;
-    try {
-      String adapter = moduleClass.getName() + "$ModuleAdapter";
-      Class<?> c = Class.forName(adapter);
-      Constructor<?> constructor = c.getConstructor();
-      constructor.setAccessible(true);
-      result = (ModuleAdapter<T>) constructor.newInstance();
-    } catch (Exception e) {
-      LOGGER.log(Level.FINE, "No generated module for " + moduleClass.getName()
-          + ". Falling back to reflection.", e);
-      Module annotation = moduleClass.getAnnotation(Module.class);
-      if (annotation == null) {
-        throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
-      }
-      result = (ModuleAdapter<T>) new ReflectiveModuleAdapter(moduleClass, annotation);
-    }
-    result.module = (module != null) ? module : result.newModule();
-    return result;
-  }
 
-  static class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
-    final Class<?> moduleClass;
-
-    ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
-      super(
-          toKeys(annotation.entryPoints()),
-          annotation.staticInjections(),
-          annotation.overrides(),
-          annotation.includes(),
-          annotation.complete());
-      this.moduleClass = moduleClass;
-    }
-
-    private static String[] toKeys(Class<?>[] entryPoints) {
-      String[] result = new String[entryPoints.length];
-      for (int i = 0; i < entryPoints.length; i++) {
-        result[i] = Keys.get(entryPoints[i]);
-      }
-      return result;
-    }
-
-    @Override public void getBindings(Map<String, Binding<?>> bindings) {
-      // Fall back to runtime reflection.
-      for (Class<?> c = moduleClass; c != Object.class; c = c.getSuperclass()) {
-        for (Method method : c.getDeclaredMethods()) {
-          if (method.isAnnotationPresent(Provides.class)) {
-            String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
-            if (method.isAnnotationPresent(OneOf.class)) {
-              handleSetBindings(bindings, method, key);
-            } else {
-              handleBindings(bindings, method, key);
-            }
-          }
-        }
-      }
-    }
-
-    private <T> void handleBindings(Map<String, Binding<?>> bindings, Method method, String key) {
-      bindings.put(key, new ProviderMethodBinding<T>(method, key, module));
-    }
-
-    private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key) {
-      String elementKey =
-          Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method);
-      SetBinding.<T>add(bindings, elementKey, new ProviderMethodBinding<T>(method, key, module));
-    }
-
-    @Override protected Object newModule() {
-      try {
-        Constructor<?> includeConstructor = moduleClass.getDeclaredConstructor();
-        includeConstructor.setAccessible(true);
-        return includeConstructor.newInstance();
-      } catch (Exception e) {
-        throw new IllegalArgumentException("Unable to instantiate " + moduleClass.getName(), e);
-      }
-    }
-  }
 }

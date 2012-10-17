@@ -26,7 +26,7 @@ import java.util.Set;
 /**
  * Links bindings to their dependencies.
  */
-public abstract class Linker {
+public final class Linker {
   private static final Object UNINITIALIZED = new Object();
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
@@ -41,12 +41,21 @@ public abstract class Linker {
   /** All of the object graph's bindings. This may contain unlinked bindings. */
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
+  private final Plugin plugin;
+
+  private final ErrorHandler errorHandler;
+
+  public Linker(Plugin plugin, ErrorHandler errorHandler) {
+    this.plugin = plugin;
+    this.errorHandler = errorHandler;
+  }
+
   /**
    * Adds all bindings in {@code toInstall}. The caller must call either {@link
    * #linkAll} or {@link #requestBinding} and {@link #linkRequested} before the
    * bindings can be used.
    */
-  public final void installBindings(Map<String, ? extends Binding<?>> toInstall) {
+  public void installBindings(Map<String, ? extends Binding<?>> toInstall) {
     for (Map.Entry<String, ? extends Binding<?>> entry : toInstall.entrySet()) {
       bindings.put(entry.getKey(), scope(entry.getValue()));
     }
@@ -59,7 +68,7 @@ public abstract class Linker {
    *
    * @return all bindings known by this linker, which will all be linked.
    */
-  public final Map<String, Binding<?>> linkAll() {
+  public Map<String, Binding<?>> linkAll() {
     for (Binding<?> binding : bindings.values()) {
       if (!binding.isLinked()) {
         toLink.add(binding);
@@ -73,7 +82,7 @@ public abstract class Linker {
    * Links all requested bindings plus their transitive dependencies. This
    * creates JIT bindings as necessary to fill in the gaps.
    */
-  public final void linkRequested() {
+  public void linkRequested() {
     Binding<?> binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
@@ -111,7 +120,7 @@ public abstract class Linker {
     }
 
     try {
-      reportErrors(errors);
+      errorHandler.handleErrors(errors);
     } finally {
       errors.clear();
     }
@@ -140,7 +149,7 @@ public abstract class Linker {
 
     String className = Keys.getClassName(key);
     if (className != null && !Keys.isAnnotated(key)) {
-      Binding<?> atInjectBinding = createAtInjectBinding(key, className, mustBeInjectable);
+      Binding<?> atInjectBinding = plugin.getAtInjectBinding(key, className, mustBeInjectable);
       if (atInjectBinding != null) {
         return atInjectBinding;
       }
@@ -149,19 +158,13 @@ public abstract class Linker {
     throw new IllegalArgumentException("No binding for " + key);
   }
 
-  /**
-   * Returns a binding that uses {@code @Inject} annotations, or null if no such
-   * binding can be created.
-   */
-  protected abstract Binding<?> createAtInjectBinding(
-      String key, String className, boolean mustBeInjectable) throws ClassNotFoundException;
 
   /**
    * Returns the binding if it exists immediately. Otherwise this returns
    * null. If the returned binding didn't exist or was unlinked, it will be
    * enqueued to be linked.
    */
-  public final Binding<?> requestBinding(String key, Object requiredBy) {
+  public Binding<?> requestBinding(String key, Object requiredBy) {
     return requestBinding(key, true, requiredBy);
   }
 
@@ -171,7 +174,7 @@ public abstract class Linker {
    * inject arbitrary entry points (like JUnit test cases or Android activities)
    * without concern for whether the specific entry point is injectable.
    */
-  public final Binding<?> requestEntryPoint(String key, Class<?> requiredByModule) {
+  public Binding<?> requestEntryPoint(String key, Class<?> requiredByModule) {
     return requestBinding(key, false, requiredByModule);
   }
 
@@ -234,15 +237,6 @@ public abstract class Linker {
   }
 
   /**
-   * Fail if any errors have been enqueued and clear the list of errors.
-   * Implementations may throw exceptions or report the errors through another
-   * channel.
-   *
-   * @param errors a potentially empty list of error messages.
-   */
-  protected abstract void reportErrors(List<String> errors);
-
-  /**
    * A Binding that implements singleton behaviour around an existing binding.
    */
   private static class SingletonBinding<T> extends Binding<T> {
@@ -280,6 +274,18 @@ public abstract class Linker {
     }
   }
 
+  /** Handles linker errors appropriately. */
+  public interface ErrorHandler {
+    /**
+     * Fail if any errors have been enqueued.
+     * Implementations may throw exceptions or report the errors through another
+     * channel.  Callers are responsible for clearing enqueued errors.
+     *
+     * @param errors a potentially empty list of error messages.
+     */
+    void handleErrors(List<String> errors);
+  }
+
   private static class DeferredBinding extends Binding<Object> {
     final String deferredKey;
     final boolean mustBeInjectable;
@@ -289,4 +295,5 @@ public abstract class Linker {
       this.mustBeInjectable = mustBeInjectable;
     }
   }
+
 }
