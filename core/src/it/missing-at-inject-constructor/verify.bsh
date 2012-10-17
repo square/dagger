@@ -1,0 +1,7 @@
+import dagger.testing.it.BuildLogValidator;
+import java.io.File;
+
+File buildLog = new File(basedir, "build.log");
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "No injectable members on test.TestApp.Dependency.", 
+	"required by test.TestApp for test.TestApp.TestModule"});
