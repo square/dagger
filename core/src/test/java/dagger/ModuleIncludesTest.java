@@ -38,7 +38,7 @@ public final class ModuleIncludesTest {
       }
     }
 
-    ObjectGraph objectGraph = ObjectGraph.get(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
     TestEntryPoint entryPoint = objectGraph.getInstance(TestEntryPoint.class);
     assertThat(entryPoint.s).isEqualTo("injected");
   }
@@ -59,7 +59,7 @@ public final class ModuleIncludesTest {
       }
     }
 
-    ObjectGraph objectGraph = ObjectGraph.get(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
     TestStaticInjection.s = null;
     objectGraph.injectStatics();
     assertThat(TestStaticInjection.s).isEqualTo("injected");
@@ -84,7 +84,7 @@ public final class ModuleIncludesTest {
     class TestModule {
     }
 
-    ObjectGraph objectGraph = ObjectGraph.get(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("injected");
@@ -106,7 +106,7 @@ public final class ModuleIncludesTest {
     class TestModule {
     }
 
-    ObjectGraph objectGraph = ObjectGraph.get(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("injected");
@@ -131,7 +131,7 @@ public final class ModuleIncludesTest {
     }
 
     try {
-      ObjectGraph.get(new TestModule());
+      ObjectGraph.create(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -149,7 +149,7 @@ public final class ModuleIncludesTest {
     class TestModule {
     }
 
-    ObjectGraph objectGraph = ObjectGraph.get(new ModuleWithConstructor("a"), new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.create(new ModuleWithConstructor("a"), new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("a");

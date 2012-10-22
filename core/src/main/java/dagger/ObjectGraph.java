@@ -86,7 +86,7 @@ public final class ObjectGraph {
    * tools for graph validation, or call {@link #validate} to find problems in
    * the graph at runtime.
    */
-  public static ObjectGraph get(Object... modules) {
+  public static ObjectGraph create(Object... modules) {
 
     RuntimeAggregatingPlugin plugin = new RuntimeAggregatingPlugin(
         new ClassloadingPlugin(), new ReflectivePlugin());

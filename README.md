@@ -96,10 +96,10 @@ By convention, `@Provides` methods are named with a `provide` prefix and module 
 
 ### Building the Graph
 
-The `@Inject` and `@Provides`-annotated classes form a graph of objects, linked by their dependencies. Obtain this graph by calling `ObjectGraph.get()`, which accepts one or more modules:
+The `@Inject` and `@Provides`-annotated classes form a graph of objects, linked by their dependencies. Obtain this graph by calling `ObjectGraph.create()`, which accepts one or more modules:
 
 ```java
-ObjectGraph objectGraph = ObjectGraph.get(new DripCoffeeModule());
+ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
 ```
 
 In order to put the graph to use we need to create an **entry point**. This is usually the main class that starts the application. In this example, the `CoffeeApp` class serves as the entry point. We ask the graph to provide an injected instance of this type:
@@ -113,7 +113,7 @@ class CoffeeApp implements Runnable {
   }
 
   public static void main(String[] args) {
-    ObjectGraph objectGraph = ObjectGraph.get(new DripCoffeeModule());
+    ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
     CoffeeApp coffeeApp = objectGraph.getInstance(CoffeeApp.class);
     ...
   }
@@ -257,7 +257,7 @@ class LegacyModule {
 Use `ObjectGraph.injectStatics()` to populate these static fields with their injected values:
 
 ```java
-ObjectGraph objectGraph = ObjectGraph.get(new LegacyModule());
+ObjectGraph objectGraph = ObjectGraph.create(new LegacyModule());
 objectGraph.injectStatics();
 ```
 
@@ -324,7 +324,7 @@ public class CoffeeMakerTest {
   @Inject Heater heater;
 
   @Before public void setUp() {
-    ObjectGraph.get(new TestModule()).inject(this);
+    ObjectGraph.create(new TestModule()).inject(this);
   }
 
   @Module(

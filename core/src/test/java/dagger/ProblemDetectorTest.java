@@ -30,7 +30,7 @@ public final class ProblemDetectorTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();
@@ -49,7 +49,7 @@ public final class ProblemDetectorTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();
@@ -68,7 +68,7 @@ public final class ProblemDetectorTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     graph.validate();
   }
 

@@ -41,7 +41,7 @@ public final class MembersInjectorTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new StringModule()).inject(entryPoint);
+    ObjectGraph.create(new StringModule()).inject(entryPoint);
     Injectable injectable = new Injectable();
     entryPoint.membersInjector.injectMembers(injectable);
     assertThat(injectable.injected).isEqualTo("injected");
@@ -72,7 +72,7 @@ public final class MembersInjectorTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new StringModule()).inject(entryPoint);
+    ObjectGraph.create(new StringModule()).inject(entryPoint);
     Unconstructable object = new Unconstructable("constructor");
     entryPoint.membersInjector.injectMembers(object);
     assertThat(object.constructor).isEqualTo("constructor");
@@ -89,7 +89,7 @@ public final class MembersInjectorTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
@@ -106,7 +106,7 @@ public final class MembersInjectorTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
@@ -123,7 +123,7 @@ public final class MembersInjectorTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
@@ -157,7 +157,7 @@ public final class MembersInjectorTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     NonStaticInner nonStaticInner = new NonStaticInner();
     entryPoint.membersInjector.injectMembers(nonStaticInner);
     assertThat(nonStaticInner.injected).isEqualTo("injected");
@@ -172,7 +172,7 @@ public final class MembersInjectorTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.getInstance(TestEntryPoint.class);
       fail();
@@ -203,7 +203,7 @@ public final class MembersInjectorTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
 
     InjectsString provided = entryPoint.provider.get();
     assertThat(provided.value).isEqualTo("provides");
