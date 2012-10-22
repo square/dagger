@@ -175,7 +175,7 @@ public final class ObjectGraph {
    * @throws IllegalArgumentException if {@code type} is not one of this object
    *     graph's entry point types.
    */
-  public <T> T getInstance(Class<T> type) {
+  public <T> T get(Class<T> type) {
     String key = Keys.get(type);
     @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
     Binding<T> binding = (Binding<T>) getEntryPointBinding(key, key);

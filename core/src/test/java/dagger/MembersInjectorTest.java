@@ -91,7 +91,7 @@ public final class MembersInjectorTest {
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
-      graph.getInstance(TestEntryPoint.class);
+      graph.get(TestEntryPoint.class);
       fail();
     } catch (IllegalStateException expected) {
     }
@@ -108,7 +108,7 @@ public final class MembersInjectorTest {
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
-      graph.getInstance(TestEntryPoint.class);
+      graph.get(TestEntryPoint.class);
       fail();
     } catch (IllegalStateException expected) {
     }
@@ -125,7 +125,7 @@ public final class MembersInjectorTest {
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
-      graph.getInstance(TestEntryPoint.class);
+      graph.get(TestEntryPoint.class);
       fail();
     } catch (IllegalStateException expected) {
     }
@@ -174,7 +174,7 @@ public final class MembersInjectorTest {
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
-      graph.getInstance(TestEntryPoint.class);
+      graph.get(TestEntryPoint.class);
       fail();
     } catch (IllegalStateException expected) {
     }

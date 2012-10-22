@@ -29,7 +29,7 @@ class TestApp implements Runnable {
   }
 
   public static void main(String[] args) {
-    ObjectGraph.create(new TestModule()).getInstance(TestApp.class).run();
+    ObjectGraph.create(new TestModule()).get(TestApp.class).run();
   }
   
   static class Dependency {

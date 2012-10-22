@@ -114,7 +114,7 @@ class CoffeeApp implements Runnable {
 
   public static void main(String[] args) {
     ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
-    CoffeeApp coffeeApp = objectGraph.getInstance(CoffeeApp.class);
+    CoffeeApp coffeeApp = objectGraph.get(CoffeeApp.class);
     ...
   }
 }

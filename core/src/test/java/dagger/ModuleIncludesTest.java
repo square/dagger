@@ -39,7 +39,7 @@ public final class ModuleIncludesTest {
     }
 
     ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
-    TestEntryPoint entryPoint = objectGraph.getInstance(TestEntryPoint.class);
+    TestEntryPoint entryPoint = objectGraph.get(TestEntryPoint.class);
     assertThat(entryPoint.s).isEqualTo("injected");
   }
 

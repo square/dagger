@@ -521,8 +521,8 @@ public final class InjectionTest {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
-    assertEquals(0, (int) graph.getInstance(Integer.class));
-    assertEquals(1, (int) graph.getInstance(Integer.class));
+    assertEquals(0, (int) graph.get(Integer.class));
+    assertEquals(1, (int) graph.get(Integer.class));
   }
 
   @Test public void getInstanceRequiresEntryPoint() {
@@ -535,7 +535,7 @@ public final class InjectionTest {
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
-      graph.getInstance(Integer.class);
+      graph.get(Integer.class);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -550,7 +550,7 @@ public final class InjectionTest {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
-    assertEquals(1, (int) graph.getInstance(int.class));
+    assertEquals(1, (int) graph.get(int.class));
   }
 
   @Test public void getInstanceOfArray() {
@@ -562,7 +562,7 @@ public final class InjectionTest {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
-    assertEquals("[1, 2, 3]", Arrays.toString(graph.getInstance(int[].class)));
+    assertEquals("[1, 2, 3]", Arrays.toString(graph.get(int[].class)));
   }
 
   @Test public void getInstanceAndInjectMembersUseDifferentKeys() {
@@ -585,7 +585,7 @@ public final class InjectionTest {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
-    BoundTwoWays provided = graph.getInstance(BoundTwoWays.class);
+    BoundTwoWays provided = graph.get(BoundTwoWays.class);
     assertEquals("Pepsi", provided.s);
 
     BoundTwoWays membersInjected = new BoundTwoWays();
