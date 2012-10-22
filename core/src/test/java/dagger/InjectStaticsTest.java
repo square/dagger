@@ -44,7 +44,7 @@ public final class InjectStaticsTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     assertThat(InjectsOneField.staticField).isNull();
     graph.injectStatics();
     assertThat(InjectsOneField.staticField).isEqualTo("static");
@@ -63,7 +63,7 @@ public final class InjectStaticsTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     assertThat(InjectsStaticAndNonStatic.staticField).isNull();
     graph.injectStatics();
     assertThat(InjectsStaticAndNonStatic.staticField).isEqualTo("static");
@@ -82,7 +82,7 @@ public final class InjectStaticsTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     assertThat(InjectsStaticAndNonStatic.staticField).isNull();
     InjectsStaticAndNonStatic object = new InjectsStaticAndNonStatic();
     graph.inject(object);

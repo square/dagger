@@ -48,7 +48,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     G g = entryPoint.gProvider.get();
     assertThat(g.a).isNotNull();
     assertThat(g.b).isNotNull();
@@ -107,7 +107,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
 
     assertThat(entryPoint.aProvider.get()).isNotNull();
     assertThat(entryPoint.aProvider.get()).isNotNull();
@@ -129,7 +129,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.fProvider.get()).isSameAs(entryPoint.fProvider.get());
     assertThat(entryPoint.iProvider.get()).isSameAs(entryPoint.iProvider.get());
   }
@@ -160,7 +160,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.a).isNotNull();
     assertThat(one).isSameAs(entryPoint.aOne);
     assertThat(two).isSameAs(entryPoint.aTwo);
@@ -185,7 +185,7 @@ public final class InjectionTest {
 
     TestEntryPoint entryPoint = new TestEntryPoint();
     TestModule module = new TestModule();
-    ObjectGraph.get(module).inject(entryPoint);
+    ObjectGraph.create(module).inject(entryPoint);
     entryPoint.lProvider.get();
 
     assertThat(module.a1).isNotNull();
@@ -216,7 +216,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
 
     assertThat(entryPoint.f1).isSameAs(entryPoint.f2);
     assertThat(entryPoint.f1).isSameAs(entryPoint.n1.f1);
@@ -242,7 +242,7 @@ public final class InjectionTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();
@@ -263,7 +263,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.q.f).isNotNull();
   }
 
@@ -297,7 +297,7 @@ public final class InjectionTest {
     R.injected = false;
     TestEntryPoint entryPoint = new TestEntryPoint();
     TestModule module = new TestModule();
-    ObjectGraph.get(module).inject(entryPoint);
+    ObjectGraph.create(module).inject(entryPoint);
 
     assertThat(R.injected).isFalse();
     assertThat(module.sInjected).isFalse();
@@ -325,7 +325,7 @@ public final class InjectionTest {
     }
 
     try {
-      ObjectGraph.get(new TestModule());
+      ObjectGraph.create(new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -344,7 +344,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.aProvider.get()).isSameAs(entryPoint.aProvider.get());
   }
 
@@ -371,7 +371,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new BaseModule(), new OverridesModule()).inject(entryPoint);
+    ObjectGraph.create(new BaseModule(), new OverridesModule()).inject(entryPoint);
     E e = entryPoint.eProvider.get();
     assertThat(e).isNotNull();
     assertThat(e.f).isNotNull();
@@ -386,7 +386,7 @@ public final class InjectionTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();
@@ -403,7 +403,7 @@ public final class InjectionTest {
     class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();
@@ -438,7 +438,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.extendsParameterizedType.string).isEqualTo("injected");
   }
 
@@ -455,7 +455,7 @@ public final class InjectionTest {
     }
 
     TestEntryPoint entryPoint = new TestEntryPoint();
-    ObjectGraph.get(new TestModule()).inject(entryPoint);
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.listOfStrings).isEqualTo(Arrays.asList("a", "b"));
   }
 
@@ -472,7 +472,7 @@ public final class InjectionTest {
     }
 
     try {
-      ObjectGraph.get(new TestModule());
+      ObjectGraph.create(new TestModule());
       fail();
     } catch (UnsupportedOperationException expected) {
     }
@@ -494,7 +494,7 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();
@@ -507,7 +507,7 @@ public final class InjectionTest {
     class TestModule {
     }
 
-    ObjectGraph.get(new TestModule());
+    ObjectGraph.create(new TestModule());
   }
 
   @Test public void getInstance() {
@@ -520,9 +520,9 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    assertEquals(0, (int) graph.getInstance(Integer.class));
-    assertEquals(1, (int) graph.getInstance(Integer.class));
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    assertEquals(0, (int) graph.get(Integer.class));
+    assertEquals(1, (int) graph.get(Integer.class));
   }
 
   @Test public void getInstanceRequiresEntryPoint() {
@@ -533,9 +533,9 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
-      graph.getInstance(Integer.class);
+      graph.get(Integer.class);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -549,8 +549,8 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    assertEquals(1, (int) graph.getInstance(int.class));
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    assertEquals(1, (int) graph.get(int.class));
   }
 
   @Test public void getInstanceOfArray() {
@@ -561,8 +561,8 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    assertEquals("[1, 2, 3]", Arrays.toString(graph.getInstance(int[].class)));
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    assertEquals("[1, 2, 3]", Arrays.toString(graph.get(int[].class)));
   }
 
   @Test public void getInstanceAndInjectMembersUseDifferentKeys() {
@@ -584,8 +584,8 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
-    BoundTwoWays provided = graph.getInstance(BoundTwoWays.class);
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    BoundTwoWays provided = graph.get(BoundTwoWays.class);
     assertEquals("Pepsi", provided.s);
 
     BoundTwoWays membersInjected = new BoundTwoWays();
@@ -601,7 +601,7 @@ public final class InjectionTest {
     class TestModule {
     }
 
-    ObjectGraph.get(new TestModule()).validate();
+    ObjectGraph.create(new TestModule()).validate();
   }
 
   @Test public void nonEntryPointNeedsInjectAnnotation() {
@@ -612,7 +612,7 @@ public final class InjectionTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     try {
       graph.validate();
       fail();

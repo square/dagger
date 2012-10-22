@@ -86,7 +86,7 @@ public final class ObjectGraph {
    * tools for graph validation, or call {@link #validate} to find problems in
    * the graph at runtime.
    */
-  public static ObjectGraph get(Object... modules) {
+  public static ObjectGraph create(Object... modules) {
 
     RuntimeAggregatingPlugin plugin = new RuntimeAggregatingPlugin(
         new ClassloadingPlugin(), new ReflectivePlugin());
@@ -175,7 +175,7 @@ public final class ObjectGraph {
    * @throws IllegalArgumentException if {@code type} is not one of this object
    *     graph's entry point types.
    */
-  public <T> T getInstance(Class<T> type) {
+  public <T> T get(Class<T> type) {
     String key = Keys.get(type);
     @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
     Binding<T> binding = (Binding<T>) getEntryPointBinding(key, key);

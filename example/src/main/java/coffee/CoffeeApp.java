@@ -1,7 +1,8 @@
 package coffee;
 
-import dagger.ObjectGraph;
 import javax.inject.Inject;
+
+import dagger.ObjectGraph;
 
 class CoffeeApp implements Runnable {
   @Inject CoffeeMaker coffeeMaker;
@@ -11,8 +12,8 @@ class CoffeeApp implements Runnable {
   }
 
   public static void main(String[] args) {
-    ObjectGraph objectGraph = ObjectGraph.get(new DripCoffeeModule());
-    CoffeeApp coffeeApp = objectGraph.getInstance(CoffeeApp.class);
+    ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
+    CoffeeApp coffeeApp = objectGraph.get(CoffeeApp.class);
     coffeeApp.run();
   }
 }
