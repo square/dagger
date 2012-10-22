@@ -40,6 +40,8 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PUBLIC;
@@ -157,7 +159,7 @@ public final class InjectProcessor extends AbstractProcessor {
       List<Element> fields) throws IOException {
     String typeName = type.getQualifiedName().toString();
     TypeMirror supertype = CodeGen.getApplicationSupertype(type);
-    String adapterName = CodeGen.adapterName(type, "$InjectAdapter");
+    String adapterName = CodeGen.adapterName(type, INJECT_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
@@ -285,7 +287,7 @@ public final class InjectProcessor extends AbstractProcessor {
    */
   private void writeStaticInjection(TypeElement type, List<Element> fields) throws IOException {
     String typeName = type.getQualifiedName().toString();
-    String adapterName = CodeGen.adapterName(type, "$StaticInjection");
+    String adapterName = CodeGen.adapterName(type, STATIC_INJECTION_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());

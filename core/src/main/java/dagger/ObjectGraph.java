@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Square, Inc.
+ * Copyright (C) 2012 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +20,14 @@ import dagger.internal.Binding;
 import dagger.internal.Keys;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
+import dagger.internal.Plugin;
 import dagger.internal.ProblemDetector;
-import dagger.internal.RuntimeLinker;
+import dagger.internal.RuntimeAggregatingPlugin;
 import dagger.internal.StaticInjection;
+import dagger.internal.ThrowingErrorHandler;
 import dagger.internal.UniqueMap;
+import dagger.internal.plugins.loading.ClassloadingPlugin;
+import dagger.internal.plugins.reflect.ReflectivePlugin;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -57,10 +62,14 @@ public final class ObjectGraph {
   private final Linker linker;
   private final Map<Class<?>, StaticInjection> staticInjections;
   private final Map<String, Class<?>> entryPoints;
+  private final Plugin plugin;
 
-  private ObjectGraph(Linker linker, Map<Class<?>, StaticInjection> staticInjections,
+  ObjectGraph(Linker linker,
+      Plugin plugin,
+      Map<Class<?>, StaticInjection> staticInjections,
       Map<String, Class<?>> entryPoints) {
     this.linker = linker;
+    this.plugin = plugin;
     this.staticInjections = staticInjections;
     this.entryPoints = entryPoints;
   }
@@ -78,7 +87,11 @@ public final class ObjectGraph {
    * the graph at runtime.
    */
   public static ObjectGraph get(Object... modules) {
-    ModuleAdapter<?>[] moduleAdapters = getAllModuleAdapters(modules);
+
+    RuntimeAggregatingPlugin plugin = new RuntimeAggregatingPlugin(
+        new ClassloadingPlugin(), new ReflectivePlugin());
+
+    ModuleAdapter<?>[] moduleAdapters = plugin.getAllModuleAdapters(modules);
 
     Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
     Map<Class<?>, StaticInjection> staticInjections
@@ -99,65 +112,19 @@ public final class ObjectGraph {
       adapter.getBindings(addTo);
     }
 
-    // Create a linker and install all of the user's bindings.
-    Linker linker = new RuntimeLinker();
+    // Create a linker and install all of the user's bindings
+    Linker linker = new Linker(plugin, new ThrowingErrorHandler());
     linker.installBindings(baseBindings);
     linker.installBindings(overrideBindings);
 
-    return new ObjectGraph(linker, staticInjections, entryPoints);
-  }
-
-  /**
-   * Returns a full set of module adapters, including module adapters for included
-   * modules.
-   */
-  private static ModuleAdapter<?>[] getAllModuleAdapters(Object[] seedModules) {
-    // Create a module adapter for each seed module.
-    ModuleAdapter<?>[] seedAdapters = new ModuleAdapter<?>[seedModules.length];
-    int s = 0;
-    for (Object module : seedModules) {
-      seedAdapters[s++] = ModuleAdapter.get(module.getClass(), module);
-    }
-
-    Map<Class<?>, ModuleAdapter<?>> adaptersByModuleType
-        = new LinkedHashMap<Class<?>, ModuleAdapter<?>>();
-
-    // Add the adapters that we have module instances for. This way we won't
-    // construct module objects when we have a user-supplied instance.
-    for (ModuleAdapter<?> adapter : seedAdapters) {
-      adaptersByModuleType.put(adapter.getModule().getClass(), adapter);
-    }
-
-    // Next add adapters for the modules that we need to construct. This creates
-    // instances of modules as necessary.
-    for (ModuleAdapter<?> adapter : seedAdapters) {
-      collectIncludedModulesRecursively(adapter, adaptersByModuleType);
-    }
-
-    return adaptersByModuleType.values().toArray(
-        new ModuleAdapter<?>[adaptersByModuleType.size()]);
-  }
-
-  /**
-   * Fills {@code result} with the module adapters for the includes of {@code
-   * adapter}, and their includes recursively.
-   */
-  private static void collectIncludedModulesRecursively(ModuleAdapter<?> adapter,
-      Map<Class<?>, ModuleAdapter<?>> result) {
-    for (Class<?> include : adapter.includes) {
-      if (!result.containsKey(include)) {
-        ModuleAdapter<Object> includedModuleAdapter = ModuleAdapter.get(include, null);
-        result.put(include, includedModuleAdapter);
-        collectIncludedModulesRecursively(includedModuleAdapter, result);
-      }
-    }
+    return new ObjectGraph(linker, plugin, staticInjections, entryPoints);
   }
 
   private void linkStaticInjections() {
     for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
       StaticInjection staticInjection = entry.getValue();
       if (staticInjection == null) {
-        staticInjection = StaticInjection.get(entry.getKey());
+        staticInjection = plugin.getStaticInjection(entry.getKey());
         entry.setValue(staticInjection);
       }
       staticInjection.attach(linker);

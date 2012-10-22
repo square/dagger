@@ -45,6 +45,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PROTECTED;
@@ -144,7 +145,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     boolean overrides = (Boolean) module.get("overrides");
     boolean complete = (Boolean) module.get("complete");
 
-    String adapterName = CodeGen.adapterName(type, "$ModuleAdapter");
+    String adapterName = CodeGen.adapterName(type, MODULE_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());

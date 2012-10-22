@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;

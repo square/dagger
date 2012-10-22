@@ -38,6 +38,7 @@
     <module>core</module>
     <module>androidmanifest</module>
     <module>example</module>
+    <module>compiler</module>
   </modules>
 
   <properties>

@@ -33,9 +33,24 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.squareup</groupId>
+      <groupId>${project.groupId}</groupId>
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>
+  
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <dependencies>
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>dagger-compiler</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
+  </build>
 </project>

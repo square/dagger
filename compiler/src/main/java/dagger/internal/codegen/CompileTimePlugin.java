@@ -16,30 +16,29 @@
 package dagger.internal.codegen;
 
 import dagger.internal.Binding;
-import dagger.internal.Linker;
-import java.util.List;
+import dagger.internal.ModuleAdapter;
+import dagger.internal.Plugin;
+import dagger.internal.StaticInjection;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.tools.Diagnostic;
 
 /**
- * Linker suitable for tool use at build time. The bindings created by this
- * linker have the correct dependency graph, but do not implement {@link
- * Binding#get} or {@link Binding#injectMembers} methods. They are only suitable
+ * A {@code Binding.Resolver} suitable for tool use at build time. The bindings created by
+ * this {@code Binding.Resolver} have the correct dependency graph, but do not implement
+ * {@link Binding#get} or {@link Binding#injectMembers} methods. They are only suitable
  * for graph analysis and error detection.
  */
-final class BuildTimeLinker extends Linker {
-  private final ProcessingEnvironment processingEnv;
-  private final String moduleName;
+public final class CompileTimePlugin implements Plugin {
 
-  BuildTimeLinker(ProcessingEnvironment processingEnv, String moduleName) {
+  private final ProcessingEnvironment processingEnv;
+
+  public CompileTimePlugin(ProcessingEnvironment processingEnv) {
     this.processingEnv = processingEnv;
-    this.moduleName = moduleName;
   }
 
-  @Override protected Binding<?> createAtInjectBinding(
-      String key, String className, boolean mustBeInjectable) {
+  @Override public Binding<?> getAtInjectBinding(String key, String className,
+      boolean mustBeInjectable) throws ClassNotFoundException {
     String sourceClassName = className.replace('$', '.');
     TypeElement type = processingEnv.getElementUtils().getTypeElement(sourceClassName);
     if (type == null) {
@@ -55,9 +54,11 @@ final class BuildTimeLinker extends Linker {
     return AtInjectBinding.create(type, mustBeInjectable);
   }
 
-  @Override protected void reportErrors(List<String> errors) {
-    for (String error : errors) {
-      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, error + " for " + moduleName);
-    }
+  @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
+    throw new UnsupportedOperationException();
   }
 }

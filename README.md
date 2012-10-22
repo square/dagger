@@ -355,6 +355,39 @@ Overrides are best suited for small variations on the application:
 For more substantial variations it's often simpler to use a different combination of modules.
 
 
+Using Dagger in your build
+==========================
+
+You will need to include the dagger-${dagger.version}.jar in your application's runtime.  In order to activate code generation you will need to include dagger-compiler-${dagger.version}.jar in your build at compile time. 
+
+In a Maven project, one would include the runtime in the dependencies section of your `pom.xml` (replacing ${dagger.version} with the appropriate current release), and the dagger-compiler artifact as a dependency of the compiler plugin: 
+
+```java
+  <dependencies>
+    <dependency>
+      <groupId>com.squareup</groupId>
+      <artifactId>dagger</artifactId>
+      <version>${dagger.version}</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <dependencies>
+          <dependency>
+            <groupId>com.squareup</groupId>
+            <artifactId>dagger-compiler</artifactId>
+            <version>${dagger.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
+  </build>
+```
+
+
+
 Upgrading from Guice
 ====================
 

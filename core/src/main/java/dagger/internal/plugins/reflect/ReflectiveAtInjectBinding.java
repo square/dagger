@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal;
+package dagger.internal.plugins.reflect;
 
+import dagger.internal.Binding;
+import dagger.internal.Keys;
+import dagger.internal.Linker;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -30,13 +33,13 @@ import javax.inject.Singleton;
 /**
  * A runtime binding that injects the constructor and fields of a class.
  */
-final class AtInjectBinding<T> extends Binding<T> {
+public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
   private final Field[] fields;
   private final Constructor<T> constructor;
   private final Class<?> supertype;
   private final String[] keys;
-  private Binding<?>[] fieldBindings;
-  private Binding<?>[] parameterBindings;
+  private final Binding<?>[] fieldBindings;
+  private final Binding<?>[] parameterBindings;
   private Binding<? super T> supertypeBinding;
 
   /**
@@ -47,7 +50,7 @@ final class AtInjectBinding<T> extends Binding<T> {
    *     supports members injection only.
    * @param supertype the injectable supertype, or null if the supertype is a
    */
-  private AtInjectBinding(String provideKey, String membersKey, boolean singleton, Class<?> type,
+  private ReflectiveAtInjectBinding(String provideKey, String membersKey, boolean singleton, Class<?> type,
       Field[] fields, Constructor<T> constructor, int parameterCount, Class<?> supertype,
       String[] keys) {
     super(provideKey, membersKey, singleton, type);
@@ -59,7 +62,6 @@ final class AtInjectBinding<T> extends Binding<T> {
     this.fieldBindings = new Binding<?>[fields.length];
   }
 
-  @SuppressWarnings("unchecked") // The linker promises it's safe to cast to Binding<? super T>.
   @Override public void attach(Linker linker) {
     int k = 0;
     for (int i = 0; i < fields.length; i++) {
@@ -211,12 +213,11 @@ final class AtInjectBinding<T> extends Binding<T> {
     }
 
     String membersKey = Keys.getMembersKey(type);
-    return new AtInjectBinding<T>(provideKey, membersKey, singleton, type,
+    return new ReflectiveAtInjectBinding<T>(provideKey, membersKey, singleton, type,
         injectedFields.toArray(new Field[injectedFields.size()]), injectedConstructor,
         parameterCount, supertype, keys.toArray(new String[keys.size()]));
   }
 
-  @SuppressWarnings("unchecked") // type is Class<T> and can't have other than Constructor<T>
   private static <T> Constructor<T>[] getConstructorsForType(Class<T> type) {
     return (Constructor<T>[]) type.getDeclaredConstructors();
   }

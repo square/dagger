@@ -19,7 +19,6 @@ import dagger.Module;
 import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
-import dagger.internal.GraphVisualizer;
 import dagger.internal.Linker;
 import dagger.internal.SetBinding;
 import java.io.IOException;
@@ -79,7 +78,8 @@ public final class FullGraphProcessor extends AbstractProcessor {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules);
 
-    Linker linker = new BuildTimeLinker(processingEnv, rootModule.getQualifiedName().toString());
+    Linker linker = new Linker(new CompileTimePlugin(processingEnv),
+        new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString()));
     Map<String, Binding<?>> baseBindings = new LinkedHashMap<String, Binding<?>>();
     Map<String, Binding<?>> overrideBindings = new LinkedHashMap<String, Binding<?>>();
     for (TypeElement module : allModules.values()) {
