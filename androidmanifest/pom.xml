@@ -33,8 +33,13 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.squareup</groupId>
+      <groupId>${project.groupId}</groupId>
       <artifactId>dagger</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>dagger-compiler</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

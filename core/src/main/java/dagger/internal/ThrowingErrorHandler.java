@@ -15,35 +15,14 @@
  */
 package dagger.internal;
 
-import java.lang.reflect.Constructor;
 import java.util.List;
 
 /**
- * Linker suitable for application use at runtime. This looks for generated code
- * and falls back to reflection.
+ * Handles errors by throwing an exception containing all the available errors.
  */
-public final class RuntimeLinker extends Linker {
-  @Override protected Binding<?> createAtInjectBinding(
-      String key, String className, boolean mustBeInjectable) throws ClassNotFoundException {
-    try {
-      Class<?> c = Class.forName(className + "$InjectAdapter");
-      Constructor<?> constructor = c.getConstructor();
-      constructor.setAccessible(true);
-      return (Binding<?>) constructor.newInstance();
-    } catch (Exception ignored) {
-      // Fall back to reflection.
-    }
+public final class ThrowingErrorHandler implements Linker.ErrorHandler {
 
-    // Handle class bindings by injecting @Inject-annotated members.
-    Class<?> c = Class.forName(className);
-    if (c.isInterface()) {
-      return null;
-    }
-
-    return AtInjectBinding.create(c, mustBeInjectable);
-  }
-
-  @Override protected void reportErrors(List<String> errors) {
+  @Override public void handleErrors(List<String> errors) {
     if (errors.isEmpty()) {
       return;
     }

@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal;
+package dagger.internal.codegen;
 
-import dagger.internal.codegen.DotWriter;
+import dagger.internal.Binding;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedHashMap;

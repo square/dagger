@@ -120,6 +120,8 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
   }
 
   @Override public String toString() {
-    return "Binding[provideKey=\"" + provideKey + "\", memberskey=\"" + membersKey + "\"]";
+    return getClass().getSimpleName()
+            + "[provideKey=\"" + provideKey + "\", memberskey=\"" + membersKey + "\"]";
   }
+
 }
