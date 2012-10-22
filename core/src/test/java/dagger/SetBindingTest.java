@@ -104,7 +104,7 @@ public final class SetBindingTest {
       @Provides @OneOf Integer b() { return defaultCounter.getAndIncrement(); }
     }
 
-    ObjectGraph graph = ObjectGraph.get(new TestModule());
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
     TestEntryPoint1 ep1 = new TestEntryPoint1();
     graph.inject(ep1);
     TestEntryPoint2 ep2 = new TestEntryPoint2();
@@ -196,7 +196,7 @@ public final class SetBindingTest {
 
   private <T> T injectWithModule(T ep, Object ... modules) {
     // TODO(cgruber): Make og.inject(foo) return foo properly.
-    ObjectGraph og = ObjectGraph.get(modules);
+    ObjectGraph og = ObjectGraph.create(modules);
     og.inject(ep);
     return ep;
   }
