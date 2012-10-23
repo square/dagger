@@ -163,7 +163,7 @@ class CoffeeMaker {
 
 ### Lazy injections
 
-Sometimes you need to create a dependency lazily.  For any binding `T`, you can create a `Lazy<T>` which defers instantiation until the first call to `Lazy<T>`'s `get()` method. If `T` is a singleton, then `Lazy<T>` will be the same instance for all injections within the `ObjectGraph`.  Otherwise, each injection site will get its own `Lazy<T>` instance.  Regardless, subsequent calls to any given instance of `Lazy<T>` will return the same underlying instance of `T`.
+Sometimes you need an object to be instantiated lazily.  For any binding `T`, you can create a `Lazy<T>` which defers instantiation until the first call to `Lazy<T>`'s `get()` method. If `T` is a singleton, then `Lazy<T>` will be the same instance for all injections within the `ObjectGraph`.  Otherwise, each injection site will get its own `Lazy<T>` instance.  Regardless, subsequent calls to any given instance of `Lazy<T>` will return the same underlying instance of `T`.
 
 ```java
 class GridingCoffeeMaker {
