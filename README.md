@@ -216,7 +216,7 @@ public @interface Named {
 }
 ```
 
-To create your own qualifier annotations, or just use `@Named`. Apply qualifiers by annotating the field or parameter of interest. The type and qualifier annotation will both be used to identify the dependency.
+You can create your own qualifier annotations, or just use `@Named`. Apply qualifiers by annotating the field or parameter of interest. The type and qualifier annotation will both be used to identify the dependency.
 
 ```java
 class ExpensiveCoffeeMaker {
