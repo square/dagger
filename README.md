@@ -163,7 +163,7 @@ class CoffeeMaker {
 
 ### Lazy injections
 
-Sometimes you need to make a dependency lazily created.  For any binding `T`, you can create a `Lazy<T>` which defers instantiation until the first call to `Lazy<T>`'s `get()` method. If `T` is a singleton, then `Lazy<T>` will be the same instance for all injections within the ObjectGraph.  Otherwise, each injection site will get its own `Lazy<T>` instance.  Regardless, subsequent calls to any given instance of `Lazy<T>` will return the same underlying instance of `T`.
+Sometimes you need to create a dependency lazily.  For any binding `T`, you can create a `Lazy<T>` which defers instantiation until the first call to `Lazy<T>`'s `get()` method. If `T` is a singleton, then `Lazy<T>` will be the same instance for all injections within the `ObjectGraph`.  Otherwise, each injection site will get its own `Lazy<T>` instance.  Regardless, subsequent calls to any given instance of `Lazy<T>` will return the same underlying instance of `T`.
 
 ```java
 class GridingCoffeeMaker {
@@ -216,7 +216,7 @@ public @interface Named {
 }
 ```
 
-Create your own qualifier annotations just use `@Named`. Apply qualifiers by annotating the field or parameter of interest. The type and qualifier annotation will both be used to identify the dependency.
+To create your own qualifier annotations just use `@Named`. Apply qualifiers by annotating the field or parameter of interest. The type and qualifier annotation will both be used to identify the dependency.
 
 ```java
 class ExpensiveCoffeeMaker {
@@ -282,7 +282,7 @@ When compiling it, `javac` rejects the missing binding:
                required by provideHeater(java.util.concurrent.Executor)
 ```
 
-Fix the problem either by adding the an `@Provides`-annotated method for `Executor`, or by marking the module as incomplete. Incomplete modules are permitted to have missing dependencies.
+Fix the problem either by adding an `@Provides`-annotated method for `Executor`, or by marking the module as incomplete. Incomplete modules are permitted to have missing dependencies.
 
 ```java
 @Module(complete = false)
@@ -358,7 +358,7 @@ For more substantial variations it's often simpler to use a different combinatio
 Using Dagger in your build
 ==========================
 
-You will need to include the dagger-${dagger.version}.jar in your application's runtime.  In order to activate code generation you will need to include dagger-compiler-${dagger.version}.jar in your build at compile time. 
+You will need to include the `dagger-${dagger.version}.jar` in your application's runtime.  In order to activate code generation you will need to include `dagger-compiler-${dagger.version}.jar` in your build at compile time. 
 
 In a Maven project, one would include the runtime in the dependencies section of your `pom.xml` (replacing ${dagger.version} with the appropriate current release), and the dagger-compiler artifact as a dependency of the compiler plugin: 
 
