@@ -31,6 +31,8 @@ import dagger.internal.plugins.reflect.ReflectivePlugin;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static dagger.internal.RuntimeAggregatingPlugin.getAllModuleAdapters;
+
 /**
  * A graph of objects linked by their dependencies.
  *
@@ -59,15 +61,23 @@ import java.util.Map;
  * </ul>
  */
 public final class ObjectGraph {
+  private final ObjectGraph augmented;
   private final Linker linker;
   private final Map<Class<?>, StaticInjection> staticInjections;
   private final Map<String, Class<?>> entryPoints;
   private final Plugin plugin;
 
-  ObjectGraph(Linker linker,
+  ObjectGraph(ObjectGraph augmented,
+      Linker linker,
       Plugin plugin,
       Map<Class<?>, StaticInjection> staticInjections,
       Map<String, Class<?>> entryPoints) {
+    if (linker == null) throw new NullPointerException("linker");
+    if (plugin == null) throw new NullPointerException("plugin");
+    if (staticInjections == null) throw new NullPointerException("staticInjections");
+    if (entryPoints == null) throw new NullPointerException("entryPoints");
+
+    this.augmented = augmented;
     this.linker = linker;
     this.plugin = plugin;
     this.staticInjections = staticInjections;
@@ -79,19 +89,21 @@ public final class ObjectGraph {
    * Module}-annotated modules.
    *
    * <p>This <strong>does not</strong> inject any members. Most applications
-   * should call {@link #injectStatics} to inject static members and/or {@link
-   * #inject} to inject instance members when this method has returned.
+   * should call {@link #injectStatics} to inject static members and {@link
+   * #inject} or get {@link #get(Class)} to inject instance members when this
+   * method has returned.
    *
    * <p>This <strong>does not</strong> validate the graph. Rely on build time
    * tools for graph validation, or call {@link #validate} to find problems in
    * the graph at runtime.
    */
   public static ObjectGraph create(Object... modules) {
-
     RuntimeAggregatingPlugin plugin = new RuntimeAggregatingPlugin(
-        new ClassloadingPlugin(), new ReflectivePlugin());
+            new ClassloadingPlugin(), new ReflectivePlugin());
+    return makeGraph(null, plugin, modules);
+  }
 
-    ModuleAdapter<?>[] moduleAdapters = plugin.getAllModuleAdapters(modules);
+  private static ObjectGraph makeGraph(ObjectGraph root, Plugin plugin, Object... modules) {
 
     Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
     Map<Class<?>, StaticInjection> staticInjections
@@ -101,24 +113,41 @@ public final class ObjectGraph {
     // duplicates are permitted.
     Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
     Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
-    for (ModuleAdapter<?> adapter : moduleAdapters) {
-      for (String key : adapter.entryPoints) {
-        entryPoints.put(key, adapter.getModule().getClass());
+    for (ModuleAdapter<?> moduleAdapter : getAllModuleAdapters(plugin, modules).values()) {
+      for (String key : moduleAdapter.entryPoints) {
+        entryPoints.put(key, moduleAdapter.getModule().getClass());
       }
-      for (Class<?> c : adapter.staticInjections) {
+      for (Class<?> c : moduleAdapter.staticInjections) {
         staticInjections.put(c, null);
       }
-      Map<String, Binding<?>> addTo = adapter.overrides ? overrideBindings : baseBindings;
-      adapter.getBindings(addTo);
+      Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
+      moduleAdapter.getBindings(addTo);
     }
 
     // Create a linker and install all of the user's bindings
-    Linker linker = new Linker(plugin, new ThrowingErrorHandler());
+    Linker linker = new Linker((root != null) ? root.linker : null, plugin,
+        new ThrowingErrorHandler());
     linker.installBindings(baseBindings);
     linker.installBindings(overrideBindings);
 
-    return new ObjectGraph(linker, plugin, staticInjections, entryPoints);
+    return new ObjectGraph(root, linker, plugin, staticInjections, entryPoints);
   }
+
+  /**
+   * Returns a new object graph which delegates any dependency satisfaction that
+   * it cannot perform to the graph it extends, based on supplied
+   * {@code @Module} annotated objects.
+   *
+   * <p>
+   * This <strong>does not</strong> validate the graph. Rely on build time tools
+   * for graph validation, or call {@link #validate} to find problems in the
+   * graph at runtime.
+   */
+  public ObjectGraph extend(Object... modules) {
+    linker.linkAll();
+    return makeGraph(this, plugin, modules);
+  }
+
 
   private void linkStaticInjections() {
     for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
@@ -204,7 +233,10 @@ public final class ObjectGraph {
    *     regular (provider) key or a members key.
    */
   private Binding<?> getEntryPointBinding(String entryPointKey, String key) {
-    Class<?> moduleClass = entryPoints.get(entryPointKey);
+    Class<?> moduleClass = null;
+    for (ObjectGraph node = this; moduleClass == null && node != null; node = node.augmented) {
+      moduleClass = node.entryPoints.get(entryPointKey);
+    }
     if (moduleClass == null) {
       throw new IllegalArgumentException("No entry point for " + entryPointKey
           + ". You must explicitly add an entry point to one of your modules.");

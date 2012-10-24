@@ -80,10 +80,17 @@ public class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   }
 
   @Override protected Object newModule() {
+    if (moduleClass.isInterface()) {
+      throw new IllegalStateException(moduleClass.getSimpleName() + " is an interface.");
+    }
     try {
-      Constructor<?> includeConstructor = moduleClass.getDeclaredConstructor();
-      includeConstructor.setAccessible(true);
-      return includeConstructor.newInstance();
+      try {
+        Constructor<?> includeConstructor = moduleClass.getDeclaredConstructor();
+        includeConstructor.setAccessible(true);
+        return includeConstructor.newInstance();
+      } catch (NoSuchMethodException e) {
+        return moduleClass.newInstance();
+      }
     } catch (Exception e) {
       throw new IllegalArgumentException("Unable to instantiate " + moduleClass.getName(), e);
     }

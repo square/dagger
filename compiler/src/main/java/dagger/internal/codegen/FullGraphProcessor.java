@@ -23,7 +23,10 @@ import dagger.internal.Linker;
 import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -78,7 +81,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules);
 
-    Linker linker = new Linker(new CompileTimePlugin(processingEnv),
+    Linker linker = new Linker(null, new CompileTimePlugin(processingEnv),
         new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString()));
     Map<String, Binding<?>> baseBindings = new LinkedHashMap<String, Binding<?>>();
     Map<String, Binding<?>> overrideBindings = new LinkedHashMap<String, Binding<?>>();
@@ -139,8 +142,10 @@ public final class FullGraphProcessor extends AbstractProcessor {
     // Recurse for each included module.
     Types typeUtils = processingEnv.getTypeUtils();
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
-    Object[] includes = (Object[]) annotation.get("includes");
-    for (Object include : includes) {
+    List<Object> seedModules = new ArrayList<Object>();
+    seedModules.addAll(Arrays.asList((Object[]) annotation.get("includes")));
+    if (!annotation.get("augments").equals(Void.class)) seedModules.add(annotation.get("augments"));
+    for (Object include : seedModules) {
       if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
             "Unexpected value for include: " + include + " in " + module);

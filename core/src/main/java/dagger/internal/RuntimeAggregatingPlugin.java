@@ -39,12 +39,12 @@ public class RuntimeAggregatingPlugin implements Plugin {
    * Returns a full set of module adapters, including module adapters for included
    * modules.
    */
-  public ModuleAdapter<?>[] getAllModuleAdapters(Object[] seedModules) {
+  public static Map<Class<?>, ModuleAdapter<?>> getAllModuleAdapters(Plugin plugin, Object[] seedModules) {
     // Create a module adapter for each seed module.
     ModuleAdapter<?>[] seedAdapters = new ModuleAdapter<?>[seedModules.length];
     int s = 0;
     for (Object module : seedModules) {
-      seedAdapters[s++] = getModuleAdapter(module.getClass(), module);
+      seedAdapters[s++] = plugin.getModuleAdapter(module.getClass(), module);
     }
 
     Map<Class<?>, ModuleAdapter<?>> adaptersByModuleType
@@ -59,24 +59,23 @@ public class RuntimeAggregatingPlugin implements Plugin {
     // Next add adapters for the modules that we need to construct. This creates
     // instances of modules as necessary.
     for (ModuleAdapter<?> adapter : seedAdapters) {
-      collectIncludedModulesRecursively(adapter, adaptersByModuleType);
+      collectIncludedModulesRecursively(plugin, adapter, adaptersByModuleType);
     }
 
-    return adaptersByModuleType.values().toArray(
-        new ModuleAdapter<?>[adaptersByModuleType.size()]);
+    return adaptersByModuleType;
   }
 
   /**
    * Fills {@code result} with the module adapters for the includes of {@code
    * adapter}, and their includes recursively.
    */
-  private void collectIncludedModulesRecursively(ModuleAdapter<?> adapter,
+  private static void collectIncludedModulesRecursively(Plugin plugin, ModuleAdapter<?> adapter,
       Map<Class<?>, ModuleAdapter<?>> result) {
     for (Class<?> include : adapter.includes) {
       if (!result.containsKey(include)) {
-        ModuleAdapter<Object> includedModuleAdapter = getModuleAdapter(include, null);
+        ModuleAdapter<Object> includedModuleAdapter = plugin.getModuleAdapter(include, null);
         result.put(include, includedModuleAdapter);
-        collectIncludedModulesRecursively(includedModuleAdapter, result);
+        collectIncludedModulesRecursively(plugin, includedModuleAdapter, result);
       }
     }
   }
