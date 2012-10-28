@@ -46,10 +46,18 @@ public @interface Module {
   Class<?>[] includes() default { };
 
   /**
+   * An optional, {@code @Module}-annotated class whose abstract object graph
+   * this module extends.  At run-time, this module should be supplied to an
+   * existing graph to extend it with {@link ObjectGraph#extend(Object...)}
+   */
+  Class<?> augments() default Void.class;
+
+  /**
    * True if all of the bindings required by this module can also be satisfied
    * by this module. If a module is complete it is eligible for additional
    * static checking: tools can detect if required bindings are not available.
    * Modules that have external dependencies must use {@code complete = false}.
    */
   boolean complete() default true;
+
 }
