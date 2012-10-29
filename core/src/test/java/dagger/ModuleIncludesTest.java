@@ -154,4 +154,27 @@ public final class ModuleIncludesTest {
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("a");
   }
+
+  static class A {}
+
+  static class B { @Inject A a; }
+
+  @Module(entryPoints = A.class) public static class TestModuleA {
+    @Provides A a() { return new A(); }
+  }
+
+  @Module(includes = TestModuleA.class, entryPoints = B.class) public static class TestModuleB {}
+
+  @Test public void autoInstantiationOfModules() {
+    // Have to make these non-method-scoped or instantiation errors occur.
+    ObjectGraph objectGraph = ObjectGraph.create(TestModuleA.class);
+    assertThat(objectGraph.get(A.class)).isNotNull();
+  }
+
+  @Test public void autoInstantiationOfIncludedModules() {
+    // Have to make these non-method-scoped or instantiation errors occur.
+    ObjectGraph objectGraph = ObjectGraph.create(new TestModuleB()); // TestModuleA auto-created.
+    assertThat(objectGraph.get(A.class)).isNotNull();
+    assertThat(objectGraph.get(B.class).a).isNotNull();
+  }
 }
