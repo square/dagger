@@ -39,12 +39,17 @@ public class RuntimeAggregatingPlugin implements Plugin {
    * Returns a full set of module adapters, including module adapters for included
    * modules.
    */
-  public static Map<Class<?>, ModuleAdapter<?>> getAllModuleAdapters(Plugin plugin, Object[] seedModules) {
+  public static Map<Class<?>, ModuleAdapter<?>> getAllModuleAdapters(Plugin plugin,
+      Object[] seedModules) {
     // Create a module adapter for each seed module.
     ModuleAdapter<?>[] seedAdapters = new ModuleAdapter<?>[seedModules.length];
     int s = 0;
     for (Object module : seedModules) {
-      seedAdapters[s++] = plugin.getModuleAdapter(module.getClass(), module);
+      if (module instanceof Class) {
+        seedAdapters[s++] = plugin.getModuleAdapter((Class<?>) module, null); // Plugin constructs.
+      } else {
+        seedAdapters[s++] = plugin.getModuleAdapter(module.getClass(), module);
+      }
     }
 
     Map<Class<?>, ModuleAdapter<?>> adaptersByModuleType
