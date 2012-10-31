@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
 
-public class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
+final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   final Class<?> moduleClass;
 
   public ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
@@ -54,7 +54,6 @@ public class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   }
 
   @Override public void getBindings(Map<String, Binding<?>> bindings) {
-    // Fall back to runtime reflection.
     for (Class<?> c = moduleClass; c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         if (method.isAnnotationPresent(Provides.class)) {
@@ -80,19 +79,18 @@ public class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   }
 
   @Override protected Object newModule() {
-    if (moduleClass.isInterface()) {
-      throw new IllegalStateException(moduleClass.getSimpleName() + " is an interface.");
-    }
     try {
-      try {
-        Constructor<?> includeConstructor = moduleClass.getDeclaredConstructor();
-        includeConstructor.setAccessible(true);
-        return includeConstructor.newInstance();
-      } catch (NoSuchMethodException e) {
-        return moduleClass.newInstance();
-      }
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Unable to instantiate " + moduleClass.getName(), e);
+      Constructor<?> constructor = moduleClass.getDeclaredConstructor();
+      constructor.setAccessible(true);
+      return constructor.newInstance();
+    } catch (InvocationTargetException e) {
+      throw new IllegalArgumentException(e.getCause());
+    } catch (NoSuchMethodException e) {
+      throw new IllegalArgumentException("Failed to construct " + moduleClass.getName(), e);
+    } catch (InstantiationException e) {
+      throw new IllegalArgumentException("Failed to construct " + moduleClass.getName(), e);
+    } catch (IllegalAccessException e) {
+      throw new AssertionError();
     }
   }
 
@@ -121,6 +119,7 @@ public class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       }
     }
 
+    @SuppressWarnings("unchecked") // We defined 'T' in terms of the method's return type.
     @Override public T get() {
       Object[] args = new Object[parameters.length];
       for (int i = 0; i < parameters.length; i++) {

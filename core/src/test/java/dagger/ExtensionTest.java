@@ -48,11 +48,11 @@ public final class ExtensionTest {
 
   @Module(entryPoints = { A.class, B.class }) static class RootModule { }
 
-  @Module(augments = RootModule.class, entryPoints = { C.class, D.class })
+  @Module(addsTo = RootModule.class, entryPoints = { C.class, D.class })
   static class ExtensionModule { }
 
   @Test public void basicExtension() {
-    assertNotNull(ObjectGraph.create(new RootModule()).extend(new ExtensionModule()));
+    assertNotNull(ObjectGraph.create(new RootModule()).plus(new ExtensionModule()));
   }
 
   @Test public void basicInjection() {
@@ -64,7 +64,7 @@ public final class ExtensionTest {
     assertFailNoEntryPoint(root, D.class); // Not declared in RootModule.
 
     // Extension graph behaves as the root graph would for root-ish things.
-    ObjectGraph extension = root.extend(new ExtensionModule());
+    ObjectGraph extension = root.plus(new ExtensionModule());
     assertThat(root.get(A.class)).isSameAs(extension.get(A.class));
     assertThat(root.get(B.class)).isNotSameAs(extension.get(B.class));
     assertThat(root.get(B.class).a).isSameAs(extension.get(B.class).a);
@@ -81,8 +81,8 @@ public final class ExtensionTest {
     assertFailNoEntryPoint(app, C.class);
     assertFailNoEntryPoint(app, D.class);
 
-    ObjectGraph request1 = app.extend(new ExtensionModule());
-    ObjectGraph request2 = app.extend(new ExtensionModule());
+    ObjectGraph request1 = app.plus(new ExtensionModule());
+    ObjectGraph request2 = app.plus(new ExtensionModule());
     for (ObjectGraph request : Arrays.asList(request1, request2)) {
       assertThat(request.get(A.class)).isNotNull();
       assertThat(request.get(A.class)).isSameAs(request.get(A.class));

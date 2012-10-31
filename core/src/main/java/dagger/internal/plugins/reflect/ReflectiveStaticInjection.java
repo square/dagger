@@ -21,8 +21,10 @@ import dagger.internal.Linker;
 import dagger.internal.StaticInjection;
 import java.lang.reflect.Field;
 
-/** Performs static injection on a class by means of reflection. */
-public  class ReflectiveStaticInjection extends StaticInjection {
+/**
+ * Uses reflection to inject the static fields of a class.
+ */
+final class ReflectiveStaticInjection extends StaticInjection {
   private final Field[] fields;
   private Binding<?>[] bindings;
 

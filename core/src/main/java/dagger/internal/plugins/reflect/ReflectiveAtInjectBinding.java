@@ -31,9 +31,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * A runtime binding that injects the constructor and fields of a class.
+ * Injects the {@code @Inject}-annotated fields and constructors of a class
+ * using reflection.
  */
-public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
+final class ReflectiveAtInjectBinding<T> extends Binding<T> {
   private final Field[] fields;
   private final Constructor<T> constructor;
   private final Class<?> supertype;
@@ -50,9 +51,9 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
    *     supports members injection only.
    * @param supertype the injectable supertype, or null if the supertype is a
    */
-  private ReflectiveAtInjectBinding(String provideKey, String membersKey, boolean singleton, Class<?> type,
-      Field[] fields, Constructor<T> constructor, int parameterCount, Class<?> supertype,
-      String[] keys) {
+  private ReflectiveAtInjectBinding(String provideKey, String membersKey, boolean singleton,
+      Class<?> type, Field[] fields, Constructor<T> constructor, int parameterCount,
+      Class<?> supertype, String[] keys) {
     super(provideKey, membersKey, singleton, type);
     this.constructor = constructor;
     this.fields = fields;
@@ -62,6 +63,7 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     this.fieldBindings = new Binding<?>[fields.length];
   }
 
+  @SuppressWarnings("unchecked") // We're careful to make keys and bindings match up.
   @Override public void attach(Linker linker) {
     int k = 0;
     for (int i = 0; i < fields.length; i++) {
@@ -218,6 +220,7 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
         parameterCount, supertype, keys.toArray(new String[keys.size()]));
   }
 
+  @SuppressWarnings("unchecked") // Class.getDeclaredConstructors is an unsafe API.
   private static <T> Constructor<T>[] getConstructorsForType(Class<T> type) {
     return (Constructor<T>[]) type.getDeclaredConstructors();
   }

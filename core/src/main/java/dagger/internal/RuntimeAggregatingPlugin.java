@@ -16,14 +16,18 @@
  */
 package dagger.internal;
 
+import dagger.ObjectGraph;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Aggregates provided plugins and delegates its operations to them in order.  Also provides some
  * specific runtime facilities needed by the runtime.
  */
-public class RuntimeAggregatingPlugin implements Plugin {
+public final class RuntimeAggregatingPlugin implements Plugin {
+  private static final Logger logger = Logger.getLogger(ObjectGraph.class.getName());
 
   /** A list of {@code Linker.Plugin}s which will be consulted in-order to resolve requests. */
   private final Plugin[] plugins;
@@ -89,41 +93,47 @@ public class RuntimeAggregatingPlugin implements Plugin {
    * Obtains a module adapter for {@code module} from the first responding resolver.
    */
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
-    for (Plugin plugin : plugins) {
-      ModuleAdapter<T> result = plugin.getModuleAdapter(moduleClass, module);
-      if (result != null) {
+    for (int i = 0; i < plugins.length; i++) {
+      try {
+        ModuleAdapter<T> result = plugins[i].getModuleAdapter(moduleClass, module);
         result.module = (module != null) ? module : result.newModule();
         return result;
+      } catch (RuntimeException e) {
+        if (i == plugins.length - 1) throw e;
+        logNotFound("Module adapter", moduleClass.getName(), e);
       }
     }
-    throw new IllegalStateException("Could not find any valid ModuleAdapter for "
-        + ((module != null) ? module.getClass().getName() : moduleClass.getName()));
+    throw new AssertionError();
   }
 
   @Override public Binding<?> getAtInjectBinding(String key, String className,
       boolean mustBeInjectable) {
-    for (Plugin plugin : plugins) {
+    for (int i = 0; i < plugins.length; i++) {
       try {
-        Binding<?> binding = plugin.getAtInjectBinding(key, className, mustBeInjectable);
-        if (binding != null) {
-          return binding;
-        }
-      } catch (Exception e) {
-        // Let later resolvers try to fulfill this.
+        return plugins[i].getAtInjectBinding(key, className, mustBeInjectable);
+      } catch (RuntimeException e) {
+        if (i == plugins.length - 1) throw e;
+        logNotFound("Binding", className, e);
       }
     }
-    throw new IllegalStateException("No available @Inject handlers could be found "
-        + "for key " + key + " in class " + className);
+    throw new AssertionError();
   }
 
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
-    for (Plugin plugin : plugins) {
-      StaticInjection injection = plugin.getStaticInjection(injectedClass);
-      if (injection != null) {
-        return injection;
+    for (int i = 0; i < plugins.length; i++) {
+      try {
+        return plugins[i].getStaticInjection(injectedClass);
+      } catch (RuntimeException e) {
+        if (i == plugins.length - 1) throw e;
+        logNotFound("Static injection", injectedClass.getName(), e);
       }
     }
-    throw new IllegalStateException("No available static injection handlers could be found "
-        + "for requested class " + injectedClass.getName());
+    throw new AssertionError();
+  }
+
+  private void logNotFound(String type, String name, RuntimeException e) {
+    if (logger.isLoggable(Level.FINE)) {
+      logger.log(Level.FINE, String.format("%s for %s not found.", type, name), e);
+    }
   }
 }

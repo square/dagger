@@ -30,14 +30,14 @@ class TestApp implements Runnable {
 
   public static void main(String[] args) {
     ObjectGraph root = ObjectGraph.create(new RootModule());
-    ObjectGraph extension = root.extend(new ExtensionModule());
+    ObjectGraph extension = root.plus(new ExtensionModule());
     extension.get(TestApp.class).run();
   }
   
   @Module(entryPoints = { A.class, B.class })
   static class RootModule { }
 
-  @Module(augments=RootModule.class, entryPoints = { C.class, TestApp.class })
+  @Module(addsTo=RootModule.class, entryPoints = { C.class, TestApp.class })
   static class ExtensionModule { }
 
   @Singleton
