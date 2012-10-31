@@ -19,8 +19,6 @@ package dagger.internal;
 
 /**
  * Injects the static fields of a class.
- *
- * @author Jesse Wilson
  */
 public abstract class StaticInjection {
 

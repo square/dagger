@@ -30,11 +30,11 @@ public final class Linker {
   private static final Object UNINITIALIZED = new Object();
 
   /**
-   * The root {@code Linker} which will be consulted to satisfy bindings not
+   * The base {@code Linker} which will be consulted to satisfy bindings not
    * otherwise satisfiable from this {@code Linker}. The top-most {@code Linker}
-   * in a chain will have a null root linker.
+   * in a chain will have a null base linker.
    */
-  private final Linker root;
+  private final Linker base;
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> toLink = new LinkedList<Binding<?>>();
@@ -52,11 +52,11 @@ public final class Linker {
 
   private final ErrorHandler errorHandler;
 
-  public Linker(Linker root, Plugin plugin, ErrorHandler errorHandler) {
+  public Linker(Linker base, Plugin plugin, ErrorHandler errorHandler) {
     if (plugin == null) throw new NullPointerException("plugin");
     if (errorHandler == null) throw new NullPointerException("errorHandler");
 
-    this.root = root;
+    this.base = base;
     this.plugin = plugin;
     this.errorHandler = errorHandler;
   }
@@ -191,9 +191,14 @@ public final class Linker {
 
   private Binding<?> requestBinding(String key, boolean mustBeInjectable, Object requiredBy) {
     Binding<?> binding = null;
-    for (Linker node = this; binding == null && node != null; node = node.root) {
-      binding = node.bindings.get(key);
+    for (Linker linker = this; linker != null; linker = linker.base) {
+      binding = linker.bindings.get(key);
+      if (binding != null) {
+        if (linker != this && !binding.isLinked()) throw new AssertionError();
+        break;
+      }
     }
+
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
       Binding<?> deferredBinding = new DeferredBinding(key, requiredBy, mustBeInjectable);
