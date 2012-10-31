@@ -21,13 +21,10 @@ package dagger.internal;
  * provide all resolution methods
  */
 public interface Plugin {
-
   /**
-   * Returns a binding that uses {@code @Inject} annotations, or null if no such
-   * binding can be located or created.
+   * Returns a binding that uses {@code @Inject} annotations.
    */
-  Binding<?> getAtInjectBinding(String key, String className, boolean mustBeInjectable)
-      throws ClassNotFoundException;
+  Binding<?> getAtInjectBinding(String key, String className, boolean mustBeInjectable);
 
   /**
    * Returns a module adapter for {@code module}.
@@ -38,5 +35,4 @@ public interface Plugin {
    * Returns the static injection for {@code injectedClass}.
    */
   StaticInjection getStaticInjection(Class<?> injectedClass);
-
 }

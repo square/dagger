@@ -29,9 +29,6 @@ import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
 
-/**
- * @author Jesse Wilson
- */
 public final class KeysTest {
   int primitive;
   @Test public void lonePrimitiveGetsBoxed() throws NoSuchFieldException {

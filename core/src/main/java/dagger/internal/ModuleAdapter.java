@@ -23,7 +23,6 @@ import java.util.Map;
  * Extracts bindings from an {@code @Module}-annotated class.
  */
 public abstract class ModuleAdapter<T> {
-
   public final String[] entryPoints;
   public final Class<?>[] staticInjections;
   public final boolean overrides;

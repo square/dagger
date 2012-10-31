@@ -43,13 +43,13 @@ import static dagger.internal.RuntimeAggregatingPlugin.getAllModuleAdapters;
  *       time an instance is injected.
  *   <li>Constructor injection. A class may have a single
  *       {@code @Inject}-annotated constructor. Classes that have fields
- *       injected may omit the {@link @Inject} annotation if they have a public
+ *       injected may omit the {@code @Inject} annotation if they have a public
  *       no-arguments constructor.
  *   <li>Injection of {@code @Provides} method parameters.
  *   <li>{@code @Provides} methods annotated {@code @Singleton}.
  *   <li>Constructor-injected classes annotated {@code @Singleton}.
- *   <li>Injection of {@link javax.inject.Provider}s.
- *   <li>Injection of {@link MembersInjector}s.
+ *   <li>Injection of {@code Provider}s.
+ *   <li>Injection of {@code MembersInjector}s.
  *   <li>Qualifier annotations on injected parameters and fields.
  *   <li>JSR 330 annotations.
  * </ul>
@@ -61,13 +61,13 @@ import static dagger.internal.RuntimeAggregatingPlugin.getAllModuleAdapters;
  * </ul>
  */
 public final class ObjectGraph {
-  private final ObjectGraph augmented;
+  private final ObjectGraph base;
   private final Linker linker;
   private final Map<Class<?>, StaticInjection> staticInjections;
   private final Map<String, Class<?>> entryPoints;
   private final Plugin plugin;
 
-  ObjectGraph(ObjectGraph augmented,
+  ObjectGraph(ObjectGraph base,
       Linker linker,
       Plugin plugin,
       Map<Class<?>, StaticInjection> staticInjections,
@@ -77,7 +77,7 @@ public final class ObjectGraph {
     if (staticInjections == null) throw new NullPointerException("staticInjections");
     if (entryPoints == null) throw new NullPointerException("entryPoints");
 
-    this.augmented = augmented;
+    this.base = base;
     this.linker = linker;
     this.plugin = plugin;
     this.staticInjections = staticInjections;
@@ -103,8 +103,7 @@ public final class ObjectGraph {
     return makeGraph(null, plugin, modules);
   }
 
-  private static ObjectGraph makeGraph(ObjectGraph root, Plugin plugin, Object... modules) {
-
+  private static ObjectGraph makeGraph(ObjectGraph base, Plugin plugin, Object... modules) {
     Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
     Map<Class<?>, StaticInjection> staticInjections
         = new LinkedHashMap<Class<?>, StaticInjection>();
@@ -125,25 +124,28 @@ public final class ObjectGraph {
     }
 
     // Create a linker and install all of the user's bindings
-    Linker linker = new Linker((root != null) ? root.linker : null, plugin,
+    Linker linker = new Linker((base != null) ? base.linker : null, plugin,
         new ThrowingErrorHandler());
     linker.installBindings(baseBindings);
     linker.installBindings(overrideBindings);
 
-    return new ObjectGraph(root, linker, plugin, staticInjections, entryPoints);
+    return new ObjectGraph(base, linker, plugin, staticInjections, entryPoints);
   }
 
   /**
-   * Returns a new object graph which delegates any dependency satisfaction that
-   * it cannot perform to the graph it extends, based on supplied
-   * {@code @Module} annotated objects.
+   * Returns a new object graph that includes all of the objects in this graph,
+   * plus additional objects in the {@literal @}{@link Module}-annotated
+   * modules. This graph is a subgraph of the returned graph.
    *
-   * <p>
-   * This <strong>does not</strong> validate the graph. Rely on build time tools
-   * for graph validation, or call {@link #validate} to find problems in the
-   * graph at runtime.
+   * <p>The current graph is not modified by this operation: its objects and the
+   * dependency links between them are unchanged. But this graph's objects may
+   * be shared by both graphs. For example, the singletons of this graph may be
+   * injected and used by the returned graph.
+   *
+   * <p>This <strong>does not</strong> inject any members or validate the graph.
+   * See {@link #create} for guidance on injection and validation.
    */
-  public ObjectGraph extend(Object... modules) {
+  public ObjectGraph plus(Object... modules) {
     linker.linkAll();
     return makeGraph(this, plugin, modules);
   }
@@ -234,8 +236,9 @@ public final class ObjectGraph {
    */
   private Binding<?> getEntryPointBinding(String entryPointKey, String key) {
     Class<?> moduleClass = null;
-    for (ObjectGraph node = this; moduleClass == null && node != null; node = node.augmented) {
-      moduleClass = node.entryPoints.get(entryPointKey);
+    for (ObjectGraph graph = this; graph != null; graph = graph.base) {
+      moduleClass = graph.entryPoints.get(entryPointKey);
+      if (moduleClass != null) break;
     }
     if (moduleClass == null) {
       throw new IllegalArgumentException("No entry point for " + entryPointKey

@@ -144,7 +144,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
     List<Object> seedModules = new ArrayList<Object>();
     seedModules.addAll(Arrays.asList((Object[]) annotation.get("includes")));
-    if (!annotation.get("augments").equals(Void.class)) seedModules.add(annotation.get("augments"));
+    if (!annotation.get("addsTo").equals(Void.class)) seedModules.add(annotation.get("addsTo"));
     for (Object include : seedModules) {
       if (!(include instanceof TypeMirror)) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,

@@ -37,8 +37,8 @@ public final class CompileTimePlugin implements Plugin {
     this.processingEnv = processingEnv;
   }
 
-  @Override public Binding<?> getAtInjectBinding(String key, String className,
-      boolean mustBeInjectable) throws ClassNotFoundException {
+  @Override public Binding<?> getAtInjectBinding(
+      String key, String className, boolean mustBeInjectable) {
     String sourceClassName = className.replace('$', '.');
     TypeElement type = processingEnv.getElementUtils().getTypeElement(sourceClassName);
     if (type == null) {

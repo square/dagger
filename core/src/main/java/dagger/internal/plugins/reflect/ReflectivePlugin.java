@@ -27,48 +27,36 @@ import java.util.List;
 import javax.inject.Inject;
 
 /**
- * Resolves a {@code ModuleAdapter<T>} for a given module T
+ * Uses reflection to create bindings, module adapters and static injections.
  */
-public class ReflectivePlugin implements Plugin {
-
-  @Override
-  public Binding<?> getAtInjectBinding(String key, String className, boolean mustBeInjectable)
-      throws ClassNotFoundException {
+public final class ReflectivePlugin implements Plugin {
+  @Override public Binding<?> getAtInjectBinding(
+      String key, String className, boolean mustBeInjectable) {
+    Class<?> c;
     try {
-      Class<?> c = Class.forName(className);
-      if (c.isInterface()) {
-        return null;
-      }
-      return ReflectiveAtInjectBinding.create(c, mustBeInjectable);
-    } catch (Exception ignored) {
-      return null;
+      c = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
     }
+    return ReflectiveAtInjectBinding.create(c, mustBeInjectable);
   }
 
-  /**
-   * Returns a module adapter that processes modules via reflection.
-   */
-  @Override
   @SuppressWarnings("unchecked") // Runtime checks validate that the result type matches 'T'.
-  public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
+  @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
     Module annotation = moduleClass.getAnnotation(Module.class);
     if (annotation == null) {
-      // TODO(cgruber): Should we throw, or just return no module adapter?
       throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
     }
     return (ModuleAdapter<T>) new ReflectiveModuleAdapter(moduleClass, annotation);
   }
 
-  @Override
-  public StaticInjection getStaticInjection(Class<?> injectedClass) {
+  @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
     List<Field> fields = new ArrayList<Field>();
     for (Field field : injectedClass.getDeclaredFields()) {
-      if (field.getAnnotation(Inject.class) == null
-          || !Modifier.isStatic(field.getModifiers())) {
-        continue;
+      if (Modifier.isStatic(field.getModifiers()) && field.isAnnotationPresent(Inject.class)) {
+        field.setAccessible(true);
+        fields.add(field);
       }
-      field.setAccessible(true);
-      fields.add(field);
     }
     if (fields.isEmpty()) {
       throw new IllegalArgumentException("No static injections: " + injectedClass.getName());

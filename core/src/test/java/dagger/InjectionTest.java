@@ -459,7 +459,7 @@ public final class InjectionTest {
     assertThat(entryPoint.listOfStrings).isEqualTo(Arrays.asList("a", "b"));
   }
 
-  @Test public void injectWilcardType() {
+  @Test public void injectWildcardType() {
     class TestEntryPoint {
       @Inject List<? extends Number> listOfNumbers;
     }
@@ -608,6 +608,29 @@ public final class InjectionTest {
     @Module
     class TestModule {
       @Provides String provideString(NoInjections noInjections) {
+        throw new AssertionError();
+      }
+    }
+
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    try {
+      graph.validate();
+      fail();
+    } catch (IllegalStateException expected) {
+    }
+  }
+
+  static class TwoAtInjectConstructors {
+    @Inject TwoAtInjectConstructors() {
+    }
+    @Inject TwoAtInjectConstructors(String s) {
+    }
+  }
+
+  @Test public void twoAtInjectConstructorsIsRejected() {
+    @Module(entryPoints = TwoAtInjectConstructors.class)
+    class TestModule {
+      @Provides String provideString() {
         throw new AssertionError();
       }
     }
