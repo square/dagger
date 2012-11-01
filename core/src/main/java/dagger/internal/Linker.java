@@ -17,11 +17,11 @@ package dagger.internal;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Links bindings to their dependencies.
@@ -37,7 +37,7 @@ public final class Linker {
   private final Linker root;
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
-  private final Queue<Binding<?>> toLink = new LinkedList<Binding<?>>();
+  private final Queue<Binding<?>> toLink = new ConcurrentLinkedQueue<Binding<?>>();
 
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
   private boolean attachSuccess = true;
