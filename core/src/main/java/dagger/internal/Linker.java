@@ -94,6 +94,8 @@ public final class Linker {
    * creates JIT bindings as necessary to fill in the gaps.
    */
   public void linkRequested() {
+    assertLockHeld();
+
     Binding<?> binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
@@ -135,6 +137,15 @@ public final class Linker {
     } finally {
       errors.clear();
     }
+  }
+
+  /**
+   * Don't permit bindings to be linked without a lock. Callers should lock
+   * before requesting any bindings, link the requested bindings, retrieve
+   * the linked bindings, and then release the lock.
+   */
+  private void assertLockHeld() {
+    if (!Thread.holdsLock(this)) throw new AssertionError();
   }
 
   /**
@@ -190,6 +201,8 @@ public final class Linker {
   }
 
   private Binding<?> requestBinding(String key, boolean mustBeInjectable, Object requiredBy) {
+    assertLockHeld();
+
     Binding<?> binding = null;
     for (Linker linker = this; linker != null; linker = linker.base) {
       binding = linker.bindings.get(key);
