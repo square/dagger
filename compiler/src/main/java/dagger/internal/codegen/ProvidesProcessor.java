@@ -22,13 +22,7 @@ import dagger.internal.Binding;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.SetBinding;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -44,6 +38,15 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
@@ -200,15 +203,19 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     writer.annotation(Override.class);
     writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
+
+    Map<ExecutableElement, String> methodToClassName
+        = new LinkedHashMap<ExecutableElement, String>();
+    Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
     for (ExecutableElement providerMethod : providerMethods) {
       if (providerMethod.getAnnotation(OneOf.class) != null) {
         String key = GeneratorKeys.getElementKey(providerMethod);
         writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
-            bindingClassName(providerMethod));
+            bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
       } else {
         String key = GeneratorKeys.get(providerMethod);
         writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
-            bindingClassName(providerMethod));
+            bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
       }
     }
     writer.endMethod();
@@ -225,25 +232,42 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.endMethod();
 
     for (ExecutableElement providerMethod : providerMethods) {
-      writeBindingClass(writer, providerMethod);
+      writeBindingClass(writer, providerMethod, methodToClassName, methodNameToNextId);
     }
 
     writer.endType();
     writer.close();
   }
 
-  private String bindingClassName(ExecutableElement providerMethod) {
+  private String bindingClassName(ExecutableElement providerMethod,
+      Map<ExecutableElement, String> methodToClassName,
+      Map<String, AtomicInteger> methodNameToNextId) {
+    String className = methodToClassName.get(providerMethod);
+    if (className != null) return className;
+
     String methodName = providerMethod.getSimpleName().toString();
-    String uppercaseMethodName = Character.toUpperCase(methodName.charAt(0)) + methodName.substring(1);
-    String className = uppercaseMethodName + "Binding";
+    String suffix = "";
+    AtomicInteger id = methodNameToNextId.get(methodName);
+    if (id == null) {
+      methodNameToNextId.put(methodName, new AtomicInteger(2));
+    } else {
+      suffix = id.toString();
+      id.incrementAndGet();
+    }
+    String uppercaseMethodName = Character.toUpperCase(methodName.charAt(0))
+        + methodName.substring(1);
+    className = uppercaseMethodName + "Binding" + suffix;
+    methodToClassName.put(providerMethod, className);
     return className;
   }
 
-  private void writeBindingClass(JavaWriter writer, ExecutableElement providerMethod)
+  private void writeBindingClass(JavaWriter writer, ExecutableElement providerMethod,
+      Map<ExecutableElement, String> methodToClassName,
+      Map<String, AtomicInteger> methodNameToNextId)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
-    String className = bindingClassName(providerMethod);
+    String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
     String returnType = CodeGen.typeToString(providerMethod.getReturnType());
 
     writer.beginType(className, "class", PRIVATE | STATIC,
