@@ -83,51 +83,56 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
     Linker linker = new Linker(null, new CompileTimePlugin(processingEnv),
         new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString()));
-    Map<String, Binding<?>> baseBindings = new LinkedHashMap<String, Binding<?>>();
-    Map<String, Binding<?>> overrideBindings = new LinkedHashMap<String, Binding<?>>();
-    for (TypeElement module : allModules.values()) {
-      Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
-      boolean overrides = (Boolean) annotation.get("overrides");
-      Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
+    // Linker requires synchronization for calls to requestBinding and linkAll.
+    // We know statically that we're single threaded, but we synchronize anyway
+    // to make the linker happy.
+    synchronized (linker) {
+      Map<String, Binding<?>> baseBindings = new LinkedHashMap<String, Binding<?>>();
+      Map<String, Binding<?>> overrideBindings = new LinkedHashMap<String, Binding<?>>();
+      for (TypeElement module : allModules.values()) {
+        Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
+        boolean overrides = (Boolean) annotation.get("overrides");
+        Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
-      // Gather the entry points from the annotation.
-      for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
-        linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) entryPoint),
-            module.getQualifiedName().toString());
-      }
-
-      // Gather the static injections.
-      // TODO.
-
-      // Gather the enclosed @Provides methods.
-      for (Element enclosed : module.getEnclosedElements()) {
-        if (enclosed.getAnnotation(Provides.class) == null) {
-          continue;
+        // Gather the entry points from the annotation.
+        for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
+          linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) entryPoint),
+              module.getQualifiedName().toString());
         }
-        ExecutableElement providerMethod = (ExecutableElement) enclosed;
-        String key = GeneratorKeys.get(providerMethod);
-        ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
-        if (providerMethod.getAnnotation(OneOf.class) != null) {
-          String elementKey = GeneratorKeys.getElementKey(providerMethod);
-          SetBinding.add(addTo, elementKey, binding);
-        } else {
-          ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
-          if (clobbered != null) {
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                "Duplicate bindings for " + key
-                    + ": " + shortMethodName(clobbered.method)
-                    + ", " + shortMethodName(binding.method));
+
+        // Gather the static injections.
+        // TODO.
+
+        // Gather the enclosed @Provides methods.
+        for (Element enclosed : module.getEnclosedElements()) {
+          if (enclosed.getAnnotation(Provides.class) == null) {
+            continue;
+          }
+          ExecutableElement providerMethod = (ExecutableElement) enclosed;
+          String key = GeneratorKeys.get(providerMethod);
+          ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
+          if (providerMethod.getAnnotation(OneOf.class) != null) {
+            String elementKey = GeneratorKeys.getElementKey(providerMethod);
+            SetBinding.add(addTo, elementKey, binding);
+          } else {
+            ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
+            if (clobbered != null) {
+              processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                  "Duplicate bindings for " + key
+                      + ": " + shortMethodName(clobbered.method)
+                      + ", " + shortMethodName(binding.method));
+            }
           }
         }
       }
+
+      linker.installBindings(baseBindings);
+      linker.installBindings(overrideBindings);
+
+      // Link the bindings. This will traverse the dependency graph, and report
+      // errors if any dependencies are missing.
+      return linker.linkAll();
     }
-
-    linker.installBindings(baseBindings);
-    linker.installBindings(overrideBindings);
-
-    // Link the bindings. This will traverse the dependency graph, and report
-    // errors if any dependencies are missing.
-    return linker.linkAll();
   }
 
   private String shortMethodName(ExecutableElement method) {
