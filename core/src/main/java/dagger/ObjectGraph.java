@@ -219,8 +219,9 @@ public final class ObjectGraph {
    */
   public <T> T get(Class<T> type) {
     String key = Keys.get(type);
+    String entryPointKey = Keys.getMembersKey(type);
     @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
-    Binding<T> binding = (Binding<T>) getEntryPointBinding(key, key);
+    Binding<T> binding = (Binding<T>) getEntryPointBinding(entryPointKey, key);
     return binding.get();
   }
 
@@ -232,16 +233,16 @@ public final class ObjectGraph {
    *     not one of this object graph's entry point types.
    */
   public void inject(Object instance) {
-    String entryPointKey = Keys.get(instance.getClass());
     String membersKey = Keys.getMembersKey(instance.getClass());
     @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
-    Binding<Object> binding = (Binding<Object>) getEntryPointBinding(entryPointKey, membersKey);
+    Binding<Object> binding = (Binding<Object>) getEntryPointBinding(membersKey, membersKey);
     binding.injectMembers(instance);
   }
 
   /**
    * @param entryPointKey the key used to store the entry point. This is always
-   *     a regular (provider) key.
+   *     a members injection key because those keys can always be created, even
+   *     if the type has no injectable constructor.
    * @param key the key to use when retrieving the binding. This may be a
    *     regular (provider) key or a members key.
    */

@@ -613,6 +613,8 @@ public final class InjectionTest {
   }
 
   static class NoInjections {
+    NoInjections(Void noDefaultConstructorEither) {
+    }
   }
 
   @Test public void entryPointNeedsNoInjectAnnotation() {
