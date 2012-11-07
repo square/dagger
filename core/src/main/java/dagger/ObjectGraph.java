@@ -146,7 +146,7 @@ public final class ObjectGraph {
    * See {@link #create} for guidance on injection and validation.
    */
   public ObjectGraph plus(Object... modules) {
-    linker.linkAll();
+    linkEverything();
     return makeGraph(this, plugin, modules);
   }
 
@@ -175,13 +175,19 @@ public final class ObjectGraph {
    * @throws IllegalStateException if this graph has problems.
    */
   public void validate() {
-    Map<String, Binding<?>> allBindings;
+    Map<String, Binding<?>> allBindings = linkEverything();
+    new ProblemDetector().detectProblems(allBindings.values());
+  }
+
+  /**
+   * Links all bindings, entry points and static injections.
+   */
+  private Map<String, Binding<?>> linkEverything() {
     synchronized (linker) {
       linkStaticInjections();
       linkEntryPoints();
-      allBindings = linker.linkAll();
+      return linker.linkAll();
     }
-    new ProblemDetector().detectProblems(allBindings.values());
   }
 
   /**
