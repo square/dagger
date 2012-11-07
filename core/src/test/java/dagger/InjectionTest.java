@@ -250,7 +250,7 @@ public final class InjectionTest {
     }
   }
 
-  @Test public void subclasses() {
+  @Test public void injectableSupertypes() {
     class TestEntryPoint {
       @Inject Q q;
     }
@@ -267,12 +267,33 @@ public final class InjectionTest {
     assertThat(entryPoint.q.f).isNotNull();
   }
 
+  @Test public void uninjectableSupertypes() {
+    class TestEntryPoint {
+      @Inject T t;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+    }
+
+    TestEntryPoint entryPoint = new TestEntryPoint();
+    ObjectGraph.create(new TestModule()).inject(entryPoint);
+    assertThat(entryPoint.t).isNotNull();
+  }
+
   public static class P {
     @Inject F f;
   }
 
   public static class Q extends P {
     @Inject Q() {}
+  }
+
+  static class S {
+  }
+
+  public static class T extends S {
+    @Inject T() {}
   }
 
   @Test public void singletonsAreNotEager() {
@@ -310,8 +331,6 @@ public final class InjectionTest {
       injected = true;
     }
   }
-
-  static class S {}
 
   @Test public void providerMethodsConflict() {
     @Module

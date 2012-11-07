@@ -97,7 +97,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         // Gather the entry points from the annotation.
         for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
           linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) entryPoint),
-              module.getQualifiedName().toString());
+              module.getQualifiedName().toString(), false);
         }
 
         // Gather the static injections.
