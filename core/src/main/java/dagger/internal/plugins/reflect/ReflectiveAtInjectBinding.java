@@ -81,7 +81,7 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
       }
     }
     if (supertype != null && supertypeBinding == null) {
-      supertypeBinding = (Binding<? super T>) linker.requestBinding(keys[k], membersKey);
+      supertypeBinding = (Binding<? super T>) linker.requestBinding(keys[k], membersKey, false);
     }
   }
 

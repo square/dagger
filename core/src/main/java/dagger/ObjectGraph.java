@@ -164,7 +164,7 @@ public final class ObjectGraph {
 
   private void linkEntryPoints() {
     for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
-      linker.requestEntryPoint(entry.getKey(), entry.getValue());
+      linker.requestBinding(entry.getKey(), entry.getValue(), false);
     }
   }
 
@@ -257,10 +257,10 @@ public final class ObjectGraph {
     }
 
     synchronized (linker) {
-      Binding<?> binding = linker.requestBinding(key, moduleClass);
+      Binding<?> binding = linker.requestBinding(key, moduleClass, false);
       if (binding == null || !binding.isLinked()) {
         linker.linkRequested();
-        binding = linker.requestBinding(key, moduleClass);
+        binding = linker.requestBinding(key, moduleClass, false);
       }
       return binding;
     }
