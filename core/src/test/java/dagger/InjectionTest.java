@@ -625,6 +625,32 @@ public final class InjectionTest {
     ObjectGraph.create(new TestModule()).validate();
   }
 
+  static class InjectMembersOnly {
+    InjectMembersOnly(Void noInjectableConstructor) {
+    }
+    @Inject String string;
+  }
+
+  @Test public void cannotGetOnMembersOnlyInjectionPoint() {
+    @Module(entryPoints = InjectMembersOnly.class)
+    class TestModule {
+      @Provides String provideString() {
+        return "injected";
+      }
+    }
+
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    try {
+      graph.get(InjectMembersOnly.class);
+      fail();
+    } catch (IllegalStateException expected) {
+    }
+
+    InjectMembersOnly instance = new InjectMembersOnly(null);
+    graph.inject(instance);
+    assertThat(instance.string).isEqualTo("injected");
+  }
+
   @Test public void nonEntryPointNeedsInjectAnnotation() {
     @Module
     class TestModule {
