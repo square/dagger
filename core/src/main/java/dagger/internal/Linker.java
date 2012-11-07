@@ -187,20 +187,20 @@ public final class Linker {
    * enqueued to be linked.
    */
   public Binding<?> requestBinding(String key, Object requiredBy) {
-    return requestBinding(key, true, requiredBy);
+    return requestBinding(key, requiredBy, true);
   }
 
   /**
-   * Like {@link #requestBinding}, but this doesn't require the referenced key
-   * to be injectable. This is necessary so that generic framework code can
-   * inject arbitrary entry points (like JUnit test cases or Android activities)
-   * without concern for whether the specific entry point is injectable.
+   * Returns the binding if it exists immediately. Otherwise this returns
+   * null. If the returned binding didn't exist or was unlinked, it will be
+   * enqueued to be linked.
+   *
+   * @param mustBeInjectable true if the the referenced key doesn't need to be
+   *     injectable. This is necessary for entry points (so that framework code
+   *     can inject arbitrary entry points like JUnit test cases or Android
+   *     activities) and for supertypes.
    */
-  public Binding<?> requestEntryPoint(String key, Class<?> requiredByModule) {
-    return requestBinding(key, false, requiredByModule);
-  }
-
-  private Binding<?> requestBinding(String key, boolean mustBeInjectable, Object requiredBy) {
+  public Binding<?> requestBinding(String key, Object requiredBy, boolean mustBeInjectable) {
     assertLockHeld();
 
     Binding<?> binding = null;

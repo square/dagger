@@ -36,14 +36,17 @@ final class AtInjectBinding extends Binding<Object> {
   private final TypeElement type;
   private final List<String> keys;
   private final Binding<?>[] bindings;
+  private final String supertypeKey;
+  private Binding supertypeBinding;
 
   private AtInjectBinding(String provideKey, String membersKey,
-      TypeElement type, List<String> keys) {
+      TypeElement type, List<String> keys, String supertypeKey) {
     super(provideKey, membersKey, type.getAnnotation(Singleton.class) != null,
         type.getQualifiedName().toString());
     this.type = type;
     this.keys = keys;
     this.bindings = new Binding<?>[keys.size()];
+    this.supertypeKey = supertypeKey;
   }
 
   /**
@@ -96,13 +99,13 @@ final class AtInjectBinding extends Binding<Object> {
 
     // Attach the supertype.
     TypeMirror supertype = CodeGen.getApplicationSupertype(type);
-    if (supertype != null) {
-      requiredKeys.add(GeneratorKeys.rawMembersKey(supertype));
-    }
+    String supertypeKey = supertype != null
+        ? GeneratorKeys.rawMembersKey(supertype)
+        : null;
 
     String provideKey = isConstructable ? GeneratorKeys.get(type.asType()) : null;
     String membersKey = GeneratorKeys.rawMembersKey(type.asType());
-    return new AtInjectBinding(provideKey, membersKey, type, requiredKeys);
+    return new AtInjectBinding(provideKey, membersKey, type, requiredKeys, supertypeKey);
   }
 
   private static boolean hasAtInject(Element enclosed) {
@@ -113,6 +116,9 @@ final class AtInjectBinding extends Binding<Object> {
     String requiredBy = type.getQualifiedName().toString();
     for (int i = 0; i < keys.size(); i++) {
       bindings[i] = linker.requestBinding(keys.get(i), requiredBy);
+    }
+    if (supertypeKey != null) {
+      supertypeBinding = linker.requestBinding(supertypeKey, requiredBy, false);
     }
   }
 
