@@ -12,7 +12,7 @@ DIR=temp-dagger-clone
 rm -rf $DIR
 
 # Clone the current repo into temp folder
-git clone git@git.squareup.com:square/dagger.git $DIR
+git clone git@github.com:square/dagger.git $DIR
 
 # Move working directory into temp folder
 cd $DIR
@@ -21,13 +21,14 @@ cd $DIR
 git checkout -t origin/gh-pages
 
 # Delete everything
-git rm -rf * .*
+rm -rf *
 
 # Copy website files from real repo
 cp -R ../website/* .
 
 # Stage all files in git and create a commit
 git add .
+git add -u
 git commit -m "Website at ${date}"
 
 # Push the new files up to GitHub
