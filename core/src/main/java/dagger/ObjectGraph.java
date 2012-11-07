@@ -175,9 +175,12 @@ public final class ObjectGraph {
    * @throws IllegalStateException if this graph has problems.
    */
   public void validate() {
-    linkStaticInjections();
-    linkEntryPoints();
-    Map<String, Binding<?>> allBindings = linker.linkAll();
+    Map<String, Binding<?>> allBindings;
+    synchronized (linker) {
+      linkStaticInjections();
+      linkEntryPoints();
+      allBindings = linker.linkAll();
+    }
     new ProblemDetector().detectProblems(allBindings.values());
   }
 
@@ -191,9 +194,11 @@ public final class ObjectGraph {
     // bindings it doesn't have. Then we ask the linker to link all of those
     // requested bindings. Finally we call linkStaticInjections() again: this
     // time the linker won't return null because everything has been linked.
-    linkStaticInjections();
-    linker.linkRequested();
-    linkStaticInjections();
+    synchronized (linker) {
+      linkStaticInjections();
+      linker.linkRequested();
+      linkStaticInjections();
+    }
 
     for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
       entry.getValue().inject();
@@ -244,11 +249,14 @@ public final class ObjectGraph {
       throw new IllegalArgumentException("No entry point for " + entryPointKey
           + ". You must explicitly add an entry point to one of your modules.");
     }
-    Binding<?> binding = linker.requestBinding(key, moduleClass);
-    if (binding == null || !binding.isLinked()) {
-      linker.linkRequested();
-      binding = linker.requestBinding(key, moduleClass);
+
+    synchronized (linker) {
+      Binding<?> binding = linker.requestBinding(key, moduleClass);
+      if (binding == null || !binding.isLinked()) {
+        linker.linkRequested();
+        binding = linker.requestBinding(key, moduleClass);
+      }
+      return binding;
     }
-    return binding;
   }
 }
