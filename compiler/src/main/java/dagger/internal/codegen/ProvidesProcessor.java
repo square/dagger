@@ -22,7 +22,15 @@ import dagger.internal.Binding;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.SetBinding;
-
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -38,15 +46,6 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
@@ -167,7 +166,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     StringBuilder entryPointsField = new StringBuilder().append("{ ");
     for (Object entryPoint : entryPoints) {
       TypeMirror typeMirror = (TypeMirror) entryPoint;
-      String key = GeneratorKeys.get(typeMirror);
+      String key = GeneratorKeys.rawMembersKey(typeMirror);
       entryPointsField.append(JavaWriter.stringLiteral(key)).append(", ");
     }
     entryPointsField.append("}");
