@@ -29,7 +29,7 @@ cp -R ../website/* .
 # Stage all files in git and create a commit
 git add .
 git add -u
-git commit -m "Website at ${date}"
+git commit -m "Website at $(date)"
 
 # Push the new files up to GitHub
 git push origin gh-pages
