@@ -4,7 +4,7 @@ import javax.inject.Inject;
 
 import dagger.ObjectGraph;
 
-class CoffeeApp implements Runnable {
+public class CoffeeApp implements Runnable {
   @Inject CoffeeMaker coffeeMaker;
 
   @Override public void run() {
