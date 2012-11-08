@@ -48,6 +48,7 @@
     <java.version>1.6</java.version>
     <javax.inject.version>1</javax.inject.version>
     <maven.version>2.0.6</maven.version>
+    <ant.version>1.8.2</ant.version>
 
     <!-- Test Dependencies -->
     <junit.version>4.10</junit.version>
@@ -93,6 +94,11 @@
         <groupId>org.apache.maven</groupId>
         <artifactId>maven-core</artifactId>
         <version>${maven.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.ant</groupId>
+        <artifactId>ant</artifactId>
+        <version>${ant.version}</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>
