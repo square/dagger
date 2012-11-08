@@ -38,7 +38,8 @@ Maven Usage
 Optional configuration:
 
  * `androidManifest` - Path to the `AndroidManifest.xml` file.
- * `moduleName` - Class name. Defaults to `ManifestModule` in the package declared in your manifest.
+ * `moduleName` - Generated module class name. Defaults to `ManifestModule` in the package declared
+   in your manifest. May be a fully-qualified class name.
  * `outputDirectory` - Generated source directory, automatically added to build path.
 
 
@@ -47,18 +48,22 @@ Ant Usage
 ---------
 
 ```xml
-<macrodef name="generate-dagger-module">
-  <attribute name="dir"/>
-  <attribute name="name"/>
+<taskdef name="dagger-manifest" classname="dagger.androidmanifest.ModuleGeneratorTask"/>
 
-  <sequential>
-    <mkdir dir="@{dir}/src"/>
-    <java classname="dagger.androidmanifest.ModuleGenerator"
-          classpath="${com.squareup:dagger:jar}:${com.squareup:dagger-androidmanifest-plugin:jar}">
-      <arg value="@{dir}/AndroidManifest.xml"/>
-      <arg value="@{name}"/>
-      <arg value="@{dir}/gen"/>
-    </java>
-  </sequential>
-</macrodef>
+<target name="-pre-build">
+  <dagger-manifest/>
+</target>
+```
+
+Optional task arguments:
+
+ * `manifest` - Path to the `AndroidManifest.xml` file.
+ * `name` - Generated module class name. Defaults to `ManifestModule` in the package declared in
+   your manifest. May be a fully-qualified class name.
+ * `out` - Generated source directory. Defaults to `gen/`.
+
+For example,
+
+```xml
+<dagger-manifest name="com.other.pkg.ActivitiesModule"/>
 ```
