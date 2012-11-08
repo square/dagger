@@ -345,7 +345,8 @@ public final class InjectProcessor extends AbstractProcessor {
     final ExecutableElement constructor;
     final List<Element> fields;
 
-    InjectedClass(TypeElement type, List<Element> staticFields, ExecutableElement constructor, List<Element> fields) {
+    InjectedClass(TypeElement type, List<Element> staticFields, ExecutableElement constructor,
+        List<Element> fields) {
       this.type = type;
       this.staticFields = staticFields;
       this.constructor = constructor;

@@ -16,7 +16,7 @@ import java.io.IOException;
  * @goal generate
  * @phase generate-sources
  */
-@SuppressWarnings({ "JavaDoc", "UnusedDeclaration" }) // Class and non-standard Javadoc used by Maven.
+@SuppressWarnings({ "JavaDoc", "UnusedDeclaration" }) // Non-standard Javadoc used by Maven.
 public class ModuleGeneratorMojo extends AbstractMojo {
 
   /**
