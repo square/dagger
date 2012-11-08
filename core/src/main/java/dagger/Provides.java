@@ -32,4 +32,22 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  */
 @Documented @Target(METHOD) @Retention(RUNTIME)
 public @interface Provides {
+  /** The type of binding into which the return type of the annotated method contributes. */
+  enum Type {
+    /**
+     * The method is the only one which can produce the value for the specified return type. This
+     * is the default behavior.
+     */
+    UNIQUE,
+
+    /**
+     * The method's return type forms the generic type argument of a {@code Set<T>}, and the
+     * returned value is contributed to the set. The object graph will pass dependencies to the
+     * method as parameters. The {@code Set<T>} produced from the accumulation of values will be
+     * immutable.
+     */
+    SET
+  }
+
+  Type type() default Type.UNIQUE;
 }

@@ -28,6 +28,7 @@ import javax.inject.Named;
 import javax.inject.Singleton;
 import org.junit.Test;
 
+import static dagger.Provides.Type.SET;
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -41,8 +42,8 @@ public final class SetBindingTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @OneOf String provideFirstString() { return "string1"; }
-      @Provides @OneOf String provideSecondString() { return "string2"; }
+      @Provides(type=SET) String provideFirstString() { return "string1"; }
+      @Provides(type=SET) String provideSecondString() { return "string2"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
@@ -56,12 +57,12 @@ public final class SetBindingTest {
 
     @Module
     class TestIncludesModule {
-      @Provides @OneOf String provideSecondString() { return "string2"; }
+      @Provides(type=SET) String provideSecondString() { return "string2"; }
     }
 
     @Module(entryPoints = TestEntryPoint.class, includes = TestIncludesModule.class)
     class TestModule {
-      @Provides @OneOf String provideFirstString() { return "string1"; }
+      @Provides(type=SET) String provideFirstString() { return "string1"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(),
@@ -79,8 +80,8 @@ public final class SetBindingTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @OneOf @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
-      @Provides @OneOf Integer b() { return defaultCounter.getAndIncrement(); }
+      @Provides(type=SET) @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
+      @Provides(type=SET) Integer b() { return defaultCounter.getAndIncrement(); }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
@@ -100,8 +101,8 @@ public final class SetBindingTest {
 
     @Module(entryPoints = { TestEntryPoint1.class, TestEntryPoint2.class })
     class TestModule {
-      @Provides @OneOf @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
-      @Provides @OneOf Integer b() { return defaultCounter.getAndIncrement(); }
+      @Provides(type=SET) @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
+      @Provides(type=SET) Integer b() { return defaultCounter.getAndIncrement(); }
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
@@ -122,10 +123,10 @@ public final class SetBindingTest {
 
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @OneOf String provideString1() { return "string1"; }
-      @Provides @OneOf String provideString2() { return "string2"; }
-      @Provides @OneOf @Named("foo") String provideString3() { return "string3"; }
-      @Provides @OneOf @Named("foo") String provideString4() { return "string4"; }
+      @Provides(type=SET) String provideString1() { return "string1"; }
+      @Provides(type=SET) String provideString2() { return "string2"; }
+      @Provides(type=SET) @Named("foo") String provideString3() { return "string3"; }
+      @Provides(type=SET) @Named("foo") String provideString4() { return "string4"; }
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
@@ -146,7 +147,7 @@ public final class SetBindingTest {
     final AtomicReference<String> logoutput = new AtomicReference<String>();
     @Module
     class LogModule {
-      @Provides @OneOf LogSink outputtingLogSink() {
+      @Provides(type=SET) LogSink outputtingLogSink() {
         return new LogSink() {
           @Override public void log(LogMessage message) {
             StringWriter sw = new StringWriter();
@@ -158,7 +159,7 @@ public final class SetBindingTest {
     }
     @Module(entryPoints = TestEntryPoint.class)
     class TestModule {
-      @Provides @OneOf LogSink nullLogger() {
+      @Provides(type=SET) LogSink nullLogger() {
         return new LogSink() { @Override public void log(LogMessage message) {} };
       }
     }

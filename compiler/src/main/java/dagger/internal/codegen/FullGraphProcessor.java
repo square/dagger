@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import dagger.Module;
-import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
@@ -105,23 +104,31 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
         // Gather the enclosed @Provides methods.
         for (Element enclosed : module.getEnclosedElements()) {
-          if (enclosed.getAnnotation(Provides.class) == null) {
+          Provides provides = enclosed.getAnnotation(Provides.class);
+          if (provides == null) {
             continue;
           }
           ExecutableElement providerMethod = (ExecutableElement) enclosed;
           String key = GeneratorKeys.get(providerMethod);
           ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
-          if (providerMethod.getAnnotation(OneOf.class) != null) {
-            String elementKey = GeneratorKeys.getElementKey(providerMethod);
-            SetBinding.add(addTo, elementKey, binding);
-          } else {
-            ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
-            if (clobbered != null) {
-              processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                  "Duplicate bindings for " + key
-                      + ": " + shortMethodName(clobbered.method)
-                      + ", " + shortMethodName(binding.method));
-            }
+          switch (provides.type()) {
+            case UNIQUE:
+              ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
+              if (clobbered != null) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "Duplicate bindings for " + key
+                        + ": " + shortMethodName(clobbered.method)
+                        + ", " + shortMethodName(binding.method));
+              }
+              break;
+
+            case SET:
+              String elementKey = GeneratorKeys.getElementKey(providerMethod);
+              SetBinding.add(addTo, elementKey, binding);
+              break;
+
+            default:
+              throw new AssertionError("Unknown @Provides type " + provides.type());
           }
         }
       }
