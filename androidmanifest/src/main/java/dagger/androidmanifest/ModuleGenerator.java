@@ -39,8 +39,6 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-// TODO: support relative class name references like ".FooActivity"
-
 /**
  * Generates an object graph module source file that has entry points for all
  * classes referenced in an {@code AndroidManifest.xml} file.
@@ -81,7 +79,7 @@ public final class ModuleGenerator {
 
   public void generate(Document manifest, String moduleName, JavaWriter out) throws IOException {
     String packageName = packageName(manifest, moduleName);
-    List<String> nameReferences = getNameReferences(manifest);
+    List<String> nameReferences = getNameReferences(manifest, packageName);
     generate(packageName, nameReferences, moduleName, out);
   }
 
@@ -121,7 +119,7 @@ public final class ModuleGenerator {
    * provider}, {@code receiver} and {@code service} tags within {@code
    * manifest}.
    */
-  List<String> getNameReferences(Document manifest) {
+  List<String> getNameReferences(Document manifest, String packageName) {
     List<String> result = new ArrayList<String>();
     Element root = manifest.getDocumentElement();
     if (!root.getTagName().equals("manifest")) {
@@ -145,7 +143,7 @@ public final class ModuleGenerator {
           if (entryPointAttr != null && !Boolean.valueOf(entryPointAttr.getValue())) {
             continue;
           }
-          result.add(nameAttr.getValue());
+          result.add(cleanActivityName(packageName, nameAttr.getValue()));
         }
       }
     }
@@ -213,6 +211,19 @@ public final class ModuleGenerator {
     JavaWriter out = new JavaWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF-8"));
     moduleGenerator.generate(document, moduleName, out);
     out.close();
+  }
+
+  static String cleanActivityName(String manifestPackage, String activityName) {
+    if (activityName.charAt(0) == '.') {
+      // Relative activity name (e.g., android:name=".ui.SomeClass").
+      return manifestPackage + activityName;
+    }
+    if (activityName.indexOf('.', 1) == -1) {
+      // Unqualified activity name (e.g., android:name="SomeClass").
+      return manifestPackage + "." + activityName;
+    }
+    // Fully-qualified activity name (e.g., "com.my.package.SomeClass").
+    return activityName;
   }
 
   private static void printUsage() {

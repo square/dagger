@@ -26,6 +26,7 @@ import org.junit.Test;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
+import static dagger.androidmanifest.ModuleGenerator.cleanActivityName;
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
@@ -94,8 +95,8 @@ public final class ModuleGeneratorTest {
         + "  </application>\n"
         + "</manifest>\n";
     Document document = document(manifestXml);
-    assertThat(generator.getNameReferences(document)).isEqualTo(Arrays.asList(
-        "result.a.Activity", "result.b.Provider", "result.c.Receiver", "result.d.Service"));
+    assertThat(generator.getNameReferences(document, "com.squareup.badhorse")).isEqualTo(
+        Arrays.asList("result.a.Activity", "result.b.Provider", "result.c.Receiver", "result.d.Service"));
   }
 
   @Test public void excludedEntryPointNames() throws Exception {
@@ -111,8 +112,21 @@ public final class ModuleGeneratorTest {
         + "  </application>\n"
         + "</manifest>\n";
     Document document = document(manifestXml);
-    assertThat(generator.getNameReferences(document))
+    assertThat(generator.getNameReferences(document, "com.squareup.badhorse"))
         .isEqualTo(Arrays.asList("true.Activity", "default.Activity"));
+  }
+
+  @Test public void fullyQualifyEntryPointNames() throws Exception {
+    assertThat(cleanActivityName("com.squareup.badhorse", "Activity"))
+        .isEqualTo("com.squareup.badhorse.Activity");
+    assertThat(cleanActivityName("com.squareup.badhorse", "org.other.package.Activity"))
+        .isEqualTo("org.other.package.Activity");
+    assertThat(cleanActivityName("com.squareup.badhorse", ".Activity"))
+        .isEqualTo("com.squareup.badhorse.Activity");
+    assertThat(cleanActivityName("com.squareup.badhorse", ".ui.Activity"))
+        .isEqualTo("com.squareup.badhorse.ui.Activity");
+    assertThat(cleanActivityName("com.squareup.badhorse", "com.squareup.badhorse.Activity"))
+        .isEqualTo("com.squareup.badhorse.Activity");
   }
 
   @Test public void generate() throws IOException {
