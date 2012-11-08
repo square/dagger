@@ -15,7 +15,6 @@
  */
 package dagger.internal;
 
-import dagger.OneOf;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Provides;
@@ -27,6 +26,7 @@ import javax.inject.Named;
 import javax.inject.Provider;
 import org.junit.Test;
 
+import static dagger.Provides.Type.SET;
 import static org.fest.assertions.Assertions.assertThat;
 
 public final class KeysTest {
@@ -125,7 +125,7 @@ public final class KeysTest {
     assertThat(Keys.getLazyKey(fieldKey("providerOfTypeAnnotated"))).isNull();
   }
 
-  @Provides @OneOf String elementProvides() { return "foo"; }
+  @Provides(type=SET) String elementProvides() { return "foo"; }
 
   @Test public void testGetElementKey_NoQualifier() throws NoSuchMethodException {
     Method method = KeysTest.class.getDeclaredMethod("elementProvides", new Class<?>[]{});
@@ -134,7 +134,7 @@ public final class KeysTest {
   }
 
   @Named("foo")
-  @Provides @OneOf String qualifiedElementProvides() { return "foo"; }
+  @Provides(type=SET) String qualifiedElementProvides() { return "foo"; }
 
   @Test public void testGetElementKey_WithQualifier() throws NoSuchMethodException {
     Method method = KeysTest.class.getDeclaredMethod("qualifiedElementProvides", new Class<?>[]{});
