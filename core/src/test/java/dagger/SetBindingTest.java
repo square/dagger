@@ -105,10 +105,8 @@ public final class SetBindingTest {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
-    TestEntryPoint1 ep1 = new TestEntryPoint1();
-    graph.inject(ep1);
-    TestEntryPoint2 ep2 = new TestEntryPoint2();
-    graph.inject(ep2);
+    TestEntryPoint1 ep1 = graph.inject(new TestEntryPoint1());
+    TestEntryPoint2 ep2 = graph.inject(new TestEntryPoint2());
     assertEquals(set(100, 200), ep1.objects1);
     assertEquals(set(100, 201), ep2.objects2);
 
@@ -195,10 +193,7 @@ public final class SetBindingTest {
   }
 
   private <T> T injectWithModule(T ep, Object ... modules) {
-    // TODO(cgruber): Make og.inject(foo) return foo properly.
-    ObjectGraph og = ObjectGraph.create(modules);
-    og.inject(ep);
-    return ep;
+    return ObjectGraph.create(modules).inject(ep);
   }
 
   private <T> Set<T> set(T... ts) {
