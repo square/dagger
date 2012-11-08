@@ -218,8 +218,8 @@ public final class ModuleGenerator {
   private static void printUsage() {
     System.out.println("Usage: ModuleGenerator manifest module out");
     System.out.println("  manifest: path to AndroidManifest.xml");
-    System.out.println("    module: name of the generated class, like 'ActivitiesModule'.");
-    System.out.println("            May be fully-qualified like 'com.squareup.ActivitiesModule'.");
+    System.out.println("    module: name of the generated class, like 'ManifestModule'.");
+    System.out.println("            May be fully-qualified like 'com.squareup.ManifestModule'.");
     System.out.println("       out: base directory for generated .java source files");
   }
 }

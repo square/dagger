@@ -30,7 +30,7 @@ public class ModuleGeneratorMojo extends AbstractMojo {
   /**
    * The {@code AndroidManifest.xml} file.
    *
-   * @parameter default-value="ActivitiesModule"
+   * @parameter default-value="ManifestModule"
    * @required
    */
   private String moduleName;

@@ -5,6 +5,16 @@ This plugin parses an `AndroidManifest.xml` file for entry points. It has
 designed to be used both in a standalone manner (such as with Ant) and as a
 Maven plugin.
 
+The module generated from this plugin is not automatically added to your
+object graph. You will need to explicitly include it during construction:
+
+```java
+ObjectGraph og = ObjectGraph.get(
+  new MyModule(),       // Your declared module.
+  new ManifestModule()  // Module generated from this plugin.
+);
+```
+
 
 Maven Usage
 -----------
@@ -28,7 +38,7 @@ Maven Usage
 Optional configuration:
 
  * `androidManifest` - Path to the `AndroidManifest.xml` file.
- * `moduleName` - Class name
+ * `moduleName` - Class name. Defaults to `ManifestModule` in the package declared in your manifest.
  * `outputDirectory` - Generated source directory, automatically added to build path.
 
 
