@@ -16,7 +16,6 @@
 package dagger.internal.plugins.reflect;
 
 import dagger.Module;
-import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Keys;
@@ -56,12 +55,18 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   @Override public void getBindings(Map<String, Binding<?>> bindings) {
     for (Class<?> c = moduleClass; c != Object.class; c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
-        if (method.isAnnotationPresent(Provides.class)) {
+        Provides provides = method.getAnnotation(Provides.class);
+        if (provides != null) {
           String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
-          if (method.isAnnotationPresent(OneOf.class)) {
-            handleSetBindings(bindings, method, key);
-          } else {
-            handleBindings(bindings, method, key);
+          switch (provides.type()) {
+            case UNIQUE:
+              handleBindings(bindings, method, key);
+              break;
+            case SET:
+              handleSetBindings(bindings, method, key);
+              break;
+            default:
+              throw new AssertionError("Unknown @Provides type " + provides.type());
           }
         }
       }

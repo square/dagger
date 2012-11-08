@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import dagger.Module;
-import dagger.OneOf;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
@@ -207,14 +206,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
         = new LinkedHashMap<ExecutableElement, String>();
     Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
     for (ExecutableElement providerMethod : providerMethods) {
-      if (providerMethod.getAnnotation(OneOf.class) != null) {
-        String key = GeneratorKeys.getElementKey(providerMethod);
-        writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
-            bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
-      } else {
-        String key = GeneratorKeys.get(providerMethod);
-        writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
-            bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+      Provides provides = providerMethod.getAnnotation(Provides.class);
+      switch (provides.type()) {
+        case UNIQUE: {
+          String key = GeneratorKeys.get(providerMethod);
+          writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+              bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+          break;
+        }
+        case SET: {
+          String key = GeneratorKeys.getElementKey(providerMethod);
+          writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
+              bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+          break;
+        }
+        default:
+          throw new AssertionError("Unknown @Provides type " + provides.type());
       }
     }
     writer.endMethod();
