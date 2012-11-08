@@ -232,11 +232,12 @@ public final class ObjectGraph {
    * @throws IllegalArgumentException if the runtime type of {@code instance} is
    *     not one of this object graph's entry point types.
    */
-  public void inject(Object instance) {
+  public <T> T inject(T instance) {
     String membersKey = Keys.getMembersKey(instance.getClass());
     @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
     Binding<Object> binding = (Binding<Object>) getEntryPointBinding(membersKey, membersKey);
     binding.injectMembers(instance);
+    return instance;
   }
 
   /**

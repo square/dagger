@@ -124,10 +124,6 @@ public final class InjectionOfLazyTest {
   }
 
   private <T> T injectWithModule(T ep, Object ... modules) {
-    // TODO(cgruber): Make og.inject(foo) return foo properly.
-    ObjectGraph og = ObjectGraph.create(modules);
-    og.inject(ep);
-    return ep;
+    return ObjectGraph.create(modules).inject(ep);
   }
-
 }
