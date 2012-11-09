@@ -38,6 +38,11 @@ public final class ReflectivePlugin implements Plugin {
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
+
+    if (c.isInterface()) {
+      return null;
+    }
+
     return ReflectiveAtInjectBinding.create(c, mustBeInjectable);
   }
 
