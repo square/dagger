@@ -689,4 +689,43 @@ public final class InjectionTest {
     } catch (IllegalStateException expected) {
     }
   }
+
+  @Test public void runtimeProvidesMethodsExceptionsAreNotWrapped() {
+    class TestEntryPoint {
+      @Inject String string;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides String provideString() {
+        throw new ClassCastException("foo");
+      }
+    }
+
+    try {
+      ObjectGraph.create(new TestModule()).inject(new TestEntryPoint());
+      fail();
+    } catch (ClassCastException e) {
+      assertThat(e.getMessage()).isEqualTo("foo");
+    }
+  }
+
+  static class ThrowsOnConstruction {
+    @Inject ThrowsOnConstruction() {
+      throw new ClassCastException("foo");
+    }
+  }
+
+  @Test public void runtimeConstructorExceptionsAreNotWrapped() {
+    @Module(entryPoints = ThrowsOnConstruction.class)
+    class TestModule {
+    }
+
+    try {
+      ObjectGraph.create(new TestModule()).get(ThrowsOnConstruction.class);
+      fail();
+    } catch (ClassCastException e) {
+      assertThat(e.getMessage()).isEqualTo("foo");
+    }
+  }
 }
