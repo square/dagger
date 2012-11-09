@@ -132,10 +132,13 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       }
       try {
         return (T) method.invoke(instance, args);
+      } catch (InvocationTargetException e) {
+        Throwable cause = e.getCause();
+        throw cause instanceof RuntimeException
+            ? (RuntimeException) cause
+            : new RuntimeException(cause);
       } catch (IllegalAccessException e) {
         throw new RuntimeException(e);
-      } catch (InvocationTargetException e) {
-        throw new RuntimeException(e.getCause());
       }
     }
 
