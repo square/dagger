@@ -115,8 +115,14 @@ public final class Linker {
           toLink.add(jitBinding);
           putBinding(jitBinding);
         } catch (Exception e) {
-          addError(e.getMessage() + " required by " + binding.requiredBy);
-          bindings.put(key, Binding.UNRESOLVED);
+          if (e.getMessage() != null) {
+            addError(e.getMessage() + " required by " + binding.requiredBy);
+            bindings.put(key, Binding.UNRESOLVED);
+          } else if (e instanceof RuntimeException) {
+            throw (RuntimeException) e;
+          } else {
+            throw new RuntimeException(e);
+          }
         }
       } else {
         // Attempt to attach the binding to its dependencies. If any dependency
