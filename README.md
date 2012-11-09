@@ -20,27 +20,28 @@ release), and the `dagger-compiler` artifact as a dependency of the compiler
 plugin:
 
 ```xml
-  <dependencies>
-    <dependency>
-      <groupId>com.squareup</groupId>
-      <artifactId>dagger</artifactId>
-      <version>${dagger.version}</version>
-    </dependency>
-  </dependencies>
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <dependencies>
-          <dependency>
-            <groupId>com.squareup</groupId>
-            <artifactId>dagger-compiler</artifactId>
-            <version>${dagger.version}</version>
-          </dependency>
-        </dependencies>
-      </plugin>
-    </plugins>
-  </build>
+<dependencies>
+  <dependency>
+    <groupId>com.squareup</groupId>
+    <artifactId>dagger</artifactId>
+    <version>${dagger.version}</version>
+  </dependency>
+</dependencies>
+
+<build>
+  <plugins>
+    <plugin>
+      <artifactId>maven-compiler-plugin</artifactId>
+      <dependencies>
+        <dependency>
+          <groupId>com.squareup</groupId>
+          <artifactId>dagger-compiler</artifactId>
+          <version>${dagger.version}</version>
+        </dependency>
+      </dependencies>
+    </plugin>
+  </plugins>
+</build>
 ```
 
 You can also find downloadable .jars on the [GitHub download page][2].
