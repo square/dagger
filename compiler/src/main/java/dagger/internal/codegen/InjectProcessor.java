@@ -221,7 +221,7 @@ public final class InjectProcessor extends AbstractProcessor {
           typeName);
     }
     if (supertype != null) {
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
+      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
           "supertype",
           CodeGen.parameterizedType(Binding.class, CodeGen.rawTypeToString(supertype, '.')),
           JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(supertype)),
