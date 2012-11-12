@@ -59,6 +59,11 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     return Collections.unmodifiableSet(result);
   }
 
+  @Override public void getDependencies(
+      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
+    getBindings.addAll(contributors);
+  }
+
   @Override public String toString() {
     return "SetBinding" + contributors;
   }
