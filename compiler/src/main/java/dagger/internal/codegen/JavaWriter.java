@@ -59,10 +59,14 @@ public final class JavaWriter implements Closeable {
     if (this.packagePrefix != null) {
       throw new IllegalStateException();
     }
-    out.write("package ");
-    out.write(packageName);
-    out.write(";\n");
-    this.packagePrefix = packageName + ".";
+    if (packageName.isEmpty()) {
+      this.packagePrefix = "";
+    } else {
+      out.write("package ");
+      out.write(packageName);
+      out.write(";\n");
+      this.packagePrefix = packageName + ".";
+    }
   }
 
   /**

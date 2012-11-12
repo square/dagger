@@ -224,10 +224,14 @@ final class CodeGen {
       char innerClassSeparator) {
     String packageName = getPackage(type).getQualifiedName().toString();
     String qualifiedName = type.getQualifiedName().toString();
-    result.append(packageName);
-    result.append('.');
-    result.append(
-        qualifiedName.substring(packageName.length() + 1).replace('.', innerClassSeparator));
+    if (packageName.isEmpty()) {
+        result.append(qualifiedName.replace('.', innerClassSeparator));
+    } else {
+      result.append(packageName);
+      result.append('.');
+      result.append(
+          qualifiedName.substring(packageName.length() + 1).replace('.', innerClassSeparator));
+    }
   }
 
   private static Class<?> box(PrimitiveType primitiveType) {
