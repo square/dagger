@@ -170,6 +170,21 @@ public final class SetBindingTest {
     assertThat(logoutput.get()).contains("NullPointerException");
   }
 
+  @Test public void validateSetBinding() {
+    class TestEntryPoint {
+      @Inject Set<String> strings;
+    }
+
+    @Module(entryPoints = TestEntryPoint.class)
+    class TestModule {
+      @Provides(type=SET) String provideString1() { return "string1"; }
+      @Provides(type=SET) String provideString2() { return "string2"; }
+    }
+
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    graph.validate();
+  }
+
   static class Logger {
     @Inject Set<LogSink> loggers;
     public void log(String text, Throwable error) {
