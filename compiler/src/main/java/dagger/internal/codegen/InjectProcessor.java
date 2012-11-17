@@ -56,42 +56,42 @@ import static java.lang.reflect.Modifier.PUBLIC;
 @SupportedAnnotationTypes("javax.inject.Inject")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
-  private static Set<String> delayedClassNames = new HashSet<String>();
+  private static Set<String> delayedInjectedClassNames = new HashSet<String>();
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      Set<InjectedClass> classesToInject = new HashSet<InjectedClass>();
-      classesToInject.addAll(getInjectedClasses(env));
-      for (String e : delayedClassNames) {
-        classesToInject.add(getInjectedClass(processingEnv.getElementUtils().getTypeElement(e)));
+      final Set<InjectedClass> injectedClasses = new HashSet<InjectedClass>();
+      injectedClasses.addAll(getInjectedClasses(env));
+      for (final String e : delayedInjectedClassNames) {
+        // refetching delayed elements by name as previous element object could
+        // not resolve now-available types
+        injectedClasses.add(getInjectedClass(processingEnv.getElementUtils().getTypeElement(e)));
       }
 
-      for (InjectedClass injectedClass : classesToInject) {
-
-        final boolean shouldWriteInjections =
+      for (InjectedClass injectedClass : injectedClasses) {
+        final String injectedClassName = injectedClass.type.toString();
+        // verify that we have access to all types to be injected on this pass
+        final boolean missingDependentClasses =
             !allTypesExist(injectedClass.fields)
             || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
                 .getParameters()))
             || !allTypesExist(injectedClass.staticFields);
-
-        // verify that we have access to all types to be injected
-        String injectedClassName = injectedClass.type.toString();
-        if (shouldWriteInjections) {
-          delayedClassNames.add(injectedClassName);
-          log("injectons delayed in this pass:" + injectedClass.type);
+        if (missingDependentClasses) {
+          delayedInjectedClassNames.add(injectedClassName);
+          log("injectons delayed in this pass for %s", injectedClass.type);
         } else {
           writeInjectionsForClass(injectedClass);
           // in case this class has been delayed in an earlier pass, remove it
           // so we don't re-process it.
-          delayedClassNames.remove(injectedClassName);
-          log("injectons complete:" + injectedClass.type);
+          delayedInjectedClassNames.remove(injectedClassName);
+          log("injectons complete for %s", injectedClass.type);
         }
       }
     } catch (IOException e) {
       error("Code gen failed: %s", e);
     }
-    if (env.processingOver() && delayedClassNames.size() > 0) {
-      error("Could not find types for provides methods: " + delayedClassNames.toString());
+    if (env.processingOver() && delayedInjectedClassNames.size() > 0) {
+      error("Could not find injection type required by %s!", delayedInjectedClassNames.toString());
     }
     return true;
   }
@@ -100,12 +100,18 @@ public final class InjectProcessor extends AbstractProcessor {
     if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
       writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
     }
-    // TODO: incorporate this in above check
     if (!injectedClass.staticFields.isEmpty()) {
       writeStaticInjection(injectedClass.type, injectedClass.staticFields);
     }
   }
 
+  /**
+   * Check that all element types are currently available in this code
+   * generation pass. Unavailable types will be of kind {@link TypeKind#ERROR}
+   * @param elements
+   *          the elements to check
+   * @return true, if all types are available
+   */
   private boolean allTypesExist(Collection<? extends Element> elements) {
     for (Element element : elements) {
       if (element.asType().getKind() == TypeKind.ERROR) {
@@ -195,8 +201,8 @@ public final class InjectProcessor extends AbstractProcessor {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
   }
 
-  private void log(String message) {
-    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, message);
+  private void log(String format, Object... args) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, String.format(format, args));
   }
 
   /**
