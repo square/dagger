@@ -20,6 +20,8 @@ import dagger.internal.Linker;
 import dagger.internal.StaticInjection;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +38,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
@@ -53,18 +56,61 @@ import static java.lang.reflect.Modifier.PUBLIC;
 @SupportedAnnotationTypes("javax.inject.Inject")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
+  private static Set<String> delayedClassNames = new HashSet<String>();
+
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      for (InjectedClass injectedClass : getInjectedClasses(env)) {
-        if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
-          writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
-        }
-        if (!injectedClass.staticFields.isEmpty()) {
-          writeStaticInjection(injectedClass.type, injectedClass.staticFields);
+      Set<InjectedClass> classesToInject = new HashSet<InjectedClass>();
+      classesToInject.addAll(getInjectedClasses(env));
+      for (String e : delayedClassNames) {
+        classesToInject.add(getInjectedClass(processingEnv.getElementUtils().getTypeElement(e)));
+      }
+
+      for (InjectedClass injectedClass : classesToInject) {
+
+        final boolean shouldWriteInjections =
+            !allTypesExist(injectedClass.fields)
+            || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
+                .getParameters()))
+            || !allTypesExist(injectedClass.staticFields);
+
+        // verify that we have access to all types to be injected
+        String injectedClassName = injectedClass.type.toString();
+        if (shouldWriteInjections) {
+          delayedClassNames.add(injectedClassName);
+          log("injectons delayed in this pass:" + injectedClass.type);
+        } else {
+          writeInjectionsForClass(injectedClass);
+          // in case this class has been delayed in an earlier pass, remove it
+          // so we don't re-process it.
+          delayedClassNames.remove(injectedClassName);
+          log("injectons complete:" + injectedClass.type);
         }
       }
     } catch (IOException e) {
       error("Code gen failed: %s", e);
+    }
+    if (env.processingOver() && delayedClassNames.size() > 0) {
+      error("Could not find types for provides methods: " + delayedClassNames.toString());
+    }
+    return true;
+  }
+
+  private void writeInjectionsForClass(InjectedClass injectedClass) throws IOException {
+    if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
+      writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
+    }
+    // TODO: incorporate this in above check
+    if (!injectedClass.staticFields.isEmpty()) {
+      writeStaticInjection(injectedClass.type, injectedClass.staticFields);
+    }
+  }
+
+  private boolean allTypesExist(Collection<? extends Element> elements) {
+    for (Element element : elements) {
+      if (element.asType().getKind() == TypeKind.ERROR) {
+        return false;
+      }
     }
     return true;
   }
@@ -147,6 +193,10 @@ public final class InjectProcessor extends AbstractProcessor {
 
   private void error(String format, Object... args) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
+  }
+
+  private void log(String message) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, message);
   }
 
   /**

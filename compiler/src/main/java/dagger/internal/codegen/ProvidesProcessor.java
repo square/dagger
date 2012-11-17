@@ -60,25 +60,48 @@ import static java.lang.reflect.Modifier.STATIC;
 @SupportedAnnotationTypes("dagger.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
+  private final Map<String, List<ExecutableElement>> delayedTypes =
+      new HashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = CodeGen.parameterizedType(
       Map.class, String.class.getName(), Binding.class.getName() + "<?>");
 
   // TODO: include @Provides methods from the superclass
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
+
     try {
       Map<TypeElement, List<ExecutableElement>> providerMethods = providerMethodsByClass(env);
+      for (Map.Entry<String, List<ExecutableElement>> module:delayedTypes.entrySet()) {
+        providerMethods.put(
+            processingEnv.getElementUtils().getTypeElement(module.getKey()),
+            module.getValue());
+      }
       for (Map.Entry<TypeElement, List<ExecutableElement>> module : providerMethods.entrySet()) {
-        writeModuleAdapter(module.getKey(), module.getValue());
+        String providesName = module.getKey().asType().toString();
+        try {
+          writeModuleAdapter(module.getKey(), module.getValue());
+          delayedTypes.remove(providesName);
+          log("provides methods complete:" + providesName);
+        } catch (IllegalStateException e) {
+          delayedTypes.put(providesName, module.getValue());
+          log("provides methods delayed in this pass:" + providesName);
+        }
       }
     } catch (IOException e) {
       error("Code gen failed: " + e);
+    }
+    if (env.processingOver() && delayedTypes.size() > 0) {
+      error("Could not find types for provides methods: " + delayedTypes.keySet().toString());
     }
     return true;
   }
 
   private void error(String message) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
+  }
+
+  private void log(String message) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, message);
   }
 
   /**
