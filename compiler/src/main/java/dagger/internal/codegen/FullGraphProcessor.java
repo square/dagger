@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,13 +52,29 @@ import javax.tools.StandardLocation;
 @SupportedAnnotationTypes("dagger.Module")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class FullGraphProcessor extends AbstractProcessor {
+  private final Set<String> delayedModuleNames = new HashSet<String>();
+
   /**
    * Perform full-graph analysis on complete modules. This checks that all of
    * the module's dependencies are satisfied.
    */
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      for (Element element : env.getElementsAnnotatedWith(Module.class)) {
+      if (!env.processingOver()) {
+        // Storing module names for later retrieval as the element instance remains invalid across
+        // passes.
+        for (Element e : env.getElementsAnnotatedWith(Module.class)) {
+          delayedModuleNames.add(e.asType().toString());
+        }
+        return true;
+      }
+
+      Set<Element> modules = new HashSet<Element>();
+      for (String moduleName : delayedModuleNames) {
+        modules.add(processingEnv.getElementUtils().getTypeElement(moduleName));
+      }
+
+      for (Element element : modules) {
         Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, element);
         if (!annotation.get("complete").equals(Boolean.TRUE)) {
           continue;
@@ -65,6 +82,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         TypeElement moduleType = (TypeElement) element;
         Map<String, Binding<?>> bindings = processCompleteModule(moduleType);
         writeDotFile(moduleType, bindings);
+        delayedModuleNames.remove(element.asType().toString());
       }
     } catch (IOException e) {
       error("Graph processing failed: " + e);

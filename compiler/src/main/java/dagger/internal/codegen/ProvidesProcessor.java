@@ -60,25 +60,50 @@ import static java.lang.reflect.Modifier.STATIC;
 @SupportedAnnotationTypes("dagger.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
+  private final Map<String, List<ExecutableElement>> delayedTypes =
+      new HashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = CodeGen.parameterizedType(
       Map.class, String.class.getName(), Binding.class.getName() + "<?>");
 
   // TODO: include @Provides methods from the superclass
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
+
     try {
       Map<TypeElement, List<ExecutableElement>> providerMethods = providerMethodsByClass(env);
+      for (Map.Entry<String, List<ExecutableElement>> module : delayedTypes.entrySet()) {
+        providerMethods.put(
+            processingEnv.getElementUtils().getTypeElement(module.getKey()), module.getValue());
+      }
       for (Map.Entry<TypeElement, List<ExecutableElement>> module : providerMethods.entrySet()) {
-        writeModuleAdapter(module.getKey(), module.getValue());
+        final TypeElement type = module.getKey();
+        final String providesName = type.asType().toString();
+        try {
+          // Attempt to get the annotation. If types are missing, this will throw
+          // IllegalStateException.
+          Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
+          writeModuleAdapter(type, parsedAnnotation, module.getValue());
+          delayedTypes.remove(providesName);
+        } catch (IllegalStateException e) {
+          delayedTypes.put(providesName, module.getValue());
+        }
       }
     } catch (IOException e) {
       error("Code gen failed: " + e);
     }
+    if (env.processingOver() && delayedTypes.size() > 0) {
+      error("Could not find types required by provides methods for %s", delayedTypes.keySet()
+          .toString());
+    }
     return true;
   }
 
-  private void error(String message) {
-    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
+  private void error(String format, Object... args) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
+  }
+
+  private void log(String format, Object... args) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, String.format(format, args));
   }
 
   /**
@@ -131,9 +156,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
    * Write a companion class for {@code type} that implements {@link
    * ModuleAdapter} to expose its provider methods.
    */
-  private void writeModuleAdapter(TypeElement type, List<ExecutableElement> providerMethods)
-      throws IOException {
-    Map<String, Object> module = CodeGen.getAnnotation(Module.class, type);
+  private void writeModuleAdapter(TypeElement type, Map<String, Object> module,
+      List<ExecutableElement> providerMethods) throws IOException {
     if (module == null) {
       error(type + " has @Provides methods but no @Module annotation");
       return;
