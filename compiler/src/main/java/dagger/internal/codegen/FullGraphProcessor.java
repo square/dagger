@@ -52,7 +52,8 @@ import javax.tools.StandardLocation;
 @SupportedAnnotationTypes("dagger.Module")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class FullGraphProcessor extends AbstractProcessor {
-  private static Set<Element> delayedModules = new HashSet<Element>();
+  private static final Set<Element> delayedModules = new HashSet<Element>();
+
   /**
    * Perform full-graph analysis on complete modules. This checks that all of
    * the module's dependencies are satisfied.
@@ -67,7 +68,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
       log("Executing full graph processing");
 
       Set<Element> modules = new HashSet<Element>();
-      for (Element e:delayedModules) {
+      for (Element e : delayedModules) {
         modules.add(processingEnv.getTypeUtils().asElement(
             processingEnv.getElementUtils()
                 .getTypeElement(e.asType().toString()).asType()));

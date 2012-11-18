@@ -56,21 +56,21 @@ import static java.lang.reflect.Modifier.PUBLIC;
 @SupportedAnnotationTypes("javax.inject.Inject")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
-  private static Set<String> delayedInjectedClassNames = new HashSet<String>();
+  private static final Set<String> delayedInjectedClassNames = new HashSet<String>();
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
       final Set<InjectedClass> injectedClasses = new HashSet<InjectedClass>();
       injectedClasses.addAll(getInjectedClasses(env));
       for (final String e : delayedInjectedClassNames) {
-        // refetching delayed elements by name as previous element object could
-        // not resolve now-available types
+        // Refetching delayed elements by name as previous element object could not resolve
+        // now-available types.
         injectedClasses.add(getInjectedClass(processingEnv.getElementUtils().getTypeElement(e)));
       }
 
       for (InjectedClass injectedClass : injectedClasses) {
         final String injectedClassName = injectedClass.type.toString();
-        // verify that we have access to all types to be injected on this pass
+        // Verify that we have access to all types to be injected on this pass.
         final boolean missingDependentClasses =
             !allTypesExist(injectedClass.fields)
             || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
@@ -81,8 +81,8 @@ public final class InjectProcessor extends AbstractProcessor {
           log("injectons delayed in this pass for %s", injectedClass.type);
         } else {
           writeInjectionsForClass(injectedClass);
-          // in case this class has been delayed in an earlier pass, remove it
-          // so we don't re-process it.
+          // In case this class has been delayed in an earlier pass, remove it so we don't
+          // re-process it.
           delayedInjectedClassNames.remove(injectedClassName);
           log("injectons complete for %s", injectedClass.type);
         }
@@ -107,7 +107,7 @@ public final class InjectProcessor extends AbstractProcessor {
 
   /**
    * Check that all element types are currently available in this code
-   * generation pass. Unavailable types will be of kind {@link TypeKind#ERROR}
+   * generation pass. Unavailable types will be of kind {@link TypeKind#ERROR}.
    * @param elements
    *          the elements to check
    * @return true, if all types are available

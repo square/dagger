@@ -71,17 +71,16 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     try {
       Map<TypeElement, List<ExecutableElement>> providerMethods = providerMethodsByClass(env);
-      for (Map.Entry<String, List<ExecutableElement>> module:delayedTypes.entrySet()) {
+      for (Map.Entry<String, List<ExecutableElement>> module : delayedTypes.entrySet()) {
         providerMethods.put(
-            processingEnv.getElementUtils().getTypeElement(module.getKey()),
-            module.getValue());
+            processingEnv.getElementUtils().getTypeElement(module.getKey()), module.getValue());
       }
       for (Map.Entry<TypeElement, List<ExecutableElement>> module : providerMethods.entrySet()) {
         final TypeElement type = module.getKey();
         final String providesName = type.asType().toString();
         try {
-          // Attempt to get the annotation. If types are missing, this will
-          // throw IllegalStateException
+          // Attempt to get the annotation. If types are missing, this will throw
+          // IllegalStateException.
           Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
           writeModuleAdapter(type, parsedAnnotation, module.getValue());
           delayedTypes.remove(providesName);
