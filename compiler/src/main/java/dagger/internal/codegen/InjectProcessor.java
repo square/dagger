@@ -60,18 +60,18 @@ public final class InjectProcessor extends AbstractProcessor {
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      final Set<InjectedClass> injectedClasses = new HashSet<InjectedClass>();
+      Set<InjectedClass> injectedClasses = new HashSet<InjectedClass>();
       injectedClasses.addAll(getInjectedClasses(env));
-      for (final String e : delayedInjectedClassNames) {
+      for (String e : delayedInjectedClassNames) {
         // Refetching delayed elements by name as previous element object could not resolve
         // now-available types.
         injectedClasses.add(getInjectedClass(processingEnv.getElementUtils().getTypeElement(e)));
       }
 
       for (InjectedClass injectedClass : injectedClasses) {
-        final String injectedClassName = injectedClass.type.toString();
+        String injectedClassName = injectedClass.type.toString();
         // Verify that we have access to all types to be injected on this pass.
-        final boolean missingDependentClasses =
+        boolean missingDependentClasses =
             !allTypesExist(injectedClass.fields)
             || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
                 .getParameters()))
@@ -198,10 +198,6 @@ public final class InjectProcessor extends AbstractProcessor {
 
   private void error(String format, Object... args) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
-  }
-
-  private void log(String format, Object... args) {
-    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, String.format(format, args));
   }
 
   /**

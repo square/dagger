@@ -76,8 +76,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
             processingEnv.getElementUtils().getTypeElement(module.getKey()), module.getValue());
       }
       for (Map.Entry<TypeElement, List<ExecutableElement>> module : providerMethods.entrySet()) {
-        final TypeElement type = module.getKey();
-        final String providesName = type.asType().toString();
+        TypeElement type = module.getKey();
+        String providesName = type.asType().toString();
         try {
           // Attempt to get the annotation. If types are missing, this will throw
           // IllegalStateException.
@@ -100,10 +100,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
   private void error(String format, Object... args) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
-  }
-
-  private void log(String format, Object... args) {
-    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, String.format(format, args));
   }
 
   /**
