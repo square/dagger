@@ -227,7 +227,7 @@ public final class JavaWriter implements Closeable {
       type(name);
     }
     out.write("(");
-    for (int p = 0; p < parameters.length; ) {
+    for (int p = 0; p < parameters.length;) {
       if (p != 0) {
         out.write(", ");
       }
