@@ -1,3 +1,4 @@
+dagger.internal.codegen.EntryPointProcessor
 dagger.internal.codegen.InjectProcessor
 dagger.internal.codegen.ProvidesProcessor
 dagger.internal.codegen.FullGraphProcessor
