@@ -34,6 +34,13 @@
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- Temporary fix to get the annotation processor running -->
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>dagger-compiler</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
   <build>
