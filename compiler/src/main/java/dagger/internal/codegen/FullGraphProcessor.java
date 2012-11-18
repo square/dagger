@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,13 +52,29 @@ import javax.tools.StandardLocation;
 @SupportedAnnotationTypes("dagger.Module")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class FullGraphProcessor extends AbstractProcessor {
+  private static final Set<Element> delayedModules = new HashSet<Element>();
+
   /**
    * Perform full-graph analysis on complete modules. This checks that all of
    * the module's dependencies are satisfied.
    */
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      for (Element element : env.getElementsAnnotatedWith(Module.class)) {
+      if (!env.processingOver()) {
+        log("Skipping full processing until final pass");
+        delayedModules.addAll(env.getElementsAnnotatedWith(Module.class));
+        return true;
+      }
+      log("Executing full graph processing");
+
+      Set<Element> modules = new HashSet<Element>();
+      for (Element e : delayedModules) {
+        modules.add(processingEnv.getTypeUtils().asElement(
+            processingEnv.getElementUtils()
+                .getTypeElement(e.asType().toString()).asType()));
+      }
+
+      for (Element element : modules) {
         Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, element);
         if (!annotation.get("complete").equals(Boolean.TRUE)) {
           continue;
@@ -74,6 +91,10 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   private void error(String message) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
+  }
+
+  private void log(String message) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, message);
   }
 
   private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule) {
