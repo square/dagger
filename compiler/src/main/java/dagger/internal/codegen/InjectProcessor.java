@@ -15,16 +15,20 @@
  */
 package dagger.internal.codegen;
 
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.StaticInjection;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PUBLIC;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -43,11 +47,9 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PUBLIC;
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.StaticInjection;
 
 /**
  * Generates an implementation of {@link Binding} that injects the
@@ -56,41 +58,29 @@ import static java.lang.reflect.Modifier.PUBLIC;
 @SupportedAnnotationTypes("javax.inject.Inject")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
-  private final Set<String> delayedInjectedClassNames = new HashSet<String>();
+  private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      Set<InjectedClass> injectedClasses = new HashSet<InjectedClass>();
-      injectedClasses.addAll(getInjectedClasses(env));
-      for (String e : delayedInjectedClassNames) {
-        // Refetching delayed elements by name as previous element object could not resolve
-        // now-available types.
-        injectedClasses.add(getInjectedClass(processingEnv.getElementUtils().getTypeElement(e)));
-      }
-
-      for (InjectedClass injectedClass : injectedClasses) {
-        String injectedClassName = injectedClass.type.toString();
+      remainingTypeNames.addAll(getInjectedClassNames(env));
+      for (Iterator<String> i = remainingTypeNames.iterator(); i.hasNext();) {
+        InjectedClass injectedClass = getInjectedClass(i.next());
         // Verify that we have access to all types to be injected on this pass.
         boolean missingDependentClasses =
             !allTypesExist(injectedClass.fields)
             || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
                 .getParameters()))
             || !allTypesExist(injectedClass.staticFields);
-        if (missingDependentClasses) {
-          // Injections delayed for this class. Store its type name for later retrieval.
-          delayedInjectedClassNames.add(injectedClassName);
-        } else {
+        if (!missingDependentClasses) {
           writeInjectionsForClass(injectedClass);
-          // In case this class was delayed in an earlier pass, remove it so we don't
-          // re-process it.
-          delayedInjectedClassNames.remove(injectedClassName);
+          i.remove();
         }
       }
     } catch (IOException e) {
       error("Code gen failed: %s", e);
     }
-    if (env.processingOver() && delayedInjectedClassNames.size() > 0) {
-      error("Could not find injection type required by %s!", delayedInjectedClassNames.toString());
+    if (env.processingOver() && !remainingTypeNames.isEmpty()) {
+      error("Could not find injection type required by %s!", remainingTypeNames);
     }
     return true;
   }
@@ -105,11 +95,8 @@ public final class InjectProcessor extends AbstractProcessor {
   }
 
   /**
-   * Check that all element types are currently available in this code
+   * Return true if all element types are currently available in this code
    * generation pass. Unavailable types will be of kind {@link TypeKind#ERROR}.
-   * @param elements
-   *          the elements to check
-   * @return true, if all types are available
    */
   private boolean allTypesExist(Collection<? extends Element> elements) {
     for (Element element : elements) {
@@ -120,26 +107,20 @@ public final class InjectProcessor extends AbstractProcessor {
     return true;
   }
 
-  private Set<InjectedClass> getInjectedClasses(RoundEnvironment env) {
+  private Set<String> getInjectedClassNames(RoundEnvironment env) {
     // First gather the set of classes that have @Inject-annotated members.
-    Set<TypeElement> injectedTypes = new LinkedHashSet<TypeElement>();
+    Set<String> injectedTypeNames = new LinkedHashSet<String>();
     for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
-      injectedTypes.add((TypeElement) element.getEnclosingElement());
+      injectedTypeNames.add(element.getEnclosingElement().asType().toString());
     }
-
-    // Next get the InjectedClass for each of those.
-    Set<InjectedClass> result = new LinkedHashSet<InjectedClass>();
-    for (TypeElement type : injectedTypes) {
-      result.add(getInjectedClass(type));
-    }
-
-    return result;
+    return injectedTypeNames;
   }
 
   /**
-   * @param type a type with an @Inject-annotated member.
+   * @param injectedClassName the name of a class with an @Inject-annotated member.
    */
-  private InjectedClass getInjectedClass(TypeElement type) {
+  private InjectedClass getInjectedClass(String injectedClassName) {
+    TypeElement type = processingEnv.getElementUtils().getTypeElement(injectedClassName);
     boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
     List<Element> staticFields = new ArrayList<Element>();
     ExecutableElement constructor = null;

@@ -15,21 +15,24 @@
  */
 package dagger.internal.codegen;
 
-import dagger.Module;
-import dagger.Provides;
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.ModuleAdapter;
-import dagger.internal.SetBinding;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PROTECTED;
+import static java.lang.reflect.Modifier.PUBLIC;
+import static java.lang.reflect.Modifier.STATIC;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -46,12 +49,12 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PROTECTED;
-import static java.lang.reflect.Modifier.PUBLIC;
-import static java.lang.reflect.Modifier.STATIC;
+import dagger.Module;
+import dagger.Provides;
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.ModuleAdapter;
+import dagger.internal.SetBinding;
 
 /**
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
@@ -60,39 +63,34 @@ import static java.lang.reflect.Modifier.STATIC;
 @SupportedAnnotationTypes("dagger.Provides")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
-  private final Map<String, List<ExecutableElement>> delayedTypes =
-      new HashMap<String, List<ExecutableElement>>();
+  private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
+      new LinkedHashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = CodeGen.parameterizedType(
       Map.class, String.class.getName(), Binding.class.getName() + "<?>");
 
   // TODO: include @Provides methods from the superclass
-
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
-
     try {
-      Map<TypeElement, List<ExecutableElement>> providerMethods = providerMethodsByClass(env);
-      for (Map.Entry<String, List<ExecutableElement>> module : delayedTypes.entrySet()) {
-        providerMethods.put(
-            processingEnv.getElementUtils().getTypeElement(module.getKey()), module.getValue());
-      }
-      for (Map.Entry<TypeElement, List<ExecutableElement>> module : providerMethods.entrySet()) {
-        TypeElement type = module.getKey();
-        String providesName = type.asType().toString();
+      remainingTypes.putAll(providerMethodsByClass(env));
+      for (Iterator<String> i = remainingTypes.keySet().iterator(); i.hasNext();) {
+        String typeName = i.next();
+        TypeElement type = processingEnv.getElementUtils().getTypeElement(typeName);
+        List<ExecutableElement> providesTypes = remainingTypes.get(typeName);
         try {
           // Attempt to get the annotation. If types are missing, this will throw
           // IllegalStateException.
           Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
-          writeModuleAdapter(type, parsedAnnotation, module.getValue());
-          delayedTypes.remove(providesName);
+          writeModuleAdapter(type, parsedAnnotation, providesTypes);
+          i.remove();
         } catch (IllegalStateException e) {
-          delayedTypes.put(providesName, module.getValue());
+          // a dependent type was not defined, we'll catch it on another pass
         }
       }
     } catch (IOException e) {
       error("Code gen failed: " + e);
     }
-    if (env.processingOver() && delayedTypes.size() > 0) {
-      error("Could not find types required by provides methods for %s", delayedTypes.keySet()
+    if (env.processingOver() && remainingTypes.size() > 0) {
+      error("Could not find types required by provides methods for %s", remainingTypes.keySet()
           .toString());
     }
     return true;
@@ -105,9 +103,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
   /**
    * Returns a map containing all {@code @Provides} methods, indexed by class.
    */
-  private Map<TypeElement, List<ExecutableElement>> providerMethodsByClass(RoundEnvironment env) {
-    Map<TypeElement, List<ExecutableElement>> result
-        = new HashMap<TypeElement, List<ExecutableElement>>();
+  private Map<String, List<ExecutableElement>> providerMethodsByClass(RoundEnvironment env) {
+    Map<String, List<ExecutableElement>> result
+        = new HashMap<String, List<ExecutableElement>>();
     for (Element providerMethod : providesMethods(env)) {
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
@@ -134,7 +132,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       List<ExecutableElement> methods = result.get(type);
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
-        result.put(type, methods);
+        result.put(type.toString(), methods);
       }
       methods.add((ExecutableElement) providerMethod);
     }
