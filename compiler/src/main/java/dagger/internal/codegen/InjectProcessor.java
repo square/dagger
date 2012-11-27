@@ -15,14 +15,20 @@
  */
 package dagger.internal.codegen;
 
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.StaticInjection;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PUBLIC;
+
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -36,15 +42,14 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PUBLIC;
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.StaticInjection;
 
 /**
  * Generates an implementation of {@link Binding} that injects the
@@ -53,42 +58,69 @@ import static java.lang.reflect.Modifier.PUBLIC;
 @SupportedAnnotationTypes("javax.inject.Inject")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
+  private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
+
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      for (InjectedClass injectedClass : getInjectedClasses(env)) {
-        if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
-          writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
-        }
-        if (!injectedClass.staticFields.isEmpty()) {
-          writeStaticInjection(injectedClass.type, injectedClass.staticFields);
+      remainingTypeNames.addAll(getInjectedClassNames(env));
+      for (Iterator<String> i = remainingTypeNames.iterator(); i.hasNext();) {
+        InjectedClass injectedClass = getInjectedClass(i.next());
+        // Verify that we have access to all types to be injected on this pass.
+        boolean missingDependentClasses =
+            !allTypesExist(injectedClass.fields)
+            || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
+                .getParameters()))
+            || !allTypesExist(injectedClass.staticFields);
+        if (!missingDependentClasses) {
+          writeInjectionsForClass(injectedClass);
+          i.remove();
         }
       }
     } catch (IOException e) {
       error("Code gen failed: %s", e);
     }
+    if (env.processingOver() && !remainingTypeNames.isEmpty()) {
+      error("Could not find injection type required by %s!", remainingTypeNames);
+    }
     return true;
   }
 
-  private Set<InjectedClass> getInjectedClasses(RoundEnvironment env) {
-    // First gather the set of classes that have @Inject-annotated members.
-    Set<TypeElement> injectedTypes = new LinkedHashSet<TypeElement>();
-    for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
-      injectedTypes.add((TypeElement) element.getEnclosingElement());
+  private void writeInjectionsForClass(InjectedClass injectedClass) throws IOException {
+    if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
+      writeInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
     }
-
-    // Next get the InjectedClass for each of those.
-    Set<InjectedClass> result = new LinkedHashSet<InjectedClass>();
-    for (TypeElement type : injectedTypes) {
-      result.add(getInjectedClass(type));
+    if (!injectedClass.staticFields.isEmpty()) {
+      writeStaticInjection(injectedClass.type, injectedClass.staticFields);
     }
-
-    return result;
   }
 
   /**
-   * @param type a type with an @Inject-annotated member.
+   * Return true if all element types are currently available in this code
+   * generation pass. Unavailable types will be of kind {@link TypeKind#ERROR}.
    */
-  private InjectedClass getInjectedClass(TypeElement type) {
+  private boolean allTypesExist(Collection<? extends Element> elements) {
+    for (Element element : elements) {
+      if (element.asType().getKind() == TypeKind.ERROR) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private Set<String> getInjectedClassNames(RoundEnvironment env) {
+    // First gather the set of classes that have @Inject-annotated members.
+    Set<String> injectedTypeNames = new LinkedHashSet<String>();
+    for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
+      injectedTypeNames.add(element.getEnclosingElement().asType().toString());
+    }
+    return injectedTypeNames;
+  }
+
+  /**
+   * @param injectedClassName the name of a class with an @Inject-annotated member.
+   */
+  private InjectedClass getInjectedClass(String injectedClassName) {
+    TypeElement type = processingEnv.getElementUtils().getTypeElement(injectedClassName);
     boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
     List<Element> staticFields = new ArrayList<Element>();
     ExecutableElement constructor = null;

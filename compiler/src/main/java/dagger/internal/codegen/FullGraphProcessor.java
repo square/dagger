@@ -15,19 +15,16 @@
  */
 package dagger.internal.codegen;
 
-import dagger.Module;
-import dagger.Provides;
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -45,19 +42,41 @@ import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
 
+import dagger.Module;
+import dagger.Provides;
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.SetBinding;
+
 /**
  * Performs full graph analysis on a module.
  */
 @SupportedAnnotationTypes("dagger.Module")
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class FullGraphProcessor extends AbstractProcessor {
+  private final Set<String> delayedModuleNames = new LinkedHashSet<String>();
+
   /**
    * Perform full-graph analysis on complete modules. This checks that all of
    * the module's dependencies are satisfied.
    */
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     try {
-      for (Element element : env.getElementsAnnotatedWith(Module.class)) {
+      if (!env.processingOver()) {
+        // Storing module names for later retrieval as the element instance is invalidated across
+        // passes.
+        for (Element e : env.getElementsAnnotatedWith(Module.class)) {
+          delayedModuleNames.add(e.asType().toString());
+        }
+        return true;
+      }
+
+      Set<Element> modules = new LinkedHashSet<Element>();
+      for (String moduleName : delayedModuleNames) {
+        modules.add(processingEnv.getElementUtils().getTypeElement(moduleName));
+      }
+
+      for (Element element : modules) {
         Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, element);
         if (!annotation.get("complete").equals(Boolean.TRUE)) {
           continue;
