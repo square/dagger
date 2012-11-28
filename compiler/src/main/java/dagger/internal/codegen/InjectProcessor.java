@@ -111,7 +111,8 @@ public final class InjectProcessor extends AbstractProcessor {
     // First gather the set of classes that have @Inject-annotated members.
     Set<String> injectedTypeNames = new LinkedHashSet<String>();
     for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
-      injectedTypeNames.add(element.getEnclosingElement().asType().toString());
+      injectedTypeNames.add(
+          CodeGen.removeGenericsFromTypeName(element.getEnclosingElement().asType().toString()));
     }
     return injectedTypeNames;
   }

@@ -42,6 +42,7 @@ import javax.lang.model.util.SimpleTypeVisitor6;
  * Support for annotation processors.
  */
 final class CodeGen {
+  private static final String GENERICS_START = "<";
   private CodeGen() {
   }
 
@@ -148,6 +149,19 @@ final class CodeGen {
             "Unexpected TypeKind " + typeMirror.getKind() + " for "  + typeMirror);
       }
     }, null);
+  }
+
+  /**
+   * Returns a stringified type name with any generics removed. This makes it possible to use the
+   * returned string to look up the type with the processing environment.
+   */
+  public static String removeGenericsFromTypeName(String typeName) {
+    if (typeName.contains(GENERICS_START)) {
+      // We need to remove any generics from the type name so the processing environment can
+      // look it up later.
+      typeName = typeName.substring(0, typeName.indexOf(GENERICS_START));
+    }
+    return typeName;
   }
 
   private static final AnnotationValueVisitor<Object, Void> VALUE_EXTRACTOR
