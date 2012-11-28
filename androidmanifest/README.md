@@ -9,7 +9,7 @@ The module generated from this plugin is not automatically added to your
 object graph. You will need to explicitly include it during construction:
 
 ```java
-ObjectGraph og = ObjectGraph.get(
+ObjectGraph og = ObjectGraph.create(
   new MyModule(),       // Your declared module.
   new ManifestModule()  // Module generated from this plugin.
 );
