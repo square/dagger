@@ -42,7 +42,6 @@ import javax.lang.model.util.SimpleTypeVisitor6;
  * Support for annotation processors.
  */
 final class CodeGen {
-  private static final String GENERICS_START = "<";
   private CodeGen() {
   }
 
@@ -155,11 +154,12 @@ final class CodeGen {
    * Returns a stringified type name with any generics removed. This makes it possible to use the
    * returned string to look up the type with the processing environment.
    */
-  public static String removeGenericsFromTypeName(String typeName) {
-    if (typeName.contains(GENERICS_START)) {
+  public static String canonicalNameFromTypeMirror(TypeMirror type) {
+    String typeName = type.toString();
+    if (typeName.contains("<")) {
       // We need to remove any generics from the type name so the processing environment can
       // look it up later.
-      typeName = typeName.substring(0, typeName.indexOf(GENERICS_START));
+      typeName = typeName.substring(0, typeName.indexOf("<"));
     }
     return typeName;
   }

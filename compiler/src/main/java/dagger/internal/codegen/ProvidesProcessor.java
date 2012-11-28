@@ -132,7 +132,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       List<ExecutableElement> methods = result.get(type);
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
-        String typeName = CodeGen.removeGenericsFromTypeName(type.toString());
+        String typeName = CodeGen.canonicalNameFromTypeMirror(type.asType());
         result.put(typeName, methods);
       }
       methods.add((ExecutableElement) providerMethod);

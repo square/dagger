@@ -112,7 +112,7 @@ public final class InjectProcessor extends AbstractProcessor {
     Set<String> injectedTypeNames = new LinkedHashSet<String>();
     for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
       injectedTypeNames.add(
-          CodeGen.removeGenericsFromTypeName(element.getEnclosingElement().asType().toString()));
+          CodeGen.canonicalNameFromTypeMirror(element.getEnclosingElement().asType()));
     }
     return injectedTypeNames;
   }
