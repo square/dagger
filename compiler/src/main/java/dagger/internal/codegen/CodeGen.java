@@ -152,16 +152,33 @@ final class CodeGen {
 
   /**
    * Returns a stringified type name with any generics removed. This makes it possible to use the
-   * returned string to look up the type with the processing environment.
+   * returned string to look up generic types with the processing environment.
    */
-  public static String canonicalNameFromTypeMirror(TypeMirror type) {
-    String typeName = type.toString();
-    if (typeName.contains("<")) {
-      // We need to remove any generics from the type name so the processing environment can
-      // look it up later.
-      typeName = typeName.substring(0, typeName.indexOf("<"));
-    }
-    return typeName;
+  public static String canonicalNameFromTypeMirror(final TypeMirror type) {
+    final StringBuilder result = new StringBuilder();
+    type.accept(new SimpleTypeVisitor6<Void, Void>() {
+      @Override public Void visitDeclared(DeclaredType declaredType, Void v) {
+        TypeElement typeElement = (TypeElement) declaredType.asElement();
+        result.append(typeElement.toString());
+        return null;
+      }
+      @Override public Void visitPrimitive(PrimitiveType primitiveType, Void v) {
+        return null;
+      }
+      @Override public Void visitArray(ArrayType arrayType, Void v) {
+        result.append(arrayType.getComponentType().toString());
+        result.append("[]");
+        return null;
+      }
+      @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
+        return null;
+      }
+      @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
+        throw new UnsupportedOperationException(
+            "Unexpected TypeKind " + typeMirror.getKind() + " for "  + typeMirror);
+      }
+    }, null);
+    return result.toString();
   }
 
   private static final AnnotationValueVisitor<Object, Void> VALUE_EXTRACTOR
