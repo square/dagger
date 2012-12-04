@@ -1,6 +1,25 @@
----
-layout: default
----
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Dagger &#x2020; A fast dependency injector for Android and Java.</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A fast dependency injector for Android and Java." />
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="/static/prettify.css" rel="stylesheet">
+    <link href="/static/app.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+    <div class="row">
+        <div class="span4 side">
+            <h1><img src="/static/logo.png" alt="Dagger"></h1>
+            <h3>A fast dependency injector for Android and Java.</h3>
+            <p><a href="https://squareup.com/"><img src="static/square.png" alt="by Square, Inc."></a></p>
+      </div>
+        <div class="offset4 span8 main"><div class="main-inner">
 
 <h3>Introduction</h3>
 
@@ -13,9 +32,6 @@ layout: default
 <p>By building on standard <a href="http://atinject.googlecode.com/svn/trunk/javadoc/javax/inject/package-summary.html">javax.inject</a> annotations (JSR-330), each class is <strong>easy to test</strong>. You don't need a bunch of boilerplate just to swap the <code>RpcCreditCardService</code> out for a <code>FakeCreditCardService</code>.</p>
 
 <p>Dependency injection isn't just for testing. It also makes it easy to create <strong>reusable, interchangeable modules</strong>. You can share the same <code>AuthenticationModule</code>  across all of your apps. And you can run <code>DevLoggingModule</code> during development and <code>ProdLoggingModule</code> in production to get the right behavior in each situation.</p>
-
-<h3>Using Dagger</h3>
-<p>We'll demonstrate dependency injection and Dagger by building a coffee maker. For complete sample code that you can compile and run, see Dagger's <a href="https://github.com/square/dagger/tree/master/example/src/main/java/coffee">coffee example</a>.</p>
 
 <h4>Declaring Dependencies</h4>
 
@@ -142,7 +158,7 @@ class DripCoffeeModule {
 <pre>
 $ java -cp ... coffee.CoffeeApp
 ~ ~ ~ heating ~ ~ ~
-=&gt; =&gt; pumping =&gt; =&gt;
+=> => pumping => =>
  [_]P coffee! [_]P
 </pre>
 
@@ -171,7 +187,7 @@ class CoffeeMaker {
 
 <pre class="prettyprint">
 class GridingCoffeeMaker {
-  @Inject Lazy&lt;Grinder&gt; lazyGrinder;
+  @Inject Lazy<Grinder> lazyGrinder;
 
   public void brew() {
     while (needsGrinding()) {
@@ -189,11 +205,11 @@ class GridingCoffeeMaker {
 <pre class="prettyprint">
 
 class BigCoffeeMaker {
-  @Inject Provider&lt;Filter&gt; filterProvider;
+  @Inject Provider<Filter> filterProvider;
 
   public void brew(int numberOfPots) {
 	...
-    for (int p = 0; p &lt; numberOfPots; p++) {
+    for (int p = 0; p < numberOfPots; p++) {
       maker.addFilter(filterProvider.get()); //new filter every time.
       maker.addCoffee(...);
       maker.percolate();
@@ -297,11 +313,11 @@ class DripCoffeeModule {
 }
 </pre>
 
-<p>To get the most out of compile-time validation, create a module that includes all of your application's modules. The annotation processor will detect problems across the modules and report them.</p>
+<p>To get the most out of compile-time validation, create a module that includes all of your application's modules as children. The annotation processor will detect problems across the modules and report them.</p>
 
 <pre class="prettyprint">
 @Module(
-    includes = {
+    children = {
         DripCoffeeModule.class,
         ExecutorModule.class
     }
@@ -332,7 +348,7 @@ public class CoffeeMakerTest {
   }
 
   @Module(
-      includes = DripCoffeeModule.class,
+      children = DripCoffeeModule.class,
       entryPoints = CoffeeMakerTest.class,
       overrides = true
   )
@@ -420,3 +436,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 </pre>
+
+
+            <a id="ribbon" href="https://github.com/square/dagger"><img src="/static/ribbon.png" alt="Fork me on GitHub"></a>
+        </div></div>
+    </div>
+</div>
+<script src="/static/prettify.js"></script>
+<script> prettyPrint(); </script>
+</body>
+</html>
