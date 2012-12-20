@@ -16,6 +16,7 @@
  */
 package dagger.internal;
 
+import dagger.Assisted;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import java.lang.annotation.Annotation;
@@ -273,6 +274,19 @@ public final class Keys {
     if (type == double.class) return Double.class;
     if (type == void.class) return Void.class;
     return type;
+  }
+
+  private static final String ASSISTED_PREFIX = "@" + Assisted.class.getCanonicalName();
+
+  public static String getWithDefaultAssisted(Type type) {
+    StringBuilder result = new StringBuilder(ASSISTED_PREFIX);
+    result.append("(value=").append(Assisted.DEFAULT_VALUE).append(")/");
+    typeToString(type, result, true);
+    return result.toString();
+  }
+
+  public static boolean isAssisted(String key) {
+    return key.startsWith(ASSISTED_PREFIX);
   }
 
 }
