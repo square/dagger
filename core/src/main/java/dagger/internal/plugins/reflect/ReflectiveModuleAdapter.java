@@ -86,9 +86,11 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     bindings.put(key, new ProviderMethodBinding<T>(method, key, module));
   }
 
-  private <F> void handleFactoryBindings(Map<String, Binding<?>> bindings, Class<F> factory,
+  private <T> void handleFactoryBindings(Map<String, Binding<?>> bindings, Class<T> factory,
                                          Method method, String key) {
-    Type genericType = method.getGenericReturnType();
+    Type targetType = method.getGenericReturnType();
+    String factoryKey = Keys.get(factory);
+    String membersKey = Keys.getMembersKey(factory);
     Class<?> type = method.getReturnType();
     Class<?>[] types = method.getParameterTypes();
 
@@ -102,8 +104,10 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
           + " parameter type must extends or equals to return type.");
     }
 
-    bindings.put(key, ReflectiveFactoryBinding.create(types[0], genericType, factory,
-        method, module));
+    String targetKey = Keys.get(types[0]);
+
+    bindings.put(key, new ReflectiveFactoryBinding<T>(factoryKey, membersKey, targetKey,
+        factory, targetType, method, module));
   }
 
   private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key) {

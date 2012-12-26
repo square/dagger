@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
@@ -42,6 +43,11 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
   private final Binding<?>[] fieldBindings;
   private final Binding<?>[] parameterBindings;
   private Binding<? super T> supertypeBinding;
+  private Field[] assistedFields;
+  private Integer[] assistedParamIndexes;
+  private String[] assistedKeys;
+
+  private static final Object[] EMPTY = new Object[0];
 
   /**
    * @param keys keys for the fields, constructor parameters and supertype in
@@ -53,7 +59,8 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
    */
   private ReflectiveAtInjectBinding(String provideKey, String membersKey, boolean singleton,
       Class<?> type, Field[] fields, Constructor<T> constructor, int parameterCount,
-      Class<?> supertype, String[] keys) {
+      Class<?> supertype, String[] keys, Field[] assistedFields, Integer[] assistedParamIndexes,
+      String[] assistedKeys) {
     super(provideKey, membersKey, singleton, type);
     this.constructor = constructor;
     this.fields = fields;
@@ -61,6 +68,10 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     this.keys = keys;
     this.parameterBindings = new Binding<?>[parameterCount];
     this.fieldBindings = new Binding<?>[fields.length];
+    this.assistedFields = assistedFields;
+    this.assistedParamIndexes = assistedParamIndexes;
+
+    this.assistedKeys = assistedKeys;
   }
 
   @SuppressWarnings("unchecked") // We're careful to make keys and bindings match up.
@@ -86,12 +97,25 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
   }
 
   @Override public T get() {
+    return get(EMPTY);
+  }
+
+  @Override public T get(Object[] assistedArgs) {
     if (constructor == null) {
       throw new UnsupportedOperationException();
     }
-    Object[] args = new Object[parameterBindings.length];
-    for (int i = 0; i < parameterBindings.length; i++) {
-      args[i] = parameterBindings[i].get();
+    Object[] args = new Object[parameterBindings.length + assistedParamIndexes.length];
+    int argsOffset = assistedFields.length;
+    int bindingIndex = 0;
+    int assistedIndex = 0;
+    for (int i = 0; i < args.length; i++) {
+      if (assistedParamIndexes.length > 0 && assistedParamIndexes[assistedIndex] == i) {
+        args[i] = assistedArgs[argsOffset + assistedIndex];
+        assistedIndex++;
+      } else {
+        args[i] = parameterBindings[bindingIndex].get();
+        bindingIndex++;
+      }
     }
     T result;
     try {
@@ -107,7 +131,24 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
       throw new RuntimeException(e);
     }
     injectMembers(result);
+    injectAssistedMembers(result, assistedArgs);
     return result;
+  }
+
+  @Override
+  public void injectAssistedMembers(T t, Object[] args) {
+    try {
+      for (int i = 0; i < assistedFields.length; i++) {
+        assistedFields[i].set(t, args[i]);
+      }
+    } catch (IllegalAccessException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @Override
+  public void getAssistedDependencies(Set<String> assistedBindings) {
+    Collections.addAll(assistedBindings, assistedKeys);
   }
 
   @Override public void injectMembers(T t) {
@@ -148,17 +189,25 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
   public static <T> Binding<T> create(Class<T> type, boolean mustBeInjectable) {
     boolean singleton = type.isAnnotationPresent(Singleton.class);
     List<String> keys = new ArrayList<String>();
+    List<String> assistedKeys = new ArrayList<String>();
 
     // Lookup the injectable fields and their corresponding keys.
     List<Field> injectedFields = new ArrayList<Field>();
+    List<Field> assistedFields = new ArrayList<Field>();
     for (Class<?> c = type; c != Object.class; c = c.getSuperclass()) {
       for (Field field : c.getDeclaredFields()) {
         if (!field.isAnnotationPresent(Inject.class) || Modifier.isStatic(field.getModifiers())) {
           continue;
         }
         field.setAccessible(true);
-        injectedFields.add(field);
-        keys.add(Keys.get(field.getGenericType(), field.getAnnotations(), field));
+        String key = Keys.get(field.getGenericType(), field.getAnnotations(), field);
+        if (Keys.isAssisted(key)) {
+          assistedFields.add(field);
+          assistedKeys.add(key);
+        } else {
+          injectedFields.add(field);
+          keys.add(key);
+        }
       }
     }
 
@@ -188,15 +237,23 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
 
     int parameterCount;
     String provideKey;
+    List<Integer> assistedParamIndexes = new ArrayList<Integer>();
     if (injectedConstructor != null) {
       provideKey = Keys.get(type);
       injectedConstructor.setAccessible(true);
       Type[] types = injectedConstructor.getGenericParameterTypes();
-      parameterCount = types.length;
-      if (parameterCount != 0) {
+      parameterCount = 0;
+      if (types.length != 0) {
         Annotation[][] annotations = injectedConstructor.getParameterAnnotations();
         for (int p = 0; p < types.length; p++) {
-          keys.add(Keys.get(types[p], annotations[p], injectedConstructor));
+          String key = Keys.get(types[p], annotations[p], injectedConstructor);
+          if (Keys.isAssisted(key)) {
+            assistedKeys.add(key);
+            assistedParamIndexes.add(p);
+          } else {
+            parameterCount++;
+            keys.add(key);
+          }
         }
       }
     } else {
@@ -220,7 +277,10 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     String membersKey = Keys.getMembersKey(type);
     return new ReflectiveAtInjectBinding<T>(provideKey, membersKey, singleton, type,
         injectedFields.toArray(new Field[injectedFields.size()]), injectedConstructor,
-        parameterCount, supertype, keys.toArray(new String[keys.size()]));
+        parameterCount, supertype, keys.toArray(new String[keys.size()]),
+        assistedFields.toArray(new Field[assistedFields.size()]),
+        assistedParamIndexes.toArray(new Integer[assistedParamIndexes.size()]),
+        assistedKeys.toArray(new String[assistedKeys.size()]));
   }
 
   @SuppressWarnings("unchecked") // Class.getDeclaredConstructors is an unsafe API.

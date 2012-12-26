@@ -41,6 +41,9 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
   /** Set if {@link ProblemDetector} has confirmed this binding has no circular dependencies. */
   private static final int CYCLE_FREE = 1 << 3;
 
+
+  private static final int ASSISTED = 1 << 4;
+
   /** The key used to provide instances of 'T', or null if this binding cannot provide instances. */
   public final String provideKey;
 
@@ -76,6 +79,13 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
     throw new UnsupportedOperationException(getClass().getName());
   }
 
+  public void injectAssistedMembers(T t, Object[] args) {
+  }
+
+  public T get(Object[] args) {
+    return get();
+  }
+
   /**
    * Populates {@code getBindings} and {@code injectMembersBindings} with the
    * bindings used by this binding to satisfy {@link #get} and {@link
@@ -89,6 +99,9 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
    */
   public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
     throw new UnsupportedOperationException(getClass().getName());
+  }
+
+  public void getAssistedDependencies(Set<String> assistedBindings) {
   }
 
   void setLinked() {
