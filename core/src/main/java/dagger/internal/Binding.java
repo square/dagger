@@ -101,7 +101,11 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
     throw new UnsupportedOperationException(getClass().getName());
   }
 
-  public void getAssistedDependencies(Set<String> assistedBindings) {
+  public void getAssistedDependencies(Set<String> assistedKeys) {
+  }
+
+  public int assistedParamsSize() {
+    throw new UnsupportedOperationException(getClass().getName());
   }
 
   void setLinked() {

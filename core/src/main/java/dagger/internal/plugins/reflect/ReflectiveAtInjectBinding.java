@@ -105,16 +105,14 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
       throw new UnsupportedOperationException();
     }
     Object[] args = new Object[parameterBindings.length + assistedParamIndexes.length];
-    int argsOffset = assistedFields.length;
     int bindingIndex = 0;
-    int assistedIndex = 0;
+    int assistedIndex = assistedFields.length;
     for (int i = 0; i < args.length; i++) {
-      if (assistedParamIndexes.length > 0 && assistedParamIndexes[assistedIndex] == i) {
-        args[i] = assistedArgs[argsOffset + assistedIndex];
-        assistedIndex++;
+      if (assistedIndex < assistedParamIndexes.length
+          && assistedParamIndexes[assistedIndex] == i) {
+        args[i] = assistedArgs[assistedIndex++];
       } else {
-        args[i] = parameterBindings[bindingIndex].get();
-        bindingIndex++;
+        args[i] = parameterBindings[bindingIndex++].get();
       }
     }
     T result;
@@ -147,8 +145,13 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
   }
 
   @Override
-  public void getAssistedDependencies(Set<String> assistedBindings) {
-    Collections.addAll(assistedBindings, assistedKeys);
+  public void getAssistedDependencies(Set<String> assistedKeys) {
+    Collections.addAll(assistedKeys, this.assistedKeys);
+  }
+
+  @Override
+  public int assistedParamsSize() {
+    return assistedKeys.length;
   }
 
   @Override public void injectMembers(T t) {

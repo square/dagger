@@ -9,7 +9,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
-import java.util.Collection;
+import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +45,9 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
   @Override
   public void attach(Linker linker) {
     targetBinding = linker.requestBinding(targetKey, moduleMethod);
+    if (factoryMethod == null && targetBinding != null) {
+      findFactoryMethod();
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -126,7 +129,7 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
     return provideKey != null ? provideKey : membersKey;
   }
 
-  private class IndexedSet<T> implements Set<T> {
+  private class IndexedSet<T> extends AbstractSet<T> implements Set<T> {
 
     private final Map<T, Integer> map = new UniqueMap<T, Integer>();
 
@@ -134,10 +137,6 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
 
     @Override public int size() {
       return map.size();
-    }
-
-    @Override public boolean isEmpty() {
-      return map.isEmpty();
     }
 
     @Override public boolean contains(Object o) {
@@ -148,31 +147,8 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
       return map.keySet().iterator();
     }
 
-    @Override public Object[] toArray() {
-      return map.keySet().toArray();
-    }
-
-    @Override public <T1 extends Object> T1[] toArray(T1[] a) {
-      return map.keySet().toArray(a);
-    }
-
     @Override public boolean add(T t) {
       map.put(t, counter++);
-      return true;
-    }
-
-    @Override public boolean remove(Object o) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override public boolean containsAll(Collection<?> c) {
-      return map.keySet().containsAll(c);
-    }
-
-    @Override public boolean addAll(Collection<? extends T> c) {
-      for (T t : c) {
-        map.put(t, counter++);
-      }
       return true;
     }
 
@@ -182,18 +158,6 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
         return -1;
       }
       return index;
-    }
-
-    @Override public boolean retainAll(Collection<?> c) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override public boolean removeAll(Collection<?> c) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override public void clear() {
-      throw new UnsupportedOperationException();
     }
   }
 
