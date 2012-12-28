@@ -197,6 +197,12 @@ public final class InjectProcessor extends AbstractProcessor {
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
+    Integer extendedParamCount = 0;
+    if (supertype != null) {
+      TypeElement superclassElement = AssistedUtils.mirrorToElement(supertype);
+      extendedParamCount = AssistedUtils.getAssistedFields(superclassElement).size();
+    }
+
     writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
     writer.addImport(Binding.class);
     writer.addImport(Linker.class);
@@ -280,12 +286,15 @@ public final class InjectProcessor extends AbstractProcessor {
     }
     writer.endMethod();
 
-    boolean hasAssisted = assistedFields.size() + assistedParams.size() > 0;
+    boolean hasAssisted = (assistedFields.size() + assistedParams.size()
+        + extendedParamCount) > 0;
 
     writeInjectMethods(writer, typeName, supertype, constructor, fields, hasAssisted);
 
-    writeAssistedInjectMethods(writer, typeName, supertype, constructor,
-        assistedFields, assistedParams, hasAssisted);
+    if (hasAssisted) {
+      writeAssistedInjectMethods(writer, typeName, supertype, constructor,
+          assistedFields, assistedParams, extendedParamCount);
+    }
 
     writer.annotation(Override.class);
     String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
@@ -363,14 +372,14 @@ public final class InjectProcessor extends AbstractProcessor {
   private void writeAssistedInjectMethods(JavaWriter writer, String typeName,
       TypeMirror supertype, ExecutableElement constructor,
       List<VariableElement> assistedFields, List<VariableElement> assistedParams,
-      boolean hasAssisted) throws IOException {
+      int extendedParamCount) throws IOException {
 
-    if (constructor != null && (supertype != null || hasAssisted)) {
+    if (constructor != null) {
       writer.annotation(Override.class);
       writer.beginMethod(typeName, "get", PUBLIC, "Object[]", "args");
       StringBuilder newInstance = new StringBuilder();
       newInstance.append(typeName).append(" result = new ").append(typeName).append('(');
-      int argIndex = assistedFields.size();
+      int argIndex = assistedFields.size() + extendedParamCount;
       for (int p = 0; p < constructor.getParameters().size(); p++) {
         if (p != 0) {
           newInstance.append(", ");
@@ -379,11 +388,7 @@ public final class InjectProcessor extends AbstractProcessor {
           newInstance.append("(");
           newInstance.append(CodeGen.typeToString(assistedParams.get(p).asType()));
           newInstance.append(") ");
-          if (supertype != null) {
-            newInstance.append("args[supertype.assistedParamsSize() + ");
-          } else {
-            newInstance.append("args[");
-          }
+          newInstance.append("args[");
           newInstance.append(argIndex++);
           newInstance.append("]");
         } else {
@@ -404,12 +409,12 @@ public final class InjectProcessor extends AbstractProcessor {
           "Object[]", "args");
       for (int f = 0; f < assistedFields.size(); f++) {
         if (supertype != null) {
-          writer.statement("object.%s = args[supertype.assistedParamsSize() + %d]",
-              assistedFields.get(f).getSimpleName().toString(), f);
+          writer.statement("object.%s = args[%d]",
+              assistedFields.get(f).getSimpleName().toString(), extendedParamCount + f);
         } else {
           writer.statement("object.%s = (%s) args[%d]",
               assistedFields.get(f).getSimpleName().toString(),
-              CodeGen.typeToString(assistedFields.get(f).asType()), f);
+              CodeGen.typeToString(assistedFields.get(f).asType()), extendedParamCount + f);
         }
       }
       if (supertype != null) {

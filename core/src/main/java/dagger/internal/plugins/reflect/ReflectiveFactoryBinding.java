@@ -53,7 +53,6 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
   @SuppressWarnings("unchecked")
   @Override
   public T get() {
-    findFactoryMethod();
     return (T) Proxy.newProxyInstance(ReflectiveFactoryBinding.class.getClassLoader(),
         new Class[]{factory}, new FactoryInvocationHandler());
   }
@@ -129,7 +128,7 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
     return provideKey != null ? provideKey : membersKey;
   }
 
-  private class IndexedSet<T> extends AbstractSet<T> implements Set<T> {
+  private class IndexedSet<T> extends AbstractSet<T> {
 
     private final Map<T, Integer> map = new UniqueMap<T, Integer>();
 
