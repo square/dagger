@@ -408,14 +408,9 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.beginMethod("void", "injectAssistedMembers", PUBLIC, typeName, "object",
           "Object[]", "args");
       for (int f = 0; f < assistedFields.size(); f++) {
-        if (supertype != null) {
-          writer.statement("object.%s = args[%d]",
-              assistedFields.get(f).getSimpleName().toString(), extendedParamCount + f);
-        } else {
-          writer.statement("object.%s = (%s) args[%d]",
-              assistedFields.get(f).getSimpleName().toString(),
-              CodeGen.typeToString(assistedFields.get(f).asType()), extendedParamCount + f);
-        }
+        writer.statement("object.%s = (%s) args[%d]",
+            assistedFields.get(f).getSimpleName().toString(),
+            CodeGen.typeToString(assistedFields.get(f).asType()), extendedParamCount + f);
       }
       if (supertype != null) {
         writer.statement("supertype.injectAssistedMembers(object, args)");

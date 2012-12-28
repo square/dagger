@@ -1,17 +1,15 @@
 package dagger.internal.plugins.reflect;
 
 import dagger.internal.Binding;
+import dagger.internal.IndexedSet;
 import dagger.internal.Keys;
 import dagger.internal.Linker;
-import dagger.internal.UniqueMap;
+
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
-import java.util.AbstractSet;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -127,37 +125,4 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
   public String toString() {
     return provideKey != null ? provideKey : membersKey;
   }
-
-  private class IndexedSet<T> extends AbstractSet<T> {
-
-    private final Map<T, Integer> map = new UniqueMap<T, Integer>();
-
-    private int counter = 0;
-
-    @Override public int size() {
-      return map.size();
-    }
-
-    @Override public boolean contains(Object o) {
-      return map.containsKey(o);
-    }
-
-    @Override public Iterator<T> iterator() {
-      return map.keySet().iterator();
-    }
-
-    @Override public boolean add(T t) {
-      map.put(t, counter++);
-      return true;
-    }
-
-    public int getIndexOf(T t) {
-      Integer index = map.get(t);
-      if (index == null) {
-        return -1;
-      }
-      return index;
-    }
-  }
-
 }
