@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import dagger.Assisted;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +50,17 @@ final class GeneratorKeys {
     StringBuilder result = new StringBuilder();
     CodeGen.typeToString(type, result, '$');
     return result.toString();
+  }
+
+  public static String getWithDefaultAssisted(TypeMirror type) {
+    StringBuilder result = new StringBuilder();
+    result.append("@").append(Assisted.class.getCanonicalName()).append("()/");
+    CodeGen.typeToString(type, result, '$');
+    return result.toString();
+  }
+
+  public static boolean isAssisted(String key) {
+    return key.startsWith("@" + Assisted.class.getCanonicalName());
   }
 
   /** Returns the provided key for {@code method}. */

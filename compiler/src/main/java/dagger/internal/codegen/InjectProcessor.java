@@ -319,12 +319,8 @@ public final class InjectProcessor extends AbstractProcessor {
 
     writer.annotation(Override.class);
     writer.beginMethod("int", "assistedParamsSize", PUBLIC);
-    if (supertype != null) {
-      writer.statement("return supertype.assistedParamsSize() + %d",
-          assistedFields.size() + assistedParams.size());
-    } else {
-      writer.statement("return %d", assistedFields.size() + assistedParams.size());
-    }
+    writer.statement("return %d", assistedFields.size() + assistedParams.size()
+        + extendedParamCount);
     writer.endMethod();
 
     writer.endType();

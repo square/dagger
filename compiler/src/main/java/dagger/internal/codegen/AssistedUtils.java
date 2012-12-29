@@ -6,6 +6,8 @@ import dagger.internal.IndexedSet;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.inject.Inject;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -17,6 +19,7 @@ import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created with IntelliJ IDEA.
@@ -33,17 +36,38 @@ public final class AssistedUtils {
     return elements;
   }
 
+  private static TypeMirror extractFactoryType(ExecutableElement provideMethod) {
+    for (AnnotationMirror annotation : provideMethod.getAnnotationMirrors()) {
+      if (!annotation.getAnnotationType().toString().equals(Factory.class.getName())) {
+        continue;
+      }
+
+      for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e
+          : annotation.getElementValues().entrySet()) {
+        if ("value".equals(e.getKey().getSimpleName().toString())) {
+          return (TypeMirror) e.getValue().getValue();
+        }
+      }
+    }
+    throw new AssertionError("Not found @Factory annotation.");
+  }
+
   public static FactoryMethod findFactoryMethod(ProcessingEnvironment env,
-      ExecutableElement provideMethod, Factory factoryAnnotation) {
-    TypeElement factory =
-        env.getElementUtils().getTypeElement(factoryAnnotation.value().getCanonicalName());
+      ExecutableElement provideMethod) {
+
+    TypeElement factory = mirrorToElement(extractFactoryType(provideMethod));
 
     TypeMirror returnType = provideMethod.getReturnType();
 
     List<? extends VariableElement> params = provideMethod.getParameters();
     if (params.size() != 1) {
       throw new AssertionError("@Factory method " + provideMethod
-          + " must have only one parameter");
+          + " must have only one parameter.");
+    }
+
+    if (!env.getTypeUtils().isAssignable(params.get(0).asType(), returnType)) {
+      throw new AssertionError("@Factory method " + provideMethod
+          + " must have parameter which assignable to return type.");
     }
 
     TypeElement type = mirrorToElement(params.get(0).asType());
@@ -53,7 +77,6 @@ public final class AssistedUtils {
 
   public static FactoryMethod findFactoryMethod(TypeElement factory, TypeElement type,
       TypeMirror returnType) {
-    String returnTypeKey = GeneratorKeys.get(returnType);
     List<VariableElement> parameters = getAllAssistedParams(type);
     IndexedSet<String> keys = new IndexedSet<String>();
 
@@ -69,15 +92,18 @@ public final class AssistedUtils {
 
       ExecutableElement method = (ExecutableElement) element;
       List<? extends VariableElement> methodParameters = method.getParameters();
-      String key = GeneratorKeys.get(method);
       if (methodParameters.size() != parameters.size()
-          && !returnTypeKey.equals(key)) {
+          && !returnType.equals(method.getReturnType())) {
         continue;
       }
 
       List<Integer> transposition = new ArrayList<Integer>();
       for (VariableElement param : methodParameters) {
-        int index = keys.getIndexOf(GeneratorKeys.get(param));
+        String paramKey = GeneratorKeys.get(param);
+        if (!GeneratorKeys.isAssisted(paramKey)) {
+          paramKey = GeneratorKeys.getWithDefaultAssisted(param.asType());
+        }
+        int index = keys.getIndexOf(paramKey);
         if (index == -1) {
           continue findMethod;
         }
