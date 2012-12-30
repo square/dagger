@@ -28,6 +28,9 @@ import java.util.Map;
  * Time: 10:38
  */
 public final class AssistedUtils {
+  private AssistedUtils() {
+  }
+
   public static List<VariableElement> getAssistedFields(TypeElement type) {
     List<VariableElement> elements = new ArrayList<VariableElement>();
 
@@ -36,7 +39,7 @@ public final class AssistedUtils {
     return elements;
   }
 
-  private static TypeMirror extractFactoryType(ExecutableElement provideMethod) {
+  public static TypeMirror extractFactoryType(ExecutableElement provideMethod) {
     for (AnnotationMirror annotation : provideMethod.getAnnotationMirrors()) {
       if (!annotation.getAnnotationType().toString().equals(Factory.class.getName())) {
         continue;
@@ -50,6 +53,20 @@ public final class AssistedUtils {
       }
     }
     throw new AssertionError("Not found @Factory annotation.");
+  }
+
+  public static String factoryKey(ExecutableElement provideMethod) {
+    TypeMirror factoryType = extractFactoryType(provideMethod);
+    return GeneratorKeys.get(factoryType, provideMethod);
+  }
+
+  public static boolean isFactoryProvider(ExecutableElement provideMethod) {
+    for(AnnotationMirror annotation : provideMethod.getAnnotationMirrors()) {
+      if (annotation.getAnnotationType().toString().equals(Factory.class.getName())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static FactoryMethod findFactoryMethod(ProcessingEnvironment env,
@@ -115,37 +132,6 @@ public final class AssistedUtils {
     }
     throw new AssertionError("Not found factory method for " + returnType.toString()
         + " in " + factory.getQualifiedName().toString());
-  }
-
-  public static class FactoryMethod {
-    private final ExecutableElement method;
-    private final List<Integer> transposition;
-    private final TypeElement type;
-    private final TypeElement factory;
-
-    public FactoryMethod(ExecutableElement method, List<Integer> transposition,
-        TypeElement type, TypeElement factory) {
-      this.method = method;
-      this.transposition = transposition;
-      this.type = type;
-      this.factory = factory;
-    }
-
-    public List<Integer> getTransposition() {
-      return transposition;
-    }
-
-    public ExecutableElement getMethod() {
-      return method;
-    }
-
-    public TypeElement getType() {
-      return type;
-    }
-
-    public TypeElement getFactory() {
-      return factory;
-    }
   }
 
   public static List<VariableElement> getAllAssistedParams(TypeElement type) {
