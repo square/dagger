@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,8 +89,8 @@ public final class ModuleGenerator {
     String className = moduleName.contains(".")
         ? moduleName
         : packageName + "." + moduleName;
-    out.addPackage(packageName);
-    out.addImport(Module.class);
+    out.emitPackage(packageName);
+    out.emitImports(Arrays.asList(Module.class.getName()));
 
     List<String> classLiterals = namesToClassLiterals(nameReferences);
     Collections.sort(classLiterals);
@@ -97,7 +98,7 @@ public final class ModuleGenerator {
     attributes.put("entryPoints", classLiterals.toArray());
     attributes.put("complete", "false");
 
-    out.annotation(Module.class, attributes);
+    out.emitAnnotation(Module.class, attributes);
     out.beginType(className, "class", Modifier.PUBLIC | Modifier.FINAL);
     out.endType();
   }
