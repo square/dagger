@@ -129,7 +129,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
-      List<ExecutableElement> methods = result.get(type);
+      List<ExecutableElement> methods = result.get(type.toString());
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
         result.put(type.toString(), methods);
