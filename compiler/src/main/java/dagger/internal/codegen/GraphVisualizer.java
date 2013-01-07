@@ -53,6 +53,9 @@ public final class GraphVisualizer {
       sourceBinding.getDependencies(dependencies, dependencies);
       for (Binding<?> targetBinding : dependencies) {
         String targetName = namesIndex.get(targetBinding);
+        if (targetName == null) {
+          targetName = "Unbound:" + targetBinding.provideKey;
+        }
         writer.edge(sourceName, targetName);
       }
     }
