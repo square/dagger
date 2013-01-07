@@ -15,12 +15,10 @@
  */
 package dagger.internal.codegen;
 
-import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PUBLIC;
 
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.StaticInjection;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,7 +26,6 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -47,9 +44,11 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.StaticInjection;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PUBLIC;
 
 /**
  * Generates an implementation of {@link Binding} that injects the
@@ -171,7 +170,12 @@ public final class InjectProcessor extends AbstractProcessor {
       }
       ExecutableElement constructor = (ExecutableElement) element;
       if (constructor.getParameters().isEmpty()) {
-        return constructor;
+        Set<Modifier> modifiers = constructor.getModifiers();
+        if (modifiers.contains(Modifier.PRIVATE) || modifiers.contains(Modifier.PROTECTED)) {
+          return null;
+        } else {
+          return constructor;
+        }
       }
     }
     return null;
