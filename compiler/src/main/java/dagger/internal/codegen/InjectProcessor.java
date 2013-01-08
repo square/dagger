@@ -170,8 +170,7 @@ public final class InjectProcessor extends AbstractProcessor {
       }
       ExecutableElement constructor = (ExecutableElement) element;
       if (constructor.getParameters().isEmpty()) {
-        Set<Modifier> modifiers = constructor.getModifiers();
-        if (modifiers.contains(Modifier.PRIVATE) || modifiers.contains(Modifier.PROTECTED)) {
+        if (constructor.getModifiers().contains(Modifier.PRIVATE)) {
           return null;
         } else {
           return constructor;
