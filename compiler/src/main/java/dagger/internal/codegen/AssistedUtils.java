@@ -61,7 +61,7 @@ public final class AssistedUtils {
   }
 
   public static boolean isFactoryProvider(ExecutableElement provideMethod) {
-    for(AnnotationMirror annotation : provideMethod.getAnnotationMirrors()) {
+    for (AnnotationMirror annotation : provideMethod.getAnnotationMirrors()) {
       if (annotation.getAnnotationType().toString().equals(Factory.class.getName())) {
         return true;
       }

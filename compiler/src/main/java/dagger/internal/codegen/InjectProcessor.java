@@ -408,7 +408,7 @@ public final class InjectProcessor extends AbstractProcessor {
             assistedFields.get(f).getSimpleName().toString(),
             CodeGen.typeToString(assistedFields.get(f).asType()), extendedParamCount + f);
       }
-      if (supertype != null) {
+      if (extendedParamCount > 0) {
         writer.statement("supertype.injectAssistedMembers(object, args)");
       }
       writer.endMethod();

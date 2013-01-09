@@ -15,6 +15,9 @@
  */
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.AssistedUtils.isFactoryProvider;
+import static dagger.internal.codegen.AssistedUtils.factoryKey;
+import static dagger.internal.codegen.AssistedUtils.findFactoryMethod;
 import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
@@ -225,6 +228,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
     Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
     for (ExecutableElement providerMethod : providerMethods) {
       Provides provides = providerMethod.getAnnotation(Provides.class);
+      if (isFactoryProvider(providerMethod)) {
+        String key = factoryKey(providerMethod);
+        writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+            bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+        continue;
+      }
       switch (provides.type()) {
         case UNIQUE: {
           String key = GeneratorKeys.get(providerMethod);
@@ -292,7 +301,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
     String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
-    String returnType = CodeGen.typeToString(providerMethod.getReturnType());
+    boolean isFactoryProvider = isFactoryProvider(providerMethod);
+    String returnType;
+    FactoryMethod factoryMethod = null;
+    if (isFactoryProvider) {
+      factoryMethod = findFactoryMethod(processingEnv, providerMethod);
+      returnType = CodeGen.typeToString(factoryMethod.getFactory().asType());
+    } else {
+      returnType = CodeGen.typeToString(providerMethod.getReturnType());
+    }
 
     writer.beginType(className, "class", PRIVATE | STATIC,
         CodeGen.parameterizedType(Binding.class, returnType));
@@ -305,7 +322,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
 
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
-    boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
+    boolean singleton = providerMethod.getAnnotation(Singleton.class) != null
+        || isFactoryProvider;
     String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
     String membersKey = null;
     writer.statement("super(%s, %s, %s /*singleton*/, %s.class)",
@@ -325,16 +343,57 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
     writer.endMethod();
 
+    if (isFactoryProvider) {
+      String factoryImpl = factoryName(factoryMethod.getFactory());
+
+      writer.beginType(factoryImpl, "class", PRIVATE, null,
+          CodeGen.typeToString(factoryMethod.getFactory().asType()));
+
+      List<String> params = new ArrayList<String>();
+      List<? extends VariableElement> factoryMethodParams =
+          factoryMethod.getMethod().getParameters();
+      for (int i = 0; i < factoryMethodParams.size(); i++)  {
+        params.add(CodeGen.typeToString(factoryMethodParams.get(i).asType()));
+        params.add(assistedParameterName(i));
+      }
+
+      writer.annotation(Override.class);
+      writer.beginMethod(CodeGen.typeToString(providerMethod.getReturnType()),
+          factoryMethod.getMethod().getSimpleName().toString(), PUBLIC,
+          params.toArray(new String[params.size()]));
+      StringBuilder statement = new StringBuilder();
+      statement.append("return ");
+      statement.append(parameterName(0));
+      statement.append(".get(new Object[] { ");
+      for (int i = 0; i < factoryMethod.getTransposition().size(); i++) {
+        if (i != 0) {
+          statement.append(", ");
+        }
+        int parameterIndex = factoryMethod.getTransposition().get(i);
+        statement.append(assistedParameterName(parameterIndex));
+      }
+      statement.append(" })");
+      writer.statement(statement.toString());
+      writer.endMethod();
+
+      writer.endType();
+    }
+
     writer.annotation(Override.class);
     writer.beginMethod(returnType, "get", PUBLIC);
-    StringBuilder args = new StringBuilder();
-    for (int p = 0; p < parameters.size(); p++) {
-      if (p != 0) {
-        args.append(", ");
+    if (isFactoryProvider) {
+      writer.statement("return new %s.%s()", className,
+          factoryName(factoryMethod.getFactory()));
+    } else {
+      StringBuilder args = new StringBuilder();
+      for (int p = 0; p < parameters.size(); p++) {
+        if (p != 0) {
+          args.append(", ");
+        }
+        args.append(String.format("%s.get()", parameterName(p)));
       }
-      args.append(String.format("%s.get()", parameterName(p)));
+      writer.statement("return module.%s(%s)", methodName, args.toString());
     }
-    writer.statement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
 
     writer.annotation(Override.class);
@@ -342,7 +401,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
         setOfBindings, "injectMembersBindings");
     for (int p = 0; p < parameters.size(); p++) {
-      writer.statement("getBindings.add(%s)", parameterName(p));
+      if (!isFactoryProvider) {
+        writer.statement("getBindings.add(%s)", parameterName(p));
+      } else {
+        writer.statement("injectMembersBindings.add(%s)", parameterName(p));
+      }
     }
     writer.endMethod();
 
@@ -351,5 +414,13 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
   private String parameterName(int index) {
     return "p" + index;
+  }
+
+  private String assistedParameterName(int index) {
+    return "a" + index;
+  }
+
+  private String factoryName(TypeElement factory) {
+    return factory.getSimpleName().toString() + "Impl";
   }
 }
