@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import dagger.Assisted;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
 import java.util.ArrayList;
@@ -109,7 +110,8 @@ final class AtInjectBinding extends Binding<Object> {
   }
 
   private static boolean hasAtInject(Element enclosed) {
-    return enclosed.getAnnotation(Inject.class) != null;
+    return enclosed.getAnnotation(Inject.class) != null
+        && enclosed.getAnnotation(Assisted.class) == null;
   }
 
   @Override public void attach(Linker linker) {
