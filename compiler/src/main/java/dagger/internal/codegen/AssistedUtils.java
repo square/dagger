@@ -70,20 +70,24 @@ public final class AssistedUtils {
   }
 
   public static FactoryMethod findFactoryMethod(ProcessingEnvironment env,
-      ExecutableElement provideMethod) {
+      ExecutableElement providerMethod) {
 
-    TypeElement factory = mirrorToElement(extractFactoryType(provideMethod));
+    TypeElement factory = mirrorToElement(extractFactoryType(providerMethod));
 
-    TypeMirror returnType = provideMethod.getReturnType();
+    if (factory.getKind() != ElementKind.INTERFACE) {
+      throw new AssertionError("Factory must be an interface.");
+    }
 
-    List<? extends VariableElement> params = provideMethod.getParameters();
+    TypeMirror returnType = providerMethod.getReturnType();
+
+    List<? extends VariableElement> params = providerMethod.getParameters();
     if (params.size() != 1) {
-      throw new AssertionError("@Factory method " + provideMethod
+      throw new AssertionError("@Factory method " + providerMethod
           + " must have only one parameter.");
     }
 
     if (!env.getTypeUtils().isAssignable(params.get(0).asType(), returnType)) {
-      throw new AssertionError("@Factory method " + provideMethod
+      throw new AssertionError("@Factory method " + providerMethod
           + " must have parameter which assignable to return type.");
     }
 
@@ -101,10 +105,18 @@ public final class AssistedUtils {
       keys.add(GeneratorKeys.get(param));
     }
 
+    FactoryMethod factoryMethod = null;
+    int methodCount = 0;
+
     findMethod:
     for (Element element : factory.getEnclosedElements()) {
       if (element.getKind() != ElementKind.METHOD) {
         continue;
+      }
+
+      methodCount++;
+      if (methodCount > 1) {
+        throw new AssertionError("Factory interface must have only one method.");
       }
 
       ExecutableElement method = (ExecutableElement) element;
@@ -128,7 +140,10 @@ public final class AssistedUtils {
         transposition.add(index);
       }
 
-      return new FactoryMethod(method, transposition, type, factory);
+      factoryMethod = new FactoryMethod(method, transposition, type, factory);
+    }
+    if (factoryMethod != null) {
+      return factoryMethod;
     }
     throw new AssertionError("Not found factory method for " + returnType.toString()
         + " in " + factory.getQualifiedName().toString());
