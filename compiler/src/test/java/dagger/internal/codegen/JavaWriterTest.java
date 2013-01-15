@@ -15,21 +15,25 @@
  */
 package dagger.internal.codegen;
 
+import dagger.internal.Binding;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 
+import static dagger.internal.codegen.CodeGen.setOf;
 import static org.fest.assertions.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 
 public final class JavaWriterTest {
   private final StringWriter stringWriter = new StringWriter();
   private final JavaWriter javaWriter = new JavaWriter(stringWriter);
 
   @Test public void typeDeclaration() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", Modifier.PUBLIC | Modifier.FINAL);
     javaWriter.endType();
     assertCode(""
@@ -39,9 +43,9 @@ public final class JavaWriterTest {
   }
 
   @Test public void fieldDeclaration() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
-    javaWriter.field("java.lang.String", "string", Modifier.PRIVATE | Modifier.STATIC);
+    javaWriter.emitField("java.lang.String", "string", Modifier.PRIVATE | Modifier.STATIC);
     javaWriter.endType();
     assertCode(""
         + "package com.squareup;\n"
@@ -51,7 +55,7 @@ public final class JavaWriterTest {
   }
 
   @Test public void fieldDeclarationWithInitialValue() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.field("java.lang.String", "string", 0, "\"bar\" + \"baz\"");
     javaWriter.endType();
@@ -63,7 +67,7 @@ public final class JavaWriterTest {
   }
 
   @Test public void abstractMethodDeclaration() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("java.lang.String", "foo", Modifier.ABSTRACT | Modifier.PUBLIC,
         "java.lang.Object", "object", "java.lang.String", "s");
@@ -77,7 +81,7 @@ public final class JavaWriterTest {
   }
 
   @Test public void nonAbstractMethodDeclaration() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.endMethod();
@@ -91,7 +95,7 @@ public final class JavaWriterTest {
   }
 
   @Test public void constructorDeclaration() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod(null, "com.squareup.Foo", Modifier.PUBLIC, "java.lang.String", "s");
     javaWriter.endMethod();
@@ -105,10 +109,10 @@ public final class JavaWriterTest {
   }
 
   @Test public void statement() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
-    javaWriter.statement("int j = s.length() + %s", 13);
+    javaWriter.emitStatement("int j = s.length() + %s", 13);
     javaWriter.endMethod();
     javaWriter.endType();
     assertCode(""
@@ -121,23 +125,24 @@ public final class JavaWriterTest {
   }
 
   @Test public void addImport() throws IOException {
-    javaWriter.addPackage("com.squareup");
-    javaWriter.addImport("java.util.ArrayList");
+    javaWriter.emitPackage("com.squareup");
+    javaWriter.emitImports(setOf("java.util.ArrayList"));
     javaWriter.beginType("com.squareup.Foo", "class", Modifier.PUBLIC | Modifier.FINAL);
     javaWriter.field("java.util.ArrayList", "list", 0, "new java.util.ArrayList()");
     javaWriter.endType();
     assertCode(""
         + "package com.squareup;\n"
         + "import java.util.ArrayList;\n"
+        + "\n"
         + "public final class Foo {\n"
         + "  ArrayList list = new java.util.ArrayList();\n"
         + "}\n");
   }
 
   @Test public void addImportFromSubpackage() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", Modifier.PUBLIC | Modifier.FINAL);
-    javaWriter.field("com.squareup.bar.Baz", "baz", 0);
+    javaWriter.emitField("com.squareup.bar.Baz", "baz", 0);
     javaWriter.endType();
     assertCode(""
         + "package com.squareup;\n"
@@ -147,11 +152,11 @@ public final class JavaWriterTest {
   }
 
   @Test public void ifControlFlow() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.beginControlFlow("if (s.isEmpty())");
-    javaWriter.statement("int j = s.length() + %s", 13);
+    javaWriter.emitStatement("int j = s.length() + %s", 13);
     javaWriter.endControlFlow();
     javaWriter.endMethod();
     javaWriter.endType();
@@ -167,11 +172,11 @@ public final class JavaWriterTest {
   }
 
   @Test public void doWhileControlFlow() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.beginControlFlow("do");
-    javaWriter.statement("int j = s.length() + %s", 13);
+    javaWriter.emitStatement("int j = s.length() + %s", 13);
     javaWriter.endControlFlow("while (s.isEmpty())");
     javaWriter.endMethod();
     javaWriter.endType();
@@ -187,15 +192,15 @@ public final class JavaWriterTest {
   }
 
   @Test public void tryCatchFinallyControlFlow() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.beginMethod("int", "foo", 0, "java.lang.String", "s");
     javaWriter.beginControlFlow("try");
-    javaWriter.statement("int j = s.length() + %s", 13);
+    javaWriter.emitStatement("int j = s.length() + %s", 13);
     javaWriter.nextControlFlow("catch (RuntimeException e)");
-    javaWriter.statement("e.printStackTrace()");
+    javaWriter.emitStatement("e.printStackTrace()");
     javaWriter.nextControlFlow("finally");
-    javaWriter.statement("int k = %s", 13);
+    javaWriter.emitStatement("int k = %s", 13);
     javaWriter.endControlFlow();
     javaWriter.endMethod();
     javaWriter.endType();
@@ -215,24 +220,25 @@ public final class JavaWriterTest {
   }
 
   @Test public void annotatedType() throws IOException {
-    javaWriter.addPackage("com.squareup");
-    javaWriter.addImport("javax.inject.Singleton");
-    javaWriter.annotation("javax.inject.Singleton");
+    javaWriter.emitPackage("com.squareup");
+    javaWriter.emitImports(setOf("javax.inject.Singleton"));
+    javaWriter.emitAnnotation("javax.inject.Singleton");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.endType();
     assertCode(""
         + "package com.squareup;\n"
         + "import javax.inject.Singleton;\n"
+        + "\n"
         + "@Singleton\n"
         + "class Foo {\n"
         + "}\n");
   }
 
   @Test public void annotatedMember() throws IOException {
-    javaWriter.addPackage("com.squareup");
+    javaWriter.emitPackage("com.squareup");
     javaWriter.beginType("com.squareup.Foo", "class", 0);
-    javaWriter.annotation(Deprecated.class);
-    javaWriter.field("java.lang.String", "s", 0);
+    javaWriter.emitAnnotation(Deprecated.class);
+    javaWriter.emitField("java.lang.String", "s", 0);
     javaWriter.endType();
     assertCode(""
         + "package com.squareup;\n"
@@ -248,8 +254,8 @@ public final class JavaWriterTest {
     attributes.put("entryPoints", new Object[] { "entryPointA", "entryPointB", "entryPointC" });
     attributes.put("staticInjections", "com.squareup.Quux");
 
-    javaWriter.addPackage("com.squareup");
-    javaWriter.annotation("Module", attributes);
+    javaWriter.emitPackage("com.squareup");
+    javaWriter.emitAnnotation("Module", attributes);
     javaWriter.beginType("com.squareup.FooModule", "class", 0);
     javaWriter.endType();
     assertCode(""
@@ -268,19 +274,43 @@ public final class JavaWriterTest {
   }
 
   @Test public void parameterizedType() throws IOException {
-    javaWriter.addPackage("com.squareup");
-    javaWriter.addImport("java.util.Map");
-    javaWriter.addImport("java.util.Date");
+    javaWriter.emitPackage("com.squareup");
+    javaWriter.emitImports(setOf("java.util.Map", "java.util.Date"));
     javaWriter.beginType("com.squareup.Foo", "class", 0);
-    javaWriter.field("java.util.Map<java.lang.String, java.util.Date>", "map", 0);
+    javaWriter.emitField("java.util.Map<java.lang.String, java.util.Date>", "map", 0);
     javaWriter.endType();
     assertCode(""
         + "package com.squareup;\n"
-        + "import java.util.Map;\n"
         + "import java.util.Date;\n"
+        + "import java.util.Map;\n"
+        + "\n"
         + "class Foo {\n"
         + "  Map<String, Date> map;\n"
         + "}\n");
+  }
+
+  @Test public void eolComment() throws IOException {
+    javaWriter.emitEndOfLineComment("foo");
+    assertCode(""
+        + "// foo\n");
+  }
+
+  @Test public void javadoc() throws IOException {
+    javaWriter.emitJavadoc("foo");
+    assertCode(""
+        + "/**\n"
+        + " * foo\n"
+        + " */\n");
+  }
+
+  @Test public void multilineJavadoc() throws IOException {
+    javaWriter.emitJavadoc("0123456789 0123456789 0123456789 0123456789 0123456789 0123456789\n"
+        + "0123456789 0123456789 0123456789 0123456789");
+    assertCode(""
+        + "/**\n"
+        + " * 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789\n"
+        + " * 0123456789 0123456789 0123456789 0123456789\n"
+        + " */\n");
   }
 
   @Test public void testStringLiteral() {
@@ -290,6 +320,20 @@ public final class JavaWriterTest {
     assertThat(JavaWriter.stringLiteral("\"")).isEqualTo("\"\\\"\"");
     assertThat(JavaWriter.stringLiteral("\t")).isEqualTo("\"\\\t\"");
     assertThat(JavaWriter.stringLiteral("\n")).isEqualTo("\"\\\n\"");
+  }
+
+  @Test public void compressType() throws IOException {
+    javaWriter.emitPackage("blah");
+    javaWriter.emitImports(setOf(Set.class.getName(), Binding.class.getName()));
+    String actual = javaWriter.compressType("java.util.Set<dagger.internal.Binding<blah.Foo.Blah>>");
+    assertEquals("Set<Binding<Foo.Blah>>", actual);
+  }
+
+  @Test public void compressDeeperType() throws IOException {
+    javaWriter.emitPackage("blah");
+    javaWriter.emitImports(setOf(Binding.class.getName()));
+    String actual = javaWriter.compressType("dagger.internal.Binding<blah.foo.Foo.Blah>");
+    assertEquals("Binding<blah.foo.Foo.Blah>", actual);
   }
 
   private void assertCode(String expected) {
