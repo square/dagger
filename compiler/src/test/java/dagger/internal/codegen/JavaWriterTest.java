@@ -223,6 +223,7 @@ public final class JavaWriterTest {
     javaWriter.emitPackage("com.squareup");
     javaWriter.emitImports(setOf("javax.inject.Singleton"));
     javaWriter.emitAnnotation("javax.inject.Singleton");
+    javaWriter.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
     javaWriter.beginType("com.squareup.Foo", "class", 0);
     javaWriter.endType();
     assertCode(""
@@ -230,6 +231,7 @@ public final class JavaWriterTest {
         + "import javax.inject.Singleton;\n"
         + "\n"
         + "@Singleton\n"
+        + "@SuppressWarnings(\"unchecked\")\n"
         + "class Foo {\n"
         + "}\n");
   }
