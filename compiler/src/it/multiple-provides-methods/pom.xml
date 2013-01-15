@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
- Copyright (C) 2012 Square, Inc.
- Copyright (C) 2012 Google, Inc.
+ Copyright (C) 2013 Square, Inc.
+ Copyright (C) 2013 Google, Inc.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.squareup.dagger.tests</groupId>
+  <artifactId>multiple-provides-methods</artifactId>
   <version>@dagger.version@</version>
   <packaging>jar</packaging>
-  <artifactId>missing-at-inject-constructor</artifactId>
   <name>Dagger Integration Test Basic</name>
   <dependencies>
     <dependency>

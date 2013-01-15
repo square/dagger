@@ -15,16 +15,12 @@
  */
 package dagger.internal.codegen;
 
-import static dagger.internal.codegen.AssistedUtils.isFactoryProvider;
-import static dagger.internal.codegen.AssistedUtils.factoryKey;
-import static dagger.internal.codegen.AssistedUtils.findFactoryMethod;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PROTECTED;
-import static java.lang.reflect.Modifier.PUBLIC;
-import static java.lang.reflect.Modifier.STATIC;
-
+import dagger.Module;
+import dagger.Provides;
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.ModuleAdapter;
+import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -52,12 +47,15 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import dagger.Module;
-import dagger.Provides;
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.ModuleAdapter;
-import dagger.internal.SetBinding;
+import static dagger.internal.codegen.AssistedUtils.isFactoryProvider;
+import static dagger.internal.codegen.AssistedUtils.factoryKey;
+import static dagger.internal.codegen.AssistedUtils.findFactoryMethod;
+import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PROTECTED;
+import static java.lang.reflect.Modifier.PUBLIC;
+import static java.lang.reflect.Modifier.STATIC;
 
 /**
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
