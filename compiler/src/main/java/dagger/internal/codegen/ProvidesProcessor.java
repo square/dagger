@@ -35,6 +35,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -47,6 +48,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
 import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
@@ -167,14 +169,17 @@ public final class ProvidesProcessor extends AbstractProcessor {
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
-    writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
-    writer.addImport(Binding.class);
-    writer.addImport(SetBinding.class);
-    writer.addImport(ModuleAdapter.class);
-    writer.addImport(Map.class);
-    writer.addImport(Linker.class);
+    boolean multibindings = checkForMultibindings(providerMethods);
+    boolean providerMethodDependencies = checkForDependencies(providerMethods);
+
+    writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
+    writer.emitPackage(CodeGen.getPackage(type).getQualifiedName().toString());
+    writer.emitEmptyLine();
+    writer.emitImports(getImports(multibindings, providerMethodDependencies));
 
     String typeName = type.getQualifiedName().toString();
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.MODULE_TYPE);
     writer.beginType(adapterName, "class", PUBLIC | FINAL,
         CodeGen.parameterizedType(ModuleAdapter.class, typeName));
 
@@ -210,12 +215,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
     includesField.append("}");
     writer.field("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
 
+    writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, PUBLIC);
-    writer.statement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
+    writer.emitStatement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
         + "INCLUDES, %s /*complete*/)", overrides, complete);
     writer.endMethod();
 
-    writer.annotation(Override.class);
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
+    writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
 
     Map<ExecutableElement, String> methodToClassName
@@ -226,13 +234,14 @@ public final class ProvidesProcessor extends AbstractProcessor {
       switch (provides.type()) {
         case UNIQUE: {
           String key = GeneratorKeys.get(providerMethod);
-          writer.statement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+          writer.emitStatement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
               bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
           break;
         }
         case SET: {
           String key = GeneratorKeys.getElementKey(providerMethod);
-          writer.statement("SetBinding.add(map, %s, new %s(module))", JavaWriter.stringLiteral(key),
+          writer.emitStatement("SetBinding.add(map, %s, new %s(module))",
+              JavaWriter.stringLiteral(key),
               bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
           break;
         }
@@ -242,23 +251,58 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
     writer.endMethod();
 
-    writer.annotation(Override.class);
+    writer.emitEmptyLine();
+    writer.emitAnnotation(Override.class);
     writer.beginMethod(typeName, "newModule", PROTECTED);
     ExecutableElement noArgsConstructor = CodeGen.getNoArgsConstructor(type);
     if (noArgsConstructor != null && CodeGen.isCallableConstructor(noArgsConstructor)) {
-      writer.statement("return new %s()", typeName);
+      writer.emitStatement("return new %s()", typeName);
     } else {
-      writer.statement("throw new UnsupportedOperationException(%s)",
+      writer.emitStatement("throw new UnsupportedOperationException(%s)",
           JavaWriter.stringLiteral("No no-args constructor on " + type));
     }
     writer.endMethod();
 
     for (ExecutableElement providerMethod : providerMethods) {
-      writeBindingClass(writer, providerMethod, methodToClassName, methodNameToNextId);
+      writeProvidesAdapter(writer, providerMethod, methodToClassName, methodNameToNextId);
     }
 
     writer.endType();
     writer.close();
+  }
+
+  private Set<String> getImports(boolean multibindings, boolean dependencies) {
+    Set<String> imports = new LinkedHashSet<String>();
+    imports.add(Binding.class.getName());
+    imports.add(Map.class.getName());
+    imports.add(Provider.class.getName());
+    imports.add(ModuleAdapter.class.getName());
+    if (dependencies) {
+      imports.add(Linker.class.getName());
+      imports.add(Set.class.getName());
+    }
+    if (multibindings) {
+      imports.add(SetBinding.class.getName());
+    }
+    return imports;
+  }
+
+  private boolean checkForDependencies(List<ExecutableElement> providerMethods) {
+    for (ExecutableElement element : providerMethods) {
+      if (!element.getParameters().isEmpty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean checkForMultibindings(List<ExecutableElement> providerMethods) {
+    for (ExecutableElement element : providerMethods) {
+      if (element.getAnnotation(Provides.class).type() == Provides.Type.SET) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private String bindingClassName(ExecutableElement providerMethod,
@@ -278,12 +322,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
     String uppercaseMethodName = Character.toUpperCase(methodName.charAt(0))
         + methodName.substring(1);
-    className = uppercaseMethodName + "Binding" + suffix;
+    className = uppercaseMethodName + "ProvidesAdapter" + suffix;
     methodToClassName.put(providerMethod, className);
     return className;
   }
 
-  private void writeBindingClass(JavaWriter writer, ExecutableElement providerMethod,
+  private void writeProvidesAdapter(JavaWriter writer, ExecutableElement providerMethod,
       Map<ExecutableElement, String> methodToClassName,
       Map<String, AtomicInteger> methodNameToNextId)
       throws IOException {
@@ -291,63 +335,81 @@ public final class ProvidesProcessor extends AbstractProcessor {
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
     String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
     String returnType = CodeGen.typeToString(providerMethod.getReturnType());
-
-    writer.beginType(className, "class", PRIVATE | STATIC,
-        CodeGen.parameterizedType(Binding.class, returnType));
-    writer.field(moduleType, "module", PRIVATE | FINAL);
     List<? extends VariableElement> parameters = providerMethod.getParameters();
-    for (int p = 0; p < parameters.size(); p++) {
-      TypeMirror parameterType = parameters.get(p).asType();
-      writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameterType)),
-          parameterName(p), PRIVATE);
+    boolean dependent = !parameters.isEmpty();
+
+    writer.emitEmptyLine();
+    writer.emitJavadoc(binderTypeDocs(returnType, false, false, dependent));
+    writer.beginType(className, "class", PUBLIC | FINAL | STATIC,
+        CodeGen.parameterizedType(Binding.class, returnType),
+        CodeGen.parameterizedType(Provider.class, returnType));
+    writer.emitField(moduleType, "module", PRIVATE | FINAL);
+    for (Element parameter : parameters) {
+      TypeMirror parameterType = parameter.asType();
+      writer.emitField(CodeGen.parameterizedType(Binding.class,
+          CodeGen.typeToString(parameterType)),
+          parameterName(parameter), PRIVATE);
     }
 
+    writer.emitEmptyLine();
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
     boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
     String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
     String membersKey = null;
-    writer.statement("super(%s, %s, %s /*singleton*/, %s.class)",
-        key, membersKey, singleton, moduleType);
-    writer.statement("this.module = module");
+    writer.emitStatement("super(%s, %s, %s, %s.class)",
+        key, membersKey, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"), moduleType);
+    writer.emitStatement("this.module = module");
     writer.endMethod();
 
-    writer.annotation(Override.class);
-    writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
-    for (int p = 0; p < parameters.size(); p++) {
-      VariableElement parameter = parameters.get(p);
-      String parameterKey = GeneratorKeys.get(parameter);
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-          parameterName(p),
-          CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameter.asType())),
-          JavaWriter.stringLiteral(parameterKey), moduleType);
+    if (dependent) {
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
+      writer.emitAnnotation(Override.class);
+      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
+      for (VariableElement parameter : parameters) {
+        String parameterKey = GeneratorKeys.get(parameter);
+        writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+            parameterName(parameter),
+            writer.compressType(CodeGen.parameterizedType(Binding.class,
+                CodeGen.typeToString(parameter.asType()))),
+            JavaWriter.stringLiteral(parameterKey),
+            writer.compressType(moduleType));
+      }
+      writer.endMethod();
+
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
+      writer.emitAnnotation(Override.class);
+      String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
+      writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
+          setOfBindings, "injectMembersBindings");
+      for (Element parameter : parameters) {
+        writer.emitStatement("getBindings.add(%s)", parameter.getSimpleName().toString());
+      }
+      writer.endMethod();
     }
-    writer.endMethod();
 
-    writer.annotation(Override.class);
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.GET_METHOD, returnType);
+    writer.emitAnnotation(Override.class);
     writer.beginMethod(returnType, "get", PUBLIC);
     StringBuilder args = new StringBuilder();
-    for (int p = 0; p < parameters.size(); p++) {
-      if (p != 0) {
-        args.append(", ");
-      }
-      args.append(String.format("%s.get()", parameterName(p)));
+    boolean first = true;
+    for (Element parameter : parameters) {
+      if (!first) args.append(", ");
+      else first = false;
+      args.append(String.format("%s.get()", parameter.getSimpleName().toString()));
     }
-    writer.statement("return module.%s(%s)", methodName, args.toString());
-    writer.endMethod();
-
-    writer.annotation(Override.class);
-    String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
-    writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
-        setOfBindings, "injectMembersBindings");
-    for (int p = 0; p < parameters.size(); p++) {
-      writer.statement("getBindings.add(%s)", parameterName(p));
-    }
+    writer.emitStatement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
 
     writer.endType();
   }
 
-  private String parameterName(int index) {
-    return "p" + index;
+  private String parameterName(Element parameter) {
+    if (parameter.getSimpleName().equals("module")) {
+      return "parameter_" + parameter.getSimpleName().toString();
+    }
+    return parameter.getSimpleName().toString();
   }
 }

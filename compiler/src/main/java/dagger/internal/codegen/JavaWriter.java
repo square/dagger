@@ -21,10 +21,12 @@ import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,7 +57,7 @@ public final class JavaWriter implements Closeable {
   /**
    * Emit a package declaration.
    */
-  public void addPackage(String packageName) throws IOException {
+  public void emitPackage(String packageName) throws IOException {
     if (this.packagePrefix != null) {
       throw new IllegalStateException();
     }
@@ -70,27 +72,24 @@ public final class JavaWriter implements Closeable {
   }
 
   /**
-   * Equivalent to {@code addImport(type.getName())}.
+   * Emit an import for each {@code type} in the provided {@code Set}. For
+   * the duration of the file, all references to these classes will be
+   * automatically shortened.
    */
-  public void addImport(Class<?> type) throws IOException {
-    addImport(type.getName());
-  }
-
-  /**
-   * Emit an import for {@code type}. For the duration of the file, all
-   * references to this class will be automatically shortened.
-   */
-  public void addImport(String type) throws IOException {
-    Matcher matcher = TYPE_PATTERN.matcher(type);
-    if (!matcher.matches()) {
-      throw new IllegalArgumentException(type);
+  public void emitImports(Collection<String> types) throws IOException {
+    for (String type : new TreeSet<String>(types)) {
+      Matcher matcher = TYPE_PATTERN.matcher(type);
+      if (!matcher.matches()) {
+        throw new IllegalArgumentException(type);
+      }
+      if (importedTypes.put(type, matcher.group(1)) != null) {
+        throw new IllegalArgumentException(type);
+      }
+      out.write("import ");
+      out.write(type);
+      out.write(";\n");
     }
-    if (importedTypes.put(type, matcher.group(1)) != null) {
-      throw new IllegalArgumentException(type);
-    }
-    out.write("import ");
-    out.write(type);
-    out.write(";\n");
+    emitEmptyLine();
   }
 
   /**
@@ -98,7 +97,12 @@ public final class JavaWriter implements Closeable {
    * java.util.List<java.lang.String>}, shorting it with imports if
    * possible.
    */
-  private void type(String type) throws IOException {
+  private void emitType(String type) throws IOException {
+    out.write(compressType(type));
+  }
+
+  String compressType(String type) {
+    StringBuffer sb = new StringBuffer();
     if (this.packagePrefix == null) {
       throw new IllegalStateException();
     }
@@ -110,7 +114,7 @@ public final class JavaWriter implements Closeable {
 
       // copy non-matching characters like "<"
       int typeStart = found ? m.start() : type.length();
-      out.write(type, pos, typeStart - pos);
+      sb.append(type, pos, typeStart);
 
       if (!found) {
         break;
@@ -120,17 +124,31 @@ public final class JavaWriter implements Closeable {
       String name = m.group(0);
       String imported;
       if ((imported = importedTypes.get(name)) != null) {
-        out.write(imported);
-      } else if (name.startsWith(packagePrefix)
-          && name.indexOf('.', packagePrefix.length()) == -1) {
-        out.write(name.substring(packagePrefix.length()));
+        sb.append(imported);
+      } else if (isClassInPackage(name)) {
+        sb.append(name.substring(packagePrefix.length()));
       } else if (name.startsWith("java.lang.")) {
-        out.write(name.substring("java.lang.".length()));
+        sb.append(name.substring("java.lang.".length()));
       } else {
-        out.write(name);
+        sb.append(name);
       }
       pos = m.end();
     }
+    String result = sb.toString();
+    return result;
+  }
+
+  private boolean isClassInPackage(String name) {
+    if (name.startsWith(packagePrefix)) {
+      if (name.indexOf('.', packagePrefix.length()) == -1) {
+        return true;
+      }
+      int index = name.indexOf('.');
+      if (name.substring(index + 1, index + 2).matches("[A-Z]")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -151,15 +169,13 @@ public final class JavaWriter implements Closeable {
   public void beginType(String type, String kind, int modifiers,
       String extendsType, String... implementsTypes) throws IOException {
     indent();
-    modifiers(modifiers);
+    out.write(modifiers(modifiers).toString());
     out.write(kind);
     out.write(" ");
-    type(type);
+    emitType(type);
     if (extendsType != null) {
-      out.write("\n");
-      indent();
-      out.write("    extends ");
-      type(extendsType);
+      out.write(" extends ");
+      emitType(extendsType);
     }
     if (implementsTypes.length > 0) {
       out.write("\n");
@@ -169,7 +185,7 @@ public final class JavaWriter implements Closeable {
         if (i != 0) {
           out.write(", ");
         }
-        type(implementsTypes[i]);
+        emitType(implementsTypes[i]);
       }
     }
     out.write(" {\n");
@@ -188,15 +204,15 @@ public final class JavaWriter implements Closeable {
   /**
    * Emits a field declaration.
    */
-  public void field(String type, String name, int modifiers) throws IOException {
+  public void emitField(String type, String name, int modifiers) throws IOException {
     field(type, name, modifiers, null);
   }
 
   public void field(String type, String name, int modifiers, String initialValue)
       throws IOException {
     indent();
-    modifiers(modifiers);
-    type(type);
+    out.write(modifiers(modifiers).toString());
+    emitType(type);
     out.write(" ");
     out.write(name);
 
@@ -218,22 +234,22 @@ public final class JavaWriter implements Closeable {
   public void beginMethod(String returnType, String name, int modifiers, String... parameters)
       throws IOException {
     indent();
-    modifiers(modifiers);
+    out.write(modifiers(modifiers).toString());
     if (returnType != null) {
-      type(returnType);
+      emitType(returnType);
       out.write(" ");
       out.write(name);
     } else {
-      type(name);
+      emitType(name);
     }
     out.write("(");
     for (int p = 0; p < parameters.length;) {
       if (p != 0) {
         out.write(", ");
       }
-      type(parameters[p++]);
+      emitType(parameters[p++]);
       out.write(" ");
-      type(parameters[p++]);
+      emitType(parameters[p++]);
     }
     out.write(")");
     if ((modifiers & Modifier.ABSTRACT) != 0) {
@@ -246,25 +262,55 @@ public final class JavaWriter implements Closeable {
   }
 
   /**
+   * Emits some javadoc comments with line separated by {@code \n}.
+   */
+  public void emitJavadoc(String javadoc, Object ... params) throws IOException {
+    String formatted = (params.length == 0) ? javadoc : String.format(javadoc, params);
+    indent();
+    out.write("/**\n");
+    for (String line : formatted.split("\n")) {
+      indent();
+      out.write(" * ");
+      out.write(line);
+      out.write("\n");
+    }
+    indent();
+    out.write(" */\n");
+  }
+
+  /**
+   * Emits some javadoc comments.
+   */
+  public void emitEndOfLineComment(String comment) throws IOException {
+    out.write("// ");
+    out.write(comment);
+    out.write("\n");
+  }
+
+  public void emitEmptyLine() throws IOException {
+    out.write("\n");
+  }
+
+  /**
    * Equivalent to {@code annotation(annotation, emptyMap())}.
    */
-  public void annotation(String annotation) throws IOException {
-    annotation(annotation, Collections.<String, Object>emptyMap());
+  public void emitAnnotation(String annotation) throws IOException {
+    emitAnnotation(annotation, Collections.<String, Object>emptyMap());
   }
 
   /**
    * Equivalent to {@code annotation(annotationType.getName(), emptyMap())}.
    */
-  public void annotation(Class<? extends Annotation> annotationType) throws IOException {
-    annotation(annotationType.getName(), Collections.<String, Object>emptyMap());
+  public void emitAnnotation(Class<? extends Annotation> annotationType) throws IOException {
+    emitAnnotation(annotationType.getName(), Collections.<String, Object>emptyMap());
   }
 
   /**
    * Equivalent to {@code annotation(annotationType.getName(), attributes)}.
    */
-  public void annotation(Class<? extends Annotation> annotationType, Map<String, ?> attributes)
+  public void emitAnnotation(Class<? extends Annotation> annotationType, Map<String, ?> attributes)
       throws IOException {
-    annotation(annotationType.getName(), attributes);
+    emitAnnotation(annotationType.getName(), attributes);
   }
 
   /**
@@ -274,10 +320,10 @@ public final class JavaWriter implements Closeable {
    *     Values are encoded using Object.toString(); use {@link #stringLiteral}
    *     for String values. Object arrays are written one element per line.
    */
-  public void annotation(String annotation, Map<String, ?> attributes) throws IOException {
+  public void emitAnnotation(String annotation, Map<String, ?> attributes) throws IOException {
     indent();
     out.write("@");
-    type(annotation);
+    emitType(annotation);
     if (!attributes.isEmpty()) {
       out.write("(");
       pushScope(Scope.ANNOTATION_ATTRIBUTE);
@@ -293,7 +339,7 @@ public final class JavaWriter implements Closeable {
         out.write(entry.getKey());
         out.write(" = ");
         Object value = entry.getValue();
-        annotationValue(value);
+        emitAnnotationValue(value);
       }
       popScope(Scope.ANNOTATION_ATTRIBUTE);
       out.write("\n");
@@ -307,7 +353,7 @@ public final class JavaWriter implements Closeable {
    * Writes a single annotation value. If the value is an array, each element in
    * the array will be written to its own line.
    */
-  private void annotationValue(Object value) throws IOException {
+  private void emitAnnotationValue(Object value) throws IOException {
     if (value instanceof Object[]) {
       out.write("{");
       boolean firstValue = true;
@@ -335,7 +381,7 @@ public final class JavaWriter implements Closeable {
    * @param pattern a code pattern like "int i = %s". Shouldn't contain a
    * trailing semicolon or newline character.
    */
-  public void statement(String pattern, Object... args) throws IOException {
+  public void emitStatement(String pattern, Object... args) throws IOException {
     checkInMethod();
     indent();
     out.write(String.format(pattern, args));
@@ -446,34 +492,36 @@ public final class JavaWriter implements Closeable {
   /**
    * Emit modifier names.
    */
-  private void modifiers(int modifiers) throws IOException {
+  static StringBuffer modifiers(int modifiers) {
+    StringBuffer out = new StringBuffer();
     if ((modifiers & Modifier.PUBLIC) != 0) {
-      out.write("public ");
+      out.append("public ");
     }
     if ((modifiers & Modifier.PRIVATE) != 0) {
-      out.write("private ");
+      out.append("private ");
     }
     if ((modifiers & Modifier.PROTECTED) != 0) {
-      out.write("protected ");
+      out.append("protected ");
     }
     if ((modifiers & Modifier.STATIC) != 0) {
-      out.write("static ");
+      out.append("static ");
     }
     if ((modifiers & Modifier.FINAL) != 0) {
-      out.write("final ");
+      out.append("final ");
     }
     if ((modifiers & Modifier.ABSTRACT) != 0) {
-      out.write("abstract ");
+      out.append("abstract ");
     }
     if ((modifiers & Modifier.SYNCHRONIZED) != 0) {
-      out.write("synchronized ");
+      out.append("synchronized ");
     }
     if ((modifiers & Modifier.TRANSIENT) != 0) {
-      out.write("transient ");
+      out.append("transient ");
     }
     if ((modifiers & Modifier.VOLATILE) != 0) {
-      out.write("volatile ");
+      out.append("volatile ");
     }
+    return out;
   }
 
   private void indent() throws IOException {
