@@ -250,6 +250,7 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.emitEmptyLine();
       writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
+      writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
       writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
       if (constructor != null) {
         for (VariableElement parameter : constructor.getParameters()) {
