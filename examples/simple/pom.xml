@@ -18,24 +18,23 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.squareup</groupId>
-    <artifactId>dagger-parent</artifactId>
+    <groupId>com.squareup.dagger.example</groupId>
+    <artifactId>dagger-example-parent</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>dagger-example</artifactId>
+  <artifactId>simple-dagger-example</artifactId>
   <packaging>jar</packaging>
-  <name>Dagger Example</name>
+  <name>Dagger Example - Simple</name>
 
   <dependencies>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>com.squareup</groupId>
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>com.squareup</groupId>
       <artifactId>dagger-compiler</artifactId>
       <version>${project.version}</version>
       <optional>true</optional>
