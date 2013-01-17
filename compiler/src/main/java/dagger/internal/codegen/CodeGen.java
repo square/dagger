@@ -152,6 +152,38 @@ final class CodeGen {
     }, null);
   }
 
+  /**
+   * Returns a type name with any generic references removed. This makes it possible to use the
+   * returned string to look up generic types with the processing environment.
+   */
+  public static String canonicalNameFromTypeMirror(final TypeMirror type) {
+    final StringBuilder result = new StringBuilder();
+    type.accept(new SimpleTypeVisitor6<Void, Void>() {
+      @Override public Void visitDeclared(DeclaredType declaredType, Void v) {
+        TypeElement typeElement = (TypeElement) declaredType.asElement();
+        result.append(typeElement.toString());
+        return null;
+      }
+      @Override public Void visitPrimitive(PrimitiveType primitiveType, Void v) {
+        throw new UnsupportedOperationException(
+            "Unexpected TypeKind " + primitiveType.getKind() + " for "  + primitiveType);
+      }
+      @Override public Void visitArray(ArrayType arrayType, Void v) {
+        throw new UnsupportedOperationException(
+            "Unexpected TypeKind " + arrayType.getKind() + " for "  + arrayType);
+      }
+      @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
+        throw new UnsupportedOperationException(
+            "Unexpected TypeKind " + typeVariable.getKind() + " for "  + typeVariable);
+      }
+      @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
+        throw new UnsupportedOperationException(
+            "Unexpected TypeKind " + typeMirror.getKind() + " for "  + typeMirror);
+      }
+    }, null);
+    return result.toString();
+  }
+
   private static final AnnotationValueVisitor<Object, Void> VALUE_EXTRACTOR
       = new SimpleAnnotationValueVisitor6<Object, Void>() {
     @Override protected Object defaultAction(Object o, Void v) {
