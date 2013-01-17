@@ -23,11 +23,7 @@ import javax.inject.Provider;
  * Injects a value of a specific type.
  */
 public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
-  public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null) {
-    @Override public void getDependencies(Set<Binding<?>> bindings, Set<Binding<?>> memBindings) {
-      // do nothing
-    }
-  };
+  public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null) { };
   protected static final boolean IS_SINGLETON = true;
   protected static final boolean NOT_SINGLETON = false;
 
@@ -90,7 +86,7 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
    *     injectMembers} method.
    */
   public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
-    throw new UnsupportedOperationException(getClass().getName());
+    // Do nothing.  No override == no dependencies to contribute.
   }
 
   void setLinked() {
