@@ -143,6 +143,7 @@ final class CodeGen {
         return null;
       }
       @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
+        result.append(typeVariable); // TypeVariable.toString() returns the name, like 'T'.
         return null;
       }
       @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
