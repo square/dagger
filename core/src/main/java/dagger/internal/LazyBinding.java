@@ -17,7 +17,6 @@
 package dagger.internal;
 
 import dagger.Lazy;
-import java.util.Set;
 
 /**
  * Injects a Lazy wrapper for a type T
@@ -57,8 +56,6 @@ final class LazyBinding<T> extends Binding<Lazy<T>> {
     };
   }
 
-  @Override public void getDependencies(
-      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
-    // We don't add 'delegate' because it isn't actually used by get() or injectMembers().
-  }
+  // public void getDependencies() not overridden.
+  // We don't add 'delegate' because it isn't actually used by get() or injectMembers().
 }

@@ -332,6 +332,9 @@ public final class Linker {
       this.deferredKey = deferredKey;
       this.mustBeInjectable = mustBeInjectable;
     }
+    @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
+      throw new UnsupportedOperationException("Deferred bindings must resolve first.");
+    }
   }
 
 }
