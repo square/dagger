@@ -19,8 +19,10 @@ import dagger.internal.Keys;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -288,5 +290,14 @@ final class CodeGen {
     TypeElement type = (TypeElement) constructor.getEnclosingElement();
     return type.getEnclosingElement().getKind() == ElementKind.PACKAGE
         || type.getModifiers().contains(Modifier.STATIC);
+  }
+
+  /**
+   * Returns a set comprised of the given items
+   */
+  public static <T> Set<T> setOf(T ... items) {
+    Set<T> set = new LinkedHashSet<T>();
+    set.addAll(Arrays.asList(items));
+    return set;
   }
 }

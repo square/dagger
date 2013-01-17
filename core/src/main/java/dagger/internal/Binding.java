@@ -28,6 +28,8 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
       // do nothing
     }
   };
+  protected static final boolean IS_SINGLETON = true;
+  protected static final boolean NOT_SINGLETON = false;
 
   /** Set if the provided instance is always the same object. */
   private static final int SINGLETON = 1 << 0;
@@ -69,11 +71,11 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
   }
 
   @Override public void injectMembers(T t) {
-    throw new UnsupportedOperationException(getClass().getName());
+    throw new UnsupportedOperationException("No injectable members on " + getClass().getName());
   }
 
   @Override public T get() {
-    throw new UnsupportedOperationException(getClass().getName());
+    throw new UnsupportedOperationException("No injectable constructor on " + getClass().getName());
   }
 
   public void injectAssistedMembers(T t, Object[] args) {

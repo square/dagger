@@ -31,8 +31,8 @@ import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
 public final class ModuleGeneratorTest {
-  private ModuleGenerator generator = new ModuleGenerator();
-  private StringWriter stringWriter = new StringWriter();
+  private final ModuleGenerator generator = new ModuleGenerator();
+  private final StringWriter stringWriter = new StringWriter();
 
   @Test public void packageName() throws Exception {
     Document document = document(""
@@ -138,6 +138,7 @@ public final class ModuleGeneratorTest {
     assertCode(""
         + "package com.squareup.badhorse;\n"
         + "import dagger.Module;\n"
+        + "\n"
         + "@Module(\n"
         + "  entryPoints = {\n"
         + "    com.squareup.badhorse.LeagueOfEvilActivity.class,\n"
@@ -157,6 +158,7 @@ public final class ModuleGeneratorTest {
     assertCode(""
         + "package com.squareup.badhorse;\n"
         + "import dagger.Module;\n"
+        + "\n"
         + "@Module(\n"
         + "  entryPoints = {\n"
         + "  },\n"

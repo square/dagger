@@ -15,6 +15,11 @@
  */
 package dagger.internal.codegen;
 
+import dagger.Module;
+import dagger.Provides;
+import dagger.internal.Binding;
+import dagger.internal.Linker;
+import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -24,7 +29,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -41,12 +45,6 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
-
-import dagger.Module;
-import dagger.Provides;
-import dagger.internal.Binding;
-import dagger.internal.Linker;
-import dagger.internal.SetBinding;
 
 /**
  * Performs full graph analysis on a module.

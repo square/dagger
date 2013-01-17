@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import dagger.Assisted;
+import dagger.MembersInjector;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
 import dagger.internal.StaticInjection;
@@ -31,6 +32,7 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -44,6 +46,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
 import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
@@ -192,12 +195,19 @@ public final class InjectProcessor extends AbstractProcessor {
    */
   private void writeInjectAdapter(TypeElement type, ExecutableElement constructor,
       List<Element> fields) throws IOException {
-    String typeName = type.getQualifiedName().toString();
+    String packageName = CodeGen.getPackage(type).getQualifiedName().toString();
+    String strippedTypeName = strippedTypeName(type.getQualifiedName().toString(), packageName);
     TypeMirror supertype = CodeGen.getApplicationSupertype(type);
     String adapterName = CodeGen.adapterName(type, INJECT_ADAPTER_SUFFIX);
-    JavaFileObject sourceFile = processingEnv.getFiler()
-        .createSourceFile(adapterName, type);
+    JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
+    boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
+    boolean injectMembers = !fields.isEmpty() || supertype != null;
+    boolean disambiguateFields = !fields.isEmpty()
+        && (constructor != null)
+        && !constructor.getParameters().isEmpty();
+    boolean dependent = injectMembers
+        || ((constructor != null) && !constructor.getParameters().isEmpty());
 
     Integer extendedParamCount = 0;
     if (supertype != null) {
@@ -205,123 +215,128 @@ public final class InjectProcessor extends AbstractProcessor {
       extendedParamCount = AssistedUtils.getAssistedFields(superclassElement).size();
     }
 
-    writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
-    writer.addImport(Binding.class);
-    writer.addImport(Linker.class);
-    writer.addImport(Set.class);
+    writer.emitEndOfLineComment(CodeGen.getPackage(type).getQualifiedName().toString());
+    writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
+    writer.emitPackage(packageName);
+    writer.emitEmptyLine();
+    writer.emitImports(getImports(dependent, injectMembers, constructor != null));
 
-    writer.beginType(adapterName, "class", FINAL,
-        CodeGen.parameterizedType(Binding.class, typeName));
+    writer.emitEmptyLine();
+    writer.emitJavadoc(binderTypeDocs(strippedTypeName, isAbstract, injectMembers, dependent));
+    writer.beginType(adapterName, "class", PUBLIC | FINAL,
+        CodeGen.parameterizedType(Binding.class, strippedTypeName),
+        interfaces(strippedTypeName, injectMembers, constructor != null));
 
     List<VariableElement> assistedParams = new ArrayList<VariableElement>();
     if (constructor != null) {
       List<? extends VariableElement> parameters = constructor.getParameters();
-      for (int p = 0; p < parameters.size(); p++) {
-        VariableElement parameter = parameters.get(p);
+      for (VariableElement parameter : constructor.getParameters()) {
         if (parameter.getAnnotation(Assisted.class) == null) {
           TypeMirror parameterType = parameter.asType();
           writer.field(CodeGen.parameterizedType(Binding.class,
-              CodeGen.typeToString(parameterType)), constructorParameterName(p), PRIVATE);
+              CodeGen.typeToString(parameterType)),
+              parameterName(disambiguateFields, parameter), PRIVATE);
         } else {
           assistedParams.add(parameter);
         }
       }
     }
     List<VariableElement> assistedFields = new ArrayList<VariableElement>();
-    for (int f = 0; f < fields.size(); f++) {
-      Element field = fields.get(f);
+    for (Element field : fields) {
       if (field.getAnnotation(Assisted.class) == null) {
-        TypeMirror fieldType = field.asType();
-        writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
-            fieldName(f), PRIVATE);
+        writer.field(CodeGen.parameterizedType(Binding.class, 
+            CodeGen.typeToString(field.asType())),
+            fieldName(disambiguateFields, field), PRIVATE);
       } else {
         assistedFields.add((VariableElement) field);
       }
     }
     if (supertype != null) {
-      writer.field(CodeGen.parameterizedType(Binding.class,
+      writer.emitField(CodeGen.parameterizedType(Binding.class,
           CodeGen.rawTypeToString(supertype, '.')), "supertype", PRIVATE);
     }
 
+    writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, PUBLIC);
     String key = (constructor != null)
         ? JavaWriter.stringLiteral(GeneratorKeys.get(type.asType()))
         : null;
     String membersKey = JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(type.asType()));
     boolean singleton = type.getAnnotation(Singleton.class) != null;
-    writer.statement("super(%s, %s, %s /*singleton*/, %s.class)",
-        key, membersKey, singleton, typeName);
+    writer.emitStatement("super(%s, %s, %s, %s.class)",
+        key, membersKey, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"), strippedTypeName);
     writer.endMethod();
 
-    writer.annotation(Override.class);
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
+    writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
     if (constructor != null) {
-      for (int p = 0; p < constructor.getParameters().size(); p++) {
-        VariableElement parameter = constructor.getParameters().get(p);
+      for (VariableElement parameter : constructor.getParameters()) {
         if (parameter.getAnnotation(Assisted.class) == null) {
           TypeMirror parameterType = parameter.asType();
-          writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-              constructorParameterName(p),
+          writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+              parameterName(disambiguateFields, parameter),
               CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(parameterType)),
               JavaWriter.stringLiteral(GeneratorKeys.get(parameter)),
-              typeName);
+              strippedTypeName);
         }
       }
     }
-    for (int f = 0; f < fields.size(); f++) {
-      VariableElement field = (VariableElement) fields.get(f);
+    for (Element field : fields) {
       if (field.getAnnotation(Assisted.class) == null) {
         TypeMirror fieldType = field.asType();
-        writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-            fieldName(f),
+        writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+            fieldName(disambiguateFields, field),
             CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
-            JavaWriter.stringLiteral(GeneratorKeys.get(field)),
-            typeName);
+            JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) field)),
+            strippedTypeName);
       }
     }
     if (supertype != null) {
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
+      writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
           "supertype",
           CodeGen.parameterizedType(Binding.class, CodeGen.rawTypeToString(supertype, '.')),
           JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(supertype)),
-          typeName);
+          strippedTypeName);
     }
     writer.endMethod();
 
     boolean hasAssisted = (assistedFields.size() + assistedParams.size()
         + extendedParamCount) > 0;
 
-    writeInjectMethods(writer, typeName, supertype, constructor, fields, hasAssisted);
+    writeInjectMethods(writer, strippedTypeName, supertype, constructor, 
+        fields, hasAssisted, disambiguateFields);
 
     if (hasAssisted) {
-      writeAssistedInjectMethods(writer, typeName, supertype, constructor,
+      writeAssistedInjectMethods(writer, strippedTypeName, supertype, constructor,
           assistedFields, assistedParams, extendedParamCount);
     }
 
-    writer.annotation(Override.class);
+    writer.emitAnnotation(Override.class);
     String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
     writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
         setOfBindings, "injectMembersBindings");
     if (constructor != null) {
-      for (int p = 0; p < constructor.getParameters().size(); p++) {
-        if (constructor.getParameters().get(p).getAnnotation(Assisted.class) == null) {
-          writer.statement("getBindings.add(%s)", constructorParameterName(p));
+      for (VariableElement parameter : constructor.getParameters()) {
+        if (parameter.getAnnotation(Assisted.class) == null) {
+          writer.emitStatement("getBindings.add(%s)", constructorParameterName(p));
         }
       }
     }
     for (int f = 0; f < fields.size(); f++) {
       if (fields.get(f).getAnnotation(Assisted.class) == null) {
-        writer.statement("injectMembersBindings.add(%s)", fieldName(f));
+        writer.emitStatement("injectMembersBindings.add(%s)", fieldName(f));
       }
     }
     if (supertype != null) {
-      writer.statement("injectMembersBindings.add(%s)", "supertype");
+      writer.emitStatement("injectMembersBindings.add(%s)", "supertype");
     }
     writer.endMethod();
 
-    writer.annotation(Override.class);
+    writer.emitAnnotation(Override.class);
     writer.beginMethod("int", "assistedParamsSize", PUBLIC);
-    writer.statement("return %d", assistedFields.size() + assistedParams.size()
+    writer.emitStatement("return %d", assistedFields.size() + assistedParams.size()
         + extendedParamCount);
     writer.endMethod();
 
@@ -329,43 +344,50 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.close();
   }
 
-  private void writeInjectMethods(JavaWriter writer, String typeName,
+  private void writeInjectMethods(JavaWriter writer, String strippedTypeName,
       TypeMirror supertype, ExecutableElement constructor,
-      List<Element> fields, boolean hasAssisted) throws IOException {
-    writer.annotation(Override.class);
-    writer.beginMethod(typeName, "get", PUBLIC);
+      List<Element> fields, boolean hasAssisted, boolean disambiguateFields) throws IOException {
+    writer.emitAnnotation(Override.class);
+    writer.beginMethod(strippedTypeName, "get", PUBLIC);
     if (constructor != null && !hasAssisted) {
       StringBuilder newInstance = new StringBuilder();
-      newInstance.append(typeName).append(" result = new ").append(typeName).append('(');
-      for (int p = 0; p < constructor.getParameters().size(); p++) {
-        if (p != 0) {
-          newInstance.append(", ");
-        }
-        newInstance.append(constructorParameterName(p)).append(".get()");
+      newInstance.append(strippedTypeName).append(" result = new ");
+      newInstance.append(strippedTypeName).append('(');
+      boolean first = true;
+      for (VariableElement parameter : constructor.getParameters()) {
+        if (!first) newInstance.append(", ");
+        else first = false;
+        newInstance.append(parameterName(disambiguateFields, parameter)).append(".get()");
       }
       newInstance.append(')');
-      writer.statement(newInstance.toString());
-      writer.statement("injectMembers(result)");
-      writer.statement("return result");
+      writer.emitStatement(newInstance.toString());
+      writer.emitStatement("injectMembers(result)");
+      writer.emitStatement("return result");
     } else {
-      writer.statement("throw new UnsupportedOperationException()");
+      writer.emitStatement("throw new UnsupportedOperationException()");
     }
     writer.endMethod();
 
-    writer.annotation(Override.class);
-    writer.beginMethod("void", "injectMembers", PUBLIC, typeName, "object");
-    for (int f = 0; f < fields.size(); f++) {
-      if (fields.get(f).getAnnotation(Assisted.class) == null) {
-        writer.statement("object.%s = %s.get()",
-            fields.get(f).getSimpleName().toString(),
-            fieldName(f));
-      }
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.MEMBERS_INJECT_METHOD, strippedTypeName);
+    writer.emitAnnotation(Override.class);
+    writer.beginMethod("void", "injectMembers", PUBLIC, strippedTypeName, "object");
+    for (Element field : fields) {
+      writer.emitStatement("object.%s = %s.get()", field.getSimpleName(),
+          fieldName(disambiguateFields, field));
     }
     if (supertype != null) {
-      writer.statement("supertype.injectMembers(object)");
+      writer.emitStatement("supertype.injectMembers(object)");
     }
     writer.endMethod();
-  }
+    writer.endType();
+    writer.close();
+    if (supertype != null) {
+      writer.emitStatement("supertype.injectMembers(object)");
+    }
+    writer.endMethod();
+  }    
+  
 
   private void writeAssistedInjectMethods(JavaWriter writer, String typeName,
       TypeMirror supertype, ExecutableElement constructor,
@@ -373,7 +395,7 @@ public final class InjectProcessor extends AbstractProcessor {
       int extendedParamCount) throws IOException {
 
     if (constructor != null) {
-      writer.annotation(Override.class);
+      writer.emitAnnotation(Override.class);
       writer.beginMethod(typeName, "get", PUBLIC, "Object[]", "args");
       StringBuilder newInstance = new StringBuilder();
       newInstance.append(typeName).append(" result = new ").append(typeName).append('(');
@@ -390,33 +412,60 @@ public final class InjectProcessor extends AbstractProcessor {
           newInstance.append(argIndex++);
           newInstance.append("]");
         } else {
-          newInstance.append(constructorParameterName(p)).append(".get()");
+          newInstance.append(parameterName(true, constructor.getParameters().get(p))).append(".get()");
         }
       }
       newInstance.append(')');
-      writer.statement(newInstance.toString());
-      writer.statement("injectMembers(result)");
-      writer.statement("injectAssistedMembers(result, args)");
-      writer.statement("return result");
+      writer.emitStatement(newInstance.toString());
+      writer.emitStatement("injectMembers(result)");
+      writer.emitStatement("injectAssistedMembers(result, args)");
+      writer.emitStatement("return result");
       writer.endMethod();
     }
 
     if (assistedFields.size() > 0 || supertype != null) {
-      writer.annotation(Override.class);
+      writer.emitAnnotation(Override.class);
       writer.beginMethod("void", "injectAssistedMembers", PUBLIC, typeName, "object",
           "Object[]", "args");
       for (int f = 0; f < assistedFields.size(); f++) {
-        writer.statement("object.%s = (%s) args[%d]",
+        writer.emitStatement("object.%s = (%s) args[%d]",
             assistedFields.get(f).getSimpleName().toString(),
             CodeGen.typeToString(assistedFields.get(f).asType()), extendedParamCount + f);
       }
       if (extendedParamCount > 0) {
-        writer.statement("supertype.injectAssistedMembers(object, args)");
+        writer.emitStatement("supertype.injectAssistedMembers(object, args)");
       }
       writer.endMethod();
     }
   }
 
+  private String[] interfaces(String strippedTypeName, boolean hasFields, boolean isProvider) {
+    List<String> interfaces = new ArrayList<String>();
+    if (isProvider) {
+      interfaces.add(CodeGen.parameterizedType(Provider.class, strippedTypeName));
+    }
+    if (hasFields) {
+      interfaces.add(CodeGen.parameterizedType(MembersInjector.class, strippedTypeName));
+    }
+    return interfaces.toArray(new String[0]);
+  }
+
+  private Set<String> getImports(boolean dependent, boolean injectMembers, boolean isProvider) {
+    Set<String> imports = new LinkedHashSet<String>();
+    imports.add(Binding.class.getName());
+    if (dependent) {
+      imports.add(Linker.class.getName());
+      imports.add(Set.class.getName());
+    }
+    if (injectMembers) imports.add(MembersInjector.class.getName());
+    if (isProvider) imports.add(Provider.class.getName());
+    return imports;
+  }
+
+  private String strippedTypeName(String type, String packageName) {
+    return type.substring(packageName.isEmpty() ? 0 : packageName.length() + 1);
+  }
+  
   /**
    * Write a companion class for {@code type} that extends {@link StaticInjection}.
    */
@@ -427,38 +476,49 @@ public final class InjectProcessor extends AbstractProcessor {
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
-    writer.addPackage(CodeGen.getPackage(type).getQualifiedName().toString());
-    writer.addImport(StaticInjection.class);
-    writer.addImport(Binding.class);
-    writer.addImport(Linker.class);
+    writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
+    writer.emitPackage(CodeGen.getPackage(type).getQualifiedName().toString());
 
-    writer.beginType(adapterName, "class", PUBLIC | FINAL, StaticInjection.class.getName());
+    writer.emitEmptyLine();
+    writer.emitImports(CodeGen.setOf(
+        StaticInjection.class.getName(),
+        Binding.class.getName(),
+        Linker.class.getName()));
 
-    for (int f = 0; f < fields.size(); f++) {
-      TypeMirror fieldType = fields.get(f).asType();
-      writer.field(CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
-          fieldName(f), PRIVATE);
+    writer.emitEmptyLine();
+
+    writer.emitJavadoc(ProcessorJavadocs.STATIC_INJECTION_TYPE, type.getSimpleName());
+    writer.beginType(adapterName, "class", PUBLIC | FINAL, StaticInjection.class.getSimpleName());
+
+    for (Element field : fields) {
+      writer.emitField(CodeGen.parameterizedType(Binding.class,
+          CodeGen.typeToString(field.asType())),
+          fieldName(false, field), PRIVATE);
     }
 
-    writer.annotation(Override.class);
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
+    writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
-    for (int f = 0; f < fields.size(); f++) {
-      TypeMirror fieldType = fields.get(f).asType();
-      writer.statement("%s = (%s) linker.requestBinding(%s, %s.class)",
-          fieldName(f),
-          CodeGen.parameterizedType(Binding.class, CodeGen.typeToString(fieldType)),
-          JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) fields.get(f))),
+    for (Element field : fields) {
+      writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+          fieldName(false, field),
+          writer.compressType(CodeGen.parameterizedType(Binding.class,
+              CodeGen.typeToString(field.asType()))),
+          JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) field)),
           typeName);
     }
     writer.endMethod();
 
-    writer.annotation(Override.class);
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.STATIC_INJECT_METHOD);
+    writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "inject", PUBLIC);
-    for (int f = 0; f < fields.size(); f++) {
-      writer.statement("%s.%s = %s.get()",
-          typeName,
-          fields.get(f).getSimpleName().toString(),
-          fieldName(f));
+    for (Element field : fields) {
+      writer.emitStatement("%s.%s = %s.get()",
+          writer.compressType(typeName),
+          field.getSimpleName().toString(),
+          fieldName(false, field));
     }
     writer.endMethod();
 
@@ -466,12 +526,12 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.close();
   }
 
-  private String fieldName(int index) {
-    return "f" + index;
+  private String fieldName(boolean disambiguateFields, Element field) {
+    return (disambiguateFields ? "field_" : "") + field.getSimpleName().toString();
   }
 
-  private String constructorParameterName(int index) {
-    return "c" + index;
+  private String parameterName(boolean disambiguateFields, Element parameter) {
+    return (disambiguateFields ? "parameter_" : "") + parameter.getSimpleName().toString();
   }
 
   static class InjectedClass {
