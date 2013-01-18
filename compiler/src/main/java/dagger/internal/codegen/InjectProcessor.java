@@ -287,15 +287,9 @@ public final class InjectProcessor extends AbstractProcessor {
         fields, hasAssisted, disambiguateFields, injectMembers);
     if (hasAssisted) {
       writeAssistedInjectMethods(writer, strippedTypeName, constructor,
-          fields, assistedFieldCount, inheritedAssistedFieldCount, injectMembers);
+          fields, assistedFieldCount, inheritedAssistedFieldCount,
+          disambiguateFields, injectMembers);
     }
-
-    writer.emitEmptyLine();
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod("int", "assistedParamsSize", PUBLIC);
-    writer.emitStatement("return %d", assistedFieldCount + assistedParamCount
-        + inheritedAssistedFieldCount);
-    writer.endMethod();
 
     writer.endType();
     writer.close();
@@ -410,17 +404,20 @@ public final class InjectProcessor extends AbstractProcessor {
     }
   }
 
-  private void writeAssistedInjectMethods(JavaWriter writer, String typeName,
+  private void writeAssistedInjectMethods(JavaWriter writer, String strippedTypeName,
       ExecutableElement constructor, List<Element> fields,
       int assistedFieldCount, int inheritedAssistedFieldCount,
-      boolean injectMembers) throws IOException {
+      boolean disambiguateFields, boolean injectMembers) throws IOException {
 
     boolean injectAssistedMembers = assistedFieldCount + inheritedAssistedFieldCount > 0;
     if (constructor != null) {
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.GET_FOR_ASSISTED_METHOD, strippedTypeName);
       writer.emitAnnotation(Override.class);
-      writer.beginMethod(typeName, "get", PUBLIC, "Object[]", "args");
+      writer.beginMethod(strippedTypeName, "get", PUBLIC, "Object[]", "args");
       StringBuilder newInstance = new StringBuilder();
-      newInstance.append(typeName).append(" result = new ").append(typeName).append('(');
+      newInstance.append(strippedTypeName).append(" result = new ")
+          .append(strippedTypeName).append('(');
       int argIndex = assistedFieldCount + inheritedAssistedFieldCount;
       boolean first = true;
       for (Element parameter : constructor.getParameters()) {
@@ -430,7 +427,7 @@ public final class InjectProcessor extends AbstractProcessor {
           newInstance.append(String.format("(%s) args[%d]",
               CodeGen.typeToString(parameter.asType()), argIndex++));
         } else {
-          newInstance.append(parameterName(true, parameter)).append(".get()");
+          newInstance.append(parameterName(disambiguateFields, parameter)).append(".get()");
         }
       }
       newInstance.append(')');
@@ -446,8 +443,10 @@ public final class InjectProcessor extends AbstractProcessor {
     }
 
     if (injectAssistedMembers) {
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.ASSISTED_MEMBERS_INJECT_METHOD, strippedTypeName);
       writer.emitAnnotation(Override.class);
-      writer.beginMethod("void", "injectAssistedMembers", PUBLIC, typeName, "object",
+      writer.beginMethod("void", "injectAssistedMembers", PUBLIC, strippedTypeName, "object",
           "Object[]", "args");
       int argIndex = inheritedAssistedFieldCount;
       for (Element field : fields) {

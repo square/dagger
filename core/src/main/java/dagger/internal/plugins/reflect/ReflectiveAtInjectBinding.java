@@ -149,11 +149,6 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     Collections.addAll(assistedKeys, this.assistedKeys);
   }
 
-  @Override
-  public int assistedParamsSize() {
-    return assistedKeys.length;
-  }
-
   @Override public void injectMembers(T t) {
     try {
       for (int i = 0; i < fields.length; i++) {

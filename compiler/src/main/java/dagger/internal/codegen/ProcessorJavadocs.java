@@ -41,6 +41,12 @@ public final class ProcessorJavadocs {
       + "instance provision of types served by {@code @Provides} methods.";
   static final String STATIC_INJECTION_TYPE = ""
       + "A manager for {@code %s}'s injections into static fields.";
+  static final String GET_FOR_ASSISTED_METHOD = ""
+      + "Returns the fully provisioned instance satisfying the contract for\n"
+      + "{@code Provider<%s>} in case for assisted injections.";
+  static final String ASSISTED_MEMBERS_INJECT_METHOD = ""
+      + "Injects any {@code @Inject} assisted fields in the given instance,\n"
+      + "satisfying the contract for {@code Provider<%s>}.";
 
   /** Creates an appropriate javadoc depending on aspects of the type in question. */
   static String binderTypeDocs(String type, boolean abstrakt, boolean members, boolean dependent) {
