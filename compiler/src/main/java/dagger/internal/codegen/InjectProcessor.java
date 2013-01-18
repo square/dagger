@@ -209,10 +209,12 @@ public final class InjectProcessor extends AbstractProcessor {
     boolean dependent = injectMembers
         || ((constructor != null) && !constructor.getParameters().isEmpty());
 
-    Integer extendedParamCount = 0;
+    int inheritedAssistedFieldCount = 0;
+    int assistedParamCount = 0;
+    int assistedFieldCount = 0;
     if (supertype != null) {
       TypeElement superclassElement = AssistedUtils.mirrorToElement(supertype);
-      extendedParamCount = AssistedUtils.getAssistedFields(superclassElement).size();
+      inheritedAssistedFieldCount = AssistedUtils.getAssistedFields(superclassElement).size();
     }
 
     writer.emitEndOfLineComment(CodeGen.getPackage(type).getQualifiedName().toString());
@@ -227,28 +229,26 @@ public final class InjectProcessor extends AbstractProcessor {
         CodeGen.parameterizedType(Binding.class, strippedTypeName),
         interfaces(strippedTypeName, injectMembers, constructor != null));
 
-    List<VariableElement> assistedParams = new ArrayList<VariableElement>();
     if (constructor != null) {
-      List<? extends VariableElement> parameters = constructor.getParameters();
       for (VariableElement parameter : constructor.getParameters()) {
         if (parameter.getAnnotation(Assisted.class) == null) {
           TypeMirror parameterType = parameter.asType();
-          writer.field(CodeGen.parameterizedType(Binding.class,
+          writer.emitField(CodeGen.parameterizedType(Binding.class,
               CodeGen.typeToString(parameterType)),
               parameterName(disambiguateFields, parameter), PRIVATE);
         } else {
-          assistedParams.add(parameter);
+          assistedParamCount++;
         }
       }
     }
-    List<VariableElement> assistedFields = new ArrayList<VariableElement>();
+
     for (Element field : fields) {
       if (field.getAnnotation(Assisted.class) == null) {
-        writer.field(CodeGen.parameterizedType(Binding.class, 
+        writer.emitField(CodeGen.parameterizedType(Binding.class,
             CodeGen.typeToString(field.asType())),
             fieldName(disambiguateFields, field), PRIVATE);
       } else {
-        assistedFields.add((VariableElement) field);
+        assistedFieldCount++;
       }
     }
     if (supertype != null) {
@@ -267,6 +267,34 @@ public final class InjectProcessor extends AbstractProcessor {
         key, membersKey, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"), strippedTypeName);
     writer.endMethod();
 
+    if (dependent) {
+      writeDependenciesMethods(writer, strippedTypeName, supertype, constructor,
+          fields, disambiguateFields);
+    }
+
+    boolean hasAssisted = (assistedFieldCount + assistedParamCount
+        + inheritedAssistedFieldCount) > 0;
+
+    writeInjectMethods(writer, strippedTypeName, supertype, constructor,
+        fields, hasAssisted, disambiguateFields, injectMembers);
+    if (hasAssisted) {
+      writeAssistedInjectMethods(writer, strippedTypeName, constructor,
+          fields, assistedParamCount, inheritedAssistedFieldCount, injectMembers);
+    }
+
+    writer.emitAnnotation(Override.class);
+    writer.beginMethod("int", "assistedParamsSize", PUBLIC);
+    writer.emitStatement("return %d", assistedFieldCount + assistedParamCount
+        + inheritedAssistedFieldCount);
+    writer.endMethod();
+
+    writer.endType();
+    writer.close();
+  }
+
+  private void writeDependenciesMethods(JavaWriter writer, String strippedTypeName,
+      TypeMirror supertype, ExecutableElement constructor,
+      List<Element> fields, boolean disambiguateFields) throws IOException {
     writer.emitEmptyLine();
     writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
     writer.emitAnnotation(Override.class);
@@ -302,17 +330,8 @@ public final class InjectProcessor extends AbstractProcessor {
     }
     writer.endMethod();
 
-    boolean hasAssisted = (assistedFields.size() + assistedParams.size()
-        + extendedParamCount) > 0;
-
-    writeInjectMethods(writer, strippedTypeName, supertype, constructor, 
-        fields, hasAssisted, disambiguateFields);
-
-    if (hasAssisted) {
-      writeAssistedInjectMethods(writer, strippedTypeName, supertype, constructor,
-          assistedFields, assistedParams, extendedParamCount);
-    }
-
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
     writer.emitAnnotation(Override.class);
     String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
     writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
@@ -320,36 +339,32 @@ public final class InjectProcessor extends AbstractProcessor {
     if (constructor != null) {
       for (VariableElement parameter : constructor.getParameters()) {
         if (parameter.getAnnotation(Assisted.class) == null) {
-          writer.emitStatement("getBindings.add(%s)", constructorParameterName(p));
+          writer.emitStatement("getBindings.add(%s)",
+              parameterName(disambiguateFields, parameter));
         }
       }
     }
-    for (int f = 0; f < fields.size(); f++) {
-      if (fields.get(f).getAnnotation(Assisted.class) == null) {
-        writer.emitStatement("injectMembersBindings.add(%s)", fieldName(f));
+    for (Element field : fields) {
+      if (field.getAnnotation(Assisted.class) == null) {
+        writer.emitStatement("injectMembersBindings.add(%s)",
+            fieldName(disambiguateFields, field));
       }
     }
     if (supertype != null) {
       writer.emitStatement("injectMembersBindings.add(%s)", "supertype");
     }
     writer.endMethod();
-
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod("int", "assistedParamsSize", PUBLIC);
-    writer.emitStatement("return %d", assistedFields.size() + assistedParams.size()
-        + extendedParamCount);
-    writer.endMethod();
-
-    writer.endType();
-    writer.close();
   }
 
   private void writeInjectMethods(JavaWriter writer, String strippedTypeName,
       TypeMirror supertype, ExecutableElement constructor,
-      List<Element> fields, boolean hasAssisted, boolean disambiguateFields) throws IOException {
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod(strippedTypeName, "get", PUBLIC);
+      List<Element> fields, boolean hasAssisted,
+      boolean disambiguateFields, boolean injectMembers) throws IOException {
     if (constructor != null && !hasAssisted) {
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.GET_METHOD, strippedTypeName);
+      writer.emitAnnotation(Override.class);
+      writer.beginMethod(strippedTypeName, "get", PUBLIC);
       StringBuilder newInstance = new StringBuilder();
       newInstance.append(strippedTypeName).append(" result = new ");
       newInstance.append(strippedTypeName).append('(');
@@ -361,78 +376,79 @@ public final class InjectProcessor extends AbstractProcessor {
       }
       newInstance.append(')');
       writer.emitStatement(newInstance.toString());
-      writer.emitStatement("injectMembers(result)");
+      if (injectMembers) {
+        writer.emitStatement("injectMembers(result)");
+      }
       writer.emitStatement("return result");
-    } else {
-      writer.emitStatement("throw new UnsupportedOperationException()");
+      writer.endMethod();
     }
-    writer.endMethod();
 
-    writer.emitEmptyLine();
-    writer.emitJavadoc(ProcessorJavadocs.MEMBERS_INJECT_METHOD, strippedTypeName);
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod("void", "injectMembers", PUBLIC, strippedTypeName, "object");
-    for (Element field : fields) {
-      writer.emitStatement("object.%s = %s.get()", field.getSimpleName(),
-          fieldName(disambiguateFields, field));
+    if (injectMembers) {
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.MEMBERS_INJECT_METHOD, strippedTypeName);
+      writer.emitAnnotation(Override.class);
+      writer.beginMethod("void", "injectMembers", PUBLIC, strippedTypeName, "object");
+      for (Element field : fields) {
+        if (field.getAnnotation(Assisted.class) == null) {
+          writer.emitStatement("object.%s = %s.get()", field.getSimpleName().toString(),
+              fieldName(disambiguateFields, field));
+        }
+      }
+      if (supertype != null) {
+        writer.emitStatement("supertype.injectMembers(object)");
+      }
+      writer.endMethod();
     }
-    if (supertype != null) {
-      writer.emitStatement("supertype.injectMembers(object)");
-    }
-    writer.endMethod();
-    writer.endType();
-    writer.close();
-    if (supertype != null) {
-      writer.emitStatement("supertype.injectMembers(object)");
-    }
-    writer.endMethod();
-  }    
-  
+  }
 
   private void writeAssistedInjectMethods(JavaWriter writer, String typeName,
-      TypeMirror supertype, ExecutableElement constructor,
-      List<VariableElement> assistedFields, List<VariableElement> assistedParams,
-      int extendedParamCount) throws IOException {
+      ExecutableElement constructor, List<Element> fields,
+      int assistedFieldCount, int inheritedAssistedFieldCount,
+      boolean injectMembers) throws IOException {
 
+    boolean injectAssistedMembers = assistedFieldCount + inheritedAssistedFieldCount > 0;
     if (constructor != null) {
       writer.emitAnnotation(Override.class);
       writer.beginMethod(typeName, "get", PUBLIC, "Object[]", "args");
       StringBuilder newInstance = new StringBuilder();
       newInstance.append(typeName).append(" result = new ").append(typeName).append('(');
-      int argIndex = assistedFields.size() + extendedParamCount;
-      for (int p = 0; p < constructor.getParameters().size(); p++) {
-        if (p != 0) {
-          newInstance.append(", ");
-        }
-        if (constructor.getParameters().get(p).getAnnotation(Assisted.class) != null) {
-          newInstance.append("(");
-          newInstance.append(CodeGen.typeToString(assistedParams.get(p).asType()));
-          newInstance.append(") ");
-          newInstance.append("args[");
-          newInstance.append(argIndex++);
-          newInstance.append("]");
+      int argIndex = assistedFieldCount + inheritedAssistedFieldCount;
+      boolean first = true;
+      for (Element parameter : constructor.getParameters()) {
+        if (!first) newInstance.append(", ");
+        else first = false;
+        if (parameter.getAnnotation(Assisted.class) != null) {
+          newInstance.append(String.format("(%s) args[%d]",
+              CodeGen.typeToString(parameter.asType()), argIndex++));
         } else {
-          newInstance.append(parameterName(true, constructor.getParameters().get(p))).append(".get()");
+          newInstance.append(parameterName(true, parameter)).append(".get()");
         }
       }
       newInstance.append(')');
       writer.emitStatement(newInstance.toString());
-      writer.emitStatement("injectMembers(result)");
-      writer.emitStatement("injectAssistedMembers(result, args)");
+      if (injectMembers) {
+        writer.emitStatement("injectMembers(result)");
+      }
+      if (injectAssistedMembers) {
+        writer.emitStatement("injectAssistedMembers(result, args)");
+      }
       writer.emitStatement("return result");
       writer.endMethod();
     }
 
-    if (assistedFields.size() > 0 || supertype != null) {
+    if (injectAssistedMembers) {
       writer.emitAnnotation(Override.class);
       writer.beginMethod("void", "injectAssistedMembers", PUBLIC, typeName, "object",
           "Object[]", "args");
-      for (int f = 0; f < assistedFields.size(); f++) {
-        writer.emitStatement("object.%s = (%s) args[%d]",
-            assistedFields.get(f).getSimpleName().toString(),
-            CodeGen.typeToString(assistedFields.get(f).asType()), extendedParamCount + f);
+      int argIndex = inheritedAssistedFieldCount;
+      for (Element field : fields) {
+        if (field.getAnnotation(Assisted.class) != null) {
+          writer.emitStatement("object.%s = (%s) args[%d]",
+              field.getSimpleName().toString(),
+              CodeGen.typeToString(field.asType()), argIndex++);
+        }
       }
-      if (extendedParamCount > 0) {
+      if (inheritedAssistedFieldCount > 0) {
         writer.emitStatement("supertype.injectAssistedMembers(object, args)");
       }
       writer.endMethod();
@@ -465,7 +481,7 @@ public final class InjectProcessor extends AbstractProcessor {
   private String strippedTypeName(String type, String packageName) {
     return type.substring(packageName.isEmpty() ? 0 : packageName.length() + 1);
   }
-  
+
   /**
    * Write a companion class for {@code type} that extends {@link StaticInjection}.
    */

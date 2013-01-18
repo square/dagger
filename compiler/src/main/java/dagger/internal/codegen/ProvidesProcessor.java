@@ -343,10 +343,10 @@ public final class ProvidesProcessor extends AbstractProcessor {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
     String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
-    boolean isFactoryProvider = isFactoryProvider(providerMethod);
+    boolean factoryProvider = isFactoryProvider(providerMethod);
     String returnType;
     FactoryMethod factoryMethod = null;
-    if (isFactoryProvider) {
+    if (factoryProvider) {
       factoryMethod = findFactoryMethod(processingEnv, providerMethod);
       returnType = CodeGen.typeToString(factoryMethod.getFactory().asType());
     } else {
@@ -372,7 +372,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
     boolean singleton = providerMethod.getAnnotation(Singleton.class) != null
-        || isFactoryProvider;
+        || factoryProvider;
     String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
     String membersKey = null;
     writer.emitStatement("super(%s, %s, %s, %s.class)",
@@ -403,16 +403,17 @@ public final class ProvidesProcessor extends AbstractProcessor {
       writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
           setOfBindings, "injectMembersBindings");
       for (Element parameter : parameters) {
-        if (!isFactoryProvider) {
+        if (!factoryProvider) {
           writer.emitStatement("getBindings.add(%s)", parameter.getSimpleName().toString());
         } else {
-          writer.emitStatement("injectMembersBindings.add(%s)", parameter.getSimpleName().toString());
+          writer.emitStatement("injectMembersBindings.add(%s)",
+              parameter.getSimpleName().toString());
         }
       }
       writer.endMethod();
     }
 
-    if (isFactoryProvider) {
+    if (factoryProvider) {
       String factoryImpl = factoryName(factoryMethod.getFactory());
 
       writer.emitEmptyLine();
@@ -424,7 +425,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
           factoryMethod.getMethod().getParameters();
       for (Element parameter : factoryMethodParams)  {
         params.add(CodeGen.typeToString(parameter.asType()));
-        params.add(parameter.getSimpleName().toString());
+        params.add(assistedParameterName(parameter));
       }
 
       writer.emitEmptyLine();
@@ -440,7 +441,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       for (Integer index : factoryMethod.getTransposition()) {
         if (!first) statement.append(", ");
         else first = false;
-        statement.append(factoryMethodParams.get(index).getSimpleName().toString());
+        statement.append(assistedParameterName(factoryMethodParams.get(index)));
       }
       statement.append(" })");
       writer.emitStatement(statement.toString());
@@ -453,7 +454,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitJavadoc(ProcessorJavadocs.GET_METHOD, returnType);
     writer.emitAnnotation(Override.class);
     writer.beginMethod(returnType, "get", PUBLIC);
-    if (isFactoryProvider) {
+    if (factoryProvider) {
       writer.emitStatement("return new %s.%s()", className,
           factoryName(factoryMethod.getFactory()));
     } else {
@@ -472,12 +473,17 @@ public final class ProvidesProcessor extends AbstractProcessor {
   }
 
   private String parameterName(Element parameter) {
-    if (parameter.getSimpleName().equals("module")) {
+    if (parameter.getSimpleName().toString().equals("module")
+        || parameter.getSimpleName().toString().startsWith("assisted_")) {
       return "parameter_" + parameter.getSimpleName().toString();
     }
     return parameter.getSimpleName().toString();
   }
-  
+
+  private String assistedParameterName(Element parameter) {
+    return "assisted_" + parameter.getSimpleName().toString();
+  }
+
   private String factoryName(TypeElement factory) {
     return factory.getSimpleName().toString() + "Impl";
   }
