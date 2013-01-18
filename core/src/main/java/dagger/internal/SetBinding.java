@@ -65,7 +65,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
   }
 
   @Override public void injectMembers(Set<T> t) {
-    throw new UnsupportedOperationException(); // not a member injection binding.
+    throw new UnsupportedOperationException("Cannot inject into a multi-binder Set");
   }
 
   @Override public String toString() {

@@ -203,8 +203,12 @@ public final class FullGraphProcessor extends AbstractProcessor {
       }
     }
 
+    @Override public Object get() {
+      throw new AssertionError("Compile-time binding should never be called to inject.");
+    }
+
     @Override public void injectMembers(Object t) {
-      throw new UnsupportedOperationException(); // not a member injection binding.
+      throw new AssertionError("Compile-time binding should never be called to inject.");
     }
 
     @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
