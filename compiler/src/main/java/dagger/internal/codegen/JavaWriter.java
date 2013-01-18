@@ -298,11 +298,30 @@ public final class JavaWriter implements Closeable {
     emitAnnotation(annotation, Collections.<String, Object>emptyMap());
   }
 
+
   /**
    * Equivalent to {@code annotation(annotationType.getName(), emptyMap())}.
    */
   public void emitAnnotation(Class<? extends Annotation> annotationType) throws IOException {
     emitAnnotation(annotationType.getName(), Collections.<String, Object>emptyMap());
+  }
+
+  /**
+   * Annotates the next element with {@code annotation} and a {@code value}.
+   *
+   * @param value an object used as the default (value) parameter of the annotation.
+   *     The value will be encoded using Object.toString(); use {@link #stringLiteral}
+   *     for String values. Object arrays are written one element per line.
+   */
+  public void emitAnnotation(Class<? extends Annotation> annotation, Object value)
+      throws IOException {
+    indent();
+    out.write("@");
+    emitType(annotation.getName());
+    out.write("(");
+    emitAnnotationValue(value);
+    out.write(")");
+    out.write("\n");
   }
 
   /**

@@ -113,7 +113,8 @@ public final class InjectProcessor extends AbstractProcessor {
     // First gather the set of classes that have @Inject-annotated members.
     Set<String> injectedTypeNames = new LinkedHashSet<String>();
     for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
-      injectedTypeNames.add(element.getEnclosingElement().asType().toString());
+      TypeMirror type = element.getEnclosingElement().asType();
+      injectedTypeNames.add(CodeGen.rawTypeToString(type, '.'));
     }
     return injectedTypeNames;
   }
@@ -301,6 +302,7 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
     writer.emitAnnotation(Override.class);
+    writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
     writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
     if (constructor != null) {
       for (VariableElement parameter : constructor.getParameters()) {
