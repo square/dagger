@@ -64,6 +64,10 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     getBindings.addAll(contributors);
   }
 
+  @Override public void injectMembers(Set<T> t) {
+    throw new UnsupportedOperationException("Cannot inject into a multi-binder Set");
+  }
+
   @Override public String toString() {
     return "SetBinding" + contributors;
   }

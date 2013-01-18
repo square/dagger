@@ -122,6 +122,14 @@ final class AtInjectBinding extends Binding<Object> {
     }
   }
 
+  @Override public Object get() {
+    throw new AssertionError("Compile-time binding should never be called to inject.");
+  }
+
+  @Override public void injectMembers(Object t) {
+    throw new AssertionError("Compile-time binding should never be called to inject.");
+  }
+
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
     for (Binding<?> binding : bindings) {
       get.add(binding);
