@@ -64,6 +64,10 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     getBindings.addAll(contributors);
   }
 
+  @Override public void injectMembers(Set<T> t) {
+    throw new UnsupportedOperationException(); // not a member injection binding.
+  }
+
   @Override public String toString() {
     return "SetBinding" + contributors;
   }

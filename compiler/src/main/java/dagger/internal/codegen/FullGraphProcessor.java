@@ -203,6 +203,10 @@ public final class FullGraphProcessor extends AbstractProcessor {
       }
     }
 
+    @Override public void injectMembers(Object t) {
+      throw new UnsupportedOperationException(); // not a member injection binding.
+    }
+
     @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
       for (Binding<?> binding : parameters) {
         get.add(binding);

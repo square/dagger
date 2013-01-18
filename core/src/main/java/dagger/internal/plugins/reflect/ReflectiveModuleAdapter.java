@@ -148,6 +148,10 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       }
     }
 
+    @Override public void injectMembers(T t) {
+      throw new UnsupportedOperationException(); // not a member injection binding.
+    }
+
     @Override public String toString() {
       return method.toString();
     }
