@@ -187,6 +187,16 @@ public final class InjectProcessor extends AbstractProcessor {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
   }
 
+  private int getAssistedCount(Collection<? extends Element> elements) {
+    int result = 0;
+    for (Element element : elements) {
+      if (element.getAnnotation(Assisted.class) != null) {
+        result++;
+      }
+    }
+    return result;
+  }
+
   /**
    * Write a companion class for {@code type} that extends {@link Binding}.
    *
@@ -201,21 +211,23 @@ public final class InjectProcessor extends AbstractProcessor {
     String adapterName = CodeGen.adapterName(type, INJECT_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
-    boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
-    boolean injectMembers = !fields.isEmpty() || supertype != null;
-    boolean disambiguateFields = !fields.isEmpty()
-        && (constructor != null)
-        && !constructor.getParameters().isEmpty();
-    boolean dependent = injectMembers
-        || ((constructor != null) && !constructor.getParameters().isEmpty());
 
+    int assistedParamCount = constructor == null ? 0
+        : getAssistedCount(constructor.getParameters());
+    int assistedFieldCount = getAssistedCount(fields);
     int inheritedAssistedFieldCount = 0;
-    int assistedParamCount = 0;
-    int assistedFieldCount = 0;
     if (supertype != null) {
       TypeElement superclassElement = AssistedUtils.mirrorToElement(supertype);
       inheritedAssistedFieldCount = AssistedUtils.getAssistedFields(superclassElement).size();
     }
+
+    boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
+    boolean injectMembers = fields.size() > assistedFieldCount || supertype != null;
+    boolean disambiguateFields = fields.size() > assistedFieldCount
+        && (constructor != null)
+        && constructor.getParameters().size() > assistedParamCount;
+    boolean dependent = injectMembers
+        || ((constructor != null) && constructor.getParameters().size() > assistedParamCount);
 
     writer.emitEndOfLineComment(CodeGen.getPackage(type).getQualifiedName().toString());
     writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
@@ -236,8 +248,6 @@ public final class InjectProcessor extends AbstractProcessor {
           writer.emitField(CodeGen.parameterizedType(Binding.class,
               CodeGen.typeToString(parameterType)),
               parameterName(disambiguateFields, parameter), PRIVATE);
-        } else {
-          assistedParamCount++;
         }
       }
     }
@@ -247,8 +257,6 @@ public final class InjectProcessor extends AbstractProcessor {
         writer.emitField(CodeGen.parameterizedType(Binding.class,
             CodeGen.typeToString(field.asType())),
             fieldName(disambiguateFields, field), PRIVATE);
-      } else {
-        assistedFieldCount++;
       }
     }
     if (supertype != null) {
@@ -282,6 +290,7 @@ public final class InjectProcessor extends AbstractProcessor {
           fields, assistedParamCount, inheritedAssistedFieldCount, injectMembers);
     }
 
+    writer.emitEmptyLine();
     writer.emitAnnotation(Override.class);
     writer.beginMethod("int", "assistedParamsSize", PUBLIC);
     writer.emitStatement("return %d", assistedFieldCount + assistedParamCount
