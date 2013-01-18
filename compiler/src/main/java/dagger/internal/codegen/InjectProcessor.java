@@ -287,7 +287,7 @@ public final class InjectProcessor extends AbstractProcessor {
         fields, hasAssisted, disambiguateFields, injectMembers);
     if (hasAssisted) {
       writeAssistedInjectMethods(writer, strippedTypeName, constructor,
-          fields, assistedParamCount, inheritedAssistedFieldCount, injectMembers);
+          fields, assistedFieldCount, inheritedAssistedFieldCount, injectMembers);
     }
 
     writer.emitEmptyLine();
