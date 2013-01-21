@@ -217,9 +217,11 @@ public final class InjectProcessor extends AbstractProcessor {
         : getAssistedCount(constructor.getParameters());
     int assistedFieldCount = getAssistedCount(fields);
     int inheritedAssistedFieldCount = 0;
+    List<VariableElement> inheritedAssistedFields = null;
     if (supertype != null) {
       TypeElement superclassElement = AssistedUtils.mirrorToElement(supertype);
-      inheritedAssistedFieldCount = AssistedUtils.getAssistedFields(superclassElement).size();
+      inheritedAssistedFields =  AssistedUtils.getAssistedFields(superclassElement);
+      inheritedAssistedFieldCount = inheritedAssistedFields.size();
     }
 
     boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
@@ -288,7 +290,7 @@ public final class InjectProcessor extends AbstractProcessor {
         fields, hasAssisted, disambiguateFields, injectMembers);
     if (hasAssisted) {
       writeAssistedInjectMethods(writer, strippedTypeName, constructor,
-          fields, assistedFieldCount, inheritedAssistedFieldCount,
+          fields, inheritedAssistedFields, assistedFieldCount,
           disambiguateFields, injectMembers);
     }
 
@@ -408,9 +410,13 @@ public final class InjectProcessor extends AbstractProcessor {
 
   private void writeAssistedInjectMethods(JavaWriter writer, String strippedTypeName,
       ExecutableElement constructor, List<Element> fields,
-      int assistedFieldCount, int inheritedAssistedFieldCount,
+      List<VariableElement> inheritedAssistedFields, int assistedFieldCount,
       boolean disambiguateFields, boolean injectMembers) throws IOException {
 
+    int inheritedAssistedFieldCount = 0;
+    if (inheritedAssistedFields != null) {
+      inheritedAssistedFieldCount = inheritedAssistedFields.size();
+    }
     boolean injectAssistedMembers = assistedFieldCount + inheritedAssistedFieldCount > 0;
     if (constructor != null) {
       writer.emitEmptyLine();
@@ -463,6 +469,33 @@ public final class InjectProcessor extends AbstractProcessor {
       }
       writer.endMethod();
     }
+
+    writer.emitEmptyLine();
+    writer.emitJavadoc(ProcessorJavadocs.GET_ASSISTED_DEPENDENCIES_METHOD);
+    writer.emitAnnotation(Override.class);
+    writer.beginMethod("void", "getAssistedDependencies", PUBLIC,
+        "Set<String>", "assistedKeys");
+    if (inheritedAssistedFieldCount > 0) {
+      for (VariableElement field : inheritedAssistedFields) {
+        writer.emitStatement("assistedKeys.add(\"%s\")",
+            GeneratorKeys.get(field));
+      }
+    }
+    for (Element field : fields) {
+      if (field.getAnnotation(Assisted.class) != null) {
+        writer.emitStatement("assistedKeys.add(\"%s\")",
+            GeneratorKeys.get((VariableElement) field));
+      }
+    }
+    if (constructor != null) {
+      for (VariableElement parameter : constructor.getParameters()) {
+        if (parameter.getAnnotation(Assisted.class) != null) {
+          writer.emitStatement("assistedKeys.add(\"%s\")",
+              GeneratorKeys.get(parameter));
+        }
+      }
+    }
+    writer.endMethod();
   }
 
   private String[] interfaces(String strippedTypeName, boolean hasFields, boolean isProvider) {

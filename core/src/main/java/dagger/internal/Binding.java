@@ -106,9 +106,9 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
 
   /**
    * Populates {@code assistedKeys} with the binding keys which is assisted and
-   * need to inject as factory parameter.
+   * need to inject as factory parameter, used by {@code ReflectivePlugin}.
    *
-   * @param assistedKeys all binding keys which is assisted.
+   * @param assistedKeys all assisted binding keys.
    */
   public void getAssistedDependencies(Set<String> assistedKeys) {
   }

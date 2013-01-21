@@ -30,6 +30,9 @@ public final class ProcessorJavadocs {
   static final String GET_DEPENDENCIES_METHOD = ""
       + "Used internally obtain dependency information, such as for cyclical\n"
       + "graph detection.";
+  static final String GET_ASSISTED_DEPENDENCIES_METHOD = ""
+      + "Used internally for {@code ReflectivePlugin}\n"
+      + "to specify dependencies will be inject as factory parameters.";
   static final String ATTACH_METHOD = ""
       + "Used internally to link bindings/providers together at run time\n"
       + "according to their dependency graph.";
