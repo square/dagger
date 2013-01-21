@@ -2,7 +2,7 @@ package dagger.internal.codegen;
 
 import dagger.Assisted;
 import dagger.Factory;
-import dagger.internal.IndexedSet;
+import dagger.internal.IndexedUniqueSet;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.inject.Inject;
@@ -99,7 +99,7 @@ public final class AssistedUtils {
   public static FactoryMethod findFactoryMethod(TypeElement factory, TypeElement type,
       TypeMirror returnType) {
     List<VariableElement> parameters = getAllAssistedParams(type);
-    IndexedSet<String> keys = new IndexedSet<String>();
+    IndexedUniqueSet<String> keys = new IndexedUniqueSet<String>();
 
     for (VariableElement param : parameters) {
       keys.add(GeneratorKeys.get(param));
@@ -132,7 +132,7 @@ public final class AssistedUtils {
         if (!GeneratorKeys.isAssisted(paramKey)) {
           paramKey = GeneratorKeys.getWithDefaultAssisted(param.asType());
         }
-        int index = keys.getIndexOf(paramKey);
+        int index = keys.indexOf(paramKey);
         if (index == -1) {
           continue findMethod;
         }

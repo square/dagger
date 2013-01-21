@@ -1,7 +1,7 @@
 package dagger.internal.plugins.reflect;
 
 import dagger.internal.Binding;
-import dagger.internal.IndexedSet;
+import dagger.internal.IndexedUniqueSet;
 import dagger.internal.Keys;
 import dagger.internal.Linker;
 
@@ -66,7 +66,7 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
   }
 
   private void findFactoryMethod() {
-    IndexedSet<String> assistedKeys = new IndexedSet<String>();
+    IndexedUniqueSet<String> assistedKeys = new IndexedUniqueSet<String>();
     targetBinding.getAssistedDependencies(assistedKeys);
 
     Integer[] indexes = new Integer[assistedKeys.size()];
@@ -89,7 +89,7 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
           key = Keys.getWithDefaultAssisted(types[i]);
         }
 
-        int index = assistedKeys.getIndexOf(key);
+        int index = assistedKeys.indexOf(key);
         if (index == -1) {
           continue;
         }

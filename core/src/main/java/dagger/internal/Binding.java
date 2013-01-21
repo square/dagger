@@ -100,6 +100,12 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
     throw new UnsupportedOperationException(getClass().getName());
   }
 
+  /**
+   * Populates {@code assistedKeys} with the binding keys which is assisted and
+   * need to inject as factory parameter.
+   *
+   * @param assistedKeys all binding keys which is assisted.
+   */
   public void getAssistedDependencies(Set<String> assistedKeys) {
   }
 
