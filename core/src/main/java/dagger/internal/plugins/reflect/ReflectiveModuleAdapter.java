@@ -181,6 +181,10 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       }
     }
 
+    @Override public void injectMembers(T t) {
+      throw new AssertionError("Provides method bindings are not MembersInjectors");
+    }
+
     @Override public String toString() {
       return method.toString();
     }

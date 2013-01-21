@@ -24,8 +24,11 @@ import javax.inject.Provider;
  */
 public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
   public static final Binding<Object> UNRESOLVED = new Binding<Object>(null, null, false, null) {
-    @Override public void getDependencies(Set<Binding<?>> bindings, Set<Binding<?>> memBindings) {
-      // do nothing
+    @Override public Object get() {
+      throw new AssertionError("Unresolved binding should never be called to inject.");
+    }
+    @Override public void injectMembers(Object t) {
+      throw new AssertionError("Unresolved binding should never be called to inject.");
     }
   };
   protected static final boolean IS_SINGLETON = true;
@@ -71,7 +74,8 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
   }
 
   @Override public void injectMembers(T t) {
-    throw new UnsupportedOperationException("No injectable members on " + getClass().getName());
+    // If no members to inject, no-op.  Some classes will have no injectable members even
+    // if their supertypes do.
   }
 
   @Override public T get() {
@@ -97,7 +101,7 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
    *     injectMembers} method.
    */
   public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
-    throw new UnsupportedOperationException(getClass().getName());
+    // Do nothing.  No override == no dependencies to contribute.
   }
 
   /**

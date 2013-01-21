@@ -384,6 +384,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       writer.emitEmptyLine();
       writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
+      writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
       writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
       for (VariableElement parameter : parameters) {
         String parameterKey = GeneratorKeys.get(parameter);
