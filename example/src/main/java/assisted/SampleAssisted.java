@@ -1,4 +1,4 @@
-package coffee;
+package assisted;
 
 import dagger.Assisted;
 import dagger.Factory;
