@@ -62,8 +62,8 @@ final class AtInjectBinding extends Binding<Object> {
     for (Element enclosed : type.getEnclosedElements()) {
       switch (enclosed.getKind()) {
       case FIELD:
-        if (hasAtInject(enclosed) && !isAssisted(enclosed)
-            && !enclosed.getModifiers().contains(Modifier.STATIC)) {
+        if (hasAtInject(enclosed) && !enclosed.getModifiers().contains(Modifier.STATIC)
+            && !isAssisted(enclosed)) {
           // Attach the non-static fields of 'type'.
           requiredKeys.add(GeneratorKeys.get((VariableElement) enclosed));
         }
