@@ -53,17 +53,6 @@ final class GeneratorKeys {
     return result.toString();
   }
 
-  public static String get(TypeMirror type, Element annotatedElement) {
-    StringBuilder result = new StringBuilder();
-    AnnotationMirror qualifier =
-        getQualifier(annotatedElement.getAnnotationMirrors(), annotatedElement);
-    if (qualifier != null) {
-      qualifierToString(qualifier, result);
-    }
-    CodeGen.typeToString(type, result, '$');
-    return result.toString();
-  }
-
   public static String getWithDefaultAssisted(TypeMirror type) {
     StringBuilder result = new StringBuilder();
     result.append("@").append(Assisted.class.getCanonicalName()).append("()/");
@@ -78,6 +67,17 @@ final class GeneratorKeys {
   /** Returns the provided key for {@code method}. */
   public static String get(ExecutableElement method) {
     return get(method.getReturnType(), method);
+  }
+
+  public static String get(TypeMirror type, Element annotatedElement) {
+    StringBuilder result = new StringBuilder();
+    AnnotationMirror qualifier =
+        getQualifier(annotatedElement.getAnnotationMirrors(), annotatedElement);
+    if (qualifier != null) {
+      qualifierToString(qualifier, result);
+    }
+    CodeGen.typeToString(type, result, '$');
+    return result.toString();
   }
 
   /** Returns the provided key for {@code method} wrapped by {@code Set}. */

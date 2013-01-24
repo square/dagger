@@ -21,12 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Created with IntelliJ IDEA.
- * User: ylevin
- * Date: 28.12.12
- * Time: 10:38
- */
 public final class AssistedUtils {
   private AssistedUtils() {
   }
@@ -52,7 +46,7 @@ public final class AssistedUtils {
         }
       }
     }
-    throw new AssertionError("Not found @Factory annotation.");
+    throw new AssertionError("@Factory annotation not found");
   }
 
   public static String factoryKey(ExecutableElement provideMethod) {
@@ -75,7 +69,7 @@ public final class AssistedUtils {
     TypeElement factory = mirrorToElement(extractFactoryType(providerMethod));
 
     if (factory.getKind() != ElementKind.INTERFACE) {
-      throw new AssertionError("Factory must be an interface.");
+      throw new AssertionError("Factory must be an interface");
     }
 
     TypeMirror returnType = providerMethod.getReturnType();
@@ -83,12 +77,12 @@ public final class AssistedUtils {
     List<? extends VariableElement> params = providerMethod.getParameters();
     if (params.size() != 1) {
       throw new AssertionError("@Factory method " + providerMethod
-          + " must have only one parameter.");
+          + " must have only one parameter");
     }
 
     if (!env.getTypeUtils().isAssignable(params.get(0).asType(), returnType)) {
       throw new AssertionError("@Factory method " + providerMethod
-          + " must have parameter which assignable to return type.");
+          + " must have parameter which is assignable to return type");
     }
 
     TypeElement type = mirrorToElement(params.get(0).asType());
@@ -116,7 +110,7 @@ public final class AssistedUtils {
 
       methodCount++;
       if (methodCount > 1) {
-        throw new AssertionError("Factory interface must have only one method.");
+        throw new AssertionError("Factory interface must have only one method");
       }
 
       ExecutableElement method = (ExecutableElement) element;
@@ -145,8 +139,8 @@ public final class AssistedUtils {
     if (factoryMethod != null) {
       return factoryMethod;
     }
-    throw new AssertionError("Not found factory method for " + returnType.toString()
-        + " in " + factory.getQualifiedName().toString());
+    throw new AssertionError("Factory method for " + returnType.toString()
+        + " in " + factory.getQualifiedName().toString() + " not found");
   }
 
   public static List<VariableElement> getAllAssistedParams(TypeElement type) {

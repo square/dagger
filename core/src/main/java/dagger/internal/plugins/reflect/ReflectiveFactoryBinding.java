@@ -12,12 +12,6 @@ import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.Set;
 
-/**
- * Created with IntelliJ IDEA.
- * User: ylevin
- * Date: 17.12.12
- * Time: 13:03
- */
 public class ReflectiveFactoryBinding<T> extends Binding<T> {
   private final Class<T> factory;
   private final Method moduleMethod;
@@ -101,8 +95,8 @@ public class ReflectiveFactoryBinding<T> extends Binding<T> {
       factoryMethod = method;
     }
     if (factoryMethod == null) {
-      throw new AssertionError("Not found factory method for " + targetBinding + " in "
-          + factory.getCanonicalName());
+      throw new AssertionError("Factory method for " + targetBinding + " in "
+          + factory.getCanonicalName() + " not found");
     }
   }
 

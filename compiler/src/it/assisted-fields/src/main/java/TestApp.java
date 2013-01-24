@@ -9,12 +9,6 @@ import java.lang.Override;
 import java.lang.Runnable;
 import java.lang.String;
 
-/**
- * Created with IntelliJ IDEA.
- * User: ylevin
- * Date: 27.12.12
- * Time: 19:03
- */
 public class TestApp implements Runnable {
 
   @Override

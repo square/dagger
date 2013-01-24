@@ -8,12 +8,6 @@ import dagger.Provides;
 
 import javax.inject.Inject;
 
-/**
- * Created with IntelliJ IDEA.
- * User: ylevin
- * Date: 27.12.12
- * Time: 19:03
- */
 public class SampleAssisted {
   public static void main(String[] args) {
     ObjectGraph.create(new AssistedModule()).get(A.class).run();

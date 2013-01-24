@@ -5,12 +5,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Created with IntelliJ IDEA.
- * User: ylevin
- * Date: 28.12.12
- * Time: 18:17
- */
 public class IndexedUniqueSet<T> extends AbstractSet<T> {
 
   private final Map<T, Integer> map = new LinkedHashMap<T, Integer>();

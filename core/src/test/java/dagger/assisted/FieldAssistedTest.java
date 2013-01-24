@@ -7,12 +7,6 @@ import org.junit.Test;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/**
- * Created with IntelliJ IDEA.
- * User: ylevin
- * Date: 12.12.12
- * Time: 18:29
- */
 public final class FieldAssistedTest {
   @Test
   public void simpleAssistedTest() {
