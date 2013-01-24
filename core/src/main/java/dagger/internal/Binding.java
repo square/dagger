@@ -85,6 +85,9 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
   public void injectAssistedMembers(T t, Object[] args) {
   }
 
+  /**
+   * Used for assisted bindings
+   */
   public T get(Object[] args) {
     return get();
   }
