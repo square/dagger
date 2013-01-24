@@ -15,12 +15,14 @@
  */
 package dagger.internal.codegen;
 
+import dagger.Assisted;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
@@ -51,14 +53,30 @@ final class GeneratorKeys {
     return result.toString();
   }
 
+  public static String getWithDefaultAssisted(TypeMirror type) {
+    StringBuilder result = new StringBuilder();
+    result.append("@").append(Assisted.class.getCanonicalName()).append("()/");
+    CodeGen.typeToString(type, result, '$');
+    return result.toString();
+  }
+
+  public static boolean isAssisted(String key) {
+    return key.startsWith("@" + Assisted.class.getCanonicalName());
+  }
+
   /** Returns the provided key for {@code method}. */
   public static String get(ExecutableElement method) {
+    return get(method.getReturnType(), method);
+  }
+
+  public static String get(TypeMirror type, Element annotatedElement) {
     StringBuilder result = new StringBuilder();
-    AnnotationMirror qualifier = getQualifier(method.getAnnotationMirrors(), method);
+    AnnotationMirror qualifier =
+        getQualifier(annotatedElement.getAnnotationMirrors(), annotatedElement);
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    CodeGen.typeToString(method.getReturnType(), result, '$');
+    CodeGen.typeToString(type, result, '$');
     return result.toString();
   }
 
@@ -77,13 +95,7 @@ final class GeneratorKeys {
 
   /** Returns the provider key for {@code variable}. */
   public static String get(VariableElement variable) {
-    StringBuilder result = new StringBuilder();
-    AnnotationMirror qualifier = getQualifier(variable.getAnnotationMirrors(), variable);
-    if (qualifier != null) {
-      qualifierToString(qualifier, result);
-    }
-    CodeGen.typeToString(variable.asType(), result, '$');
-    return result.toString();
+    return get(variable.asType(), variable);
   }
 
   private static void qualifierToString(AnnotationMirror qualifier, StringBuilder result) {

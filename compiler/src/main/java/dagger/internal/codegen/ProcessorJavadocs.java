@@ -30,6 +30,9 @@ public final class ProcessorJavadocs {
   static final String GET_DEPENDENCIES_METHOD = ""
       + "Used internally obtain dependency information, such as for cyclical\n"
       + "graph detection.";
+  static final String GET_ASSISTED_DEPENDENCIES_METHOD = ""
+      + "Used internally for {@code ReflectivePlugin}\n"
+      + "to specify dependencies will be injected as factory parameters.";
   static final String ATTACH_METHOD = ""
       + "Used internally to link bindings/providers together at run time\n"
       + "according to their dependency graph.";
@@ -41,6 +44,12 @@ public final class ProcessorJavadocs {
       + "instance provision of types served by {@code @Provides} methods.";
   static final String STATIC_INJECTION_TYPE = ""
       + "A manager for {@code %s}'s injections into static fields.";
+  static final String GET_FOR_ASSISTED_METHOD = ""
+      + "Returns the fully provisioned instance satisfying the contract for\n"
+      + "{@code Provider<%s>} in case for assisted injections.";
+  static final String ASSISTED_MEMBERS_INJECT_METHOD = ""
+      + "Injects any {@code @Inject} assisted fields in the given instance,\n"
+      + "satisfying the contract for {@code Provider<%s>}.";
 
   /** Creates an appropriate javadoc depending on aspects of the type in question. */
   static String binderTypeDocs(String type, boolean abstrakt, boolean members, boolean dependent) {

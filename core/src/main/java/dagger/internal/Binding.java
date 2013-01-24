@@ -82,6 +82,16 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
     throw new UnsupportedOperationException("No injectable constructor on " + getClass().getName());
   }
 
+  public void injectAssistedMembers(T t, Object[] args) {
+  }
+
+  /**
+   * Used for assisted bindings
+   */
+  public T get(Object[] args) {
+    return get();
+  }
+
   /**
    * Populates {@code getBindings} and {@code injectMembersBindings} with the
    * bindings used by this binding to satisfy {@link #get} and {@link
@@ -95,6 +105,15 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
    */
   public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {
     // Do nothing.  No override == no dependencies to contribute.
+  }
+
+  /**
+   * Populates {@code assistedKeys} with the binding keys which is assisted and
+   * need to inject as factory parameter, used by {@code ReflectivePlugin}.
+   *
+   * @param assistedKeys all assisted binding keys.
+   */
+  public void getAssistedDependencies(Set<String> assistedKeys) {
   }
 
   void setLinked() {

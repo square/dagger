@@ -48,6 +48,9 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static dagger.internal.codegen.AssistedUtils.isFactoryProvider;
+import static dagger.internal.codegen.AssistedUtils.factoryKey;
+import static dagger.internal.codegen.AssistedUtils.findFactoryMethod;
 import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
 import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
@@ -231,6 +234,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
     Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
     for (ExecutableElement providerMethod : providerMethods) {
       Provides provides = providerMethod.getAnnotation(Provides.class);
+      if (isFactoryProvider(providerMethod)) {
+        String key = factoryKey(providerMethod);
+        writer.emitStatement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+            bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+        continue;
+      }
       switch (provides.type()) {
         case UNIQUE: {
           String key = GeneratorKeys.get(providerMethod);
@@ -334,7 +343,16 @@ public final class ProvidesProcessor extends AbstractProcessor {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
     String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
-    String returnType = CodeGen.typeToString(providerMethod.getReturnType());
+    boolean factoryProvider = isFactoryProvider(providerMethod);
+    String returnType;
+    FactoryMethod factoryMethod = null;
+    if (factoryProvider) {
+      factoryMethod = findFactoryMethod(processingEnv, providerMethod);
+      returnType = CodeGen.typeToString(factoryMethod.getFactory().asType());
+    } else {
+      returnType = CodeGen.typeToString(providerMethod.getReturnType());
+    }
+
     List<? extends VariableElement> parameters = providerMethod.getParameters();
     boolean dependent = !parameters.isEmpty();
 
@@ -353,7 +371,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     writer.emitEmptyLine();
     writer.beginMethod(null, className, PUBLIC, moduleType, "module");
-    boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
+    boolean singleton = providerMethod.getAnnotation(Singleton.class) != null
+        || factoryProvider;
     String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
     String membersKey = null;
     writer.emitStatement("super(%s, %s, %s, %s.class)",
@@ -385,32 +404,88 @@ public final class ProvidesProcessor extends AbstractProcessor {
       writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
           setOfBindings, "injectMembersBindings");
       for (Element parameter : parameters) {
-        writer.emitStatement("getBindings.add(%s)", parameter.getSimpleName().toString());
+        if (!factoryProvider) {
+          writer.emitStatement("getBindings.add(%s)", parameter.getSimpleName().toString());
+        } else {
+          writer.emitStatement("injectMembersBindings.add(%s)",
+              parameter.getSimpleName().toString());
+        }
       }
       writer.endMethod();
+    }
+
+    if (factoryProvider) {
+      String factoryImpl = factoryName(factoryMethod.getFactory());
+
+      writer.emitEmptyLine();
+      writer.beginType(factoryImpl, "class", PRIVATE, null,
+          CodeGen.typeToString(factoryMethod.getFactory().asType()));
+
+      List<String> params = new ArrayList<String>();
+      List<? extends VariableElement> factoryMethodParams =
+          factoryMethod.getMethod().getParameters();
+      for (Element parameter : factoryMethodParams)  {
+        params.add(CodeGen.typeToString(parameter.asType()));
+        params.add(assistedParameterName(parameter));
+      }
+
+      writer.emitEmptyLine();
+      writer.emitAnnotation(Override.class);
+      writer.beginMethod(CodeGen.typeToString(providerMethod.getReturnType()),
+          factoryMethod.getMethod().getSimpleName().toString(), PUBLIC,
+          params.toArray(new String[params.size()]));
+      StringBuilder statement = new StringBuilder();
+      statement.append("return ");
+      statement.append(parameterName(parameters.get(0)));
+      statement.append(".get(new Object[] { ");
+      boolean first = true;
+      for (Integer index : factoryMethod.getTransposition()) {
+        if (!first) statement.append(", ");
+        else first = false;
+        statement.append(assistedParameterName(factoryMethodParams.get(index)));
+      }
+      statement.append(" })");
+      writer.emitStatement(statement.toString());
+      writer.endMethod();
+
+      writer.endType();
     }
 
     writer.emitEmptyLine();
     writer.emitJavadoc(ProcessorJavadocs.GET_METHOD, returnType);
     writer.emitAnnotation(Override.class);
     writer.beginMethod(returnType, "get", PUBLIC);
-    StringBuilder args = new StringBuilder();
-    boolean first = true;
-    for (Element parameter : parameters) {
-      if (!first) args.append(", ");
-      else first = false;
-      args.append(String.format("%s.get()", parameter.getSimpleName().toString()));
+    if (factoryProvider) {
+      writer.emitStatement("return new %s.%s()", className,
+          factoryName(factoryMethod.getFactory()));
+    } else {
+      StringBuilder args = new StringBuilder();
+      boolean first = true;
+      for (Element parameter : parameters) {
+        if (!first) args.append(", ");
+        else first = false;
+        args.append(String.format("%s.get()", parameter.getSimpleName().toString()));
+      }
+      writer.emitStatement("return module.%s(%s)", methodName, args.toString());
     }
-    writer.emitStatement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
 
     writer.endType();
   }
 
   private String parameterName(Element parameter) {
-    if (parameter.getSimpleName().equals("module")) {
+    if (parameter.getSimpleName().toString().equals("module")
+        || parameter.getSimpleName().toString().startsWith("assisted_")) {
       return "parameter_" + parameter.getSimpleName().toString();
     }
     return parameter.getSimpleName().toString();
+  }
+
+  private String assistedParameterName(Element parameter) {
+    return "assisted_" + parameter.getSimpleName().toString();
+  }
+
+  private String factoryName(TypeElement factory) {
+    return factory.getSimpleName().toString() + "Impl";
   }
 }

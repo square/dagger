@@ -15,6 +15,7 @@
  */
 package dagger.internal.plugins.reflect;
 
+import dagger.Factory;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
@@ -22,6 +23,8 @@ import dagger.internal.Keys;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.SetBinding;
+
+import javax.inject.Singleton;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -29,7 +32,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Set;
-import javax.inject.Singleton;
 
 final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   final Class<?> moduleClass;
@@ -57,16 +59,23 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       for (Method method : c.getDeclaredMethods()) {
         Provides provides = method.getAnnotation(Provides.class);
         if (provides != null) {
-          String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
-          switch (provides.type()) {
-            case UNIQUE:
-              handleBindings(bindings, method, key);
-              break;
-            case SET:
-              handleSetBindings(bindings, method, key);
-              break;
-            default:
-              throw new AssertionError("Unknown @Provides type " + provides.type());
+          Factory factory = method.getAnnotation(Factory.class);
+          if (factory != null) {
+            Class<?> factoryType = factory.value();
+            String key = Keys.get(factory.value(), method.getAnnotations(), method);
+            handleFactoryBindings(bindings, factoryType, method, key);
+          } else {
+            String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
+            switch (provides.type()) {
+              case UNIQUE:
+                handleBindings(bindings, method, key);
+                break;
+              case SET:
+                handleSetBindings(bindings, method, key);
+                break;
+              default:
+                throw new AssertionError("Unknown @Provides type " + provides.type());
+            }
           }
         }
       }
@@ -75,6 +84,30 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
 
   private <T> void handleBindings(Map<String, Binding<?>> bindings, Method method, String key) {
     bindings.put(key, new ProviderMethodBinding<T>(method, key, module));
+  }
+
+  private <T> void handleFactoryBindings(Map<String, Binding<?>> bindings, Class<T> factory,
+                                         Method method, String key) {
+    Type targetType = method.getGenericReturnType();
+    String factoryKey = Keys.get(factory);
+    String membersKey = Keys.getMembersKey(factory);
+    Class<?> type = method.getReturnType();
+    Class<?>[] types = method.getParameterTypes();
+
+    if (types.length != 1) {
+      throw new IllegalArgumentException("@Factory method " + method
+          + " must have only one parameter");
+    }
+
+    if (!type.isAssignableFrom(types[0])) {
+      throw new IllegalArgumentException("@Factory method " + method
+          + " parameter type must extend or equal to return type");
+    }
+
+    String targetKey = Keys.get(types[0]);
+
+    bindings.put(key, new ReflectiveFactoryBinding<T>(factoryKey, membersKey, targetKey,
+        factory, targetType, method, module));
   }
 
   private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key) {

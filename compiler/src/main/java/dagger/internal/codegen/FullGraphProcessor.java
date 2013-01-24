@@ -126,7 +126,13 @@ public final class FullGraphProcessor extends AbstractProcessor {
             continue;
           }
           ExecutableElement providerMethod = (ExecutableElement) enclosed;
-          String key = GeneratorKeys.get(providerMethod);
+          boolean isFactory = AssistedUtils.isFactoryProvider(providerMethod);
+          String key;
+          if (isFactory) {
+            key = AssistedUtils.factoryKey(providerMethod);
+          } else {
+            key = GeneratorKeys.get(providerMethod);
+          }
           ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
           switch (provides.type()) {
             case UNIQUE:
@@ -140,6 +146,10 @@ public final class FullGraphProcessor extends AbstractProcessor {
               break;
 
             case SET:
+              if (isFactory) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "Set binding not supported for factories.");
+              }
               String elementKey = GeneratorKeys.getElementKey(providerMethod);
               SetBinding.add(addTo, elementKey, binding);
               break;
