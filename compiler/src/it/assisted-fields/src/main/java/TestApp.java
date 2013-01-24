@@ -1,5 +1,3 @@
-package coffee;
-
 import dagger.Assisted;
 import dagger.Factory;
 import dagger.Module;
