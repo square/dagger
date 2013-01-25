@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+             android:layout_width="match_parent"
+             android:layout_height="match_parent"
+             android:background="@drawable/bg_activity"
+        >
+
+  <LinearLayout
+          android:id="@+id/buttonWrapper"
+          android:orientation="vertical"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:gravity="center">
+
+    <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/activityStabbed"
+            android:layout_marginBottom="6dp"
+            android:textColor="#c6c6c6"
+            android:shadowColor="#000000"
+            android:shadowDx="0.5"
+            android:shadowRadius="0.01"
+            />
+
+    <TextView
+            android:id="@+id/locationView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:gravity="center"
+            android:textColor="#c6c6c6"
+            android:shadowColor="#000000"
+            android:shadowDx="0.5"
+            android:shadowRadius="0.01"
+            />
+
+    <Button
+            android:id="@+id/button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/stabFragment"
+            android:textColor="#c6c6c6"
+            android:shadowColor="#000000"
+            android:shadowDx="0.5"
+            android:shadowRadius="0.01"
+            />
+  </LinearLayout>
+
+  <FrameLayout
+    android:id="@+id/container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    />
+
+
+</FrameLayout>
