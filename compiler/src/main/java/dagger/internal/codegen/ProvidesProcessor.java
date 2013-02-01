@@ -70,34 +70,34 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
   // TODO: include @Provides methods from the superclass
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
-    try {
-      remainingTypes.putAll(providerMethodsByClass(env));
-      for (Iterator<String> i = remainingTypes.keySet().iterator(); i.hasNext();) {
-        String typeName = i.next();
-        TypeElement type = processingEnv.getElementUtils().getTypeElement(typeName);
-        List<ExecutableElement> providesTypes = remainingTypes.get(typeName);
+    remainingTypes.putAll(providerMethodsByClass(env));
+    for (Iterator<String> i = remainingTypes.keySet().iterator(); i.hasNext();) {
+      String typeName = i.next();
+      TypeElement type = processingEnv.getElementUtils().getTypeElement(typeName);
+      List<ExecutableElement> providesTypes = remainingTypes.get(typeName);
+      try {
+        // Attempt to get the annotation. If types are missing, this will throw
+        // IllegalStateException.
+        Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
         try {
-          // Attempt to get the annotation. If types are missing, this will throw
-          // IllegalStateException.
-          Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
           writeModuleAdapter(type, parsedAnnotation, providesTypes);
-          i.remove();
-        } catch (IllegalStateException e) {
-          // a dependent type was not defined, we'll catch it on another pass
+        } catch (IOException e) {
+          error("Code gen failed: " + e, type);
         }
+        i.remove();
+      } catch (IllegalStateException e) {
+        // a dependent type was not defined, we'll catch it on another pass
       }
-    } catch (IOException e) {
-      error("Code gen failed: " + e);
     }
     if (env.processingOver() && remainingTypes.size() > 0) {
-      error("Could not find types required by provides methods for %s", remainingTypes.keySet()
-          .toString());
+      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "Could not find types required by provides methods for " + remainingTypes.keySet());
     }
     return true;
   }
 
-  private void error(String format, Object... args) {
-    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
+  private void error(String msg, Element element) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, element);
   }
 
   /**
@@ -110,13 +110,14 @@ public final class ProvidesProcessor extends AbstractProcessor {
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
       if (type.getKind() != ElementKind.CLASS) {
-        error("Unexpected @Provides on " + providerMethod);
+        // TODO(tbroyer): pass annotation information
+        error("Unexpected @Provides on " + providerMethod, providerMethod);
         continue;
       }
       if (typeModifiers.contains(Modifier.PRIVATE)
           || typeModifiers.contains(Modifier.ABSTRACT)) {
         error("Classes declaring @Provides methods must not be private or abstract: "
-                + type.getQualifiedName());
+                + type.getQualifiedName(), type);
         continue;
       }
 
@@ -125,7 +126,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
           || methodModifiers.contains(Modifier.ABSTRACT)
           || methodModifiers.contains(Modifier.STATIC)) {
         error("@Provides methods must not be private, abstract or static: "
-                + type.getQualifiedName() + "." + providerMethod);
+                + type.getQualifiedName() + "." + providerMethod, providerMethod);
         continue;
       }
 
@@ -153,7 +154,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
   private void writeModuleAdapter(TypeElement type, Map<String, Object> module,
       List<ExecutableElement> providerMethods) throws IOException {
     if (module == null) {
-      error(type + " has @Provides methods but no @Module annotation");
+      error(type + " has @Provides methods but no @Module annotation", type);
       return;
     }
 
@@ -205,8 +206,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
     StringBuilder includesField = new StringBuilder().append("{ ");
     for (Object include : includes) {
       if (!(include instanceof TypeMirror)) {
+        // TODO(tbroyer): pass annotation information
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-            "Unexpected value: " + include + " in includes of " + type);
+            "Unexpected value: " + include + " in includes of " + type, type);
         continue;
       }
       TypeMirror typeMirror = (TypeMirror) include;
