@@ -62,26 +62,27 @@ public final class InjectProcessor extends AbstractProcessor {
   private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
-    try {
-      remainingTypeNames.addAll(getInjectedClassNames(env));
-      for (Iterator<String> i = remainingTypeNames.iterator(); i.hasNext();) {
-        InjectedClass injectedClass = getInjectedClass(i.next());
-        // Verify that we have access to all types to be injected on this pass.
-        boolean missingDependentClasses =
-            !allTypesExist(injectedClass.fields)
-            || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
-                .getParameters()))
-            || !allTypesExist(injectedClass.staticFields);
-        if (!missingDependentClasses) {
+    remainingTypeNames.addAll(getInjectedClassNames(env));
+    for (Iterator<String> i = remainingTypeNames.iterator(); i.hasNext();) {
+      InjectedClass injectedClass = getInjectedClass(i.next());
+      // Verify that we have access to all types to be injected on this pass.
+      boolean missingDependentClasses =
+          !allTypesExist(injectedClass.fields)
+          || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
+              .getParameters()))
+          || !allTypesExist(injectedClass.staticFields);
+      if (!missingDependentClasses) {
+        try {
           writeInjectionsForClass(injectedClass);
-          i.remove();
+        } catch (IOException e) {
+          error("Code gen failed: " + e, injectedClass.type);
         }
+        i.remove();
       }
-    } catch (IOException e) {
-      error("Code gen failed: %s", e);
     }
     if (env.processingOver() && !remainingTypeNames.isEmpty()) {
-      error("Could not find injection type required by %s!", remainingTypeNames);
+      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "Could not find injection type required by " + remainingTypeNames);
     }
     return true;
   }
@@ -142,15 +143,18 @@ public final class InjectProcessor extends AbstractProcessor {
           break;
         case CONSTRUCTOR:
           if (constructor != null) {
-            error("Too many injectable constructors on %s.", type.getQualifiedName());
+            // TODO(tbroyer): pass annotation information
+            error("Too many injectable constructors on " + type.getQualifiedName(), member);
           } else if (isAbstract) {
-            error("Abstract class %s must not have an @Inject-annotated constructor.",
-                type.getQualifiedName());
+            // TODO(tbroyer): pass annotation information
+            error("Abstract class " + type.getQualifiedName()
+                + " must not have an @Inject-annotated constructor.", member);
           }
           constructor = (ExecutableElement) member;
           break;
         default:
-          error("Cannot inject %s", member);
+          // TODO(tbroyer): pass annotation information
+          error("Cannot inject " + member, member);
           break;
       }
     }
@@ -183,8 +187,8 @@ public final class InjectProcessor extends AbstractProcessor {
     return null;
   }
 
-  private void error(String format, Object... args) {
-    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, args));
+  private void error(String msg, Element element) {
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, element);
   }
 
   /**

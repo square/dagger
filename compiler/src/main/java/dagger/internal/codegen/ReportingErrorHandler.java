@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import dagger.internal.Linker;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
 /**
@@ -34,8 +35,10 @@ final class ReportingErrorHandler implements Linker.ErrorHandler {
   }
 
   @Override public void handleErrors(List<String> errors) {
+    TypeElement module = processingEnv.getElementUtils().getTypeElement(moduleName);
     for (String error : errors) {
-      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, error + " for " + moduleName);
+      processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, error + " for " + moduleName,
+          module);
     }
   }
 }
