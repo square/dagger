@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
@@ -131,8 +132,6 @@ final class AtInjectBinding extends Binding<Object> {
   }
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
-    for (Binding<?> binding : bindings) {
-      get.add(binding);
-    }
+    Collections.addAll(get, bindings);
   }
 }

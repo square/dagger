@@ -337,7 +337,7 @@ public final class InjectProcessor extends AbstractProcessor {
     if (hasFields) {
       interfaces.add(CodeGen.parameterizedType(MembersInjector.class, strippedTypeName));
     }
-    return interfaces.toArray(new String[0]);
+    return interfaces.toArray(new String[interfaces.size()]);
   }
 
   private Set<String> getImports(boolean dependent, boolean injectMembers, boolean isProvider) {

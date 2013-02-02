@@ -102,7 +102,7 @@ public final class JavaWriter implements Closeable {
   }
 
   String compressType(String type) {
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     if (this.packagePrefix == null) {
       throw new IllegalStateException();
     }

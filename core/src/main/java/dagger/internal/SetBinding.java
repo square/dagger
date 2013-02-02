@@ -30,6 +30,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
 
   public static <T> void add(Map<String, Binding<?>> bindings, String elementKey,
       Binding<?> binding) {
+    @SuppressWarnings("unchecked")
     SetBinding<T> elementBinding = (SetBinding<T>) bindings.get(elementKey);
     if (elementBinding == null) {
       elementBinding = new SetBinding<T>(elementKey);

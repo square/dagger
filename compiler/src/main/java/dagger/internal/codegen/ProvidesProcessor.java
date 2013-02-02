@@ -410,7 +410,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
   }
 
   private String parameterName(Element parameter) {
-    if (parameter.getSimpleName().equals("module")) {
+    if (parameter.getSimpleName().contentEquals("module")) {
       return "parameter_" + parameter.getSimpleName().toString();
     }
     return parameter.getSimpleName().toString();
