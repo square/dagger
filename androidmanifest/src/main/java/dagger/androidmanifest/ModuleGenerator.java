@@ -90,7 +90,7 @@ public final class ModuleGenerator {
         ? moduleName
         : packageName + "." + moduleName;
     out.emitPackage(packageName);
-    out.emitImports(Arrays.asList(Module.class.getName()));
+    out.emitImports(Arrays.asList(Module.class.getCanonicalName()));
 
     List<String> classLiterals = namesToClassLiterals(nameReferences);
     Collections.sort(classLiterals);

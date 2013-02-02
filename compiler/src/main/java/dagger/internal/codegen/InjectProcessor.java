@@ -256,7 +256,7 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
       writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
-      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
+      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
       if (constructor != null) {
         for (VariableElement parameter : constructor.getParameters()) {
           writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
@@ -360,13 +360,13 @@ public final class InjectProcessor extends AbstractProcessor {
 
   private Set<String> getImports(boolean dependent, boolean injectMembers, boolean isProvider) {
     Set<String> imports = new LinkedHashSet<String>();
-    imports.add(Binding.class.getName());
+    imports.add(Binding.class.getCanonicalName());
     if (dependent) {
-      imports.add(Linker.class.getName());
-      imports.add(Set.class.getName());
+      imports.add(Linker.class.getCanonicalName());
+      imports.add(Set.class.getCanonicalName());
     }
-    if (injectMembers) imports.add(MembersInjector.class.getName());
-    if (isProvider) imports.add(Provider.class.getName());
+    if (injectMembers) imports.add(MembersInjector.class.getCanonicalName());
+    if (isProvider) imports.add(Provider.class.getCanonicalName());
     return imports;
   }
 
