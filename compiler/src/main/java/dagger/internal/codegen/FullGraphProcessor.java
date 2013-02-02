@@ -166,12 +166,18 @@ public final class FullGraphProcessor extends AbstractProcessor {
   }
 
   private void collectIncludesRecursively(TypeElement module, Map<String, TypeElement> result) {
+    Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
+    if (annotation == null) {
+      // TODO(tbroyer): pass annotation information
+      error("No @Module on " + module, module);
+      return;
+    }
+
     // Add the module.
     result.put(module.getQualifiedName().toString(), module);
 
     // Recurse for each included module.
     Types typeUtils = processingEnv.getTypeUtils();
-    Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
     List<Object> seedModules = new ArrayList<Object>();
     seedModules.addAll(Arrays.asList((Object[]) annotation.get("includes")));
     if (!annotation.get("addsTo").equals(Void.class)) seedModules.add(annotation.get("addsTo"));

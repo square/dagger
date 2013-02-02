@@ -177,4 +177,14 @@ public final class ModuleIncludesTest {
     assertThat(objectGraph.get(A.class)).isNotNull();
     assertThat(objectGraph.get(B.class).a).isNotNull();
   }
+
+  static class ModuleMissingModuleAnnotation {}
+
+  @Module(includes = ModuleMissingModuleAnnotation.class)
+  static class ChildModuleMissingModuleAnnotation {}
+
+  @Test(expected = IllegalArgumentException.class)
+  public void childModuleMissingModuleAnnotation() {
+    ObjectGraph.create(new ChildModuleMissingModuleAnnotation());
+  }
 }
