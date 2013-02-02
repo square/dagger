@@ -35,7 +35,6 @@ import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -160,32 +159,15 @@ public final class InjectProcessor extends AbstractProcessor {
     }
 
     if (constructor == null && !isAbstract) {
-      constructor = findNoArgsConstructor(type);
+      constructor = CodeGen.getNoArgsConstructor(type);
+      if (constructor != null && !CodeGen.isCallableConstructor(constructor)) {
+        constructor = null;
+      }
     }
 
     return new InjectedClass(type, staticFields, constructor, fields);
   }
 
-  /**
-   * Returns the no args constructor for {@code typeElement}, or null if no such
-   * constructor exists.
-   */
-  private ExecutableElement findNoArgsConstructor(TypeElement typeElement) {
-    for (Element element : typeElement.getEnclosedElements()) {
-      if (element.getKind() != ElementKind.CONSTRUCTOR) {
-        continue;
-      }
-      ExecutableElement constructor = (ExecutableElement) element;
-      if (constructor.getParameters().isEmpty()) {
-        if (constructor.getModifiers().contains(Modifier.PRIVATE)) {
-          return null;
-        } else {
-          return constructor;
-        }
-      }
-    }
-    return null;
-  }
 
   private void error(String msg, Element element) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, element);
