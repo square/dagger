@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -220,9 +221,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     }
 
     @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
-      for (Binding<?> binding : parameters) {
-        get.add(binding);
-      }
+      Collections.addAll(get, parameters);
     }
   }
 

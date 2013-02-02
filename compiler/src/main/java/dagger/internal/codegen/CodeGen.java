@@ -75,7 +75,7 @@ final class CodeGen {
   /** Returns a string like {@code java.util.List<java.lang.String>}. */
   public static String parameterizedType(Class<?> raw, String... parameters) {
     StringBuilder result = new StringBuilder();
-    result.append(raw.getName());
+    result.append(raw.getCanonicalName());
     result.append("<");
     for (int i = 0; i < parameters.length; i++) {
       if (i != 0) {
@@ -143,7 +143,7 @@ final class CodeGen {
         return null;
       }
       @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
-        result.append(typeVariable); // TypeVariable.toString() returns the name, like 'T'.
+        result.append(typeVariable.asElement().getSimpleName());
         return null;
       }
       @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
@@ -175,7 +175,8 @@ final class CodeGen {
    */
   public static Map<String, Object> getAnnotation(Class<?> annotationType, Element element) {
     for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
-      if (!annotation.getAnnotationType().toString().equals(annotationType.getName())) {
+      if (!CodeGen.rawTypeToString(annotation.getAnnotationType(), '$')
+          .equals(annotationType.getName())) {
         continue;
       }
 

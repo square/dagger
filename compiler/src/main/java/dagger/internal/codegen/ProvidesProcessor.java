@@ -66,7 +66,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
       new LinkedHashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = CodeGen.parameterizedType(
-      Map.class, String.class.getName(), Binding.class.getName() + "<?>");
+      Map.class, String.class.getCanonicalName(), Binding.class.getCanonicalName() + "<?>");
 
   // TODO: include @Provides methods from the superclass
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
@@ -130,10 +130,10 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
-      List<ExecutableElement> methods = result.get(type.toString());
+      List<ExecutableElement> methods = result.get(type.getQualifiedName().toString());
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
-        result.put(type.toString(), methods);
+        result.put(type.getQualifiedName().toString(), methods);
       }
       methods.add((ExecutableElement) providerMethod);
     }
@@ -275,16 +275,16 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
   private Set<String> getImports(boolean multibindings, boolean dependencies) {
     Set<String> imports = new LinkedHashSet<String>();
-    imports.add(Binding.class.getName());
-    imports.add(Map.class.getName());
-    imports.add(Provider.class.getName());
-    imports.add(ModuleAdapter.class.getName());
+    imports.add(Binding.class.getCanonicalName());
+    imports.add(Map.class.getCanonicalName());
+    imports.add(Provider.class.getCanonicalName());
+    imports.add(ModuleAdapter.class.getCanonicalName());
     if (dependencies) {
-      imports.add(Linker.class.getName());
-      imports.add(Set.class.getName());
+      imports.add(Linker.class.getCanonicalName());
+      imports.add(Set.class.getCanonicalName());
     }
     if (multibindings) {
-      imports.add(SetBinding.class.getName());
+      imports.add(SetBinding.class.getCanonicalName());
     }
     return imports;
   }
@@ -368,7 +368,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
       writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
-      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
+      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
       for (VariableElement parameter : parameters) {
         String parameterKey = GeneratorKeys.get(parameter);
         writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
@@ -410,7 +410,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
   }
 
   private String parameterName(Element parameter) {
-    if (parameter.getSimpleName().equals("module")) {
+    if (parameter.getSimpleName().contentEquals("module")) {
       return "parameter_" + parameter.getSimpleName().toString();
     }
     return parameter.getSimpleName().toString();

@@ -40,10 +40,11 @@ import javax.inject.Qualifier;
  * and last types.
  */
 public final class Keys {
-  private static final String PROVIDER_PREFIX = Provider.class.getName() + "<";
-  private static final String MEMBERS_INJECTOR_PREFIX = MembersInjector.class.getName() + "<";
-  private static final String LAZY_PREFIX = Lazy.class.getName() + "<";
-  private static final String SET_PREFIX = Set.class.getName() + "<";
+  private static final String PROVIDER_PREFIX = Provider.class.getCanonicalName() + "<";
+  private static final String MEMBERS_INJECTOR_PREFIX =
+      MembersInjector.class.getCanonicalName() + "<";
+  private static final String LAZY_PREFIX = Lazy.class.getCanonicalName() + "<";
+  private static final String SET_PREFIX = Set.class.getCanonicalName() + "<";
 
   private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
       = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {

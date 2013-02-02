@@ -35,7 +35,6 @@ import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -160,32 +159,15 @@ public final class InjectProcessor extends AbstractProcessor {
     }
 
     if (constructor == null && !isAbstract) {
-      constructor = findNoArgsConstructor(type);
+      constructor = CodeGen.getNoArgsConstructor(type);
+      if (constructor != null && !CodeGen.isCallableConstructor(constructor)) {
+        constructor = null;
+      }
     }
 
     return new InjectedClass(type, staticFields, constructor, fields);
   }
 
-  /**
-   * Returns the no args constructor for {@code typeElement}, or null if no such
-   * constructor exists.
-   */
-  private ExecutableElement findNoArgsConstructor(TypeElement typeElement) {
-    for (Element element : typeElement.getEnclosedElements()) {
-      if (element.getKind() != ElementKind.CONSTRUCTOR) {
-        continue;
-      }
-      ExecutableElement constructor = (ExecutableElement) element;
-      if (constructor.getParameters().isEmpty()) {
-        if (constructor.getModifiers().contains(Modifier.PRIVATE)) {
-          return null;
-        } else {
-          return constructor;
-        }
-      }
-    }
-    return null;
-  }
 
   private void error(String msg, Element element) {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, element);
@@ -256,7 +238,7 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
       writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
-      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
+      writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
       if (constructor != null) {
         for (VariableElement parameter : constructor.getParameters()) {
           writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
@@ -355,18 +337,18 @@ public final class InjectProcessor extends AbstractProcessor {
     if (hasFields) {
       interfaces.add(CodeGen.parameterizedType(MembersInjector.class, strippedTypeName));
     }
-    return interfaces.toArray(new String[0]);
+    return interfaces.toArray(new String[interfaces.size()]);
   }
 
   private Set<String> getImports(boolean dependent, boolean injectMembers, boolean isProvider) {
     Set<String> imports = new LinkedHashSet<String>();
-    imports.add(Binding.class.getName());
+    imports.add(Binding.class.getCanonicalName());
     if (dependent) {
-      imports.add(Linker.class.getName());
-      imports.add(Set.class.getName());
+      imports.add(Linker.class.getCanonicalName());
+      imports.add(Set.class.getCanonicalName());
     }
-    if (injectMembers) imports.add(MembersInjector.class.getName());
-    if (isProvider) imports.add(Provider.class.getName());
+    if (injectMembers) imports.add(MembersInjector.class.getCanonicalName());
+    if (isProvider) imports.add(Provider.class.getCanonicalName());
     return imports;
   }
 
