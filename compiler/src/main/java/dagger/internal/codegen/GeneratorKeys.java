@@ -30,7 +30,7 @@ import javax.lang.model.type.TypeMirror;
  * APIs not available on Android.
  */
 final class GeneratorKeys {
-  private static final String SET_PREFIX = Set.class.getName() + "<";
+  private static final String SET_PREFIX = Set.class.getCanonicalName() + "<";
 
   private GeneratorKeys() {
   }

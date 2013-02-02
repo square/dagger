@@ -326,14 +326,14 @@ public final class JavaWriterTest {
 
   @Test public void compressType() throws IOException {
     javaWriter.emitPackage("blah");
-    javaWriter.emitImports(setOf(Set.class.getName(), Binding.class.getName()));
+    javaWriter.emitImports(setOf(Set.class.getCanonicalName(), Binding.class.getCanonicalName()));
     String actual = javaWriter.compressType("java.util.Set<dagger.internal.Binding<blah.Foo.Blah>>");
     assertEquals("Set<Binding<Foo.Blah>>", actual);
   }
 
   @Test public void compressDeeperType() throws IOException {
     javaWriter.emitPackage("blah");
-    javaWriter.emitImports(setOf(Binding.class.getName()));
+    javaWriter.emitImports(setOf(Binding.class.getCanonicalName()));
     String actual = javaWriter.compressType("dagger.internal.Binding<blah.foo.Foo.Blah>");
     assertEquals("Binding<blah.foo.Foo.Blah>", actual);
   }
