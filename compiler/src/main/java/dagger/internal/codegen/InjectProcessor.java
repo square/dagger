@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.squareup.java.JavaWriter;
 import dagger.MembersInjector;
 import dagger.internal.Binding;
 import dagger.internal.Linker;

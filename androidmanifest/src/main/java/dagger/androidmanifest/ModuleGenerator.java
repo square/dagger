@@ -15,8 +15,8 @@
  */
 package dagger.androidmanifest;
 
+import com.squareup.java.JavaWriter;
 import dagger.Module;
-import dagger.internal.codegen.JavaWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
