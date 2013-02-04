@@ -37,6 +37,10 @@
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.squareup</groupId>
+      <artifactId>javawriter</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>

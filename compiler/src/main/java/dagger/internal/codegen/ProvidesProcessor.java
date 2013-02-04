@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.squareup.java.JavaWriter;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
@@ -191,7 +192,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       entryPointsField.append(JavaWriter.stringLiteral(key)).append(", ");
     }
     entryPointsField.append("}");
-    writer.field("String[]", "ENTRY_POINTS", PRIVATE | STATIC | FINAL,
+    writer.emitField("String[]", "ENTRY_POINTS", PRIVATE | STATIC | FINAL,
         entryPointsField.toString());
 
     StringBuilder staticInjectionsField = new StringBuilder().append("{ ");
@@ -200,7 +201,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       staticInjectionsField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
     }
     staticInjectionsField.append("}");
-    writer.field("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
+    writer.emitField("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
         staticInjectionsField.toString());
 
     StringBuilder includesField = new StringBuilder().append("{ ");
@@ -215,7 +216,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       includesField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
     }
     includesField.append("}");
-    writer.field("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
+    writer.emitField("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
 
     writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, PUBLIC);

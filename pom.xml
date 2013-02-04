@@ -46,6 +46,7 @@
     <javax.inject.version>1</javax.inject.version>
     <maven.version>2.0.6</maven.version>
     <ant.version>1.8.2</ant.version>
+    <javawriter.version>1.0.1</javawriter.version>
 
     <!-- Test Dependencies -->
     <junit.version>4.10</junit.version>
@@ -97,6 +98,11 @@
         <groupId>org.apache.ant</groupId>
         <artifactId>ant</artifactId>
         <version>${ant.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup</groupId>
+        <artifactId>javawriter</artifactId>
+        <version>${javawriter.version}</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>
