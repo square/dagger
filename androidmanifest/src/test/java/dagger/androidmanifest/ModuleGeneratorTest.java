@@ -15,7 +15,7 @@
  */
 package dagger.androidmanifest;
 
-import dagger.internal.codegen.JavaWriter;
+import com.squareup.java.JavaWriter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -137,8 +137,8 @@ public final class ModuleGeneratorTest {
         new JavaWriter(stringWriter));
     assertCode(""
         + "package com.squareup.badhorse;\n"
-        + "import dagger.Module;\n"
         + "\n"
+        + "import dagger.Module;\n"
         + "@Module(\n"
         + "  entryPoints = {\n"
         + "    com.squareup.badhorse.LeagueOfEvilActivity.class,\n"
@@ -157,8 +157,8 @@ public final class ModuleGeneratorTest {
         new JavaWriter(stringWriter));
     assertCode(""
         + "package com.squareup.badhorse;\n"
-        + "import dagger.Module;\n"
         + "\n"
+        + "import dagger.Module;\n"
         + "@Module(\n"
         + "  entryPoints = {\n"
         + "  },\n"
