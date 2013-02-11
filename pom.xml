@@ -46,7 +46,7 @@
     <javax.inject.version>1</javax.inject.version>
     <maven.version>2.0.6</maven.version>
     <ant.version>1.8.2</ant.version>
-    <javawriter.version>1.0.1</javawriter.version>
+    <javawriter.version>1.0.2</javawriter.version>
 
     <!-- Test Dependencies -->
     <junit.version>4.10</junit.version>
