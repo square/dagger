@@ -72,21 +72,6 @@ final class CodeGen {
     return builder.toString();
   }
 
-  /** Returns a string like {@code java.util.List<java.lang.String>}. */
-  public static String parameterizedType(Class<?> raw, String... parameters) {
-    StringBuilder result = new StringBuilder();
-    result.append(raw.getCanonicalName());
-    result.append("<");
-    for (int i = 0; i < parameters.length; i++) {
-      if (i != 0) {
-        result.append(", ");
-      }
-      result.append(parameters[i]);
-    }
-    result.append(">");
-    return result.toString();
-  }
-
   /** Returns a string for {@code type}. Primitive types are always boxed. */
   public static String typeToString(TypeMirror type) {
     StringBuilder result = new StringBuilder();

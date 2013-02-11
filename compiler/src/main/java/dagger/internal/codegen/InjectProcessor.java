@@ -204,23 +204,23 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.emitJavadoc(binderTypeDocs(strippedTypeName, isAbstract, injectMembers, dependent));
     writer.beginType(adapterName, "class", PUBLIC | FINAL,
-        CodeGen.parameterizedType(Binding.class, strippedTypeName),
+        JavaWriter.type(Binding.class, strippedTypeName),
         interfaces(strippedTypeName, injectMembers, constructor != null));
 
     if (constructor != null) {
       for (VariableElement parameter : constructor.getParameters()) {
-        writer.emitField(CodeGen.parameterizedType(Binding.class,
+        writer.emitField(JavaWriter.type(Binding.class,
             CodeGen.typeToString(parameter.asType())),
             parameterName(disambiguateFields, parameter), PRIVATE);
       }
     }
     for (Element field : fields) {
-      writer.emitField(CodeGen.parameterizedType(Binding.class,
+      writer.emitField(JavaWriter.type(Binding.class,
           CodeGen.typeToString(field.asType())),
           fieldName(disambiguateFields, field), PRIVATE);
     }
     if (supertype != null) {
-      writer.emitField(CodeGen.parameterizedType(Binding.class,
+      writer.emitField(JavaWriter.type(Binding.class,
           CodeGen.rawTypeToString(supertype, '.')), "supertype", PRIVATE);
     }
 
@@ -244,7 +244,7 @@ public final class InjectProcessor extends AbstractProcessor {
         for (VariableElement parameter : constructor.getParameters()) {
           writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
               parameterName(disambiguateFields, parameter),
-              writer.compressType(CodeGen.parameterizedType(Binding.class,
+              writer.compressType(JavaWriter.type(Binding.class,
                   CodeGen.typeToString(parameter.asType()))),
               JavaWriter.stringLiteral(GeneratorKeys.get(parameter)),
               strippedTypeName);
@@ -253,7 +253,7 @@ public final class InjectProcessor extends AbstractProcessor {
       for (Element field : fields) {
         writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
             fieldName(disambiguateFields, field),
-            writer.compressType(CodeGen.parameterizedType(Binding.class,
+            writer.compressType(JavaWriter.type(Binding.class,
                 CodeGen.typeToString(field.asType()))),
             JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) field)),
             strippedTypeName);
@@ -261,7 +261,7 @@ public final class InjectProcessor extends AbstractProcessor {
       if (supertype != null) {
         writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class, false)",
             "supertype",
-            writer.compressType(CodeGen.parameterizedType(Binding.class,
+            writer.compressType(JavaWriter.type(Binding.class,
                 CodeGen.rawTypeToString(supertype, '.'))),
             JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(supertype)),
             strippedTypeName);
@@ -271,7 +271,7 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.emitEmptyLine();
       writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
-      String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
+      String setOfBindings = JavaWriter.type(Set.class, "Binding<?>");
       writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
           setOfBindings, "injectMembersBindings");
       if (constructor != null) {
@@ -333,10 +333,10 @@ public final class InjectProcessor extends AbstractProcessor {
   private String[] interfaces(String strippedTypeName, boolean hasFields, boolean isProvider) {
     List<String> interfaces = new ArrayList<String>();
     if (isProvider) {
-      interfaces.add(CodeGen.parameterizedType(Provider.class, strippedTypeName));
+      interfaces.add(JavaWriter.type(Provider.class, strippedTypeName));
     }
     if (hasFields) {
-      interfaces.add(CodeGen.parameterizedType(MembersInjector.class, strippedTypeName));
+      interfaces.add(JavaWriter.type(MembersInjector.class, strippedTypeName));
     }
     return interfaces.toArray(new String[interfaces.size()]);
   }
@@ -382,7 +382,7 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.beginType(adapterName, "class", PUBLIC | FINAL, StaticInjection.class.getSimpleName());
 
     for (Element field : fields) {
-      writer.emitField(CodeGen.parameterizedType(Binding.class,
+      writer.emitField(JavaWriter.type(Binding.class,
           CodeGen.typeToString(field.asType())),
           fieldName(false, field), PRIVATE);
     }
@@ -394,7 +394,7 @@ public final class InjectProcessor extends AbstractProcessor {
     for (Element field : fields) {
       writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
           fieldName(false, field),
-          writer.compressType(CodeGen.parameterizedType(Binding.class,
+          writer.compressType(JavaWriter.type(Binding.class,
               CodeGen.typeToString(field.asType()))),
           JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) field)),
           typeName);

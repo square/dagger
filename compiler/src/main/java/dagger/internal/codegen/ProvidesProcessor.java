@@ -66,7 +66,7 @@ import static java.lang.reflect.Modifier.STATIC;
 public final class ProvidesProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
       new LinkedHashMap<String, List<ExecutableElement>>();
-  private static final String BINDINGS_MAP = CodeGen.parameterizedType(
+  private static final String BINDINGS_MAP = JavaWriter.type(
       Map.class, String.class.getCanonicalName(), Binding.class.getCanonicalName() + "<?>");
 
   // TODO: include @Provides methods from the superclass
@@ -183,7 +183,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.emitJavadoc(ProcessorJavadocs.MODULE_TYPE);
     writer.beginType(adapterName, "class", PUBLIC | FINAL,
-        CodeGen.parameterizedType(ModuleAdapter.class, typeName));
+        JavaWriter.type(ModuleAdapter.class, typeName));
 
     StringBuilder entryPointsField = new StringBuilder().append("{ ");
     for (Object entryPoint : entryPoints) {
@@ -344,12 +344,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.emitJavadoc(binderTypeDocs(returnType, false, false, dependent));
     writer.beginType(className, "class", PUBLIC | FINAL | STATIC,
-        CodeGen.parameterizedType(Binding.class, returnType),
-        CodeGen.parameterizedType(Provider.class, returnType));
+        JavaWriter.type(Binding.class, returnType),
+        JavaWriter.type(Provider.class, returnType));
     writer.emitField(moduleType, "module", PRIVATE | FINAL);
     for (Element parameter : parameters) {
       TypeMirror parameterType = parameter.asType();
-      writer.emitField(CodeGen.parameterizedType(Binding.class,
+      writer.emitField(JavaWriter.type(Binding.class,
           CodeGen.typeToString(parameterType)),
           parameterName(parameter), PRIVATE);
     }
@@ -374,7 +374,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
         String parameterKey = GeneratorKeys.get(parameter);
         writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
             parameterName(parameter),
-            writer.compressType(CodeGen.parameterizedType(Binding.class,
+            writer.compressType(JavaWriter.type(Binding.class,
                 CodeGen.typeToString(parameter.asType()))),
             JavaWriter.stringLiteral(parameterKey),
             writer.compressType(moduleType));
@@ -384,7 +384,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       writer.emitEmptyLine();
       writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
-      String setOfBindings = CodeGen.parameterizedType(Set.class, "Binding<?>");
+      String setOfBindings = JavaWriter.type(Set.class, "Binding<?>");
       writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
           setOfBindings, "injectMembersBindings");
       for (Element parameter : parameters) {
