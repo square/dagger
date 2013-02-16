@@ -131,12 +131,19 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
+      ExecutableElement providerMethodAsExecutable = (ExecutableElement) providerMethod;
+      if (!providerMethodAsExecutable.getThrownTypes().isEmpty()) {
+        error("@Provides methods must not have a throws clause: "
+            + type.getQualifiedName() + "." + providerMethod, providerMethod);
+        continue;
+      }
+
       List<ExecutableElement> methods = result.get(type.getQualifiedName().toString());
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
         result.put(type.getQualifiedName().toString(), methods);
       }
-      methods.add((ExecutableElement) providerMethod);
+      methods.add(providerMethodAsExecutable);
     }
 
     return result;
