@@ -90,6 +90,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         new ProblemDetector().detectProblems(bindings.values());
       } catch (IllegalStateException e) {
         error("Graph validation failed: " + e.getMessage(), moduleType);
+        continue;
       }
       try {
         writeDotFile(moduleType, bindings);
