@@ -1,0 +1,9 @@
+import dagger.testing.it.BuildLogValidator;
+import java.io.File;
+
+File buildLog = new File(basedir, "build.log");
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "TestApp.java:", "[43", "error:", "Graph validation failed:", "Dependency cycle:"});
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "TestApp.java:", "[52", "error:", "Graph validation failed:", "Dependency cycle:"});
+    

@@ -62,7 +62,7 @@ public final class ProblemDetector {
   }
 
   static class ArraySet<T> extends AbstractSet<T> {
-    private ArrayList<T> list = new ArrayList<T>();
+    private final ArrayList<T> list = new ArrayList<T>();
 
     @Override public boolean add(T t) {
       list.add(t);
