@@ -19,6 +19,7 @@ import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
+import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.io.Writer;
@@ -64,6 +65,10 @@ public final class FullGraphProcessor extends AbstractProcessor {
       // Storing module names for later retrieval as the element instance is invalidated across
       // passes.
       for (Element e : env.getElementsAnnotatedWith(Module.class)) {
+        if (!(e instanceof TypeElement)) {
+          error("@Module applies to a type, " + e.getSimpleName() + " is a " + e.getKind(), e);
+          continue;
+        }
         delayedModuleNames.add(((TypeElement) e).getQualifiedName().toString());
       }
       return true;
@@ -82,9 +87,15 @@ public final class FullGraphProcessor extends AbstractProcessor {
       TypeElement moduleType = (TypeElement) element;
       Map<String, Binding<?>> bindings = processCompleteModule(moduleType);
       try {
+        new ProblemDetector().detectProblems(bindings.values());
+      } catch (IllegalStateException e) {
+        error("Graph validation failed: " + e.getMessage(), moduleType);
+        continue;
+      }
+      try {
         writeDotFile(moduleType, bindings);
       } catch (IOException e) {
-        error("Graph processing failed: " + e, moduleType);
+        error("Graph visualization failed: " + e, moduleType);
       }
     }
     return true;
