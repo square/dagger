@@ -36,6 +36,7 @@ import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -113,10 +114,26 @@ public final class InjectProcessor extends AbstractProcessor {
     // First gather the set of classes that have @Inject-annotated members.
     Set<String> injectedTypeNames = new LinkedHashSet<String>();
     for (Element element : env.getElementsAnnotatedWith(Inject.class)) {
-      TypeMirror type = element.getEnclosingElement().asType();
-      injectedTypeNames.add(CodeGen.rawTypeToString(type, '.'));
+      Element enclosingType = element.getEnclosingElement();
+      if (!validateInjectable(enclosingType)) {
+        continue;
+      }
+      injectedTypeNames.add(CodeGen.rawTypeToString(enclosingType.asType(), '.'));
     }
     return injectedTypeNames;
+  }
+
+  private boolean validateInjectable(Element injectableType) {
+    ElementKind elementKind = injectableType.getEnclosingElement().getKind();
+    boolean isClassOrInterface = elementKind.isClass() || elementKind.isInterface();
+    boolean isStatic = injectableType.getModifiers().contains(Modifier.STATIC);
+
+    if (isClassOrInterface && !isStatic) {
+      error("Can't inject a non-static inner class: " + injectableType, injectableType);
+      return false;
+    }
+
+    return true;
   }
 
   /**
