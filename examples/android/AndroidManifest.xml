@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="dagger.bot"
+          android:versionCode="1"
+          android:versionName="1.0">
+
+  <supports-screens
+          android:resizeable="true"
+          android:smallScreens="true"
+          android:normalScreens="true"
+          android:largeScreens="true"
+          android:anyDensity="true"/>
+
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <application
+          android:name="dagger.application.DaggerApplication"
+          android:theme="@android:style/Theme.Holo"
+          android:label="@string/app_name">
+    <activity
+            android:name="dagger.activity.StabbedActivity"
+            android:label="@string/app_name">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

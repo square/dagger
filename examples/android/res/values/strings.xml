@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Stab Bot</string>
+  <string name="ouch">ouch</string>
+  <string name="activityStabbed">Activity Stabbed!</string>
+  <string name="stabFragment">Stab a fragment</string>
+  <string name="fragmentStab">Ouch! You stabbed a Fragment!</string>
+  <string name="rowText">Inject => LayoutInflater => Adapter => Fragment</string>
+</resources>
