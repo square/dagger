@@ -35,7 +35,7 @@
     <module>androidmanifest</module>
     <module>compiler</module>
     <module>core</module>
-    <module>example</module>
+    <module>examples</module>
   </modules>
 
   <properties>

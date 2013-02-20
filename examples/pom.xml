@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
- Copyright (C) 2012 Square, Inc.
+ Copyright (C) 2013 Google, Inc.
+ Copyright (C) 2013 Square, Inc.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -21,36 +22,15 @@
     <groupId>com.squareup</groupId>
     <artifactId>dagger-parent</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>dagger-example</artifactId>
-  <packaging>jar</packaging>
-  <name>Dagger Example</name>
+  <groupId>com.squareup.dagger.example</groupId>
+  <artifactId>dagger-example-parent</artifactId>
+  <packaging>pom</packaging>
+  <name>Dagger Example (Parent)</name>
 
-  <dependencies>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>dagger</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>dagger-compiler</artifactId>
-      <version>${project.version}</version>
-      <optional>true</optional>
-    </dependency>
-  </dependencies>
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <compilerArgument>-Xlint:all</compilerArgument>
-          <showWarnings>true</showWarnings>
-          <showDeprecation>true</showDeprecation>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+  <modules>
+    <module>simple</module>
+  </modules>
+
 </project>
