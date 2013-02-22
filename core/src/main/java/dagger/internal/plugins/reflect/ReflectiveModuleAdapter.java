@@ -91,7 +91,11 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     } catch (InvocationTargetException e) {
       throw new IllegalArgumentException(e.getCause());
     } catch (NoSuchMethodException e) {
-      throw new IllegalArgumentException("Failed to construct " + moduleClass.getName(), e);
+      throw new IllegalArgumentException("Could not construct " + moduleClass.getName()
+          + " as it lacks a no-args constructor.  If this was an upstream module of an extension"
+          + " graph then it should be noted by \"addsTo=\" and not \"includes=\".  Otherwise,"
+          + " this module must be passed in as an instance, or a no-args constructor must be"
+          + " added.", e);
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("Failed to construct " + moduleClass.getName(), e);
     } catch (IllegalAccessException e) {
