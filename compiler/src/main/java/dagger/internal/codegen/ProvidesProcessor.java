@@ -61,7 +61,7 @@ import static java.lang.reflect.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
-@SupportedAnnotationTypes("dagger.Provides")
+@SupportedAnnotationTypes({"dagger.Provides", "dagger.Module"})
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
@@ -94,7 +94,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
           "Could not find types required by provides methods for " + remainingTypes.keySet());
     }
-    return true;
+    return false; // FullGraphProcessor needs an opportunity to process.
   }
 
   private void error(String msg, Element element) {
@@ -146,7 +146,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       methods.add(providerMethodAsExecutable);
     }
 
-    // catch any stray modules without @Provides since their entry points
+    // Catch any stray modules without @Provides since their entry points
     // should still be registered and a ModuleAdapter should still be written.
     for (Element type : env.getElementsAnnotatedWith(Module.class)) {
       if (type.getKind().equals(ElementKind.CLASS)) {
