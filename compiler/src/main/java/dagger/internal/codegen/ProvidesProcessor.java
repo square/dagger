@@ -61,7 +61,7 @@ import static java.lang.reflect.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
-@SupportedAnnotationTypes({"dagger.Provides", "dagger.Module"})
+@SupportedAnnotationTypes({ "dagger.Provides", "dagger.Module" })
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
