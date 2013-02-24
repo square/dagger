@@ -728,4 +728,22 @@ public final class InjectionTest {
       assertThat(e.getMessage()).isEqualTo("foo");
     }
   }
+
+  static class SingletonLinkedFromExtension {
+    @Inject C c; // Singleton.
+  }
+
+  @Module(complete=false, entryPoints=C.class)
+  static class RootModule { }
+
+  @Module(addsTo=RootModule.class, entryPoints=SingletonLinkedFromExtension.class)
+  static class ExtensionModule { }
+
+  @Test public void testSingletonLinkingThroughExtensionGraph() {
+    ObjectGraph root = ObjectGraph.create(new RootModule());
+    // DO NOT CALL root.get(C.class)) HERE to get forced-linking behaviour from plus();
+    ObjectGraph extension = root.plus(new ExtensionModule());
+    assertThat(extension.get(SingletonLinkedFromExtension.class).c).isSameAs(root.get(C.class));
+  }
+
 }
