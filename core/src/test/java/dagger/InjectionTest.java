@@ -730,7 +730,7 @@ public final class InjectionTest {
   }
 
   static class SingletonLinkedFromExtension {
-    @Inject C c; //singleton
+    @Inject C c; // Singleton.
   }
 
   @Module(complete=false, entryPoints=C.class)
@@ -739,7 +739,6 @@ public final class InjectionTest {
   @Module(addsTo=RootModule.class, entryPoints=SingletonLinkedFromExtension.class)
   static class ExtensionModule { }
 
-  // Regression
   @Test public void testSingletonLinkingThroughExtensionGraph() {
     ObjectGraph root = ObjectGraph.create(new RootModule());
     // DO NOT CALL root.get(C.class)) HERE to get forced-linking behaviour from plus();
