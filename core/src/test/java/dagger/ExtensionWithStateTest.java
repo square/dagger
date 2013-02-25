@@ -20,7 +20,6 @@ import javax.inject.Inject;
 import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
-import static org.junit.Assert.assertNotNull;
 
 public final class ExtensionWithStateTest {
   static class A { }
@@ -38,18 +37,13 @@ public final class ExtensionWithStateTest {
     RootModule(A a) {
       this.a = a;
     }
-    @Provides A giveA() { return a; }
+    @Provides A provideA() { return a; }
   }
 
   @Module(addsTo = RootModule.class, entryPoints = { B.class })
   static class ExtensionModule { }
 
-  @Test public void basicExtension() {
-    A a = new A();
-    assertNotNull(ObjectGraph.create(new RootModule(a)).plus(new ExtensionModule()));
-  }
-
-  @Test public void basicInjection() {
+  @Test public void basicInjectionWithExtension() {
     A a = new A();
     ObjectGraph root = ObjectGraph.create(new RootModule(a));
     assertThat(root.get(A.class)).isSameAs(a);
