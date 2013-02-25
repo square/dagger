@@ -307,6 +307,10 @@ public final class Linker {
       binding.getDependencies(get, injectMembers);
     }
 
+    @Override public boolean isLinked() {
+      return binding.isLinked();
+    }
+
     @Override public String toString() {
       return "@Singleton/" + binding.toString();
     }
