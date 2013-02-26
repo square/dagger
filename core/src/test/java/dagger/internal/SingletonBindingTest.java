@@ -36,7 +36,7 @@ public final class SingletonBindingTest {
     assertThat(singletonBinding.isSingleton()).isTrue();
   }
 
-  // this next batch of tests validate that SingletonBinding consistently delegates to the wrapped binding for state
+  // This next batch of tests validates that SingletonBinding consistently delegates to the wrapped binding for state.
   @Test public void testSingletonBindingDelegatesSetLinked() {
     singletonBinding.setLinked();
     assertThat(wrappedBinding.isLinked()).isTrue();
