@@ -20,19 +20,20 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.squareup.dagger.tests</groupId>
+  <groupId>com.example.dagger.tests</groupId>
   <artifactId>default-package-injected-type</artifactId>
-  <version>@dagger.version@</version>
+  <version>HEAD-SNAPSHOT</version>
+  <name>Default Package Injected Type</name>
   <dependencies>
     <dependency>
-      <groupId>com.squareup</groupId>
+      <groupId>@dagger.groupId@</groupId>
       <artifactId>dagger</artifactId>
-      <version>${project.version}</version>
+      <version>@dagger.version@</version>
     </dependency>
     <dependency>
-      <groupId>com.squareup</groupId>
+      <groupId>@dagger.groupId@</groupId>
       <artifactId>dagger-compiler</artifactId>
-      <version>${project.version}</version>
+      <version>@dagger.version@</version>
       <optional>true</optional>
     </dependency>
   </dependencies>
