@@ -112,8 +112,9 @@ public final class Linker {
             throw new IllegalStateException("Unable to create binding for " + key);
           }
           // Enqueue the JIT binding so its own dependencies can be linked.
-          toLink.add(jitBinding);
-          putBinding(jitBinding);
+          Binding<?> scopedJitBinding = scope(jitBinding);
+          toLink.add(scopedJitBinding);
+          putBinding(scopedJitBinding);
         } catch (Exception e) {
           if (e.getMessage() != null) {
             addError(e.getMessage() + " required by " + binding.requiredBy);
@@ -233,8 +234,7 @@ public final class Linker {
     return binding;
   }
 
-  private <T> void putBinding(Binding<T> binding) {
-    binding = scope(binding);
+  private <T> void putBinding(final Binding<T> binding) {
 
     // At binding insertion time it's possible that another binding for the same
     // key to already exist. This occurs when an @Provides method returns a type T
@@ -307,8 +307,32 @@ public final class Linker {
       binding.getDependencies(get, injectMembers);
     }
 
+    @Override public boolean isCycleFree() {
+      return binding.isCycleFree();
+    }
+
     @Override public boolean isLinked() {
       return binding.isLinked();
+    }
+
+    @Override public boolean isVisiting() {
+      return binding.isVisiting();
+    }
+
+    @Override public void setCycleFree(final boolean cycleFree) {
+      binding.setCycleFree(cycleFree);
+    }
+
+    @Override public void setVisiting(final boolean visiting) {
+      binding.setVisiting(visiting);
+    }
+
+    @Override protected boolean isSingleton() {
+      return true;
+    }
+
+    @Override protected void setLinked() {
+      binding.setLinked();
     }
 
     @Override public String toString() {
