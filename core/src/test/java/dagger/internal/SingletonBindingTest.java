@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2012 Square, Inc.
- * 
+ * Copyright (C) 2013 Square, Inc.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,11 +16,14 @@
 
 package dagger.internal;
 
-import static org.fest.assertions.Assertions.assertThat;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import static org.fest.assertions.Assertions.assertThat;
 
-public final class BindingTest {
+@RunWith(JUnit4.class)
+public final class SingletonBindingTest {
   private Binding<String> wrappedBinding;
   private Binding<String> singletonBinding;
 
@@ -30,7 +33,7 @@ public final class BindingTest {
   }
 
   @Test public void testSingletonBindingIsSingleton() {
-    assertThat(singletonBinding.isSingleton());
+    assertThat(singletonBinding.isSingleton()).isTrue();
   }
 
   // this next batch of tests validate that SingletonBinding consistently delegates to the wrapped binding for state
