@@ -97,9 +97,7 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("Failed to construct " + moduleClass.getName(), e);
     } catch (IllegalAccessException e) {
-      throw new IllegalArgumentException("Could not construct " + moduleClass.getName()
-          + " as it lacks an accessible no-args constructor. This module must be passed"
-          + " in as an instance, or the no-args constructor must be made public.", e);
+      throw new AssertionError();
     }
   }
 
