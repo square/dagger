@@ -43,13 +43,17 @@ public abstract class ModuleAdapter<T> {
    * Returns bindings for the {@code @Provides} methods of {@code module}. The
    * returned bindings must be linked before they can be used to inject values.
    */
-  public abstract void getBindings(Map<String, Binding<?>> map);
+  public void getBindings(@SuppressWarnings("unused") Map<String, Binding<?>> map) {
+    // no-op;
+  }
 
   /**
    * Returns a new instance of the module class created using a no-args
    * constructor. Only used when a manually-constructed module is not supplied.
    */
-  protected abstract T newModule();
+  protected T newModule() {
+    throw new UnsupportedOperationException("No no-args constructor on " + getClass().getName());
+  }
 
   public T getModule() {
     return module;
