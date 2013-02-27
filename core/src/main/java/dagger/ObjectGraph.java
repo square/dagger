@@ -60,29 +60,53 @@ import static dagger.internal.RuntimeAggregatingPlugin.getAllModuleAdapters;
  *   <li>Circular dependencies.</li>
  * </ul>
  */
-public final class ObjectGraph {
-  private final ObjectGraph base;
-  private final Linker linker;
-  private final Map<Class<?>, StaticInjection> staticInjections;
-  private final Map<String, Class<?>> entryPoints;
-  private final Plugin plugin;
+public abstract class ObjectGraph {
 
-  ObjectGraph(ObjectGraph base,
-      Linker linker,
-      Plugin plugin,
-      Map<Class<?>, StaticInjection> staticInjections,
-      Map<String, Class<?>> entryPoints) {
-    if (linker == null) throw new NullPointerException("linker");
-    if (plugin == null) throw new NullPointerException("plugin");
-    if (staticInjections == null) throw new NullPointerException("staticInjections");
-    if (entryPoints == null) throw new NullPointerException("entryPoints");
+  /**
+   * Returns an instance of {@code type}.
+   *
+   * @throws IllegalArgumentException if {@code type} is not one of this object
+   *     graph's entry point types.
+   */
+  public abstract <T> T get(Class<T> type);
 
-    this.base = base;
-    this.linker = linker;
-    this.plugin = plugin;
-    this.staticInjections = staticInjections;
-    this.entryPoints = entryPoints;
-  }
+  /**
+   * Injects the members of {@code instance}, including injectable members
+   * inherited from its supertypes.
+   *
+   * @throws IllegalArgumentException if the runtime type of {@code instance} is
+   *     not one of this object graph's entry point types.
+   */
+  public abstract <T> T inject(T instance);
+
+  /**
+   * Returns a new object graph that includes all of the objects in this graph,
+   * plus additional objects in the {@literal @}{@link Module}-annotated
+   * modules. This graph is a subgraph of the returned graph.
+   *
+   * <p>The current graph is not modified by this operation: its objects and the
+   * dependency links between them are unchanged. But this graph's objects may
+   * be shared by both graphs. For example, the singletons of this graph may be
+   * injected and used by the returned graph.
+   *
+   * <p>This <strong>does not</strong> inject any members or validate the graph.
+   * See {@link #create} for guidance on injection and validation.
+   */
+  public abstract ObjectGraph plus(Object... modules);
+
+  /**
+   * Do runtime graph problem detection. For fastest graph creation, rely on
+   * build time tools for graph validation.
+   *
+   * @throws IllegalStateException if this graph has problems.
+   */
+  public abstract void validate();
+
+  /**
+   * Injects the static fields of the classes listed in the object graph's
+   * {@code staticInjections} property.
+   */
+  public abstract void injectStatics();
 
   /**
    * Returns a new dependency graph using the {@literal @}{@link
@@ -100,171 +124,162 @@ public final class ObjectGraph {
   public static ObjectGraph create(Object... modules) {
     RuntimeAggregatingPlugin plugin = new RuntimeAggregatingPlugin(
             new ClassloadingPlugin(), new ReflectivePlugin());
-    return makeGraph(null, plugin, modules);
+    return DaggerObjectGraph.makeGraph(null, plugin, modules);
   }
 
-  private static ObjectGraph makeGraph(ObjectGraph base, Plugin plugin, Object... modules) {
-    Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
-    Map<Class<?>, StaticInjection> staticInjections
-        = new LinkedHashMap<Class<?>, StaticInjection>();
+  static class DaggerObjectGraph extends ObjectGraph {
 
-    // Extract bindings in the 'base' and 'overrides' set. Within each set no
-    // duplicates are permitted.
-    Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
-    Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
-    for (ModuleAdapter<?> moduleAdapter : getAllModuleAdapters(plugin, modules).values()) {
-      for (String key : moduleAdapter.entryPoints) {
-        entryPoints.put(key, moduleAdapter.getModule().getClass());
+    private final DaggerObjectGraph base;
+    private final Linker linker;
+    private final Map<Class<?>, StaticInjection> staticInjections;
+    private final Map<String, Class<?>> entryPoints;
+    private final Plugin plugin;
+
+    DaggerObjectGraph(DaggerObjectGraph base,
+        Linker linker,
+        Plugin plugin,
+        Map<Class<?>, StaticInjection> staticInjections,
+        Map<String, Class<?>> entryPoints) {
+      if (linker == null) throw new NullPointerException("linker");
+      if (plugin == null) throw new NullPointerException("plugin");
+      if (staticInjections == null) throw new NullPointerException("staticInjections");
+      if (entryPoints == null) throw new NullPointerException("entryPoints");
+
+      this.base = base;
+      this.linker = linker;
+      this.plugin = plugin;
+      this.staticInjections = staticInjections;
+      this.entryPoints = entryPoints;
+    }
+
+    private static ObjectGraph makeGraph(DaggerObjectGraph base, Plugin plugin, Object... modules) {
+      Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
+      Map<Class<?>, StaticInjection> staticInjections
+          = new LinkedHashMap<Class<?>, StaticInjection>();
+
+      // Extract bindings in the 'base' and 'overrides' set. Within each set no
+      // duplicates are permitted.
+      Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
+      Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
+      for (ModuleAdapter<?> moduleAdapter : getAllModuleAdapters(plugin, modules).values()) {
+        for (String key : moduleAdapter.entryPoints) {
+          entryPoints.put(key, moduleAdapter.getModule().getClass());
+        }
+        for (Class<?> c : moduleAdapter.staticInjections) {
+          staticInjections.put(c, null);
+        }
+        Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
+        moduleAdapter.getBindings(addTo);
       }
-      for (Class<?> c : moduleAdapter.staticInjections) {
-        staticInjections.put(c, null);
+
+      // Create a linker and install all of the user's bindings
+      Linker linker = new Linker((base != null) ? base.linker : null, plugin,
+          new ThrowingErrorHandler());
+      linker.installBindings(baseBindings);
+      linker.installBindings(overrideBindings);
+
+      return new DaggerObjectGraph(base, linker, plugin, staticInjections, entryPoints);
+    }
+
+
+    @Override public ObjectGraph plus(Object... modules) {
+      linkEverything();
+      return makeGraph(this, plugin, modules);
+    }
+
+
+    private void linkStaticInjections() {
+      for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
+        StaticInjection staticInjection = entry.getValue();
+        if (staticInjection == null) {
+          staticInjection = plugin.getStaticInjection(entry.getKey());
+          entry.setValue(staticInjection);
+        }
+        staticInjection.attach(linker);
       }
-      Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
-      moduleAdapter.getBindings(addTo);
     }
 
-    // Create a linker and install all of the user's bindings
-    Linker linker = new Linker((base != null) ? base.linker : null, plugin,
-        new ThrowingErrorHandler());
-    linker.installBindings(baseBindings);
-    linker.installBindings(overrideBindings);
-
-    return new ObjectGraph(base, linker, plugin, staticInjections, entryPoints);
-  }
-
-  /**
-   * Returns a new object graph that includes all of the objects in this graph,
-   * plus additional objects in the {@literal @}{@link Module}-annotated
-   * modules. This graph is a subgraph of the returned graph.
-   *
-   * <p>The current graph is not modified by this operation: its objects and the
-   * dependency links between them are unchanged. But this graph's objects may
-   * be shared by both graphs. For example, the singletons of this graph may be
-   * injected and used by the returned graph.
-   *
-   * <p>This <strong>does not</strong> inject any members or validate the graph.
-   * See {@link #create} for guidance on injection and validation.
-   */
-  public ObjectGraph plus(Object... modules) {
-    linkEverything();
-    return makeGraph(this, plugin, modules);
-  }
-
-
-  private void linkStaticInjections() {
-    for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
-      StaticInjection staticInjection = entry.getValue();
-      if (staticInjection == null) {
-        staticInjection = plugin.getStaticInjection(entry.getKey());
-        entry.setValue(staticInjection);
+    private void linkEntryPoints() {
+      for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
+        linker.requestBinding(entry.getKey(), entry.getValue(), false);
       }
-      staticInjection.attach(linker);
-    }
-  }
-
-  private void linkEntryPoints() {
-    for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
-      linker.requestBinding(entry.getKey(), entry.getValue(), false);
-    }
-  }
-
-  /**
-   * Do runtime graph problem detection. For fastest graph creation, rely on
-   * build time tools for graph validation.
-   *
-   * @throws IllegalStateException if this graph has problems.
-   */
-  public void validate() {
-    Map<String, Binding<?>> allBindings = linkEverything();
-    new ProblemDetector().detectProblems(allBindings.values());
-  }
-
-  /**
-   * Links all bindings, entry points and static injections.
-   */
-  private Map<String, Binding<?>> linkEverything() {
-    synchronized (linker) {
-      linkStaticInjections();
-      linkEntryPoints();
-      return linker.linkAll();
-    }
-  }
-
-  /**
-   * Injects the static fields of the classes listed in the object graph's
-   * {@code staticInjections} property.
-   */
-  public void injectStatics() {
-    // We call linkStaticInjections() twice on purpose. The first time through
-    // we request all of the bindings we need. The linker returns null for
-    // bindings it doesn't have. Then we ask the linker to link all of those
-    // requested bindings. Finally we call linkStaticInjections() again: this
-    // time the linker won't return null because everything has been linked.
-    synchronized (linker) {
-      linkStaticInjections();
-      linker.linkRequested();
-      linkStaticInjections();
     }
 
-    for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
-      entry.getValue().inject();
-    }
-  }
-
-  /**
-   * Returns an instance of {@code type}.
-   *
-   * @throws IllegalArgumentException if {@code type} is not one of this object
-   *     graph's entry point types.
-   */
-  public <T> T get(Class<T> type) {
-    String key = Keys.get(type);
-    String entryPointKey = Keys.getMembersKey(type);
-    @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
-    Binding<T> binding = (Binding<T>) getEntryPointBinding(entryPointKey, key);
-    return binding.get();
-  }
-
-  /**
-   * Injects the members of {@code instance}, including injectable members
-   * inherited from its supertypes.
-   *
-   * @throws IllegalArgumentException if the runtime type of {@code instance} is
-   *     not one of this object graph's entry point types.
-   */
-  public <T> T inject(T instance) {
-    String membersKey = Keys.getMembersKey(instance.getClass());
-    @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
-    Binding<Object> binding = (Binding<Object>) getEntryPointBinding(membersKey, membersKey);
-    binding.injectMembers(instance);
-    return instance;
-  }
-
-  /**
-   * @param entryPointKey the key used to store the entry point. This is always
-   *     a members injection key because those keys can always be created, even
-   *     if the type has no injectable constructor.
-   * @param key the key to use when retrieving the binding. This may be a
-   *     regular (provider) key or a members key.
-   */
-  private Binding<?> getEntryPointBinding(String entryPointKey, String key) {
-    Class<?> moduleClass = null;
-    for (ObjectGraph graph = this; graph != null; graph = graph.base) {
-      moduleClass = graph.entryPoints.get(entryPointKey);
-      if (moduleClass != null) break;
-    }
-    if (moduleClass == null) {
-      throw new IllegalArgumentException("No entry point for " + entryPointKey
-          + ". You must explicitly add an entry point to one of your modules.");
+    @Override public void validate() {
+      Map<String, Binding<?>> allBindings = linkEverything();
+      new ProblemDetector().detectProblems(allBindings.values());
     }
 
-    synchronized (linker) {
-      Binding<?> binding = linker.requestBinding(key, moduleClass, false);
-      if (binding == null || !binding.isLinked()) {
+    /**
+     * Links all bindings, entry points and static injections.
+     */
+    private Map<String, Binding<?>> linkEverything() {
+      synchronized (linker) {
+        linkStaticInjections();
+        linkEntryPoints();
+        return linker.linkAll();
+      }
+    }
+
+    @Override public void injectStatics() {
+      // We call linkStaticInjections() twice on purpose. The first time through
+      // we request all of the bindings we need. The linker returns null for
+      // bindings it doesn't have. Then we ask the linker to link all of those
+      // requested bindings. Finally we call linkStaticInjections() again: this
+      // time the linker won't return null because everything has been linked.
+      synchronized (linker) {
+        linkStaticInjections();
         linker.linkRequested();
-        binding = linker.requestBinding(key, moduleClass, false);
+        linkStaticInjections();
       }
-      return binding;
+
+      for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
+        entry.getValue().inject();
+      }
+    }
+
+    @Override public <T> T get(Class<T> type) {
+      String key = Keys.get(type);
+      String entryPointKey = Keys.getMembersKey(type);
+      @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
+      Binding<T> binding = (Binding<T>) getEntryPointBinding(entryPointKey, key);
+      return binding.get();
+    }
+
+    @Override public <T> T inject(T instance) {
+      String membersKey = Keys.getMembersKey(instance.getClass());
+      @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
+      Binding<Object> binding = (Binding<Object>) getEntryPointBinding(membersKey, membersKey);
+      binding.injectMembers(instance);
+      return instance;
+    }
+
+    /**
+     * @param entryPointKey the key used to store the entry point. This is always
+     *     a members injection key because those keys can always be created, even
+     *     if the type has no injectable constructor.
+     * @param key the key to use when retrieving the binding. This may be a
+     *     regular (provider) key or a members key.
+     */
+    private Binding<?> getEntryPointBinding(String entryPointKey, String key) {
+      Class<?> moduleClass = null;
+      for (DaggerObjectGraph graph = this; graph != null; graph = graph.base) {
+        moduleClass = graph.entryPoints.get(entryPointKey);
+        if (moduleClass != null) break;
+      }
+      if (moduleClass == null) {
+        throw new IllegalArgumentException("No entry point for " + entryPointKey
+            + ". You must explicitly add an entry point to one of your modules.");
+      }
+
+      synchronized (linker) {
+        Binding<?> binding = linker.requestBinding(key, moduleClass, false);
+        if (binding == null || !binding.isLinked()) {
+          linker.linkRequested();
+          binding = linker.requestBinding(key, moduleClass, false);
+        }
+        return binding;
+      }
     }
   }
 }
