@@ -18,9 +18,12 @@ package dagger;
 
 import javax.inject.Inject;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import static org.fest.assertions.Assertions.assertThat;
 
+@RunWith(JUnit4.class)
 public final class ExtensionWithStateTest {
   static class A { }
 
