@@ -61,7 +61,7 @@ import static java.lang.reflect.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
-@SupportedAnnotationTypes("dagger.Provides")
+@SupportedAnnotationTypes({ "dagger.Provides", "dagger.Module" })
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
@@ -94,7 +94,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
           "Could not find types required by provides methods for " + remainingTypes.keySet());
     }
-    return true;
+    return false; // FullGraphProcessor needs an opportunity to process.
   }
 
   private void error(String msg, Element element) {
@@ -146,6 +146,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
       methods.add(providerMethodAsExecutable);
     }
 
+    // Catch any stray modules without @Provides since their entry points
+    // should still be registered and a ModuleAdapter should still be written.
+    for (Element type : env.getElementsAnnotatedWith(Module.class)) {
+      if (type.getKind().equals(ElementKind.CLASS)) {
+        String moduleType = ((TypeElement) type).getQualifiedName().toString();
+        if (result.containsKey(moduleType)) continue;
+        result.put(moduleType, new ArrayList<ExecutableElement>());
+      }
+    }
     return result;
   }
 
@@ -184,7 +193,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(CodeGen.getPackage(type).getQualifiedName().toString());
     writer.emitEmptyLine();
-    writer.emitImports(getImports(multibindings, providerMethodDependencies));
+    writer.emitImports(
+        getImports(multibindings, !providerMethods.isEmpty(), providerMethodDependencies));
 
     String typeName = type.getQualifiedName().toString();
     writer.emitEmptyLine();
@@ -231,47 +241,47 @@ public final class ProvidesProcessor extends AbstractProcessor {
         + "INCLUDES, %s /*complete*/)", overrides, complete);
     writer.endMethod();
 
-    writer.emitEmptyLine();
-    writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
-
+    ExecutableElement noArgsConstructor = CodeGen.getNoArgsConstructor(type);
+    if (noArgsConstructor != null && CodeGen.isCallableConstructor(noArgsConstructor)) {
+      writer.emitEmptyLine();
+      writer.emitAnnotation(Override.class);
+      writer.beginMethod(typeName, "newModule", PROTECTED);
+      writer.emitStatement("return new %s()", typeName);
+      writer.endMethod();
+    }
+    // caches
     Map<ExecutableElement, String> methodToClassName
         = new LinkedHashMap<ExecutableElement, String>();
     Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
-    for (ExecutableElement providerMethod : providerMethods) {
-      Provides provides = providerMethod.getAnnotation(Provides.class);
-      switch (provides.type()) {
-        case UNIQUE: {
-          String key = GeneratorKeys.get(providerMethod);
-          writer.emitStatement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
-              bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
-          break;
-        }
-        case SET: {
-          String key = GeneratorKeys.getElementKey(providerMethod);
-          writer.emitStatement("SetBinding.add(map, %s, new %s(module))",
-              JavaWriter.stringLiteral(key),
-              bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
-          break;
-        }
-        default:
-          throw new AssertionError("Unknown @Provides type " + provides.type());
-      }
-    }
-    writer.endMethod();
 
-    writer.emitEmptyLine();
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod(typeName, "newModule", PROTECTED);
-    ExecutableElement noArgsConstructor = CodeGen.getNoArgsConstructor(type);
-    if (noArgsConstructor != null && CodeGen.isCallableConstructor(noArgsConstructor)) {
-      writer.emitStatement("return new %s()", typeName);
-    } else {
-      writer.emitStatement("throw new UnsupportedOperationException(%s)",
-          JavaWriter.stringLiteral("No no-args constructor on " + type));
+    if (!providerMethods.isEmpty()) {
+      writer.emitEmptyLine();
+      writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
+      writer.emitAnnotation(Override.class);
+      writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
+
+      for (ExecutableElement providerMethod : providerMethods) {
+        Provides provides = providerMethod.getAnnotation(Provides.class);
+        switch (provides.type()) {
+          case UNIQUE: {
+            String key = GeneratorKeys.get(providerMethod);
+            writer.emitStatement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+                bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+            break;
+          }
+          case SET: {
+            String key = GeneratorKeys.getElementKey(providerMethod);
+            writer.emitStatement("SetBinding.add(map, %s, new %s(module))",
+                JavaWriter.stringLiteral(key),
+                bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
+            break;
+          }
+          default:
+            throw new AssertionError("Unknown @Provides type " + provides.type());
+        }
+      }
+      writer.endMethod();
     }
-    writer.endMethod();
 
     for (ExecutableElement providerMethod : providerMethods) {
       writeProvidesAdapter(writer, providerMethod, methodToClassName, methodNameToNextId);
@@ -281,12 +291,14 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.close();
   }
 
-  private Set<String> getImports(boolean multibindings, boolean dependencies) {
+  private Set<String> getImports(boolean multibindings, boolean providers, boolean dependencies) {
     Set<String> imports = new LinkedHashSet<String>();
-    imports.add(Binding.class.getCanonicalName());
-    imports.add(Map.class.getCanonicalName());
-    imports.add(Provider.class.getCanonicalName());
     imports.add(ModuleAdapter.class.getCanonicalName());
+    if (providers) {
+      imports.add(Binding.class.getCanonicalName());
+      imports.add(Map.class.getCanonicalName());
+      imports.add(Provider.class.getCanonicalName());
+    }
     if (dependencies) {
       imports.add(Linker.class.getCanonicalName());
       imports.add(Set.class.getCanonicalName());
