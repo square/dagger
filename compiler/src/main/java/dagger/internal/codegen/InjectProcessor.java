@@ -30,7 +30,6 @@ import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
@@ -58,9 +57,12 @@ import static java.lang.reflect.Modifier.PUBLIC;
  * {@literal @}{@code Inject}-annotated members of a class.
  */
 @SupportedAnnotationTypes("javax.inject.Inject")
-@SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class InjectProcessor extends AbstractProcessor {
   private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
+
+  @Override public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     remainingTypeNames.addAll(getInjectedClassNames(env));

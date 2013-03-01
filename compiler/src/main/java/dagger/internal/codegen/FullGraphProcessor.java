@@ -34,7 +34,6 @@ import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -52,9 +51,12 @@ import javax.tools.StandardLocation;
  * Performs full graph analysis on a module.
  */
 @SupportedAnnotationTypes("dagger.Module")
-@SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class FullGraphProcessor extends AbstractProcessor {
   private final Set<String> delayedModuleNames = new LinkedHashSet<String>();
+
+  @Override public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   /**
    * Perform full-graph analysis on complete modules. This checks that all of
