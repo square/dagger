@@ -35,7 +35,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.SourceVersion;
@@ -62,12 +61,15 @@ import static java.lang.reflect.Modifier.STATIC;
  * for each {@code @Provides} method of a target class.
  */
 @SupportedAnnotationTypes({ "dagger.Provides", "dagger.Module" })
-@SupportedSourceVersion(SourceVersion.RELEASE_6)
 public final class ProvidesProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
       new LinkedHashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = JavaWriter.type(
       Map.class, String.class.getCanonicalName(), Binding.class.getCanonicalName() + "<?>");
+
+  @Override public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   // TODO: include @Provides methods from the superclass
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
