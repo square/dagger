@@ -26,8 +26,7 @@ import java.util.List;
 @Module
 public class ServletModule {
 
-  @Provides
-  List<ServletConfiguration> providesServletConfigurations() {
+  @Provides List<ServletConfiguration> providesServletConfigurations() {
     List<ServletConfiguration> servletConfigs = new ArrayList<ServletConfiguration>();
     servletConfigs.add(new ServletConfiguration(
         new HelloWorldServlet(), new String[]{"/hello", "/helloworld"}));

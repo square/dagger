@@ -24,11 +24,9 @@ import javax.inject.Inject;
 
 public class WebApp implements Runnable {
 
-  @Inject
-  ManagedServer managedServer;
+  @Inject ManagedServer managedServer;
 
-  @Override
-  public void run() {
+  @Override public void run() {
     managedServer.start();
   }
 

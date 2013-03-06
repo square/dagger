@@ -33,8 +33,8 @@ public class SimpleWebWebConfiguration implements WebConfiguration {
     this.contextPath = contextPath;
   }
 
-  @Override
-  public WebConfiguration addServletMapping(Servlet servlet, String... paths) {
+  @Override public WebConfiguration addServletMapping(Servlet servlet,
+                                                      String... paths) {
     if (paths == null) return this;
     for (String path : paths) {
       this.servletMappings.put(path, servlet);
@@ -42,18 +42,15 @@ public class SimpleWebWebConfiguration implements WebConfiguration {
     return this;
   }
 
-  @Override
-  public int getPort() {
+  @Override public int getPort() {
     return port;
   }
 
-  @Override
-  public String getContextPath() {
+  @Override public String getContextPath() {
     return contextPath;
   }
 
-  @Override
-  public Map<String, Servlet> getServletMappings() {
+  @Override public Map<String, Servlet> getServletMappings() {
     return servletMappings;
   }
 }

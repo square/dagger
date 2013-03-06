@@ -40,18 +40,15 @@ public class WebServer implements ManagedServer<Server> {
   private final WebConfiguration config;
   private boolean initialized = false;
 
-  @Inject
-  public WebServer(WebConfiguration config) {
+  @Inject public WebServer(WebConfiguration config) {
     this.config = config;
   }
 
-  @Override
-  public Server getServer() {
+  @Override public Server getServer() {
     return server;
   }
 
-  @Override
-  public void start() {
+  @Override public void start() {
 
     if (!this.initialized) {
       init();
@@ -67,8 +64,7 @@ public class WebServer implements ManagedServer<Server> {
     }
   }
 
-  @Override
-  public void stop() {
+  @Override public void stop() {
     try {
       server.stop();
     } catch (Exception e) {

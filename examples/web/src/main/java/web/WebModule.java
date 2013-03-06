@@ -30,9 +30,8 @@ import java.util.List;
 )
 class WebModule {
 
-  @Provides
-  @Singleton
-  WebConfiguration providesConfiguration(List<ServletConfiguration> servletConfigurations) {
+  @Provides @Singleton WebConfiguration providesConfiguration(
+      List<ServletConfiguration> servletConfigurations) {
     WebConfiguration config = new SimpleWebWebConfiguration(8080, "/");
     if (!servletConfigurations.isEmpty()) {
       for (ServletConfiguration servletConf : servletConfigurations) {
@@ -42,9 +41,8 @@ class WebModule {
     return config;
   }
 
-  @Provides
-  @Singleton
-  ManagedServer providesServer(WebConfiguration webConfiguration) {
+  @Provides @Singleton ManagedServer providesServer(WebConfiguration
+                                                        webConfiguration) {
     return new WebServer(webConfiguration);
   }
 }

@@ -27,14 +27,12 @@ public class FooServlet extends HttpServlet {
 
   private static final long serialVersionUID = -6332413709788655453L;
 
-  @Override
-  public String getServletName() {
+  @Override public String getServletName() {
     return "FooServlet";
   }
 
-  @Override
-  public void doGet(HttpServletRequest request,
-                    HttpServletResponse response)
+  @Override public void doGet(HttpServletRequest request,
+                              HttpServletResponse response)
       throws ServletException, IOException {
 
     response.setContentType("text/html");
