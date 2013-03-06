@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2013 Google, Inc.
  * Copyright (C) 2013 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,25 +15,22 @@
  */
 package web;
 
-import web.api.WebConfiguration;
-
 import javax.servlet.Servlet;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class SimpleWebWebConfiguration implements WebConfiguration {
+public class WebConfiguration {
 
   private int port;
   private String contextPath;
-  private final Map<String, Servlet> servletMappings = new HashMap<String, Servlet>();
+  private final Map<String, Servlet> servletMappings = new LinkedHashMap<String, Servlet>();
 
-  public SimpleWebWebConfiguration(int port, String contextPath) {
+  public WebConfiguration(int port, String contextPath) {
     this.port = port;
     this.contextPath = contextPath;
   }
 
-  @Override public WebConfiguration addServletMapping(Servlet servlet,
-                                                      String... paths) {
+  public WebConfiguration addServletMapping(Servlet servlet, String... paths) {
     if (paths == null) return this;
     for (String path : paths) {
       this.servletMappings.put(path, servlet);
@@ -42,15 +38,15 @@ public class SimpleWebWebConfiguration implements WebConfiguration {
     return this;
   }
 
-  @Override public int getPort() {
+  public int getPort() {
     return port;
   }
 
-  @Override public String getContextPath() {
+  public String getContextPath() {
     return contextPath;
   }
 
-  @Override public Map<String, Servlet> getServletMappings() {
+  public Map<String, Servlet> getServletMappings() {
     return servletMappings;
   }
 }

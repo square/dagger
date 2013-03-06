@@ -25,8 +25,6 @@ import java.io.PrintWriter;
 
 public class HelloWorldServlet extends HttpServlet {
 
-  private static final long serialVersionUID = -4116149106091698131L;
-
   @Override public String getServletName() {
     return "HelloWorldServlet";
   }

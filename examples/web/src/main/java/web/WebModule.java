@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2013 Google, Inc.
  * Copyright (C) 2013 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +17,6 @@ package web;
 
 import dagger.Module;
 import dagger.Provides;
-import web.api.WebConfiguration;
-import web.api.ManagedServer;
 
 import javax.inject.Singleton;
 import java.util.List;
@@ -32,7 +29,7 @@ class WebModule {
 
   @Provides @Singleton WebConfiguration providesConfiguration(
       List<ServletConfiguration> servletConfigurations) {
-    WebConfiguration config = new SimpleWebWebConfiguration(8080, "/");
+    WebConfiguration config = new WebConfiguration(8080, "/");
     if (!servletConfigurations.isEmpty()) {
       for (ServletConfiguration servletConf : servletConfigurations) {
         config.addServletMapping(servletConf.getServlet(), servletConf.getPaths());
@@ -41,8 +38,7 @@ class WebModule {
     return config;
   }
 
-  @Provides @Singleton ManagedServer providesServer(WebConfiguration
-                                                        webConfiguration) {
+  @Provides @Singleton WebServer providesServer(WebConfiguration webConfiguration) {
     return new WebServer(webConfiguration);
   }
 }

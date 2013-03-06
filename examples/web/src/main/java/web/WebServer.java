@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2013 Google, Inc.
  * Copyright (C) 2013 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,15 +23,13 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
-import web.api.WebConfiguration;
-import web.api.ManagedServer;
 
 import javax.inject.Inject;
 import javax.servlet.Servlet;
 import java.util.ArrayList;
 import java.util.List;
 
-public class WebServer implements ManagedServer<Server> {
+public class WebServer {
 
   private final List<Handler> handlers = new ArrayList<Handler>();
 
@@ -44,11 +41,11 @@ public class WebServer implements ManagedServer<Server> {
     this.config = config;
   }
 
-  @Override public Server getServer() {
+  public Server getServer() {
     return server;
   }
 
-  @Override public void start() {
+  public void start() {
 
     if (!this.initialized) {
       init();
@@ -64,7 +61,7 @@ public class WebServer implements ManagedServer<Server> {
     }
   }
 
-  @Override public void stop() {
+  public void stop() {
     try {
       server.stop();
     } catch (Exception e) {

@@ -30,8 +30,6 @@ public class ServletModule {
     List<ServletConfiguration> servletConfigs = new ArrayList<ServletConfiguration>();
     servletConfigs.add(new ServletConfiguration(
         new HelloWorldServlet(), new String[]{"/hello", "/helloworld"}));
-    servletConfigs.add(new ServletConfiguration(
-        new FooServlet(), new String[]{"/foo"}));
     return servletConfigs;
   }
 }

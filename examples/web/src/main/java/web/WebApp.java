@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2013 Google, Inc.
  * Copyright (C) 2013 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,17 +16,16 @@
 package web;
 
 import dagger.ObjectGraph;
-import web.api.ManagedServer;
 import web.servlet.ServletModule;
 
 import javax.inject.Inject;
 
 public class WebApp implements Runnable {
 
-  @Inject ManagedServer managedServer;
+  @Inject WebServer webServer;
 
   @Override public void run() {
-    managedServer.start();
+    webServer.start();
   }
 
   public static void main(String[] args) throws Exception {
