@@ -31,5 +31,6 @@
 
   <modules>
     <module>simple</module>
+    <module>web</module>
   </modules>
 </project>
