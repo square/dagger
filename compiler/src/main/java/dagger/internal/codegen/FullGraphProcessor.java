@@ -146,11 +146,13 @@ public final class FullGraphProcessor extends AbstractProcessor {
             case UNIQUE:
               ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
               if (clobbered != null) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                    "Multiple bindings for " + key
-                        + " found in override module(s) - cannot override an override: "
-                        + shortMethodName(clobbered.method)
-                        + ", " + shortMethodName(binding.method),
+                String msg = "Duplicate bindings for " + key;
+                if (overrides) {
+                  msg += " in override module(s) - cannot override an override";
+                }
+                msg += ": " + shortMethodName(clobbered.method)
+                    + ", " + shortMethodName(binding.method);
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg,
                     binding.method);
               }
               break;
