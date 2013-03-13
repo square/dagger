@@ -29,7 +29,7 @@ release), and the `dagger-compiler` artifact as an "optional" dependency:
     <groupId>com.squareup</groupId>
     <artifactId>dagger-compiler</artifactId>
     <version>${dagger.version}</version>
-    <optional>true</optional>
+    <scope>provided</scope>
   </dependency>
 </dependencies>
 ```

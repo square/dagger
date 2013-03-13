@@ -375,21 +375,13 @@ public class CoffeeMakerTest {
     &lt;artifactId>dagger&lt;/artifactId>
     &lt;version>${dagger.version}&lt;/version>
   &lt;/dependency>
+  &lt;dependency>
+    &lt;groupId>com.squareup&lt;/groupId>
+    &lt;artifactId>dagger-compiler&lt;/artifactId>
+    &lt;version>${dagger.version}&lt;/version>
+    &lt;scope>provided&lt;/scope>
+  &lt;/dependency>
 &lt;/dependencies>
-&lt;build>
-  &lt;plugins>
-    &lt;plugin>
-      &lt;artifactId>maven-compiler-plugin&lt;/artifactId>
-      &lt;dependencies>
-        &lt;dependency>
-          &lt;groupId>com.squareup&lt;/groupId>
-          &lt;artifactId>dagger-compiler&lt;/artifactId>
-          &lt;version>${dagger.version}&lt;/version>
-        &lt;/dependency>
-      &lt;/dependencies>
-    &lt;/plugin>
-  &lt;/plugins>
-&lt;/build>
 </pre>
 
 
