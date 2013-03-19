@@ -95,7 +95,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         bindings = processCompleteModule(moduleType);
         new ProblemDetector().detectProblems(bindings.values());
       } catch (GraphValidationException e) {
-        error("Graph validation failed: " + e.getMessage(), e.getSource());
+        error("Graph validation failed: " + e.getMessage(), e.source);
         continue;
       } catch (IllegalStateException e) {
         error("Graph validation failed: " + e.getMessage(), moduleType);
@@ -279,17 +279,11 @@ public final class FullGraphProcessor extends AbstractProcessor {
   }
 
   static class GraphValidationException extends IllegalStateException {
-
-    private final TypeElement source;
+    final TypeElement source;
 
     public GraphValidationException(String message, TypeElement source) {
       super(message);
       this.source = source;
     }
-
-    public TypeElement getSource() {
-      return source;
-    }
-
   }
 }
