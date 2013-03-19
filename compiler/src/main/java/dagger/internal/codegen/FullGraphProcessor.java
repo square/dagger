@@ -26,8 +26,11 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,9 +90,13 @@ public final class FullGraphProcessor extends AbstractProcessor {
         continue;
       }
       TypeElement moduleType = (TypeElement) element;
-      Map<String, Binding<?>> bindings = processCompleteModule(moduleType);
+      Map<String, Binding<?>> bindings = null;
       try {
+        bindings = processCompleteModule(moduleType);
         new ProblemDetector().detectProblems(bindings.values());
+      } catch (GraphValidationException e) {
+        error("Graph validation failed: " + e.getMessage(), e.getSource());
+        continue;
       } catch (IllegalStateException e) {
         error("Graph validation failed: " + e.getMessage(), moduleType);
         continue;
@@ -109,7 +116,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
-    collectIncludesRecursively(rootModule, allModules);
+    collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
 
     Linker linker = new Linker(null, new CompileTimePlugin(processingEnv),
         new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString()));
@@ -179,16 +186,37 @@ public final class FullGraphProcessor extends AbstractProcessor {
         + "." + method.getSimpleName() + "()";
   }
 
-  private void collectIncludesRecursively(TypeElement module, Map<String, TypeElement> result) {
+  void collectIncludesRecursively(
+      TypeElement module, Map<String, TypeElement> result, Deque<String> path) {
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
     if (annotation == null) {
       // TODO(tbroyer): pass annotation information
-      error("No @Module on " + module, module);
-      return;
+      throw new GraphValidationException("No @Module on " + module, module);
     }
 
     // Add the module.
-    result.put(module.getQualifiedName().toString(), module);
+    String name = module.getQualifiedName().toString();
+    if (path.contains(name)) {
+      StringBuilder message = new StringBuilder("Cycle: ")
+          .append(name)
+          .append(" includes itself");
+
+      if (path.size() == 1) {
+        message.append(" directly.");
+      } else {
+        message.append(" by way of:");
+        Iterator<String> pathIterator = path.descendingIterator();
+        while (pathIterator.hasNext()) {
+          String pathElement = pathIterator.next();
+          message.append("\n->").append(pathElement).append(" includes");
+        }
+        message.append("\n====>").append(name);
+      }
+      throw new GraphValidationException(message.toString(), module);
+    } else {
+      path.push(name);
+    }
+    result.put(name, module);
 
     // Recurse for each included module.
     Types typeUtils = processingEnv.getTypeUtils();
@@ -203,7 +231,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         continue;
       }
       TypeElement includedModule = (TypeElement) typeUtils.asElement((TypeMirror) include);
-      collectIncludesRecursively(includedModule, result);
+      collectIncludesRecursively(includedModule, result, path);
     }
   }
 
@@ -248,5 +276,20 @@ public final class FullGraphProcessor extends AbstractProcessor {
     DotWriter dotWriter = new DotWriter(writer);
     new GraphVisualizer().write(bindings, dotWriter);
     dotWriter.close();
+  }
+
+  static class GraphValidationException extends IllegalStateException {
+
+    private final TypeElement source;
+
+    public GraphValidationException(String message, TypeElement source) {
+      super(message);
+      this.source = source;
+    }
+
+    public TypeElement getSource() {
+      return source;
+    }
+
   }
 }
