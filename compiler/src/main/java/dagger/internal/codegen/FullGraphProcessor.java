@@ -94,7 +94,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
       try {
         bindings = processCompleteModule(moduleType);
         new ProblemDetector().detectProblems(bindings.values());
-      } catch (GraphValidationException e) {
+      } catch (ModuleValidationException e) {
         error("Graph validation failed: " + e.getMessage(), e.source);
         continue;
       } catch (IllegalStateException e) {
@@ -191,7 +191,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
     if (annotation == null) {
       // TODO(tbroyer): pass annotation information
-      throw new GraphValidationException("No @Module on " + module, module);
+      throw new ModuleValidationException("No @Module on " + module, module);
     }
 
     // Add the module.
@@ -212,7 +212,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         }
         message.append("\n====>").append(name);
       }
-      throw new GraphValidationException(message.toString(), module);
+      throw new ModuleValidationException(message.toString(), module);
     } else {
       path.push(name);
     }
@@ -278,10 +278,10 @@ public final class FullGraphProcessor extends AbstractProcessor {
     dotWriter.close();
   }
 
-  static class GraphValidationException extends IllegalStateException {
+  static class ModuleValidationException extends IllegalStateException {
     final TypeElement source;
 
-    public GraphValidationException(String message, TypeElement source) {
+    public ModuleValidationException(String message, TypeElement source) {
       super(message);
       this.source = source;
     }
