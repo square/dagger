@@ -278,8 +278,9 @@ public final class Linker {
    * A Binding that implements singleton behaviour around an existing binding.
    */
   private static class SingletonBinding<T> extends Binding<T> {
+    private final Object lock = new Object(); // 1 object vs. ReentrantLock's cloud of pointers.
     private final Binding<T> binding;
-    private Object onlyInstance = UNINITIALIZED;
+    private volatile Object onlyInstance = UNINITIALIZED;
 
     private SingletonBinding(Binding<T> binding) {
       super(binding.provideKey, binding.membersKey, true, binding.requiredBy);
@@ -296,9 +297,12 @@ public final class Linker {
 
     @SuppressWarnings("unchecked") // onlyInstance is either 'UNINITIALIZED' or a 'T'.
     @Override public T get() {
-      // TODO (cgruber): Fix concurrency risk.
       if (onlyInstance == UNINITIALIZED) {
-        onlyInstance = binding.get();
+        synchronized (lock) {
+          if (onlyInstance == UNINITIALIZED) {
+            onlyInstance = binding.get();
+          }
+        }
       }
       return (T) onlyInstance;
     }
