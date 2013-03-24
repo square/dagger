@@ -1,0 +1,427 @@
+---
+layout: default
+---
+
+<h3>イントロダクション</h3>
+
+<p>アプリケーションで最良のクラスとは、何かを実行するクラスです。 たとえば、バーコード読み取りクラス <code>BarcodeDecoder</code> 、 Koopa 物理エンジンクラス <code>KoopaPhysicsEngine</code>、 音楽ストリーミングクラス <code>AudioStreamer</code>といった類です。こういったクラスは別のクラスへの依存性を持ちます（バーコードカメラファインダクラス <code>BarcodeCameraFinder</code>、 デフォルトの物理エンジンクラス <code>DefaultPhysicsEngine</code>、 HTTPストリーミングクラス <code>HttpStreamer</code> 等々）。</p>
+
+<p>一方で、アプリケーションで最悪のクラスとは、ほとんど何もしないのに、無駄にスペースを取るようなクラスです。たとえば、バーコード読み取りクラスのファクトリ <code>BarcodeDecoderFactory</code> 、カメラサービスのローダ <code>CameraServiceLoader</code> 、可変コンテキストラッパ <code>MutableContextWrapper</code> といったような。これらのクラスは、関心の対象を継ぎ接ぎするための、いわば見栄えの悪いダクトテープみたいなものです。</p>
+
+<p>Dagger は、このような「ファクトリのファクトリ」 <code>FactoryFactory</code> を代替するものです。これを使えば、関心の対象となるクラスに注力することができます。依存性の解決については、依存性の宣言、どのように満たすかの指定、そしてアプリの配信ーこれだけで済みます。</p>
+
+<p>標準仕様である <a href="http://atinject.googlecode.com/svn/trunk/javadoc/javax/inject/package-summary.html">javax.inject</a> アノテーション（JSR-330）を利用することで、クラスの<strong>テストの容易性</strong>が高まります。もう、製品時の実装クラス <code>RpcCreditCardService</code> を テスト用の偽クラス <code>FakeCreditCardService</code> に取り替えるためだけに、大量のボイラープレートーお決まりのコードーを書く必要はありません。</p>
+
+<p>また、依存性注入（ Dependency Injection, DI ）は、単にテストに使うためだけのものではありません。 DI によって、<strong>再利用可能で、互換性のあるモジュール</strong>の作成が容易になります。たとえば、アプリ全体で同じ認証モジュール <code>AuthenticationModule</code> を共有することができます。その上、開発時には開発用ロギングモジュール <code>DevLoggingModule</code> を使い、製品版では製品版ロギングモジュール <code>ProdLoggingModule</code> を使うといったような、それぞれの状況に最適な振る舞いを得ることができます。</p>
+
+<p>詳細については、 Jesse Wilson が QCon 2012 で発表した<a href="http://www.infoq.com/presentations/Dagger">入門講座をご覧ください</a>（英語）。</p>
+
+<h3>Dagger の使い方</h3>
+<p>本ガイドでは、コーヒーメーカーパッケージの作成を通して、依存性注入と Dagger のデモを行います。コンパイル・実行可能なサンプルコード一式については、 Dagger の <a href="https://github.com/square/dagger/tree/master/examples/simple/src/main/java/coffee">coffee パッケージ</a>を参照してください。</p>
+
+<h4>依存性の宣言</h4>
+
+<p>Dagger は、アプリケーション中のクラスのインスタンスを生成し、依存関係を満たします。 <code>javax.inject.Inject</code> アノテーションによって、どのコンストラクタとフィールドが対象となるか判別されます。</p>
+
+<p>あるクラスのインスタンスを生成するのに、特定のコンストラクタを使いたいとしましょう。そのコンストラクタに <code>@Inject</code> とアノテートしてください。新しいインスタンスが要求された場合、 Dagger は必要なパラメータの値を取得してから、このコンストラクタを呼び出します。</p>
+
+<pre class="prettyprint">
+class Thermosiphon implements Pump {
+  private final Heater heater;
+
+  @Inject
+  Thermosiphon(Heater heater) {
+    this.heater = heater;
+  }
+
+  ...
+}
+</pre>
+
+<p>フィールドに直接注入することもできます。以下の例では、 <code>heater</code> フィールドに <code>Heater</code> 型のインスタンスを、 <code>pump</code> フィールドに <code>Pump</code> 型のインスタンスを取得します。</p>
+
+<pre class="prettyprint">
+class CoffeeMaker {
+  @Inject Heater heater;
+  @Inject Pump pump;
+
+  ...
+}
+</pre>
+
+<p><code>@Inject</code> アノテーションを持つフィールドがあるのに、 <code>@Inject</code> アノテーションを持つコンストラクタがない場合、引数なしのコンストラクタが（あれば）使用されます。 <code>@Inject</code> アノテーションがないクラスを Dagger で生成することはできません。</p>
+
+<p>Dagger では、メソッド注入（セッター <code>setXXX</code> などのメソッドを通して注入すること）はサポートされません。</p>
+
+<h4>依存性の充足</h4>
+
+<p>デフォルトでは、前述のように、 要求された型のインスタンスを生成することで、 Dagger は依存関係を満たします。たとえば、 <code>CoffeeMaker</code> を要求した場合、 <code>new CoffeeMaker()</code> を呼び出してインスタンスを取得し、それを注入可能なフィールドにセットするでしょう。</p>
+
+<p>とはいえ、どこでも <code>@Inject</code> だけで通用するというわけではありません。</p>
+
+<ul>
+  <li>インタフェースを生成することは不可能です。</li>
+  <li>サードパーティ製のクラスはアノテートできません。</li>
+  <li>設定可能なオブジェクトは…もちろん設定が必要です！</li>
+</ul>
+
+<p>これらの <code>@Inject</code> だけでは不十分な箇所では、 <code>@Provides</code> アノテーションが付けられたメソッドを使用して依存性を満たします。そのメソッドの戻り値の型によって、どの依存性が満たされるか決められます。</p>
+
+<p>以下の例では、 <code>Heater</code> が要求された場合、常に <code>provideHeater()</code> が呼び出されます。</p>
+
+<pre class="prettyprint">
+@Provides Heater provideHeater() {
+  return new ElectricHeater();
+}
+</pre>
+
+<p><code>@Provides</code> メソッド自身が、依存性を持っていても構いません。 以下のメソッドは、 <code>Pump</code> が要求された場合、常に <code>Thermosiphon</code> を返します。</p>
+
+<pre class="prettyprint">
+@Provides Pump providePump(Thermosiphon pump) {
+  return pump;
+}
+</pre>
+
+<p><code>@Provides</code> メソッドは特定のモジュールに属している必要があります。モジュールとは、単に <code>@Module</code> アノテーションが付けられたクラスのことです。</p>
+
+<pre class="prettyprint">
+@Module
+class DripCoffeeModule {
+  @Provides Heater provideHeater() {
+    return new ElectricHeater();
+  }
+
+  @Provides Pump providePump(Thermosiphon pump) {
+    return pump;
+  }
+}
+</pre>
+
+<p>命名規約： <code>@Provides</code> メソッドの名前は <code>provide</code> で始まり、モジュールクラスの名前は <code>Module</code> で終わります。</p>
+
+
+<h4>グラフ構築</h4>
+
+<p><code>@Inject</code> や <code>@Provides</code> でアノテートされたクラスは、それぞれの依存関係でリンクすると、オブジェクトのグラフを成します。一個以上のモジュールを引数として取る <code>ObjectGraph.create()</code> を使い、このグラフを取得しましょう。</p>
+
+<pre class="prettyprint">
+ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
+</pre>
+
+<p>グラフを実際に使うには、<strong>エントリポイント</strong>を作る必要があります。通常は、アプリケーションを開始する main クラスを指定します。ここでの例では、 <code>CoffeeApp</code> クラスがエントリポイントの役割を果たします。当該の型で注入されたインスタンスを取得できるように、グラフに要求します。</p>
+
+<pre class="prettyprint">
+class CoffeeApp implements Runnable {
+  @Inject CoffeeMaker coffeeMaker;
+
+  @Override public void run() {
+    coffeeMaker.brew();
+  }
+
+  public static void main(String[] args) {
+    ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
+    CoffeeApp coffeeApp = objectGraph.get(CoffeeApp.class);
+    ...
+  }
+}
+</pre>
+
+<p>残すところはあと一つ、エントリポイントとなるクラス <code>CoffeeApp</code> をグラフに含めることです。 <code>@Module</code> アノテーション中に、エントリポイントとして明示的に指定する必要があります。</p>
+
+<pre class="prettyprint">
+@Module(
+    entryPoints = CoffeeApp.class
+)
+class DripCoffeeModule {
+  ...
+}
+</pre>
+
+<p>さて、グラフの構築とエントリポイントの注入が終わったので、ついにコーヒーメーカーアプリを実行することができます！</p>
+
+<pre>
+$ java -cp ... coffee.CoffeeApp
+~ ~ ~ heating ~ ~ ~
+=&gt; =&gt; pumping =&gt; =&gt;
+ [_]P coffee! [_]P
+</pre>
+
+<h4>シングルトン</h4>
+
+<p><code>@Provides</code> メソッドあるいは注入可能なクラスを <code>@Singleton</code> とアノテートしてみましょう。すると、オブジェクトグラフは、すべてのクライアントに対し、その値の単一のインスタンスを用います。</p>
+
+<pre class="prettyprint">
+@Provides @Singleton Heater provideHeater() {
+  return new ElectricHeater();
+}
+</pre>
+
+<p>注入可能なクラスに <code>@Singleton</code> アノテーションをつけた場合は、ドキュメンテーションとしても役立ちます。将来のメンテナに対して、このクラスは複数のスレッドに共有される可能性があると注記することができるからです。</p>
+
+<pre class="prettyprint">
+@Singleton
+class CoffeeMaker {
+  ...
+}
+</pre>
+
+<h4>遅延注入</h4>
+
+<p>オブジェクトの初期化を遅延する必要に迫られることもあるでしょう。 任意のバインディング <code>T</code> について、 <code>Lazy&lt;T></code> の <code>get()</code> メソッドが最初に呼び出されるまで初期化を遅らせるようなオブジェクト <code>Lazy&lt;T></code> を生成することができます。 <code>T</code> がシングルトンの場合、 <code>Lazy&lt;T></code> も <code>ObjectGraph</code> 中のすべての注入に対し、同じインスタンスが使われます。それ以外の場合、それぞれの注入箇所について、固有の <code>Lazy&lt;T></code> インスタンスが取得されます。いずれにせよ、 <code>Lazy&lt;T></code> 型の任意のインスタンスに対して、続けて呼び出しを行った場合、 <code>T</code> 型の前回までと同一のインスタンスが返されます。</p>
+
+<pre class="prettyprint">
+class GridingCoffeeMaker {
+  @Inject Lazy&lt;Grinder&gt; lazyGrinder;
+
+  public void brew() {
+    while (needsGrinding()) {
+      // 豆挽き器 Grinder は get() の最初の呼び出し時に一度だけ生成され、キャッシュされます。
+      lazyGrinder.get().grind();
+    }
+  }
+}
+</pre>
+
+<h4>Provider 注入</h4>
+
+<p>単一の値を注入するだけではなく、複数のインスタンスを返す必要になる場合もあります。このような場合にはいくつか選択肢がありますが（ Factory 、 Builder 等々）、一つの選択肢として、 <code>T</code> ではなく <code>Provider&lt;T></code> を注入する道があります。 <code>Provider&lt;T></code> は、 <code>.get()</code> が呼び出されるたびに、新しい <code>T</code> のインスタンスを生成します。</p>
+
+<pre class="prettyprint">
+
+class BigCoffeeMaker {
+  @Inject Provider&lt;Filter&gt; filterProvider;
+
+  public void brew(int numberOfPots) {
+	...
+    for (int p = 0; p &lt; numberOfPots; p++) {
+      maker.addFilter(filterProvider.get()); // 毎回新しいフィルタを生成します。
+      maker.addCoffee(...);
+      maker.percolate();
+      ...
+    }
+  }
+}
+</pre>
+
+<p><span class="label label-inverse">注：</span><em> <code>Provider&lt;T></code> の注入によって混沌としたコードを作成してしまう可能性があります。これを使う必要になるということは、グラフ中のオブジェクトのスコープを間違えた・あるいは構造を間違えた徴候を示す<a href="http://ja.wikipedia.org/wiki/%E3%82%B3%E3%83%BC%E3%83%89%E3%81%AE%E8%87%AD%E3%81%84">デザインの臭い</a>かもしれません。たいていの場合は、代わりに <code>Factory&lt;T></code> を注入するか、 <code>Lazy&lt;T></code> を注入するか、あるいは単に <code>T</code> を注入できるようにオブジェクトの生存期間やコードの構造を再構成するほうが良いでしょう。とはいえ、 <code>Provider&lt;T></code> の注入に命を救われる場合もあります。よくある使用例としては、オブジェクトの自然な生存期間と整合しないような、レガシーなアーキテクチャを使う必要になった場合です（たとえば、サーブレットはデザインとしてはシングルトンですが、リクエスト固有のデータのコンテキストにある間だけ、有効になっています）。</em></p>
+
+<h4>修飾子</h4>
+
+<p>型情報だけでは、依存関係を判別するのに十分ではないこともあります。上質なコーヒーメーカーアプリは、水とホットプレートでそれぞれ別の加熱器を使う必要があるかもしれないでしょう。</p>
+
+<p>こういった場合のために、<strong>修飾子アノテーション</strong>の機能が追加されています。修飾子アノテーションとは、それ自身が <code>@Qualifier</code> アノテーションでアノテートされたクラスのことです。例として、 <code>javax.inject</code> パッケージに含まれる修飾子アノテーション、 <code>@Named</code> の宣言を掲載します。</p>
+
+<pre class="prettyprint">
+@Qualifier
+@Documented
+@Retention(RUNTIME)
+public @interface Named {
+  String value() default "";
+}
+</pre>
+
+<p>自前の修飾子アノテーションを作っても、 <code>@Named</code> をそのまま使っても構いません。対象のフィールドまたはパラメータをアノテートして、修飾子を適用してください。型情報と修飾子アノテーションは、両方とも依存性の判別に使用されます。</p>
+
+<pre class="prettyprint">
+class ExpensiveCoffeeMaker {
+  @Inject @Named("water") Heater waterHeater;
+  @Inject @Named("hot plate") Heater hotPlateHeater;
+  ...
+}
+</pre>
+
+<p>対応する <code>@Provides</code> メソッドをアノテートして、修飾される値を提供します。</p>
+
+<pre class="prettyprint">
+@Provides @Named("hot plate") Heater provideHotPlateHeater() {
+  return new ElectricHeater(70);
+}
+
+@Provides @Named("water") Heater provideWaterHeater() {
+  return new ElectricHeater(93);
+}
+</pre>
+
+<p>注意点として、一つの対象に複数の修飾子アノテーションをつけることは許可されていません。</p>
+
+<h4>静的注入</h4>
+
+<p><span class="label label-important">警告：</span>静的依存性は再利用やテストが難しいので、この機能の使用はなるべく控えるべきです。</p>
+
+<p> Dagger では、 static フィールドに対する注入も可能です。 <code>@Inject</code> アノテーションが付けられた static フィールドを宣言しているクラスを、 モジュールアノテーションの <code>staticInjections</code> にリストしてください。</p>
+
+<pre class="prettyprint">
+@Module(
+    staticInjections = LegacyCoffeeUtils.class
+)
+class LegacyModule {
+}
+</pre>
+
+<p><code>ObjectGraph.injectStatics()</code> を使い、これらの static フィールドに注入値を代入します。</p>
+
+<pre class="prettyprint">
+ObjectGraph objectGraph = ObjectGraph.create(new LegacyModule());
+objectGraph.injectStatics();
+</pre>
+
+<h4>コンパイル時検証</h4>
+
+<p>Dagger には、モジュールと注入を検証する <a href="http://docs.oracle.com/javase/6/docs/api/javax/annotation/processing/package-summary.html">アノテーションプロセッサ</a> が備わっています。このプロセッサは厳格で、バインディングが一つでも妥当でないか、不完全である場合にコンパイルエラーを生じます。たとえば、下記のモジュールに <code>Executor</code> へのバインディングが欠けていたとしましょう。</p>
+
+<pre class="prettyprint">
+@Module
+class DripCoffeeModule {
+  @Provides Heater provideHeater(Executor executor) {
+    return new CpuHeater(executor);
+  }
+}
+</pre>
+
+<p>コンパイル時に、 <code>javac</code> はバインディングの欠落を拒絶します。</p>
+
+<pre>
+[ERROR] COMPILATION ERROR :
+[ERROR] error: No binding for java.util.concurrent.Executor
+               required by provideHeater(java.util.concurrent.Executor)
+</pre>
+
+<p>この問題を修正するためには、 <code>Executor</code> への <code>@Provides</code> でアノテートされたメソッドを追加するか、あるいはモジュールを不完全とマークする必要があります。不完全モジュールは、依存性に欠落があっても許容されます。</p>
+
+<pre class="prettyprint">
+@Module(complete = false)
+class DripCoffeeModule {
+  @Provides Heater provideHeater(Executor executor) {
+    return new CpuHeater(executor);
+  }
+}
+</pre>
+
+<p>コンパイル時検証を最大限に活用できるよう、アプリケーションのモジュールを全て含むモジュールを作りましょう。アノテーションプロセッサは複数モジュールにわたって問題を検知・報告します。</p>
+
+<pre class="prettyprint">
+@Module(
+    includes = {
+        DripCoffeeModule.class,
+        ExecutorModule.class
+    }
+)
+public class CoffeeAppModule {
+}
+</pre>
+
+<p>コンパイル時クラスパスに Dagger の jar ファイルを通した場合、アノテーションプロセッサは自動で有効になります。</p>
+
+<h4>コンパイル時コード生成</h4>
+
+<p>Dagger のアノテーションプロセッサによって、 <code>CoffeeMaker$InjectAdapter.java</code> とか <code>DripCoffeeModule$ModuleAdapter</code> といったような名前のソースファイルが生成されることもあります。これらは Dagger の実装詳細で、直接使う必要はありませんが、注入をステップ実行でデバッグするときには便利でしょう。</p>
+
+<h4>モジュールのオーバーライド</h4>
+
+<p>同じ依存性に対して、複数の競合する <code>@Provides</code> メソッドがある場合、 Dagger の実行は失敗します。とはいえ、製品コードを開発やテスト用のコードで代替する必要になることもあるでしょう。モジュールアノテーション中で <code>overrides = true</code> と指定すると、他のモジュールによるバインディングに優先させることができます。</p>
+
+<p>以下の JUnit テストでは、 <code>Heater</code> に対する <code>DripCoffeeModule</code> のバインディングが、 <a href="http://mockito.googlecode.com/">Mockito</a> のモックオブジェクトでオーバーライドされています。 このモックは <code>CoffeeMaker</code> に注入され、テストで使用されることになります。</p>
+
+<pre class="prettyprint">
+public class CoffeeMakerTest {
+  @Inject CoffeeMaker coffeeMaker;
+  @Inject Heater heater;
+
+  @Before public void setUp() {
+    ObjectGraph.create(new TestModule()).inject(this);
+  }
+
+  @Module(
+      includes = DripCoffeeModule.class,
+      entryPoints = CoffeeMakerTest.class,
+      overrides = true
+  )
+  static class TestModule {
+    @Provides @Singleton Heater provideHeater() {
+      return Mockito.mock(Heater.class);
+    }
+  }
+
+  @Test public void testHeaterIsTurnedOnAndThenOff() {
+    Mockito.when(heater.isHot()).thenReturn(true);
+    coffeeMaker.brew();
+    Mockito.verify(heater, Mockito.times(1)).on();
+    Mockito.verify(heater, Mockito.times(1)).off();
+  }
+}
+</pre>
+
+<p>オーバーライドは、アプリケーションの中でも相違が小さい場面で使うのに最も適しています。例をあげましょう。</p>
+<ul>
+  <li>ユニットテストのために、実際の実装をモックで代替する場合。</li>
+  <li>開発のために、 LDAP 認証を偽の認証で代替する場合。</li>
+</ul>
+
+<p>より本質的な相違がある場合は、モジュールの異なる組み合わせを用いるほうが、シンプルになる場合が多いでしょう。</p>
+
+
+<h3>ビルド時に Dagger を使う</h3>
+
+<p> アプリケーションのランタイム環境に <code>dagger-${dagger.version}.jar</code> を含める必要があります。そのほか、コード生成を有効化するために、コンパイル時に <code>dagger-compiler-${dagger.version}.jar</code> を含めてビルドする必要があります。</p>
+
+<p>Maven プロジェクトで利用する場合、 <code>pom.xml</code> の依存関係を記述する節にランタイムを含め、さらにコンパイラプラグインの依存ライブラリとして <code>dagger-compiler</code> アーティファクトを含めるとよいでしょう。（<code>${dagger.version}</code> を、今ある適当なリリースのバージョン番号に置き換えてください）</p>
+
+<pre class="prettyprint">
+&lt;dependencies>
+  &lt;dependency>
+    &lt;groupId>com.squareup&lt;/groupId>
+    &lt;artifactId>dagger&lt;/artifactId>
+    &lt;version>${dagger.version}&lt;/version>
+  &lt;/dependency>
+&lt;/dependencies>
+&lt;build>
+  &lt;plugins>
+    &lt;plugin>
+      &lt;artifactId>maven-compiler-plugin&lt;/artifactId>
+      &lt;dependencies>
+        &lt;dependency>
+          &lt;groupId>com.squareup&lt;/groupId>
+          &lt;artifactId>dagger-compiler&lt;/artifactId>
+          &lt;version>${dagger.version}&lt;/version>
+        &lt;/dependency>
+      &lt;/dependencies>
+    &lt;/plugin>
+  &lt;/plugins>
+&lt;/build>
+</pre>
+
+
+
+<h3>Guice からアップグレードする際の注意点</h3>
+
+<p> Guice の特徴のうち重要なもので、 Dagger がサポートしないものを以下に列挙します。</p>
+<ul>
+  <li><code>final</code> フィールドや <code>private</code> メンバへの注入。パフォーマンスを最適化するために、 Dagger はコンパイル時にコードを生成します。制限を回避するには、コンストラクタ注入を使ってください。</li>
+  <li>Eager シングルトン。この制限を回避するには、各 eager シングルトンに対して、 static フィールドを宣言する <code>EagerSingletons</code> クラスを作成してください。</li>
+  <li>メソッド注入（セッター <code>setXXX</code> などのメソッドを通して注入すること）。</li>
+  <li>たとえ引数なしのコンストラクタがあったとしても、 <code>@Inject</code> アノテーションがないクラスを Dagger で生成することはできません。</li>
+</ul>
+
+<h3>翻訳者一覧</h3>
+<ul>
+<li><a href="mailto:hajime.senuma@gmail.com">瀬沼 甫</a>
+</ul>
+
+<h3>ライセンス</h3>
+
+<pre>
+Copyright 2012 Square, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+</pre>

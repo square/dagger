@@ -25,6 +25,10 @@ code {
     margin-bottom: 25px;
     color: #f0f0f0;
 }
+.side h2 {
+    font-weight: normal;
+    color: #bbb;
+}
 .side h3 {
     font-weight: normal;
     margin-bottom: 40px;
@@ -32,6 +36,7 @@ code {
 }
 .side ul {
     margin-bottom: 30px;
+    list-style-type: none;
 }
 
 .main {
