@@ -39,10 +39,10 @@ import static org.fest.assertions.Assertions.assertThat;
 @RunWith(JUnit4.class)
 public final class ThreadSafetyTest {
   private static final Integer FIRST_VALUE = 0;
-  private static final int PERCALE = 100;
+  private static final int THREAD_COUNT = 100;
 
-  private final ExecutorService es = Executors.newFixedThreadPool(PERCALE);
-  private final CountDownLatch latch = new CountDownLatch(PERCALE + 1);
+  private final ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
+  private final CountDownLatch latch = new CountDownLatch(THREAD_COUNT + 1);
 
 
   static class LazyEntryPoint {
@@ -74,7 +74,7 @@ public final class ThreadSafetyTest {
   @Test public void concurrentSingletonAccess() throws Exception {
     final List<Future<Long>> futures = new ArrayList<Future<Long>>();
     final ObjectGraph graph = ObjectGraph.create(new LatchingModule(latch));
-    for (int i = 0 ; i < PERCALE ; i++) {
+    for (int i = 0; i < THREAD_COUNT; i++) {
       futures.add(es.submit(new Callable<Long>() {
         @Override public Long call() {
           latch.countDown();
@@ -94,7 +94,7 @@ public final class ThreadSafetyTest {
     final List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
     final ObjectGraph graph = ObjectGraph.create(new LatchingModule(latch));
     final LazyEntryPoint lep = graph.get(LazyEntryPoint.class);
-    for (int i = 0 ; i < PERCALE ; i++) {
+    for (int i = 0; i < THREAD_COUNT; i++) {
       futures.add(es.submit(new Callable<Integer>() {
         @Override public Integer call() {
           latch.countDown();
