@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -197,24 +196,21 @@ public final class FullGraphProcessor extends AbstractProcessor {
     // Add the module.
     String name = module.getQualifiedName().toString();
     if (path.contains(name)) {
-      StringBuilder message = new StringBuilder("Cycle: ")
-          .append(name)
-          .append(" includes itself");
-
+      StringBuilder message = new StringBuilder("Module Inclusion Cycle: ");
       if (path.size() == 1) {
-        message.append(" directly.");
+        message.append(name).append(" includes itself directly.");
       } else {
-        message.append(" by way of:");
-        Iterator<String> pathIterator = path.descendingIterator();
-        while (pathIterator.hasNext()) {
-          String pathElement = pathIterator.next();
-          message.append("\n->").append(pathElement).append(" includes");
+        String current = null;
+        String includer = name;
+        for (int i = 0; path.size() > 0; i++) {
+          current = includer;
+          includer = path.pop();
+          message.append("\n").append(i).append(". ")
+              .append(current).append(" included by ").append(includer);
         }
-        message.append("\n====>").append(name);
+        message.append("\n0. ").append(name);
       }
       throw new ModuleValidationException(message.toString(), module);
-    } else {
-      path.push(name);
     }
     result.put(name, module);
 
@@ -231,7 +227,9 @@ public final class FullGraphProcessor extends AbstractProcessor {
         continue;
       }
       TypeElement includedModule = (TypeElement) typeUtils.asElement((TypeMirror) include);
+      path.push(name);
       collectIncludesRecursively(includedModule, result, path);
+      path.pop();
     }
   }
 

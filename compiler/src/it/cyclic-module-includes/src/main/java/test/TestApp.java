@@ -23,13 +23,19 @@ class TestApp {
   @Module(includes = SelfReferencingModule.class)
   static class SelfReferencingModule { }
 
-  @Module(includes = C.class)
-  static class A {}
+  @Module(includes = Spock.class)
+  static class Rock {}
 
-  @Module(includes = A.class)
-  static class B {}
+  @Module(includes = Rock.class)
+  static class Paper {}
 
-  @Module(includes = B.class)
-  static class C {}
+  @Module(includes = Paper.class)
+  static class Scissors {}
+
+  @Module(includes = Scissors.class)
+  static class Lizard {}
+
+  @Module(includes = Lizard.class)
+  static class Spock {}
 
 }
