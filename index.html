@@ -380,6 +380,11 @@ public class CoffeeMakerTest {
   &lt;plugins>
     &lt;plugin>
       &lt;artifactId>maven-compiler-plugin&lt;/artifactId>
+      &lt;version>3.0&lt;/version>
+      &lt;configuration>
+        &lt;!-- Workaround for http://jira.codehaus.org/browse/MCOMPILER-202. -->
+        &lt;forceJavacCompilerUse>true&lt;/forceJavacCompilerUse>
+      &lt;/configuration>
       &lt;dependencies>
         &lt;dependency>
           &lt;groupId>com.squareup&lt;/groupId>
