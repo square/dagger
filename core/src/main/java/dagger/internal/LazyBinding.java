@@ -46,14 +46,13 @@ final class LazyBinding<T> extends Binding<Lazy<T>> {
   @Override
   public Lazy<T> get() {
     return new Lazy<T>() {
-      private final Object lock = new Object();
       private volatile Object cacheValue = NOT_PRESENT;
 
       @SuppressWarnings("unchecked") // Delegate is of type T
       @Override
       public T get() {
         if (cacheValue == NOT_PRESENT) {
-          synchronized (lock) {
+          synchronized (this) {
             if (cacheValue == NOT_PRESENT) {
               cacheValue = delegate.get();
             }
