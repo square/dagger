@@ -28,8 +28,10 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -89,9 +91,13 @@ public final class FullGraphProcessor extends AbstractProcessor {
         continue;
       }
       TypeElement moduleType = (TypeElement) element;
-      Map<String, Binding<?>> bindings = processCompleteModule(moduleType);
+      Map<String, Binding<?>> bindings = null;
       try {
+        bindings = processCompleteModule(moduleType);
         new ProblemDetector().detectProblems(bindings.values());
+      } catch (ModuleValidationException e) {
+        error("Graph validation failed: " + e.getMessage(), e.source);
+        continue;
       } catch (IllegalStateException e) {
         error("Graph validation failed: " + e.getMessage(), moduleType);
         continue;
@@ -115,7 +121,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
-    collectIncludesRecursively(rootModule, allModules);
+    collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
 
     Linker linker = new Linker(null, new CompileTimePlugin(processingEnv),
         new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString()));
@@ -188,16 +194,34 @@ public final class FullGraphProcessor extends AbstractProcessor {
         + "." + method.getSimpleName() + "()";
   }
 
-  private void collectIncludesRecursively(TypeElement module, Map<String, TypeElement> result) {
+  void collectIncludesRecursively(
+      TypeElement module, Map<String, TypeElement> result, Deque<String> path) {
     Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
     if (annotation == null) {
       // TODO(tbroyer): pass annotation information
-      error("No @Module on " + module, module);
-      return;
+      throw new ModuleValidationException("No @Module on " + module, module);
     }
 
     // Add the module.
-    result.put(module.getQualifiedName().toString(), module);
+    String name = module.getQualifiedName().toString();
+    if (path.contains(name)) {
+      StringBuilder message = new StringBuilder("Module Inclusion Cycle: ");
+      if (path.size() == 1) {
+        message.append(name).append(" includes itself directly.");
+      } else {
+        String current = null;
+        String includer = name;
+        for (int i = 0; path.size() > 0; i++) {
+          current = includer;
+          includer = path.pop();
+          message.append("\n").append(i).append(". ")
+              .append(current).append(" included by ").append(includer);
+        }
+        message.append("\n0. ").append(name);
+      }
+      throw new ModuleValidationException(message.toString(), module);
+    }
+    result.put(name, module);
 
     // Recurse for each included module.
     Types typeUtils = processingEnv.getTypeUtils();
@@ -212,7 +236,9 @@ public final class FullGraphProcessor extends AbstractProcessor {
         continue;
       }
       TypeElement includedModule = (TypeElement) typeUtils.asElement((TypeMirror) include);
-      collectIncludesRecursively(includedModule, result);
+      path.push(name);
+      collectIncludesRecursively(includedModule, result, path);
+      path.pop();
     }
   }
 
@@ -257,5 +283,14 @@ public final class FullGraphProcessor extends AbstractProcessor {
     DotWriter dotWriter = new DotWriter(writer);
     new GraphVisualizer().write(bindings, dotWriter);
     dotWriter.close();
+  }
+
+  static class ModuleValidationException extends IllegalStateException {
+    final TypeElement source;
+
+    public ModuleValidationException(String message, TypeElement source) {
+      super(message);
+      this.source = source;
+    }
   }
 }
