@@ -156,6 +156,9 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
         if (!field.isAnnotationPresent(Inject.class) || Modifier.isStatic(field.getModifiers())) {
           continue;
         }
+        if ((field.getModifiers() & Modifier.PRIVATE) != 0) {
+          throw new IllegalStateException("Can't inject private field: " + field);
+        }
         field.setAccessible(true);
         injectedFields.add(field);
         keys.add(Keys.get(field.getGenericType(), field.getAnnotations(), field));
@@ -189,6 +192,10 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     int parameterCount;
     String provideKey;
     if (injectedConstructor != null) {
+      if ((injectedConstructor.getModifiers() & Modifier.PRIVATE) != 0) {
+        throw new IllegalStateException("Can't inject private constructor: " + injectedConstructor);
+      }
+
       provideKey = Keys.get(type);
       injectedConstructor.setAccessible(true);
       Type[] types = injectedConstructor.getGenericParameterTypes();

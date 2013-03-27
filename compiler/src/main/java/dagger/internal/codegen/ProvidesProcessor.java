@@ -45,6 +45,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -71,7 +72,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
     return SourceVersion.latestSupported();
   }
 
-  // TODO: include @Provides methods from the superclass
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
     remainingTypes.putAll(providerMethodsByClass(env));
     for (Iterator<String> i = remainingTypes.keySet().iterator(); i.hasNext();) {
@@ -148,14 +148,27 @@ public final class ProvidesProcessor extends AbstractProcessor {
       methods.add(providerMethodAsExecutable);
     }
 
+    Elements elementUtils = processingEnv.getElementUtils();
+    TypeMirror objectType = elementUtils.getTypeElement("java.lang.Object").asType();
+
     // Catch any stray modules without @Provides since their entry points
     // should still be registered and a ModuleAdapter should still be written.
-    for (Element type : env.getElementsAnnotatedWith(Module.class)) {
-      if (type.getKind().equals(ElementKind.CLASS)) {
-        String moduleType = ((TypeElement) type).getQualifiedName().toString();
-        if (result.containsKey(moduleType)) continue;
-        result.put(moduleType, new ArrayList<ExecutableElement>());
+    for (Element module : env.getElementsAnnotatedWith(Module.class)) {
+      if (!module.getKind().equals(ElementKind.CLASS)) {
+        error("Modules must be classes: " + module, module);
+        continue;
       }
+
+      TypeElement moduleType = (TypeElement) module;
+
+      // Verify that all modules do not extend from non-Object types.
+      if (!moduleType.getSuperclass().equals(objectType)) {
+        error("Modules must not extend from other classes: " + module, module);
+      }
+
+      String moduleName = moduleType.getQualifiedName().toString();
+      if (result.containsKey(moduleName)) continue;
+      result.put(moduleName, new ArrayList<ExecutableElement>());
     }
     return result;
   }

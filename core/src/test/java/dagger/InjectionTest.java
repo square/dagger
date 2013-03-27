@@ -750,4 +750,41 @@ public final class InjectionTest {
     assertThat(extension.get(SingletonLinkedFromExtension.class).c).isSameAs(root.get(C.class));
   }
 
+  @Test public void privateFieldsFail() {
+    class Test {
+      @Inject private Object nope;
+    }
+
+    @Module(entryPoints = Test.class)
+    class TestModule {
+      @Provides Object provideObject() {
+        return null;
+      }
+    }
+
+    try {
+      ObjectGraph.create(new TestModule()).inject(new Test());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()).contains("Can't inject private field: ");
+    }
+  }
+
+  @Test public void privateConstructorsFail() {
+    class Test {
+      @Inject private Test() {
+      }
+    }
+
+    @Module(entryPoints = Test.class)
+    class TestModule {
+    }
+
+    try {
+      ObjectGraph.create(new TestModule()).get(Test.class);
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()).contains("Can't inject private constructor: ");
+    }
+  }
 }

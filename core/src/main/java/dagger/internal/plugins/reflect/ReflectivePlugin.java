@@ -52,6 +52,10 @@ public final class ReflectivePlugin implements Plugin {
     if (annotation == null) {
       throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
     }
+    if (moduleClass.getSuperclass() != Object.class) {
+      throw new IllegalArgumentException(
+          "Modules must not extend from other classes: " + moduleClass.getName());
+    }
     return (ModuleAdapter<T>) new ReflectiveModuleAdapter(moduleClass, annotation);
   }
 

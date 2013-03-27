@@ -40,18 +40,25 @@ final class LazyBinding<T> extends Binding<Lazy<T>> {
   }
 
   @Override public void injectMembers(Lazy<T> t) {
-    throw new UnsupportedOperationException(); // not a member injection binding.
+    throw new UnsupportedOperationException(); // Injecting into a custom Lazy not supported.
   }
 
   @Override
   public Lazy<T> get() {
     return new Lazy<T>() {
-      private Object cacheValue = NOT_PRESENT;
+      private volatile Object cacheValue = NOT_PRESENT;
 
       @SuppressWarnings("unchecked") // Delegate is of type T
       @Override
       public T get() {
-        return (T) ((cacheValue != NOT_PRESENT) ? cacheValue : (cacheValue = delegate.get()));
+        if (cacheValue == NOT_PRESENT) {
+          synchronized (this) {
+            if (cacheValue == NOT_PRESENT) {
+              cacheValue = delegate.get();
+            }
+          }
+        }
+        return (T) cacheValue;
       }
     };
   }

@@ -16,7 +16,8 @@ include `dagger-compiler-${dagger.version}.jar` in your build at compile time.
 
 In a Maven project, one would include the runtime in the dependencies section
 of your `pom.xml` (replacing `${dagger.version}` with the appropriate current
-release), and the `dagger-compiler` artifact as an "optional" dependency:
+release), and the `dagger-compiler` artifact as an "optional" or "provided"
+dependency:
 
 ```xml
 <dependencies>
