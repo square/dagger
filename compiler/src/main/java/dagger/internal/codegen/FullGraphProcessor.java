@@ -22,6 +22,8 @@ import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -97,7 +99,11 @@ public final class FullGraphProcessor extends AbstractProcessor {
       try {
         writeDotFile(moduleType, bindings);
       } catch (IOException e) {
-        error("Graph visualization failed: " + e, moduleType);
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        processingEnv.getMessager()
+            .printMessage(Diagnostic.Kind.WARNING,
+                "Graph visualization failed. Please report this as a bug.\n\n" + sw, moduleType);
       }
     }
     return true;
