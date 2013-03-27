@@ -750,4 +750,33 @@ public final class InjectionTest {
     assertThat(extension.get(SingletonLinkedFromExtension.class).c).isSameAs(root.get(C.class));
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void privateFieldsFail() {
+    class Test {
+      @Inject private Object nope;
+    }
+
+    @Module(entryPoints = Test.class)
+    class TestModule {
+      @Provides Object provideObject() {
+        return null;
+      }
+    }
+
+    ObjectGraph.create(new TestModule()).inject(new Test());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void privateConstructorsFail() {
+    class Test {
+      @Inject private Test() {
+      }
+    }
+
+    @Module(entryPoints = Test.class)
+    class TestModule {
+    }
+
+    ObjectGraph.create(new TestModule()).get(Test.class);
+  }
 }
