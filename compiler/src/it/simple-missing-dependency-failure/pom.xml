@@ -29,27 +29,20 @@
     <dependency>
       <groupId>@dagger.groupId@</groupId>
       <artifactId>dagger</artifactId>
-      <version>@dagger.version@</version>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>@dagger.groupId@</groupId>
+      <artifactId>dagger-compiler</artifactId>
+      <version>${project.version}</version>
+      <optional>true</optional>
     </dependency>
   </dependencies>
   <build>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.0</version>
-        <configuration>
-          <source>1.5</source>
-          <target>1.5</target>
-          <!-- workaround for http://jira.codehaus.org/browse/MCOMPILER-202 -->
-          <forceJavacCompilerUse>true</forceJavacCompilerUse>
-        </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>@dagger.groupId@</groupId>
-            <artifactId>dagger-compiler</artifactId>
-            <version>@dagger.version@</version>
-          </dependency>
-        </dependencies>
+        <configuration><source>1.5</source><target>1.5</target></configuration>
       </plugin>
     </plugins>
   </build>
