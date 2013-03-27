@@ -24,7 +24,7 @@ import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
-public final class ModuleIncludesTest {
+public final class ModuleTest {
   static class TestEntryPoint {
     @Inject String s;
   }
@@ -180,5 +180,17 @@ public final class ModuleIncludesTest {
   @Test(expected = IllegalArgumentException.class)
   public void childModuleMissingModuleAnnotation() {
     ObjectGraph.create(new ChildModuleMissingModuleAnnotation());
+  }
+
+  @Module
+  static class ThreadModule extends Thread {}
+
+  @Test public void moduleExtendingClassThrowsException() {
+    try {
+      ObjectGraph.create(new ThreadModule());
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage()).startsWith("Modules must not extend from other classes: ");
+    }
   }
 }
