@@ -16,7 +16,8 @@ include `dagger-compiler-${dagger.version}.jar` in your build at compile time.
 
 In a Maven project, one would include the runtime in the dependencies section
 of your `pom.xml` (replacing `${dagger.version}` with the appropriate current
-release), and the `dagger-compiler` artifact as an "optional" dependency:
+release), and the `dagger-compiler` artifact as an "optional" or "provided"
+dependency:
 
 ```xml
 <dependencies>
@@ -25,27 +26,13 @@ release), and the `dagger-compiler` artifact as an "optional" dependency:
     <artifactId>dagger</artifactId>
     <version>${dagger.version}</version>
   </dependency>
+  <dependency>
+    <groupId>com.squareup</groupId>
+    <artifactId>dagger-compiler</artifactId>
+    <version>${dagger.version}</version>
+    <optional>true</optional>
+  </dependency>
 </dependencies>
-
-<build>
-  <plugins>
-    <plugin>
-      <artifactId>maven-compiler-plugin</artifactId>
-      <version>3.0</version>
-      <configuration>
-        <!-- Workaround for http://jira.codehaus.org/browse/MCOMPILER-202. -->
-        <forceJavacCompilerUse>true</forceJavacCompilerUse>
-      </configuration>
-      <dependencies>
-        <dependency>
-          <groupId>com.squareup</groupId>
-          <artifactId>dagger-compiler</artifactId>
-          <version>${dagger.version}</version>
-        </dependency>
-      </dependencies>
-    </plugin>
-  </plugins>
-</build>
 ```
 
 You can also find downloadable .jars on the [GitHub download page][2].
