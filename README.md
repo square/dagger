@@ -34,7 +34,9 @@ release), and the `dagger-compiler` artifact as an "optional" dependency:
 </dependencies>
 ```
 
-You can also find downloadable .jars on the [GitHub download page][2].
+You can also find downloadable .jars on Maven Central. You'll need both
+[Dagger](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20dagger) and
+[JavaWriter](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22javawriter%22).
 
 
 
@@ -58,4 +60,3 @@ License
 
 
  [1]: http://square.github.com/dagger/
- [2]: http://github.com/square/dagger/downloads
