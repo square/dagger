@@ -26,12 +26,10 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
 
-/**
- * Uses reflection to create bindings, module adapters and static injections.
- */
+/** Uses reflection to create bindings, module adapters and static injections. */
 public final class ReflectivePlugin implements Plugin {
-  @Override public Binding<?> getAtInjectBinding(
-      String key, String className, boolean mustBeInjectable) {
+  @Override
+  public Binding<?> getAtInjectBinding(String key, String className, boolean mustBeInjectable) {
     Class<?> c;
     try {
       c = Class.forName(className);
@@ -56,7 +54,7 @@ public final class ReflectivePlugin implements Plugin {
       throw new IllegalArgumentException(
           "Modules must not extend from other classes: " + moduleClass.getName());
     }
-    return (ModuleAdapter<T>) new ReflectiveModuleAdapter(moduleClass, annotation);
+    return (ModuleAdapter<T>) ReflectiveModuleAdapter.createFor(moduleClass, annotation);
   }
 
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {

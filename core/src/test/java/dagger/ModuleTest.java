@@ -15,6 +15,7 @@
  */
 package dagger;
 
+import java.io.Serializable;
 import javax.inject.Inject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -191,6 +192,58 @@ public final class ModuleTest {
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e.getMessage()).startsWith("Modules must not extend from other classes: ");
+    }
+  }
+
+  @Module(entryPoints = Serializable.class)
+  public static class InterfaceModule1 {}
+
+  @Test public void interfaceEntryPointsDisallowed() {
+    try {
+      ObjectGraph.create(new InterfaceModule1());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage(
+          "Non-class java.io.Serializable not allowed as entry point on dagger.ModuleTest$InterfaceModule1.");
+    }
+  }
+
+  @Module(staticInjections = Serializable.class)
+  public static class InterfaceModule2 {}
+
+  @Test public void interfaceStaticInjectionsDisallowed() {
+    try {
+      ObjectGraph.create(new InterfaceModule2());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage(
+          "Non-class java.io.Serializable not allowed as static injection on dagger.ModuleTest$InterfaceModule2.");
+    }
+  }
+
+  @Module(includes = Serializable.class)
+  public static class InterfaceModule3 {}
+
+  @Test public void interfaceIncludesDisallowed() {
+    try {
+      ObjectGraph.create(new InterfaceModule3());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage(
+          "Non-class java.io.Serializable not allowed as includes on dagger.ModuleTest$InterfaceModule3.");
+    }
+  }
+
+  @Module(addsTo = Serializable.class)
+  public static class InterfaceModule4 {}
+
+  @Test public void interfaceAddsToDisallowed() {
+    try {
+      ObjectGraph.create(new InterfaceModule4());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage(
+          "Non-class java.io.Serializable not allowed as adds to on dagger.ModuleTest$InterfaceModule4.");
     }
   }
 }

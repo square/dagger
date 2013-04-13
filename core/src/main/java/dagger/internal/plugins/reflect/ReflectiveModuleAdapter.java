@@ -32,15 +32,22 @@ import java.util.Set;
 import javax.inject.Singleton;
 
 final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
+  static ReflectiveModuleAdapter createFor(Class<?> moduleClass, Module annotation) {
+    validateClasses("entry point", moduleClass, annotation.entryPoints());
+    validateClasses("static injection", moduleClass, annotation.staticInjections());
+    validateClasses("includes", moduleClass, annotation.includes());
+    validateClasses("adds to", moduleClass, annotation.addsTo());
+
+    return new ReflectiveModuleAdapter(moduleClass, toMemberKeys(annotation.entryPoints()),
+        annotation.staticInjections(), annotation.overrides(), annotation.includes(),
+        annotation.complete());
+  }
+
   final Class<?> moduleClass;
 
-  public ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
-    super(
-        toMemberKeys(annotation.entryPoints()),
-        annotation.staticInjections(),
-        annotation.overrides(),
-        annotation.includes(),
-        annotation.complete());
+  public ReflectiveModuleAdapter(Class<?> moduleClass, String[] entryPoints,
+      Class<?>[] staticInjections, boolean overrides, Class<?>[] includes, boolean complete) {
+    super(entryPoints, staticInjections, overrides, includes, complete);
     this.moduleClass = moduleClass;
   }
 
@@ -50,6 +57,16 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       result[i] = Keys.getMembersKey(entryPoints[i]);
     }
     return result;
+  }
+
+  private static void validateClasses(String type, Class<?> moduleClass, Class<?>... classes) {
+    for (Class<?> c : classes) {
+      if (c.isInterface() || c.isEnum()) {
+        throw new IllegalStateException(
+            String.format("Non-class %s not allowed as %s on %s.", c.getName(), type,
+                moduleClass.getName()));
+      }
+    }
   }
 
   @Override public void getBindings(Map<String, Binding<?>> bindings) {
