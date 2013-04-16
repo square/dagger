@@ -46,6 +46,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -82,6 +83,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
         // Attempt to get the annotation. If types are missing, this will throw
         // IllegalStateException.
         Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
+        validateModuleParts(type, parsedAnnotation);
         try {
           writeModuleAdapter(type, parsedAnnotation, providesTypes);
         } catch (IOException e) {
@@ -97,6 +99,40 @@ public final class ProvidesProcessor extends AbstractProcessor {
           "Could not find types required by provides methods for " + remainingTypes.keySet());
     }
     return false; // FullGraphProcessor needs an opportunity to process.
+  }
+
+  private void validateModuleParts(TypeElement type, Map<String, Object> parsedAnnotation) {
+    Object[] entryPoints = (Object[]) parsedAnnotation.get("entryPoints");
+    validateClasses("entry point", type, entryPoints);
+
+    Object[] staticInjections = (Object[]) parsedAnnotation.get("staticInjections");
+    validateClasses("static injection", type, staticInjections);
+
+    Object[] includes = (Object[]) parsedAnnotation.get("includes");
+    validateClasses("include", type, includes);
+
+    Object addsTo = parsedAnnotation.get("addsTo");
+    validateClasses("adds to", type, addsTo);
+  }
+
+  private void validateClasses(String name, TypeElement type, Object... objects) {
+    if (objects == null) {
+      return;
+    }
+    Types typeUtils = processingEnv.getTypeUtils();
+    for (Object mirror : objects) {
+      boolean bad = false;
+      if (mirror instanceof Class) {
+        Class<?> c = (Class<?>) mirror;
+        bad = c.isInterface() || c.isEnum();
+      } else if (mirror instanceof TypeMirror) {
+        ElementKind kind = typeUtils.asElement((TypeMirror) mirror).getKind();
+        bad = kind == ElementKind.INTERFACE || kind == ElementKind.ENUM;
+      }
+      if (bad) {
+        error("Non-class " + mirror.toString() + " not allowed as " + name + ".", type);
+      }
+    }
   }
 
   private void error(String msg, Element element) {

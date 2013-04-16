@@ -1,0 +1,12 @@
+import dagger.testing.it.BuildLogValidator;
+import java.io.File;
+
+File buildLog = new File(basedir, "build.log");
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "Non-class java.io.Serializable not allowed as entry point."});
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "Non-class java.io.Serializable not allowed as static injection."});
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "Non-class java.io.Serializable not allowed as include."});
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "Non-class java.io.Serializable not allowed as adds to."});
