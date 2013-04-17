@@ -119,7 +119,7 @@ final class AtInjectBinding extends Binding<Object> {
       bindings[i] = linker.requestBinding(keys.get(i), requiredBy);
     }
     if (supertypeKey != null) {
-      supertypeBinding = linker.requestBinding(supertypeKey, requiredBy, false);
+      supertypeBinding = linker.requestBinding(supertypeKey, requiredBy, false, true);
     }
   }
 

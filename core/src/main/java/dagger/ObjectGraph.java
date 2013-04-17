@@ -187,7 +187,6 @@ public abstract class ObjectGraph {
       return makeGraph(this, plugin, modules);
     }
 
-
     private void linkStaticInjections() {
       for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
         StaticInjection staticInjection = entry.getValue();
@@ -201,7 +200,7 @@ public abstract class ObjectGraph {
 
     private void linkEntryPoints() {
       for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
-        linker.requestBinding(entry.getKey(), entry.getValue(), false);
+        linker.requestBinding(entry.getKey(), entry.getValue(), false, true);
       }
     }
 
@@ -273,10 +272,10 @@ public abstract class ObjectGraph {
       }
 
       synchronized (linker) {
-        Binding<?> binding = linker.requestBinding(key, moduleClass, false);
+        Binding<?> binding = linker.requestBinding(key, moduleClass, false, true);
         if (binding == null || !binding.isLinked()) {
           linker.linkRequested();
-          binding = linker.requestBinding(key, moduleClass, false);
+          binding = linker.requestBinding(key, moduleClass, false, true);
         }
         return binding;
       }

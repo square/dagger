@@ -60,4 +60,14 @@ public @interface Module {
    */
   boolean complete() default true;
 
+  /**
+   * False if all the included bindings in this module are necessary to satisfy
+   * all of its entry points. If a module is not a library module, it is eligible
+   * for additional static checking: tools can detect if included bindings are not
+   * necessary. If you provide bindings that are not used by this module's graph,
+   * then you must declare {@code library = true}.
+   * <p>
+   * This is intended to help you detect dead code.
+   */
+  boolean library() default false;
 }

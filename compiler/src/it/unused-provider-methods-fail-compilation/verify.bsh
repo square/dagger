@@ -1,0 +1,8 @@
+import dagger.testing.it.BuildLogValidator;
+import java.io.File;
+
+File buildLog = new File(basedir, "build.log");
+new BuildLogValidator().assertHasText(buildLog, new String[]{
+    "You have these unused @Provider methods! Set library=true in your module to disable this check.",
+    "test.TestModule.string()",
+    });
