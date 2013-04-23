@@ -46,6 +46,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -107,8 +108,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
    * Returns a map containing all {@code @Provides} methods, indexed by class.
    */
   private Map<String, List<ExecutableElement>> providerMethodsByClass(RoundEnvironment env) {
-    Map<String, List<ExecutableElement>> result
-        = new HashMap<String, List<ExecutableElement>>();
+    Elements elementUtils = processingEnv.getElementUtils();
+    Types typeUtils = processingEnv.getTypeUtils();
+
+    TypeElement providerElement = elementUtils.getTypeElement("javax.inject.Provider");
+    TypeMirror providerType = typeUtils.erasure(providerElement.asType());
+    TypeElement lazyElement = elementUtils.getTypeElement("dagger.Lazy");
+    TypeMirror lazyType = typeUtils.erasure(lazyElement.asType());
+
+    Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
     for (Element providerMethod : providesMethods(env)) {
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
@@ -140,6 +148,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
+      TypeMirror returnType = typeUtils.erasure(providerMethodAsExecutable.getReturnType());
+      if (typeUtils.isSameType(returnType, providerType)) {
+        error("@Provides method must not return Provider directly: "
+            + type.getQualifiedName()
+            + "."
+            + providerMethod, providerMethod);
+        continue;
+      }
+      if (typeUtils.isSameType(returnType, lazyType)) {
+        error("@Provides method must not return Lazy directly: "
+            + type.getQualifiedName()
+            + "."
+            + providerMethod, providerMethod);
+        continue;
+      }
+
       List<ExecutableElement> methods = result.get(type.getQualifiedName().toString());
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
@@ -148,7 +172,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
       methods.add(providerMethodAsExecutable);
     }
 
-    Elements elementUtils = processingEnv.getElementUtils();
     TypeMirror objectType = elementUtils.getTypeElement("java.lang.Object").asType();
 
     // Catch any stray modules without @Provides since their entry points

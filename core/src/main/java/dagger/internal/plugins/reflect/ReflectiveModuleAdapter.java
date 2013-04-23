@@ -15,6 +15,7 @@
  */
 package dagger.internal.plugins.reflect;
 
+import dagger.Lazy;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
@@ -26,9 +27,11 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 
 final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
@@ -57,7 +60,26 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       for (Method method : c.getDeclaredMethods()) {
         Provides provides = method.getAnnotation(Provides.class);
         if (provides != null) {
-          String key = Keys.get(method.getGenericReturnType(), method.getAnnotations(), method);
+          Type genericReturnType = method.getGenericReturnType();
+
+          Type typeToCheck = genericReturnType;
+          if (genericReturnType instanceof ParameterizedType) {
+            typeToCheck = ((ParameterizedType) genericReturnType).getRawType();
+          }
+          if (Provider.class.equals(typeToCheck)) {
+            throw new IllegalStateException("@Provides method must not return Provider directly: "
+                + c.getName()
+                + "."
+                + method.getName());
+          }
+          if (Lazy.class.equals(typeToCheck)) {
+            throw new IllegalStateException("@Provides method must not return Lazy directly: "
+                + c.getName()
+                + "."
+                + method.getName());
+          }
+
+          String key = Keys.get(genericReturnType, method.getAnnotations(), method);
           switch (provides.type()) {
             case UNIQUE:
               handleBindings(bindings, method, key);
