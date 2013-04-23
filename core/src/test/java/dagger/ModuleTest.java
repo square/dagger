@@ -16,6 +16,7 @@
 package dagger;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -191,6 +192,74 @@ public final class ModuleTest {
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e.getMessage()).startsWith("Modules must not extend from other classes: ");
+    }
+  }
+
+  @Test public void provideProviderFails() {
+    @Module
+    class ProvidesProviderModule {
+      @Provides Provider<Object> provideObject() {
+        return null;
+      }
+    }
+    try {
+      ObjectGraph.create(new ProvidesProviderModule());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()) //
+          .startsWith("@Provides method must not return Provider directly: ")
+          .endsWith("ProvidesProviderModule.provideObject");
+    }
+  }
+
+  @Test public void provideRawProviderFails() {
+    @Module
+    class ProvidesRawProviderModule {
+      @Provides Provider provideObject() {
+        return null;
+      }
+    }
+    try {
+      ObjectGraph.create(new ProvidesRawProviderModule());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()) //
+          .startsWith("@Provides method must not return Provider directly: ")
+          .endsWith("ProvidesRawProviderModule.provideObject");
+    }
+  }
+
+  @Test public void provideLazyFails() {
+    @Module
+    class ProvidesLazyModule {
+      @Provides Lazy<Object> provideObject() {
+        return null;
+      }
+    }
+    try {
+      ObjectGraph.create(new ProvidesLazyModule());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()) //
+          .startsWith("@Provides method must not return Lazy directly: ")
+          .endsWith("ProvidesLazyModule.provideObject");
+    }
+  }
+
+  @Test public void provideRawLazyFails() {
+    @Module
+    class ProvidesRawLazyModule {
+      @Provides Lazy provideObject() {
+        return null;
+      }
+    }
+    try {
+      ObjectGraph.create(new ProvidesRawLazyModule());
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()) //
+          .startsWith("@Provides method must not return Lazy directly: ")
+          .endsWith("ProvidesRawLazyModule.provideObject");
     }
   }
 }
