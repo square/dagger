@@ -107,6 +107,8 @@ public final class Linker {
         }
         try {
           Binding<?> jitBinding = createJitBinding(key, binding.requiredBy, mustBeInjectable);
+          jitBinding.setLibrary(binding.library());
+          jitBinding.setDependedOn(binding.dependedOn());
           // Fail if the type of binding we got wasn't capable of what was requested.
           if (!key.equals(jitBinding.provideKey) && !key.equals(jitBinding.membersKey)) {
             throw new IllegalStateException("Unable to create binding for " + key);
@@ -187,14 +189,13 @@ public final class Linker {
     throw new IllegalArgumentException("No binding for " + key);
   }
 
-
   /**
    * Returns the binding if it exists immediately. Otherwise this returns
    * null. If the returned binding didn't exist or was unlinked, it will be
    * enqueued to be linked.
    */
   public Binding<?> requestBinding(String key, Object requiredBy) {
-    return requestBinding(key, requiredBy, true);
+    return requestBinding(key, requiredBy, true, true);
   }
 
   /**
@@ -207,7 +208,8 @@ public final class Linker {
    *     can inject arbitrary entry points like JUnit test cases or Android
    *     activities) and for supertypes.
    */
-  public Binding<?> requestBinding(String key, Object requiredBy, boolean mustBeInjectable) {
+  public Binding<?> requestBinding(String key, Object requiredBy, boolean mustBeInjectable,
+      boolean library) {
     assertLockHeld();
 
     Binding<?> binding = null;
@@ -222,6 +224,8 @@ public final class Linker {
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
       Binding<?> deferredBinding = new DeferredBinding(key, requiredBy, mustBeInjectable);
+      deferredBinding.setLibrary(library);
+      deferredBinding.setDependedOn(true);
       toLink.add(deferredBinding);
       attachSuccess = false;
       return null;
@@ -231,6 +235,8 @@ public final class Linker {
       toLink.add(binding); // This binding was never linked; link it now!
     }
 
+    binding.setLibrary(library);
+    binding.setDependedOn(true);
     return binding;
   }
 
@@ -345,6 +351,11 @@ public final class Linker {
 
   /** Handles linker errors appropriately. */
   public interface ErrorHandler {
+    ErrorHandler NULL = new ErrorHandler() {
+      @Override public void handleErrors(List<String> errors) {
+      }
+    };
+
     /**
      * Fail if any errors have been enqueued.
      * Implementations may throw exceptions or report the errors through another
@@ -358,6 +369,7 @@ public final class Linker {
   private static class DeferredBinding extends Binding<Object> {
     final String deferredKey;
     final boolean mustBeInjectable;
+
     private DeferredBinding(String deferredKey, Object requiredBy, boolean mustBeInjectable) {
       super(null, null, false, requiredBy);
       this.deferredKey = deferredKey;
@@ -370,5 +382,4 @@ public final class Linker {
       throw new UnsupportedOperationException("Deferred bindings must resolve first.");
     }
   }
-
 }
