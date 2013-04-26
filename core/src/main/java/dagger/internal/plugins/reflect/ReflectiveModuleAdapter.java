@@ -23,6 +23,7 @@ import dagger.internal.Keys;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.SetBinding;
+import dagger.internal.plugins.AbstractProviderMethodBinding;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -43,7 +44,8 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
         annotation.staticInjections(),
         annotation.overrides(),
         annotation.includes(),
-        annotation.complete());
+        annotation.complete(),
+        annotation.library());
     this.moduleClass = moduleClass;
   }
 
@@ -82,10 +84,10 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
           String key = Keys.get(genericReturnType, method.getAnnotations(), method);
           switch (provides.type()) {
             case UNIQUE:
-              handleBindings(bindings, method, key);
+              handleBindings(bindings, method, key, library);
               break;
             case SET:
-              handleSetBindings(bindings, method, key);
+              handleSetBindings(bindings, method, key, library);
               break;
             default:
               throw new AssertionError("Unknown @Provides type " + provides.type());
@@ -95,14 +97,17 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     }
   }
 
-  private <T> void handleBindings(Map<String, Binding<?>> bindings, Method method, String key) {
-    bindings.put(key, new ProviderMethodBinding<T>(method, key, module));
+  private <T> void handleBindings(Map<String, Binding<?>> bindings, Method method, String key,
+      boolean library) {
+    bindings.put(key, new ProviderMethodBinding<T>(method, key, module, library));
   }
 
-  private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key) {
+  private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key,
+      boolean library) {
     String elementKey =
         Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method);
-    SetBinding.<T>add(bindings, elementKey, new ProviderMethodBinding<T>(method, key, module));
+    SetBinding.<T>add(bindings, elementKey, new ProviderMethodBinding<T>(method, key, module,
+        library));
   }
 
   @Override protected Object newModule() {
@@ -126,16 +131,19 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   /**
    * Invokes a method to provide a value. The method's parameters are injected.
    */
-  private final class ProviderMethodBinding<T> extends Binding<T> {
+  private final class ProviderMethodBinding<T> extends AbstractProviderMethodBinding<T> {
     private Binding<?>[] parameters;
     private final Method method;
     private final Object instance;
 
-    public ProviderMethodBinding(Method method, String key, Object instance) {
+    public ProviderMethodBinding(Method method, String key, Object instance, boolean library) {
       super(key, null, method.isAnnotationPresent(Singleton.class), method);
       this.method = method;
       this.instance = instance;
       method.setAccessible(true);
+      setLibrary(library);
+      setModuleName(moduleClass.getName());
+      setMethodName(method.getName());
     }
 
     @Override public void attach(Linker linker) {

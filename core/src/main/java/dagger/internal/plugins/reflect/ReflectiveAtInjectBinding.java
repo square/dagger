@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
@@ -81,7 +82,8 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
       }
     }
     if (supertype != null && supertypeBinding == null) {
-      supertypeBinding = (Binding<? super T>) linker.requestBinding(keys[k], membersKey, false);
+      supertypeBinding =
+          (Binding<? super T>) linker.requestBinding(keys[k], membersKey, false, true);
     }
   }
 
@@ -125,13 +127,9 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
 
   @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
     if (parameterBindings != null) {
-      for (Binding<?> binding : parameterBindings) {
-        get.add(binding);
-      }
+      Collections.addAll(get, parameterBindings);
     }
-    for (Binding<?> binding : fieldBindings) {
-      injectMembers.add(binding);
-    }
+    Collections.addAll(injectMembers, fieldBindings);
     if (supertypeBinding != null) {
       injectMembers.add(supertypeBinding);
     }
