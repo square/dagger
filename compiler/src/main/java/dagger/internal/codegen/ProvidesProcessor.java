@@ -46,6 +46,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -107,8 +108,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
    * Returns a map containing all {@code @Provides} methods, indexed by class.
    */
   private Map<String, List<ExecutableElement>> providerMethodsByClass(RoundEnvironment env) {
-    Map<String, List<ExecutableElement>> result
-        = new HashMap<String, List<ExecutableElement>>();
+    Elements elementUtils = processingEnv.getElementUtils();
+    Types typeUtils = processingEnv.getTypeUtils();
+
+    TypeElement providerElement = elementUtils.getTypeElement("javax.inject.Provider");
+    TypeMirror providerType = typeUtils.erasure(providerElement.asType());
+    TypeElement lazyElement = elementUtils.getTypeElement("dagger.Lazy");
+    TypeMirror lazyType = typeUtils.erasure(lazyElement.asType());
+
+    Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
     for (Element providerMethod : providesMethods(env)) {
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
@@ -140,6 +148,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
+      TypeMirror returnType = typeUtils.erasure(providerMethodAsExecutable.getReturnType());
+      if (typeUtils.isSameType(returnType, providerType)) {
+        error("@Provides method must not return Provider directly: "
+            + type.getQualifiedName()
+            + "."
+            + providerMethod, providerMethod);
+        continue;
+      }
+      if (typeUtils.isSameType(returnType, lazyType)) {
+        error("@Provides method must not return Lazy directly: "
+            + type.getQualifiedName()
+            + "."
+            + providerMethod, providerMethod);
+        continue;
+      }
+
       List<ExecutableElement> methods = result.get(type.getQualifiedName().toString());
       if (methods == null) {
         methods = new ArrayList<ExecutableElement>();
@@ -148,7 +172,6 @@ public final class ProvidesProcessor extends AbstractProcessor {
       methods.add(providerMethodAsExecutable);
     }
 
-    Elements elementUtils = processingEnv.getElementUtils();
     TypeMirror objectType = elementUtils.getTypeElement("java.lang.Object").asType();
 
     // Catch any stray modules without @Provides since their entry points
@@ -196,6 +219,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     boolean overrides = (Boolean) module.get("overrides");
     boolean complete = (Boolean) module.get("complete");
+    boolean library = (Boolean) module.get("library");
 
     String adapterName = CodeGen.adapterName(type, MODULE_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler()
@@ -253,7 +277,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, PUBLIC);
     writer.emitStatement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
-        + "INCLUDES, %s /*complete*/)", overrides, complete);
+        + "INCLUDES, %s /*complete*/, %s /*library*/)", overrides, complete, library);
     writer.endMethod();
 
     ExecutableElement noArgsConstructor = CodeGen.getNoArgsConstructor(type);
@@ -299,7 +323,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
 
     for (ExecutableElement providerMethod : providerMethods) {
-      writeProvidesAdapter(writer, providerMethod, methodToClassName, methodNameToNextId);
+      writeProvidesAdapter(writer, providerMethod, methodToClassName, methodNameToNextId,
+          library);
     }
 
     writer.endType();
@@ -366,7 +391,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
   private void writeProvidesAdapter(JavaWriter writer, ExecutableElement providerMethod,
       Map<ExecutableElement, String> methodToClassName,
-      Map<String, AtomicInteger> methodNameToNextId)
+      Map<String, AtomicInteger> methodNameToNextId, boolean library)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
@@ -396,6 +421,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitStatement("super(%s, %s, %s, %s.class)",
         key, membersKey, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"), moduleType);
     writer.emitStatement("this.module = module");
+    writer.emitStatement("setLibrary(%s)", library);
     writer.endMethod();
 
     if (dependent) {

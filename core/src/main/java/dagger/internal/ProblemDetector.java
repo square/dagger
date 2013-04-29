@@ -15,6 +15,7 @@
  */
 package dagger.internal;
 
+import dagger.internal.plugins.AbstractProviderMethodBinding;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,11 +26,35 @@ import java.util.List;
  * Detects problems like cyclic dependencies.
  */
 public final class ProblemDetector {
-  public void detectProblems(Collection<Binding<?>> bindings) {
+  public void detectCircularDependencies(Collection<Binding<?>> bindings) {
     detectCircularDependencies(bindings, new ArrayList<Binding<?>>());
   }
 
-  public void detectCircularDependencies(Collection<Binding<?>> bindings, List<Binding<?>> path) {
+  public void detectUnusedBinding(Collection<Binding<?>> bindings) {
+    ArrayList<Binding> unusedBindings = new ArrayList<Binding>();
+    for (Binding<?> binding : bindings) {
+      if (!binding.library() && !binding.dependedOn()) {
+        unusedBindings.add(binding);
+      }
+    }
+    if (unusedBindings.size() > 0) {
+      StringBuilder builder = new StringBuilder();
+      builder.append("You have these unused @Provider methods! ");
+      builder.append("Set library=true in your module to disable this check.\n");
+      for (Binding<?> binding : unusedBindings) {
+        AbstractProviderMethodBinding<?> providerBinding =
+            (AbstractProviderMethodBinding<?>) binding;
+        builder.append(providerBinding.getModuleName())
+            .append(".")
+            .append(providerBinding.getMethodName())
+            .append("()\n");
+      }
+      throw new IllegalStateException(builder.toString());
+    }
+  }
+
+  private static void detectCircularDependencies(Collection<Binding<?>> bindings,
+      List<Binding<?>> path) {
     for (Binding<?> binding : bindings) {
       if (binding.isCycleFree()) {
         continue;
@@ -59,6 +84,11 @@ public final class ProblemDetector {
         binding.setVisiting(false);
       }
     }
+  }
+
+  public void detectProblems(Collection<Binding<?>> values) {
+    detectCircularDependencies(values);
+    detectUnusedBinding(values);
   }
 
   static class ArraySet<T> extends AbstractSet<T> {

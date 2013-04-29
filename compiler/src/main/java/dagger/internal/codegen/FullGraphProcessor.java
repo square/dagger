@@ -21,6 +21,7 @@ import dagger.internal.Binding;
 import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
+import dagger.internal.plugins.AbstractProviderMethodBinding;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -87,29 +88,38 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
     for (Element element : modules) {
       Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, element);
-      if (!annotation.get("complete").equals(Boolean.TRUE)) {
-        continue;
-      }
       TypeElement moduleType = (TypeElement) element;
-      Map<String, Binding<?>> bindings = null;
-      try {
-        bindings = processCompleteModule(moduleType);
-        new ProblemDetector().detectProblems(bindings.values());
-      } catch (ModuleValidationException e) {
-        error("Graph validation failed: " + e.getMessage(), e.source);
-        continue;
-      } catch (IllegalStateException e) {
-        error("Graph validation failed: " + e.getMessage(), moduleType);
-        continue;
+
+      if (annotation.get("complete").equals(Boolean.TRUE)) {
+        Map<String, Binding<?>> bindings;
+        try {
+          bindings = processCompleteModule(moduleType, false);
+          new ProblemDetector().detectCircularDependencies(bindings.values());
+        } catch (ModuleValidationException e) {
+          error("Graph validation failed: " + e.getMessage(), e.source);
+          continue;
+        } catch (IllegalStateException e) {
+          error("Graph validation failed: " + e.getMessage(), moduleType);
+          continue;
+        }
+        try {
+          writeDotFile(moduleType, bindings);
+        } catch (IOException e) {
+          StringWriter sw = new StringWriter();
+          e.printStackTrace(new PrintWriter(sw));
+          processingEnv.getMessager()
+              .printMessage(Diagnostic.Kind.WARNING,
+                  "Graph visualization failed. Please report this as a bug.\n\n" + sw, moduleType);
+        }
       }
-      try {
-        writeDotFile(moduleType, bindings);
-      } catch (IOException e) {
-        StringWriter sw = new StringWriter();
-        e.printStackTrace(new PrintWriter(sw));
-        processingEnv.getMessager()
-            .printMessage(Diagnostic.Kind.WARNING,
-                "Graph visualization failed. Please report this as a bug.\n\n" + sw, moduleType);
+
+      if (annotation.get("library").equals(Boolean.FALSE)) {
+        Map<String, Binding<?>> bindings = processCompleteModule(moduleType, true);
+        try {
+          new ProblemDetector().detectUnusedBinding(bindings.values());
+        } catch (IllegalStateException e) {
+          error("Graph validation failed: " + e.getMessage(), moduleType);
+        }
       }
     }
     return true;
@@ -119,12 +129,14 @@ public final class FullGraphProcessor extends AbstractProcessor {
     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message, element);
   }
 
-  private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule) {
+  private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule,
+      boolean ignoreCompletenessErrors) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
 
-    Linker linker = new Linker(null, new CompileTimePlugin(processingEnv),
-        new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString()));
+    Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
+        : new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
+    Linker linker = new Linker(null, new CompileTimePlugin(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
     // to make the linker happy.
@@ -134,12 +146,13 @@ public final class FullGraphProcessor extends AbstractProcessor {
       for (TypeElement module : allModules.values()) {
         Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
         boolean overrides = (Boolean) annotation.get("overrides");
+        boolean library = (Boolean) annotation.get("library");
         Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
         // Gather the entry points from the annotation.
         for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
           linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) entryPoint),
-              module.getQualifiedName().toString(), false);
+              module.getQualifiedName().toString(), false, true);
         }
 
         // Gather the static injections.
@@ -153,7 +166,9 @@ public final class FullGraphProcessor extends AbstractProcessor {
           }
           ExecutableElement providerMethod = (ExecutableElement) enclosed;
           String key = GeneratorKeys.get(providerMethod);
-          ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod);
+          ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod, library);
+          binding.setModuleName(rootModule.getQualifiedName().toString());
+
           switch (provides.type()) {
             case UNIQUE:
               ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
@@ -242,14 +257,16 @@ public final class FullGraphProcessor extends AbstractProcessor {
     }
   }
 
-  static class ProviderMethodBinding extends Binding<Object> {
+  static class ProviderMethodBinding extends AbstractProviderMethodBinding<Object> {
     private final ExecutableElement method;
     private final Binding<?>[] parameters;
 
-    protected ProviderMethodBinding(String provideKey, ExecutableElement method) {
+    protected ProviderMethodBinding(String provideKey, ExecutableElement method, boolean library) {
       super(provideKey, null, method.getAnnotation(Singleton.class) != null, method.toString());
       this.method = method;
       this.parameters = new Binding[method.getParameters().size()];
+      setMethodName(method.getSimpleName().toString());
+      setLibrary(library);
     }
 
     @Override public void attach(Linker linker) {
