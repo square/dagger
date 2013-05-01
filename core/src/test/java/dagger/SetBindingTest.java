@@ -43,7 +43,7 @@ public final class SetBindingTest {
       @Inject Set<String> strings;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides(type=SET) String provideFirstString() { return "string1"; }
       @Provides(type=SET) String provideSecondString() { return "string2"; }
@@ -63,7 +63,7 @@ public final class SetBindingTest {
       @Provides(type=SET) String provideSecondString() { return "string2"; }
     }
 
-    @Module(entryPoints = TestEntryPoint.class, includes = TestIncludesModule.class)
+    @Module(injects = TestEntryPoint.class, includes = TestIncludesModule.class)
     class TestModule {
       @Provides(type=SET) String provideFirstString() { return "string1"; }
     }
@@ -81,7 +81,7 @@ public final class SetBindingTest {
       @Inject Set<Integer> objects2;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides(type=SET) @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
       @Provides(type=SET) Integer b() { return defaultCounter.getAndIncrement(); }
@@ -92,7 +92,7 @@ public final class SetBindingTest {
     assertEquals(set(100, 201), ep.objects2);
   }
 
-  @Test public void multiValueBindings_WithSingletonsAcrossMultipleEntryPoints() {
+  @Test public void multiValueBindings_WithSingletonsAcrossMultipleInjectableTypes() {
     final AtomicInteger singletonCounter = new AtomicInteger(100);
     final AtomicInteger defaultCounter = new AtomicInteger(200);
     class TestEntryPoint1 {
@@ -102,7 +102,7 @@ public final class SetBindingTest {
       @Inject Set<Integer> objects2;
     }
 
-    @Module(entryPoints = { TestEntryPoint1.class, TestEntryPoint2.class })
+    @Module(injects = { TestEntryPoint1.class, TestEntryPoint2.class })
     class TestModule {
       @Provides(type=SET) @Singleton Integer a() { return singletonCounter.getAndIncrement(); }
       @Provides(type=SET) Integer b() { return defaultCounter.getAndIncrement(); }
@@ -122,7 +122,7 @@ public final class SetBindingTest {
       @Inject @Named("foo") Set<String> fooStrings;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides(type=SET) String provideString1() { return "string1"; }
       @Provides(type=SET) String provideString2() { return "string2"; }
@@ -158,7 +158,7 @@ public final class SetBindingTest {
         };
       }
     }
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides(type=SET) LogSink nullLogger() {
         return new LogSink() { @Override public void log(LogMessage message) {} };
@@ -178,7 +178,7 @@ public final class SetBindingTest {
       @Inject Set<String> strings;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides(type=SET) String provideString1() { return "string1"; }
       @Provides(type=SET) String provideString2() { return "string2"; }

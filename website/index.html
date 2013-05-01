@@ -108,7 +108,7 @@ class DripCoffeeModule {
 ObjectGraph objectGraph = ObjectGraph.create(new DripCoffeeModule());
 </pre>
 
-<p>In order to put the graph to use we need to create an <strong>entry point</strong>. This is usually the main class that starts the application. In this example, the <code>CoffeeApp</code> class serves as the entry point. We ask the graph to provide an injected instance of this type:</p>
+<p>In order to put the graph to use we need to <strong>bootstrap injection</strong>. This usually requires injecting the main class of a command line app, or the activity classes of an Android app. In our coffee example, the <code>CoffeeApp</code> class is used to start dependency injection. We ask the graph to provide an injected instance of the class:</p>
 
 <pre class="prettyprint">
 class CoffeeApp implements Runnable {
@@ -126,20 +126,20 @@ class CoffeeApp implements Runnable {
 }
 </pre>
 
-<p>The only thing that's missing is that the entry point class <code>CoffeeApp</code> isn't included in the graph. We need to explicitly register it as an entry point in the <code>@Module</code> annotation.</p>
+<p>The only thing that's missing is that the injectable class <code>CoffeeApp</code> isn't known by the graph. We need to explicitly register it as an injected type in the <code>@Module</code> annotation.</p>
 
 <pre class="prettyprint">
 @Module(
-    entryPoints = CoffeeApp.class
+    injects = { CoffeeApp.class }
 )
 class DripCoffeeModule {
   ...
 }
 </pre>
 
-<p>Entry points enable the complete graph to be validated <strong>at compile time</strong>. Detecting problems early speeds up development and takes some of the danger out of refactoring.</p>
+<p>The <code>injects</code> option enables the complete graph to be validated <strong>at compile time</strong>. Detecting problems early speeds up development and takes some of the danger out of refactoring.</p>
 
-<p>Now that the graph is constructed and the entry point is injected, we run our coffee maker app. Fun.</p>
+<p>Now that the graph is constructed and the root object is injected, we run our coffee maker app. Fun.</p>
 
 <pre>
 $ java -cp ... coffee.CoffeeApp
@@ -335,7 +335,7 @@ public class CoffeeMakerTest {
 
   @Module(
       includes = DripCoffeeModule.class,
-      entryPoints = CoffeeMakerTest.class,
+      injects = CoffeeMakerTest.class,
       overrides = true
   )
   static class TestModule {

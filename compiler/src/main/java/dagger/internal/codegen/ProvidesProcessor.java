@@ -174,7 +174,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     TypeMirror objectType = elementUtils.getTypeElement("java.lang.Object").asType();
 
-    // Catch any stray modules without @Provides since their entry points
+    // Catch any stray modules without @Provides since their injectable types
     // should still be registered and a ModuleAdapter should still be written.
     for (Element module : env.getElementsAnnotatedWith(Module.class)) {
       if (!module.getKind().equals(ElementKind.CLASS)) {
@@ -214,7 +214,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
 
     Object[] staticInjections = (Object[]) module.get("staticInjections");
-    Object[] entryPoints = (Object[]) module.get("entryPoints");
+    Object[] injects = (Object[]) module.get("injects");
     Object[] includes = (Object[]) module.get("includes");
 
     boolean overrides = (Boolean) module.get("overrides");
@@ -241,15 +241,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.beginType(adapterName, "class", PUBLIC | FINAL,
         JavaWriter.type(ModuleAdapter.class, typeName));
 
-    StringBuilder entryPointsField = new StringBuilder().append("{ ");
-    for (Object entryPoint : entryPoints) {
-      TypeMirror typeMirror = (TypeMirror) entryPoint;
+    StringBuilder injectsField = new StringBuilder().append("{ ");
+    for (Object injectableType : injects) {
+      TypeMirror typeMirror = (TypeMirror) injectableType;
       String key = GeneratorKeys.rawMembersKey(typeMirror);
-      entryPointsField.append(JavaWriter.stringLiteral(key)).append(", ");
+      injectsField.append(JavaWriter.stringLiteral(key)).append(", ");
     }
-    entryPointsField.append("}");
-    writer.emitField("String[]", "ENTRY_POINTS", PRIVATE | STATIC | FINAL,
-        entryPointsField.toString());
+    injectsField.append("}");
+    writer.emitField("String[]", "INJECTS", PRIVATE | STATIC | FINAL,
+        injectsField.toString());
 
     StringBuilder staticInjectionsField = new StringBuilder().append("{ ");
     for (Object staticInjection : staticInjections) {
@@ -276,7 +276,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, PUBLIC);
-    writer.emitStatement("super(ENTRY_POINTS, STATIC_INJECTIONS, %s /*overrides*/, "
+    writer.emitStatement("super(INJECTS, STATIC_INJECTIONS, %s /*overrides*/, "
         + "INCLUDES, %s /*complete*/, %s /*library*/)", overrides, complete, library);
     writer.endMethod();
 

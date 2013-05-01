@@ -27,7 +27,7 @@ class TestApp {
     @Inject String string;
   }
 
-  @Module(entryPoints = InjectableSubclass.class)
+  @Module(injects = InjectableSubclass.class)
   static class TestModule {
     @Provides String provideString() {
       return "string";

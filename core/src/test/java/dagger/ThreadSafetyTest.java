@@ -49,7 +49,7 @@ public final class ThreadSafetyTest {
     @Inject Lazy<Integer> lazy;
   }
 
-  @Module(entryPoints = { Long.class, LazyEntryPoint.class })
+  @Module(injects = { Long.class, LazyEntryPoint.class })
   static class LatchingModule {
     private final AtomicInteger count = new AtomicInteger(FIRST_VALUE);
     private final CountDownLatch latch;

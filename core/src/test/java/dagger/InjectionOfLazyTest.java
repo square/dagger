@@ -38,7 +38,7 @@ public final class InjectionOfLazyTest {
       @Inject Lazy<Integer> j;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides Integer provideInteger() {
         return counter.incrementAndGet();
@@ -59,7 +59,7 @@ public final class InjectionOfLazyTest {
     class TestEntryPoint {
       @Inject Lazy<String> i;
     }
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides String provideInteger() {
         provideCounter.incrementAndGet();
@@ -81,7 +81,7 @@ public final class InjectionOfLazyTest {
       @Inject Provider<Lazy<Integer>> providerOfLazyInteger;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides Integer provideInteger() {
         return counter.incrementAndGet();
@@ -107,7 +107,7 @@ public final class InjectionOfLazyTest {
       @Inject Lazy<Integer> lazyInteger;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides Integer provideInteger() {
         return counter.incrementAndGet();
