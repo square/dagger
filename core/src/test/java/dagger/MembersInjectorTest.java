@@ -36,7 +36,7 @@ public final class MembersInjectorTest {
       @Inject MembersInjector<Injectable> membersInjector;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class StringModule {
       @Provides String provideString() {
         return "injected";
@@ -67,7 +67,7 @@ public final class MembersInjectorTest {
       @Inject MembersInjector<Unconstructable> membersInjector;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class StringModule {
       @Provides String provideString() {
         return "injected";
@@ -88,7 +88,7 @@ public final class MembersInjectorTest {
       @Inject Unconstructable unconstructable;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
     }
 
@@ -105,7 +105,7 @@ public final class MembersInjectorTest {
       @Inject Provider<Unconstructable> provider;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
     }
 
@@ -122,7 +122,7 @@ public final class MembersInjectorTest {
       @Inject MembersInjector<UnconstructableSingleton> membersInjector;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
     }
 
@@ -152,7 +152,7 @@ public final class MembersInjectorTest {
       @Inject MembersInjector<NonStaticInner> membersInjector;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides String provideString() {
         return "injected";
@@ -171,7 +171,7 @@ public final class MembersInjectorTest {
       @Inject NonStaticInner nonStaticInner;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
     }
 
@@ -193,7 +193,7 @@ public final class MembersInjectorTest {
       @Inject MembersInjector<InjectsString> membersInjector;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides InjectsString provideInjectsString() {
         InjectsString result = new InjectsString();

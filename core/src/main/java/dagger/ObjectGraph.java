@@ -66,7 +66,7 @@ public abstract class ObjectGraph {
    * Returns an instance of {@code type}.
    *
    * @throws IllegalArgumentException if {@code type} is not one of this object
-   *     graph's entry point types.
+   *     graph's {@link Module#injects injectable types}.
    */
   public abstract <T> T get(Class<T> type);
 
@@ -75,7 +75,7 @@ public abstract class ObjectGraph {
    * inherited from its supertypes.
    *
    * @throws IllegalArgumentException if the runtime type of {@code instance} is
-   *     not one of this object graph's entry point types.
+   *     not one of this object graph's {@link Module#injects injectable types}.
    */
   public abstract <T> T inject(T instance);
 
@@ -132,28 +132,28 @@ public abstract class ObjectGraph {
     private final DaggerObjectGraph base;
     private final Linker linker;
     private final Map<Class<?>, StaticInjection> staticInjections;
-    private final Map<String, Class<?>> entryPoints;
+    private final Map<String, Class<?>> injectableTypes;
     private final Plugin plugin;
 
     DaggerObjectGraph(DaggerObjectGraph base,
         Linker linker,
         Plugin plugin,
         Map<Class<?>, StaticInjection> staticInjections,
-        Map<String, Class<?>> entryPoints) {
+        Map<String, Class<?>> injectableTypes) {
       if (linker == null) throw new NullPointerException("linker");
       if (plugin == null) throw new NullPointerException("plugin");
       if (staticInjections == null) throw new NullPointerException("staticInjections");
-      if (entryPoints == null) throw new NullPointerException("entryPoints");
+      if (injectableTypes == null) throw new NullPointerException("injectableTypes");
 
       this.base = base;
       this.linker = linker;
       this.plugin = plugin;
       this.staticInjections = staticInjections;
-      this.entryPoints = entryPoints;
+      this.injectableTypes = injectableTypes;
     }
 
     private static ObjectGraph makeGraph(DaggerObjectGraph base, Plugin plugin, Object... modules) {
-      Map<String, Class<?>> entryPoints = new LinkedHashMap<String, Class<?>>();
+      Map<String, Class<?>> injectableTypes = new LinkedHashMap<String, Class<?>>();
       Map<Class<?>, StaticInjection> staticInjections
           = new LinkedHashMap<Class<?>, StaticInjection>();
 
@@ -162,8 +162,8 @@ public abstract class ObjectGraph {
       Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
       Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
       for (ModuleAdapter<?> moduleAdapter : getAllModuleAdapters(plugin, modules).values()) {
-        for (String key : moduleAdapter.entryPoints) {
-          entryPoints.put(key, moduleAdapter.getModule().getClass());
+        for (String key : moduleAdapter.injectableTypes) {
+          injectableTypes.put(key, moduleAdapter.getModule().getClass());
         }
         for (Class<?> c : moduleAdapter.staticInjections) {
           staticInjections.put(c, null);
@@ -178,7 +178,7 @@ public abstract class ObjectGraph {
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
-      return new DaggerObjectGraph(base, linker, plugin, staticInjections, entryPoints);
+      return new DaggerObjectGraph(base, linker, plugin, staticInjections, injectableTypes);
     }
 
 
@@ -198,8 +198,8 @@ public abstract class ObjectGraph {
       }
     }
 
-    private void linkEntryPoints() {
-      for (Map.Entry<String, Class<?>> entry : entryPoints.entrySet()) {
+    private void linkInjectableTypes() {
+      for (Map.Entry<String, Class<?>> entry : injectableTypes.entrySet()) {
         linker.requestBinding(entry.getKey(), entry.getValue(), false, true);
       }
     }
@@ -210,12 +210,12 @@ public abstract class ObjectGraph {
     }
 
     /**
-     * Links all bindings, entry points and static injections.
+     * Links all bindings, injectable types and static injections.
      */
     private Map<String, Binding<?>> linkEverything() {
       synchronized (linker) {
         linkStaticInjections();
-        linkEntryPoints();
+        linkInjectableTypes();
         return linker.linkAll();
       }
     }
@@ -239,36 +239,36 @@ public abstract class ObjectGraph {
 
     @Override public <T> T get(Class<T> type) {
       String key = Keys.get(type);
-      String entryPointKey = Keys.getMembersKey(type);
+      String injectableTypeKey = Keys.getMembersKey(type);
       @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
-      Binding<T> binding = (Binding<T>) getEntryPointBinding(entryPointKey, key);
+      Binding<T> binding = (Binding<T>) getInjectableTypeBinding(injectableTypeKey, key);
       return binding.get();
     }
 
     @Override public <T> T inject(T instance) {
       String membersKey = Keys.getMembersKey(instance.getClass());
       @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
-      Binding<Object> binding = (Binding<Object>) getEntryPointBinding(membersKey, membersKey);
+      Binding<Object> binding = (Binding<Object>) getInjectableTypeBinding(membersKey, membersKey);
       binding.injectMembers(instance);
       return instance;
     }
 
     /**
-     * @param entryPointKey the key used to store the entry point. This is always
-     *     a members injection key because those keys can always be created, even
-     *     if the type has no injectable constructor.
+     * @param injectableTypeKey the key used to store the injectable type. This
+     *     is always a members injection key because those keys can always be
+     *     created, even if the type has no injectable constructor.
      * @param key the key to use when retrieving the binding. This may be a
      *     regular (provider) key or a members key.
      */
-    private Binding<?> getEntryPointBinding(String entryPointKey, String key) {
+    private Binding<?> getInjectableTypeBinding(String injectableTypeKey, String key) {
       Class<?> moduleClass = null;
       for (DaggerObjectGraph graph = this; graph != null; graph = graph.base) {
-        moduleClass = graph.entryPoints.get(entryPointKey);
+        moduleClass = graph.injectableTypes.get(injectableTypeKey);
         if (moduleClass != null) break;
       }
       if (moduleClass == null) {
-        throw new IllegalArgumentException("No entry point for " + entryPointKey
-            + ". You must explicitly add an entry point to one of your modules.");
+        throw new IllegalArgumentException("No inject registered for " + injectableTypeKey
+            + ". You must explicitly add it to the 'injects' option in one of your modules.");
       }
 
       synchronized (linker) {

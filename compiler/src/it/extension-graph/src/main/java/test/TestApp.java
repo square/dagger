@@ -34,10 +34,10 @@ class TestApp implements Runnable {
     extension.get(TestApp.class).run();
   }
   
-  @Module(entryPoints = { A.class, B.class })
+  @Module(injects = { A.class, B.class })
   static class RootModule { }
 
-  @Module(addsTo=RootModule.class, entryPoints = { C.class, TestApp.class })
+  @Module(addsTo=RootModule.class, injects = { C.class, TestApp.class })
   static class ExtensionModule { }
 
   @Singleton

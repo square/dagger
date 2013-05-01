@@ -148,9 +148,9 @@ public final class FullGraphProcessor extends AbstractProcessor {
         boolean library = (Boolean) annotation.get("library");
         Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
-        // Gather the entry points from the annotation.
-        for (Object entryPoint : (Object[]) annotation.get("entryPoints")) {
-          linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) entryPoint),
+        // Gather the injectable types from the annotation.
+        for (Object injectableType : (Object[]) annotation.get("injects")) {
+          linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) injectableType),
               module.getQualifiedName().toString(), false, true);
         }
 

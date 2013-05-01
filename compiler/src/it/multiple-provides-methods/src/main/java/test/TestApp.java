@@ -29,7 +29,7 @@ class TestApp {
     @Inject Integer integer;
   }
 
-  @Module(entryPoints = InjectableSubclass.class)
+  @Module(injects = InjectableSubclass.class)
   static class TestModule {
     @Provides String string() {
       return "string";

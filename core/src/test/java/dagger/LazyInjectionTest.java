@@ -24,8 +24,8 @@ import static org.fest.assertions.Assertions.assertThat;
 
 @RunWith(JUnit4.class)
 public final class LazyInjectionTest {
-  @Test public void getLazyDoesNotCauseEntryPointsToBeLoaded() {
-    @Module(entryPoints = LazyEntryPoint.class)
+  @Test public void getLazyDoesNotCauseInjectedTypesToBeLoaded() {
+    @Module(injects = LazyEntryPoint.class)
     class TestModule {
     }
 
@@ -99,7 +99,7 @@ public final class LazyInjectionTest {
       @Inject String injected;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
       @Provides String provideString(Integer integer) {
         return integer.toString();

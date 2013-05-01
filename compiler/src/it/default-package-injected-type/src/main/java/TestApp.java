@@ -31,7 +31,7 @@ class TestApp implements Runnable {
     ObjectGraph.create(new TestModule()).get(TestApp.class).run();
   }
   
-  @Module(entryPoints = { TestApp.class })
+  @Module(injects = { TestApp.class })
   static class TestModule {}
 
   @Singleton

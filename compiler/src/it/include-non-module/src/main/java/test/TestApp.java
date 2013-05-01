@@ -29,7 +29,7 @@ class TestApp {
   @Inject String s;
 
   @Module(
-      entryPoints = TestApp.class,
+      injects = TestApp.class,
       includes = TestApp.class)
   static class TestModule {
     @Provides String provideString() {

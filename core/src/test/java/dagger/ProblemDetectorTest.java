@@ -29,7 +29,7 @@ public final class ProblemDetectorTest {
       @Inject Rock rock;
     }
 
-    @Module(entryPoints = TestEntryPoint.class)
+    @Module(injects = TestEntryPoint.class)
     class TestModule {
     }
 

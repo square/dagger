@@ -17,7 +17,6 @@
 package test;
 
 import dagger.Module;
-import dagger.ObjectGraph;
 import dagger.Provides;
 import javax.inject.Inject;
 
@@ -39,7 +38,7 @@ class TestApp {
     @Inject Foo f;
   }
 
-  @Module(entryPoints = EntryPoint.class)
+  @Module(injects = EntryPoint.class)
   static class TestModule {
     
   }
@@ -48,7 +47,7 @@ class TestApp {
   static class B { }
   static class C { }
   static class D { }
-  @Module(entryPoints = D.class)
+  @Module(injects = D.class)
   static class CyclicModule {
     @Provides A a(@SuppressWarnings("unused") D d) { return null; }
     @Provides B b(@SuppressWarnings("unused") A a) { return null; }

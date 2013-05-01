@@ -36,7 +36,7 @@ class TestApp implements Runnable {
     void doit();
   }
   
-  @Module(entryPoints = TestApp.class)
+  @Module(injects = TestApp.class)
   static class TestModule {
     /* missing */ // @Provides Dependency a() { return new Dependency(); }
   }
