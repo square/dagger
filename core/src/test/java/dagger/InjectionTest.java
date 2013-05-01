@@ -20,6 +20,7 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -342,6 +343,24 @@ public final class InjectionTest {
         throw new AssertionError();
       }
       @Provides A provideA2() {
+        throw new AssertionError();
+      }
+    }
+
+    try {
+      ObjectGraph.create(new TestModule());
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test public void providerMethodsConflictWithSet() {
+    @Module
+    class TestModule {
+      @Provides(type = Provides.Type.SET) A provideSetElement() {
+        throw new AssertionError();
+      }
+      @Provides Set<A> provideSet() {
         throw new AssertionError();
       }
     }
