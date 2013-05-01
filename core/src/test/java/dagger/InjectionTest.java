@@ -435,6 +435,24 @@ public final class InjectionTest {
     }
   }
 
+  @Test public void objectGraphGetInterface() {
+    final Runnable runnable = new Runnable() {
+      @Override public void run() {
+      }
+    };
+
+    @Module(injects = Runnable.class)
+    class TestModule {
+      @Provides Runnable provideRunnable() {
+        return runnable;
+      }
+    }
+
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    graph.validate();
+    assertThat(graph.get(Runnable.class)).isSameAs(runnable);
+  }
+
   @Test public void noProvideBindingsForAbstractClasses() {
     class TestEntryPoint {
       @Inject AbstractList<?> abstractList;
@@ -563,8 +581,8 @@ public final class InjectionTest {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
-    assertEquals(0, (int) graph.get(Integer.class));
-    assertEquals(1, (int) graph.get(Integer.class));
+    assertThat((int) graph.get(Integer.class)).isEqualTo(0);
+    assertThat((int) graph.get(Integer.class)).isEqualTo(1);
   }
 
   @Test public void getInstanceRequiresEntryPoint() {
