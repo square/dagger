@@ -88,7 +88,7 @@ public final class Keys {
    * @param annotations the annotations on a single method, field or parameter.
    *     This array may contain at most one qualifier annotation.
    */
-  public static String getElementKey(Type type, Annotation[] annotations, Object subject) {
+  public static String getSetKey(Type type, Annotation[] annotations, Object subject) {
     Annotation qualifier = extractQualifier(annotations, subject);
     type = boxIfPrimitive(type);
     StringBuilder result = new StringBuilder();

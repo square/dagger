@@ -23,7 +23,6 @@ import dagger.internal.Keys;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.SetBinding;
-import dagger.internal.plugins.AbstractProviderMethodBinding;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -104,9 +103,8 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
 
   private <T> void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key,
       boolean library) {
-    String elementKey =
-        Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method);
-    SetBinding.<T>add(bindings, elementKey, new ProviderMethodBinding<T>(method, key, module,
+    String setKey = Keys.getSetKey(method.getGenericReturnType(), method.getAnnotations(), method);
+    SetBinding.<T>add(bindings, setKey, new ProviderMethodBinding<T>(method, key, module,
         library));
   }
 
@@ -131,19 +129,18 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   /**
    * Invokes a method to provide a value. The method's parameters are injected.
    */
-  private final class ProviderMethodBinding<T> extends AbstractProviderMethodBinding<T> {
+  private final class ProviderMethodBinding<T> extends Binding<T> {
     private Binding<?>[] parameters;
     private final Method method;
     private final Object instance;
 
     public ProviderMethodBinding(Method method, String key, Object instance, boolean library) {
-      super(key, null, method.isAnnotationPresent(Singleton.class), method);
+      super(key, null, method.isAnnotationPresent(Singleton.class),
+          moduleClass.getName() + "." + method.getName() + "()");
       this.method = method;
       this.instance = instance;
       method.setAccessible(true);
       setLibrary(library);
-      setModuleName(moduleClass.getName());
-      setMethodName(method.getName());
     }
 
     @Override public void attach(Linker linker) {
