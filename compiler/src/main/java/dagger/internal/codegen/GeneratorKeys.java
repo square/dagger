@@ -63,7 +63,7 @@ final class GeneratorKeys {
   }
 
   /** Returns the provided key for {@code method} wrapped by {@code Set}. */
-  public static String getElementKey(ExecutableElement method) {
+  public static String getSetKey(ExecutableElement method) {
     StringBuilder result = new StringBuilder();
     AnnotationMirror qualifier = getQualifier(method.getAnnotationMirrors(), method);
     if (qualifier != null) {

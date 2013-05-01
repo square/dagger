@@ -15,7 +15,6 @@
  */
 package dagger.internal;
 
-import dagger.internal.plugins.AbstractProviderMethodBinding;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,24 +30,19 @@ public final class ProblemDetector {
   }
 
   public void detectUnusedBinding(Collection<Binding<?>> bindings) {
-    ArrayList<Binding> unusedBindings = new ArrayList<Binding>();
+    List<Binding> unusedBindings = new ArrayList<Binding>();
     for (Binding<?> binding : bindings) {
       if (!binding.library() && !binding.dependedOn()) {
         unusedBindings.add(binding);
       }
     }
-    if (unusedBindings.size() > 0) {
+    if (!unusedBindings.isEmpty()) {
       StringBuilder builder = new StringBuilder();
-      builder.append("You have these unused @Provider methods! ");
-      builder.append("Set library=true in your module to disable this check.\n");
-      for (Binding<?> binding : unusedBindings) {
-        AbstractProviderMethodBinding<?> providerBinding =
-            (AbstractProviderMethodBinding<?>) binding;
-        builder.append(providerBinding.getModuleName())
-            .append(".")
-            .append(providerBinding.getMethodName())
-            .append("()\n");
+      builder.append("You have these unused @Provider methods:");
+      for (int i = 0; i < unusedBindings.size(); i++) {
+        builder.append("\n    ").append(i).append(". ").append(unusedBindings.get(i).requiredBy);
       }
+      builder.append("\n    Set library=true in your module to disable this check.");
       throw new IllegalStateException(builder.toString());
     }
   }

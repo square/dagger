@@ -21,7 +21,6 @@ import dagger.internal.Binding;
 import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
-import dagger.internal.plugins.AbstractProviderMethodBinding;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -166,27 +165,30 @@ public final class FullGraphProcessor extends AbstractProcessor {
           }
           ExecutableElement providerMethod = (ExecutableElement) enclosed;
           String key = GeneratorKeys.get(providerMethod);
-          ProviderMethodBinding binding = new ProviderMethodBinding(key, providerMethod, library);
-          binding.setModuleName(rootModule.getQualifiedName().toString());
+          Binding binding = new ProviderMethodBinding(key, providerMethod, library);
+
+          Binding previous = addTo.get(key);
+          if (previous != null) {
+            if (provides.type() == Provides.Type.SET && previous instanceof SetBinding) {
+              // No duplicate bindings error if both bindings are set bindings.
+            } else {
+              String message = "Duplicate bindings for " + key;
+              if (overrides) {
+                message += " in override module(s) - cannot override an override";
+              }
+              message += ":\n    " + previous.requiredBy + "\n    " + binding.requiredBy;
+              error(message, providerMethod);
+            }
+          }
 
           switch (provides.type()) {
             case UNIQUE:
-              ProviderMethodBinding clobbered = (ProviderMethodBinding) addTo.put(key, binding);
-              if (clobbered != null) {
-                String msg = "Duplicate bindings for " + key;
-                if (overrides) {
-                  msg += " in override module(s) - cannot override an override";
-                }
-                msg += ": " + shortMethodName(clobbered.method)
-                    + ", " + shortMethodName(binding.method);
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg,
-                    binding.method);
-              }
+              addTo.put(key, binding);
               break;
 
             case SET:
-              String elementKey = GeneratorKeys.getElementKey(providerMethod);
-              SetBinding.add(addTo, elementKey, binding);
+              String setKey = GeneratorKeys.getSetKey(providerMethod);
+              SetBinding.add(addTo, setKey, binding);
               break;
 
             default:
@@ -257,15 +259,15 @@ public final class FullGraphProcessor extends AbstractProcessor {
     }
   }
 
-  static class ProviderMethodBinding extends AbstractProviderMethodBinding<Object> {
+  static class ProviderMethodBinding extends Binding<Object> {
     private final ExecutableElement method;
     private final Binding<?>[] parameters;
 
     protected ProviderMethodBinding(String provideKey, ExecutableElement method, boolean library) {
-      super(provideKey, null, method.getAnnotation(Singleton.class) != null, method.toString());
+      super(provideKey, null, method.getAnnotation(Singleton.class) != null,
+          CodeGen.methodName(method));
       this.method = method;
       this.parameters = new Binding[method.getParameters().size()];
-      setMethodName(method.getSimpleName().toString());
       setLibrary(library);
     }
 

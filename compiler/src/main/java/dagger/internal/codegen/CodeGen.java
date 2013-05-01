@@ -287,4 +287,13 @@ final class CodeGen {
     set.addAll(Arrays.asList(items));
     return set;
   }
+
+  /**
+   * Returns a user-presentable string like {@code
+   * coffee.CoffeeModule#provideHeater()}.
+   */
+  public static String methodName(ExecutableElement method) {
+    return ((TypeElement) method.getEnclosingElement()).getQualifiedName()
+        + "." + method.getSimpleName() + "()";
+  }
 }

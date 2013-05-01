@@ -76,4 +76,20 @@ public class UnusedProviderTest {
     graph = graph.plus(new ExampleLibraryModule());
     graph.validate();
   }
+
+  @Test public void unusedSetBinding() throws Exception {
+    @Module
+    class TestModule {
+      @Provides(type = Provides.Type.SET) String provideA() {
+        throw new AssertionError();
+      }
+    }
+
+    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    try {
+      graph.validate();
+      fail();
+    } catch (IllegalStateException expected) {
+    }
+  }
 }

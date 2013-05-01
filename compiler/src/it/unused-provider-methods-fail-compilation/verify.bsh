@@ -3,6 +3,7 @@ import java.io.File;
 
 File buildLog = new File(basedir, "build.log");
 new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "You have these unused @Provider methods! Set library=true in your module to disable this check.",
-    "test.TestModule.string()",
+    "You have these unused @Provider methods:",
+    "0. test.TestModule.string()",
+    "Set library=true in your module to disable this check."
     });

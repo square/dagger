@@ -309,7 +309,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
             break;
           }
           case SET: {
-            String key = GeneratorKeys.getElementKey(providerMethod);
+            String key = GeneratorKeys.getSetKey(providerMethod);
             writer.emitStatement("SetBinding.add(map, %s, new %s(module))",
                 JavaWriter.stringLiteral(key),
                 bindingClassName(providerMethod, methodToClassName, methodNameToNextId));

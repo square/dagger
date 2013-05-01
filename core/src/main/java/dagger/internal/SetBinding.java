@@ -28,21 +28,25 @@ import java.util.Set;
  */
 public final class SetBinding<T> extends Binding<Set<T>> {
 
-  public static <T> void add(Map<String, Binding<?>> bindings, String elementKey,
-      Binding<?> binding) {
-    @SuppressWarnings("unchecked")
-    SetBinding<T> elementBinding = (SetBinding<T>) bindings.get(elementKey);
-    if (elementBinding == null) {
-      elementBinding = new SetBinding<T>(elementKey);
-      bindings.put(elementBinding.provideKey, elementBinding);
+  @SuppressWarnings("unchecked")
+  public static <T> void add(Map<String, Binding<?>> bindings, String setKey, Binding<?> binding) {
+    Binding<?> previous = bindings.get(setKey);
+    SetBinding<T> setBinding;
+    if (previous instanceof SetBinding) {
+      setBinding = (SetBinding) previous;
+    } else if (previous != null) {
+      throw new IllegalArgumentException("Duplicate:\n    " + previous + "\n    " + binding);
+    } else {
+      setBinding = new SetBinding<T>(setKey, binding.requiredBy);
+      bindings.put(setKey, setBinding);
     }
-    elementBinding.contributors.add(Linker.scope(binding));
+    setBinding.contributors.add(Linker.scope(binding));
   }
 
   private final Set<Binding<?>> contributors = new LinkedHashSet<Binding<?>>();
 
-  public SetBinding(String key) {
-    super(key, null, false, null);
+  public SetBinding(String key, Object requiredBy) {
+    super(key, null, false, requiredBy);
   }
 
   @Override public void attach(Linker linker) {
@@ -66,7 +70,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
   }
 
   @Override public void injectMembers(Set<T> t) {
-    throw new UnsupportedOperationException("Cannot inject into a multi-binder Set");
+    throw new UnsupportedOperationException("Cannot inject into a Set binding");
   }
 
   @Override public String toString() {
