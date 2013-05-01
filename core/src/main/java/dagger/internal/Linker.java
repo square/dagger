@@ -204,9 +204,9 @@ public final class Linker {
    * enqueued to be linked.
    *
    * @param mustBeInjectable true if the the referenced key doesn't need to be
-   *     injectable. This is necessary for entry points (so that framework code
-   *     can inject arbitrary entry points like JUnit test cases or Android
-   *     activities) and for supertypes.
+   *     injectable. This is necessary for injectable types (so that framework
+   *     code can inject arbitrary classes like JUnit test cases or Android
+   *     activities) and also for supertypes.
    */
   public Binding<?> requestBinding(String key, Object requiredBy, boolean mustBeInjectable,
       boolean library) {

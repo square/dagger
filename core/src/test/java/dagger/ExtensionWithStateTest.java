@@ -32,7 +32,7 @@ public final class ExtensionWithStateTest {
   }
 
   @Module(
-      entryPoints = A.class, // for testing
+      injects = A.class, // for testing
       complete = false
   )
   static class RootModule {
@@ -43,7 +43,7 @@ public final class ExtensionWithStateTest {
     @Provides A provideA() { return a; }
   }
 
-  @Module(addsTo = RootModule.class, entryPoints = { B.class })
+  @Module(addsTo = RootModule.class, injects = { B.class })
   static class ExtensionModule { }
 
   @Test public void basicInjectionWithExtension() {

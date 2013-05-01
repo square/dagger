@@ -56,7 +56,7 @@ public final class InjectStaticsTest {
   @Test public void instanceFieldsNotInjectedByInjectStatics() {
     @Module(
         staticInjections = InjectsStaticAndNonStatic.class,
-        entryPoints = InjectsStaticAndNonStatic.class)
+        injects = InjectsStaticAndNonStatic.class)
     class TestModule {
       @Provides String provideString() {
         return "static";
@@ -75,7 +75,7 @@ public final class InjectStaticsTest {
   @Test public void staticFieldsNotInjectedByInjectMembers() {
     @Module(
         staticInjections = InjectsStaticAndNonStatic.class,
-        entryPoints = InjectsStaticAndNonStatic.class)
+        injects = InjectsStaticAndNonStatic.class)
     class TestModule {
       @Provides String provideString() {
         throw new AssertionError();

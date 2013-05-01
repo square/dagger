@@ -49,9 +49,9 @@ public final class ExtensionTest {
     @Inject C c;
   }
 
-  @Module(entryPoints = { A.class, B.class }) static class RootModule { }
+  @Module(injects = { A.class, B.class }) static class RootModule { }
 
-  @Module(addsTo = RootModule.class, entryPoints = { C.class, D.class })
+  @Module(addsTo = RootModule.class, injects = { C.class, D.class })
   static class ExtensionModule { }
 
   @Test public void basicExtension() {
@@ -63,8 +63,8 @@ public final class ExtensionTest {
     assertThat(root.get(A.class)).isNotNull();
     assertThat(root.get(A.class)).isSameAs(root.get(A.class)); // Present and Singleton.
     assertThat(root.get(B.class)).isNotSameAs(root.get(B.class)); // Not singleton.
-    assertFailNoEntryPoint(root, C.class); // Not declared in RootModule.
-    assertFailNoEntryPoint(root, D.class); // Not declared in RootModule.
+    assertFailInjectNotRegistered(root, C.class); // Not declared in RootModule.
+    assertFailInjectNotRegistered(root, D.class); // Not declared in RootModule.
 
     // Extension graph behaves as the root graph would for root-ish things.
     ObjectGraph extension = root.plus(new ExtensionModule());
@@ -81,8 +81,8 @@ public final class ExtensionTest {
     assertThat(app.get(A.class)).isNotNull();
     assertThat(app.get(A.class)).isSameAs(app.get(A.class));
     assertThat(app.get(B.class)).isNotSameAs(app.get(B.class));
-    assertFailNoEntryPoint(app, C.class);
-    assertFailNoEntryPoint(app, D.class);
+    assertFailInjectNotRegistered(app, C.class);
+    assertFailInjectNotRegistered(app, D.class);
 
     ObjectGraph request1 = app.plus(new ExtensionModule());
     ObjectGraph request2 = app.plus(new ExtensionModule());
@@ -101,11 +101,11 @@ public final class ExtensionTest {
     assertThat(request1.get(C.class).a).isSameAs(request2.get(C.class).a);
   }
 
-  private void assertFailNoEntryPoint(ObjectGraph graph, Class<?> clazz) {
+  private void assertFailInjectNotRegistered(ObjectGraph graph, Class<?> clazz) {
     try {
       assertThat(graph.get(clazz)).isNull();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("No entry point");
+      assertThat(e.getMessage()).contains("No inject");
     }
   }
 }

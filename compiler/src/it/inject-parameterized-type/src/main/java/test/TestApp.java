@@ -32,7 +32,7 @@ class TestApp {
   static class Subtype extends Supertype<Integer> {
   }
 
-  @Module(entryPoints = Subtype.class)
+  @Module(injects = Subtype.class)
   static class TestModule {
     @Provides String provideString() {
       return "a";
