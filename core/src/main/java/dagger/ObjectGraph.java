@@ -239,7 +239,7 @@ public abstract class ObjectGraph {
 
     @Override public <T> T get(Class<T> type) {
       String key = Keys.get(type);
-      String injectableTypeKey = Keys.getMembersKey(type);
+      String injectableTypeKey = type.isInterface() ? key : Keys.getMembersKey(type);
       @SuppressWarnings("unchecked") // The linker matches keys to bindings by their type.
       Binding<T> binding = (Binding<T>) getInjectableTypeBinding(injectableTypeKey, key);
       return binding.get();
@@ -255,8 +255,9 @@ public abstract class ObjectGraph {
 
     /**
      * @param injectableTypeKey the key used to store the injectable type. This
-     *     is always a members injection key because those keys can always be
-     *     created, even if the type has no injectable constructor.
+     *     is a provides key for interfaces and a members injection key for
+     *     other types. That way keys can always be created, even if the type
+     *     has no injectable constructor.
      * @param key the key to use when retrieving the binding. This may be a
      *     regular (provider) key or a members key.
      */

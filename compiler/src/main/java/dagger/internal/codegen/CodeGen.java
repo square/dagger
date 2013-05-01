@@ -296,4 +296,9 @@ final class CodeGen {
     return ((TypeElement) method.getEnclosingElement()).getQualifiedName()
         + "." + method.getSimpleName() + "()";
   }
+
+  public static boolean isInterface(TypeMirror typeMirror) {
+    return typeMirror instanceof DeclaredType
+        && ((DeclaredType) typeMirror).asElement().getKind() == ElementKind.INTERFACE;
+  }
 }
