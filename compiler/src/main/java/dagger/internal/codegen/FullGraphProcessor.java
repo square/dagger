@@ -149,9 +149,12 @@ public final class FullGraphProcessor extends AbstractProcessor {
         Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
         // Gather the injectable types from the annotation.
-        for (Object injectableType : (Object[]) annotation.get("injects")) {
-          linker.requestBinding(GeneratorKeys.rawMembersKey((TypeMirror) injectableType),
-              module.getQualifiedName().toString(), false, true);
+        for (Object injectableTypeObject : (Object[]) annotation.get("injects")) {
+          TypeMirror injectableType = (TypeMirror) injectableTypeObject;
+          String key = CodeGen.isInterface(injectableType)
+              ? GeneratorKeys.get(injectableType)
+              : GeneratorKeys.rawMembersKey(injectableType);
+          linker.requestBinding(key, module.getQualifiedName().toString(), false, true);
         }
 
         // Gather the static injections.

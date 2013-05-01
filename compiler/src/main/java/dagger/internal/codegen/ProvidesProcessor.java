@@ -244,7 +244,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
     StringBuilder injectsField = new StringBuilder().append("{ ");
     for (Object injectableType : injects) {
       TypeMirror typeMirror = (TypeMirror) injectableType;
-      String key = GeneratorKeys.rawMembersKey(typeMirror);
+      String key = CodeGen.isInterface(typeMirror)
+          ? GeneratorKeys.get(typeMirror)
+          : GeneratorKeys.rawMembersKey(typeMirror);
       injectsField.append(JavaWriter.stringLiteral(key)).append(", ");
     }
     injectsField.append("}");
