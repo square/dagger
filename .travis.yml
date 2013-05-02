@@ -1,6 +1,7 @@
 language: java
-install: mvn install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
-script: mvn verify
+
+install: mvn install clean -P!android --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
+script: mvn verify -P!android
 
 notifications:
   email: false
