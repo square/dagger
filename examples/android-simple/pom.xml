@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
- Copyright (C) 2012 Square, Inc.
+ Copyright (C) 2013 Square, Inc.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@
     <version>1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>simple</artifactId>
-  <name>Examples: Simple</name>
+  <artifactId>android-simple</artifactId>
+  <name>Examples: Android - Simple</name>
+  <packaging>apk</packaging>
 
   <dependencies>
     <dependency>
@@ -38,5 +39,21 @@
       <version>${project.version}</version>
       <optional>true</optional>
     </dependency>
+
+    <dependency>
+      <groupId>com.google.android</groupId>
+      <artifactId>android</artifactId>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.jayway.maven.plugins.android.generation2</groupId>
+        <artifactId>android-maven-plugin</artifactId>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
 </project>
