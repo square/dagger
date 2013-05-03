@@ -25,9 +25,9 @@ import java.lang.reflect.Constructor;
  * A runtime {@link Plugin} that loads generated classes.
  */
 public final class ClassloadingPlugin implements Plugin {
-  public static final String INJECT_ADAPTER_SUFFIX = "$InjectAdapter";
-  public static final String MODULE_ADAPTER_SUFFIX = "$ModuleAdapter";
-  public static final String STATIC_INJECTION_SUFFIX = "$StaticInjection";
+  public static final String INJECT_ADAPTER_SUFFIX = "$$InjectAdapter";
+  public static final String MODULE_ADAPTER_SUFFIX = "$$ModuleAdapter";
+  public static final String STATIC_INJECTION_SUFFIX = "$$StaticInjection";
 
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
     return instantiate(moduleClass.getName(), MODULE_ADAPTER_SUFFIX);
