@@ -301,4 +301,13 @@ final class CodeGen {
     return typeMirror instanceof DeclaredType
         && ((DeclaredType) typeMirror).asElement().getKind() == ElementKind.INTERFACE;
   }
+
+  static boolean isStatic(Element element) {
+    for (Modifier modifier : element.getModifiers()) {
+      if (modifier.equals(Modifier.STATIC)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
