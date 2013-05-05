@@ -15,12 +15,13 @@
  */
 package com.example.dagger.activitygraphs;
 
-import android.app.Activity;
+import android.os.Bundle;
 import android.support.v4.app.Fragment;
 
 /** Base fragment which performs injection using the activity object graph of its parent. */
 public class DemoBaseFragment extends Fragment {
-  @Override public void onAttach(Activity activity) {
-    ((DemoBaseActivity) activity).inject(this);
+  @Override public void onActivityCreated(Bundle savedInstanceState) {
+    super.onActivityCreated(savedInstanceState);
+    ((DemoBaseActivity) getActivity()).inject(this);
   }
 }
