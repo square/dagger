@@ -132,6 +132,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
       boolean ignoreCompletenessErrors) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
+    ArrayList<CodeGenStaticInjection> staticInjections = new ArrayList<CodeGenStaticInjection>();
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
         : new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
@@ -158,7 +159,11 @@ public final class FullGraphProcessor extends AbstractProcessor {
         }
 
         // Gather the static injections.
-        // TODO.
+        for (Object staticInjection : (Object[]) annotation.get("staticInjections")) {
+          TypeMirror staticInjectionTypeMirror = (TypeMirror) staticInjection;
+          Element element = processingEnv.getTypeUtils().asElement(staticInjectionTypeMirror);
+          staticInjections.add(new CodeGenStaticInjection(element));
+        }
 
         // Gather the enclosed @Provides methods.
         for (Element enclosed : module.getEnclosedElements()) {
@@ -202,6 +207,9 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
+      for (CodeGenStaticInjection staticInjection : staticInjections) {
+        staticInjection.attach(linker);
+      }
 
       // Link the bindings. This will traverse the dependency graph, and report
       // errors if any dependencies are missing.
