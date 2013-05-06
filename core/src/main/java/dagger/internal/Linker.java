@@ -328,12 +328,28 @@ public final class Linker {
       return binding.isVisiting();
     }
 
+    @Override public boolean library() {
+      return binding.library();
+    }
+
+    @Override public boolean dependedOn() {
+      return binding.dependedOn();
+    }
+
     @Override public void setCycleFree(final boolean cycleFree) {
       binding.setCycleFree(cycleFree);
     }
 
     @Override public void setVisiting(final boolean visiting) {
       binding.setVisiting(visiting);
+    }
+
+    @Override public void setLibrary(boolean library) {
+      binding.setLibrary(true);
+    }
+
+    @Override public void setDependedOn(boolean dependedOn) {
+      binding.setDependedOn(dependedOn);
     }
 
     @Override protected boolean isSingleton() {
