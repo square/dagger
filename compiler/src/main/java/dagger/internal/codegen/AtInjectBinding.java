@@ -50,14 +50,10 @@ final class AtInjectBinding extends Binding<Object> {
     this.supertypeKey = supertypeKey;
   }
 
-  /**
-   * @param mustBeInjectable true if the binding must have {@code @Inject}
-   *     annotations.
-   */
-  static AtInjectBinding create(TypeElement type, boolean mustBeInjectable) {
+  static AtInjectBinding create(TypeElement type, boolean mustHaveInjections) {
     List<String> requiredKeys = new ArrayList<String>();
-    boolean hasInjectAnnotatedConstructor = false;
-    boolean isConstructable = false;
+    boolean hasInjectConstructor = false;
+    boolean hasNoArgsConstructor = false;
 
     for (Element enclosed : type.getEnclosedElements()) {
       switch (enclosed.getKind()) {
@@ -72,17 +68,16 @@ final class AtInjectBinding extends Binding<Object> {
         ExecutableElement constructor = (ExecutableElement) enclosed;
         List<? extends VariableElement> parameters = constructor.getParameters();
         if (hasAtInject(enclosed)) {
-          if (hasInjectAnnotatedConstructor) {
+          if (hasInjectConstructor) {
             throw new IllegalArgumentException("Too many injectable constructors on "
                 + type.getQualifiedName().toString());
           }
-          hasInjectAnnotatedConstructor = true;
-          isConstructable = true;
+          hasInjectConstructor = true;
           for (VariableElement parameter : parameters) {
             requiredKeys.add(GeneratorKeys.get(parameter));
           }
         } else if (parameters.isEmpty()) {
-          isConstructable = true;
+          hasNoArgsConstructor = true;
         }
         break;
 
@@ -93,7 +88,7 @@ final class AtInjectBinding extends Binding<Object> {
       }
     }
 
-    if (!hasInjectAnnotatedConstructor && requiredKeys.isEmpty() && mustBeInjectable) {
+    if (!hasInjectConstructor && requiredKeys.isEmpty() && mustHaveInjections) {
       throw new IllegalArgumentException("No injectable members on "
           + type.getQualifiedName().toString() + ". Do you want to add an injectable constructor?");
     }
@@ -104,7 +99,9 @@ final class AtInjectBinding extends Binding<Object> {
         ? GeneratorKeys.rawMembersKey(supertype)
         : null;
 
-    String provideKey = isConstructable ? GeneratorKeys.get(type.asType()) : null;
+    String provideKey = hasInjectConstructor || (hasNoArgsConstructor && !requiredKeys.isEmpty())
+        ? GeneratorKeys.get(type.asType())
+        : null;
     String membersKey = GeneratorKeys.rawMembersKey(type.asType());
     return new AtInjectBinding(provideKey, membersKey, type, requiredKeys, supertypeKey);
   }

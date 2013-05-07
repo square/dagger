@@ -38,7 +38,7 @@ public final class CompileTimePlugin implements Plugin {
   }
 
   @Override public Binding<?> getAtInjectBinding(
-      String key, String className, boolean mustBeInjectable) {
+      String key, String className, boolean mustHaveInjections) {
     String sourceClassName = className.replace('$', '.');
     TypeElement type = processingEnv.getElementUtils().getTypeElement(sourceClassName);
     if (type == null) {
@@ -51,7 +51,7 @@ public final class CompileTimePlugin implements Plugin {
     if (type.getKind() == ElementKind.INTERFACE) {
       return null;
     }
-    return AtInjectBinding.create(type, mustBeInjectable);
+    return AtInjectBinding.create(type, mustHaveInjections);
   }
 
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
