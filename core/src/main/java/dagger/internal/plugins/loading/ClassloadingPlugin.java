@@ -34,7 +34,7 @@ public final class ClassloadingPlugin implements Plugin {
   }
 
   @Override public Binding<?> getAtInjectBinding(
-      String key, String className, boolean mustBeInjectable) {
+      String key, String className, boolean mustHaveInjections) {
     return instantiate(className, INJECT_ADAPTER_SUFFIX);
   }
 

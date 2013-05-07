@@ -40,7 +40,8 @@ public final class ProblemDetector {
       StringBuilder builder = new StringBuilder();
       builder.append("You have these unused @Provider methods:");
       for (int i = 0; i < unusedBindings.size(); i++) {
-        builder.append("\n    ").append(i).append(". ").append(unusedBindings.get(i).requiredBy);
+        builder.append("\n    ").append(i + 1).append(". ")
+            .append(unusedBindings.get(i).requiredBy);
       }
       builder.append("\n    Set library=true in your module to disable this check.");
       throw new IllegalStateException(builder.toString());
