@@ -61,6 +61,8 @@ import static dagger.internal.RuntimeAggregatingPlugin.getAllModuleAdapters;
  * </ul>
  */
 public abstract class ObjectGraph {
+  ObjectGraph() {
+  }
 
   /**
    * Returns an instance of {@code type}.
