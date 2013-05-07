@@ -44,4 +44,17 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.9</version>
+        <configuration>
+          <excludePackageNames>dagger.internal:dagger.internal.*</excludePackageNames>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
