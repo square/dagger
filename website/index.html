@@ -298,6 +298,40 @@ class DripCoffeeModule {
   }
 }</pre>
 
+            <p>Modules which provide types that are unused by the listed injects classes will also trigger an error.</p>
+
+            <pre class="prettyprint">@Module(injects = Example.class)
+class DripCoffeeModule {
+  @Provides Heater provideHeater() {
+    return new ElectricHeater();
+  }
+  @Provides Chiller provideChiller() {
+    return new ElectricChiller();
+  }
+}</pre>
+
+            <p>Because the <code>Example</code> inject in the module only uses the <code>Heater</code>, <code>javac</code> rejects the unused binding:</p>
+
+            <pre>[ERROR] COMPILATION ERROR:
+[ERROR]: Graph validation failed: You have these unused @Provider methods:
+      1. coffee.DripCoffeeModule.provideChiller()
+      Set library=true in your module to disable this check.</pre>
+
+            <p>If your module's bindings will be used outside of the listed injects then mark the module as a library.</p>
+
+            <pre class="prettyprint">@Module(
+  injects = Example.class,
+  library = true
+)
+class DripCoffeeModule {
+  @Provides Heater provideHeater() {
+    return new ElectricHeater();
+  }
+  @Provides Chiller provideChiller() {
+    return new ElectricChiller();
+  }
+}</pre>
+
             <p>To get the most out of compile-time validation, create a module that includes all of your application's modules. The annotation processor will detect problems across the modules and report them.</p>
 
             <pre class="prettyprint">@Module(
