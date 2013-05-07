@@ -132,7 +132,7 @@ public final class KeysTest {
 
   @Test public void testGetElementKey_NoQualifier() throws NoSuchMethodException {
     Method method = KeysTest.class.getDeclaredMethod("elementProvides", new Class<?>[]{});
-    assertThat(Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method))
+    assertThat(Keys.getSetKey(method.getGenericReturnType(), method.getAnnotations(), method))
         .isEqualTo("java.util.Set<java.lang.String>");
   }
 
@@ -141,7 +141,7 @@ public final class KeysTest {
 
   @Test public void testGetElementKey_WithQualifier() throws NoSuchMethodException {
     Method method = KeysTest.class.getDeclaredMethod("qualifiedElementProvides", new Class<?>[]{});
-    assertThat(Keys.getElementKey(method.getGenericReturnType(), method.getAnnotations(), method))
+    assertThat(Keys.getSetKey(method.getGenericReturnType(), method.getAnnotations(), method))
         .isEqualTo("@javax.inject.Named(value=foo)/java.util.Set<java.lang.String>");
   }
 
