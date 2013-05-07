@@ -139,11 +139,7 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     return provideKey != null ? provideKey : membersKey;
   }
 
-  /**
-   * @param mustBeInjectable true if the binding must have {@code @Inject}
-   *     annotations.
-   */
-  public static <T> Binding<T> create(Class<T> type, boolean mustBeInjectable) {
+  public static <T> Binding<T> create(Class<T> type, boolean mustHaveInjections) {
     boolean singleton = type.isAnnotationPresent(Singleton.class);
     List<String> keys = new ArrayList<String>();
 
@@ -177,13 +173,14 @@ final class ReflectiveAtInjectBinding<T> extends Binding<T> {
       injectedConstructor = constructor;
     }
     if (injectedConstructor == null) {
-      if (injectedFields.isEmpty() && mustBeInjectable) {
+      if (!injectedFields.isEmpty()) {
+        try {
+          injectedConstructor = type.getDeclaredConstructor();
+        } catch (NoSuchMethodException ignored) {
+        }
+      } else if (mustHaveInjections) {
         throw new IllegalArgumentException("No injectable members on " + type.getName()
             + ". Do you want to add an injectable constructor?");
-      }
-      try {
-        injectedConstructor = type.getDeclaredConstructor();
-      } catch (NoSuchMethodException ignored) {
       }
     }
 

@@ -17,6 +17,7 @@
 package dagger;
 
 import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.RandomAccess;
@@ -822,6 +823,22 @@ public final class InjectionTest {
       fail();
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()).contains("Can't inject private constructor: ");
+    }
+  }
+
+  /** https://github.com/square/dagger/issues/231 */
+  @Test public void atInjectAlwaysRequiredForConstruction() {
+    @Module(injects = ArrayList.class)
+    class TestModule {
+    }
+
+    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
+    objectGraph.validate();
+    try {
+      objectGraph.get(ArrayList.class);
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage()).contains("Unable to create binding for java.util.ArrayList");
     }
   }
 }
