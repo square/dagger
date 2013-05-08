@@ -15,3 +15,6 @@ While this example only shows the presence of an activity scope, you should be a
 potential for other useful scopes that can be used. For example, having a dedicated object graph
 for the current user session is a great way to manage data that is tied to the currently logged-in
 user.
+
+_Note: The app does not actually do anything when it is run. It is only to show how you can
+ structure Dagger within an Android app_
