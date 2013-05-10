@@ -30,7 +30,7 @@ public final class ModuleTest {
     @Inject String s;
   }
 
-  @Module(entryPoints = TestEntryPoint.class)
+  @Module(injects = TestEntryPoint.class)
   static class ModuleWithEntryPoint {
   }
 
@@ -79,7 +79,7 @@ public final class ModuleTest {
   @Test public void childModuleWithBinding() {
 
     @Module(
-        entryPoints = TestEntryPoint.class,
+        injects = TestEntryPoint.class,
         includes = ModuleWithBinding.class
     )
     class TestModule {
@@ -98,7 +98,7 @@ public final class ModuleTest {
   @Test public void childModuleWithChildModule() {
 
     @Module(
-        entryPoints = TestEntryPoint.class,
+        injects = TestEntryPoint.class,
         includes = ModuleWithChildModule.class
     )
     class TestModule {
@@ -138,7 +138,7 @@ public final class ModuleTest {
   @Test public void childModuleWithManualConstruction() {
 
     @Module(
-        entryPoints = TestEntryPoint.class,
+        injects = TestEntryPoint.class,
         includes = ModuleWithConstructor.class
     )
     class TestModule {
@@ -154,11 +154,11 @@ public final class ModuleTest {
 
   static class B { @Inject A a; }
 
-  @Module(entryPoints = A.class) public static class TestModuleA {
+  @Module(injects = A.class) public static class TestModuleA {
     @Provides A a() { return new A(); }
   }
 
-  @Module(includes = TestModuleA.class, entryPoints = B.class) public static class TestModuleB {}
+  @Module(includes = TestModuleA.class, injects = B.class) public static class TestModuleB {}
 
   @Test public void autoInstantiationOfModules() {
     // Have to make these non-method-scoped or instantiation errors occur.

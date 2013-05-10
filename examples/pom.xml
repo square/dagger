@@ -21,15 +21,64 @@
   <parent>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.1-SNAPSHOT</version>
   </parent>
 
   <groupId>com.google.dagger.example</groupId>
   <artifactId>dagger-example-parent</artifactId>
   <packaging>pom</packaging>
-  <name>Dagger Example (Parent)</name>
+  <name>Examples</name>
 
   <modules>
     <module>simple</module>
   </modules>
+
+  <!-- Travis CI currently has a problem building Android so we disable this profile -->
+  <profiles>
+    <profile>
+      <id>android</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>simple</module>
+        <module>android-simple</module>
+        <module>android-activity-graphs</module>
+      </modules>
+    </profile>
+  </profiles>
+
+  <!-- Example-only dependencies. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.android</groupId>
+        <artifactId>android</artifactId>
+        <version>4.1.1.4</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.android</groupId>
+        <artifactId>support-v4</artifactId>
+        <version>r7</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!-- Example-only plugins -->
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>com.jayway.maven.plugins.android.generation2</groupId>
+          <artifactId>android-maven-plugin</artifactId>
+          <version>3.5.3</version>
+          <configuration>
+            <sdk>
+              <platform>16</platform>
+            </sdk>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 </project>

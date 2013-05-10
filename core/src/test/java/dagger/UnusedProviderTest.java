@@ -29,7 +29,7 @@ public class UnusedProviderTest {
     }
     class BagOfMoney {
     }
-    @Module(entryPoints = EntryPoint.class, library = true) class TestModule {
+    @Module(injects = EntryPoint.class, library = true) class TestModule {
       @Provides BagOfMoney providesMoney() {
         return new BagOfMoney();
       }
@@ -45,7 +45,7 @@ public class UnusedProviderTest {
     class BagOfMoney {
     }
 
-    @Module(entryPoints = EntryPoint.class) class TestModule {
+    @Module(injects = EntryPoint.class) class TestModule {
       @Provides BagOfMoney providesMoney() {
         return new BagOfMoney();
       }
@@ -66,13 +66,13 @@ public class UnusedProviderTest {
     class BagOfMoney {
     }
 
-    @Module(entryPoints = EntryPoint.class, library = true) class ExampleLibraryModule {
+    @Module(injects = EntryPoint.class, library = true) class ExampleLibraryModule {
       @Provides BagOfMoney providesMoney() {
         return new BagOfMoney();
       }
     }
 
-    @Module(entryPoints = EntryPoint.class) class TestModule {
+    @Module(injects = EntryPoint.class) class TestModule {
     }
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());

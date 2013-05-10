@@ -5,7 +5,7 @@ import dagger.Provides;
 import javax.inject.Singleton;
 
 @Module(
-    entryPoints = CoffeeApp.class,
+    injects = CoffeeApp.class,
     includes = PumpModule.class
 )
 class DripCoffeeModule {

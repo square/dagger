@@ -39,7 +39,7 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
 
   public ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
     super(
-        toMemberKeys(annotation.entryPoints()),
+        injectableTypesToKeys(annotation.injects()),
         annotation.staticInjections(),
         annotation.overrides(),
         annotation.includes(),
@@ -48,10 +48,13 @@ final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     this.moduleClass = moduleClass;
   }
 
-  private static String[] toMemberKeys(Class<?>[] entryPoints) {
-    String[] result = new String[entryPoints.length];
-    for (int i = 0; i < entryPoints.length; i++) {
-      result[i] = Keys.getMembersKey(entryPoints[i]);
+  private static String[] injectableTypesToKeys(Class<?>[] injectableTypes) {
+    String[] result = new String[injectableTypes.length];
+    for (int i = 0; i < injectableTypes.length; i++) {
+      Class<?> injectableType = injectableTypes[i];
+      result[i] = injectableType.isInterface()
+          ? Keys.get(injectableType)
+          : Keys.getMembersKey(injectableType);
     }
     return result;
   }

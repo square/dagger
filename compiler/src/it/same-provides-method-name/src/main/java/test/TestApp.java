@@ -42,7 +42,7 @@ class TestApp implements Runnable {
   static class MyFoo extends Foo {
   }
 
-  @Module(entryPoints = TestApp.class)
+  @Module(injects = TestApp.class)
   static class TestModule {
 
     @Provides Foo providesFoo(MyFoo foo) {

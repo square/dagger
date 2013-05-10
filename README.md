@@ -22,12 +22,12 @@ dependency:
 ```xml
 <dependencies>
   <dependency>
-    <groupId>com.squareup</groupId>
+    <groupId>com.squareup.dagger</groupId>
     <artifactId>dagger</artifactId>
     <version>${dagger.version}</version>
   </dependency>
   <dependency>
-    <groupId>com.squareup</groupId>
+    <groupId>com.squareup.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
     <version>${dagger.version}</version>
     <optional>true</optional>

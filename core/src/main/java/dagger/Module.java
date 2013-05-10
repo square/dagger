@@ -26,7 +26,29 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Module {
-  Class<?>[] entryPoints() default { };
+  /**
+   * Returns classes that object graphs created with this module must be able to
+   * inject. This includes both classes passed to {@link ObjectGraph#get} and
+   * the types of instances passed {@link ObjectGraph#inject}.
+   *
+   * <p>It is an error to call {@link ObjectGraph#get} or {@link
+   * ObjectGraph#inject} with a type that isn't listed in the {@code injects}
+   * set for any of the object graph's modules. Making such a call will trigger
+   * an {@code IllegalArgumentException} at runtime.
+   *
+   * <p>Maintaining this set is onerous, but doing so provides benefits to the
+   * application. This set enables dagger to perform more aggressive static
+   * analysis than would be otherwise possible:
+   * <ul>
+   *   <li><strong>Detect missing bindings.</strong> Dagger can check that all
+   *       injected dependencies can be satisfied. Set {@code complete=false} to
+   *       disable this check for the current module.
+   *   <li><strong>Detect unused bindings.</strong> Dagger can check that all
+   *       provides methods are used to satisfy injected dependencies. Set
+   *       {@code library=true} to disable this check for the current module.
+   * </ul>
+   */
+  Class<?>[] injects() default { };
   Class<?>[] staticInjections() default { };
 
   /**
@@ -62,12 +84,12 @@ public @interface Module {
 
   /**
    * False if all the included bindings in this module are necessary to satisfy
-   * all of its entry points. If a module is not a library module, it is eligible
-   * for additional static checking: tools can detect if included bindings are not
-   * necessary. If you provide bindings that are not used by this module's graph,
-   * then you must declare {@code library = true}.
-   * <p>
-   * This is intended to help you detect dead code.
+   * all of its {@link #injects injectable types}. If a module is not a library
+   * module, it is eligible for additional static checking: tools can detect if
+   * included bindings are not necessary. If you provide bindings that are not
+   * used by this module's graph, then you must declare {@code library = true}.
+   *
+   * <p>This is intended to help you detect dead code.
    */
   boolean library() default false;
 }
