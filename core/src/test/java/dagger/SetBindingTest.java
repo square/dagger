@@ -16,6 +16,12 @@
  */
 package dagger;
 
+import static dagger.Provides.Type.SET;
+import static org.fest.assertions.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
@@ -23,18 +29,14 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static dagger.Provides.Type.SET;
-import static org.fest.assertions.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
 @RunWith(JUnit4.class)
 public final class SetBindingTest {
@@ -186,6 +188,52 @@ public final class SetBindingTest {
 
     ObjectGraph graph = ObjectGraph.create(new TestModule());
     graph.validate();
+  }
+
+  static class FirstStringFromSetBinding {
+    String string;
+
+    @Inject
+    FirstStringFromSetBinding(Set<String> strings) {
+      this.string = strings.iterator().next();
+    }
+  }
+
+  @Module(injects = FirstStringFromSetBinding.class)
+  static class String1Module {
+    @Provides(type = SET)
+    String provideFirstString() {
+      return "string1";
+    }
+  }
+
+  @Module(injects = FirstStringFromSetBinding.class)
+  class String2Module {
+    @Provides(type = SET)
+    String provideSecondString() {
+      return "string2";
+    }
+  }
+
+  @Test
+  public void testOrderOfReflectiveSetBindings() {
+    FirstStringFromSetBinding ep = ObjectGraph
+        .create(new String1Module(), new String2Module())
+        .get(FirstStringFromSetBinding.class);
+    assertEquals("string1", ep.string);
+  }
+
+  @Test
+  public void testOrderOfReflectiveSetBindingsWithIncludedSetBinding() {
+
+    @Module(injects = FirstStringFromSetBinding.class, includes = String1Module.class)
+    class IncludeString1Module {
+    }
+
+    FirstStringFromSetBinding ep = ObjectGraph
+        .create(new IncludeString1Module(), new String2Module())
+        .get(FirstStringFromSetBinding.class);
+    assertEquals("string2", ep.string);
   }
 
   static class Logger {
