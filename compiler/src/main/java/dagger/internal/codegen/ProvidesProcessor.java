@@ -118,13 +118,16 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
     for (Element providerMethod : providesMethods(env)) {
+      switch (providerMethod.getEnclosingElement().getKind()) {
+        case CLASS:
+          break; // valid, move along
+        default:
+          // TODO(tbroyer): pass annotation information
+          error("Unexpected @Provides on " + providerMethod, providerMethod);
+          continue;
+      }
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
-      if (type.getKind() != ElementKind.CLASS) {
-        // TODO(tbroyer): pass annotation information
-        error("Unexpected @Provides on " + providerMethod, providerMethod);
-        continue;
-      }
       if (typeModifiers.contains(Modifier.PRIVATE)
           || typeModifiers.contains(Modifier.ABSTRACT)) {
         error("Classes declaring @Provides methods must not be private or abstract: "
