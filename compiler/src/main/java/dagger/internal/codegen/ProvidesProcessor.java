@@ -120,11 +120,11 @@ public final class ProvidesProcessor extends AbstractProcessor {
     for (Element providerMethod : providesMethods(env)) {
       switch (providerMethod.getEnclosingElement().getKind()) {
         case CLASS:
-            break; // valid, move along
+          break; // valid, move along
         default:
-            // TODO(tbroyer): pass annotation information
-            error("Unexpected @Provides on " + providerMethod, providerMethod);
-            continue;
+          // TODO(tbroyer): pass annotation information
+          error("Unexpected @Provides on " + providerMethod, providerMethod);
+          continue;
       }
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
       Set<Modifier> typeModifiers = type.getModifiers();
