@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.plugins.reflect;
+package dagger.internal.loaders.reflect;
 
 import dagger.Lazy;
 import dagger.Module;

@@ -16,8 +16,8 @@
 package dagger.internal.codegen;
 
 import dagger.internal.Binding;
+import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
-import dagger.internal.Plugin;
 import dagger.internal.StaticInjection;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
@@ -29,11 +29,11 @@ import javax.lang.model.element.TypeElement;
  * {@link Binding#get} or {@link Binding#injectMembers} methods. They are only suitable
  * for graph analysis and error detection.
  */
-public final class CompileTimePlugin implements Plugin {
+public final class CompileTimeLoader implements Loader {
 
   private final ProcessingEnvironment processingEnv;
 
-  public CompileTimePlugin(ProcessingEnvironment processingEnv) {
+  public CompileTimeLoader(ProcessingEnvironment processingEnv) {
     this.processingEnv = processingEnv;
   }
 

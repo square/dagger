@@ -46,8 +46,8 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
+import static dagger.internal.loaders.generated.GeneratedAdapterLoader.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.loaders.generated.GeneratedAdapterLoader.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PUBLIC;

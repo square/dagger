@@ -136,7 +136,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
         : new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
-    Linker linker = new Linker(null, new CompileTimePlugin(processingEnv), errorHandler);
+    Linker linker = new Linker(null, new CompileTimeLoader(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
     // to make the linker happy.
