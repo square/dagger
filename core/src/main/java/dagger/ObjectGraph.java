@@ -124,8 +124,14 @@ public abstract class ObjectGraph {
    * the graph at runtime.
    */
   public static ObjectGraph create(Object... modules) {
+
+    ClassLoader classLoader = null; // No modules, nothing to load, no classloader.
+    if (modules.length > 0) {
+      Class<?> clazz = (modules[0] instanceof Class) ? (Class<?>)modules[0] : modules[0].getClass();
+      classLoader = clazz.getClassLoader();
+    }
     RuntimeAggregatingLoader plugin = new RuntimeAggregatingLoader(
-            new GeneratedAdapterLoader(), new ReflectiveLoader());
+        new GeneratedAdapterLoader(classLoader), new ReflectiveLoader(classLoader));
     return DaggerObjectGraph.makeGraph(null, plugin, modules);
   }
 

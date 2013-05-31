@@ -21,19 +21,35 @@ package dagger.internal;
  * that of Module handling, injection binding creation, and static injection.  A plugin must
  * provide all resolution methods
  */
-public interface Loader {
+public abstract class Loader {
+
+  private final ClassLoader classLoader;
+
+  protected Loader(ClassLoader classLoader) {
+    this.classLoader = classLoader;
+  }
+
+  protected Class<?> load(String className) {
+    try {
+      return classLoader.loadClass(className);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalStateException("Could not find or load " + className, e);
+    }
+  }
+
   /**
    * Returns a binding that uses {@code @Inject} annotations.
    */
-  Binding<?> getAtInjectBinding(String key, String className, boolean mustHaveInjections);
+  public abstract Binding<?> getAtInjectBinding(
+      String key, String className, boolean mustHaveInjections);
 
   /**
    * Returns a module adapter for {@code module}.
    */
-  <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module);
+  public abstract <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module);
 
   /**
    * Returns the static injection for {@code injectedClass}.
    */
-  StaticInjection getStaticInjection(Class<?> injectedClass);
+  public abstract StaticInjection getStaticInjection(Class<?> injectedClass);
 }

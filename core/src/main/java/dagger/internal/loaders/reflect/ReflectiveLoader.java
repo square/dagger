@@ -17,8 +17,8 @@ package dagger.internal.loaders.reflect;
 
 import dagger.Module;
 import dagger.internal.Binding;
-import dagger.internal.ModuleAdapter;
 import dagger.internal.Loader;
+import dagger.internal.ModuleAdapter;
 import dagger.internal.StaticInjection;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -29,21 +29,16 @@ import javax.inject.Inject;
 /**
  * Uses reflection to create bindings, module adapters and static injections.
  */
-public final class ReflectiveLoader implements Loader {
+public final class ReflectiveLoader extends Loader {
+
+  public ReflectiveLoader(ClassLoader classLoader) {
+    super(classLoader);
+  }
+
   @Override public Binding<?> getAtInjectBinding(
       String key, String className, boolean mustHaveInjections) {
-    Class<?> c;
-    try {
-      c = Class.forName(className);
-    } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-
-    if (c.isInterface()) {
-      return null;
-    }
-
-    return ReflectiveAtInjectBinding.create(c, mustHaveInjections);
+    Class<?> c = load(className);
+    return c.isInterface() ? null : ReflectiveAtInjectBinding.create(c, mustHaveInjections);
   }
 
   @SuppressWarnings("unchecked") // Runtime checks validate that the result type matches 'T'.

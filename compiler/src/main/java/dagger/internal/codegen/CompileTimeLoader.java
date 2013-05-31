@@ -29,11 +29,12 @@ import javax.lang.model.element.TypeElement;
  * {@link Binding#get} or {@link Binding#injectMembers} methods. They are only suitable
  * for graph analysis and error detection.
  */
-public final class CompileTimeLoader implements Loader {
+public final class CompileTimeLoader extends Loader {
 
   private final ProcessingEnvironment processingEnv;
 
   public CompileTimeLoader(ProcessingEnvironment processingEnv) {
+    super(null);
     this.processingEnv = processingEnv;
   }
 
