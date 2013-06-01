@@ -16,12 +16,25 @@
  */
 package dagger.internal;
 
+import static java.lang.Integer.MAX_VALUE;
+
 /**
  * Provides a point of configuration of the basic resolving functions within Dagger, namely
  * that of Module handling, injection binding creation, and static injection.  A plugin must
  * provide all resolution methods
  */
 public abstract class Loader {
+
+  /** Stores the loaded classes, since we can't trust custom classloaders to cache. */
+  private  final LruCache<String, Class<?>> CLASSES = new LruCache<String, Class<?>>(MAX_VALUE) {
+    @Override protected Class<?> create(String className) {
+      try {
+        return classLoader.loadClass(className);
+      } catch (ClassNotFoundException e) {
+        throw new IllegalStateException("Could not find or load " + className, e);
+      }
+    }
+  };
 
   private final ClassLoader classLoader;
 
@@ -30,11 +43,7 @@ public abstract class Loader {
   }
 
   protected Class<?> load(String className) {
-    try {
-      return classLoader.loadClass(className);
-    } catch (ClassNotFoundException e) {
-      throw new IllegalStateException("Could not find or load " + className, e);
-    }
+    return CLASSES.get(className);
   }
 
   /**
