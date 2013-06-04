@@ -51,7 +51,7 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.MODULE_ADAPTER_SUFFIX;
+import static dagger.internal.loaders.generated.GeneratedAdapterLoader.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PROTECTED;

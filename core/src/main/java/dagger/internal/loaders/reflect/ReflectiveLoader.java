@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.plugins.reflect;
+package dagger.internal.loaders.reflect;
 
 import dagger.Module;
 import dagger.internal.Binding;
 import dagger.internal.ModuleAdapter;
-import dagger.internal.Plugin;
+import dagger.internal.Loader;
 import dagger.internal.StaticInjection;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -29,7 +29,7 @@ import javax.inject.Inject;
 /**
  * Uses reflection to create bindings, module adapters and static injections.
  */
-public final class ReflectivePlugin implements Plugin {
+public final class ReflectiveLoader implements Loader {
   @Override public Binding<?> getAtInjectBinding(
       String key, String className, boolean mustHaveInjections) {
     Class<?> c;

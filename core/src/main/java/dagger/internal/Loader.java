@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Square, Inc.
+ * Copyright (C) 2013 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +21,7 @@ package dagger.internal;
  * that of Module handling, injection binding creation, and static injection.  A plugin must
  * provide all resolution methods
  */
-public interface Plugin {
+public interface Loader {
   /**
    * Returns a binding that uses {@code @Inject} annotations.
    */
