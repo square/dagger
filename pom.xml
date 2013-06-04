@@ -51,15 +51,15 @@
   </properties>
 
   <scm>
-    <url>http://github.com/square/dagger/</url>
-    <connection>scm:git:git://github.com/square/dagger.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/square/dagger.git</developerConnection>
+    <url>http://github.com/google/dagger/</url>
+    <connection>scm:git:git://github.com/google/dagger.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/google/dagger.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
 
   <issueManagement>
     <system>GitHub Issues</system>
-    <url>http://github.com/square/dagger/issues</url>
+    <url>http://github.com/google/dagger/issues</url>
   </issueManagement>
 
   <licenses>
@@ -70,8 +70,8 @@
   </licenses>
 
   <organization>
-    <name>Square, Inc.</name>
-    <url>http://squareup.com</url>
+    <name>Google, Inc.</name>
+    <url>http://www.google.com</url>
   </organization>
 
   <dependencyManagement>
