@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.plugins.loading;
+package dagger.internal.loaders.generated;
 
 import dagger.internal.Binding;
+import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
-import dagger.internal.Plugin;
 import dagger.internal.StaticInjection;
 import java.lang.reflect.Constructor;
 
 /**
- * A runtime {@link Plugin} that loads generated classes.
+ * A runtime {@link Loader} that loads generated classes.
  */
-public final class ClassloadingPlugin implements Plugin {
+public final class GeneratedAdapterLoader implements Loader {
   public static final String INJECT_ADAPTER_SUFFIX = "$$InjectAdapter";
   public static final String MODULE_ADAPTER_SUFFIX = "$$ModuleAdapter";
   public static final String STATIC_INJECTION_SUFFIX = "$$StaticInjection";

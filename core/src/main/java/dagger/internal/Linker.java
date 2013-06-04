@@ -48,11 +48,11 @@ public final class Linker {
   /** All of the object graph's bindings. This may contain unlinked bindings. */
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
-  private final Plugin plugin;
+  private final Loader plugin;
 
   private final ErrorHandler errorHandler;
 
-  public Linker(Linker base, Plugin plugin, ErrorHandler errorHandler) {
+  public Linker(Linker base, Loader plugin, ErrorHandler errorHandler) {
     if (plugin == null) throw new NullPointerException("plugin");
     if (errorHandler == null) throw new NullPointerException("errorHandler");
 

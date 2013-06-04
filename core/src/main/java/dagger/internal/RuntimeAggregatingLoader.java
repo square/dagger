@@ -26,13 +26,13 @@ import java.util.logging.Logger;
  * Aggregates provided plugins and delegates its operations to them in order.  Also provides some
  * specific runtime facilities needed by the runtime.
  */
-public final class RuntimeAggregatingPlugin implements Plugin {
+public final class RuntimeAggregatingLoader implements Loader {
   private static final Logger logger = Logger.getLogger(ObjectGraph.class.getName());
 
   /** A list of {@code Linker.Plugin}s which will be consulted in-order to resolve requests. */
-  private final Plugin[] plugins;
+  private final Loader[] plugins;
 
-  public RuntimeAggregatingPlugin(Plugin ... plugins) {
+  public RuntimeAggregatingLoader(Loader ... plugins) {
     if (plugins == null || plugins.length == 0) {
       throw new IllegalArgumentException("Must provide at least one plugin.");
     }
@@ -43,14 +43,14 @@ public final class RuntimeAggregatingPlugin implements Plugin {
    * Returns a full set of module adapters, including module adapters for included
    * modules.
    */
-  public static Map<Class<?>, ModuleAdapter<?>> getAllModuleAdapters(Plugin plugin,
+  public static Map<Class<?>, ModuleAdapter<?>> getAllModuleAdapters(Loader plugin,
       Object[] seedModules) {
     // Create a module adapter for each seed module.
     ModuleAdapter<?>[] seedAdapters = new ModuleAdapter<?>[seedModules.length];
     int s = 0;
     for (Object module : seedModules) {
       if (module instanceof Class) {
-        seedAdapters[s++] = plugin.getModuleAdapter((Class<?>) module, null); // Plugin constructs.
+        seedAdapters[s++] = plugin.getModuleAdapter((Class<?>) module, null); // Loader constructs.
       } else {
         seedAdapters[s++] = plugin.getModuleAdapter(module.getClass(), module);
       }
@@ -78,7 +78,7 @@ public final class RuntimeAggregatingPlugin implements Plugin {
    * Fills {@code result} with the module adapters for the includes of {@code
    * adapter}, and their includes recursively.
    */
-  private static void collectIncludedModulesRecursively(Plugin plugin, ModuleAdapter<?> adapter,
+  private static void collectIncludedModulesRecursively(Loader plugin, ModuleAdapter<?> adapter,
       Map<Class<?>, ModuleAdapter<?>> result) {
     for (Class<?> include : adapter.includes) {
       if (!result.containsKey(include)) {
