@@ -46,8 +46,8 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.INJECT_ADAPTER_SUFFIX;
-import static dagger.internal.plugins.loading.ClassloadingPlugin.STATIC_INJECTION_SUFFIX;
+import static dagger.internal.loaders.generated.GeneratedAdapterLoader.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.loaders.generated.GeneratedAdapterLoader.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PUBLIC;
@@ -126,6 +126,11 @@ public final class InjectProcessor extends AbstractProcessor {
 
   private boolean validateInjectable(Element injectable) {
     Element injectableType = injectable.getEnclosingElement();
+
+    if (injectable.getKind() == ElementKind.CLASS) {
+      error("@Inject is not valid on a class: " + injectable, injectable);
+      return false;
+    }
 
     if (injectable.getKind() == ElementKind.METHOD) {
       error("Method injection is not supported: " + injectableType + "." + injectable, injectable);

@@ -35,9 +35,8 @@ dependency:
 </dependencies>
 ```
 
-You can also find downloadable .jars on Maven Central. You'll need both
-[Dagger](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20dagger) and
-[JavaWriter](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22javawriter%22).
+You can also find downloadable .jars on Maven Central. You'll need
+[Dagger][dl-dagger], [JavaWriter][dl-javawriter], and [javax.inject][dl-inject].
 
 
 
@@ -61,3 +60,6 @@ License
 
 
  [1]: http://square.github.com/dagger/
+ [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup.dagger%22%20a%3A%22dagger%22
+ [dl-javawriter]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javawriter%22
+ [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22

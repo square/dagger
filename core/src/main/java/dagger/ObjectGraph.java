@@ -19,19 +19,19 @@ package dagger;
 import dagger.internal.Binding;
 import dagger.internal.Keys;
 import dagger.internal.Linker;
+import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
-import dagger.internal.Plugin;
 import dagger.internal.ProblemDetector;
-import dagger.internal.RuntimeAggregatingPlugin;
+import dagger.internal.RuntimeAggregatingLoader;
 import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
 import dagger.internal.UniqueMap;
-import dagger.internal.plugins.loading.ClassloadingPlugin;
-import dagger.internal.plugins.reflect.ReflectivePlugin;
+import dagger.internal.loaders.generated.GeneratedAdapterLoader;
+import dagger.internal.loaders.reflect.ReflectiveLoader;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static dagger.internal.RuntimeAggregatingPlugin.getAllModuleAdapters;
+import static dagger.internal.RuntimeAggregatingLoader.getAllModuleAdapters;
 
 /**
  * A graph of objects linked by their dependencies.
@@ -124,8 +124,8 @@ public abstract class ObjectGraph {
    * the graph at runtime.
    */
   public static ObjectGraph create(Object... modules) {
-    RuntimeAggregatingPlugin plugin = new RuntimeAggregatingPlugin(
-            new ClassloadingPlugin(), new ReflectivePlugin());
+    RuntimeAggregatingLoader plugin = new RuntimeAggregatingLoader(
+            new GeneratedAdapterLoader(), new ReflectiveLoader());
     return DaggerObjectGraph.makeGraph(null, plugin, modules);
   }
 
@@ -135,11 +135,11 @@ public abstract class ObjectGraph {
     private final Linker linker;
     private final Map<Class<?>, StaticInjection> staticInjections;
     private final Map<String, Class<?>> injectableTypes;
-    private final Plugin plugin;
+    private final Loader plugin;
 
     DaggerObjectGraph(DaggerObjectGraph base,
         Linker linker,
-        Plugin plugin,
+        Loader plugin,
         Map<Class<?>, StaticInjection> staticInjections,
         Map<String, Class<?>> injectableTypes) {
       if (linker == null) throw new NullPointerException("linker");
@@ -154,7 +154,7 @@ public abstract class ObjectGraph {
       this.injectableTypes = injectableTypes;
     }
 
-    private static ObjectGraph makeGraph(DaggerObjectGraph base, Plugin plugin, Object... modules) {
+    private static ObjectGraph makeGraph(DaggerObjectGraph base, Loader plugin, Object... modules) {
       Map<String, Class<?>> injectableTypes = new LinkedHashMap<String, Class<?>>();
       Map<Class<?>, StaticInjection> staticInjections
           = new LinkedHashMap<Class<?>, StaticInjection>();

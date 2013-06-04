@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.2-SNAPSHOT</version>
   </parent>
 
   <groupId>com.google.dagger.example</groupId>
@@ -64,21 +64,13 @@
     </dependencies>
   </dependencyManagement>
 
-  <!-- Example-only plugins -->
-  <pluginRepositories>
-    <pluginRepository>
-      <id>jayway.snapshots</id>
-      <url>https://oss.sonatype.org/content/repositories/jayway-snapshots</url>
-    </pluginRepository>
-  </pluginRepositories>
-
   <build>
     <pluginManagement>
       <plugins>
         <plugin>
           <groupId>com.jayway.maven.plugins.android.generation2</groupId>
           <artifactId>android-maven-plugin</artifactId>
-          <version>3.5.4-SNAPSHOT</version>
+          <version>3.6.0</version>
           <configuration>
             <sdk>
               <platform>16</platform>
