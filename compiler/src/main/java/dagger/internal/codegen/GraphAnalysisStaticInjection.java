@@ -20,17 +20,19 @@ import dagger.internal.StaticInjection;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 
-public final class CodeGenStaticInjection extends StaticInjection {
+import static dagger.internal.codegen.TypeUtils.isStatic;
+
+public final class GraphAnalysisStaticInjection extends StaticInjection {
 
   private final Element enclosingClass;
 
-  public CodeGenStaticInjection(Element enclosingClass) {
+  public GraphAnalysisStaticInjection(Element enclosingClass) {
     this.enclosingClass = enclosingClass;
   }
 
   @Override public void attach(Linker linker) {
     for (Element enclosedElement : enclosingClass.getEnclosedElements()) {
-      if (enclosedElement.getKind().isField() && CodeGen.isStatic(enclosedElement)) {
+      if (enclosedElement.getKind().isField() && isStatic(enclosedElement)) {
         Inject injectAnnotation = enclosedElement.getAnnotation(Inject.class);
         if (injectAnnotation != null) {
           String key = GeneratorKeys.get(enclosedElement.asType());

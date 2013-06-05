@@ -25,6 +25,9 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
+import static dagger.internal.codegen.TypeUtils.rawTypeToString;
+import static dagger.internal.codegen.TypeUtils.typeToString;
+
 /**
  * Creates keys using javac's mirror APIs. Unlike {@code Keys}, this class uses
  * APIs not available on Android.
@@ -41,13 +44,13 @@ final class GeneratorKeys {
    * generated code.
    */
   public static String rawMembersKey(TypeMirror type) {
-    return "members/" + CodeGen.rawTypeToString(type, '$');
+    return "members/" + rawTypeToString(type, '$');
   }
 
   /** Returns the provider key for {@code type}. */
   public static String get(TypeMirror type) {
     StringBuilder result = new StringBuilder();
-    CodeGen.typeToString(type, result, '$');
+    typeToString(type, result, '$');
     return result.toString();
   }
 
@@ -58,7 +61,7 @@ final class GeneratorKeys {
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    CodeGen.typeToString(method.getReturnType(), result, '$');
+    typeToString(method.getReturnType(), result, '$');
     return result.toString();
   }
 
@@ -70,7 +73,7 @@ final class GeneratorKeys {
       qualifierToString(qualifier, result);
     }
     result.append(SET_PREFIX);
-    CodeGen.typeToString(method.getReturnType(), result, '$');
+    typeToString(method.getReturnType(), result, '$');
     result.append(">");
     return result.toString();
   }
@@ -82,14 +85,14 @@ final class GeneratorKeys {
     if (qualifier != null) {
       qualifierToString(qualifier, result);
     }
-    CodeGen.typeToString(variable.asType(), result, '$');
+    typeToString(variable.asType(), result, '$');
     return result.toString();
   }
 
   private static void qualifierToString(AnnotationMirror qualifier, StringBuilder result) {
     // TODO: guarantee that element values are sorted by name (if there are multiple)
     result.append('@');
-    CodeGen.typeToString(qualifier.getAnnotationType(), result, '$');
+    typeToString(qualifier.getAnnotationType(), result, '$');
     result.append('(');
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry
         : qualifier.getElementValues().entrySet()) {

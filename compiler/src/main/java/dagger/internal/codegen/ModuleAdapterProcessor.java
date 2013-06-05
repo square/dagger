@@ -50,7 +50,14 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.TypeUtils.adapterName;
+import static dagger.internal.codegen.TypeUtils.getAnnotation;
+import static dagger.internal.codegen.TypeUtils.getNoArgsConstructor;
+import static dagger.internal.codegen.TypeUtils.getPackage;
+import static dagger.internal.codegen.TypeUtils.isCallableConstructor;
+import static dagger.internal.codegen.TypeUtils.isInterface;
+import static dagger.internal.codegen.TypeUtils.typeToString;
 import static dagger.internal.loaders.generated.GeneratedAdapterLoader.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
@@ -63,7 +70,7 @@ import static java.lang.reflect.Modifier.STATIC;
  * for each {@code @Provides} method of a target class.
  */
 @SupportedAnnotationTypes({ "dagger.Provides", "dagger.Module" })
-public final class ProvidesProcessor extends AbstractProcessor {
+public final class ModuleAdapterProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
       new LinkedHashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = JavaWriter.type(
@@ -82,7 +89,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
       try {
         // Attempt to get the annotation. If types are missing, this will throw
         // IllegalStateException.
-        Map<String, Object> parsedAnnotation = CodeGen.getAnnotation(Module.class, type);
+        Map<String, Object> parsedAnnotation = getAnnotation(Module.class, type);
         try {
           writeModuleAdapter(type, parsedAnnotation, providesTypes);
         } catch (IOException e) {
@@ -109,12 +116,12 @@ public final class ProvidesProcessor extends AbstractProcessor {
    */
   private Map<String, List<ExecutableElement>> providerMethodsByClass(RoundEnvironment env) {
     Elements elementUtils = processingEnv.getElementUtils();
-    Types typeUtils = processingEnv.getTypeUtils();
+    Types types = processingEnv.getTypeUtils();
 
     TypeElement providerElement = elementUtils.getTypeElement("javax.inject.Provider");
-    TypeMirror providerType = typeUtils.erasure(providerElement.asType());
+    TypeMirror providerType = types.erasure(providerElement.asType());
     TypeElement lazyElement = elementUtils.getTypeElement("dagger.Lazy");
-    TypeMirror lazyType = typeUtils.erasure(lazyElement.asType());
+    TypeMirror lazyType = types.erasure(lazyElement.asType());
 
     Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
     for (Element providerMethod : providesMethods(env)) {
@@ -151,15 +158,15 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
 
-      TypeMirror returnType = typeUtils.erasure(providerMethodAsExecutable.getReturnType());
-      if (typeUtils.isSameType(returnType, providerType)) {
+      TypeMirror returnType = types.erasure(providerMethodAsExecutable.getReturnType());
+      if (types.isSameType(returnType, providerType)) {
         error("@Provides method must not return Provider directly: "
             + type.getQualifiedName()
             + "."
             + providerMethod, providerMethod);
         continue;
       }
-      if (typeUtils.isSameType(returnType, lazyType)) {
+      if (types.isSameType(returnType, lazyType)) {
         error("@Provides method must not return Lazy directly: "
             + type.getQualifiedName()
             + "."
@@ -224,7 +231,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     boolean complete = (Boolean) module.get("complete");
     boolean library = (Boolean) module.get("library");
 
-    String adapterName = CodeGen.adapterName(type, MODULE_ADAPTER_SUFFIX);
+    String adapterName = adapterName(type, MODULE_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
@@ -232,22 +239,22 @@ public final class ProvidesProcessor extends AbstractProcessor {
     boolean multibindings = checkForMultibindings(providerMethods);
     boolean providerMethodDependencies = checkForDependencies(providerMethods);
 
-    writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
-    writer.emitPackage(CodeGen.getPackage(type).getQualifiedName().toString());
+    writer.emitEndOfLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
+    writer.emitPackage(getPackage(type).getQualifiedName().toString());
     writer.emitEmptyLine();
     writer.emitImports(
         getImports(multibindings, !providerMethods.isEmpty(), providerMethodDependencies));
 
     String typeName = type.getQualifiedName().toString();
     writer.emitEmptyLine();
-    writer.emitJavadoc(ProcessorJavadocs.MODULE_TYPE);
+    writer.emitJavadoc(AdapterJavadocs.MODULE_TYPE);
     writer.beginType(adapterName, "class", PUBLIC | FINAL,
         JavaWriter.type(ModuleAdapter.class, typeName));
 
     StringBuilder injectsField = new StringBuilder().append("{ ");
     for (Object injectableType : injects) {
       TypeMirror typeMirror = (TypeMirror) injectableType;
-      String key = CodeGen.isInterface(typeMirror)
+      String key = isInterface(typeMirror)
           ? GeneratorKeys.get(typeMirror)
           : GeneratorKeys.rawMembersKey(typeMirror);
       injectsField.append(JavaWriter.stringLiteral(key)).append(", ");
@@ -259,7 +266,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     StringBuilder staticInjectionsField = new StringBuilder().append("{ ");
     for (Object staticInjection : staticInjections) {
       TypeMirror typeMirror = (TypeMirror) staticInjection;
-      staticInjectionsField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
+      staticInjectionsField.append(typeToString(typeMirror)).append(".class, ");
     }
     staticInjectionsField.append("}");
     writer.emitField("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
@@ -274,7 +281,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
         continue;
       }
       TypeMirror typeMirror = (TypeMirror) include;
-      includesField.append(CodeGen.typeToString(typeMirror)).append(".class, ");
+      includesField.append(typeToString(typeMirror)).append(".class, ");
     }
     includesField.append("}");
     writer.emitField("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
@@ -285,8 +292,8 @@ public final class ProvidesProcessor extends AbstractProcessor {
         + "INCLUDES, %s /*complete*/, %s /*library*/)", overrides, complete, library);
     writer.endMethod();
 
-    ExecutableElement noArgsConstructor = CodeGen.getNoArgsConstructor(type);
-    if (noArgsConstructor != null && CodeGen.isCallableConstructor(noArgsConstructor)) {
+    ExecutableElement noArgsConstructor = getNoArgsConstructor(type);
+    if (noArgsConstructor != null && isCallableConstructor(noArgsConstructor)) {
       writer.emitEmptyLine();
       writer.emitAnnotation(Override.class);
       writer.beginMethod(typeName, "newModule", PROTECTED);
@@ -300,7 +307,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     if (!providerMethods.isEmpty()) {
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
+      writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
       writer.beginMethod("void", "getBindings", PUBLIC, BINDINGS_MAP, "map");
 
@@ -399,9 +406,9 @@ public final class ProvidesProcessor extends AbstractProcessor {
       Map<String, AtomicInteger> methodNameToNextId, boolean library)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
-    String moduleType = CodeGen.typeToString(providerMethod.getEnclosingElement().asType());
+    String moduleType = typeToString(providerMethod.getEnclosingElement().asType());
     String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
-    String returnType = CodeGen.typeToString(providerMethod.getReturnType());
+    String returnType = typeToString(providerMethod.getReturnType());
     List<? extends VariableElement> parameters = providerMethod.getParameters();
     boolean dependent = !parameters.isEmpty();
 
@@ -413,8 +420,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     writer.emitField(moduleType, "module", PRIVATE | FINAL);
     for (Element parameter : parameters) {
       TypeMirror parameterType = parameter.asType();
-      writer.emitField(JavaWriter.type(Binding.class,
-          CodeGen.typeToString(parameterType)),
+      writer.emitField(JavaWriter.type(Binding.class, typeToString(parameterType)),
           parameterName(parameter), PRIVATE);
     }
 
@@ -432,7 +438,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
 
     if (dependent) {
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
+      writer.emitJavadoc(AdapterJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
       writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
       writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
@@ -441,15 +447,14 @@ public final class ProvidesProcessor extends AbstractProcessor {
         writer.emitStatement(
             "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader())",
             parameterName(parameter),
-            writer.compressType(JavaWriter.type(Binding.class,
-                CodeGen.typeToString(parameter.asType()))),
+            writer.compressType(JavaWriter.type(Binding.class, typeToString(parameter.asType()))),
             JavaWriter.stringLiteral(parameterKey),
             writer.compressType(moduleType));
       }
       writer.endMethod();
 
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
+      writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
       String setOfBindings = JavaWriter.type(Set.class, "Binding<?>");
       writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
@@ -461,7 +466,7 @@ public final class ProvidesProcessor extends AbstractProcessor {
     }
 
     writer.emitEmptyLine();
-    writer.emitJavadoc(ProcessorJavadocs.GET_METHOD, returnType);
+    writer.emitJavadoc(AdapterJavadocs.GET_METHOD, returnType);
     writer.emitAnnotation(Override.class);
     writer.beginMethod(returnType, "get", PUBLIC);
     StringBuilder args = new StringBuilder();

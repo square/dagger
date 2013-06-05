@@ -25,11 +25,11 @@ import javax.tools.Diagnostic;
  * A {@code Linker.ErrorHandler} which gathers errors and reports them via a processing
  * environment.
  */
-final class ReportingErrorHandler implements Linker.ErrorHandler {
+final class GraphAnalysisErrorHandler implements Linker.ErrorHandler {
   private final ProcessingEnvironment processingEnv;
   private final String moduleName;
 
-  ReportingErrorHandler(ProcessingEnvironment processingEnv, String moduleName) {
+  GraphAnalysisErrorHandler(ProcessingEnvironment processingEnv, String moduleName) {
     this.processingEnv = processingEnv;
     this.moduleName = moduleName;
   }
