@@ -26,13 +26,14 @@ import java.util.logging.Logger;
  * Aggregates provided plugins and delegates its operations to them in order.  Also provides some
  * specific runtime facilities needed by the runtime.
  */
-public final class RuntimeAggregatingLoader implements Loader {
+public final class RuntimeAggregatingLoader extends Loader {
   private static final Logger logger = Logger.getLogger(ObjectGraph.class.getName());
 
   /** A list of {@code Linker.Plugin}s which will be consulted in-order to resolve requests. */
   private final Loader[] plugins;
 
   public RuntimeAggregatingLoader(Loader ... plugins) {
+    super(null); // Final class which delegates all loading, needs no classloader.
     if (plugins == null || plugins.length == 0) {
       throw new IllegalArgumentException("Must provide at least one plugin.");
     }

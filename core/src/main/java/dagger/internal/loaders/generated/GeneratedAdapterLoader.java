@@ -24,34 +24,36 @@ import java.lang.reflect.Constructor;
 /**
  * A runtime {@link Loader} that loads generated classes.
  */
-public final class GeneratedAdapterLoader implements Loader {
+public final class GeneratedAdapterLoader extends Loader {
   public static final String INJECT_ADAPTER_SUFFIX = "$$InjectAdapter";
   public static final String MODULE_ADAPTER_SUFFIX = "$$ModuleAdapter";
   public static final String STATIC_INJECTION_SUFFIX = "$$StaticInjection";
 
+  public GeneratedAdapterLoader(ClassLoader classLoader) {
+    super(classLoader);
+  }
+
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
-    return instantiate(moduleClass.getName(), MODULE_ADAPTER_SUFFIX);
+    return instantiate(load(moduleClass.getName() + MODULE_ADAPTER_SUFFIX));
   }
 
   @Override public Binding<?> getAtInjectBinding(
       String key, String className, boolean mustHaveInjections) {
-    return instantiate(className, INJECT_ADAPTER_SUFFIX);
+    return instantiate(load(className + INJECT_ADAPTER_SUFFIX));
   }
 
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
-    return instantiate(injectedClass.getName(), STATIC_INJECTION_SUFFIX);
+    return instantiate(load(injectedClass.getName() + STATIC_INJECTION_SUFFIX));
   }
 
   @SuppressWarnings("unchecked") // We use a naming convention to defend against mismatches.
-  private <T> T instantiate(String className, String suffix) {
-    String name = className + suffix;
+  private <T> T instantiate(Class<?> generatedClass) {
     try {
-      Class<?> generatedClass = Class.forName(name);
       Constructor<?> constructor = generatedClass.getConstructor();
       constructor.setAccessible(true);
       return (T) constructor.newInstance();
     } catch (Exception e) {
-      throw new RuntimeException("Unexpected failure loading " + name, e);
+      throw new RuntimeException("Unexpected failure instantiating " + generatedClass.getName(), e);
     }
   }
 }
