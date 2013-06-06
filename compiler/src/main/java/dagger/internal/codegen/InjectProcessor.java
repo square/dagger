@@ -45,6 +45,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static dagger.internal.codegen.CodeGen.typeToString;
 import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
 import static dagger.internal.loaders.generated.GeneratedAdapterLoader.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.generated.GeneratedAdapterLoader.STATIC_INJECTION_SUFFIX;
@@ -277,24 +278,26 @@ public final class InjectProcessor extends AbstractProcessor {
       writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
       if (constructor != null) {
         for (VariableElement parameter : constructor.getParameters()) {
-          writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+          writer.emitStatement(
+              "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader())",
               parameterName(disambiguateFields, parameter),
-              writer.compressType(JavaWriter.type(Binding.class,
-                  CodeGen.typeToString(parameter.asType()))),
+              writer.compressType(JavaWriter.type(Binding.class, typeToString(parameter.asType()))),
               JavaWriter.stringLiteral(GeneratorKeys.get(parameter)),
               strippedTypeName);
         }
       }
       for (Element field : fields) {
-        writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+        writer.emitStatement(
+            "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader())",
             fieldName(disambiguateFields, field),
-            writer.compressType(JavaWriter.type(Binding.class,
-                CodeGen.typeToString(field.asType()))),
+            writer.compressType(JavaWriter.type(Binding.class, typeToString(field.asType()))),
             JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) field)),
             strippedTypeName);
       }
       if (supertype != null) {
-        writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class, false, true)",
+        writer.emitStatement(
+            "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader()"
+                + ", false, true)", // Yep.  This is a dumb line-length violation otherwise.
             "supertype",
             writer.compressType(JavaWriter.type(Binding.class,
                 CodeGen.rawTypeToString(supertype, '.'))),
@@ -427,10 +430,10 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
     for (Element field : fields) {
-      writer.emitStatement("%s = (%s) linker.requestBinding(%s, %s.class)",
+      writer.emitStatement(
+          "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader())",
           fieldName(false, field),
-          writer.compressType(JavaWriter.type(Binding.class,
-              CodeGen.typeToString(field.asType()))),
+          writer.compressType(JavaWriter.type(Binding.class, typeToString(field.asType()))),
           JavaWriter.stringLiteral(GeneratorKeys.get((VariableElement) field)),
           typeName);
     }
