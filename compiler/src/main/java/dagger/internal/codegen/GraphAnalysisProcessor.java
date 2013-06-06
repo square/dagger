@@ -51,11 +51,16 @@ import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
 
+import static dagger.internal.codegen.TypeUtils.getAnnotation;
+import static dagger.internal.codegen.TypeUtils.getPackage;
+import static dagger.internal.codegen.TypeUtils.isInterface;
+import static dagger.internal.codegen.TypeUtils.methodName;
+
 /**
  * Performs full graph analysis on a module.
  */
 @SupportedAnnotationTypes("dagger.Module")
-public final class FullGraphProcessor extends AbstractProcessor {
+public final class GraphAnalysisProcessor extends AbstractProcessor {
   private final Set<String> delayedModuleNames = new LinkedHashSet<String>();
 
   @Override public SourceVersion getSupportedSourceVersion() {
@@ -86,7 +91,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     }
 
     for (Element element : modules) {
-      Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, element);
+      Map<String, Object> annotation = getAnnotation(Module.class, element);
       TypeElement moduleType = (TypeElement) element;
 
       if (annotation.get("complete").equals(Boolean.TRUE)) {
@@ -132,11 +137,12 @@ public final class FullGraphProcessor extends AbstractProcessor {
       boolean ignoreCompletenessErrors) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
-    ArrayList<CodeGenStaticInjection> staticInjections = new ArrayList<CodeGenStaticInjection>();
+    ArrayList<GraphAnalysisStaticInjection> staticInjections =
+        new ArrayList<GraphAnalysisStaticInjection>();
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
-        : new ReportingErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
-    Linker linker = new Linker(null, new CompileTimeLoader(processingEnv), errorHandler);
+        : new GraphAnalysisErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
+    Linker linker = new Linker(null, new GraphAnalysisLoader(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
     // to make the linker happy.
@@ -144,7 +150,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
       Map<String, Binding<?>> baseBindings = new LinkedHashMap<String, Binding<?>>();
       Map<String, Binding<?>> overrideBindings = new LinkedHashMap<String, Binding<?>>();
       for (TypeElement module : allModules.values()) {
-        Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
+        Map<String, Object> annotation = getAnnotation(Module.class, module);
         boolean overrides = (Boolean) annotation.get("overrides");
         boolean library = (Boolean) annotation.get("library");
         Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
@@ -152,7 +158,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         // Gather the injectable types from the annotation.
         for (Object injectableTypeObject : (Object[]) annotation.get("injects")) {
           TypeMirror injectableType = (TypeMirror) injectableTypeObject;
-          String key = CodeGen.isInterface(injectableType)
+          String key = isInterface(injectableType)
               ? GeneratorKeys.get(injectableType)
               : GeneratorKeys.rawMembersKey(injectableType);
           linker.requestBinding(key, module.getQualifiedName().toString(),
@@ -163,7 +169,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
         for (Object staticInjection : (Object[]) annotation.get("staticInjections")) {
           TypeMirror staticInjectionTypeMirror = (TypeMirror) staticInjection;
           Element element = processingEnv.getTypeUtils().asElement(staticInjectionTypeMirror);
-          staticInjections.add(new CodeGenStaticInjection(element));
+          staticInjections.add(new GraphAnalysisStaticInjection(element));
         }
 
         // Gather the enclosed @Provides methods.
@@ -208,7 +214,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
-      for (CodeGenStaticInjection staticInjection : staticInjections) {
+      for (GraphAnalysisStaticInjection staticInjection : staticInjections) {
         staticInjection.attach(linker);
       }
 
@@ -225,7 +231,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   void collectIncludesRecursively(
       TypeElement module, Map<String, TypeElement> result, Deque<String> path) {
-    Map<String, Object> annotation = CodeGen.getAnnotation(Module.class, module);
+    Map<String, Object> annotation = getAnnotation(Module.class, module);
     if (annotation == null) {
       // TODO(tbroyer): pass annotation information
       throw new ModuleValidationException("No @Module on " + module, module);
@@ -253,7 +259,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     result.put(name, module);
 
     // Recurse for each included module.
-    Types typeUtils = processingEnv.getTypeUtils();
+    Types types = processingEnv.getTypeUtils();
     List<Object> seedModules = new ArrayList<Object>();
     seedModules.addAll(Arrays.asList((Object[]) annotation.get("includes")));
     if (!annotation.get("addsTo").equals(Void.class)) seedModules.add(annotation.get("addsTo"));
@@ -264,7 +270,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
             "Unexpected value for include: " + include + " in " + module, module);
         continue;
       }
-      TypeElement includedModule = (TypeElement) typeUtils.asElement((TypeMirror) include);
+      TypeElement includedModule = (TypeElement) types.asElement((TypeMirror) include);
       path.push(name);
       collectIncludesRecursively(includedModule, result, path);
       path.pop();
@@ -276,8 +282,7 @@ public final class FullGraphProcessor extends AbstractProcessor {
     private final Binding<?>[] parameters;
 
     protected ProviderMethodBinding(String provideKey, ExecutableElement method, boolean library) {
-      super(provideKey, null, method.getAnnotation(Singleton.class) != null,
-          CodeGen.methodName(method));
+      super(provideKey, null, method.getAnnotation(Singleton.class) != null, methodName(method));
       this.method = method;
       this.parameters = new Binding[method.getParameters().size()];
       setLibrary(library);
@@ -307,12 +312,12 @@ public final class FullGraphProcessor extends AbstractProcessor {
 
   void writeDotFile(TypeElement module, Map<String, Binding<?>> bindings) throws IOException {
     JavaFileManager.Location location = StandardLocation.SOURCE_OUTPUT;
-    String path = CodeGen.getPackage(module).getQualifiedName().toString();
+    String path = getPackage(module).getQualifiedName().toString();
     String file = module.getQualifiedName().toString().substring(path.length() + 1) + ".dot";
     FileObject resource = processingEnv.getFiler().createResource(location, path, file, module);
 
     Writer writer = resource.openWriter();
-    DotWriter dotWriter = new DotWriter(writer);
+    GraphVizWriter dotWriter = new GraphVizWriter(writer);
     new GraphVisualizer().write(bindings, dotWriter);
     dotWriter.close();
   }

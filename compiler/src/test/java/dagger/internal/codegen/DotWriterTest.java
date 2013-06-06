@@ -26,7 +26,7 @@ import static org.fest.assertions.Assertions.assertThat;
 @RunWith(JUnit4.class)
 public final class DotWriterTest {
   private final StringWriter stringWriter = new StringWriter();
-  private final DotWriter dotWriter = new DotWriter(stringWriter);
+  private final GraphVizWriter dotWriter = new GraphVizWriter(stringWriter);
 
   @Test public void graphWithAttributes() throws IOException {
     dotWriter.beginGraph();
