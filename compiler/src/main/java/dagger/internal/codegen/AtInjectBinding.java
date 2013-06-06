@@ -69,9 +69,9 @@ final class AtInjectBinding extends Binding<Object> {
         List<? extends VariableElement> parameters = constructor.getParameters();
         if (hasAtInject(enclosed)) {
           if (hasAtSingleton(enclosed)) {
-            throw new IllegalArgumentException("Singleton annotations have no effect on " +
-                "constructors. Did you mean to annotate the class? " +
-                type.getQualifiedName().toString());
+            throw new IllegalArgumentException("Singleton annotations have no effect on "
+                + "constructors. Did you mean to annotate the class? "
+                + type.getQualifiedName().toString());
           }
           if (hasInjectConstructor) {
             throw new IllegalArgumentException("Too many injectable constructors on "
