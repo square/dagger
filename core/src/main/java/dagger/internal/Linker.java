@@ -191,7 +191,7 @@ public final class Linker {
     throw new IllegalArgumentException("No binding for " + key);
   }
 
-  /** @Deprectated Older, generated code still using this should be re-generated. */
+  /** @deprecated Older, generated code still using this should be re-generated. */
   @Deprecated
   public Binding<?> requestBinding(String key, Object requiredBy) {
     return requestBinding(
@@ -207,7 +207,7 @@ public final class Linker {
     return requestBinding(key, requiredBy, classLoader, true, true);
   }
 
-  /** @Deprectated Older, generated code still using this should be re-generated. */
+  /** @deprecated Older, generated code still using this should be re-generated. */
   @Deprecated
   public Binding<?> requestBinding(String key, Object requiredBy,
       boolean mustHaveInjections, boolean library) {
