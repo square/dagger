@@ -30,23 +30,26 @@ public final class GeneratedAdapterLoader implements Loader {
   public static final String STATIC_INJECTION_SUFFIX = "$$StaticInjection";
 
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
-    return instantiate(moduleClass.getName(), MODULE_ADAPTER_SUFFIX);
+    return instantiate(moduleClass.getName(), MODULE_ADAPTER_SUFFIX, moduleClass.getClassLoader());
   }
 
   @Override public Binding<?> getAtInjectBinding(
-      String key, String className, boolean mustHaveInjections) {
-    return instantiate(className, INJECT_ADAPTER_SUFFIX);
+      String key, String className, ClassLoader classLoader, boolean mustHaveInjections) {
+    return instantiate(className, INJECT_ADAPTER_SUFFIX, classLoader);
   }
 
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
-    return instantiate(injectedClass.getName(), STATIC_INJECTION_SUFFIX);
+    return instantiate(injectedClass.getName(), STATIC_INJECTION_SUFFIX,
+        injectedClass.getClassLoader());
   }
 
   @SuppressWarnings("unchecked") // We use a naming convention to defend against mismatches.
-  private <T> T instantiate(String className, String suffix) {
+  private <T> T instantiate(String className, String suffix, ClassLoader classLoader) {
     String name = className + suffix;
     try {
-      Class<?> generatedClass = Class.forName(name);
+      // A null classloader is the system classloader.
+      classLoader = (classLoader != null) ? classLoader : ClassLoader.getSystemClassLoader();
+      Class<?> generatedClass = classLoader.loadClass(name);
       Constructor<?> constructor = generatedClass.getConstructor();
       constructor.setAccessible(true);
       return (T) constructor.newInstance();

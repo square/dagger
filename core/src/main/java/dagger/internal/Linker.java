@@ -99,14 +99,15 @@ public final class Linker {
     Binding<?> binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
-        DeferredBinding deferredBinding = (DeferredBinding) binding;
-        String key = deferredBinding.deferredKey;
-        boolean mustHaveInjections = deferredBinding.mustHaveInjections;
+        DeferredBinding deferred = (DeferredBinding) binding;
+        String key = deferred.deferredKey;
+        boolean mustHaveInjections = deferred.mustHaveInjections;
         if (bindings.containsKey(key)) {
           continue; // A binding for this key has since been linked.
         }
         try {
-          Binding<?> jitBinding = createJitBinding(key, binding.requiredBy, mustHaveInjections);
+          Binding<?> jitBinding =
+              createJitBinding(key, binding.requiredBy, deferred.classLoader, mustHaveInjections);
           jitBinding.setLibrary(binding.library());
           jitBinding.setDependedOn(binding.dependedOn());
           // Fail if the type of binding we got wasn't capable of what was requested.
@@ -167,26 +168,34 @@ public final class Linker {
    *   <li>Injections of other types will use the injectable constructors of those classes.
    * </ul>
    */
-  private Binding<?> createJitBinding(String key, Object requiredBy, boolean mustHaveInjections)
-      throws ClassNotFoundException {
+  private Binding<?> createJitBinding(String key, Object requiredBy, ClassLoader classLoader,
+      boolean mustHaveInjections) {
     String builtInBindingsKey = Keys.getBuiltInBindingsKey(key);
     if (builtInBindingsKey != null) {
-      return new BuiltInBinding<Object>(key, requiredBy, builtInBindingsKey);
+      return new BuiltInBinding<Object>(key, requiredBy, classLoader, builtInBindingsKey);
     }
     String lazyKey = Keys.getLazyKey(key);
     if (lazyKey != null) {
-      return new LazyBinding<Object>(key, requiredBy, lazyKey);
+      return new LazyBinding<Object>(key, requiredBy, classLoader, lazyKey);
     }
 
     String className = Keys.getClassName(key);
     if (className != null && !Keys.isAnnotated(key)) {
-      Binding<?> atInjectBinding = plugin.getAtInjectBinding(key, className, mustHaveInjections);
-      if (atInjectBinding != null) {
-        return atInjectBinding;
+      Binding<?> binding =
+          plugin.getAtInjectBinding(key, className, classLoader, mustHaveInjections);
+      if (binding != null) {
+        return binding;
       }
     }
 
     throw new IllegalArgumentException("No binding for " + key);
+  }
+
+  /** @deprecated Older, generated code still using this should be re-generated. */
+  @Deprecated
+  public Binding<?> requestBinding(String key, Object requiredBy) {
+    return requestBinding(
+        key, requiredBy, getClass().getClassLoader(), true, true);
   }
 
   /**
@@ -194,8 +203,16 @@ public final class Linker {
    * null. If the returned binding didn't exist or was unlinked, it will be
    * enqueued to be linked.
    */
-  public Binding<?> requestBinding(String key, Object requiredBy) {
-    return requestBinding(key, requiredBy, true, true);
+  public Binding<?> requestBinding(String key, Object requiredBy, ClassLoader classLoader) {
+    return requestBinding(key, requiredBy, classLoader, true, true);
+  }
+
+  /** @deprecated Older, generated code still using this should be re-generated. */
+  @Deprecated
+  public Binding<?> requestBinding(String key, Object requiredBy,
+      boolean mustHaveInjections, boolean library) {
+    return requestBinding(key, requiredBy, getClass().getClassLoader(),
+        mustHaveInjections, library);
   }
 
   /**
@@ -209,8 +226,8 @@ public final class Linker {
    *     to inject arbitrary classes like JUnit test cases and Android
    *     activities. It also isn't necessary for supertypes.
    */
-  public Binding<?> requestBinding(String key, Object requiredBy, boolean mustHaveInjections,
-      boolean library) {
+  public Binding<?> requestBinding(String key, Object requiredBy, ClassLoader classLoader,
+      boolean mustHaveInjections, boolean library) {
     assertLockHeld();
 
     Binding<?> binding = null;
@@ -224,7 +241,8 @@ public final class Linker {
 
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
-      Binding<?> deferredBinding = new DeferredBinding(key, requiredBy, mustHaveInjections);
+      Binding<?> deferredBinding =
+          new DeferredBinding(key, classLoader, requiredBy, mustHaveInjections);
       deferredBinding.setLibrary(library);
       deferredBinding.setDependedOn(true);
       toLink.add(deferredBinding);
@@ -384,12 +402,16 @@ public final class Linker {
   }
 
   private static class DeferredBinding extends Binding<Object> {
+    /** Loader originally intended to load this binding, to be used in loading the actual one */
+    final ClassLoader classLoader;
     final String deferredKey;
     final boolean mustHaveInjections;
 
-    private DeferredBinding(String deferredKey, Object requiredBy, boolean mustHaveInjections) {
+    private DeferredBinding(String deferredKey, ClassLoader classLoader, Object requiredBy,
+        boolean mustHaveInjections) {
       super(null, null, false, requiredBy);
       this.deferredKey = deferredKey;
+      this.classLoader = classLoader;
       this.mustHaveInjections = mustHaveInjections;
     }
     @Override public void injectMembers(Object t) {

@@ -21,15 +21,18 @@ package dagger.internal;
  */
 final class BuiltInBinding<T> extends Binding<T> {
   private final String delegateKey;
+  private final ClassLoader classLoader;
   private Binding<?> delegate;
 
-  public BuiltInBinding(String key, Object requiredBy, String delegateKey) {
+  public BuiltInBinding(
+      String key, Object requiredBy, ClassLoader classLoader, String delegateKey) {
     super(key, null, false, requiredBy);
+    this.classLoader = classLoader;
     this.delegateKey = delegateKey;
   }
 
   @Override public void attach(Linker linker) {
-    delegate = linker.requestBinding(delegateKey, requiredBy);
+    delegate = linker.requestBinding(delegateKey, requiredBy, classLoader);
   }
 
   @Override public void injectMembers(T t) {
