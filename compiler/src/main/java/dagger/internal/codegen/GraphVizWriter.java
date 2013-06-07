@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * Emits dot graphs.
  */
-public final class DotWriter implements Closeable {
+public final class GraphVizWriter implements Closeable {
   private static final String INDENT = "  ";
   private final Writer out;
   private int indent = 0;
@@ -36,7 +36,7 @@ public final class DotWriter implements Closeable {
    * @param out the stream to which dot data will be written. This should be a
    *     buffered stream.
    */
-  public DotWriter(Writer out) {
+  public GraphVizWriter(Writer out) {
     this.out = out;
   }
 

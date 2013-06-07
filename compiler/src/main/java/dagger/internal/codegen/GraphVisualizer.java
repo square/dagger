@@ -42,7 +42,7 @@ public final class GraphVisualizer {
       + "((\\[\\])*)"     // Arrays. Group 4.
       + "");
 
-  public void write(Map<String, Binding<?>> bindings, DotWriter writer) throws IOException {
+  public void write(Map<String, Binding<?>> bindings, GraphVizWriter writer) throws IOException {
     Map<Binding<?>, String> namesIndex = buildNamesIndex(bindings);
 
     writer.beginGraph("concentrate", "true");
