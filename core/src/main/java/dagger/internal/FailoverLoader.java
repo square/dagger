@@ -73,7 +73,7 @@ public final class FailoverLoader implements Loader {
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
     try {
       StaticInjection result = GeneratedAdapters.initStaticInjection(injectedClass);
-      if (result != null) {
+      if (result == null) {
         result = ReflectiveStaticInjection.create(injectedClass);
       }
       return result;
