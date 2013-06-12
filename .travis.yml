@@ -12,7 +12,7 @@ before_install:
   - tar -xzf android-sdk_r21.0.1-linux.tgz
   - export ANDROID_HOME=${PWD}/android-sdk-linux
   - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
-  - android update sdk --filter platform-tools,android-16,extra-android-support,android-17,sysimg-17 --no-ui --force
+  - android update sdk --filter platform-tools,android-16 --no-ui --force
 
 install: mvn install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
 
