@@ -23,7 +23,7 @@ package dagger.internal;
  */
 public interface Loader {
   /**
-   * Returns a binding that uses {@code @Inject} annotations.
+   * Returns a binding that uses {@code @Inject} annotations, or null if no such binding can beNo.
    */
   Binding<?> getAtInjectBinding(
       String key, String className, ClassLoader classLoader, boolean mustHaveInjections);
