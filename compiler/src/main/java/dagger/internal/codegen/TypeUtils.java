@@ -19,10 +19,8 @@ import dagger.internal.Keys;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -41,10 +39,10 @@ import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
 /**
- * Support for annotation processors.
+ * Utilities for handling types in annotation processors
  */
-final class CodeGen {
-  private CodeGen() {
+final class TypeUtils {
+  private TypeUtils() {
   }
 
   public static PackageElement getPackage(Element type) {
@@ -160,7 +158,7 @@ final class CodeGen {
    */
   public static Map<String, Object> getAnnotation(Class<?> annotationType, Element element) {
     for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
-      if (!CodeGen.rawTypeToString(annotation.getAnnotationType(), '$')
+      if (!rawTypeToString(annotation.getAnnotationType(), '$')
           .equals(annotationType.getName())) {
         continue;
       }
@@ -277,15 +275,6 @@ final class CodeGen {
     TypeElement type = (TypeElement) constructor.getEnclosingElement();
     return type.getEnclosingElement().getKind() == ElementKind.PACKAGE
         || type.getModifiers().contains(Modifier.STATIC);
-  }
-
-  /**
-   * Returns a set comprised of the given items
-   */
-  public static <T> Set<T> setOf(T ... items) {
-    Set<T> set = new LinkedHashSet<T>();
-    set.addAll(Arrays.asList(items));
-    return set;
   }
 
   /**

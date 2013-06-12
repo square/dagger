@@ -30,17 +30,18 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
+import static dagger.internal.codegen.TypeUtils.getApplicationSupertype;
+
 /**
  * A build time binding that injects the constructor and fields of a class.
  */
-final class AtInjectBinding extends Binding<Object> {
+final class GraphAnalysisInjectBinding extends Binding<Object> {
   private final TypeElement type;
   private final List<String> keys;
   private final Binding<?>[] bindings;
   private final String supertypeKey;
-  private Binding supertypeBinding;
 
-  private AtInjectBinding(String provideKey, String membersKey,
+  private GraphAnalysisInjectBinding(String provideKey, String membersKey,
       TypeElement type, List<String> keys, String supertypeKey) {
     super(provideKey, membersKey, type.getAnnotation(Singleton.class) != null,
         type.getQualifiedName().toString());
@@ -50,7 +51,7 @@ final class AtInjectBinding extends Binding<Object> {
     this.supertypeKey = supertypeKey;
   }
 
-  static AtInjectBinding create(TypeElement type, boolean mustHaveInjections) {
+  static GraphAnalysisInjectBinding create(TypeElement type, boolean mustHaveInjections) {
     List<String> requiredKeys = new ArrayList<String>();
     boolean hasInjectConstructor = false;
     boolean hasNoArgsConstructor = false;
@@ -99,7 +100,7 @@ final class AtInjectBinding extends Binding<Object> {
     }
 
     // Attach the supertype.
-    TypeMirror supertype = CodeGen.getApplicationSupertype(type);
+    TypeMirror supertype = getApplicationSupertype(type);
     String supertypeKey = supertype != null
         ? GeneratorKeys.rawMembersKey(supertype)
         : null;
@@ -108,7 +109,7 @@ final class AtInjectBinding extends Binding<Object> {
         ? GeneratorKeys.get(type.asType())
         : null;
     String membersKey = GeneratorKeys.rawMembersKey(type.asType());
-    return new AtInjectBinding(provideKey, membersKey, type, requiredKeys, supertypeKey);
+    return new GraphAnalysisInjectBinding(provideKey, membersKey, type, requiredKeys, supertypeKey);
   }
 
   private static boolean hasAtInject(Element enclosed) {
@@ -126,8 +127,8 @@ final class AtInjectBinding extends Binding<Object> {
           getClass().getClassLoader());
     }
     if (supertypeKey != null) {
-      supertypeBinding = linker.requestBinding(supertypeKey, requiredBy,
-          getClass().getClassLoader(), false, true);
+      // Force the binding lookup.
+      linker.requestBinding(supertypeKey, requiredBy, getClass().getClassLoader(), false, true);
     }
   }
 

@@ -22,6 +22,7 @@ import dagger.internal.Linker;
 import dagger.internal.StaticInjection;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -45,8 +46,14 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static dagger.internal.codegen.CodeGen.typeToString;
-import static dagger.internal.codegen.ProcessorJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.TypeUtils.adapterName;
+import static dagger.internal.codegen.TypeUtils.getApplicationSupertype;
+import static dagger.internal.codegen.TypeUtils.getNoArgsConstructor;
+import static dagger.internal.codegen.TypeUtils.getPackage;
+import static dagger.internal.codegen.TypeUtils.isCallableConstructor;
+import static dagger.internal.codegen.TypeUtils.rawTypeToString;
+import static dagger.internal.codegen.TypeUtils.typeToString;
 import static dagger.internal.loaders.generated.GeneratedAdapterLoader.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.generated.GeneratedAdapterLoader.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
@@ -58,7 +65,7 @@ import static java.lang.reflect.Modifier.PUBLIC;
  * {@literal @}{@code Inject}-annotated members of a class.
  */
 @SupportedAnnotationTypes("javax.inject.Inject")
-public final class InjectProcessor extends AbstractProcessor {
+public final class InjectAdapterProcessor extends AbstractProcessor {
   private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
 
   @Override public SourceVersion getSupportedSourceVersion() {
@@ -120,7 +127,7 @@ public final class InjectProcessor extends AbstractProcessor {
       if (!validateInjectable(element)) {
         continue;
       }
-      injectedTypeNames.add(CodeGen.rawTypeToString(element.getEnclosingElement().asType(), '.'));
+      injectedTypeNames.add(rawTypeToString(element.getEnclosingElement().asType(), '.'));
     }
     return injectedTypeNames;
   }
@@ -196,8 +203,8 @@ public final class InjectProcessor extends AbstractProcessor {
     }
 
     if (constructor == null && !isAbstract) {
-      constructor = CodeGen.getNoArgsConstructor(type);
-      if (constructor != null && !CodeGen.isCallableConstructor(constructor)) {
+      constructor = getNoArgsConstructor(type);
+      if (constructor != null && !isCallableConstructor(constructor)) {
         constructor = null;
       }
     }
@@ -218,10 +225,10 @@ public final class InjectProcessor extends AbstractProcessor {
    */
   private void writeInjectAdapter(TypeElement type, ExecutableElement constructor,
       List<Element> fields) throws IOException {
-    String packageName = CodeGen.getPackage(type).getQualifiedName().toString();
+    String packageName = getPackage(type).getQualifiedName().toString();
     String strippedTypeName = strippedTypeName(type.getQualifiedName().toString(), packageName);
-    TypeMirror supertype = CodeGen.getApplicationSupertype(type);
-    String adapterName = CodeGen.adapterName(type, INJECT_ADAPTER_SUFFIX);
+    TypeMirror supertype = getApplicationSupertype(type);
+    String adapterName = adapterName(type, INJECT_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
     boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
@@ -232,7 +239,7 @@ public final class InjectProcessor extends AbstractProcessor {
     boolean dependent = injectMembers
         || ((constructor != null) && !constructor.getParameters().isEmpty());
 
-    writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
+    writer.emitEndOfLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(packageName);
     writer.emitEmptyLine();
     writer.emitImports(getImports(dependent, injectMembers, constructor != null));
@@ -246,18 +253,18 @@ public final class InjectProcessor extends AbstractProcessor {
     if (constructor != null) {
       for (VariableElement parameter : constructor.getParameters()) {
         writer.emitField(JavaWriter.type(Binding.class,
-            CodeGen.typeToString(parameter.asType())),
+            typeToString(parameter.asType())),
             parameterName(disambiguateFields, parameter), PRIVATE);
       }
     }
     for (Element field : fields) {
       writer.emitField(JavaWriter.type(Binding.class,
-          CodeGen.typeToString(field.asType())),
+          typeToString(field.asType())),
           fieldName(disambiguateFields, field), PRIVATE);
     }
     if (supertype != null) {
       writer.emitField(JavaWriter.type(Binding.class,
-          CodeGen.rawTypeToString(supertype, '.')), "supertype", PRIVATE);
+          rawTypeToString(supertype, '.')), "supertype", PRIVATE);
     }
 
     writer.emitEmptyLine();
@@ -272,7 +279,7 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.endMethod();
     if (dependent) {
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
+      writer.emitJavadoc(AdapterJavadocs.ATTACH_METHOD);
       writer.emitAnnotation(Override.class);
       writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
       writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
@@ -299,15 +306,14 @@ public final class InjectProcessor extends AbstractProcessor {
             "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader()"
                 + ", false, true)", // Yep.  This is a dumb line-length violation otherwise.
             "supertype",
-            writer.compressType(JavaWriter.type(Binding.class,
-                CodeGen.rawTypeToString(supertype, '.'))),
+            writer.compressType(JavaWriter.type(Binding.class, rawTypeToString(supertype, '.'))),
             JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(supertype)),
             strippedTypeName);
       }
       writer.endMethod();
 
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.GET_DEPENDENCIES_METHOD);
+      writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
       String setOfBindings = JavaWriter.type(Set.class, "Binding<?>");
       writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
@@ -328,7 +334,7 @@ public final class InjectProcessor extends AbstractProcessor {
 
     if (constructor != null) {
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.GET_METHOD, strippedTypeName);
+      writer.emitJavadoc(AdapterJavadocs.GET_METHOD, strippedTypeName);
       writer.emitAnnotation(Override.class);
       writer.beginMethod(strippedTypeName, "get", PUBLIC);
       StringBuilder newInstance = new StringBuilder();
@@ -351,7 +357,7 @@ public final class InjectProcessor extends AbstractProcessor {
 
     if (injectMembers) {
       writer.emitEmptyLine();
-      writer.emitJavadoc(ProcessorJavadocs.MEMBERS_INJECT_METHOD, strippedTypeName);
+      writer.emitJavadoc(AdapterJavadocs.MEMBERS_INJECT_METHOD, strippedTypeName);
       writer.emitAnnotation(Override.class);
       writer.beginMethod("void", "injectMembers", PUBLIC, strippedTypeName, "object");
       for (Element field : fields) {
@@ -400,33 +406,32 @@ public final class InjectProcessor extends AbstractProcessor {
    */
   private void writeStaticInjection(TypeElement type, List<Element> fields) throws IOException {
     String typeName = type.getQualifiedName().toString();
-    String adapterName = CodeGen.adapterName(type, STATIC_INJECTION_SUFFIX);
+    String adapterName = adapterName(type, STATIC_INJECTION_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler()
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
-    writer.emitEndOfLineComment(ProcessorJavadocs.GENERATED_BY_DAGGER);
-    writer.emitPackage(CodeGen.getPackage(type).getQualifiedName().toString());
+    writer.emitEndOfLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
+    writer.emitPackage(getPackage(type).getQualifiedName().toString());
 
     writer.emitEmptyLine();
-    writer.emitImports(CodeGen.setOf(
+    writer.emitImports(Arrays.asList(
         StaticInjection.class.getName(),
         Binding.class.getName(),
         Linker.class.getName()));
 
     writer.emitEmptyLine();
 
-    writer.emitJavadoc(ProcessorJavadocs.STATIC_INJECTION_TYPE, type.getSimpleName());
+    writer.emitJavadoc(AdapterJavadocs.STATIC_INJECTION_TYPE, type.getSimpleName());
     writer.beginType(adapterName, "class", PUBLIC | FINAL, StaticInjection.class.getSimpleName());
 
     for (Element field : fields) {
-      writer.emitField(JavaWriter.type(Binding.class,
-          CodeGen.typeToString(field.asType())),
+      writer.emitField(JavaWriter.type(Binding.class, typeToString(field.asType())),
           fieldName(false, field), PRIVATE);
     }
 
     writer.emitEmptyLine();
-    writer.emitJavadoc(ProcessorJavadocs.ATTACH_METHOD);
+    writer.emitJavadoc(AdapterJavadocs.ATTACH_METHOD);
     writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "attach", PUBLIC, Linker.class.getName(), "linker");
     for (Element field : fields) {
@@ -440,7 +445,7 @@ public final class InjectProcessor extends AbstractProcessor {
     writer.endMethod();
 
     writer.emitEmptyLine();
-    writer.emitJavadoc(ProcessorJavadocs.STATIC_INJECT_METHOD);
+    writer.emitJavadoc(AdapterJavadocs.STATIC_INJECT_METHOD);
     writer.emitAnnotation(Override.class);
     writer.beginMethod("void", "inject", PUBLIC);
     for (Element field : fields) {
@@ -477,4 +482,5 @@ public final class InjectProcessor extends AbstractProcessor {
       this.fields = fields;
     }
   }
+
 }

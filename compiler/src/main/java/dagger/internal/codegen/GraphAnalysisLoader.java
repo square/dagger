@@ -29,11 +29,11 @@ import javax.lang.model.element.TypeElement;
  * {@link Binding#get} or {@link Binding#injectMembers} methods. They are only suitable
  * for graph analysis and error detection.
  */
-public final class CompileTimeLoader implements Loader {
+public final class GraphAnalysisLoader implements Loader {
 
   private final ProcessingEnvironment processingEnv;
 
-  public CompileTimeLoader(ProcessingEnvironment processingEnv) {
+  public GraphAnalysisLoader(ProcessingEnvironment processingEnv) {
     this.processingEnv = processingEnv;
   }
 
@@ -51,7 +51,7 @@ public final class CompileTimeLoader implements Loader {
     if (type.getKind() == ElementKind.INTERFACE) {
       return null;
     }
-    return AtInjectBinding.create(type, mustHaveInjections);
+    return GraphAnalysisInjectBinding.create(type, mustHaveInjections);
   }
 
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
