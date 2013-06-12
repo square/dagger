@@ -21,13 +21,13 @@ import dagger.internal.loaders.GeneratedAdapters;
 import dagger.internal.loaders.ReflectiveAtInjectBinding;
 import dagger.internal.loaders.ReflectiveModuleAdapter;
 import dagger.internal.loaders.ReflectiveStaticInjection;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Aggregates provided plugins and delegates its operations to them in order.  Also provides some
- * specific runtime facilities needed by the runtime.
+ * Handles loading/finding of modules, injection bindings, and static injections by use of a
+ * strategy of "load the appropriate generaged code" or, if no such code is found, create a
+ * reflective equivalent.
  */
 public final class FailoverLoader implements Loader {
   private static final Logger logger = Logger.getLogger(Loader.class.getName());
