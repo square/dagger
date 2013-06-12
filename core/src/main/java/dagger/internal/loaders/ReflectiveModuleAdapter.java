@@ -60,7 +60,7 @@ public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   }
 
   @Override public void getBindings(Map<String, Binding<?>> bindings) {
-    for (Class<?> c = moduleClass; c != Object.class; c = c.getSuperclass()) {
+    for (Class<?> c = moduleClass; !c.equals(Object.class); c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         Provides provides = method.getAnnotation(Provides.class);
         if (provides != null) {
@@ -138,7 +138,7 @@ public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
     if (annotation == null) {
       throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
     }
-    if (moduleClass.getSuperclass() != Object.class) {
+    if (!moduleClass.getSuperclass().equals(Object.class)) {
       throw new IllegalArgumentException(
           "Modules must not extend from other classes: " + moduleClass.getName());
     }

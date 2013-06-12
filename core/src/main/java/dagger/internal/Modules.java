@@ -25,6 +25,8 @@ import java.util.Map;
  */
 public final class Modules {
 
+  private Modules() { }
+
   /**
    * Returns a full set of module adapters, including module adapters for included
    * modules.

@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2012 Square, Inc.
+ * Copyright (C) 2013 Square, Inc.
+ * Copyright (C) 2013 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +28,7 @@ import java.util.logging.Logger;
  * A utility for loading and initializing generated adapters.
  */
 public final class GeneratedAdapters {
-  public static final String SEPARATOR = "$$";
+  private static final String SEPARATOR = "$$";
   public static final String INJECT_ADAPTER_SUFFIX = SEPARATOR + "InjectAdapter";
   public static final String MODULE_ADAPTER_SUFFIX = SEPARATOR + "ModuleAdapter";
   public static final String STATIC_INJECTION_SUFFIX = SEPARATOR + "StaticInjection";
@@ -36,40 +37,39 @@ public final class GeneratedAdapters {
   private GeneratedAdapters() { }
 
   public static <T> ModuleAdapter<T> initModuleAdapter(Class<? extends T> moduleClass) {
-    return instantiate(moduleClass.getName(), MODULE_ADAPTER_SUFFIX, moduleClass.getClassLoader());
+    return instantiate(moduleClass.getName() + MODULE_ADAPTER_SUFFIX, moduleClass.getClassLoader());
   }
 
   public static Binding<?> initInjectAdapter(String className, ClassLoader classLoader) {
-    return instantiate(className, INJECT_ADAPTER_SUFFIX, classLoader);
+    return instantiate(className + INJECT_ADAPTER_SUFFIX, classLoader);
   }
 
   public static StaticInjection initStaticInjection(Class<?> injectedClass) {
-    return instantiate(injectedClass.getName(), STATIC_INJECTION_SUFFIX,
+    return instantiate(injectedClass.getName() + STATIC_INJECTION_SUFFIX,
         injectedClass.getClassLoader());
   }
 
-  private static <T> T instantiate(String className, String suffix, ClassLoader classLoader) {
-    String name = className + suffix;
+  private static <T> T instantiate(String name, ClassLoader classLoader) {
     try {
       // A null classloader is the system classloader.
       classLoader = (classLoader != null) ? classLoader : ClassLoader.getSystemClassLoader();
       Class<?> generatedClass = classLoader.loadClass(name);
-      Constructor<?> constructor = generatedClass.getConstructor();
+      Constructor<?> constructor = generatedClass.getDeclaredConstructor();
       constructor.setAccessible(true);
       return (T) constructor.newInstance();
     } catch (ClassNotFoundException e) {
       if (logger.isLoggable(Level.FINE)) {
-        logger.log(Level.FINE, className + " could not be found.", e);
+        logger.log(Level.FINE, name + " could not be found.", e);
       }
       return null; // Not finding a class is not inherently an error, unlike finding a bad class.
     } catch (NoSuchMethodException e) {
-      throw new RuntimeException("No valid constructor found on " + className, e);
+      throw new RuntimeException("No default constructor found on " + name, e);
     } catch (InstantiationException e) {
-      throw new RuntimeException("Failed to initialize " + className, e);
+      throw new RuntimeException("Failed to initialize " + name, e);
     } catch (IllegalAccessException e) {
-      throw new RuntimeException("Failed to initialize " + className, e);
+      throw new RuntimeException("Failed to initialize " + name, e);
     } catch (InvocationTargetException e) {
-      throw new RuntimeException("Error while initializing " + className, e.getCause());
+      throw new RuntimeException("Error while initializing " + name, e.getCause());
     }
   }
 }

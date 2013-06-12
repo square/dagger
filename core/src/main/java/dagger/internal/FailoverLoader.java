@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2012 Square, Inc.
- * Copyright (C) 2012 Google, Inc.
+ * Copyright (C) 2013 Square, Inc.
+ * Copyright (C) 2013 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,23 +53,17 @@ public final class FailoverLoader implements Loader {
       ClassLoader classLoader, boolean mustHaveInjections) {
     try {
       Binding<?> result = GeneratedAdapters.initInjectAdapter(className, classLoader);
-      if (result != null) {
-        return result;
-      }
-
-      // Fall back on reflection.
-      Class<?> c;
-      try {
+      if (result == null) {
         // A null classloader is the system classloader.
         classLoader = (classLoader != null) ? classLoader : ClassLoader.getSystemClassLoader();
-        c = classLoader.loadClass(className);
-      } catch (ClassNotFoundException e) {
-        throw new RuntimeException(e);
+        Class<?> c = classLoader.loadClass(className);
+        if (!c.isInterface()) {
+          result = ReflectiveAtInjectBinding.create(c, mustHaveInjections);
+        }
       }
-      if (c.isInterface()) {
-        return null;
-      }
-      return ReflectiveAtInjectBinding.create(c, mustHaveInjections);
+      return result;
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
     } catch (RuntimeException e) {
       logNotFound("Binding", className, e);
       throw e;
@@ -80,9 +74,9 @@ public final class FailoverLoader implements Loader {
     try {
       StaticInjection result = GeneratedAdapters.initStaticInjection(injectedClass);
       if (result != null) {
-        return result;
+        result = ReflectiveStaticInjection.create(injectedClass);
       }
-      return ReflectiveStaticInjection.create(injectedClass);
+      return result;
     } catch (RuntimeException e) {
       logNotFound("Static injection", injectedClass.getName(), e);
       throw e;
