@@ -21,32 +21,24 @@ import dagger.internal.loaders.GeneratedAdapters;
 import dagger.internal.loaders.ReflectiveAtInjectBinding;
 import dagger.internal.loaders.ReflectiveModuleAdapter;
 import dagger.internal.loaders.ReflectiveStaticInjection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Handles loading/finding of modules, injection bindings, and static injections by use of a
- * strategy of "load the appropriate generaged code" or, if no such code is found, create a
+ * strategy of "load the appropriate generated code" or, if no such code is found, create a
  * reflective equivalent.
  */
 public final class FailoverLoader implements Loader {
-  private static final Logger logger = Logger.getLogger(Loader.class.getName());
 
   /**
    * Obtains a module adapter for {@code module} from the first responding resolver.
    */
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> type, T instance) {
-    try {
-      ModuleAdapter<T> result = GeneratedAdapters.initModuleAdapter(type);
-      if (result == null) {
-        result = ReflectiveModuleAdapter.createAdaptor(type);
-      }
-      result.module = (instance == null) ? result.newModule() : instance;
-      return result;
-    } catch (RuntimeException e) {
-      logNotFound("Module adapter", type.getName(), e);
-      throw e;
+    ModuleAdapter<T> result = GeneratedAdapters.initModuleAdapter(type);
+    if (result == null) {
+      result = ReflectiveModuleAdapter.create(type);
     }
+    result.module = (instance != null) ? instance : result.newModule();
+    return result;
   }
 
   @Override public Binding<?> getAtInjectBinding(String key, String className,
@@ -64,28 +56,14 @@ public final class FailoverLoader implements Loader {
       return result;
     } catch (ClassNotFoundException e) {
       throw new RuntimeException("Could not find " + className + " needed for binding " + key, e);
-    } catch (RuntimeException e) {
-      logNotFound("Binding", className, e);
-      throw e;
     }
   }
 
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
-    try {
-      StaticInjection result = GeneratedAdapters.initStaticInjection(injectedClass);
-      if (result == null) {
-        result = ReflectiveStaticInjection.create(injectedClass);
-      }
-      return result;
-    } catch (RuntimeException e) {
-      logNotFound("Static injection", injectedClass.getName(), e);
-      throw e;
+    StaticInjection result = GeneratedAdapters.initStaticInjection(injectedClass);
+    if (result == null) {
+      result = ReflectiveStaticInjection.create(injectedClass);
     }
-  }
-
-  private void logNotFound(String type, String name, RuntimeException e) {
-    if (logger.isLoggable(Level.FINE)) {
-      logger.log(Level.FINE, String.format("Could not initialize a %s for %s.", type, name), e);
-    }
+    return result;
   }
 }

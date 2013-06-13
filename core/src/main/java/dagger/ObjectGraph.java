@@ -16,9 +16,8 @@
  */
 package dagger;
 
-import dagger.internal.FailoverLoader;
-
 import dagger.internal.Binding;
+import dagger.internal.FailoverLoader;
 import dagger.internal.Keys;
 import dagger.internal.Linker;
 import dagger.internal.Loader;
