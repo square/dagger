@@ -63,7 +63,7 @@ public final class FailoverLoader implements Loader {
       }
       return result;
     } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Could not find " + className + " needed for binding " + key, e);
     } catch (RuntimeException e) {
       logNotFound("Binding", className, e);
       throw e;
