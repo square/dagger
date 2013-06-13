@@ -133,7 +133,7 @@ public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
    * Creates a ReflectiveModuleAdapter or throws an {@code IllegalArgumentException}.
    */
   @SuppressWarnings("unchecked") // Runtime checks validate that the result type matches 'T'.
-  public static <T> ModuleAdapter<T> createAdaptor(Class<? extends T> moduleClass) {
+  public static <T> ModuleAdapter<T> create(Class<? extends T> moduleClass) {
     Module annotation = moduleClass.getAnnotation(Module.class);
     if (annotation == null) {
       throw new IllegalArgumentException("No @Module on " + moduleClass.getName());

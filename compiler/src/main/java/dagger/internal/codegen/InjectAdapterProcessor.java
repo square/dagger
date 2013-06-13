@@ -15,9 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
-import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
-
 import com.squareup.java.JavaWriter;
 import dagger.MembersInjector;
 import dagger.internal.Binding;
@@ -57,6 +54,8 @@ import static dagger.internal.codegen.TypeUtils.getPackage;
 import static dagger.internal.codegen.TypeUtils.isCallableConstructor;
 import static dagger.internal.codegen.TypeUtils.rawTypeToString;
 import static dagger.internal.codegen.TypeUtils.typeToString;
+import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
 import static java.lang.reflect.Modifier.PUBLIC;
