@@ -24,6 +24,7 @@ import dagger.internal.ModuleAdapter;
 import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -68,7 +69,7 @@ import static java.lang.reflect.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
-@SupportedAnnotationTypes({ "dagger.Provides", "dagger.Module" })
+@SupportedAnnotationTypes({ "*" })
 public final class ModuleAdapterProcessor extends AbstractProcessor {
   private final LinkedHashMap<String, List<ExecutableElement>> remainingTypes =
       new LinkedHashMap<String, List<ExecutableElement>>();
@@ -117,11 +118,6 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     Elements elementUtils = processingEnv.getElementUtils();
     Types types = processingEnv.getTypeUtils();
 
-    TypeElement providerElement = elementUtils.getTypeElement("javax.inject.Provider");
-    TypeMirror providerType = types.erasure(providerElement.asType());
-    TypeElement lazyElement = elementUtils.getTypeElement("dagger.Lazy");
-    TypeMirror lazyType = types.erasure(lazyElement.asType());
-
     Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
     for (Element providerMethod : providesMethods(env)) {
       switch (providerMethod.getEnclosingElement().getKind()) {
@@ -157,20 +153,17 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         continue;
       }
 
+      // Invalidate return types.
       TypeMirror returnType = types.erasure(providerMethodAsExecutable.getReturnType());
-      if (types.isSameType(returnType, providerType)) {
-        error("@Provides method must not return Provider directly: "
-            + type.getQualifiedName()
-            + "."
-            + providerMethod, providerMethod);
-        continue;
-      }
-      if (types.isSameType(returnType, lazyType)) {
-        error("@Provides method must not return Lazy directly: "
-            + type.getQualifiedName()
-            + "."
-            + providerMethod, providerMethod);
-        continue;
+      for (String invalidTypeName : Arrays.asList("javax.inject.Provider", "dagger.Lazy")) {
+        TypeElement invalidTypeElement = elementUtils.getTypeElement(invalidTypeName);
+        if (invalidTypeElement != null) {
+          if (types.isSameType(returnType, types.erasure(invalidTypeElement.asType()))) {
+            error(String.format("@Provides method must not return %s directly: %s.%s",
+                invalidTypeElement, type.getQualifiedName(), providerMethod), providerMethod);
+            continue; // skip to next provides method.
+          }
+        }
       }
 
       List<ExecutableElement> methods = result.get(type.getQualifiedName().toString());
