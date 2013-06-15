@@ -21,7 +21,6 @@ import dagger.internal.ModuleAdapter;
 import dagger.internal.StaticInjection;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -36,20 +35,24 @@ public final class GeneratedAdapters {
 
   private GeneratedAdapters() { }
 
-  public static <T> ModuleAdapter<T> initModuleAdapter(Class<? extends T> moduleClass) {
+  public static <T> ModuleAdapter<T> initModuleAdapter(Class<? extends T> moduleClass)
+      throws ClassNotFoundException {
     return instantiate(moduleClass.getName() + MODULE_ADAPTER_SUFFIX, moduleClass.getClassLoader());
   }
 
-  public static Binding<?> initInjectAdapter(String className, ClassLoader classLoader) {
+  public static Binding<?> initInjectAdapter(String className, ClassLoader classLoader)
+      throws ClassNotFoundException {
     return instantiate(className + INJECT_ADAPTER_SUFFIX, classLoader);
   }
 
-  public static StaticInjection initStaticInjection(Class<?> injectedClass) {
+  public static StaticInjection initStaticInjection(Class<?> injectedClass)
+      throws ClassNotFoundException {
     return instantiate(injectedClass.getName() + STATIC_INJECTION_SUFFIX,
         injectedClass.getClassLoader());
   }
 
-  private static <T> T instantiate(String name, ClassLoader classLoader) {
+  private static <T> T instantiate(String name, ClassLoader classLoader)
+      throws ClassNotFoundException {
     try {
       // A null classloader is the system classloader.
       classLoader = (classLoader != null) ? classLoader : ClassLoader.getSystemClassLoader();
@@ -57,11 +60,6 @@ public final class GeneratedAdapters {
       Constructor<?> constructor = generatedClass.getDeclaredConstructor();
       constructor.setAccessible(true);
       return (T) constructor.newInstance();
-    } catch (ClassNotFoundException e) {
-      if (logger.isLoggable(Level.FINE)) {
-        logger.log(Level.FINE, name + " could not be found.", e);
-      }
-      return null; // Not finding a class is not inherently an error, unlike finding a bad class.
     } catch (NoSuchMethodException e) {
       throw new RuntimeException("No default constructor found on " + name, e);
     } catch (InstantiationException e) {
