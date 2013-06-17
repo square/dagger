@@ -30,8 +30,9 @@ public class DemoApplication extends Application {
   }
 
   protected List<Object> getModules() {
-    return Arrays.<Object>asList(
-        new AndroidModule(this)
+    return Arrays.asList(
+        new AndroidModule(this),
+        new DemoModule()
     );
   }
 
