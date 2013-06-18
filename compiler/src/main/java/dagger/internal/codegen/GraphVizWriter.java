@@ -15,7 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.squareup.java.JavaWriter;
+import com.squareup.javawriter.JavaWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Writer;
