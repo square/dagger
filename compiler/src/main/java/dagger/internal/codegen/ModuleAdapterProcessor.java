@@ -15,7 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.squareup.java.JavaWriter;
+import com.squareup.javawriter.JavaWriter;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
@@ -231,7 +231,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     boolean multibindings = checkForMultibindings(providerMethods);
     boolean providerMethodDependencies = checkForDependencies(providerMethods);
 
-    writer.emitEndOfLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
+    writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(getPackage(type).getQualifiedName().toString());
     writer.emitEmptyLine();
     writer.emitImports(
