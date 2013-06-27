@@ -15,7 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.squareup.java.JavaWriter;
+import com.squareup.javawriter.JavaWriter;
 import dagger.MembersInjector;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
@@ -239,7 +239,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     boolean dependent = injectMembers
         || ((constructor != null) && !constructor.getParameters().isEmpty());
 
-    writer.emitEndOfLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
+    writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(packageName);
     writer.emitEmptyLine();
     writer.emitImports(getImports(dependent, injectMembers, constructor != null));
@@ -411,7 +411,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
         .createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
 
-    writer.emitEndOfLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
+    writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(getPackage(type).getQualifiedName().toString());
 
     writer.emitEmptyLine();

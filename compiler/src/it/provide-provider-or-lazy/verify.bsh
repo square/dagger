@@ -3,10 +3,10 @@ import java.io.File;
 
 File buildLog = new File(basedir, "build.log");
 new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "@Provides method must not return Provider directly: test.TestModule.provideProvider"});
+    "@Provides method must not return javax.inject.Provider directly: test.TestModule.provideProvider"});
 new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "@Provides method must not return Provider directly: test.TestModule.provideRawProvider"});
+    "@Provides method must not return javax.inject.Provider directly: test.TestModule.provideRawProvider"});
 new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "@Provides method must not return Lazy directly: test.TestModule.provideLazy"});
+    "@Provides method must not return dagger.Lazy directly: test.TestModule.provideLazy"});
 new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "@Provides method must not return Lazy directly: test.TestModule.provideRawLazy"});
+    "@Provides method must not return dagger.Lazy directly: test.TestModule.provideRawLazy"});
