@@ -35,16 +35,28 @@ public final class GeneratedAdapters {
 
   private GeneratedAdapters() { }
 
+  /**
+   * Attempts to load an adapter named from the provided type plus a constant suffix
+   * {@link #MODULE_ADAPTER_SUFFIX}, or throws a ClassNotFoundException.
+   */
   public static <T> ModuleAdapter<T> initModuleAdapter(Class<? extends T> moduleClass)
       throws ClassNotFoundException {
     return instantiate(moduleClass.getName() + MODULE_ADAPTER_SUFFIX, moduleClass.getClassLoader());
   }
 
+  /**
+   * Attempts to load an adapter named from the provided class name plus a constant suffix
+   * {@link #INJECT_ADAPTER_SUFFIX}, or throws a ClassNotFoundException.
+   */
   public static Binding<?> initInjectAdapter(String className, ClassLoader classLoader)
       throws ClassNotFoundException {
     return instantiate(className + INJECT_ADAPTER_SUFFIX, classLoader);
   }
 
+  /**
+   * Attempts to load an adapter named from the provided type plus a constant suffix
+   * {@link #STATIC_INJECTION_SUFFIX}, or throws a ClassNotFoundException.
+   */
   public static StaticInjection initStaticInjection(Class<?> injectedClass)
       throws ClassNotFoundException {
     return instantiate(injectedClass.getName() + STATIC_INJECTION_SUFFIX,

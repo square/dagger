@@ -32,13 +32,14 @@ public final class FailoverLoader implements Loader {
    * Obtains a module adapter for {@code module} from the first responding resolver.
    */
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> type, T instance) {
+    ModuleAdapter<T> result = null;
     try {
-      ModuleAdapter<T> result = GeneratedAdapters.initModuleAdapter(type);
-      result.module = (instance != null) ? instance : result.newModule();
-      return result;
+      result = GeneratedAdapters.initModuleAdapter(type);
     } catch (ClassNotFoundException e) {
       throw new TypeNotPresentException(type + GeneratedAdapters.MODULE_ADAPTER_SUFFIX, e);
     }
+    result.module = (instance != null) ? instance : result.newModule();
+    return result;
   }
 
   @Override public Binding<?> getAtInjectBinding(String key, String className,
