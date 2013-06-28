@@ -37,7 +37,7 @@ public final class GeneratedAdapters {
 
   /**
    * Attempts to load an adapter named from the provided type plus a constant suffix
-   * {@link #MODULE_ADAPTER_SUFFIX}, or throws a ClassNotFoundException.
+   * {@link #MODULE_ADAPTER_SUFFIX}, or throws a {@code ClassNotFoundException}.
    */
   public static <T> ModuleAdapter<T> initModuleAdapter(Class<? extends T> moduleClass)
       throws ClassNotFoundException {
@@ -46,7 +46,7 @@ public final class GeneratedAdapters {
 
   /**
    * Attempts to load an adapter named from the provided class name plus a constant suffix
-   * {@link #INJECT_ADAPTER_SUFFIX}, or throws a ClassNotFoundException.
+   * {@link #INJECT_ADAPTER_SUFFIX}, or throws a {@code ClassNotFoundException}.
    */
   public static Binding<?> initInjectAdapter(String className, ClassLoader classLoader)
       throws ClassNotFoundException {
@@ -55,7 +55,7 @@ public final class GeneratedAdapters {
 
   /**
    * Attempts to load an adapter named from the provided type plus a constant suffix
-   * {@link #STATIC_INJECTION_SUFFIX}, or throws a ClassNotFoundException.
+   * {@link #STATIC_INJECTION_SUFFIX}, or throws a {@code ClassNotFoundException}.
    */
   public static StaticInjection initStaticInjection(Class<?> injectedClass)
       throws ClassNotFoundException {
