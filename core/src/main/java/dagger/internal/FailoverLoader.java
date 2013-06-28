@@ -46,7 +46,7 @@ public final class FailoverLoader implements Loader {
       ClassLoader classLoader, boolean mustHaveInjections) {
       try {
         return GeneratedAdapters.initInjectAdapter(className, classLoader);
-      } catch (ClassNotFoundException ignored) {
+      } catch (ClassNotFoundException ignored /* failover case */) {
         try {
           // A null classloader is the system classloader.
           classLoader = (classLoader != null) ? classLoader : ClassLoader.getSystemClassLoader();
