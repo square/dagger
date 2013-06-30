@@ -16,6 +16,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -127,6 +128,6 @@ public final class InjectionOfLazyTest {
   }
 
   private <T> T injectWithModule(T ep, Object ... modules) {
-    return ObjectGraph.create(modules).inject(ep);
+    return ObjectGraph.createWith(new TestingLoader(), modules).inject(ep);
   }
 }
