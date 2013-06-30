@@ -15,6 +15,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,7 +36,7 @@ public class UnusedProviderTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     graph.validate();
   }
 
@@ -52,7 +53,7 @@ public class UnusedProviderTest {
     }
 
     try {
-      ObjectGraph graph = ObjectGraph.create(new TestModule());
+      ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
       graph.validate();
       fail("Validation should have exploded!");
     } catch (IllegalStateException expected) {
@@ -75,7 +76,7 @@ public class UnusedProviderTest {
     @Module(injects = EntryPoint.class) class TestModule {
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     graph = graph.plus(new ExampleLibraryModule());
     graph.validate();
   }
@@ -88,7 +89,7 @@ public class UnusedProviderTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     try {
       graph.validate();
       fail();

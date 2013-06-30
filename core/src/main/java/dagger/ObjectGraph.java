@@ -126,6 +126,11 @@ public abstract class ObjectGraph {
     return DaggerObjectGraph.makeGraph(null, new FailoverLoader(), modules);
   }
 
+  // visible for testing
+  static ObjectGraph createWith(Loader loader, Object... modules) {
+    return DaggerObjectGraph.makeGraph(null, loader, modules);
+  }
+
   static class DaggerObjectGraph extends ObjectGraph {
     private final DaggerObjectGraph base;
     private final Linker linker;

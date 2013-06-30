@@ -16,6 +16,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
@@ -108,7 +109,7 @@ public final class SetBindingTest {
       @Provides(type=SET) Integer b() { return defaultCounter.getAndIncrement(); }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     TestEntryPoint1 ep1 = graph.inject(new TestEntryPoint1());
     TestEntryPoint2 ep2 = graph.inject(new TestEntryPoint2());
     assertEquals(set(100, 200), ep1.objects1);
@@ -184,7 +185,7 @@ public final class SetBindingTest {
       @Provides(type=SET) String provideString2() { return "string2"; }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     graph.validate();
   }
 
@@ -212,7 +213,7 @@ public final class SetBindingTest {
   }
 
   private <T> T injectWithModule(T ep, Object ... modules) {
-    return ObjectGraph.create(modules).inject(ep);
+    return ObjectGraph.createWith(new TestingLoader(), modules).inject(ep);
   }
 
   private <T> Set<T> set(T... ts) {
