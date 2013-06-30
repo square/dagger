@@ -16,6 +16,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import javax.inject.Inject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,7 +49,7 @@ public final class ExtensionWithStateTest {
 
   @Test public void basicInjectionWithExtension() {
     A a = new A();
-    ObjectGraph root = ObjectGraph.create(new RootModule(a));
+    ObjectGraph root = ObjectGraph.createWith(new TestingLoader(), new RootModule(a));
     assertThat(root.get(A.class)).isSameAs(a);
 
     // Extension graph behaves as the root graph would for root-ish things.

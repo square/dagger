@@ -15,6 +15,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import javax.inject.Inject;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,7 +48,7 @@ public final class InjectStaticsTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(),new TestModule());
     assertThat(InjectsOneField.staticField).isNull();
     graph.injectStatics();
     assertThat(InjectsOneField.staticField).isEqualTo("static");
@@ -66,7 +67,7 @@ public final class InjectStaticsTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     assertThat(InjectsStaticAndNonStatic.staticField).isNull();
     graph.injectStatics();
     assertThat(InjectsStaticAndNonStatic.staticField).isEqualTo("static");
@@ -85,7 +86,7 @@ public final class InjectStaticsTest {
       }
     }
 
-    ObjectGraph graph = ObjectGraph.create(new TestModule());
+    ObjectGraph graph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     assertThat(InjectsStaticAndNonStatic.staticField).isNull();
     InjectsStaticAndNonStatic object = new InjectsStaticAndNonStatic();
     graph.inject(object);

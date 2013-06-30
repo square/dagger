@@ -16,6 +16,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import java.util.Arrays;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -55,11 +56,12 @@ public final class ExtensionTest {
   static class ExtensionModule { }
 
   @Test public void basicExtension() {
-    assertNotNull(ObjectGraph.create(new RootModule()).plus(new ExtensionModule()));
+    assertNotNull(ObjectGraph.createWith(new TestingLoader(), new RootModule())
+        .plus(new ExtensionModule()));
   }
 
   @Test public void basicInjection() {
-    ObjectGraph root = ObjectGraph.create(new RootModule());
+    ObjectGraph root = ObjectGraph.createWith(new TestingLoader(), new RootModule());
     assertThat(root.get(A.class)).isNotNull();
     assertThat(root.get(A.class)).isSameAs(root.get(A.class)); // Present and Singleton.
     assertThat(root.get(B.class)).isNotSameAs(root.get(B.class)); // Not singleton.
@@ -77,7 +79,7 @@ public final class ExtensionTest {
   }
 
   @Test public void scopedGraphs() {
-    ObjectGraph app = ObjectGraph.create(new RootModule());
+    ObjectGraph app = ObjectGraph.createWith(new TestingLoader(), new RootModule());
     assertThat(app.get(A.class)).isNotNull();
     assertThat(app.get(A.class)).isSameAs(app.get(A.class));
     assertThat(app.get(B.class)).isNotSameAs(app.get(B.class));

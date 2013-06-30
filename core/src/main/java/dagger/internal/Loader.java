@@ -30,7 +30,8 @@ public interface Loader {
       String key, String className, ClassLoader classLoader, boolean mustHaveInjections);
 
   /**
-   * Returns a module adapter for {@code module}.
+   * Returns a module adapter for {@code module} or throws a {@code TypeNotPresentException} if
+   * none can be found.
    */
   <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module);
 

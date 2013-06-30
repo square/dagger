@@ -13,16 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.loaders;
+package dagger.internal;
 
 import dagger.Lazy;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.Binding;
-import dagger.internal.Keys;
-import dagger.internal.Linker;
-import dagger.internal.ModuleAdapter;
-import dagger.internal.SetBinding;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -34,10 +29,11 @@ import java.util.Set;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
-public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
+//TODO: Reduce the complexity of this and/or replace with a mock or fake.
+public final class TestOnlyModuleAdapter extends ModuleAdapter<Object> {
   final Class<?> moduleClass;
 
-  public ReflectiveModuleAdapter(Class<?> moduleClass, Module annotation) {
+  public TestOnlyModuleAdapter(Class<?> moduleClass, Module annotation) {
     super(
         injectableTypesToKeys(annotation.injects()),
         annotation.staticInjections(),
@@ -130,7 +126,7 @@ public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
   }
 
   /**
-   * Creates a ReflectiveModuleAdapter or throws an {@code IllegalArgumentException}.
+   * Creates a TestOnlyModuleAdapter or throws an {@code IllegalArgumentException}.
    */
   @SuppressWarnings("unchecked") // Runtime checks validate that the result type matches 'T'.
   public static <T> ModuleAdapter<T> create(Class<? extends T> moduleClass) {
@@ -142,7 +138,7 @@ public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       throw new IllegalArgumentException(
           "Modules must not extend from other classes: " + moduleClass.getName());
     }
-    return (ModuleAdapter<T>) new ReflectiveModuleAdapter(moduleClass, annotation);
+    return (ModuleAdapter<T>) new TestOnlyModuleAdapter(moduleClass, annotation);
   }
 
   /**
@@ -172,7 +168,6 @@ public final class ReflectiveModuleAdapter extends ModuleAdapter<Object> {
       }
     }
 
-    @SuppressWarnings("unchecked") // We defined 'T' in terms of the method's return type.
     @Override public T get() {
       Object[] args = new Object[parameters.length];
       for (int i = 0; i < parameters.length; i++) {

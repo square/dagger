@@ -15,6 +15,7 @@
  */
 package dagger;
 
+import dagger.internal.TestingLoader;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import org.junit.Test;
@@ -23,6 +24,8 @@ import org.junit.runners.JUnit4;
 
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.fail;
+
+//TODO: Migrate to compiler.
 
 @RunWith(JUnit4.class)
 public final class ModuleTest {
@@ -42,7 +45,7 @@ public final class ModuleTest {
       }
     }
 
-    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     TestEntryPoint entryPoint = objectGraph.get(TestEntryPoint.class);
     assertThat(entryPoint.s).isEqualTo("injected");
   }
@@ -63,7 +66,7 @@ public final class ModuleTest {
       }
     }
 
-    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     TestStaticInjection.s = null;
     objectGraph.injectStatics();
     assertThat(TestStaticInjection.s).isEqualTo("injected");
@@ -85,7 +88,7 @@ public final class ModuleTest {
     class TestModule {
     }
 
-    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("injected");
@@ -104,7 +107,7 @@ public final class ModuleTest {
     class TestModule {
     }
 
-    ObjectGraph objectGraph = ObjectGraph.create(new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("injected");
@@ -129,7 +132,7 @@ public final class ModuleTest {
     }
 
     try {
-      ObjectGraph.create(new TestModule());
+      ObjectGraph.createWith(new TestingLoader(), new TestModule());
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -144,7 +147,7 @@ public final class ModuleTest {
     class TestModule {
     }
 
-    ObjectGraph objectGraph = ObjectGraph.create(new ModuleWithConstructor("a"), new TestModule());
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new ModuleWithConstructor("a"), new TestModule());
     TestEntryPoint entryPoint = new TestEntryPoint();
     objectGraph.inject(entryPoint);
     assertThat(entryPoint.s).isEqualTo("a");
@@ -162,13 +165,13 @@ public final class ModuleTest {
 
   @Test public void autoInstantiationOfModules() {
     // Have to make these non-method-scoped or instantiation errors occur.
-    ObjectGraph objectGraph = ObjectGraph.create(TestModuleA.class);
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), TestModuleA.class);
     assertThat(objectGraph.get(A.class)).isNotNull();
   }
 
   @Test public void autoInstantiationOfIncludedModules() {
     // Have to make these non-method-scoped or instantiation errors occur.
-    ObjectGraph objectGraph = ObjectGraph.create(new TestModuleB()); // TestModuleA auto-created.
+    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new TestModuleB()); // TestModuleA auto-created.
     assertThat(objectGraph.get(A.class)).isNotNull();
     assertThat(objectGraph.get(B.class).a).isNotNull();
   }
@@ -178,9 +181,14 @@ public final class ModuleTest {
   @Module(includes = ModuleMissingModuleAnnotation.class)
   static class ChildModuleMissingModuleAnnotation {}
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void childModuleMissingModuleAnnotation() {
-    ObjectGraph.create(new ChildModuleMissingModuleAnnotation());
+    try {
+      ObjectGraph.createWith(new TestingLoader(), new ChildModuleMissingModuleAnnotation());
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage())
+          .contains("No @Module on dagger.ModuleTest$ModuleMissingModuleAnnotation");
+    }
   }
 
   @Module
@@ -188,7 +196,7 @@ public final class ModuleTest {
 
   @Test public void moduleExtendingClassThrowsException() {
     try {
-      ObjectGraph.create(new ThreadModule());
+      ObjectGraph.createWith(new TestingLoader(), new ThreadModule());
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e.getMessage()).startsWith("Modules must not extend from other classes: ");
@@ -203,7 +211,7 @@ public final class ModuleTest {
       }
     }
     try {
-      ObjectGraph.create(new ProvidesProviderModule());
+      ObjectGraph.createWith(new TestingLoader(), new ProvidesProviderModule());
       fail();
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()) //
@@ -220,7 +228,7 @@ public final class ModuleTest {
       }
     }
     try {
-      ObjectGraph.create(new ProvidesRawProviderModule());
+      ObjectGraph.createWith(new TestingLoader(), new ProvidesRawProviderModule());
       fail();
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()) //
@@ -237,7 +245,7 @@ public final class ModuleTest {
       }
     }
     try {
-      ObjectGraph.create(new ProvidesLazyModule());
+      ObjectGraph.createWith(new TestingLoader(), new ProvidesLazyModule());
       fail();
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()) //
@@ -254,7 +262,7 @@ public final class ModuleTest {
       }
     }
     try {
-      ObjectGraph.create(new ProvidesRawLazyModule());
+      ObjectGraph.createWith(new TestingLoader(), new ProvidesRawLazyModule());
       fail();
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()) //
