@@ -181,9 +181,14 @@ public final class ModuleTest {
   @Module(includes = ModuleMissingModuleAnnotation.class)
   static class ChildModuleMissingModuleAnnotation {}
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void childModuleMissingModuleAnnotation() {
-    ObjectGraph.createWith(new TestingLoader(), new TestingLoader(), new ChildModuleMissingModuleAnnotation());
+    try {
+      ObjectGraph.createWith(new TestingLoader(), new ChildModuleMissingModuleAnnotation());
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage())
+          .contains("No @Module on dagger.ModuleTest$ModuleMissingModuleAnnotation");
+    }
   }
 
   @Module
