@@ -30,7 +30,7 @@ import javax.inject.Provider;
 import javax.inject.Singleton;
 
 //TODO: Reduce the complexity of this and/or replace with a mock or fake.
-public final class TestOnlyModuleAdapter extends ModuleAdapter<Object> {
+public class TestOnlyModuleAdapter<T> extends ModuleAdapter<T> {
   final Class<?> moduleClass;
 
   public TestOnlyModuleAdapter(Class<?> moduleClass, Module annotation) {
@@ -107,11 +107,11 @@ public final class TestOnlyModuleAdapter extends ModuleAdapter<Object> {
         library));
   }
 
-  @Override public Object newModule() {
+  @Override public T newModule() {
     try {
       Constructor<?> constructor = moduleClass.getDeclaredConstructor();
       constructor.setAccessible(true);
-      return constructor.newInstance();
+      return (T)constructor.newInstance();
     } catch (InvocationTargetException e) {
       throw new IllegalArgumentException(e.getCause());
     } catch (NoSuchMethodException e) {
@@ -138,7 +138,7 @@ public final class TestOnlyModuleAdapter extends ModuleAdapter<Object> {
       throw new IllegalArgumentException(
           "Modules must not extend from other classes: " + moduleClass.getName());
     }
-    return (ModuleAdapter<T>) new TestOnlyModuleAdapter(moduleClass, annotation);
+    return new TestOnlyModuleAdapter(moduleClass, annotation);
   }
 
   /**
