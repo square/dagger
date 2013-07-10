@@ -51,7 +51,7 @@ public final class FailoverLoader implements Loader {
           // A null classloader is the system classloader.
           classLoader = (classLoader != null) ? classLoader : ClassLoader.getSystemClassLoader();
           Class<?> type = classLoader.loadClass(className);
-          if (!type.isInterface()) {
+          if (type.isInterface()) {
             return null; // Short-circuit since we can't build reflective bindings for interfaces.
           }
           return ReflectiveAtInjectBinding.create(type, mustHaveInjections);
