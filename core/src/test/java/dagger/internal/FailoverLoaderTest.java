@@ -39,7 +39,7 @@ public final class FailoverLoaderTest {
   }
 
   /** A reflective module that will be loaded in place of a generated module for this test. */
-  static final class TestModule$$ModuleAdapter extends TestOnlyModuleAdapter<TestModule> {
+  static final class TestModule$$ModuleAdapter extends TestingModuleAdapter<TestModule> {
     public TestModule$$ModuleAdapter() {
       super(TestModule.class, TestModule.class.getAnnotation(Module.class));
     }
