@@ -23,6 +23,7 @@ package dagger.internal.loaders;
 public final class GeneratedAdapters {
   private static final String SEPARATOR = "$$";
   public static final String INJECT_ADAPTER_SUFFIX = SEPARATOR + "InjectAdapter";
+  public static final String PARENT_ADAPTER_INFIX = SEPARATOR + "ParentAdapter" + SEPARATOR;
   public static final String MODULE_ADAPTER_SUFFIX = SEPARATOR + "ModuleAdapter";
   public static final String STATIC_INJECTION_SUFFIX = SEPARATOR + "StaticInjection";
 

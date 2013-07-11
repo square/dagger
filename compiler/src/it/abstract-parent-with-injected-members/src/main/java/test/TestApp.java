@@ -18,19 +18,22 @@ package test;
 import dagger.Module;
 import dagger.Provides;
 import javax.inject.Inject;
+import test.parentpackage.AbstractParentWithInjectedMember;
 
 class TestApp {
-  static class NotInjectable {
+   
+  static class InjectableSubclass extends AbstractParentWithInjectedMember {
+     @Inject String string;
   }
 
-  static class InjectableSubclass extends NotInjectable {
-    @Inject String string;
-  }
-
-  @Module(injects = InjectableSubclass.class)
+  @Module(injects = {InjectableSubclass.class})
   static class TestModule {
     @Provides String provideString() {
       return "string";
+    }
+    
+    @Provides Integer provideInteger() {
+      return 5;
     }
   }
 }

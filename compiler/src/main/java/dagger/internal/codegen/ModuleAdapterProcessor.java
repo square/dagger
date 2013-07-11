@@ -53,7 +53,7 @@ import javax.tools.JavaFileObject;
 
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
-import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
 import static dagger.internal.codegen.TypeUtils.adapterName;
 import static dagger.internal.codegen.TypeUtils.getAnnotation;
 import static dagger.internal.codegen.TypeUtils.getNoArgsConstructor;
@@ -415,7 +415,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     boolean dependent = !parameters.isEmpty();
 
     writer.emitEmptyLine();
-    writer.emitJavadoc(binderTypeDocs(returnType, false, false, dependent));
+    writer.emitJavadoc(bindingTypeDocs(returnType, false, false, dependent));
     writer.beginType(className, "class", PUBLIC | FINAL | STATIC,
         JavaWriter.type(Binding.class, returnType),
         JavaWriter.type(Provider.class, returnType));

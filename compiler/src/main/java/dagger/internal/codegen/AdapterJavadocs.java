@@ -43,9 +43,9 @@ public final class AdapterJavadocs {
       + "A manager for {@code %s}'s injections into static fields.";
 
   /** Creates an appropriate javadoc depending on aspects of the type in question. */
-  static String binderTypeDocs(String type, boolean abstrakt, boolean members, boolean dependent) {
+  static String bindingTypeDocs(String type, boolean abstrakt, boolean members, boolean dependent) {
     StringBuffer sb = new StringBuffer();
-    sb.append("A {@code Binder<").append(type).append(">} implementation which satisfies\n");
+    sb.append("A {@code Binding<").append(type).append(">} implementation which satisfies\n");
     sb.append("Dagger's infrastructure requirements including:");
     if (dependent) {
       sb.append("\n\n");
@@ -65,4 +65,10 @@ public final class AdapterJavadocs {
     return sb.toString();
   }
 
+  static String parentAdapterTypeDocs(String child, String ancestor) {
+    String pattern = "An implementation of {@code MembersInjector<%s>}, used to\n"
+        + "inject the inherited members of {@code %s} when injecting\n"
+        + "instances of its descendant, {@code %s}.";
+    return String.format(pattern, ancestor, ancestor, child);
+  }
 }

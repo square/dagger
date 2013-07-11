@@ -21,7 +21,7 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.example.dagger.tests</groupId>
-  <artifactId>uninjectable-supertype</artifactId>
+  <artifactId>parent-with-injected-members</artifactId>
   <version>HEAD-SNAPSHOT</version>
   <name>Dagger Integration Test Basic</name>
   <dependencies>
