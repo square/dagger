@@ -26,7 +26,7 @@ import java.lang.reflect.InvocationTargetException;
  */
 public abstract class Loader {
 
-  final LruCache<ClassLoader, LruCache<String, Class<?>>> caches =
+  private final LruCache<ClassLoader, LruCache<String, Class<?>>> caches =
       new LruCache<ClassLoader, LruCache<String, Class<?>>>(Integer.MAX_VALUE) {
     @Override protected LruCache<String, Class<?>> create(final ClassLoader classLoader) {
       return new LruCache<String, Class<?>>(Integer.MAX_VALUE) {
