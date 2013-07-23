@@ -121,7 +121,12 @@ final class TypeUtils {
         return null;
       }
       @Override public Void visitArray(ArrayType arrayType, Void v) {
-        typeToString(arrayType.getComponentType(), result, innerClassSeparator);
+        TypeMirror type = arrayType.getComponentType();
+        if (type instanceof PrimitiveType) {
+          result.append(type.toString()); // Don't box, since this is an array.
+        } else {
+          typeToString(arrayType.getComponentType(), result, innerClassSeparator);
+        }
         result.append("[]");
         return null;
       }
