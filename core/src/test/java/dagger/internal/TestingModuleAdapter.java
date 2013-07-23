@@ -85,7 +85,12 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
               handleBindings(bindings, method, key, library);
               break;
             case SET:
-              handleSetBindings(bindings, method, key, library);
+              String setKey = Keys.getSetKey(method.getGenericReturnType(),
+                  method.getAnnotations(), method);
+              handleSetBindings(bindings, method, setKey, key, library);
+              break;
+            case SET_VALUES:
+              handleSetBindings(bindings, method, key, key, library);
               break;
             default:
               throw new AssertionError("Unknown @Provides type " + provides.type());
@@ -100,11 +105,9 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     bindings.put(key, new ProviderMethodBinding<M>(method, key, module, library));
   }
 
-  private void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String key,
-      boolean library) {
-    String setKey = Keys.getSetKey(method.getGenericReturnType(), method.getAnnotations(), method);
-    SetBinding.<M>add(bindings, setKey, new ProviderMethodBinding<M>(method, key, module,
-        library));
+  private void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String setKey,
+      String providerKey, boolean library) {
+    SetBinding.<M>add(bindings, setKey, new ProviderMethodBinding<M>(method, providerKey, module, library));
   }
 
   @Override public M newModule() {
