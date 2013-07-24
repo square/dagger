@@ -24,7 +24,6 @@ import org.junit.Test;
 
 import static org.fest.assertions.Assertions.assertThat;
 
-
 public final class PrimitiveInjectionTest {
   static class ArrayInjectable {
     @Inject byte[] byteArray;
@@ -37,7 +36,7 @@ public final class PrimitiveInjectionTest {
   }
 
   @Module(injects = ArrayInjectable.class)
-  static class ByteArrayModule {
+  static class PrimitiveArrayModule {
     @Provides byte[] byteArray() { return new byte[] { Byte.MAX_VALUE }; }
     @Provides int[] provideInt() { return new int[] { Integer.MAX_VALUE }; }
     @Provides boolean[] provideBoolean() { return new boolean[] { true }; }
@@ -48,7 +47,8 @@ public final class PrimitiveInjectionTest {
   }
 
   @Test public void primitiveArrayTypesAllInjected() {
-    ArrayInjectable result = ObjectGraph.create(ByteArrayModule.class).get(ArrayInjectable.class);
+    ArrayInjectable result = ObjectGraph.create(PrimitiveArrayModule.class)
+        .get(ArrayInjectable.class);
     assertThat(result).isNotNull();
     assertThat(result.byteArray).isEqualTo(new byte[] { Byte.MAX_VALUE });
     assertThat(result.integerArray).isEqualTo(new int[] { Integer.MAX_VALUE });
@@ -58,6 +58,4 @@ public final class PrimitiveInjectionTest {
     assertThat(result.floatArray).isEqualTo(new float[] { Float.MAX_VALUE });
     assertThat(result.doubleArray).isEqualTo(new double[] { Double.MAX_VALUE });
   }
-
-
 }
