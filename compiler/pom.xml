@@ -78,6 +78,7 @@
             <goals><goal>testCompile</goal></goals>
             <configuration>
               <annotationProcessors>
+                <annotationProcessor>dagger.internal.codegen.ValidationProcessor</annotationProcessor>
                 <annotationProcessor>dagger.internal.codegen.InjectAdapterProcessor</annotationProcessor>
                 <annotationProcessor>dagger.internal.codegen.ModuleAdapterProcessor</annotationProcessor>
                 <annotationProcessor>dagger.internal.codegen.GraphAnalysisProcessor</annotationProcessor>

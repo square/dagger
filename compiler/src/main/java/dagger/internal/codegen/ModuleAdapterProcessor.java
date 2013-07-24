@@ -55,13 +55,14 @@ import javax.tools.JavaFileObject;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
-import static dagger.internal.codegen.TypeUtils.adapterName;
-import static dagger.internal.codegen.TypeUtils.getAnnotation;
-import static dagger.internal.codegen.TypeUtils.getNoArgsConstructor;
-import static dagger.internal.codegen.TypeUtils.getPackage;
-import static dagger.internal.codegen.TypeUtils.isCallableConstructor;
-import static dagger.internal.codegen.TypeUtils.isInterface;
-import static dagger.internal.codegen.TypeUtils.typeToString;
+import static dagger.internal.codegen.Util.adapterName;
+import static dagger.internal.codegen.Util.elementToString;
+import static dagger.internal.codegen.Util.getAnnotation;
+import static dagger.internal.codegen.Util.getNoArgsConstructor;
+import static dagger.internal.codegen.Util.getPackage;
+import static dagger.internal.codegen.Util.isCallableConstructor;
+import static dagger.internal.codegen.Util.isInterface;
+import static dagger.internal.codegen.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.MODULE_ADAPTER_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
 import static java.lang.reflect.Modifier.PRIVATE;
@@ -130,7 +131,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
           break; // valid, move along
         default:
           // TODO(tbroyer): pass annotation information
-          error("Unexpected @Provides on " + providerMethod, providerMethod);
+          error("Unexpected @Provides on " + elementToString(providerMethod), providerMethod);
           continue;
       }
       TypeElement type = (TypeElement) providerMethod.getEnclosingElement();
@@ -185,7 +186,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     // should still be registered and a ModuleAdapter should still be written.
     for (Element module : env.getElementsAnnotatedWith(Module.class)) {
       if (!module.getKind().equals(ElementKind.CLASS)) {
-        error("Modules must be classes: " + module, module);
+        error("Modules must be classes: " + elementToString(module), module);
         continue;
       }
 
@@ -193,7 +194,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
       // Verify that all modules do not extend from non-Object types.
       if (!moduleType.getSuperclass().equals(objectType)) {
-        error("Modules must not extend from other classes: " + module, module);
+        error("Modules must not extend from other classes: " + elementToString(module), module);
       }
 
       String moduleName = moduleType.getQualifiedName().toString();
