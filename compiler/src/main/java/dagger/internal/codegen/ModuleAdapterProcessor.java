@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.squareup.javawriter.JavaWriter;
+import dagger.Lazy;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
@@ -121,6 +122,8 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     Types types = processingEnv.getTypeUtils();
 
     Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
+
+    provides:
     for (Element providerMethod : providesMethods(env)) {
       switch (providerMethod.getEnclosingElement().getKind()) {
         case CLASS:
@@ -157,14 +160,14 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
       // Invalidate return types.
       TypeMirror returnType = types.erasure(providerMethodAsExecutable.getReturnType());
-      for (String invalidTypeName : Arrays.asList("javax.inject.Provider", "dagger.Lazy")) {
+      for (String invalidTypeName : Arrays.asList(Provider.class.getCanonicalName(),
+          Lazy.class.getCanonicalName())) {
         TypeElement invalidTypeElement = elementUtils.getTypeElement(invalidTypeName);
-        if (invalidTypeElement != null) {
-          if (types.isSameType(returnType, types.erasure(invalidTypeElement.asType()))) {
-            error(String.format("@Provides method must not return %s directly: %s.%s",
-                invalidTypeElement, type.getQualifiedName(), providerMethod), providerMethod);
-            continue; // skip to next provides method.
-          }
+        if (invalidTypeElement != null && types.isSameType(returnType,
+            types.erasure(invalidTypeElement.asType()))) {
+          error(String.format("@Provides method must not return %s directly: %s.%s",
+              invalidTypeElement, type.getQualifiedName(), providerMethod), providerMethod);
+          continue provides; // Skip to next provides method.
         }
       }
 
