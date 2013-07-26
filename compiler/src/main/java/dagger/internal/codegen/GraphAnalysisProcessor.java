@@ -96,6 +96,10 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
       Map<String, Object> annotation = getAnnotation(Module.class, element);
       TypeElement moduleType = (TypeElement) element;
 
+      if (annotation == null) {
+        error("Missing @Module annotation.", moduleType);
+        continue;
+      }
       if (annotation.get("complete").equals(Boolean.TRUE)) {
         Map<String, Binding<?>> bindings;
         try {
