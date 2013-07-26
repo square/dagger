@@ -33,6 +33,7 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
@@ -133,6 +134,13 @@ final class TypeUtils {
       }
       @Override public Void visitTypeVariable(TypeVariable typeVariable, Void v) {
         result.append(typeVariable.asElement().getSimpleName());
+        return null;
+      }
+      @Override public Void visitError(ErrorType errorType, Void v) {
+        // There's already an error but it may not have been reported (most likely
+        // a missing import). If we throw an UnsupportedOperationException here
+        // we'll obscure the real error, so just continue.
+        result.append("error");
         return null;
       }
       @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
