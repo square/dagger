@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Square, Inc.
+ * Copyright (C) 2013 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,13 +48,14 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
-import static dagger.internal.codegen.TypeUtils.adapterName;
-import static dagger.internal.codegen.TypeUtils.getApplicationSupertype;
-import static dagger.internal.codegen.TypeUtils.getNoArgsConstructor;
-import static dagger.internal.codegen.TypeUtils.getPackage;
-import static dagger.internal.codegen.TypeUtils.isCallableConstructor;
-import static dagger.internal.codegen.TypeUtils.rawTypeToString;
-import static dagger.internal.codegen.TypeUtils.typeToString;
+import static dagger.internal.codegen.Util.adapterName;
+import static dagger.internal.codegen.Util.elementToString;
+import static dagger.internal.codegen.Util.getApplicationSupertype;
+import static dagger.internal.codegen.Util.getNoArgsConstructor;
+import static dagger.internal.codegen.Util.getPackage;
+import static dagger.internal.codegen.Util.isCallableConstructor;
+import static dagger.internal.codegen.Util.rawTypeToString;
+import static dagger.internal.codegen.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
 import static java.lang.reflect.Modifier.FINAL;
@@ -95,7 +97,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
           "Could not find injection type required by " + remainingTypeNames);
     }
-    return true;
+    return false;
   }
 
   private void writeInjectionsForClass(InjectedClass injectedClass) throws IOException {
@@ -136,17 +138,30 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     Element injectableType = injectable.getEnclosingElement();
 
     if (injectable.getKind() == ElementKind.CLASS) {
-      error("@Inject is not valid on a class: " + injectable, injectable);
+      error("@Inject is not valid on a class: " + elementToString(injectable), injectable);
       return false;
     }
 
     if (injectable.getKind() == ElementKind.METHOD) {
-      error("Method injection is not supported: " + injectableType + "." + injectable, injectable);
+      error("Method injection is not supported: " + elementToString(injectable), injectable);
       return false;
     }
-    if (injectable.getModifiers().contains(Modifier.PRIVATE)) {
-      error("Can't inject a private field or constructor: " + injectableType + "." + injectable,
-          injectable);
+
+    if (injectable.getKind() == ElementKind.FIELD
+        && injectable.getModifiers().contains(Modifier.FINAL)) {
+      error("Can't inject a final field: " + elementToString(injectable), injectable);
+      return false;
+    }
+
+    if (injectable.getKind() == ElementKind.FIELD
+        && injectable.getModifiers().contains(Modifier.PRIVATE)) {
+      error("Can't inject a private field: " + elementToString(injectable), injectable);
+      return false;
+    }
+
+    if (injectable.getKind() == ElementKind.CONSTRUCTOR
+        && injectable.getModifiers().contains(Modifier.PRIVATE)) {
+      error("Can't inject a private constructor: " + elementToString(injectable), injectable);
       return false;
     }
 
@@ -155,7 +170,8 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     boolean isStatic = injectableType.getModifiers().contains(Modifier.STATIC);
 
     if (isClassOrInterface && !isStatic) {
-      error("Can't inject a non-static inner class: " + injectableType, injectableType);
+      error("Can't inject a non-static inner class: " + elementToString(injectable),
+          injectableType);
       return false;
     }
 
@@ -197,7 +213,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
           break;
         default:
           // TODO(tbroyer): pass annotation information
-          error("Cannot inject " + member, member);
+          error("Cannot inject " + elementToString(member), member);
           break;
       }
     }
