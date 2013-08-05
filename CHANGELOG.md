@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-Version 1.1.0 *(2013-07-26)*
+Version 1.1.0 *(2013-08-05)*
 ----------------------------
 
  * Module loading now requires code generation via the 'dagger-compiler' artifact.
