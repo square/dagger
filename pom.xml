@@ -26,7 +26,7 @@
   <groupId>com.google.dagger</groupId>
   <artifactId>dagger-parent</artifactId>
   <packaging>pom</packaging>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.1.1-SNAPSHOT</version>
   <name>Dagger (Parent)</name>
   <description>A JSR-330 dependency injector for Android and Java.</description>
   <url>https://github.com/google/dagger</url>
