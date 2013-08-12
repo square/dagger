@@ -40,7 +40,6 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
@@ -59,6 +58,11 @@ import static dagger.internal.codegen.Util.rawTypeToString;
 import static dagger.internal.codegen.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Generates an implementation of {@link Binding} that injects the
@@ -67,10 +71,6 @@ import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
 @SupportedAnnotationTypes("javax.inject.Inject")
 public final class InjectAdapterProcessor extends AbstractProcessor {
   private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
-
-  private static final EnumSet<Modifier> PRIVATE = EnumSet.of(Modifier.PRIVATE);
-  private static final EnumSet<Modifier> PUBLIC = EnumSet.of(Modifier.PUBLIC);
-  private static final EnumSet<Modifier> PUBLIC_FINAL = EnumSet.of(Modifier.PUBLIC, Modifier.FINAL);
 
   @Override public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
@@ -150,26 +150,26 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     }
 
     if (injectable.getKind() == ElementKind.FIELD
-        && injectable.getModifiers().contains(Modifier.FINAL)) {
+        && injectable.getModifiers().contains(FINAL)) {
       error("Can't inject a final field: " + elementToString(injectable), injectable);
       return false;
     }
 
     if (injectable.getKind() == ElementKind.FIELD
-        && injectable.getModifiers().contains(Modifier.PRIVATE)) {
+        && injectable.getModifiers().contains(PRIVATE)) {
       error("Can't inject a private field: " + elementToString(injectable), injectable);
       return false;
     }
 
     if (injectable.getKind() == ElementKind.CONSTRUCTOR
-        && injectable.getModifiers().contains(Modifier.PRIVATE)) {
+        && injectable.getModifiers().contains(PRIVATE)) {
       error("Can't inject a private constructor: " + elementToString(injectable), injectable);
       return false;
     }
 
     ElementKind elementKind = injectableType.getEnclosingElement().getKind();
     boolean isClassOrInterface = elementKind.isClass() || elementKind.isInterface();
-    boolean isStatic = injectableType.getModifiers().contains(Modifier.STATIC);
+    boolean isStatic = injectableType.getModifiers().contains(STATIC);
 
     if (isClassOrInterface && !isStatic) {
       error("Can't inject a non-static inner class: " + elementToString(injectable),
@@ -185,7 +185,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
    */
   private InjectedClass createInjectedClass(String injectedClassName) {
     TypeElement type = processingEnv.getElementUtils().getTypeElement(injectedClassName);
-    boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
+    boolean isAbstract = type.getModifiers().contains(ABSTRACT);
     List<Element> staticFields = new ArrayList<Element>();
     ExecutableElement constructor = null;
     List<Element> fields = new ArrayList<Element>();
@@ -196,7 +196,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
 
       switch (member.getKind()) {
         case FIELD:
-          if (member.getModifiers().contains(Modifier.STATIC)) {
+          if (member.getModifiers().contains(STATIC)) {
             staticFields.add(member);
           } else {
             fields.add(member);
@@ -245,7 +245,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     String adapterName = adapterName(type, INJECT_ADAPTER_SUFFIX);
     JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile(adapterName, type);
     JavaWriter writer = new JavaWriter(sourceFile.openWriter());
-    boolean isAbstract = type.getModifiers().contains(Modifier.ABSTRACT);
+    boolean isAbstract = type.getModifiers().contains(ABSTRACT);
     boolean injectMembers = !fields.isEmpty() || supertype != null;
     boolean disambiguateFields = !fields.isEmpty()
         && (constructor != null)
@@ -258,7 +258,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     writer.emitImports(findImports(dependent, injectMembers, constructor != null));
     writer.emitEmptyLine();
     writer.emitJavadoc(bindingTypeDocs(strippedTypeName, isAbstract, injectMembers, dependent));
-    writer.beginType(adapterName, "class", PUBLIC_FINAL,
+    writer.beginType(adapterName, "class", EnumSet.of(PUBLIC, FINAL),
         JavaWriter.type(Binding.class, strippedTypeName),
         implementedInterfaces(strippedTypeName, injectMembers, constructor != null));
     writeMemberBindingsFields(writer, fields, disambiguateFields);
@@ -303,7 +303,8 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
         Linker.class.getName()));
     writer.emitEmptyLine();
     writer.emitJavadoc(AdapterJavadocs.STATIC_INJECTION_TYPE, type.getSimpleName());
-    writer.beginType(adapterName, "class", PUBLIC_FINAL, StaticInjection.class.getSimpleName());
+    writer.beginType(
+        adapterName, "class", EnumSet.of(PUBLIC, FINAL), StaticInjection.class.getSimpleName());
     writeMemberBindingsFields(writer, fields, false);
     writer.emitEmptyLine();
     writeAttachMethod(writer, null, fields, false, typeName, null, true);
@@ -316,7 +317,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       JavaWriter writer, List<Element> fields, boolean disambiguateFields) throws IOException {
     for (Element field : fields) {
       writer.emitField(JavaWriter.type(Binding.class, typeToString(field.asType())),
-          fieldName(disambiguateFields, field), PRIVATE);
+          fieldName(disambiguateFields, field), EnumSet.of(PRIVATE));
     }
   }
 
@@ -326,19 +327,19 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     for (VariableElement parameter : constructor.getParameters()) {
       writer.emitField(JavaWriter.type(Binding.class,
           typeToString(parameter.asType())),
-          parameterName(disambiguateFields, parameter), PRIVATE);
+          parameterName(disambiguateFields, parameter), EnumSet.of(PRIVATE));
     }
   }
 
   private void writeSupertypeInjectorField(JavaWriter writer, TypeMirror supertype)
       throws IOException {
-    writer.emitField(
-        JavaWriter.type(Binding.class, rawTypeToString(supertype, '.')), "supertype", PRIVATE);
+    writer.emitField(JavaWriter.type(Binding.class, rawTypeToString(supertype, '.')), "supertype",
+        EnumSet.of(PRIVATE));
   }
 
   private void writeInjectAdapterConstructor(JavaWriter writer, ExecutableElement constructor,
       TypeElement type, String strippedTypeName, String adapterName) throws IOException {
-    writer.beginMethod(null, adapterName, PUBLIC);
+    writer.beginMethod(null, adapterName, EnumSet.of(PUBLIC));
     String key = (constructor != null)
         ? JavaWriter.stringLiteral(GeneratorKeys.get(type.asType()))
         : null;
@@ -358,7 +359,8 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       writer.emitAnnotation(Override.class);
     }
     writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
-    writer.beginMethod("void", "attach", PUBLIC, Linker.class.getCanonicalName(), "linker");
+    writer.beginMethod(
+        "void", "attach", EnumSet.of(PUBLIC), Linker.class.getCanonicalName(), "linker");
     if (constructor != null) {
       for (VariableElement parameter : constructor.getParameters()) {
         writer.emitStatement(
@@ -395,7 +397,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       writer.emitAnnotation(Override.class);
     }
     String setOfBindings = JavaWriter.type(Set.class, "Binding<?>");
-    writer.beginMethod("void", "getDependencies", PUBLIC, setOfBindings, "getBindings",
+    writer.beginMethod("void", "getDependencies", EnumSet.of(PUBLIC), setOfBindings, "getBindings",
         setOfBindings, "injectMembersBindings");
     if (constructor != null) {
       for (Element parameter : constructor.getParameters()) {
@@ -417,7 +419,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       throws IOException {
     writer.emitJavadoc(AdapterJavadocs.GET_METHOD, strippedTypeName);
     writer.emitAnnotation(Override.class);
-    writer.beginMethod(strippedTypeName, "get", PUBLIC);
+    writer.beginMethod(strippedTypeName, "get", EnumSet.of(PUBLIC));
     StringBuilder newInstance = new StringBuilder();
     newInstance.append(strippedTypeName).append(" result = new ");
     newInstance.append(strippedTypeName).append('(');
@@ -442,7 +444,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       throws IOException {
     writer.emitJavadoc(AdapterJavadocs.MEMBERS_INJECT_METHOD, strippedTypeName);
     writer.emitAnnotation(Override.class);
-    writer.beginMethod("void", "injectMembers", PUBLIC, strippedTypeName, "object");
+    writer.beginMethod("void", "injectMembers", EnumSet.of(PUBLIC), strippedTypeName, "object");
     for (Element field : fields) {
       writer.emitStatement("object.%s = %s.get()",
           field.getSimpleName(),
@@ -460,7 +462,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.emitJavadoc(AdapterJavadocs.STATIC_INJECT_METHOD);
     writer.emitAnnotation(Override.class);
-    writer.beginMethod("void", "inject", PUBLIC);
+    writer.beginMethod("void", "inject", EnumSet.of(PUBLIC));
     for (Element field : fields) {
       writer.emitStatement("%s.%s = %s.get()",
           writer.compressType(typeName),
