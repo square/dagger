@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -58,9 +59,6 @@ import static dagger.internal.codegen.Util.rawTypeToString;
 import static dagger.internal.codegen.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PUBLIC;
 
 /**
  * Generates an implementation of {@link Binding} that injects the
@@ -69,6 +67,10 @@ import static java.lang.reflect.Modifier.PUBLIC;
 @SupportedAnnotationTypes("javax.inject.Inject")
 public final class InjectAdapterProcessor extends AbstractProcessor {
   private final Set<String> remainingTypeNames = new LinkedHashSet<String>();
+
+  private static final EnumSet<Modifier> PRIVATE = EnumSet.of(Modifier.PRIVATE);
+  private static final EnumSet<Modifier> PUBLIC = EnumSet.of(Modifier.PUBLIC);
+  private static final EnumSet<Modifier> PUBLIC_FINAL = EnumSet.of(Modifier.PUBLIC, Modifier.FINAL);
 
   @Override public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
@@ -256,7 +258,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     writer.emitImports(findImports(dependent, injectMembers, constructor != null));
     writer.emitEmptyLine();
     writer.emitJavadoc(bindingTypeDocs(strippedTypeName, isAbstract, injectMembers, dependent));
-    writer.beginType(adapterName, "class", PUBLIC | FINAL,
+    writer.beginType(adapterName, "class", PUBLIC_FINAL,
         JavaWriter.type(Binding.class, strippedTypeName),
         implementedInterfaces(strippedTypeName, injectMembers, constructor != null));
     writeMemberBindingsFields(writer, fields, disambiguateFields);
@@ -301,7 +303,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
         Linker.class.getName()));
     writer.emitEmptyLine();
     writer.emitJavadoc(AdapterJavadocs.STATIC_INJECTION_TYPE, type.getSimpleName());
-    writer.beginType(adapterName, "class", PUBLIC | FINAL, StaticInjection.class.getSimpleName());
+    writer.beginType(adapterName, "class", PUBLIC_FINAL, StaticInjection.class.getSimpleName());
     writeMemberBindingsFields(writer, fields, false);
     writer.emitEmptyLine();
     writeAttachMethod(writer, null, fields, false, typeName, null, true);
