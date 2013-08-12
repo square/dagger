@@ -54,7 +54,7 @@ import javax.tools.JavaFileObject;
 
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
-import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
 import static dagger.internal.codegen.Util.adapterName;
 import static dagger.internal.codegen.Util.elementToString;
 import static dagger.internal.codegen.Util.getAnnotation;
@@ -95,7 +95,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         // IllegalStateException.
         Map<String, Object> parsedAnnotation = getAnnotation(Module.class, type);
         try {
-          writeModuleAdapter(type, parsedAnnotation, providesTypes);
+          generateModuleAdapter(type, parsedAnnotation, providesTypes);
         } catch (IOException e) {
           error("Code gen failed: " + e, type);
         }
@@ -125,7 +125,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     Map<String, List<ExecutableElement>> result = new HashMap<String, List<ExecutableElement>>();
 
     provides:
-    for (Element providerMethod : providesMethods(env)) {
+    for (Element providerMethod : findProvidesMethods(env)) {
       switch (providerMethod.getEnclosingElement().getKind()) {
         case CLASS:
           break; // valid, move along
@@ -204,7 +204,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     return result;
   }
 
-  private Set<? extends Element> providesMethods(RoundEnvironment env) {
+  private Set<? extends Element> findProvidesMethods(RoundEnvironment env) {
     Set<Element> result = new LinkedHashSet<Element>();
     result.addAll(env.getElementsAnnotatedWith(Provides.class));
     return result;
@@ -214,7 +214,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
    * Write a companion class for {@code type} that implements {@link
    * ModuleAdapter} to expose its provider methods.
    */
-  private void writeModuleAdapter(TypeElement type, Map<String, Object> module,
+  private void generateModuleAdapter(TypeElement type, Map<String, Object> module,
       List<ExecutableElement> providerMethods) throws IOException {
     if (module == null) {
       error(type + " has @Provides methods but no @Module annotation", type);
@@ -239,9 +239,8 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
     writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(getPackage(type).getQualifiedName().toString());
-    writer.emitEmptyLine();
     writer.emitImports(
-        getImports(multibindings, !providerMethods.isEmpty(), providerMethodDependencies));
+        findImports(multibindings, !providerMethods.isEmpty(), providerMethodDependencies));
 
     String typeName = type.getQualifiedName().toString();
     writer.emitEmptyLine();
@@ -340,7 +339,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     }
 
     for (ExecutableElement providerMethod : providerMethods) {
-      writeProvidesAdapter(writer, providerMethod, methodToClassName, methodNameToNextId,
+      generateProvidesAdapter(writer, providerMethod, methodToClassName, methodNameToNextId,
           library);
     }
 
@@ -348,7 +347,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     writer.close();
   }
 
-  private Set<String> getImports(boolean multibindings, boolean providers, boolean dependencies) {
+  private Set<String> findImports(boolean multibindings, boolean providers, boolean dependencies) {
     Set<String> imports = new LinkedHashSet<String>();
     imports.add(ModuleAdapter.class.getCanonicalName());
     if (providers) {
@@ -407,19 +406,20 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     return className;
   }
 
-  private void writeProvidesAdapter(JavaWriter writer, ExecutableElement providerMethod,
+  private void generateProvidesAdapter(JavaWriter writer, ExecutableElement providerMethod,
       Map<ExecutableElement, String> methodToClassName,
       Map<String, AtomicInteger> methodNameToNextId, boolean library)
       throws IOException {
     String methodName = providerMethod.getSimpleName().toString();
     String moduleType = typeToString(providerMethod.getEnclosingElement().asType());
-    String className = bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
+    String className =
+        bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
     String returnType = typeToString(providerMethod.getReturnType());
     List<? extends VariableElement> parameters = providerMethod.getParameters();
     boolean dependent = !parameters.isEmpty();
 
     writer.emitEmptyLine();
-    writer.emitJavadoc(binderTypeDocs(returnType, false, false, dependent));
+    writer.emitJavadoc(bindingTypeDocs(returnType, false, false, dependent));
     writer.beginType(className, "class", PUBLIC | FINAL | STATIC,
         JavaWriter.type(Binding.class, returnType),
         JavaWriter.type(Provider.class, returnType));
