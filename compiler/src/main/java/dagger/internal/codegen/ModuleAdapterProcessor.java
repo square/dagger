@@ -26,6 +26,7 @@ import dagger.internal.SetBinding;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -64,10 +65,6 @@ import static dagger.internal.codegen.Util.isCallableConstructor;
 import static dagger.internal.codegen.Util.isInterface;
 import static dagger.internal.codegen.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.MODULE_ADAPTER_SUFFIX;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PUBLIC;
-import static java.lang.reflect.Modifier.STATIC;
 
 /**
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
@@ -79,6 +76,16 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       new LinkedHashMap<String, List<ExecutableElement>>();
   private static final String BINDINGS_MAP = JavaWriter.type(
       Map.class, String.class.getCanonicalName(), Binding.class.getCanonicalName() + "<?>");
+
+  private static final EnumSet<Modifier> PRIVATE = EnumSet.of(Modifier.PRIVATE);
+  private static final EnumSet<Modifier> PUBLIC = EnumSet.of(Modifier.PUBLIC);
+  private static final EnumSet<Modifier> PRIVATE_FINAL =
+      EnumSet.of(Modifier.PRIVATE, Modifier.FINAL);
+  private static final EnumSet<Modifier> PUBLIC_FINAL = EnumSet.of(Modifier.PUBLIC, Modifier.FINAL);
+  private static final EnumSet<Modifier> PRIVATE_STATIC_FINAL =
+      EnumSet.of(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL);
+  private static final EnumSet<Modifier> PUBLIC_STATIC_FINAL =
+      EnumSet.of(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
 
   @Override public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
@@ -245,7 +252,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     String typeName = type.getQualifiedName().toString();
     writer.emitEmptyLine();
     writer.emitJavadoc(AdapterJavadocs.MODULE_TYPE);
-    writer.beginType(adapterName, "class", PUBLIC | FINAL,
+    writer.beginType(adapterName, "class", PUBLIC_FINAL,
         JavaWriter.type(ModuleAdapter.class, typeName));
 
     StringBuilder injectsField = new StringBuilder().append("{ ");
@@ -257,7 +264,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       injectsField.append(JavaWriter.stringLiteral(key)).append(", ");
     }
     injectsField.append("}");
-    writer.emitField("String[]", "INJECTS", PRIVATE | STATIC | FINAL,
+    writer.emitField("String[]", "INJECTS", PRIVATE_STATIC_FINAL,
         injectsField.toString());
 
     StringBuilder staticInjectionsField = new StringBuilder().append("{ ");
@@ -266,7 +273,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       staticInjectionsField.append(typeToString(typeMirror)).append(".class, ");
     }
     staticInjectionsField.append("}");
-    writer.emitField("Class<?>[]", "STATIC_INJECTIONS", PRIVATE | STATIC | FINAL,
+    writer.emitField("Class<?>[]", "STATIC_INJECTIONS", PRIVATE_STATIC_FINAL,
         staticInjectionsField.toString());
 
     StringBuilder includesField = new StringBuilder().append("{ ");
@@ -281,7 +288,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       includesField.append(typeToString(typeMirror)).append(".class, ");
     }
     includesField.append("}");
-    writer.emitField("Class<?>[]", "INCLUDES", PRIVATE | STATIC | FINAL, includesField.toString());
+    writer.emitField("Class<?>[]", "INCLUDES", PRIVATE_STATIC_FINAL, includesField.toString());
 
     writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, PUBLIC);
@@ -420,10 +427,10 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
     writer.emitEmptyLine();
     writer.emitJavadoc(bindingTypeDocs(returnType, false, false, dependent));
-    writer.beginType(className, "class", PUBLIC | FINAL | STATIC,
+    writer.beginType(className, "class", PUBLIC_STATIC_FINAL,
         JavaWriter.type(Binding.class, returnType),
         JavaWriter.type(Provider.class, returnType));
-    writer.emitField(moduleType, "module", PRIVATE | FINAL);
+    writer.emitField(moduleType, "module", PRIVATE_FINAL);
     for (Element parameter : parameters) {
       TypeMirror parameterType = parameter.asType();
       writer.emitField(JavaWriter.type(Binding.class, typeToString(parameterType)),
