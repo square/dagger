@@ -47,7 +47,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-import static dagger.internal.codegen.AdapterJavadocs.binderTypeDocs;
+import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
 import static dagger.internal.codegen.Util.adapterName;
 import static dagger.internal.codegen.Util.elementToString;
 import static dagger.internal.codegen.Util.getApplicationSupertype;
@@ -257,11 +257,10 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
 
     writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(packageName);
-    writer.emitEmptyLine();
     writer.emitImports(getImports(dependent, injectMembers, constructor != null));
 
     writer.emitEmptyLine();
-    writer.emitJavadoc(binderTypeDocs(strippedTypeName, isAbstract, injectMembers, dependent));
+    writer.emitJavadoc(bindingTypeDocs(strippedTypeName, isAbstract, injectMembers, dependent));
     writer.beginType(adapterName, "class", PUBLIC | FINAL,
         JavaWriter.type(Binding.class, strippedTypeName),
         interfaces(strippedTypeName, injectMembers, constructor != null));
@@ -430,7 +429,6 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
     writer.emitPackage(getPackage(type).getQualifiedName().toString());
 
-    writer.emitEmptyLine();
     writer.emitImports(Arrays.asList(
         StaticInjection.class.getName(),
         Binding.class.getName(),
