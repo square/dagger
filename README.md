@@ -5,6 +5,23 @@ A fast dependency injector for Android and Java.
 
 For more information please see [the website][1].
 
+About Google's Fork
+-------------
+
+This project represents Google's fork of [Square's Dagger][upstream].
+Google's Dagger fork is intended to vary from Square's project only where features are
+needed to deviate from Square's feature-set.  Google's Dagger should be a drop-in compatible
+alternative to Square's Dagger, and many features in this fork will, if successful, be
+merged into the upstream project.  
+
+Efforts are made to also keep Google's fork as close in structure to Square's as possible,
+to facilitate merging and compatibility.  Google/dagger will release shortly after Square's
+releases.
+
+Differences with square/dagger
+------------------------------
+
+  * No feature differences at present
 
 
 Download
@@ -22,12 +39,12 @@ dependency:
 ```xml
 <dependencies>
   <dependency>
-    <groupId>com.squareup.dagger</groupId>
+    <groupId>com.google.dagger</groupId>
     <artifactId>dagger</artifactId>
     <version>${dagger.version}</version>
   </dependency>
   <dependency>
-    <groupId>com.squareup.dagger</groupId>
+    <groupId>com.google.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
     <version>${dagger.version}</version>
     <optional>true</optional>
@@ -44,6 +61,7 @@ License
 -------
 
     Copyright 2012 Square, Inc.
+    Copyright 2012 Google, Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -59,7 +77,8 @@ License
 
 
 
- [1]: http://square.github.com/dagger/
- [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup.dagger%22%20a%3A%22dagger%22
+ [1]: http://google.github.com/dagger/
+ [upstream]: http://github.com/square/dagger/
+ [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger%22
  [dl-javawriter]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javawriter%22
  [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22
