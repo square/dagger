@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Square, Inc.
+ * Copyright (c) 2013 Google, Inc.
+ * Copyright (c) 2013 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package dagger.internal.codegen;
 
-import dagger.Module;
+import java.util.Arrays;
+import javax.annotation.processing.Processor;
 
-import dagger.ObjectGraph;
-import dagger.Provides;
-
-import java.lang.Override;
-
-@Module
-class TestModule {
-  @Provides String string() {
-    return "string";
+/**
+ * Internal test utilities.
+ */
+class ProcessorTestUtils {
+  static Iterable<? extends Processor> daggerProcessors() {
+    return Arrays.asList(
+        new InjectAdapterProcessor(),
+        new ModuleAdapterProcessor(),
+        new GraphAnalysisProcessor(),
+        new ValidationProcessor());
   }
 }
