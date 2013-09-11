@@ -61,7 +61,7 @@
     <dependency>
       <groupId>com.google.testing.compile</groupId>
       <artifactId>compile-testing</artifactId>
-      <version>0.2-SNAPSHOT</version>
+      <version>0.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
