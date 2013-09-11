@@ -33,7 +33,7 @@ import static org.truth0.Truth.ASSERT;
  */
 // TODO(cgruber): Audit this class when compile-testing has error/warning counts available.
 @RunWith(JUnit4.class)
-public class ScopeAnnotationAbuseTest {
+public class ScopeAnnotationUseTest {
   private static final String ABSTRACTION_SCOPING_TEXT =
       "Scoping annotations are only allowed on concrete types and @Provides methods:";
   private static final String MISUSED_SCOPE_TEXT =
