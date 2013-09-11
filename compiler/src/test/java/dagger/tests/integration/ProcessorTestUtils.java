@@ -14,16 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.tests.integration;
 
+import dagger.internal.codegen.GraphAnalysisProcessor;
+import dagger.internal.codegen.InjectAdapterProcessor;
+import dagger.internal.codegen.ModuleAdapterProcessor;
+import dagger.internal.codegen.ValidationProcessor;
 import java.util.Arrays;
 import javax.annotation.processing.Processor;
 
 /**
  * Internal test utilities.
  */
-class ProcessorTestUtils {
-  static Iterable<? extends Processor> daggerProcessors() {
+public class ProcessorTestUtils {
+  public static Iterable<? extends Processor> daggerProcessors() {
     return Arrays.asList(
         new InjectAdapterProcessor(),
         new ModuleAdapterProcessor(),
