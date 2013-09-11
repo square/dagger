@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.tests.integration.validation;
+
+import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 
 import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
@@ -24,7 +26,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
-import static dagger.internal.codegen.ProcessorTestUtils.daggerProcessors;
 import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
