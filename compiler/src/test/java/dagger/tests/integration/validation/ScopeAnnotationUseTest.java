@@ -33,13 +33,104 @@ import static org.truth0.Truth.ASSERT;
  * Integration tests for the validation processors related to the use
  * of Scoping Annotations.
  */
-// TODO(cgruber): Audit this class when compile-testing has error/warning counts available.
+// TODO(cgruber): Audit this class when http://github.com/google/compile-testing
+//                has error/warning counts and other warning predicates available.
 @RunWith(JUnit4.class)
 public class ScopeAnnotationUseTest {
   private static final String ABSTRACTION_SCOPING_TEXT =
       "Scoping annotations are only allowed on concrete types and @Provides methods:";
-  private static final String MISUSED_SCOPE_TEXT =
-      "Dagger will ignore scoping annotations on methods that are not @Provides methods:";
+
+  // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
+  //private static final String MISUSED_SCOPE_TEXT =
+  //    "Dagger will ignore scoping annotations on methods that are not @Provides methods:";
+
+  @Test public void compileSucceedsScopeOnConcreteType() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import javax.inject.Inject;",
+        "import javax.inject.Singleton;",
+        "@Singleton",
+        "class Test {",
+        "  @Inject public Test() { }",
+        "}"));
+
+    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    ASSERT.about(javaSource())
+        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+        //.and().hasNoWarnings();
+  }
+
+  @Test public void compileSucceedsScopeOnProvidesMethod() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "@Module(library = true, injects = String.class)",
+        "class Test {",
+        "  @Provides @Singleton public String provideString() { return \"\"; }",
+        "}"));
+
+    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    ASSERT.about(javaSource())
+        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+        //.and().hasNoWarnings();
+  }
+
+  @Test public void compileSucceedsWithScopedSuppressedNonProvidesMethod() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import javax.inject.Singleton;",
+        "class Test {",
+        "  @SuppressWarnings(\"scoping\")",
+        "  @Singleton void method() { }",
+        "}"));
+
+    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    ASSERT.about(javaSource())
+        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+        //.and().hasNoWarnings();
+  }
+
+  @Test public void compileSucceedsWithScopedMultiplySuppressedNonProvidesMethod() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import javax.inject.Singleton;",
+        "class Test {",
+        "  @SuppressWarnings({\"blah\", \"scoping\", \"foo\"})",
+        "  @Singleton void method() { }",
+        "}"));
+
+    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    ASSERT.about(javaSource())
+        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+        //.and().hasNoWarnings();
+  }
+
+  @Test public void compileWarnsWithScopedNonProvidesMethod() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import javax.inject.Singleton;",
+        "class Test {",
+        "  @Singleton void method() { }",
+        "}"));
+
+    // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
+    ASSERT.about(javaSource())
+        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+        //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(3).atColumn(49).and()
+        //.withWarningContaining("Test.method()").in(sourceFile).onLine(3).atColumn(49);
+  }
+
+  @Test public void compileWarnsWithScopedIncorrectlySuppressedNonProvidesMethod() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import javax.inject.Singleton;",
+        "class Test {",
+        "  @SuppressWarnings(\"some string other than 'scoping'\")",
+        "  @Singleton void method() { }",
+        "}"));
+
+    // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
+    ASSERT.about(javaSource())
+        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+        //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(4).atColumn(49).and()
+        //.withWarningContaining("Test.method()").in(sourceFile).onLine(4).atColumn(49);
+  }
 
   @Test public void compileFailsWithScopeOnInterface() {
     JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
@@ -148,8 +239,8 @@ public class ScopeAnnotationUseTest {
         "}"));
 
    String singletonErrorText = ""
-   	    + "Singleton annotations have no effect on constructors. "
-   	    + "Did you mean to annotate the class?";
+        + "Singleton annotations have no effect on constructors. "
+        + "Did you mean to annotate the class?";
 
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
@@ -157,93 +248,5 @@ public class ScopeAnnotationUseTest {
         .withErrorContaining("Test.Test()").in(sourceFile).onLine(5).atColumn(29).and()
         .withErrorContaining(singletonErrorText).in(sourceFile).onLine(6).atColumn(33);
   }
-
-  @Test public void compileWarnsWithScopedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @Singleton void method() { }",
-        "}"));
-
-    // TODO(cgruber): uncomment warning predicates when compile-testing has them.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
-        //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(3).atColumn(49).and()
-        //.withWarningContaining("Test.method()").in(sourceFile).onLine(3).atColumn(49);
-  }
-
-  @Test public void compileWarnsWithScopedIncorrectlySuppressedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @SuppressWarnings(\"some string other than 'scoping'\")",
-        "  @Singleton void method() { }",
-        "}"));
-
-    // TODO(cgruber): uncomment warning predicates when compile-testing has them.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
-        //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(4).atColumn(49).and()
-        //.withWarningContaining("Test.method()").in(sourceFile).onLine(4).atColumn(49);
-  }
-
-  @Test public void compileSucceedsWithScopedSuppressedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @SuppressWarnings(\"scoping\")",
-        "  @Singleton void method() { }",
-        "}"));
-
-    // TODO(cgruber): uncomment warning predicates when compile-testing has them.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
-        //.and().hasNoWarnings();
-  }
-
-  @Test public void compileSucceedsWithScopedMultiplySuppressedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @SuppressWarnings({\"blah\", \"scoping\", \"foo\"})",
-        "  @Singleton void method() { }",
-        "}"));
-
-    // TODO(cgruber): uncomment warning predicates when compile-testing has them.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
-        //.and().hasNoWarnings();
-  }
-
-  @Test public void compileSucceedsScopeOnConcreteType() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "import javax.inject.Singleton;",
-        "@Singleton",
-        "class Test {",
-        "  @Inject public Test() { }",
-        "}"));
-
-    // TODO(cgruber): uncomment warning predicates when compile-testing has them.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
-        //.and().hasNoWarnings();
-  }
-
-  @Test public void compileSucceedsScopeOnProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Singleton;",
-        "@Module(library = true, injects = String.class)",
-        "class Test {",
-        "  @Provides @Singleton public String provideString() { return \"\"; }",
-        "}"));
-
-    // TODO(cgruber): uncomment warning predicates when compile-testing has them.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
-        //.and().hasNoWarnings();
-  }
-
 }
+
