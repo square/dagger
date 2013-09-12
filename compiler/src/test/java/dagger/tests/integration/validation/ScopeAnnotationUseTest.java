@@ -24,7 +24,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
+import static java.util.Arrays.asList;
 import static org.truth0.Truth.ASSERT;
 
 /**
@@ -101,6 +103,38 @@ public class ScopeAnnotationUseTest {
         .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile).onLine(7).atColumn(49).and()
         .withErrorContaining("intParam").in(sourceFile).onLine(7).atColumn(49);
+  }
+
+  @Test public void compileFailsWithMultipleScopeAnnotations() {
+    JavaFileObject annotation = JavaFileObjects.forSourceString("MyScope", Joiner.on("\n").join(
+        "import java.lang.annotation.Retention;",
+        "import javax.inject.Scope;",
+        "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+        "@Scope @Retention(RUNTIME) public @interface MyScope { }"));
+
+    JavaFileObject module = JavaFileObjects.forSourceString("MyModule", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "@Module(library = true, injects = Injectable.class)",
+        "class MyModule {",
+        "  @Provides @Singleton @MyScope String method() { return \"\"; }",
+        "}"));
+
+    JavaFileObject injectable = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import javax.inject.Inject;",
+        "import javax.inject.Singleton;",
+        "@Singleton @MyScope",
+        "class Injectable {",
+        "  @Inject String string;",
+        "}"));
+
+    String error = "Only one scoping annotation is allowed per element: ";
+
+    ASSERT.about(javaSources()).that(asList(annotation, module, injectable))
+        .processedWith(daggerProcessors()).failsToCompile()
+        .withErrorContaining(error + "MyModule.method()").in(module).onLine(6).atColumn(40).and()
+        .withErrorContaining(error + "Injectable").in(injectable).onLine(4).atColumn(1);
   }
 
   @Test public void compileFailsWithScopeOnConstructor() {
