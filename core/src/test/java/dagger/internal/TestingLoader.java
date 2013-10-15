@@ -25,9 +25,8 @@ import dagger.internal.loaders.ReflectiveStaticInjection;
  */
 public final class TestingLoader extends Loader {
 
-  @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> type, T instance) {
+  @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<T> type) {
     ModuleAdapter<T> adapter = TestingModuleAdapter.create(type);
-    adapter.module = (instance != null) ? instance : adapter.newModule();
     return adapter;
   }
 

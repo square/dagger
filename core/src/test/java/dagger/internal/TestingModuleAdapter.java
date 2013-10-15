@@ -31,17 +31,15 @@ import javax.inject.Singleton;
 
 //TODO: Reduce the complexity of this and/or replace with a mock or fake.
 public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
-  final Class<?> moduleClass;
-
-  public TestingModuleAdapter(Class<?> moduleClass, Module annotation) {
+  public TestingModuleAdapter(Class<M> moduleClass, Module annotation) {
     super(
+        moduleClass,
         injectableTypesToKeys(annotation.injects()),
         annotation.staticInjections(),
         annotation.overrides(),
         annotation.includes(),
         annotation.complete(),
         annotation.library());
-    this.moduleClass = moduleClass;
   }
 
   private static String[] injectableTypesToKeys(Class<?>[] injectableTypes) {
@@ -55,7 +53,7 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     return result;
   }
 
-  @Override public void getBindings(Map<String, Binding<?>> bindings) {
+  @Override public void getBindings(Map<String, Binding<?>> bindings, M module) {
     for (Class<?> c = moduleClass; !c.equals(Object.class); c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         Provides provides = method.getAnnotation(Provides.class);
@@ -82,15 +80,15 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
           String key = Keys.get(genericReturnType, method.getAnnotations(), method);
           switch (provides.type()) {
             case UNIQUE:
-              handleBindings(bindings, method, key, library);
+              handleBindings(bindings, module, method, key, library);
               break;
             case SET:
               String setKey = Keys.getSetKey(method.getGenericReturnType(),
                   method.getAnnotations(), method);
-              handleSetBindings(bindings, method, setKey, key, library);
+              handleSetBindings(bindings, module, method, setKey, key, library);
               break;
             case SET_VALUES:
-              handleSetBindings(bindings, method, key, key, library);
+              handleSetBindings(bindings, module, method, key, key, library);
               break;
             default:
               throw new AssertionError("Unknown @Provides type " + provides.type());
@@ -100,14 +98,15 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     }
   }
 
-  private void handleBindings(Map<String, Binding<?>> bindings, Method method, String key,
+  private void handleBindings(Map<String, Binding<?>> bindings, M module, Method method, String key,
       boolean library) {
     bindings.put(key, new ProviderMethodBinding<M>(method, key, module, library));
   }
 
-  private void handleSetBindings(Map<String, Binding<?>> bindings, Method method, String setKey,
-      String providerKey, boolean library) {
-    SetBinding.<M>add(bindings, setKey, new ProviderMethodBinding<M>(method, providerKey, module, library));
+  private void handleSetBindings(Map<String, Binding<?>> bindings, M module, Method method,
+      String setKey, String providerKey, boolean library) {
+    SetBinding.<M>add(bindings, setKey,
+        new ProviderMethodBinding<M>(method, providerKey, module, library));
   }
 
   @Override public M newModule() {
@@ -135,7 +134,7 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
   /**
    * Creates a TestingModuleAdapter or throws an {@code IllegalArgumentException}.
    */
-  public static <M> ModuleAdapter<M> create(Class<? extends M> moduleClass) {
+  public static <M> ModuleAdapter<M> create(Class<M> moduleClass) {
     Module annotation = moduleClass.getAnnotation(Module.class);
     if (annotation == null) {
       throw new IllegalArgumentException("No @Module on " + moduleClass.getName());
