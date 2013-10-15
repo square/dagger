@@ -30,13 +30,18 @@ import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
  * reflective equivalent.
  */
 public final class FailoverLoader extends Loader {
+  /*
+   * Note that String.concat is used throughout this code because it is the most efficient way to
+   * concatenate _two_ strings.  javac uses StringBuilder for the + operator and it has proven to
+   * be wasteful in terms of both CPU and memory allocated.
+   */
 
   /**
    * Obtains a module adapter for {@code module} from the first responding resolver.
    */
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> type, T instance) {
     ModuleAdapter<T> result =
-        instantiate(type.getName() + MODULE_ADAPTER_SUFFIX, type.getClassLoader());
+        instantiate(type.getName().concat(MODULE_ADAPTER_SUFFIX), type.getClassLoader());
     if (result == null) {
       throw new IllegalStateException("Module adapter for " + type + " could not be loaded. "
           + "Please ensure that code generation was run for this module.");
@@ -47,7 +52,7 @@ public final class FailoverLoader extends Loader {
 
   @Override public Binding<?> getAtInjectBinding(
       String key, String className, ClassLoader classLoader, boolean mustHaveInjections) {
-    Binding<?> result = instantiate(className + INJECT_ADAPTER_SUFFIX, classLoader);
+    Binding<?> result = instantiate(className.concat(INJECT_ADAPTER_SUFFIX), classLoader);
     if (result != null) {
       return result; // Found loadable adapter, returning it.
     }
@@ -64,7 +69,7 @@ public final class FailoverLoader extends Loader {
 
   @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
     StaticInjection result = instantiate(
-          injectedClass.getName() + STATIC_INJECTION_SUFFIX, injectedClass.getClassLoader());
+          injectedClass.getName().concat(STATIC_INJECTION_SUFFIX), injectedClass.getClassLoader());
     if (result != null) {
       return result;
     }
