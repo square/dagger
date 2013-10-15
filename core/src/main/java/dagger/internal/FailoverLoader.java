@@ -36,18 +36,18 @@ public final class FailoverLoader extends Loader {
    * be wasteful in terms of both CPU and memory allocated.
    */
 
-  private final LruCache<Class<?>, ModuleAdapter<?>> loadedAdapters =
-      new LruCache<Class<?>, ModuleAdapter<?>>(Integer.MAX_VALUE) {
-    @Override protected ModuleAdapter<?> create(Class<?> type) {
-      ModuleAdapter<?> result =
-          instantiate(type.getName().concat(MODULE_ADAPTER_SUFFIX), type.getClassLoader());
-      if (result == null) {
-        throw new IllegalStateException("Module adapter for " + type + " could not be loaded. "
-            + "Please ensure that code generation was run for this module.");
-      }
-      return result;
-    }
-  };
+  private final Memoizer<Class<?>, ModuleAdapter<?>> loadedAdapters =
+      new Memoizer<Class<?>, ModuleAdapter<?>>() {
+        @Override protected ModuleAdapter<?> create(Class<?> type) {
+          ModuleAdapter<?> result =
+              instantiate(type.getName().concat(MODULE_ADAPTER_SUFFIX), type.getClassLoader());
+          if (result == null) {
+            throw new IllegalStateException("Module adapter for " + type + " could not be loaded. "
+                + "Please ensure that code generation was run for this module.");
+          }
+          return result;
+        }
+      };
 
   /**
    * Obtains a module adapter for {@code module} from the first responding resolver.

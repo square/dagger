@@ -46,12 +46,12 @@ public final class Keys {
   private static final String LAZY_PREFIX = Lazy.class.getCanonicalName() + "<";
   private static final String SET_PREFIX = Set.class.getCanonicalName() + "<";
 
-  private static final LruCache<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION
-      = new LruCache<Class<? extends Annotation>, Boolean>(Integer.MAX_VALUE) {
-    @Override protected Boolean create(Class<? extends Annotation> annotationType) {
-      return annotationType.isAnnotationPresent(Qualifier.class);
-    }
-  };
+  private static final Memoizer<Class<? extends Annotation>, Boolean> IS_QUALIFIER_ANNOTATION =
+      new Memoizer<Class<? extends Annotation>, Boolean>() {
+        @Override protected Boolean create(Class<? extends Annotation> annotationType) {
+          return annotationType.isAnnotationPresent(Qualifier.class);
+        }
+      };
 
   Keys() {
   }

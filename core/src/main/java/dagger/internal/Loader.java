@@ -25,21 +25,20 @@ import java.lang.reflect.InvocationTargetException;
  * provide all resolution methods
  */
 public abstract class Loader {
-
-  private final LruCache<ClassLoader, LruCache<String, Class<?>>> caches =
-      new LruCache<ClassLoader, LruCache<String, Class<?>>>(Integer.MAX_VALUE) {
-    @Override protected LruCache<String, Class<?>> create(final ClassLoader classLoader) {
-      return new LruCache<String, Class<?>>(Integer.MAX_VALUE) {
-        @Override protected Class<?> create(String className) {
-          try {
-            return classLoader.loadClass(className);
-          } catch (ClassNotFoundException e) {
-            return Void.class; // Cache the failure (negative case).
-          }
+  private final Memoizer<ClassLoader, Memoizer<String, Class<?>>> caches =
+      new Memoizer<ClassLoader, Memoizer<String, Class<?>>>() {
+        @Override protected Memoizer<String, Class<?>> create(final ClassLoader classLoader) {
+          return new Memoizer<String, Class<?>>() {
+            @Override protected Class<?> create(String className) {
+              try {
+                return classLoader.loadClass(className);
+              } catch (ClassNotFoundException e) {
+                return Void.class; // Cache the failure (negative case).
+              }
+            }
+          };
         }
       };
-    }
-  };
 
   /**
    * Returns a binding that uses {@code @Inject} annotations, or null if no valid binding can
