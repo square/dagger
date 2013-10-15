@@ -288,8 +288,8 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
     writer.emitEmptyLine();
     writer.beginMethod(null, adapterName, EnumSet.of(PUBLIC));
-    writer.emitStatement("super(INJECTS, STATIC_INJECTIONS, %s /*overrides*/, "
-        + "INCLUDES, %s /*complete*/, %s /*library*/)", overrides, complete, library);
+    writer.emitStatement("super(%s.class, INJECTS, STATIC_INJECTIONS, %s /*overrides*/, "
+        + "INCLUDES, %s /*complete*/, %s /*library*/)", typeName,  overrides, complete, library);
     writer.endMethod();
 
     ExecutableElement noArgsConstructor = getNoArgsConstructor(type);
@@ -309,7 +309,8 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       writer.emitEmptyLine();
       writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
-      writer.beginMethod("void", "getBindings", EnumSet.of(PUBLIC), BINDINGS_MAP, "map");
+      writer.beginMethod("void", "getBindings", EnumSet.of(PUBLIC), BINDINGS_MAP, "map",
+          typeName, "module");
 
       for (ExecutableElement providerMethod : providerMethods) {
         Provides provides = providerMethod.getAnnotation(Provides.class);

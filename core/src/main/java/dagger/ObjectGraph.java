@@ -22,14 +22,15 @@ import dagger.internal.Keys;
 import dagger.internal.Linker;
 import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
+import dagger.internal.Modules;
 import dagger.internal.ProblemDetector;
 import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
 import dagger.internal.UniqueMap;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import static dagger.internal.Modules.getAllModuleAdapters;
+import java.util.Map.Entry;
 
 
 /**
@@ -134,9 +135,9 @@ public abstract class ObjectGraph {
   static class DaggerObjectGraph extends ObjectGraph {
     private final DaggerObjectGraph base;
     private final Linker linker;
+    private final Loader plugin;
     private final Map<Class<?>, StaticInjection> staticInjections;
     private final Map<String, Class<?>> injectableTypes;
-    private final Loader plugin;
 
     DaggerObjectGraph(DaggerObjectGraph base,
         Linker linker,
@@ -164,15 +165,19 @@ public abstract class ObjectGraph {
       // duplicates are permitted.
       Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
       Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
-      for (ModuleAdapter<?> moduleAdapter : getAllModuleAdapters(plugin, modules).values()) {
+      Map<ModuleAdapter<?>, Object> loadedModules =
+          Modules.loadModules(plugin, Arrays.asList(modules));
+      for (Entry<ModuleAdapter<?>, Object> loadedModule : loadedModules.entrySet()) {
+        @SuppressWarnings("unchecked")
+        ModuleAdapter<Object> moduleAdapter = (ModuleAdapter<Object>) loadedModule.getKey();
         for (String key : moduleAdapter.injectableTypes) {
-          injectableTypes.put(key, moduleAdapter.getModule().getClass());
+          injectableTypes.put(key, moduleAdapter.moduleClass);
         }
         for (Class<?> c : moduleAdapter.staticInjections) {
           staticInjections.put(c, null);
         }
         Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
-        moduleAdapter.getBindings(addTo);
+        moduleAdapter.getBindings(addTo, loadedModule.getValue());
       }
 
       // Create a linker and install all of the user's bindings
@@ -181,8 +186,10 @@ public abstract class ObjectGraph {
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
-      return new DaggerObjectGraph(base, linker, plugin, staticInjections, injectableTypes);
+      return new DaggerObjectGraph(base, linker, plugin, staticInjections,
+          injectableTypes);
     }
+
 
 
     @Override public ObjectGraph plus(Object... modules) {

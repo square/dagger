@@ -18,6 +18,7 @@ package dagger.internal;
 
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,35 +32,39 @@ public final class Modules {
    * Returns a full set of module adapters, including module adapters for included
    * modules.
    */
-  public static Map<Class<?>, ModuleAdapter<?>> getAllModuleAdapters(Loader plugin,
-      Object[] seedModules) {
-    // Create a module adapter for each seed module.
-    ModuleAdapter<?>[] seedAdapters = new ModuleAdapter<?>[seedModules.length];
-    int s = 0;
-    for (Object module : seedModules) {
-      if (module instanceof Class) {
-        seedAdapters[s++] = plugin.getModuleAdapter((Class<?>) module, null); // Loader constructs.
+  public static Map<ModuleAdapter<?>, Object> loadModules(Loader loader,
+      List<Object> seedModulesOrClasses) {
+    Map<ModuleAdapter<?>, Object> seedAdapters =
+        new LinkedHashMap<ModuleAdapter<?>, Object>(seedModulesOrClasses.size());
+    for (Object moduleOrClass : seedModulesOrClasses) {
+      if (moduleOrClass instanceof Class<?>) {
+        ModuleAdapter<?> moduleAdapter = loader.getModuleAdapter((Class<?>) moduleOrClass);
+        seedAdapters.put(moduleAdapter, moduleAdapter.newModule());
       } else {
-        seedAdapters[s++] = plugin.getModuleAdapter(module.getClass(), module);
+        ModuleAdapter<?> moduleAdapter = loader.getModuleAdapter(moduleOrClass.getClass());
+        seedAdapters.put(moduleAdapter, moduleOrClass);
       }
     }
 
-    Map<Class<?>, ModuleAdapter<?>> adaptersByModuleType
-        = new LinkedHashMap<Class<?>, ModuleAdapter<?>>();
-
     // Add the adapters that we have module instances for. This way we won't
     // construct module objects when we have a user-supplied instance.
-    for (ModuleAdapter<?> adapter : seedAdapters) {
-      adaptersByModuleType.put(adapter.getModule().getClass(), adapter);
-    }
+    Map<ModuleAdapter<?>, Object> result =
+        new LinkedHashMap<ModuleAdapter<?>, Object>(seedAdapters);
 
-    // Next add adapters for the modules that we need to construct. This creates
-    // instances of modules as necessary.
-    for (ModuleAdapter<?> adapter : seedAdapters) {
-      collectIncludedModulesRecursively(plugin, adapter, adaptersByModuleType);
-    }
 
-    return adaptersByModuleType;
+    // Next collect included modules
+    Map<Class<?>, ModuleAdapter<?>> transitiveInclusions =
+        new LinkedHashMap<Class<?>, ModuleAdapter<?>>();
+    for (ModuleAdapter<?> adapter : seedAdapters.keySet()) {
+      collectIncludedModulesRecursively(loader, adapter, transitiveInclusions);
+    }
+    // and create them if necessary
+    for (ModuleAdapter<?> dependency : transitiveInclusions.values()) {
+      if (!result.containsKey(dependency)) {
+        result.put(dependency, dependency.newModule());
+      }
+    }
+    return result;
   }
 
   /**
@@ -70,7 +75,7 @@ public final class Modules {
       Map<Class<?>, ModuleAdapter<?>> result) {
     for (Class<?> include : adapter.includes) {
       if (!result.containsKey(include)) {
-        ModuleAdapter<Object> includedModuleAdapter = plugin.getModuleAdapter(include, null);
+        ModuleAdapter<?> includedModuleAdapter = plugin.getModuleAdapter(include);
         result.put(include, includedModuleAdapter);
         collectIncludedModulesRecursively(plugin, includedModuleAdapter, result);
       }

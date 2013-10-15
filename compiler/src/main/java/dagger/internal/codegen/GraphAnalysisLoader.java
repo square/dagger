@@ -54,7 +54,7 @@ public final class GraphAnalysisLoader extends Loader {
     return GraphAnalysisInjectBinding.create(type, mustHaveInjections);
   }
 
-  @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module) {
+  @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<T> moduleClass) {
     throw new UnsupportedOperationException();
   }
 
