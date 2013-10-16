@@ -61,14 +61,14 @@ public final class Keys {
     return get(type, null);
   }
 
-
   /** Returns a key for the members of {@code type}. */
   public static String getMembersKey(Class<?> key) {
-    return "members/" + get(key);
+    // for classes key.getName() is equivalent to get(key)
+    return "members/".concat(key.getName());
   }
 
   /** Returns a key for {@code type} annotated by {@code annotation}. */
-  public static String get(Type type, Annotation annotation) {
+  private static String get(Type type, Annotation annotation) {
     type = boxIfPrimitive(type);
     if (annotation == null && type instanceof Class && !((Class<?>) type).isArray()) {
       return ((Class<?>) type).getName();
@@ -231,11 +231,6 @@ public final class Keys {
   /** Returns true if {@code string.substring(offset).startsWith(substring)}. */
   private static boolean substringStartsWith(String string, int offset, String substring) {
     return string.regionMatches(offset, substring, 0, substring.length());
-  }
-
-  /** Returns true if {@code key} is a binding that supports members injection. */
-  public static boolean isMembersInjection(String key) {
-    return key.startsWith("members/");
   }
 
   /** Returns true if {@code key} has a qualifier annotation. */
