@@ -34,10 +34,12 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     SetBinding<T> setBinding;
     if (previous instanceof SetBinding) {
       setBinding = (SetBinding) previous;
+      setBinding.setLibrary(setBinding.library() && binding.library());
     } else if (previous != null) {
       throw new IllegalArgumentException("Duplicate:\n    " + previous + "\n    " + binding);
     } else {
       setBinding = new SetBinding<T>(setKey, binding.requiredBy);
+      setBinding.setLibrary(binding.library());
       bindings.put(setKey, setBinding);
     }
     setBinding.contributors.add(Linker.scope(binding));
