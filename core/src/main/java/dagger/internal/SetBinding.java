@@ -38,11 +38,14 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     Binding<?> previous = bindings.get(setKey);
     SetBinding<T> setBinding;
     if (previous instanceof SetBinding) {
-      return (SetBinding<T>) previous;
+      setBinding = (SetBinding<T>) previous;
+      setBinding.setLibrary(setBinding.library() && binding.library());
+      return setBinding;
     } else if (previous != null) {
       throw new IllegalArgumentException("Duplicate:\n    " + previous + "\n    " + binding);
     } else {
       setBinding = new SetBinding<T>(setKey, binding.requiredBy);
+      setBinding.setLibrary(binding.library());
       bindings.put(setKey, setBinding);
       return (SetBinding<T>) bindings.get(setKey); // BindingMap.put() copies SetBindings.
     }
