@@ -16,8 +16,8 @@
  */
 package dagger.internal;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.AccessibleObject;
+
 
 /**
  * Provides a point of configuration of the basic resolving functions within Dagger, namely
@@ -71,7 +71,8 @@ public abstract class Loader {
   }
 
   /**
-   * Instantiates a class using its default constructor and the given {@link ClassLoader}.
+   * Instantiates a class using its default constructor and the given {@link ClassLoader}. This
+   * method does not attempt to {@linkplain AccessibleObject#setAccessible set accessibility}.
    */
   protected <T> T instantiate(String name, ClassLoader classLoader) {
     try {
@@ -79,17 +80,13 @@ public abstract class Loader {
       if (generatedClass == Void.class) {
         return null;
       }
-      Constructor<?> constructor = generatedClass.getDeclaredConstructor();
-      constructor.setAccessible(true);
-      return (T) constructor.newInstance();
-    } catch (NoSuchMethodException e) {
-      throw new RuntimeException("No default constructor found on " + name, e);
+      @SuppressWarnings("unchecked")
+      T instance = (T) generatedClass.newInstance();
+      return instance;
     } catch (InstantiationException e) {
       throw new RuntimeException("Failed to initialize " + name, e);
     } catch (IllegalAccessException e) {
       throw new RuntimeException("Failed to initialize " + name, e);
-    } catch (InvocationTargetException e) {
-      throw new RuntimeException("Error while initializing " + name, e.getCause());
     }
   }
 
