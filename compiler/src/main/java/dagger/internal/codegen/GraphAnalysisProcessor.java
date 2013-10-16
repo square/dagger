@@ -22,6 +22,7 @@ import dagger.internal.Binding.InvalidBindingException;
 import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
+import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -95,9 +96,14 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
     }
 
     for (Element element : modules) {
-      Map<String, Object> annotation = getAnnotation(Module.class, element);
-      TypeElement moduleType = (TypeElement) element;
+      Map<String, Object> annotation = null;
+      try {
+        annotation = getAnnotation(Module.class, element);
+      } catch (CodeGenerationIncompleteException e) {
+        continue; // skip this element. An up-stream compiler error is in play.
+      }
 
+      TypeElement moduleType = (TypeElement) element;
       if (annotation == null) {
         error("Missing @Module annotation.", moduleType);
         continue;

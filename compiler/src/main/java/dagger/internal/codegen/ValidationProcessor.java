@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -64,16 +65,20 @@ public final class ValidationProcessor extends AbstractProcessor {
     Map<Element, Element> parametersToTheirMethods = new LinkedHashMap<Element, Element>();
     getAllElements(env, allElements, parametersToTheirMethods);
     for (Element element : allElements) {
+      try {
         validateProvides(element);
-        validateScoping(element);
-        validateQualifiers(element, parametersToTheirMethods);
+      } catch (CodeGenerationIncompleteException e) {
+        continue; // Upstream compiler issue in play. Ignore this element.
+      }
+      validateScoping(element);
+      validateQualifiers(element, parametersToTheirMethods);
     }
     return false;
   }
 
   private void validateProvides(Element element) {
     if (element.getAnnotation(Provides.class) != null
-        && element.getEnclosingElement().getAnnotation(Module.class) == null) {
+        && Util.getAnnotation(Module.class, element.getEnclosingElement()) == null) {
       error("@Provides methods must be declared in modules: " + elementToString(element), element);
     }
   }
