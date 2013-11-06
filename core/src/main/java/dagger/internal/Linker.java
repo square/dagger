@@ -280,10 +280,9 @@ public final class Linker {
    * Returns a scoped binding for {@code binding}.
    */
   static <T> Binding<T> scope(final Binding<T> binding) {
-    if (!binding.isSingleton()) {
-      return binding;
+    if (!binding.isSingleton() || binding instanceof SingletonBinding) {
+      return binding; // Default scoped binding or already a scoped binding.
     }
-    if (binding instanceof SingletonBinding) throw new AssertionError();
     return new SingletonBinding<T>(binding);
   }
 
@@ -423,6 +422,9 @@ public final class Linker {
     }
     @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
       throw new UnsupportedOperationException("Deferred bindings must resolve first.");
+    }
+    @Override public String toString() {
+      return "DeferredBinding[deferredKey=" + deferredKey + "]";
     }
   }
 }

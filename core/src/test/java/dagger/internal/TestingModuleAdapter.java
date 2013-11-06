@@ -128,6 +128,10 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     }
   }
 
+  @Override public String toString() {
+    return "TestingModuleAdapter[" + this.moduleClass.getName() + "]";
+  }
+
   /**
    * Creates a TestingModuleAdapter or throws an {@code IllegalArgumentException}.
    */
