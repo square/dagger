@@ -202,8 +202,7 @@ public abstract class ObjectGraph {
       }
 
       // Create a linker and install all of the user's bindings
-      Linker linker =
-          new Linker((base != null) ? base.linker : null, plugin, new ThrowingErrorHandler());
+      Linker linker = new Linker(plugin, new ThrowingErrorHandler());
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
