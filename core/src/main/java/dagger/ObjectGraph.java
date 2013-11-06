@@ -24,6 +24,7 @@ import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.Modules;
 import dagger.internal.ProblemDetector;
+import dagger.internal.SetBinding;
 import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
 import dagger.internal.UniqueMap;
@@ -163,26 +164,46 @@ public abstract class ObjectGraph {
 
       // Extract bindings in the 'base' and 'overrides' set. Within each set no
       // duplicates are permitted.
-      Map<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
-      Map<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>();
+      UniqueMap<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>() {
+        @Override public Binding<?> put(String key, Binding<?> value) {
+          return super.put(key, (value instanceof SetBinding)
+              ? new SetBinding<Object>((SetBinding<Object>) value) : value);
+        }
+      };
+      if (base != null) {
+        baseBindings.putAll(base.linkEverything()); // Add parent bindings
+      }
+      UniqueMap<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>() {
+        @Override public Binding<?> put(String key, Binding<?> value) {
+          if (value instanceof SetBinding) {
+            throw new IllegalArgumentException("Module overrides cannot contribute set bindings.");
+          }
+          return super.put(key, value);
+        }
+      };
       Map<ModuleAdapter<?>, Object> loadedModules =
           Modules.loadModules(plugin, Arrays.asList(modules));
       for (Entry<ModuleAdapter<?>, Object> loadedModule : loadedModules.entrySet()) {
         @SuppressWarnings("unchecked")
         ModuleAdapter<Object> moduleAdapter = (ModuleAdapter<Object>) loadedModule.getKey();
-        for (String key : moduleAdapter.injectableTypes) {
-          injectableTypes.put(key, moduleAdapter.moduleClass);
+        for (int i = 0; i < moduleAdapter.injectableTypes.length; i++) {
+          injectableTypes.put(moduleAdapter.injectableTypes[i], moduleAdapter.moduleClass);
         }
-        for (Class<?> c : moduleAdapter.staticInjections) {
-          staticInjections.put(c, null);
+        for (int i = 0; i < moduleAdapter.staticInjections.length; i++) {
+          staticInjections.put(moduleAdapter.staticInjections[i], null);
         }
-        Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
-        moduleAdapter.getBindings(addTo, loadedModule.getValue());
+        try {
+          Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
+          moduleAdapter.getBindings(addTo, loadedModule.getValue());
+        } catch (IllegalArgumentException e) {
+          throw new IllegalArgumentException(moduleAdapter.moduleClass.getSimpleName()
+              + " is an overriding module and cannot contribute set bindings.");
+        }
       }
 
       // Create a linker and install all of the user's bindings
-      Linker linker = new Linker((base != null) ? base.linker : null, plugin,
-          new ThrowingErrorHandler());
+      Linker linker =
+          new Linker((base != null) ? base.linker : null, plugin, new ThrowingErrorHandler());
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
@@ -190,10 +211,7 @@ public abstract class ObjectGraph {
           injectableTypes);
     }
 
-
-
     @Override public ObjectGraph plus(Object... modules) {
-      linkEverything();
       return makeGraph(this, plugin, modules);
     }
 
@@ -299,4 +317,5 @@ public abstract class ObjectGraph {
       }
     }
   }
+
 }

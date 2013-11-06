@@ -51,7 +51,6 @@ public final class Modules {
     Map<ModuleAdapter<?>, Object> result =
         new LinkedHashMap<ModuleAdapter<?>, Object>(seedAdapters);
 
-
     // Next collect included modules
     Map<Class<?>, ModuleAdapter<?>> transitiveInclusions =
         new LinkedHashMap<Class<?>, ModuleAdapter<?>>();
