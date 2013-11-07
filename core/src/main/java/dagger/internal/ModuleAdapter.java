@@ -57,7 +57,7 @@ public abstract class ModuleAdapter<T> {
     throw new UnsupportedOperationException("No no-args constructor on " + getClass().getName());
   }
 
-  public T getModule() {
-    return module;
+  public Class<?> getModuleClass() {
+    return module.getClass();
   }
 }

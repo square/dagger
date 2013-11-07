@@ -30,13 +30,6 @@ import java.util.Set;
 public final class Linker {
   private static final Object UNINITIALIZED = new Object();
 
-  /**
-   * The base {@code Linker} which will be consulted to satisfy bindings not
-   * otherwise satisfiable from this {@code Linker}. The top-most {@code Linker}
-   * in a chain will have a null base linker.
-   */
-  private final Linker base;
-
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> toLink = new LinkedList<Binding<?>>();
 
@@ -53,11 +46,10 @@ public final class Linker {
 
   private final ErrorHandler errorHandler;
 
-  public Linker(Linker base, Loader plugin, ErrorHandler errorHandler) {
+  public Linker(Loader plugin, ErrorHandler errorHandler) {
     if (plugin == null) throw new NullPointerException("plugin");
     if (errorHandler == null) throw new NullPointerException("errorHandler");
 
-    this.base = base;
     this.plugin = plugin;
     this.errorHandler = errorHandler;
   }
@@ -234,15 +226,7 @@ public final class Linker {
       boolean mustHaveInjections, boolean library) {
     assertLockHeld();
 
-    Binding<?> binding = null;
-    for (Linker linker = this; linker != null; linker = linker.base) {
-      binding = linker.bindings.get(key);
-      if (binding != null) {
-        if (linker != this && !binding.isLinked()) throw new AssertionError();
-        break;
-      }
-    }
-
+    Binding<?> binding = bindings.get(key);
     if (binding == null) {
       // We can't satisfy this binding. Make sure it'll work next time!
       Binding<?> deferredBinding =
@@ -280,10 +264,9 @@ public final class Linker {
    * Returns a scoped binding for {@code binding}.
    */
   static <T> Binding<T> scope(final Binding<T> binding) {
-    if (!binding.isSingleton()) {
-      return binding;
+    if (!binding.isSingleton() || binding instanceof SingletonBinding) {
+      return binding; // Default scoped binding or already a scoped binding.
     }
-    if (binding instanceof SingletonBinding) throw new AssertionError();
     return new SingletonBinding<T>(binding);
   }
 
@@ -418,11 +401,17 @@ public final class Linker {
       this.classLoader = classLoader;
       this.mustHaveInjections = mustHaveInjections;
     }
+
     @Override public void injectMembers(Object t) {
       throw new UnsupportedOperationException("Deferred bindings must resolve first.");
     }
+
     @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
       throw new UnsupportedOperationException("Deferred bindings must resolve first.");
+    }
+
+    @Override public String toString() {
+      return "DeferredBinding[deferredKey=" + deferredKey + "]";
     }
   }
 }

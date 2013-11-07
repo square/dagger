@@ -50,7 +50,7 @@ public final class Modules {
     // Add the adapters that we have module instances for. This way we won't
     // construct module objects when we have a user-supplied instance.
     for (ModuleAdapter<?> adapter : seedAdapters) {
-      adaptersByModuleType.put(adapter.getModule().getClass(), adapter);
+      adaptersByModuleType.put(adapter.getModuleClass(), adapter);
     }
 
     // Next add adapters for the modules that we need to construct. This creates
