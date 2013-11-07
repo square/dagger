@@ -401,12 +401,15 @@ public final class Linker {
       this.classLoader = classLoader;
       this.mustHaveInjections = mustHaveInjections;
     }
+
     @Override public void injectMembers(Object t) {
       throw new UnsupportedOperationException("Deferred bindings must resolve first.");
     }
+
     @Override public void getDependencies(Set<Binding<?>> get, Set<Binding<?>> injectMembers) {
       throw new UnsupportedOperationException("Deferred bindings must resolve first.");
     }
+
     @Override public String toString() {
       return "DeferredBinding[deferredKey=" + deferredKey + "]";
     }
