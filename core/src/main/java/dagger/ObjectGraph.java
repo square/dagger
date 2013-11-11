@@ -28,7 +28,6 @@ import dagger.internal.SetBinding;
 import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
 import dagger.internal.UniqueMap;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -182,8 +181,7 @@ public abstract class ObjectGraph {
         }
       };
 
-      Map<ModuleAdapter<?>, Object> loadedModules =
-          Modules.loadModules(plugin, Arrays.asList(modules));
+      Map<ModuleAdapter<?>, Object> loadedModules = Modules.loadModules(plugin, modules);
       for (Entry<ModuleAdapter<?>, Object> loadedModule : loadedModules.entrySet()) {
         @SuppressWarnings("unchecked")
         ModuleAdapter<Object> moduleAdapter = (ModuleAdapter<Object>) loadedModule.getKey();

@@ -61,7 +61,7 @@ public abstract class ModuleAdapter<T> {
   }
 
   @Override
-  final public boolean equals(Object obj) {
+  public final boolean equals(Object obj) {
     if (obj == this) {
       return true;
     } else if (obj instanceof ModuleAdapter<?>) {
