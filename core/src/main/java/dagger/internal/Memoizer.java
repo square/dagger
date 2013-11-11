@@ -15,7 +15,7 @@
  */
 package dagger.internal;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -30,7 +30,7 @@ abstract class Memoizer<K, V> {
   private final Lock writeLock;
 
   public Memoizer() {
-    this.map = new HashMap<K, V>();
+    this.map = new LinkedHashMap<K, V>();
     ReadWriteLock lock = new ReentrantReadWriteLock();
     this.readLock = lock.readLock();
     this.writeLock = lock.writeLock();
@@ -70,7 +70,7 @@ abstract class Memoizer<K, V> {
 
   protected abstract V create(K key);
 
-  @Override public synchronized final String toString() {
+  @Override public final String toString() {
     readLock.lock();
     try {
       return map.toString();
