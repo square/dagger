@@ -18,7 +18,6 @@ package dagger.internal;
 
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,16 +32,16 @@ public final class Modules {
    * modules.
    */
   public static Map<ModuleAdapter<?>, Object> loadModules(Loader loader,
-      List<Object> seedModulesOrClasses) {
+      Object[] seedModulesOrClasses) {
     Map<ModuleAdapter<?>, Object> seedAdapters =
-        new LinkedHashMap<ModuleAdapter<?>, Object>(seedModulesOrClasses.size());
-    for (Object moduleOrClass : seedModulesOrClasses) {
-      if (moduleOrClass instanceof Class<?>) {
-        ModuleAdapter<?> moduleAdapter = loader.getModuleAdapter((Class<?>) moduleOrClass);
-        seedAdapters.put(moduleAdapter, moduleAdapter.newModule());
+        new LinkedHashMap<ModuleAdapter<?>, Object>(seedModulesOrClasses.length);
+    for (int i = 0; i < seedModulesOrClasses.length; i++) {
+      if (seedModulesOrClasses[i] instanceof Class<?>) {
+        ModuleAdapter<?> adapter = loader.getModuleAdapter((Class<?>) seedModulesOrClasses[i]);
+        seedAdapters.put(adapter, adapter.newModule());
       } else {
-        ModuleAdapter<?> moduleAdapter = loader.getModuleAdapter(moduleOrClass.getClass());
-        seedAdapters.put(moduleAdapter, moduleOrClass);
+        ModuleAdapter<?> adapter = loader.getModuleAdapter(seedModulesOrClasses[i].getClass());
+        seedAdapters.put(adapter, seedModulesOrClasses[i]);
       }
     }
 
