@@ -49,10 +49,10 @@ public abstract class Loader {
       String key, String className, ClassLoader classLoader, boolean mustHaveInjections);
 
   /**
-   * Returns a module adapter for {@code module} or throws a {@code TypeNotPresentException} if
+   * Returns a module adapter for {@code moduleClass} or throws a {@code TypeNotPresentException} if
    * none can be found.
    */
-  public abstract <T> ModuleAdapter<T> getModuleAdapter(Class<? extends T> moduleClass, T module);
+  public abstract <T> ModuleAdapter<T> getModuleAdapter(Class<T> moduleClass);
 
   /**
    * Returns the static injection for {@code injectedClass}.
