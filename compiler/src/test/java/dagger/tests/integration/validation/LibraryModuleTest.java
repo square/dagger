@@ -18,12 +18,14 @@ package dagger.tests.integration.validation;
 
 import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
+import java.util.Arrays;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 import static org.truth0.Truth.ASSERT;
 
@@ -32,7 +34,6 @@ public final class LibraryModuleTest {
   @Test public void unusedProviderMethodsPassOnLibrary() {
     JavaFileObject source = JavaFileObjects.forSourceString("Library", Joiner.on("\n").join(
         "import dagger.Module;",
-        "import dagger.ObjectGraph;",
         "import dagger.Provides;",
         "import java.lang.Override;",
         "@Module(library = true)",
@@ -48,7 +49,6 @@ public final class LibraryModuleTest {
   @Test public void unusedProviderMethodsFailOnNonLibrary() {
     JavaFileObject source = JavaFileObjects.forSourceString("Library", Joiner.on("\n").join(
         "import dagger.Module;",
-        "import dagger.ObjectGraph;",
         "import dagger.Provides;",
         "import java.lang.Override;",
         "@Module(library = false)",
@@ -58,9 +58,44 @@ public final class LibraryModuleTest {
         "  }",
         "}"));
     ASSERT.about(javaSource()).that(source).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining("Graph validation failed:").in(source).onLine(6).and()
-        .withErrorContaining("You have these unused @Provider methods:").in(source).onLine(6).and()
-        .withErrorContaining("1. TestModule.string()").in(source).onLine(6).and()
-        .withErrorContaining("Set library=true in your module").in(source).onLine(6);
+        .withErrorContaining("Graph validation failed:").in(source).onLine(5).and()
+        .withErrorContaining("You have these unused @Provider methods:").in(source).onLine(5).and()
+        .withErrorContaining("1. TestModule.string()").in(source).onLine(5).and()
+        .withErrorContaining("Set library=true in your module").in(source).onLine(5);
   }
+
+  @Test public void injectsOfInterfaceMakesProvidesBindingNotAnOrphan() {
+    JavaFileObject foo = JavaFileObjects.forSourceString("Foo", "interface Foo {}");
+    JavaFileObject module = JavaFileObjects.forSourceString("TestModule", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "@Module(injects = Foo.class, library = false)",
+        "class TestModule {",
+        "  @Singleton @Provides Foo provideFoo() {",
+        "    return new Foo() {};",
+        "  }",
+        "}"));
+    ASSERT.about(javaSources()).that(Arrays.asList(foo, module))
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
+  }
+
+  @Test public void injectsOfClassMakesProvidesBindingNotAnOrphan() {
+    JavaFileObject foo = JavaFileObjects.forSourceString("Foo", "class Foo {}");
+    JavaFileObject module = JavaFileObjects.forSourceString("TestModule", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "@Module(injects = Foo.class, library = false)",
+        "class TestModule {",
+        "  @Singleton @Provides Foo provideFoo() {",
+        "    return new Foo() {};",
+        "  }",
+        "}"));
+    ASSERT.about(javaSources()).that(Arrays.asList(foo, module))
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
+  }
+
 }
