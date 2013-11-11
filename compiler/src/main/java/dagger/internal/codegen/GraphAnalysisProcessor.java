@@ -173,10 +173,13 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
         Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
         // Gather the injectable types from the annotation.
+        Set<String> injectsProvisionKeys = new LinkedHashSet<String>();
         for (Object injectableTypeObject : (Object[]) annotation.get("injects")) {
           TypeMirror injectableType = (TypeMirror) injectableTypeObject;
+          String providerKey = GeneratorKeys.get(injectableType);
+          injectsProvisionKeys.add(providerKey);
           String key = isInterface(injectableType)
-              ? GeneratorKeys.get(injectableType)
+              ? providerKey
               : GeneratorKeys.rawMembersKey(injectableType);
           linker.requestBinding(key, module.getQualifiedName().toString(),
               getClass().getClassLoader(), false, true);
@@ -216,6 +219,9 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
           switch (provides.type()) {
             case UNIQUE:
+              if (injectsProvisionKeys.contains(binding.provideKey)) {
+                binding.setDependedOn(true);
+              }
               addTo.put(key, binding);
               break;
 
