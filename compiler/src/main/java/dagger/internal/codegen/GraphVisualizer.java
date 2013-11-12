@@ -17,7 +17,9 @@ package dagger.internal.codegen;
 
 import dagger.internal.Binding;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.TreeSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +51,7 @@ public final class GraphVisualizer {
     for (Map.Entry<Binding<?>, String> entry : namesIndex.entrySet()) {
       Binding<?> sourceBinding = entry.getKey();
       String sourceName = entry.getValue();
-      Set<Binding<?>> dependencies = new HashSet<Binding<?>>();
+      Set<Binding<?>> dependencies = new TreeSet<Binding<?>>(new BindingComparator());
       sourceBinding.getDependencies(dependencies, dependencies);
       for (Binding<?> targetBinding : dependencies) {
         String targetName = namesIndex.get(targetBinding);
@@ -121,5 +123,17 @@ public final class GraphVisualizer {
     }
 
     return result.toString();
+  }
+
+  /** A Comparator for Bindings so we can insure a consistent ordering of output. */
+  private static class BindingComparator implements Comparator<Binding<?>> {
+    @Override
+    public int compare(Binding<?> left, Binding<?> right) {
+      return getStringForBinding(left).compareTo(getStringForBinding(right));
+    }
+
+    private String getStringForBinding(Binding<?> binding) {
+      return binding == null ? "" : binding.toString();
+    }
   }
 }
