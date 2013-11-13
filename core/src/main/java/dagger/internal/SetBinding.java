@@ -51,7 +51,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     }
   }
 
-  private final Set<Binding<?>> contributors = new LinkedHashSet<Binding<?>>();
+  private final Set<Binding<?>> contributors;
 
   /**
    * Creates a new {@code SetBinding} with the given "provides" key, and the requiredBy object
@@ -59,6 +59,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
    */
   public SetBinding(String key, Object requiredBy) {
     super(key, null, false, requiredBy);
+    contributors = new LinkedHashSet<Binding<?>>();
   }
 
   /**
@@ -67,7 +68,9 @@ public final class SetBinding<T> extends Binding<Set<T>> {
    */
   public SetBinding(SetBinding<T> original) {
     super(original.provideKey, null, false, original.requiredBy);
-    contributors.addAll(original.contributors);
+    this.setLibrary(original.library());
+    this.setDependedOn(original.dependedOn());
+    contributors = new LinkedHashSet<Binding<?>>(original.contributors);
   }
 
   @Override public void attach(Linker linker) {
