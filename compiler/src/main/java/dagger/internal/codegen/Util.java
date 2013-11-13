@@ -137,10 +137,17 @@ final class Util {
         return null;
       }
       @Override public Void visitError(ErrorType errorType, Void v) {
-        // There's already an error but it may not have been reported (most likely
-        // a missing import). If we throw an UnsupportedOperationException here
-        // we'll obscure the real error, so just continue.
-        result.append("error");
+        // Error type found, a type may not yet have been generated, but we need the type
+        // so we can generate the correct code in anticipation of the type being available
+        // to the compiler.
+
+        // Paramterized types which don't exist are returned as an error type whose name is "<any>"
+        if ("<any>".equals(errorType.toString())) {
+          throw new CodeGenerationIncompleteException(
+              "Type reported as <any> is likely a not-yet generated parameterized type.");
+        }
+        // TODO(cgruber): Figure out a strategy for non-FQCN cases.
+        result.append(errorType.toString());
         return null;
       }
       @Override protected Void defaultAction(TypeMirror typeMirror, Void v) {
@@ -150,19 +157,30 @@ final class Util {
     }, null);
   }
 
-  private static final AnnotationValueVisitor<Object, Void> VALUE_EXTRACTOR
-      = new SimpleAnnotationValueVisitor6<Object, Void>() {
-    @Override protected Object defaultAction(Object o, Void v) {
-      return o;
-    }
-    @Override public Object visitArray(List<? extends AnnotationValue> values, Void v) {
-      Object[] result = new Object[values.size()];
-      for (int i = 0; i < values.size(); i++) {
-        result[i] = values.get(i).accept(this, null);
-      }
-      return result;
-    }
-  };
+  private static final AnnotationValueVisitor<Object, Void> VALUE_EXTRACTOR =
+      new SimpleAnnotationValueVisitor6<Object, Void>() {
+        @Override public Object visitString(String s, Void p) {
+          if ("<error>".equals(s)) {
+            throw new CodeGenerationIncompleteException("Unknown type returned as <error>.");
+          } else if ("<any>".equals(s)) {
+            throw new CodeGenerationIncompleteException("Unknown type returned as <any>.");
+          }
+          return s;
+        }
+        @Override public Object visitType(TypeMirror t, Void p) {
+          return t;
+        }
+        @Override protected Object defaultAction(Object o, Void v) {
+          return o;
+        }
+        @Override public Object visitArray(List<? extends AnnotationValue> values, Void v) {
+          Object[] result = new Object[values.size()];
+          for (int i = 0; i < values.size(); i++) {
+            result[i] = values.get(i).accept(this, null);
+          }
+          return result;
+        }
+      };
 
   /**
    * Returns the annotation on {@code element} formatted as a Map. This returns
@@ -196,7 +214,6 @@ final class Util {
       }
       return result;
     }
-
     return null; // Annotation not found.
   }
 
@@ -326,5 +343,16 @@ final class Util {
       }
     }
     return false;
+  }
+
+  /**
+   * An exception thrown when a type is not extant (returns as an error type),
+   * usually as a result of another processor not having yet generated its types upon
+   * which a dagger-annotated type depends.
+   */
+  final static class CodeGenerationIncompleteException extends IllegalStateException {
+    public CodeGenerationIncompleteException(String s) {
+      super(s);
+    }
   }
 }

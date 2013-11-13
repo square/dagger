@@ -22,6 +22,7 @@ import dagger.internal.Binding.InvalidBindingException;
 import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
+import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -59,12 +60,16 @@ import static dagger.internal.codegen.Util.getAnnotation;
 import static dagger.internal.codegen.Util.getPackage;
 import static dagger.internal.codegen.Util.isInterface;
 import static dagger.internal.codegen.Util.methodName;
+import static java.util.Arrays.asList;
 
 /**
  * Performs full graph analysis on a module.
  */
 @SupportedAnnotationTypes("dagger.Module")
 public final class GraphAnalysisProcessor extends AbstractProcessor {
+  private static final Set<String> ERROR_NAMES_TO_PROPAGATE = new LinkedHashSet<String>(asList(
+      "com.sun.tools.javac.code.Symbol$CompletionFailure"));
+
   private final Set<String> delayedModuleNames = new LinkedHashSet<String>();
 
   @Override public SourceVersion getSupportedSourceVersion() {
@@ -95,9 +100,14 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
     }
 
     for (Element element : modules) {
-      Map<String, Object> annotation = getAnnotation(Module.class, element);
-      TypeElement moduleType = (TypeElement) element;
+      Map<String, Object> annotation = null;
+      try {
+        annotation = getAnnotation(Module.class, element);
+      } catch (CodeGenerationIncompleteException e) {
+        continue; // skip this element. An up-stream compiler error is in play.
+      }
 
+      TypeElement moduleType = (TypeElement) element;
       if (annotation == null) {
         error("Missing @Module annotation.", moduleType);
         continue;
@@ -114,7 +124,11 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
           error("Graph validation failed: " + e.getMessage(), elements().getTypeElement(e.type));
           continue;
         } catch (RuntimeException e) {
-          error("Graph validation failed: " + e.getMessage(), moduleType);
+          if (ERROR_NAMES_TO_PROPAGATE.contains(e.getClass().getName())) {
+            throw e;
+          }
+          error("Unknown error " + e.getClass().getName() + " thrown by javac in graph validation: "
+              + e.getMessage(), moduleType);
           continue;
         }
         try {
@@ -153,7 +167,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
         : new GraphAnalysisErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
-    Linker linker = new Linker(null, new GraphAnalysisLoader(processingEnv), errorHandler);
+    Linker linker = new Linker(new GraphAnalysisLoader(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
     // to make the linker happy.
@@ -167,10 +181,13 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
         Map<String, Binding<?>> addTo = overrides ? overrideBindings : baseBindings;
 
         // Gather the injectable types from the annotation.
+        Set<String> injectsProvisionKeys = new LinkedHashSet<String>();
         for (Object injectableTypeObject : (Object[]) annotation.get("injects")) {
           TypeMirror injectableType = (TypeMirror) injectableTypeObject;
+          String providerKey = GeneratorKeys.get(injectableType);
+          injectsProvisionKeys.add(providerKey);
           String key = isInterface(injectableType)
-              ? GeneratorKeys.get(injectableType)
+              ? providerKey
               : GeneratorKeys.rawMembersKey(injectableType);
           linker.requestBinding(key, module.getQualifiedName().toString(),
               getClass().getClassLoader(), false, true);
@@ -210,6 +227,9 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
           switch (provides.type()) {
             case UNIQUE:
+              if (injectsProvisionKeys.contains(binding.provideKey)) {
+                binding.setDependedOn(true);
+              }
               addTo.put(key, binding);
               break;
 

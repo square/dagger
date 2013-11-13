@@ -36,23 +36,23 @@ public final class InjectAdapterGenerationTest {
         "class Basic {",
         "  static class A { @Inject A() { } }",
         "  @Module(injects = A.class)",
-        "  static class CyclicModule { }",
+        "  static class AModule { }",
         "}"));
 
     JavaFileObject expectedModuleAdapter =
-        JavaFileObjects.forSourceString("Basic$CyclicModule$$ModuleAdapter", Joiner.on("\n").join(
+        JavaFileObjects.forSourceString("Basic$AModule$$ModuleAdapter", Joiner.on("\n").join(
             "import dagger.internal.ModuleAdapter;",
-            "public final class Basic$CyclicModule$$ModuleAdapter",
-            "    extends ModuleAdapter<Basic.CyclicModule> {",
+            "public final class Basic$AModule$$ModuleAdapter",
+            "    extends ModuleAdapter<Basic.AModule> {",
             "  private static final String[] INJECTS = {\"members/Basic$A\"};",
             "  private static final Class<?>[] STATIC_INJECTIONS = {};",
             "  private static final Class<?>[] INCLUDES = {};",
-            "  public Basic$CyclicModule$$ModuleAdapter() {",
-            "    super(Basic.CyclicModule.class,INJECTS, STATIC_INJECTIONS, false, INCLUDES,",
-            "      true, false);",
+            "  public Basic$AModule$$ModuleAdapter() {",
+            "    super(Basic.AModule.class, INJECTS, STATIC_INJECTIONS, false, INCLUDES, true,",
+            "      false);",
             "  }",
-            "  @Override public Basic.CyclicModule newModule() {",
-            "    return new Basic.CyclicModule();",
+            "  @Override public Basic.AModule newModule() {",
+            "    return new Basic.AModule();",
             "  }",
             "}"));
 

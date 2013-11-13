@@ -28,27 +28,49 @@ import java.util.Set;
  */
 public final class SetBinding<T> extends Binding<Set<T>> {
 
-  @SuppressWarnings("unchecked")
   public static <T> void add(Map<String, Binding<?>> bindings, String setKey, Binding<?> binding) {
+    prepareSetBinding(bindings, setKey, binding).contributors.add(Linker.scope(binding));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> SetBinding<T> prepareSetBinding(
+      Map<String, Binding<?>> bindings, String setKey, Binding<?> binding) {
     Binding<?> previous = bindings.get(setKey);
     SetBinding<T> setBinding;
     if (previous instanceof SetBinding) {
-      setBinding = (SetBinding) previous;
+      setBinding = (SetBinding<T>) previous;
       setBinding.setLibrary(setBinding.library() && binding.library());
+      return setBinding;
     } else if (previous != null) {
       throw new IllegalArgumentException("Duplicate:\n    " + previous + "\n    " + binding);
     } else {
       setBinding = new SetBinding<T>(setKey, binding.requiredBy);
       setBinding.setLibrary(binding.library());
       bindings.put(setKey, setBinding);
+      return (SetBinding<T>) bindings.get(setKey); // BindingMap.put() copies SetBindings.
     }
-    setBinding.contributors.add(Linker.scope(binding));
   }
 
-  private final Set<Binding<?>> contributors = new LinkedHashSet<Binding<?>>();
+  private final Set<Binding<?>> contributors;
 
+  /**
+   * Creates a new {@code SetBinding} with the given "provides" key, and the requiredBy object
+   * for traceability.
+   */
   public SetBinding(String key, Object requiredBy) {
     super(key, null, false, requiredBy);
+    contributors = new LinkedHashSet<Binding<?>>();
+  }
+
+  /**
+   * Creates a new {@code SetBinding} with all of the contributing bindings of the provided
+   * original {@code SetBinding}.
+   */
+  public SetBinding(SetBinding<T> original) {
+    super(original.provideKey, null, false, original.requiredBy);
+    this.setLibrary(original.library());
+    this.setDependedOn(original.dependedOn());
+    contributors = new LinkedHashSet<Binding<?>>(original.contributors);
   }
 
   @Override public void attach(Linker linker) {
