@@ -56,7 +56,7 @@ public final class Linker {
 
   private volatile boolean fullyLinked = false;
 
-public Linker(Linker base, Loader plugin, ErrorHandler errorHandler) {
+  public Linker(Linker base, Loader plugin, ErrorHandler errorHandler) {
     if (plugin == null) throw new NullPointerException("plugin");
     if (errorHandler == null) throw new NullPointerException("errorHandler");
 
