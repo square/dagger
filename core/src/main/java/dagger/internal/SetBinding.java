@@ -38,17 +38,20 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     Binding<?> previous = bindings.get(setKey);
     SetBinding<T> setBinding;
     if (previous instanceof SetBinding) {
-      return (SetBinding<T>) previous;
+      setBinding = (SetBinding<T>) previous;
+      setBinding.setLibrary(setBinding.library() && binding.library());
+      return setBinding;
     } else if (previous != null) {
       throw new IllegalArgumentException("Duplicate:\n    " + previous + "\n    " + binding);
     } else {
       setBinding = new SetBinding<T>(setKey, binding.requiredBy);
+      setBinding.setLibrary(binding.library());
       bindings.put(setKey, setBinding);
       return (SetBinding<T>) bindings.get(setKey); // BindingMap.put() copies SetBindings.
     }
   }
 
-  private final Set<Binding<?>> contributors = new LinkedHashSet<Binding<?>>();
+  private final Set<Binding<?>> contributors;
 
   /**
    * Creates a new {@code SetBinding} with the given "provides" key, and the requiredBy object
@@ -56,6 +59,7 @@ public final class SetBinding<T> extends Binding<Set<T>> {
    */
   public SetBinding(String key, Object requiredBy) {
     super(key, null, false, requiredBy);
+    contributors = new LinkedHashSet<Binding<?>>();
   }
 
   /**
@@ -64,7 +68,9 @@ public final class SetBinding<T> extends Binding<Set<T>> {
    */
   public SetBinding(SetBinding<T> original) {
     super(original.provideKey, null, false, original.requiredBy);
-    contributors.addAll(original.contributors);
+    this.setLibrary(original.library());
+    this.setDependedOn(original.dependedOn());
+    contributors = new LinkedHashSet<Binding<?>>(original.contributors);
   }
 
   @Override public void attach(Linker linker) {
