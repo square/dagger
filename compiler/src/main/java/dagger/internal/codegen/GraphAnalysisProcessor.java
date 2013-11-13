@@ -167,7 +167,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
         : new GraphAnalysisErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
-    Linker linker = new Linker(new GraphAnalysisLoader(processingEnv), errorHandler);
+    Linker linker = new Linker(null, new GraphAnalysisLoader(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
     // to make the linker happy.
