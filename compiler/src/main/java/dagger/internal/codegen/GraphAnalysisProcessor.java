@@ -60,12 +60,16 @@ import static dagger.internal.codegen.Util.getAnnotation;
 import static dagger.internal.codegen.Util.getPackage;
 import static dagger.internal.codegen.Util.isInterface;
 import static dagger.internal.codegen.Util.methodName;
+import static java.util.Arrays.asList;
 
 /**
  * Performs full graph analysis on a module.
  */
 @SupportedAnnotationTypes("dagger.Module")
 public final class GraphAnalysisProcessor extends AbstractProcessor {
+  private static final Set<String> ERROR_NAMES_TO_PROPAGATE = new LinkedHashSet<String>(asList(
+      "com.sun.tools.javac.code.Symbol$CompletionFailure"));
+
   private final Set<String> delayedModuleNames = new LinkedHashSet<String>();
 
   @Override public SourceVersion getSupportedSourceVersion() {
@@ -120,7 +124,11 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
           error("Graph validation failed: " + e.getMessage(), elements().getTypeElement(e.type));
           continue;
         } catch (RuntimeException e) {
-          error("Graph validation failed: " + e.getMessage(), moduleType);
+          if (ERROR_NAMES_TO_PROPAGATE.contains(e.getClass().getName())) {
+            throw e;
+          }
+          error("Unknown error " + e.getClass().getName() + " thrown by javac in graph validation: "
+              + e.getMessage(), moduleType);
           continue;
         }
         try {
