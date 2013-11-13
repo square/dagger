@@ -206,8 +206,7 @@ public abstract class ObjectGraph {
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
-      return new DaggerObjectGraph(base, linker, plugin, staticInjections,
-          injectableTypes);
+      return new DaggerObjectGraph(base, linker, plugin, staticInjections, injectableTypes);
     }
 
     @Override public ObjectGraph plus(Object... modules) {
@@ -241,11 +240,16 @@ public abstract class ObjectGraph {
      * Links all bindings, injectable types and static injections.
      */
     private Map<String, Binding<?>> linkEverything() {
-      synchronized (linker) {
-        linkStaticInjections();
-        linkInjectableTypes();
-        return linker.linkAll();
+      if (!linker.fullyLinked()) {
+        synchronized (linker) {
+          if (!linker.fullyLinked()) {
+            linkStaticInjections();
+            linkInjectableTypes();
+            linker.linkAll();
+          }
+        }
       }
+      return linker.getBindings();
     }
 
     @Override public void injectStatics() {

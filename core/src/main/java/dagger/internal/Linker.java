@@ -15,6 +15,7 @@
  */
 package dagger.internal;
 
+import dagger.ObjectGraph;
 import dagger.internal.Binding.InvalidBindingException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,7 +54,9 @@ public final class Linker {
 
   private final ErrorHandler errorHandler;
 
-  public Linker(Linker base, Loader plugin, ErrorHandler errorHandler) {
+  private volatile boolean fullyLinked = false;
+
+public Linker(Linker base, Loader plugin, ErrorHandler errorHandler) {
     if (plugin == null) throw new NullPointerException("plugin");
     if (errorHandler == null) throw new NullPointerException("errorHandler");
 
@@ -80,14 +83,28 @@ public final class Linker {
    *
    * @return all bindings known by this linker, which will all be linked.
    */
-  public Map<String, Binding<?>> linkAll() {
+  public void linkAll() {
     for (Binding<?> binding : bindings.values()) {
       if (!binding.isLinked()) {
         toLink.add(binding);
       }
     }
     linkRequested();
+    fullyLinked = true;
+  }
+
+  /**
+   * Returns the map of keys->bindings in whatever state it currently exists.  It is really an
+   * internal method and should only be called by Dagger classes, but because some notable
+   * users are in different packages (e.g. {@link ObjectGraph} and {@link GraphAnalysisProcessor}),
+   * this method remains publicly visible.
+   */
+  public Map<String, Binding<?>> getBindings() {
     return bindings;
+  }
+
+  public boolean fullyLinked() {
+    return fullyLinked;
   }
 
   /**

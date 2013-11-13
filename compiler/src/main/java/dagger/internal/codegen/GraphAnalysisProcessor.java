@@ -256,7 +256,10 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
       // Link the bindings. This will traverse the dependency graph, and report
       // errors if any dependencies are missing.
-      return linker.linkAll();
+      if (!linker.fullyLinked()) {
+        linker.linkAll();
+      }
+      return linker.getBindings();
     }
   }
 
