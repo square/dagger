@@ -167,7 +167,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
         : new GraphAnalysisErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
-    Linker linker = new Linker(new GraphAnalysisLoader(processingEnv), errorHandler);
+    Linker linker = new Linker(null, new GraphAnalysisLoader(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
     // to make the linker happy.
@@ -256,7 +256,10 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
       // Link the bindings. This will traverse the dependency graph, and report
       // errors if any dependencies are missing.
-      return linker.linkAll();
+      if (!linker.fullyLinked()) {
+        linker.linkAll();
+      }
+      return linker.getBindings();
     }
   }
 
