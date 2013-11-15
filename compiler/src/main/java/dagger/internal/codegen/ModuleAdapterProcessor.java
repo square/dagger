@@ -485,7 +485,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       writer.beginMethod("void", "getDependencies", EnumSet.of(PUBLIC), setOfBindings,
           "getBindings", setOfBindings, "injectMembersBindings");
       for (Element parameter : parameters) {
-        writer.emitStatement("getBindings.add(%s)", parameter.getSimpleName().toString());
+        writer.emitStatement("getBindings.add(%s)", parameterName(parameter));
       }
       writer.endMethod();
     }
@@ -499,7 +499,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     for (Element parameter : parameters) {
       if (!first) args.append(", ");
       else first = false;
-      args.append(String.format("%s.get()", parameter.getSimpleName().toString()));
+      args.append(String.format("%s.get()", parameterName(parameter)));
     }
     writer.emitStatement("return module.%s(%s)", methodName, args.toString());
     writer.endMethod();
