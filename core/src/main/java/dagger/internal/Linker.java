@@ -15,7 +15,6 @@
  */
 package dagger.internal;
 
-import dagger.ObjectGraph;
 import dagger.internal.Binding.InvalidBindingException;
 import java.util.ArrayList;
 import java.util.Collections;
