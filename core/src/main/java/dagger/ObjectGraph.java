@@ -160,26 +160,8 @@ public abstract class ObjectGraph {
       Map<String, Class<?>> injectableTypes = new LinkedHashMap<String, Class<?>>();
       Map<Class<?>, StaticInjection> staticInjections
           = new LinkedHashMap<Class<?>, StaticInjection>();
-
-      // Extract bindings in the 'base' and 'overrides' set. Within each set no
-      // duplicates are permitted.
-      UniqueMap<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>() {
-        @Override public Binding<?> put(String key, Binding<?> value) {
-          return super.put(key, (value instanceof SetBinding)
-              ? new SetBinding<Object>((SetBinding<Object>) value) : value);
-        }
-      };
-      if (base != null) {
-        baseBindings.putAll(base.linkEverything()); // Add parent bindings
-      }
-      UniqueMap<String, Binding<?>> overrideBindings = new UniqueMap<String, Binding<?>>() {
-        @Override public Binding<?> put(String key, Binding<?> value) {
-          if (value instanceof SetBinding) {
-            throw new IllegalArgumentException("Module overrides cannot contribute set bindings.");
-          }
-          return super.put(key, value);
-        }
-      };
+      UniqueMap<String, Binding<?>> baseBindings = initBaseBindings(base);
+      UniqueMap<String, Binding<?>> overrideBindings = initOverrideBindings();
 
       Map<ModuleAdapter<?>, Object> loadedModules = Modules.loadModules(plugin, modules);
       for (Entry<ModuleAdapter<?>, Object> loadedModule : loadedModules.entrySet()) {
@@ -201,11 +183,48 @@ public abstract class ObjectGraph {
       }
 
       // Create a linker and install all of the user's bindings
-      Linker linker = new Linker(plugin, new ThrowingErrorHandler());
+      Linker linker =
+          new Linker((base != null) ? base.linker : null, plugin, new ThrowingErrorHandler());
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
       return new DaggerObjectGraph(base, linker, plugin, staticInjections, injectableTypes);
+    }
+
+    /**
+     * Returns an empty {@code UniqueMap} which will throw errors if a SetBinding is added
+     * to it.
+     */
+    private static UniqueMap<String, Binding<?>> initOverrideBindings() {
+      return new UniqueMap<String, Binding<?>>() {
+        @Override public Binding<?> put(String key, Binding<?> value) {
+          if (value instanceof SetBinding) {
+            throw new IllegalArgumentException("Module overrides cannot contribute set bindings.");
+          }
+          return super.put(key, value);
+        }
+      };
+    }
+
+    /**
+     * Extract bindings in the 'base' and 'overrides' set. Within each set no
+     * duplicates are permitted.  Set-bindings are propagated (and cloned) from the parent
+     * to ensure that parent graph participants only see parent bindings, but the child
+     * graph sees parent+child contributions.
+     */
+    private static UniqueMap<String, Binding<?>> initBaseBindings(
+        DaggerObjectGraph base) {
+      UniqueMap<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
+      if (base != null) {
+        Map<String, Binding<?>> parentBindings = base.linkEverything();
+        for (Map.Entry<String, Binding<?>> bindingEntry : parentBindings.entrySet()) {
+          if (bindingEntry.getValue() instanceof SetBinding) {
+            baseBindings.put(bindingEntry.getKey(),
+                new SetBinding<Object>((SetBinding<Object>) bindingEntry.getValue()));
+          }
+        }
+      }
+      return baseBindings;
     }
 
     @Override public ObjectGraph plus(Object... modules) {
