@@ -15,8 +15,10 @@
  */
 package dagger.internal;
 
+import dagger.ObjectGraph;
 import dagger.internal.Binding.InvalidBindingException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -42,6 +44,14 @@ public final class Linker {
   /** All of the object graph's bindings. This may contain unlinked bindings. */
   private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
 
+  /**
+   * An unmodifiable map containing all of the bindings available in this linker, fully linked.
+   * This will be null if the bindings are not yet fully linked. It provides both a signal
+   * of completion of the {@link #linkAll()} method, as well as a place to reference the final,
+   * fully linked map of bindings.
+   */
+  private volatile Map<String, Binding<?>> linkedBindings = null;
+
   private final Loader plugin;
 
   private final ErrorHandler errorHandler;
@@ -58,37 +68,60 @@ public final class Linker {
    * Adds all bindings in {@code toInstall}. The caller must call either {@link
    * #linkAll} or {@link #requestBinding} and {@link #linkRequested} before the
    * bindings can be used.
+   *
+   * This method may only be called before {@link #linkAll()}. Subsequent calls to
+   * {@link #installBindings()} will throw an {@link IllegalStateException}.
    */
   public void installBindings(Map<String, ? extends Binding<?>> toInstall) {
+    if (linkedBindings != null) {
+      throw new IllegalStateException("Cannot install further bindings after calling linkAll().");
+    }
     for (Map.Entry<String, ? extends Binding<?>> entry : toInstall.entrySet()) {
       bindings.put(entry.getKey(), scope(entry.getValue()));
     }
   }
 
   /**
-   * Links requested bindings and installed bindings, plus all of their
-   * transitive dependencies. This creates JIT bindings as necessary to fill in
-   * the gaps.
+   * Links all known bindings (whether requested or installed), plus all of their
+   * transitive dependencies. This loads injectable types' bindings as necessary to fill in
+   * the gaps.  If this method has returned successfully at least once, all further
+   * work is short-circuited.
    *
-   * @return all bindings known by this linker, which will all be linked.
+   * @throws AssertionError if this method is not called within a synchronized block which
+   *     holds this {@link Linker} as the lock object.
    */
   public Map<String, Binding<?>> linkAll() {
+    assertLockHeld();
+    if (linkedBindings != null) {
+      return linkedBindings;
+    }
     for (Binding<?> binding : bindings.values()) {
       if (!binding.isLinked()) {
         toLink.add(binding);
       }
     }
-    linkRequested();
-    return bindings;
+    linkRequested(); // This method throws if bindings are not resolvable/linkable.
+    linkedBindings = Collections.unmodifiableMap(bindings);
+    return linkedBindings;
+  }
+
+  /**
+   * Returns the map of all bindings available to this {@link Linker}, if and only if
+   * {@link #linkAll()} has successfully returned at least once, otherwise it returns null;
+   */
+  public Map<String, Binding<?>> fullyLinkedBindings() {
+    return linkedBindings;
   }
 
   /**
    * Links all requested bindings plus their transitive dependencies. This
    * creates JIT bindings as necessary to fill in the gaps.
+   *
+   * @throws AssertionError if this method is not called within a synchronized block which
+   *     holds this {@link Linker} as the lock object.
    */
   public void linkRequested() {
     assertLockHeld();
-
     Binding<?> binding;
     while ((binding = toLink.poll()) != null) {
       if (binding instanceof DeferredBinding) {
