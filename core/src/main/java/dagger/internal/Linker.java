@@ -99,18 +99,18 @@ public final class Linker {
           continue; // A binding for this key has since been linked.
         }
         try {
-          Binding<?> jitBinding =
-              createJitBinding(key, binding.requiredBy, deferred.classLoader, mustHaveInjections);
-          jitBinding.setLibrary(binding.library());
-          jitBinding.setDependedOn(binding.dependedOn());
+          Binding<?> resolvedBinding =
+              createBinding(key, binding.requiredBy, deferred.classLoader, mustHaveInjections);
+          resolvedBinding.setLibrary(binding.library());
+          resolvedBinding.setDependedOn(binding.dependedOn());
           // Fail if the type of binding we got wasn't capable of what was requested.
-          if (!key.equals(jitBinding.provideKey) && !key.equals(jitBinding.membersKey)) {
+          if (!key.equals(resolvedBinding.provideKey) && !key.equals(resolvedBinding.membersKey)) {
             throw new IllegalStateException("Unable to create binding for " + key);
           }
           // Enqueue the JIT binding so its own dependencies can be linked.
-          Binding<?> scopedJitBinding = scope(jitBinding);
-          toLink.add(scopedJitBinding);
-          putBinding(scopedJitBinding);
+          Binding<?> scopedBinding = scope(resolvedBinding);
+          toLink.add(scopedBinding);
+          putBinding(scopedBinding);
         } catch (InvalidBindingException e) {
           addError(e.type + " " + e.getMessage() + " required by " + binding.requiredBy);
           bindings.put(key, Binding.UNRESOLVED);
@@ -156,16 +156,17 @@ public final class Linker {
   }
 
   /**
-   * Creates a just-in-time binding for the key in {@code deferred}. The type of binding
+   * Returns a binding for the key in {@code deferred}. The type of binding
    * to be created depends on the key's type:
    * <ul>
    *   <li>Injections of {@code Provider<Foo>}, {@code MembersInjector<Bar>}, and
    *       {@code Lazy<Blah>} will delegate to the bindings of {@code Foo}, {@code Bar}, and
    *       {@code Blah} respectively.
-   *   <li>Injections of other types will use the injectable constructors of those classes.
+   *   <li>Injections of raw types will use the injectable constructors of those classes.
+   *   <li>Any other injection types require @Provides bindings and will error out.
    * </ul>
    */
-  private Binding<?> createJitBinding(String key, Object requiredBy, ClassLoader classLoader,
+  private Binding<?> createBinding(String key, Object requiredBy, ClassLoader classLoader,
       boolean mustHaveInjections) {
     String builtInBindingsKey = Keys.getBuiltInBindingsKey(key);
     if (builtInBindingsKey != null) {
@@ -177,12 +178,14 @@ public final class Linker {
     }
 
     String className = Keys.getClassName(key);
-    if (className != null && !Keys.isAnnotated(key)) {
-      Binding<?> binding =
-          plugin.getAtInjectBinding(key, className, classLoader, mustHaveInjections);
-      if (binding != null) {
-        return binding;
-      }
+    if (className == null || Keys.isAnnotated(key)) {
+      // Cannot jit-bind annotated keys or generic types.
+      throw new IllegalArgumentException(key);
+    }
+    Binding<?> binding =
+        plugin.getAtInjectBinding(key, className, classLoader, mustHaveInjections);
+    if (binding != null) {
+      return binding;
     }
     throw new InvalidBindingException(className, "could not be bound with key " + key);
   }
