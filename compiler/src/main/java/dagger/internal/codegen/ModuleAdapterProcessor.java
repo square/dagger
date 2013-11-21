@@ -15,6 +15,11 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import com.squareup.javawriter.JavaWriter;
 import dagger.Lazy;
 import dagger.Module;
@@ -66,9 +71,9 @@ import static dagger.internal.codegen.Util.getAnnotation;
 import static dagger.internal.codegen.Util.getNoArgsConstructor;
 import static dagger.internal.codegen.Util.getPackage;
 import static dagger.internal.codegen.Util.isCallableConstructor;
-import static dagger.internal.codegen.Util.isInterface;
 import static dagger.internal.codegen.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.MODULE_ADAPTER_SUFFIX;
+import static java.util.Arrays.asList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -264,15 +269,33 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     writer.beginType(adapterName, "class", EnumSet.of(PUBLIC, FINAL),
         JavaWriter.type(ModuleAdapter.class, typeName));
 
-    StringBuilder injectsField = new StringBuilder().append("{ ");
-    for (Object injectableType : injects) {
-      TypeMirror typeMirror = (TypeMirror) injectableType;
-      String key = isInterface(typeMirror)
-          ? GeneratorKeys.get(typeMirror)
-          : GeneratorKeys.rawMembersKey(typeMirror);
-      injectsField.append(JavaWriter.stringLiteral(key)).append(", ");
-    }
-    injectsField.append("}");
+    final List<String> providedTypes = FluentIterable.from(providerMethods)
+        .transform(new Function<ExecutableElement, String>() {
+          @Override public String apply(ExecutableElement element) {
+            return GeneratorKeys.get(element.getReturnType());
+          }
+        }).toList();
+    StringBuilder injectsField = new StringBuilder("{");
+    Iterable<String> injectsFieldKeys = FluentIterable.<Object>from(asList(injects))
+        .transform(new Cast<TypeMirror>())
+        .transformAndConcat(new Function<TypeMirror, Iterable<String>>() {
+          @Override public Iterable<String> apply(TypeMirror type) {
+            String key = GeneratorKeys.get(type);
+            if (!providedTypes.contains(key) && Util.needsMemberInjection(type)) {
+              String membersKey = GeneratorKeys.rawMembersKey(type);
+              Iterable<String> keys = ImmutableList.of(membersKey, key);
+              return keys;
+            }
+            return ImmutableList.of(key);
+          }
+        })
+        .transform(new Function<String, String>() {
+          @Override public String apply(String key) {
+            return JavaWriter.stringLiteral(key);
+          }
+        })
+        .toSortedSet(Ordering.natural());
+    Joiner.on(", ").appendTo(injectsField, injectsFieldKeys).append("}");
     writer.emitField("String[]", "INJECTS", EnumSet.of(PRIVATE, STATIC, FINAL),
         injectsField.toString());
 
@@ -512,5 +535,18 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       return "parameter_" + parameter.getSimpleName().toString();
     }
     return parameter.getSimpleName().toString();
+  }
+
+  /**
+   * A function used to perform a cast to a strongly known type.  This does not actually
+   * perform any casting logic, but bridges Java's typesystem.  {@link Cast} should only
+   * be used in circumstances where the cast is bullet-proof and safe.
+   */
+  private static final class Cast<T> implements Function<Object, T> {
+    @SuppressWarnings("unchecked")
+    @Override
+    public T apply(Object o) {
+      return (T) o;
+    }
   }
 }
