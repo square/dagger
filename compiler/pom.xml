@@ -41,6 +41,11 @@
       <groupId>com.squareup</groupId>
       <artifactId>javawriter</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>15.0</version>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>
@@ -63,12 +68,6 @@
       <groupId>com.google.testing.compile</groupId>
       <artifactId>compile-testing</artifactId>
       <version>0.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>15.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
