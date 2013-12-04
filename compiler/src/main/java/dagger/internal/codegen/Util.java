@@ -16,15 +16,12 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import dagger.internal.Keys;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -34,14 +31,12 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
-import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
@@ -241,23 +236,6 @@ final class Util {
     } else {
       return expectedClass == value.getClass();
     }
-  }
-
-  /**
-   * Returns true if the type reflected by this TypeMirror contains @Inject fields.
-   */
-  public static boolean needsMemberInjection(TypeMirror type) {
-    return type.accept(new SimpleTypeVisitor6<Boolean, Void>() {
-      @Override public Boolean visitDeclared(DeclaredType declaredType, Void v) {
-        List<? extends Element> enclosed = declaredType.asElement().getEnclosedElements();
-        return FluentIterable.<VariableElement>from(ElementFilter.fieldsIn(enclosed))
-            .anyMatch(new Predicate<VariableElement>() {
-              @Override public boolean apply(VariableElement e) {
-                return e.getAnnotation(Inject.class) != null;
-              }
-            });
-      }
-    }, null);
   }
 
   // TODO(sgoldfed): better format for other types of elements?

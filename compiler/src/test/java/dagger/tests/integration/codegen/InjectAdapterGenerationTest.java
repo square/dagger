@@ -44,7 +44,7 @@ public final class InjectAdapterGenerationTest {
             "import dagger.internal.ModuleAdapter;",
             "public final class Basic$AModule$$ModuleAdapter",
             "    extends ModuleAdapter<Basic.AModule> {",
-            "  private static final String[] INJECTS = {\"Basic$A\"};",
+            "  private static final String[] INJECTS = {\"members/Basic$A\"};",
             "  private static final Class<?>[] STATIC_INJECTIONS = {};",
             "  private static final Class<?>[] INCLUDES = {};",
             "  public Basic$AModule$$ModuleAdapter() {",
@@ -99,7 +99,7 @@ public final class InjectAdapterGenerationTest {
         "import javax.inject.Inject;",
         "class Field {",
         "  static class A { final String name; @Inject A(String name) { this.name = name; }}",
-        "  @Module(injects = { A.class, String.class })",
+        "  @Module(injects = A.class)",
         "  static class AModule { @Provides String name() { return \"foo\"; }}",
         "}"));
 
@@ -111,8 +111,7 @@ public final class InjectAdapterGenerationTest {
         "import javax.inject.Provider;",
         "public final class Field$AModule$$ModuleAdapter",
         "    extends ModuleAdapter<Field.AModule> {",
-        "  private static final String[] INJECTS = ",
-        "      {\"Field$A\", \"java.lang.String\"};",
+        "  private static final String[] INJECTS = {\"members/Field$A\"};",
         "  private static final Class<?>[] STATIC_INJECTIONS = {};",
         "  private static final Class<?>[] INCLUDES = {};",
         "  public Field$AModule$$ModuleAdapter() {",
