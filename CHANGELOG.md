@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-Version 1.2.0 *(2013-11-25)*
+Version 1.2.0 *(2013-12-13)*
 ----------------------------
 
  * Numerous performance improvements in both the compiler and runtime.
