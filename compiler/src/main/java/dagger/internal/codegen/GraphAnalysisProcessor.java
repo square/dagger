@@ -56,6 +56,7 @@ import javax.tools.StandardLocation;
 
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
+import static dagger.internal.Linker.ErrorHandler.NULL;
 import static dagger.internal.codegen.Util.getAnnotation;
 import static dagger.internal.codegen.Util.getPackage;
 import static dagger.internal.codegen.Util.isInterface;
@@ -115,7 +116,9 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
       if (annotation.get("complete").equals(Boolean.TRUE)) {
         Map<String, Binding<?>> bindings;
         try {
-          bindings = processCompleteModule(moduleType, false);
+          Linker.ErrorHandler errorHandler = new GraphAnalysisErrorHandler(processingEnv,
+              moduleType.getQualifiedName().toString());
+          bindings = processCompleteModule(moduleType, errorHandler);
           new ProblemDetector().detectCircularDependencies(bindings.values());
         } catch (ModuleValidationException e) {
           error("Graph validation failed: " + e.getMessage(), e.source);
@@ -140,10 +143,24 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
               .printMessage(Diagnostic.Kind.WARNING,
                   "Graph visualization failed. Please report this as a bug.\n\n" + sw, moduleType);
         }
+      } else {
+        NonCompleteModuleErrorHandler errorHandler = new NonCompleteModuleErrorHandler();
+        try {
+          processCompleteModule(moduleType, errorHandler);
+        } catch (RuntimeException e) {
+          // Any error here is fine, we're not supposed to process real incomplete modules.
+          continue;
+        }
+        // A module with complete = false is expected to have graph validation errors.
+        // If there is none, this module should be declared complete.
+        if (errorHandler.shouldBeComplete()) {
+          error("A module with no missing binding not have complete = false", element);
+        }
       }
 
       if (annotation.get("library").equals(Boolean.FALSE)) {
-        Map<String, Binding<?>> bindings = processCompleteModule(moduleType, true);
+        Linker.ErrorHandler errorHandler = NULL;
+        Map<String, Binding<?>> bindings = processCompleteModule(moduleType, errorHandler);
         try {
           new ProblemDetector().detectUnusedBinding(bindings.values());
         } catch (IllegalStateException e) {
@@ -159,14 +176,12 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
   }
 
   private Map<String, Binding<?>> processCompleteModule(TypeElement rootModule,
-      boolean ignoreCompletenessErrors) {
+      Linker.ErrorHandler errorHandler) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
     ArrayList<GraphAnalysisStaticInjection> staticInjections =
         new ArrayList<GraphAnalysisStaticInjection>();
 
-    Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
-        : new GraphAnalysisErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
     Linker linker = new Linker(null, new GraphAnalysisLoader(processingEnv), errorHandler);
     // Linker requires synchronization for calls to requestBinding and linkAll.
     // We know statically that we're single threaded, but we synchronize anyway
