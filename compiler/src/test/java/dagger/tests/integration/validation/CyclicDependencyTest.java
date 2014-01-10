@@ -76,10 +76,10 @@ public class CyclicDependencyTest {
         "}"));
 
     ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining("0. CyclicDeps$A bound by Provider").in(sourceFile).onLine(9).and()
-        .withErrorContaining("1. CyclicDeps$D bound by Provider").in(sourceFile).onLine(9).and()
-        .withErrorContaining("2. CyclicDeps$C bound by Provider").in(sourceFile).onLine(9).and()
-        .withErrorContaining("3. CyclicDeps$B bound by Provider").in(sourceFile).onLine(9);
+        .withErrorContaining("0. CyclicDeps$A bound by Provides").in(sourceFile).onLine(9).and()
+        .withErrorContaining("1. CyclicDeps$D bound by Provides").in(sourceFile).onLine(9).and()
+        .withErrorContaining("2. CyclicDeps$C bound by Provides").in(sourceFile).onLine(9).and()
+        .withErrorContaining("3. CyclicDeps$B bound by Provides").in(sourceFile).onLine(9);
   }
 
 }

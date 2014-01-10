@@ -59,9 +59,9 @@ public final class ModuleAdapterGenerationTest {
 
     JavaFileObject expectedModuleAdapter =
         JavaFileObjects.forSourceString("Field$AModule$$ModuleAdapter", Joiner.on("\n").join(
-        "import dagger.internal.Binding;",
+        "import dagger.internal.BindingsGroup;",
         "import dagger.internal.ModuleAdapter;",
-        "import java.util.Map;",
+        "import dagger.internal.ProvidesBinding;",
         "import javax.inject.Provider;",
         "public final class Field$AModule$$ModuleAdapter",
         "    extends ModuleAdapter<Field.AModule> {",
@@ -75,14 +75,15 @@ public final class ModuleAdapterGenerationTest {
         "  @Override public Field.AModule newModule() {",
         "    return new Field.AModule();",
         "  }",
-        "  @Override public void getBindings(Map<String, Binding<?>> map, Field.AModule module) {",
-        "    map.put(\"java.lang.String\", new NameProvidesAdapter(module));", // eager new!
+        "  @Override public void getBindings(BindingsGroup bindings, Field.AModule module) {",
+        "    bindings.contributeProvidesBinding(\"java.lang.String\",",
+        "        new NameProvidesAdapter(module));", // eager new!
         "  }",
         "  public static final class NameProvidesAdapter", // corresponds to method name
-        "      extends Binding<String> implements Provider<String> {",
+        "      extends ProvidesBinding<String> implements Provider<String> {",
         "    private final Field.AModule module;",
         "    public NameProvidesAdapter(Field.AModule module) {",
-        "      super(\"java.lang.String\", null, NOT_SINGLETON, \"Field.AModule.name()\");",
+        "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");",
         "      this.module = module;",
         "      setLibrary(false);",
         "    }",
@@ -140,9 +141,9 @@ public final class ModuleAdapterGenerationTest {
 
     JavaFileObject expectedModuleAdapter =
         JavaFileObjects.forSourceString("Field$AModule$$ModuleAdapter", Joiner.on("\n").join(
-        "import dagger.internal.Binding;",
+        "import dagger.internal.BindingsGroup;",
         "import dagger.internal.ModuleAdapter;",
-        "import java.util.Map;",
+        "import dagger.internal.ProvidesBinding;",
         "import javax.inject.Provider;",
         "public final class Field$AModule$$ModuleAdapter extends ModuleAdapter<Field.AModule> {",
         "  private static final String[] INJECTS = ",
@@ -155,14 +156,15 @@ public final class ModuleAdapterGenerationTest {
         "  @Override public Field.AModule newModule() {",
         "    return new Field.AModule();",
         "  }",
-        "  @Override public void getBindings(Map<String, Binding<?>> map, Field.AModule module) {",
-        "    map.put(\"java.lang.String\", new NameProvidesAdapter(module));", // eager new!
+        "  @Override public void getBindings(BindingsGroup bindings, Field.AModule module) {",
+        "    bindings.contributeProvidesBinding(\"java.lang.String\",",
+        "        new NameProvidesAdapter(module));", // eager new!
         "  }",
         "  public static final class NameProvidesAdapter", // corresponds to method name
-        "      extends Binding<String> implements Provider<String> {",
+        "      extends ProvidesBinding<String> implements Provider<String> {",
         "    private final Field.AModule module;",
         "    public NameProvidesAdapter(Field.AModule module) {",
-        "      super(\"java.lang.String\", null, NOT_SINGLETON, \"Field.AModule.name()\");",
+        "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");",
         "      this.module = module;",
         "      setLibrary(false);",
         "    }",
