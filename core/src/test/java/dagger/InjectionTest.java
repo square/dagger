@@ -868,10 +868,10 @@ public final class InjectionTest {
     @Inject C c; // Singleton.
   }
 
-  @Module(complete=false, injects =C.class)
+  @Module(complete = false, injects = C.class)
   static class RootModule { }
 
-  @Module(addsTo=RootModule.class, injects =SingletonLinkedFromExtension.class)
+  @Module(addsTo = RootModule.class, injects = SingletonLinkedFromExtension.class)
   static class ExtensionModule { }
 
   @Test public void testSingletonLinkingThroughExtensionGraph() {

@@ -17,8 +17,6 @@
 package dagger.internal;
 
 
-import java.util.Map;
-
 /**
  * Extracts bindings from an {@code @Module}-annotated class.
  */
@@ -47,8 +45,8 @@ public abstract class ModuleAdapter<T> {
    * Returns bindings for the {@code @Provides} methods of {@code module}. The
    * returned bindings must be linked before they can be used to inject values.
    */
-  public void getBindings(@SuppressWarnings("unused") Map<String, Binding<?>> map,
-      @SuppressWarnings("unused") T module) {
+  @SuppressWarnings("unused")
+  public void getBindings(BindingsGroup map, T module) {
     // no-op;
   }
 

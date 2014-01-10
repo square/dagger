@@ -209,6 +209,22 @@ public final class SetBindingTest {
     assertThat(logoutput.get()).contains("NullPointerException");
   }
 
+  @Test public void duplicateValuesContributed() {
+    class TestEntryPoint {
+      @Inject Set<String> strings;
+    }
+
+    @Module(injects = TestEntryPoint.class)
+    class TestModule {
+      @Provides(type=SET) String provideString1() { return "a"; }
+      @Provides(type=SET) String provideString2() { return "a"; }
+      @Provides(type=SET) String provideString3() { return "b"; }
+    }
+
+    TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
+    assertThat(ep.strings).containsOnly("a", "b");
+  }
+
   @Test public void validateSetBinding() {
     class TestEntryPoint {
       @Inject Set<String> strings;

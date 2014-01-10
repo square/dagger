@@ -77,9 +77,9 @@ public final class Linker {
    * bindings can be used.
    *
    * This method may only be called before {@link #linkAll()}. Subsequent calls to
-   * {@link #installBindings()} will throw an {@link IllegalStateException}.
+   * {@link #installBindings(BindingsGroup)} will throw an {@link IllegalStateException}.
    */
-  public void installBindings(Map<String, ? extends Binding<?>> toInstall) {
+  public void installBindings(BindingsGroup toInstall) {
     if (linkedBindings != null) {
       throw new IllegalStateException("Cannot install further bindings after calling linkAll().");
     }

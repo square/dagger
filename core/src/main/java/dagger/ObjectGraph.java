@@ -17,6 +17,7 @@
 package dagger;
 
 import dagger.internal.Binding;
+import dagger.internal.BindingsGroup;
 import dagger.internal.FailoverLoader;
 import dagger.internal.Keys;
 import dagger.internal.Linker;
@@ -27,8 +28,9 @@ import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
 import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
-import dagger.internal.UniqueMap;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -132,40 +134,45 @@ public abstract class ObjectGraph {
     return DaggerObjectGraph.makeGraph(null, loader, modules);
   }
 
+  // TODO(cgruber): Move this internal implementation of ObjectGraph into the internal package.
   static class DaggerObjectGraph extends ObjectGraph {
     private final DaggerObjectGraph base;
     private final Linker linker;
     private final Loader plugin;
     private final Map<Class<?>, StaticInjection> staticInjections;
     private final Map<String, Class<?>> injectableTypes;
+    private final List<SetBinding<?>> setBindings;
 
     DaggerObjectGraph(DaggerObjectGraph base,
         Linker linker,
         Loader plugin,
         Map<Class<?>, StaticInjection> staticInjections,
-        Map<String, Class<?>> injectableTypes) {
-      if (linker == null) throw new NullPointerException("linker");
-      if (plugin == null) throw new NullPointerException("plugin");
-      if (staticInjections == null) throw new NullPointerException("staticInjections");
-      if (injectableTypes == null) throw new NullPointerException("injectableTypes");
+        Map<String, Class<?>> injectableTypes,
+        List<SetBinding<?>> setBindings) {
 
       this.base = base;
-      this.linker = linker;
-      this.plugin = plugin;
-      this.staticInjections = staticInjections;
-      this.injectableTypes = injectableTypes;
+      this.linker = checkNotNull(linker, "linker");
+      this.plugin = checkNotNull(plugin, "plugin");
+      this.staticInjections = checkNotNull(staticInjections, "staticInjections");
+      this.injectableTypes = checkNotNull(injectableTypes, "injectableTypes");
+      this.setBindings = checkNotNull(setBindings, "setBindings");
+    }
+
+    private static <T> T checkNotNull(T object, String label) {
+      if (object == null) throw new NullPointerException(label);
+      return object;
     }
 
     private static ObjectGraph makeGraph(DaggerObjectGraph base, Loader plugin, Object... modules) {
       Map<String, Class<?>> injectableTypes = new LinkedHashMap<String, Class<?>>();
       Map<Class<?>, StaticInjection> staticInjections
           = new LinkedHashMap<Class<?>, StaticInjection>();
-      UniqueMap<String, Binding<?>> baseBindings = initBaseBindings(base);
-      UniqueMap<String, Binding<?>> overrideBindings = initOverrideBindings();
+      StandardBindings baseBindings =
+          (base == null) ? new StandardBindings() : new StandardBindings(base.setBindings);
+      BindingsGroup overrideBindings = new OverridesBindings();
 
       Map<ModuleAdapter<?>, Object> loadedModules = Modules.loadModules(plugin, modules);
       for (Entry<ModuleAdapter<?>, Object> loadedModule : loadedModules.entrySet()) {
-        @SuppressWarnings("unchecked")
         ModuleAdapter<Object> moduleAdapter = (ModuleAdapter<Object>) loadedModule.getKey();
         for (int i = 0; i < moduleAdapter.injectableTypes.length; i++) {
           injectableTypes.put(moduleAdapter.injectableTypes[i], moduleAdapter.moduleClass);
@@ -174,7 +181,7 @@ public abstract class ObjectGraph {
           staticInjections.put(moduleAdapter.staticInjections[i], null);
         }
         try {
-          Map<String, Binding<?>> addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
+          BindingsGroup addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
           moduleAdapter.getBindings(addTo, loadedModule.getValue());
         } catch (IllegalArgumentException e) {
           throw new IllegalArgumentException(moduleAdapter.moduleClass.getSimpleName()
@@ -188,46 +195,12 @@ public abstract class ObjectGraph {
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
 
-      return new DaggerObjectGraph(base, linker, plugin, staticInjections, injectableTypes);
-    }
-
-    /**
-     * Returns an empty {@code UniqueMap} which will throw errors if a SetBinding is added
-     * to it.
-     */
-    private static UniqueMap<String, Binding<?>> initOverrideBindings() {
-      return new UniqueMap<String, Binding<?>>() {
-        @Override public Binding<?> put(String key, Binding<?> value) {
-          if (value instanceof SetBinding) {
-            throw new IllegalArgumentException("Module overrides cannot contribute set bindings.");
-          }
-          return super.put(key, value);
-        }
-      };
-    }
-
-    /**
-     * Extract bindings in the 'base' and 'overrides' set. Within each set no
-     * duplicates are permitted.  Set-bindings are propagated (and cloned) from the parent
-     * to ensure that parent graph participants only see parent bindings, but the child
-     * graph sees parent+child contributions.
-     */
-    private static UniqueMap<String, Binding<?>> initBaseBindings(
-        DaggerObjectGraph base) {
-      UniqueMap<String, Binding<?>> baseBindings = new UniqueMap<String, Binding<?>>();
-      if (base != null) {
-        Map<String, Binding<?>> parentBindings = base.linkEverything();
-        for (Map.Entry<String, Binding<?>> bindingEntry : parentBindings.entrySet()) {
-          if (bindingEntry.getValue() instanceof SetBinding) {
-            baseBindings.put(bindingEntry.getKey(),
-                new SetBinding<Object>((SetBinding<Object>) bindingEntry.getValue()));
-          }
-        }
-      }
-      return baseBindings;
+      return new DaggerObjectGraph(
+          base, linker, plugin, staticInjections, injectableTypes, baseBindings.setBindings);
     }
 
     @Override public ObjectGraph plus(Object... modules) {
+      linkEverything();
       return makeGraph(this, plugin, modules);
     }
 
@@ -341,4 +314,44 @@ public abstract class ObjectGraph {
     }
   }
 
+
+  /**
+   * A BindingsGroup which fails when existing values are clobbered and sets aside
+   * {@link SetBinding}.
+   */
+  private static final class StandardBindings extends BindingsGroup {
+    private final List<SetBinding<?>> setBindings;
+
+    public StandardBindings() {
+      setBindings = new ArrayList<SetBinding<?>>();
+    }
+
+    public StandardBindings(List<SetBinding<?>> baseSetBindings) {
+      setBindings = new ArrayList<SetBinding<?>>(baseSetBindings.size());
+      for (SetBinding<?> sb : baseSetBindings) {
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        SetBinding<?> child = new SetBinding(sb);
+        setBindings.add(child);
+        put(child.provideKey, child);
+      }
+    }
+
+    @Override public Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
+      setBindings.add(value);
+      return super.put(key, value);
+    }
+  }
+
+  /**
+   * A BindingsGroup which throws an {@link IllegalArgumentException} when a
+   * {@link SetBinding} is contributed, since overrides modules cannot contribute such
+   * bindings.
+   */
+  private static final class OverridesBindings extends BindingsGroup {
+    OverridesBindings() { }
+
+    @Override public Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
+      throw new IllegalArgumentException("Module overrides cannot contribute set bindings.");
+    }
+  }
 }
