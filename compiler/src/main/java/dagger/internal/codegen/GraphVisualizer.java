@@ -125,7 +125,7 @@ public final class GraphVisualizer {
     return result.toString();
   }
 
-  /** A Comparator for Bindings so we can insure a consistent ordering of output. */
+  /** A Comparator for BindingsGroup so we can insure a consistent ordering of output. */
   private static class BindingComparator implements Comparator<Binding<?>> {
     @Override
     public int compare(Binding<?> left, Binding<?> right) {

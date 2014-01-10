@@ -24,7 +24,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.inject.Singleton;
@@ -53,7 +52,7 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     return result;
   }
 
-  @Override public void getBindings(Map<String, Binding<?>> bindings, M module) {
+  @Override public void getBindings(BindingsGroup bindings, M module) {
     for (Class<?> c = moduleClass; !c.equals(Object.class); c = c.getSuperclass()) {
       for (Method method : c.getDeclaredMethods()) {
         Provides provides = method.getAnnotation(Provides.class);
@@ -98,15 +97,17 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     }
   }
 
-  private void handleBindings(Map<String, Binding<?>> bindings, M module, Method method, String key,
+  private void handleBindings(BindingsGroup bindings, M module, Method method, String key,
       boolean library) {
-    bindings.put(key, new ProviderMethodBinding<M>(method, key, module, library));
+    bindings.contributeProvidesBinding(key,
+        new ReflectiveProvidesBinding<M>(method, key, moduleClass.getName(), module, library));
   }
 
-  private void handleSetBindings(Map<String, Binding<?>> bindings, M module, Method method,
+  private void handleSetBindings(BindingsGroup bindings, M module, Method method,
       String setKey, String providerKey, boolean library) {
     SetBinding.<M>add(bindings, setKey,
-        new ProviderMethodBinding<M>(method, providerKey, module, library));
+        new ReflectiveProvidesBinding<M>(
+            method, providerKey, moduleClass.getName(), module, library));
   }
 
   @Override public M newModule() {
@@ -149,14 +150,14 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
   /**
    * Invokes a method to provide a value. The method's parameters are injected.
    */
-  private final class ProviderMethodBinding<T> extends Binding<T> {
+  private static final class ReflectiveProvidesBinding<T> extends ProvidesBinding<T> {
     private Binding<?>[] parameters;
     private final Method method;
     private final Object instance;
 
-    public ProviderMethodBinding(Method method, String key, Object instance, boolean library) {
-      super(key, null, method.isAnnotationPresent(Singleton.class),
-          moduleClass.getName() + "." + method.getName() + "()");
+    public ReflectiveProvidesBinding(Method method, String key, String moduleClass,
+        Object instance, boolean library) {
+      super(key, method.isAnnotationPresent(Singleton.class), moduleClass, method.getName());
       this.method = method;
       this.instance = instance;
       method.setAccessible(true);
@@ -198,10 +199,6 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
 
     @Override public void injectMembers(T t) {
       throw new AssertionError("Provides method bindings are not MembersInjectors");
-    }
-
-    @Override public String toString() {
-      return method.toString();
     }
   }
 }

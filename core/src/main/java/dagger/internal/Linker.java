@@ -38,7 +38,7 @@ public final class Linker {
    */
   private final Linker base;
 
-  /** Bindings requiring a call to attach(). May contain deferred bindings. */
+  /** BindingsGroup requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> toLink = new LinkedList<Binding<?>>();
 
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
@@ -77,9 +77,9 @@ public final class Linker {
    * bindings can be used.
    *
    * This method may only be called before {@link #linkAll()}. Subsequent calls to
-   * {@link #installBindings()} will throw an {@link IllegalStateException}.
+   * {@link #installBindings(BindingsGroup)} will throw an {@link IllegalStateException}.
    */
-  public void installBindings(Map<String, ? extends Binding<?>> toInstall) {
+  public void installBindings(BindingsGroup toInstall) {
     if (linkedBindings != null) {
       throw new IllegalStateException("Cannot install further bindings after calling linkAll().");
     }

@@ -322,13 +322,12 @@ final class Util {
         || type.getModifiers().contains(Modifier.STATIC);
   }
 
+
   /**
-   * Returns a user-presentable string like {@code
-   * coffee.CoffeeModule#provideHeater()}.
+   * Returns a user-presentable string like {@code coffee.CoffeeModule}.
    */
-  public static String methodName(ExecutableElement method) {
-    return ((TypeElement) method.getEnclosingElement()).getQualifiedName()
-        + "." + method.getSimpleName() + "()";
+  public static String className(ExecutableElement method) {
+    return ((TypeElement) method.getEnclosingElement()).getQualifiedName().toString();
   }
 
   public static boolean isInterface(TypeMirror typeMirror) {

@@ -20,8 +20,10 @@ import dagger.Lazy;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
+import dagger.internal.BindingsGroup;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
+import dagger.internal.ProvidesBinding;
 import dagger.internal.SetBinding;
 import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
 import java.io.IOException;
@@ -81,8 +83,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 @SupportedAnnotationTypes({ "*" })
 public final class ModuleAdapterProcessor extends AbstractProcessor {
-  private static final String BINDINGS_MAP = JavaWriter.type(
-      Map.class, String.class.getCanonicalName(), Binding.class.getCanonicalName() + "<?>");
+  private static final String BINDINGS_MAP = JavaWriter.type(BindingsGroup.class);
   private static final List<String> INVALID_RETURN_TYPES =
       Arrays.asList(Provider.class.getCanonicalName(), Lazy.class.getCanonicalName());
 
@@ -323,7 +324,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       writer.emitEmptyLine();
       writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
       writer.emitAnnotation(Override.class);
-      writer.beginMethod("void", "getBindings", EnumSet.of(PUBLIC), BINDINGS_MAP, "map",
+      writer.beginMethod("void", "getBindings", EnumSet.of(PUBLIC), BINDINGS_MAP, "bindings",
           typeName, "module");
 
       for (ExecutableElement providerMethod : providerMethods) {
@@ -331,20 +332,20 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         switch (provides.type()) {
           case UNIQUE: {
             String key = GeneratorKeys.get(providerMethod);
-            writer.emitStatement("map.put(%s, new %s(module))", JavaWriter.stringLiteral(key),
+            writer.emitStatement("bindings.contributeProvidesBinding(%s, new %s(module))", JavaWriter.stringLiteral(key),
                 bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
             break;
           }
           case SET: {
             String key = GeneratorKeys.getSetKey(providerMethod);
-            writer.emitStatement("SetBinding.add(map, %s, new %s(module))",
+            writer.emitStatement("SetBinding.add(bindings, %s, new %s(module))",
                 JavaWriter.stringLiteral(key),
                 bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
             break;
           }
           case SET_VALUES: {
             String key = GeneratorKeys.get(providerMethod);
-            writer.emitStatement("SetBinding.add(map, %s, new %s(module))",
+            writer.emitStatement("SetBinding.add(bindings, %s, new %s(module))",
                 JavaWriter.stringLiteral(key),
                 bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
             break;
@@ -369,13 +370,14 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     Set<String> imports = new LinkedHashSet<String>();
     imports.add(ModuleAdapter.class.getCanonicalName());
     if (providers) {
-      imports.add(Binding.class.getCanonicalName());
-      imports.add(Map.class.getCanonicalName());
+      imports.add(BindingsGroup.class.getCanonicalName());
       imports.add(Provider.class.getCanonicalName());
+      imports.add(ProvidesBinding.class.getCanonicalName());
     }
     if (dependencies) {
       imports.add(Linker.class.getCanonicalName());
       imports.add(Set.class.getCanonicalName());
+      imports.add(Binding.class.getCanonicalName());
     }
     if (multibindings) {
       imports.add(SetBinding.class.getCanonicalName());
@@ -439,7 +441,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     writer.emitEmptyLine();
     writer.emitJavadoc(bindingTypeDocs(returnType, false, false, dependent));
     writer.beginType(className, "class", EnumSet.of(PUBLIC, STATIC, FINAL),
-        JavaWriter.type(Binding.class, returnType),
+        JavaWriter.type(ProvidesBinding.class, returnType),
         JavaWriter.type(Provider.class, returnType));
     writer.emitField(moduleType, "module", EnumSet.of(PRIVATE, FINAL));
     for (Element parameter : parameters) {
@@ -452,10 +454,10 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     writer.beginMethod(null, className, EnumSet.of(PUBLIC), moduleType, "module");
     boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
     String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
-    String membersKey = null;
     writer.emitStatement("super(%s, %s, %s, %s)",
-        key, membersKey, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"),
-        JavaWriter.stringLiteral(moduleType + "." + methodName + "()"));
+        key, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"),
+        JavaWriter.stringLiteral(moduleType),
+        JavaWriter.stringLiteral(methodName));
     writer.emitStatement("this.module = module");
     writer.emitStatement("setLibrary(%s)", library);
     writer.endMethod();
