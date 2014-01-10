@@ -329,14 +329,14 @@ public abstract class ObjectGraph {
     public StandardBindings(List<SetBinding<?>> baseSetBindings) {
       setBindings = new ArrayList<SetBinding<?>>(baseSetBindings.size());
       for (SetBinding<?> sb : baseSetBindings) {
-        @SuppressWarnings("rawtypes")
+        @SuppressWarnings({ "rawtypes", "unchecked" })
         SetBinding<?> child = new SetBinding(sb);
         setBindings.add(child);
         put(child.provideKey, child);
       }
     }
 
-    @Override public final Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
+    @Override public Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
       setBindings.add(value);
       return super.put(key, value);
     }
@@ -350,7 +350,7 @@ public abstract class ObjectGraph {
   private static final class OverridesBindings extends BindingsGroup {
     OverridesBindings() { }
 
-    @Override public final Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
+    @Override public Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
       throw new IllegalArgumentException("Module overrides cannot contribute set bindings.");
     }
   }

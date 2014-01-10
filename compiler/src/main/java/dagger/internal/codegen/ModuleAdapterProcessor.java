@@ -332,7 +332,8 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         switch (provides.type()) {
           case UNIQUE: {
             String key = GeneratorKeys.get(providerMethod);
-            writer.emitStatement("bindings.contributeProvidesBinding(%s, new %s(module))", JavaWriter.stringLiteral(key),
+            writer.emitStatement("bindings.contributeProvidesBinding(%s, new %s(module))",
+                JavaWriter.stringLiteral(key),
                 bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
             break;
           }
