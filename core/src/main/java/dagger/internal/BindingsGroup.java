@@ -16,7 +16,7 @@
  */
 package dagger.internal;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -26,7 +26,7 @@ import java.util.Set;
  * the initial set of bindings for a graph (from provides methods).
  */
 public abstract class BindingsGroup {
-  private final Map<String, Binding<?>> bindings = new HashMap<String, Binding<?>>();
+  private final Map<String, Binding<?>> bindings = new LinkedHashMap<String, Binding<?>>();
 
   public abstract Binding<?> contributeSetBinding(String key, SetBinding<?> value);
 

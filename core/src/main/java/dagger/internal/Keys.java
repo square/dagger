@@ -35,7 +35,7 @@ import javax.inject.Qualifier;
  *       qualified by the annotation.
  *   <li>{@code members/com.square.Foo}: injects members of Foo.
  * </ol>
- * BindingsGroup from {@code @Provides} methods are of the first two types. BindingsGroup
+ * Bindings from {@code @Provides} methods are of the first two types. BindingsGroup
  * created from {@code @Inject}-annotated members of a class are of the first
  * and last types.
  */

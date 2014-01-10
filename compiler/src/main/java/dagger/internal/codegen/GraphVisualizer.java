@@ -19,11 +19,11 @@ import dagger.internal.Binding;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.TreeSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -125,7 +125,7 @@ public final class GraphVisualizer {
     return result.toString();
   }
 
-  /** A Comparator for BindingsGroup so we can insure a consistent ordering of output. */
+  /** A Comparator for Bindings so we can insure a consistent ordering of output. */
   private static class BindingComparator implements Comparator<Binding<?>> {
     @Override
     public int compare(Binding<?> left, Binding<?> right) {

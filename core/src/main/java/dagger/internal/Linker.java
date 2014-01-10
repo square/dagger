@@ -38,7 +38,7 @@ public final class Linker {
    */
   private final Linker base;
 
-  /** BindingsGroup requiring a call to attach(). May contain deferred bindings. */
+  /** Bindings requiring a call to attach(). May contain deferred bindings. */
   private final Queue<Binding<?>> toLink = new LinkedList<Binding<?>>();
 
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
