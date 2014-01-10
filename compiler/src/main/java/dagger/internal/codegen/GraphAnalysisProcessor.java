@@ -15,13 +15,11 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.collect.ImmutableList;
 import dagger.Module;
-import dagger.ObjectGraph;
 import dagger.Provides;
 import dagger.internal.Binding;
-import dagger.internal.BindingsGroup;
 import dagger.internal.Binding.InvalidBindingException;
+import dagger.internal.BindingsGroup;
 import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.ProvidesBinding;
@@ -177,12 +175,12 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
     // to make the linker happy.
     synchronized (linker) {
       BindingsGroup baseBindings = new BindingsGroup() {
-        @Override public final Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
+        @Override public Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
           return super.put(key, value);
         }
       };
       BindingsGroup overrideBindings = new BindingsGroup() {
-        @Override public final Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
+        @Override public Binding<?> contributeSetBinding(String key, SetBinding<?> value) {
           throw new IllegalStateException("Module overrides cannot contribute set bindings.");
         }
       };
@@ -244,7 +242,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
               }
               try {
                 addTo.contributeProvidesBinding(key, binding);
-              } catch (IllegalStateException ise) { 
+              } catch (IllegalStateException ise) {
                 throw new ModuleValidationException(ise.getMessage(), providerMethod);
               }
               break;
