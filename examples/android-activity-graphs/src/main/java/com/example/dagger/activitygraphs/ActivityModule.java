@@ -33,7 +33,7 @@ import javax.inject.Singleton;
         HomeActivity.class,
         HomeFragment.class
     },
-    complete = false,
+    addsTo = AndroidModule.class,
     library = true
 )
 public class ActivityModule {
