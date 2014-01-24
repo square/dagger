@@ -28,6 +28,7 @@ import org.junit.runners.JUnit4;
 import static dagger.Provides.Type.SET;
 import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
@@ -56,6 +57,16 @@ public final class ExtensionWithSetBindingsTest {
     @Provides(type=SET) @Singleton Integer provideD() { return counter.getAndIncrement(); }
   }
 
+  @Module
+  static class EmptyModule {
+  }
+
+  @Module(library = true)
+  static class DuplicateModule {
+    @Provides @Singleton String provideFoo() { return "foo"; }
+    @Provides @Singleton String provideBar() { return "bar"; }
+  }
+
   @Test public void basicInjectionWithExtension() {
     ObjectGraph root = ObjectGraph.createWith(new TestingLoader(), new RootModule());
     RealSingleton rs = root.get(RealSingleton.class);
@@ -81,8 +92,16 @@ public final class ExtensionWithSetBindingsTest {
       ObjectGraph.createWith(new TestingLoader(), new RootModule()).plus(new TestModule());
       fail("Should throw exception.");
     } catch (IllegalArgumentException e) {
-      assertEquals("TestModule is an overriding module and cannot contribute set bindings.",
-          e.getMessage());
+      assertEquals("TestModule: Module overrides cannot contribute set bindings.", e.getMessage());
+    }
+  }
+
+  @Test public void duplicateBindingsInSecondaryModule() {
+    try {
+      ObjectGraph.createWith(new TestingLoader(), new EmptyModule(), new DuplicateModule());
+      fail("Should throw exception.");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().startsWith("DuplicateModule: Duplicate"));
     }
   }
 }
