@@ -21,7 +21,10 @@ releases.
 Differences with square/dagger
 ------------------------------
 
-  * No feature differences at present
+  * Injectable types with inheritance hierarchies are scanned at compile time and adapters are generated for their parent types statically.  This differs from square/dagger which always falls back to reflection for the parent types
+    * Pro: Reflection can be entirely avoided in an application.
+    * Con: Changes to parent types to add or remove @Inject members require that this class' adapter be regenerated
+    * Con: Extra code is generated for each concrete sub-type which generates its own copy of the parent adapter (since we don't rely on the parent type having had InjectAdapterProcessor run over it)
 
 
 Download
