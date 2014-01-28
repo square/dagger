@@ -103,7 +103,8 @@ public final class SetBinding<T> extends Binding<Set<T>> {
   @Override public Set<T> get() {
     List<T> result = new ArrayList<T>();
     for (SetBinding<T> setBinding = this; setBinding != null; setBinding = setBinding.parent) {
-      for (Binding<?> contributor : setBinding.contributors) {
+      for (int i = 0, size = setBinding.contributors.size(); i < size; i++) {
+        Binding<?> contributor = setBinding.contributors.get(i);
         Object contribution = contributor.get(); // Let runtime exceptions through.
         if (contributor.provideKey.equals(provideKey)) {
           result.addAll((Set<T>) contribution);
@@ -130,11 +131,11 @@ public final class SetBinding<T> extends Binding<Set<T>> {
     boolean first = true;
     StringBuilder builder = new StringBuilder("SetBinding[");
     for (SetBinding<T> setBinding = this; setBinding != null; setBinding = setBinding.parent) {
-      for (Binding<?> contributor : setBinding.contributors) {
+      for (int i = 0, size = setBinding.contributors.size(); i < size; i++) {
         if (!first) {
           builder.append(",");
         }
-        builder.append(contributor);
+        builder.append(setBinding.contributors.get(i));
         first = false;
       }
     }

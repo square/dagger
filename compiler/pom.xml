@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>1.1.1-SNAPSHOT</version>
+    <version>1.2.1-SNAPSHOT</version>
   </parent>
 
   <artifactId>dagger-compiler</artifactId>
@@ -43,7 +43,6 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>15.0</version>
     </dependency>
 
     <dependency>
@@ -66,13 +65,11 @@
     <dependency>
       <groupId>com.google.testing.compile</groupId>
       <artifactId>compile-testing</artifactId>
-      <version>0.3</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.truth0</groupId>
       <artifactId>truth</artifactId>
-      <version>0.13</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -127,6 +124,24 @@
             <goals>
               <goal>install</goal>
               <goal>run</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
             </goals>
           </execution>
         </executions>

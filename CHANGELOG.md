@@ -1,6 +1,20 @@
 Change Log
 ==========
 
+Version 1.2.0 *(2013-12-13)*
+----------------------------
+
+ * Numerous performance improvements in both the compiler and runtime.
+   * Use more efficient `String` concatenation.
+   * Module adapters are now stateless.
+   * Use read/write locks over global locks.
+   * Reflective constructor invocation is now cached with `Class.newInstance`.
+   * Avoid re-linking all bindings when calling `.plus()`.
+ * Set bindings are now unioned when calling `.plus()`.
+ * Fix: Tolerate missing type information during compilation by deferring writing
+   module adapters.
+
+
 Version 1.1.0 *(2013-08-05)*
 ----------------------------
 
