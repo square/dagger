@@ -184,8 +184,8 @@ public abstract class ObjectGraph {
           BindingsGroup addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
           moduleAdapter.getBindings(addTo, loadedModule.getValue());
         } catch (IllegalArgumentException e) {
-          throw new IllegalArgumentException(moduleAdapter.moduleClass.getSimpleName()
-              + " is an overriding module and cannot contribute set bindings.");
+          throw new IllegalArgumentException(
+              moduleAdapter.moduleClass.getSimpleName() + ": " + e.getMessage(), e);
         }
       }
 
