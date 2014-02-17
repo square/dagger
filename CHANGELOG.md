@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Version 1.2.1 *(2014-02-16)*
+----------------------------
+
+ * Restore Java 5 compatibility.
+ * New: Improve performance of `.plus()` with large volumes of set bindings.
+ * Fix: Do not mask underlying exception message from binding problems when constructing a graph.
+
+
 Version 1.2.0 *(2013-12-13)*
 ----------------------------
 
