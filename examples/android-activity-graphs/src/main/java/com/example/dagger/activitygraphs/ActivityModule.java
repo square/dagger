@@ -25,7 +25,7 @@ import javax.inject.Singleton;
 
 /**
  * This module represents objects which exist only for the scope of a single activity. We can
- * safely create singletons using the activity instance because ths entire object graph will only
+ * safely create singletons using the activity instance because the entire object graph will only
  * ever exist inside of that activity.
  */
 @Module(
