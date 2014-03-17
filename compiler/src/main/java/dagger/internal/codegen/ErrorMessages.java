@@ -40,6 +40,13 @@ final class ErrorMessages {
   static final String GENERIC_INJECT_METHOD =
       "Methods with @Inject may not declare type parameters.";
 
+  /* qualifiers */
+  static final String MULTIPLE_QUALIFIERS =
+      "A single injection site may not use more than one @Qualifier.";
+
+  /* scope */
+  static final String MULTIPLE_SCOPES = "A single binding may not declare more than one @Scope.";
+
   /*
    * Dagger errors
    *
