@@ -335,6 +335,9 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     TypeMirror nextAncestor = type.getSuperclass();
     TypeElement nextAncestorElement =
         (TypeElement) processingEnv.getTypeUtils().asElement(nextAncestor);
+    if (nextAncestor == null || nextAncestorElement == null) {
+      return null;
+    }
     if (isPlatformType(nextAncestor.toString())) {
       return null;
     }
