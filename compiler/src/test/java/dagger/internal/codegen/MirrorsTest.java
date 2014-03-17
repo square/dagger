@@ -17,18 +17,15 @@ package dagger.internal.codegen;
 
 import static javax.lang.model.type.TypeKind.NONE;
 import static javax.lang.model.type.TypeKind.VOID;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EquivalenceTester;
 import com.google.testing.compile.CompilationRule;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.lang.annotation.Annotation;
 import java.util.List;
@@ -38,6 +35,7 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.PrimitiveType;
@@ -45,8 +43,14 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVisitor;
 import javax.lang.model.type.WildcardType;
+import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link Mirrors}.
@@ -163,6 +167,72 @@ public class MirrorsTest {
     <T> void a() {}
     public static <T> void b() {}
   }
+
+  @Test public void testReferencedTypes() {
+    Elements elements = compilationRule.getElements();
+    TypeElement testDataElement = elements
+        .getTypeElement(ReferencedTypesTestData.class.getCanonicalName());
+    ImmutableMap<String, VariableElement> fieldIndex =
+        FluentIterable.from(ElementFilter.fieldsIn(testDataElement.getEnclosedElements()))
+            .uniqueIndex(new Function<VariableElement, String>() {
+              @Override public String apply(VariableElement input) {
+                return input.getSimpleName().toString();
+              }
+            });
+
+    TypeElement objectElement =
+        elements.getTypeElement(Object.class.getCanonicalName());
+    TypeElement stringElement =
+        elements.getTypeElement(String.class.getCanonicalName());
+    TypeElement integerElement =
+        elements.getTypeElement(Integer.class.getCanonicalName());
+    TypeElement setElement =
+        elements.getTypeElement(Set.class.getCanonicalName());
+    TypeElement mapElement =
+        elements.getTypeElement(Map.class.getCanonicalName());
+    TypeElement charSequenceElement =
+        elements.getTypeElement(CharSequence.class.getCanonicalName());
+
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f1").asType()))
+        .has().exactly(objectElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f2").asType()))
+        .has().exactly(setElement, stringElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f3").asType()))
+        .has().exactly(mapElement, stringElement, objectElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f4").asType()))
+        .has().exactly(integerElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f5").asType()))
+        .has().exactly(setElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f6").asType()))
+        .has().exactly(setElement, charSequenceElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f7").asType()))
+        .has().exactly(mapElement, stringElement, setElement, charSequenceElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f8").asType()))
+        .has().exactly(stringElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f9").asType()))
+        .has().exactly(stringElement);
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f10").asType())).isEmpty();
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f11").asType())).isEmpty();
+    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f12").asType()))
+        .has().exactly(setElement, stringElement);
+  }
+
+  @SuppressWarnings("unused") // types used in compiler tests
+  private static final class ReferencedTypesTestData {
+    Object f1;
+    Set<String> f2;
+    Map<String, Object> f3;
+    Integer f4;
+    Set<?> f5;
+    Set<? extends CharSequence> f6;
+    Map<String, Set<? extends CharSequence>> f7;
+    String[] f8;
+    String[][] f9;
+    int f10;
+    int[] f11;
+    Set<? super String> f12;
+  }
+
 
   private static final ErrorType FAKE_ERROR_TYPE = new ErrorType() {
     @Override

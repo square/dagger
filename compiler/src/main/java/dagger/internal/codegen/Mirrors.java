@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.lang.model.type.TypeKind.ARRAY;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.EXECUTABLE;
@@ -22,10 +23,13 @@ import static javax.lang.model.type.TypeKind.TYPEVAR;
 import static javax.lang.model.type.TypeKind.WILDCARD;
 
 import com.google.common.base.Equivalence;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 
 import java.util.Iterator;
 import java.util.List;
 
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ErrorType;
@@ -241,6 +245,48 @@ final class Mirrors {
 
   static int hash(TypeMirror mirror) {
     return mirror == null ? 0 : mirror.accept(HASH_VISITOR, null);
+  }
+
+  static ImmutableSet<TypeElement> referencedTypes(TypeMirror type) {
+    checkNotNull(type);
+    ImmutableSet.Builder<TypeElement> elements = ImmutableSet.builder();
+    type.accept(new SimpleTypeVisitor6<Void, ImmutableSet.Builder<TypeElement>>() {
+      @Override
+      public Void visitArray(ArrayType t, Builder<TypeElement> p) {
+        t.getComponentType().accept(this, p);
+        return null;
+      }
+
+      @Override
+      public Void visitDeclared(DeclaredType t, Builder<TypeElement> p) {
+        p.add(ElementUtil.asTypeElement(t.asElement()));
+        for (TypeMirror typeArgument : t.getTypeArguments()) {
+          typeArgument.accept(this, p);
+        }
+        return null;
+      }
+
+      @Override
+      public Void visitTypeVariable(TypeVariable t, Builder<TypeElement> p) {
+        t.getLowerBound().accept(this, p);
+        t.getUpperBound().accept(this, p);
+        return null;
+      }
+
+      @Override
+      public Void visitWildcard(WildcardType t, Builder<TypeElement> p) {
+        TypeMirror extendsBound = t.getExtendsBound();
+        if (extendsBound != null) {
+          extendsBound.accept(this, p);
+        }
+        TypeMirror superBound = t.getSuperBound();
+        if (superBound != null) {
+          superBound.accept(this, p);
+        }
+        return null;
+      }
+    }, elements);
+    return elements.build();
   }
 
   private Mirrors() {}
