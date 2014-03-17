@@ -46,6 +46,13 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.auto.value</groupId>
+      <artifactId>auto-value</artifactId>
+      <version>1.0-rc1</version>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <scope>test</scope>
@@ -89,7 +96,9 @@
             <id>default-compile</id>
             <goals><goal>compile</goal></goals>
             <configuration>
-              <compilerArgument>-proc:none</compilerArgument>
+              <annotationProcessors>
+                <annotationProcessor>com.google.auto.value.processor.AutoValueProcessor</annotationProcessor>
+              </annotationProcessors>
             </configuration>
           </execution>
           <execution>

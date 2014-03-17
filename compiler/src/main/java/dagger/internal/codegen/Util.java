@@ -37,7 +37,6 @@ import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
-import javax.lang.model.type.UnionType;
 import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
@@ -150,16 +149,6 @@ final class Util {
         }
         // TODO(cgruber): Figure out a strategy for non-FQCN cases.
         result.append(errorType.toString());
-        return null;
-      }
-      public Void visitUnion(UnionType unionType, Void v) {
-        List<? extends TypeMirror> alternatives = unionType.getAlternatives();
-        for (int i = 0; i < alternatives.size(); i++) {
-          if (i != 0) {
-            result.append(" & ");
-          }
-          typeToString(alternatives.get(i), result, innerClassSeparator);
-        }
         return null;
       }
       public Void visitWildcard(WildcardType wildcardType, Void v) {
