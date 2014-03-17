@@ -95,7 +95,11 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
   }
 
   @Override public boolean process(Set<? extends TypeElement> types, RoundEnvironment env) {
-    remainingTypes.putAll(providerMethodsByClass(env));
+    try {
+      remainingTypes.putAll(providerMethodsByClass(env));
+    } catch (ClassCastException e) {
+      return false; // upstream compiler issues - bail cleanly.
+    }
     for (Iterator<String> i = remainingTypes.keySet().iterator(); i.hasNext();) {
       String typeName = i.next();
       TypeElement type = processingEnv.getElementUtils().getTypeElement(typeName);

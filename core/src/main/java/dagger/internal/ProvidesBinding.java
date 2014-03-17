@@ -30,7 +30,10 @@ public abstract class ProvidesBinding<T> extends Binding<T> {
    */
   public ProvidesBinding(String key, boolean singleton, String moduleClass, String methodName) {
     // Set requiredBy as fullMethodName to preserve older debugging meaning.
-    super(key, null, singleton, moduleClass + "." + methodName + "()");
+    // Use an explicitly sized StringBuilder as this code is invoked often
+    super(key, null, singleton,
+        new StringBuilder(moduleClass.length() + methodName.length() + 3)
+            .append(moduleClass).append('.').append(methodName).append("()").toString());
     this.moduleClass = moduleClass;
     this.methodName = methodName;
   }

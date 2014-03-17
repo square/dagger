@@ -44,7 +44,7 @@
     <java.version>1.6</java.version>
     <javax.inject.version>1</javax.inject.version>
     <javawriter.version>2.3.0</javawriter.version>
-    <guava.version>15.0</guava.version>
+    <guava.version>16.0.1</guava.version>
 
     <!-- Test Dependencies -->
     <junit.version>4.10</junit.version>
@@ -92,6 +92,11 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava-testlib</artifactId>
         <version>${guava.version}</version>
       </dependency>
       <dependency>
