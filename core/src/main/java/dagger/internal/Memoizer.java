@@ -15,28 +15,42 @@
  */
 package dagger.internal;
 
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Represents an operation to be
+ * An abstract supertype that provides
+ * <a href="http://en.wikipedia.org/wiki/Memoize">memoization</a> for idempotent operations that
+ * <i>may</i> be computed more than once, but for which performance is prohibitive. Subclasses
+ * implement the {@link #create} method with the operation to be memoized, while callers invoke the
+ * {@link #get} method to utilize the memoization.
+ *
+ * <p>Synchronization on this class is implemented using a {@link ReadWriteLock}. Multiple threads
+ * may accessed previously memoized results without contention.
+ *
+ * <p>This class is implemented such that concurrent requests for the same key may result in
+ * simultaneous computation in multiple threads - the instance of the result that is persisted for
+ * subsequent invocations in not guaranteed.
+ *
+ * <p><b>Warning:</b> there is no eviction. Large input sets will result in growth without bound.
  */
 abstract class Memoizer<K, V> {
   private final Map<K, V> map;
   private final Lock readLock;
   private final Lock writeLock;
 
-  public Memoizer() {
-    this.map = new LinkedHashMap<K, V>();
+  Memoizer() {
+    // Don't use LinkedHashMap. This is a performance-oriented class and we don't want overhead
+    this.map = new HashMap<K, V>();
     ReadWriteLock lock = new ReentrantReadWriteLock();
     this.readLock = lock.readLock();
     this.writeLock = lock.writeLock();
   }
 
-  public final V get(K key) {
+  final V get(K key) {
     if (key == null) {
       throw new NullPointerException("key == null");
     }
@@ -68,7 +82,7 @@ abstract class Memoizer<K, V> {
     }
   }
 
-  protected abstract V create(K key);
+  abstract V create(K key);
 
   @Override public final String toString() {
     readLock.lock();
