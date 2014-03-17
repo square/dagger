@@ -102,6 +102,9 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
     }
 
     for (Element element : modules) {
+      if (element == null) {
+        continue; // skip this element. An up-stream compiler error is in play.
+      }
       Map<String, Object> annotation = null;
       try {
         annotation = getAnnotation(Module.class, element);
