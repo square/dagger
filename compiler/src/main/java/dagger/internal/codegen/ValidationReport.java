@@ -65,7 +65,7 @@ abstract class ValidationReport<T> {
   }
 
   static final class Builder<T> {
-    static final <T> Builder<T> about(T subject) {
+    static <T> Builder<T> about(T subject) {
       return new Builder<T>(subject);
     }
 
