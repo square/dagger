@@ -15,10 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static javax.lang.model.type.TypeKind.NONE;
-import static javax.lang.model.type.TypeKind.VOID;
-import static org.truth0.Truth.ASSERT;
-
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -26,12 +22,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EquivalenceTester;
 import com.google.testing.compile.CompilationRule;
-
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -46,11 +40,14 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import static javax.lang.model.type.TypeKind.NONE;
+import static javax.lang.model.type.TypeKind.VOID;
+import static org.truth0.Truth.ASSERT;
 
 /**
  * Tests {@link Mirrors}.
@@ -71,7 +68,7 @@ public class MirrorsTest {
         types.getDeclaredType(mapElement, objectType, objectType);
     TypeMirror mapType = mapElement.asType();
     WildcardType wildcard = types.getWildcardType(null, null);
-    EquivalenceTester<TypeMirror> tester = EquivalenceTester.of(Mirrors.equivalence())
+    EquivalenceTester<TypeMirror> tester = EquivalenceTester.<TypeMirror>of(Mirrors.equivalence())
         .addEquivalenceGroup(types.getNullType())
         .addEquivalenceGroup(types.getNoType(NONE))
         .addEquivalenceGroup(types.getNoType(VOID))
