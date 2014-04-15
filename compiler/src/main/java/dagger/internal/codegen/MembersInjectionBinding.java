@@ -23,13 +23,10 @@ import static javax.lang.model.element.ElementKind.METHOD;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Ordering;
 
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 /**
@@ -40,11 +37,11 @@ import javax.lang.model.element.VariableElement;
  * @since 2.0
  */
 @AutoValue
-abstract class MembersInjectionBinding {
+abstract class MembersInjectionBinding extends Binding {
   /**
    * Returns an {@link Ordering} suitable for sorting bindings into an ordering that abides by the
    * injection ordering specified in {@link Inject}. This ordering should not be used with bindings
-   * from different {@link #targetEnclosingType() types}.
+   * from different {@link #enclosingType() types}.
    */
   static Ordering<MembersInjectionBinding> injectionOrdering() {
     return INJECTION_ORDERING;
@@ -56,7 +53,7 @@ abstract class MembersInjectionBinding {
         public int compare(MembersInjectionBinding left, MembersInjectionBinding right) {
           return ComparisonChain.start()
               // fields before methods
-              .compare(left.target().getKind(), right.target().getKind())
+              .compare(left.bindingElement().getKind(), right.bindingElement().getKind())
               // then sort by whichever element comes first in the parent
               // this isn't necessary, but makes the processor nice and predictable
               .compare(targetIndexInEnclosing(left), targetIndexInEnclosing(right))
@@ -65,31 +62,7 @@ abstract class MembersInjectionBinding {
       };
 
   private static int targetIndexInEnclosing(MembersInjectionBinding binding)  {
-    return binding.targetEnclosingType().getEnclosedElements().indexOf(binding.target());
-  }
-
-  /** The field or method annotated with {@link Inject}. */
-  abstract Element target();
-
-  /** The type enclosing the binding {@link #target()}. */
-  TypeElement targetEnclosingType() {
-    return ElementUtil.asTypeElement(target().getEnclosingElement());
-  }
-
-  /**
-   * The set of {@link DependencyRequest dependencies} required to satisfy this binding. For fields
-   * this will be a single element for the field and for methods this will be an element for each of
-   * the method parameters.
-   */
-  abstract ImmutableSet<DependencyRequest> dependencies();
-
-  /** Returns the {@link #dependencies()} indexed by {@link Key}. */
-  ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey() {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> builder = ImmutableSetMultimap.builder();
-    for (DependencyRequest dependency : dependencies()) {
-      builder.put(dependency.key(), dependency);
-    }
-    return builder.build();
+    return binding.enclosingType().getEnclosedElements().indexOf(binding.bindingElement());
   }
 
   /**

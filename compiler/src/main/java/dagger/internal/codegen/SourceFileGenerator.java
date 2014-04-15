@@ -45,7 +45,7 @@ abstract class SourceFileGenerator<T> {
     this.filer = checkNotNull(filer);
   }
 
-  void generate(T input) throws SourceFileGenerationException {
+  final void generate(T input) throws SourceFileGenerationException {
     ClassName generatedTypeName = nameGeneratedType(input);
     ImmutableSet<Element> originatingElements = ImmutableSet.copyOf(getOriginatingElements(input));
     JavaFileObject file = null;

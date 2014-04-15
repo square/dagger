@@ -143,7 +143,7 @@ public class SourceFileGeneratorTest {
     Iterable<? extends Element> getOriginatingElements(Void input) {
       return ImmutableSet.of();
     }
-    
+
     @Override
     Optional<? extends Element> getElementForErrorReporting(Void input) {
       return Optional.absent();

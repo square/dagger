@@ -41,6 +41,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
+// TODO(gak): add tests for generation in the default package.
 public final class InjectProcessorTest {
   private static final JavaFileObject QUALIFIER_A =
       JavaFileObjects.forSourceLines("test.QualifierA",
@@ -289,7 +290,6 @@ public final class InjectProcessorTest {
         "import dagger.MembersInjector;",
         "import dagger.internal.DoubleCheckLazy;",
         "import javax.annotation.Generated;",
-        "import javax.inject.Inject;",
         "import javax.inject.Provider;",
         "",
         "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
@@ -298,7 +298,7 @@ public final class InjectProcessorTest {
         "",
         "  private final Provider<String> stringProvider;",
         "",
-        "  @Inject FieldInjection$$MembersInjector(Provider<String> stringProvider) {",
+        "  FieldInjection$$MembersInjector(Provider<String> stringProvider) {",
         "    assert stringProvider != null;",
         "    this.stringProvider = stringProvider;",
         "  }",
@@ -343,7 +343,6 @@ public final class InjectProcessorTest {
         "import dagger.MembersInjector;",
         "import dagger.internal.DoubleCheckLazy;",
         "import javax.annotation.Generated;",
-        "import javax.inject.Inject;",
         "import javax.inject.Provider;",
         "",
         "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
@@ -352,7 +351,7 @@ public final class InjectProcessorTest {
         "",
         "  private final Provider<String> stringProvider;",
         "",
-        "  @Inject MethodInjection$$MembersInjector(Provider<String> stringProvider) {",
+        "  MethodInjection$$MembersInjector(Provider<String> stringProvider) {",
         "    assert stringProvider != null;",
         "    this.stringProvider = stringProvider;",
         "  }",
@@ -396,7 +395,6 @@ public final class InjectProcessorTest {
         "",
         "import dagger.MembersInjector;",
         "import javax.annotation.Generated;",
-        "import javax.inject.Inject;",
         "import javax.inject.Provider;",
         "",
         "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
@@ -406,7 +404,7 @@ public final class InjectProcessorTest {
         "  private final Provider<Object> objectAndOProvider;",
         "  private final Provider<String> stringAndSProvider;",
         "",
-        "  @Inject MixedMemberInjection$$MembersInjector(Provider<Object> objectAndOProvider,",
+        "  MixedMemberInjection$$MembersInjector(Provider<Object> objectAndOProvider,",
         "      Provider<String> stringAndSProvider) {",
         "    assert objectAndOProvider != null;",
         "    this.objectAndOProvider = objectAndOProvider;",
@@ -431,5 +429,128 @@ public final class InjectProcessorTest {
     ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
+  }
+
+  @Test public void injectConstructor() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class InjectConstructor {",
+        "  @Inject InjectConstructor(String s) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<String> sProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<String> sProvider) {",
+        "    assert sProvider != null;",
+        "    this.sProvider = sProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(sProvider.get());",
+        "  }",
+        "",
+        "  @Override public String toString() {",
+        "    return \"Factory<InjectConstructor>\";",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
+
+  @Test public void injectConstructorAndMembersInjection() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.AllInjections",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class AllInjections {",
+        "  @Inject String s;",
+        "  @Inject AllInjections(String s) {}",
+        "  @Inject void s(String s) {}",
+        "}");
+    JavaFileObject expectedFactory = JavaFileObjects.forSourceLines(
+        "test.AllInjections$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "public final class AllInjections$$Factory ",
+        "    implements Factory<AllInjections> {",
+        "",
+        "  private final MembersInjector<AllInjections> membersInjector;",
+        "  private final Provider<String> sProvider;",
+        "",
+        "  public AllInjections$$Factory(MembersInjector<AllInjections> membersInjector, ",
+        "      Provider<String> sProvider) {",
+        "    assert membersInjector != null;",
+        "    this.membersInjector = membersInjector;",
+        "    assert sProvider != null;",
+        "    this.sProvider = sProvider;",
+        "  }",
+        "",
+        "  @Override public AllInjections get() {",
+        "    AllInjections instance = new AllInjections(sProvider.get());",
+        "    membersInjector.injectMembers(instance);",
+        "    return instance;",
+        "  }",
+        "",
+        "  @Override public String toString() {",
+        "    return \"Factory<AllInjections>\";",
+        "  }",
+        "}");
+    JavaFileObject expectedMembersInjector = JavaFileObjects.forSourceLines(
+        "test.AllInjections$$MembersInjector",
+        "package test;",
+        "",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "final class AllInjections$$MembersInjector ",
+        "    implements MembersInjector<AllInjections> {",
+        "",
+        "  private final Provider<String> sProvider;",
+        "",
+        "  AllInjections$$MembersInjector(Provider<String> sProvider) {",
+        "    assert sProvider != null;",
+        "    this.sProvider = sProvider;",
+        "  }",
+        "",
+        "  @Override public void injectMembers(AllInjections instance) {",
+        "    if (instance == null) {",
+        "      throw new NullPointerException(\"Cannot inject members into a null reference\");",
+        "    }",
+        "    instance.s = sProvider.get();",
+        "    instance.s(sProvider.get());",
+        "  }",
+        "",
+        "  @Override public String toString() {",
+        "    return \"MembersInjector<AllInjections>\";",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expectedFactory, expectedMembersInjector);
   }
 }

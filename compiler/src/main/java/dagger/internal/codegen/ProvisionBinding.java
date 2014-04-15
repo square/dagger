@@ -19,17 +19,22 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.ElementKind.FIELD;
+import static javax.lang.model.element.ElementKind.METHOD;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import dagger.Provides;
 
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -39,27 +44,22 @@ import javax.lang.model.element.ExecutableElement;
  * @since 2.0
  */
 @AutoValue
-abstract class ProvisionBinding {
-  /**
-   * The {@link Element} that actually implements the binding. This will the
-   * {@link ExecutableElement} for a {@link Provides} method or {@link Inject} constructor.
-   */
-  abstract ExecutableElement bindingElement();
-
+abstract class ProvisionBinding extends Binding {
   /** The {@link Key} that is provided by this binding. */
   abstract Key providedKey();
-
-  /**
-   * The set of {@linkplain DependencyRequest key requests} that satisfy the direct dependencies of
-   * this binding.
-   */
-  abstract ImmutableSet<DependencyRequest> dependencies();
 
   /** The scope in which the binding declares the {@link #providedKey()}. */
   abstract Optional<AnnotationMirror> scope();
 
+  /** Returns {@code true} if this provision binding requires members to be injected implicitly. */
+  abstract boolean requiresMemberInjection();
+
   static final class Factory {
-    private final DependencyRequest.Factory keyRequestFactory = null;
+    private final DependencyRequest.Factory keyRequestFactory;
+
+    Factory(DependencyRequest.Factory keyRequestFactory) {
+      this.keyRequestFactory = keyRequestFactory;
+    }
 
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement) {
       checkNotNull(constructorElement);
@@ -67,18 +67,36 @@ abstract class ProvisionBinding {
       checkArgument(constructorElement.getAnnotation(Inject.class) != null);
       Key key = Key.forInjectConstructor(constructorElement);
       checkArgument(!key.qualifier().isPresent());
-      return new AutoValue_ProvisionBinding(constructorElement, key,
+      return new AutoValue_ProvisionBinding(constructorElement,
           keyRequestFactory.forVariables(constructorElement.getParameters()),
-          getScopeAnnotation(constructorElement.getEnclosingElement()));
+          key,
+          getScopeAnnotation(constructorElement.getEnclosingElement()),
+          requiresMemeberInjection(
+              ElementUtil.asTypeElement(constructorElement.getEnclosingElement())));
+    }
+
+    private static final ImmutableSet<ElementKind> MEMBER_KINDS =
+        Sets.immutableEnumSet(METHOD, FIELD);
+
+    private static boolean requiresMemeberInjection(TypeElement type) {
+      for (Element enclosedElement : type.getEnclosedElements()) {
+        if (MEMBER_KINDS.contains(enclosedElement.getKind())
+            && (enclosedElement.getAnnotation(Inject.class) != null)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     ProvisionBinding forProvidesMethod(ExecutableElement providesMethod) {
       checkNotNull(providesMethod);
       checkArgument(providesMethod.getKind().equals(CONSTRUCTOR));
       checkArgument(providesMethod.getAnnotation(Provides.class) != null);
-      return new AutoValue_ProvisionBinding(providesMethod, Key.forProvidesMethod(providesMethod),
+      return new AutoValue_ProvisionBinding(providesMethod,
           keyRequestFactory.forVariables(providesMethod.getParameters()),
-          getScopeAnnotation(providesMethod));
+          Key.forProvidesMethod(providesMethod),
+          getScopeAnnotation(providesMethod),
+          false);
     }
   }
 }
