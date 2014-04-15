@@ -99,6 +99,8 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       remainingTypes.putAll(providerMethodsByClass(env));
     } catch (ClassCastException e) {
       return false; // upstream compiler issues - bail cleanly.
+    } catch (CodeGenerationIncompleteException e) {
+      return false; // upstream compiler issues - bail cleanly.
     }
     for (Iterator<String> i = remainingTypes.keySet().iterator(); i.hasNext();) {
       String typeName = i.next();
@@ -147,6 +149,10 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
     provides:
     for (Element providerMethod : findProvidesMethods(env)) {
+      if (providerMethod.getAnnotation(Provides.class) == null) {
+        throw new CodeGenerationIncompleteException("Missing import of dagger.Provides.");
+      }
+
       switch (providerMethod.getEnclosingElement().getKind()) {
         case CLASS:
           break; // valid, move along
