@@ -15,17 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.squareup.javawriter.JavaWriter.stringLiteral;
-import static com.squareup.javawriter.JavaWriter.type;
-import static dagger.internal.codegen.SourceFiles.DEPENDENCY_ORDERING;
-import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
-import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
-import static dagger.internal.codegen.SourceFiles.generateProviderNames;
-import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -38,15 +27,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.squareup.javawriter.JavaWriter;
-
 import dagger.MembersInjector;
-
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
@@ -54,6 +42,17 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
+
+import static com.squareup.javawriter.JavaWriter.stringLiteral;
+import static com.squareup.javawriter.JavaWriter.type;
+import static dagger.internal.codegen.SourceFiles.DEPENDENCY_ORDERING;
+import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
+import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
+import static dagger.internal.codegen.SourceFiles.generateProviderNames;
+import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Generates {@link MembersInjector} implementations from {@link MembersInjectionBinding} instances.
@@ -108,12 +107,13 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
         })
         .toSortedSet(DEPENDENCY_ORDERING);
 
-    ImmutableSortedSet<String> imports =
-        FluentIterable.from(collectImportsFromDependencies(injectorClassName, dependencies))
-            .append(ClassName.fromClass(MembersInjector.class))
-            .append(ClassName.fromClass(Generated.class))
-            .transform(Functions.toStringFunction())
-            .toSortedSet(Ordering.natural());
+    List<ClassName> importsBuilder = new ArrayList<ClassName>();
+    importsBuilder.addAll(collectImportsFromDependencies(injectorClassName, dependencies));
+    importsBuilder.add(ClassName.fromClass(MembersInjector.class));
+    importsBuilder.add(ClassName.fromClass(Generated.class));
+    ImmutableSortedSet<String> imports = FluentIterable.from(importsBuilder)
+        .transform(Functions.toStringFunction())
+        .toSortedSet(Ordering.natural());
     writer.emitImports(imports).emitEmptyLine();
 
     writer.emitJavadoc("A {@link MembersInjector} implementation for {@link %s}.",

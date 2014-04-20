@@ -15,16 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.squareup.javawriter.JavaWriter.stringLiteral;
-import static com.squareup.javawriter.JavaWriter.type;
-import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
-import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
-import static dagger.internal.codegen.SourceFiles.generateProviderNames;
-import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -38,20 +28,29 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.squareup.javawriter.JavaWriter;
-
 import dagger.Factory;
 import dagger.MembersInjector;
-
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+
+import static com.squareup.javawriter.JavaWriter.stringLiteral;
+import static com.squareup.javawriter.JavaWriter.type;
+import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
+import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
+import static dagger.internal.codegen.SourceFiles.generateProviderNames;
+import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for
@@ -92,15 +91,16 @@ final class InjectConstructorFactoryGenerator extends SourceFileGenerator<Provis
 
     writer.emitPackage(factoryClassName.packageName());
 
-    FluentIterable<ClassName> importsBuilder = FluentIterable.from(
-        collectImportsFromDependencies(factoryClassName, binding.dependencies()))
-            .append(ClassName.fromClass(Factory.class))
-            .append(ClassName.fromClass(Generated.class));
+    List<ClassName> importsBuilder = new ArrayList<ClassName>();
+    importsBuilder.addAll(collectImportsFromDependencies(factoryClassName, binding.dependencies()));
+    importsBuilder.add(ClassName.fromClass(Factory.class));
+    importsBuilder.add(ClassName.fromClass(Generated.class));
     if (binding.requiresMemberInjection()) {
-      importsBuilder = importsBuilder.append(ClassName.fromClass(MembersInjector.class));
+      importsBuilder.add(ClassName.fromClass(MembersInjector.class));
     }
-    ImmutableSortedSet<String> imports = importsBuilder.transform(Functions.toStringFunction())
-            .toSortedSet(Ordering.natural());
+    ImmutableSortedSet<String> imports = FluentIterable.from(importsBuilder)
+        .transform(Functions.toStringFunction())
+        .toSortedSet(Ordering.natural());
     writer.emitImports(imports).emitEmptyLine();
 
     writer.emitAnnotation(Generated.class, stringLiteral(InjectProcessor.class.getName()))
