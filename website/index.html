@@ -408,6 +408,56 @@ public class CoffeeAppModule {
   &lt;optional>true&lt;/optional>
 &lt;/dependency></pre>
 
+            <h4>Ant</h4>
+            <p>Create a <code>libs-compiler</code> directory and place the following files in that directory.</p>
+            <ul>
+                <li>javawriter-2.2.1.jar</li>
+                <li>dagger-compiler-<span class="version pln"><em>(insert latest version)</em></span>.jar</li>
+            </ul>
+            <p>Your custom_rules.xml should include these tasks...</p>
+            <pre class="prettyprint">
+&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project name=&quot;**** YOUR PROJECT NAME HERE****&quot; default=&quot;help&quot;&gt;
+    &lt;property name=&quot;apt_generated.dir&quot; value=&quot;${basedir}/.apt_generated/&quot; /&gt;
+ 
+    &lt;target name=&quot;-pre-clean&quot;&gt;
+      &lt;delete dir=&quot;${apt_generated.dir}&quot; verbose=&quot;${verbose}&quot; /&gt;
+      &lt;mkdir dir=&quot;${apt_generated.dir}&quot; /&gt;
+    &lt;/target&gt;
+    
+    &lt;target name=&quot;-pre-compile&quot;&gt;
+      &lt;echo&gt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=&lt;/echo&gt;
+      &lt;echo&gt;             Dagger is generating code            &lt;/echo&gt;
+      &lt;echo&gt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=&lt;/echo&gt;
+      &lt;javac encoding=&quot;${java.encoding}&quot;
+              source=&quot;${java.source}&quot; 
+              target=&quot;${java.target}&quot;
+              debug=&quot;true&quot; 
+              extdirs=&quot;&quot; 
+              includeantruntime=&quot;false&quot;
+              destdir=&quot;${out.classes.absolute.dir}&quot;
+              bootclasspathref=&quot;project.target.class.path&quot;
+              verbose=&quot;${verbose}&quot;
+              classpath=&quot;${extensible.classpath}&quot;
+              classpathref=&quot;project.all.jars.path&quot;
+              fork=&quot;${need.javac.fork}&quot;&gt;
+          &lt;src path=&quot;${source.absolute.dir}&quot; /&gt;
+          &lt;src path=&quot;${gen.absolute.dir}&quot; /&gt;
+          &lt;classpath&gt;
+              &lt;fileset dir=&quot;libs&quot; includes=&quot;*.jar&quot; /&gt;
+              &lt;fileset dir=&quot;libs-compile&quot; includes=&quot;*.jar&quot; /&gt;
+          &lt;/classpath&gt;
+          &lt;compilerarg value=&quot;-proc:only&quot; /&gt;
+          &lt;compilerarg value=&quot;-processor&quot; /&gt;
+          &lt;compilerarg value=&quot;dagger.internal.codegen.GraphAnalysisProcessor,dagger.internal.codegen.InjectAdapterProcessor,dagger.internal.codegen.ModuleAdapterProcessor,dagger.internal.codegen.ValidationProcessor&quot; /&gt;
+          &lt;compilerarg value=&quot;-s&quot; /&gt;
+          &lt;compilerarg value=&quot;${apt_generated.dir}&quot; /&gt;
+      &lt;/javac&gt;
+      &lt;echo&gt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=&lt;/echo&gt;
+    &lt;/target&gt;
+&lt;/project&gt;
+            </pre>
+
             <h3 id="upgrading">Upgrading from Guice</h3>
 
             <p>Some notable Guice features that Dagger doesn't support:</p>
