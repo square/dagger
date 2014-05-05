@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.METHOD;
+import static javax.lang.model.type.TypeKind.DECLARED;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
@@ -28,10 +29,17 @@ import com.google.common.base.Optional;
 
 import dagger.Provides;
 
+import java.util.Set;
+
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /**
  * Represents a unique combination of {@linkplain TypeMirror type} and
@@ -62,8 +70,6 @@ abstract class Key {
         .toString();
   }
 
-  // TODO(gak): normalize boxed types
-
   static Key create(TypeMirror type) {
     return new AutoValue_Key(Optional.<AnnotationMirror>absent(), Mirrors.equivalence().wrap(type));
   }
@@ -72,27 +78,64 @@ abstract class Key {
     return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(type));
   }
 
-  // TODO(gak): decide whether to address set bindings here or someplace else
-  static Key forProvidesMethod(ExecutableElement e) {
-    checkNotNull(e);
-    checkArgument(e.getKind().equals(METHOD));
-    checkArgument(e.getAnnotation(Provides.class) != null);
-    return new AutoValue_Key(getQualifier(e), Mirrors.equivalence().wrap(e.getReturnType()));
+  static final class Factory {
+    private final Types types;
+    private final Elements elements;
+
+    Factory(Types types, Elements elements) {
+      this.types = checkNotNull(types);
+      this.elements = checkNotNull(elements);
+    }
+
+    private TypeMirror normalize(TypeMirror type) {
+      TypeKind kind = type.getKind();
+      return kind.isPrimitive() ? types.getPrimitiveType(kind) : type;
+    }
+
+    private TypeElement getSetElement() {
+      return elements.getTypeElement(Set.class.getCanonicalName());
+    }
+
+    Key forProvidesMethod(ExecutableElement e) {
+      checkNotNull(e);
+      checkArgument(e.getKind().equals(METHOD));
+      Provides providesAnnotation = e.getAnnotation(Provides.class);
+      checkArgument(providesAnnotation != null);
+      TypeMirror returnType = normalize(e.getReturnType());
+      Optional<AnnotationMirror> qualifier = getQualifier(e);
+      switch (providesAnnotation.type()) {
+        case UNIQUE:
+          return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(returnType));
+        case SET:
+          TypeMirror setType = types.getDeclaredType(getSetElement(), returnType);
+          return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(setType));
+        case SET_VALUES:
+          // TODO(gak): do we want to allow people to use "covariant return" here?
+          checkArgument(returnType.getKind().equals(DECLARED));
+          checkArgument(((DeclaredType) returnType).asElement().equals(getSetElement()));
+          return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(returnType));
+        default:
+          throw new AssertionError();
+      }
+    }
+
+    Key forComponentMethod(ExecutableElement e) {
+      checkNotNull(e);
+      checkArgument(e.getKind().equals(METHOD));
+      checkArgument(e.getParameters().isEmpty());
+      return new AutoValue_Key(getQualifier(e),
+          Mirrors.equivalence().wrap(normalize(e.getReturnType())));
+    }
+
+    Key forInjectConstructor(ExecutableElement e) {
+      checkNotNull(e);
+      checkArgument(e.getKind().equals(CONSTRUCTOR));
+      checkArgument(!getQualifier(e).isPresent());
+      // Must use the enclosing element.  The return type is void for constructors(?!)
+      TypeMirror type = e.getEnclosingElement().asType();
+      return new AutoValue_Key(Optional.<AnnotationMirror>absent(),
+          Mirrors.equivalence().wrap(type));
+    }
   }
 
-  static Key forComponentMethod(ExecutableElement e) {
-    checkNotNull(e);
-    checkArgument(e.getKind().equals(METHOD));
-    checkArgument(e.getParameters().isEmpty());
-    return new AutoValue_Key(getQualifier(e), Mirrors.equivalence().wrap(e.getReturnType()));
-  }
-
-  static Key forInjectConstructor(ExecutableElement e) {
-    checkNotNull(e);
-    checkArgument(e.getKind().equals(CONSTRUCTOR));
-    checkArgument(!getQualifier(e).isPresent());
-    // Must use the enclosing element.  The return type is void for constructors(?!)
-    TypeMirror type = e.getEnclosingElement().asType();
-    return new AutoValue_Key(Optional.<AnnotationMirror>absent(), Mirrors.equivalence().wrap(type));
-  }
 }

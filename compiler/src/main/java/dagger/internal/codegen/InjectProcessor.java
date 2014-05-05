@@ -68,10 +68,12 @@ public final class InjectProcessor extends AbstractProcessor {
     Filer filer = processingEnv.getFiler();
     Elements elements = processingEnv.getElementUtils();
     Types types = processingEnv.getTypeUtils();
+    Key.Factory keyFactory = new Key.Factory(types, elements);
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(elements, types);
     ProviderTypeRepository providerTypeRepository = new ProviderTypeRepository(elements, types);
-    this.provisionBindingFactory = new ProvisionBinding.Factory(dependencyRequestFactory);
+    this.provisionBindingFactory =
+        new ProvisionBinding.Factory(keyFactory, dependencyRequestFactory);
     this.factoryWriter = new InjectConstructorFactoryGenerator(filer, providerTypeRepository);
     this.membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(dependencyRequestFactory);
