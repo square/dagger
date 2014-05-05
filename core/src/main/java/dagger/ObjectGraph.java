@@ -24,6 +24,7 @@ import dagger.internal.Linker;
 import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.Modules;
+import dagger.internal.Modules.ModuleWithAdapter;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
 import dagger.internal.StaticInjection;
@@ -171,9 +172,13 @@ public abstract class ObjectGraph {
           (base == null) ? new StandardBindings() : new StandardBindings(base.setBindings);
       BindingsGroup overrideBindings = new OverridesBindings();
 
-      Map<ModuleAdapter<?>, Object> loadedModules = Modules.loadModules(plugin, modules);
-      for (Entry<ModuleAdapter<?>, Object> loadedModule : loadedModules.entrySet()) {
-        ModuleAdapter<Object> moduleAdapter = (ModuleAdapter<Object>) loadedModule.getKey();
+      ArrayList<ModuleWithAdapter> loadedModules = Modules.loadModules(plugin, modules);
+      int loadedModulesCount = loadedModules.size();
+      for (int moduleIndex = 0; moduleIndex < loadedModulesCount; moduleIndex++) {
+        ModuleWithAdapter loadedModule = loadedModules.get(moduleIndex);
+        @SuppressWarnings("unchecked")
+        ModuleAdapter<Object> moduleAdapter =
+            (ModuleAdapter<Object>) loadedModule.getModuleAdapter();
         for (int i = 0; i < moduleAdapter.injectableTypes.length; i++) {
           injectableTypes.put(moduleAdapter.injectableTypes[i], moduleAdapter.moduleClass);
         }
@@ -182,7 +187,7 @@ public abstract class ObjectGraph {
         }
         try {
           BindingsGroup addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
-          moduleAdapter.getBindings(addTo, loadedModule.getValue());
+          moduleAdapter.getBindings(addTo, loadedModule.getModule());
         } catch (IllegalArgumentException e) {
           throw new IllegalArgumentException(
               moduleAdapter.moduleClass.getSimpleName() + ": " + e.getMessage(), e);

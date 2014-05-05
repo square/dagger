@@ -16,9 +16,9 @@
  */
 package dagger.internal;
 
-
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 
 /**
  * Static helper for organizing modules.
@@ -31,38 +31,57 @@ public final class Modules {
    * Returns a full set of module adapters, including module adapters for included
    * modules.
    */
-  public static Map<ModuleAdapter<?>, Object> loadModules(Loader loader,
+  public static ArrayList<ModuleWithAdapter> loadModules(Loader loader,
       Object[] seedModulesOrClasses) {
-    Map<ModuleAdapter<?>, Object> seedAdapters =
-        new LinkedHashMap<ModuleAdapter<?>, Object>(seedModulesOrClasses.length);
-    for (int i = 0; i < seedModulesOrClasses.length; i++) {
-      if (seedModulesOrClasses[i] instanceof Class<?>) {
-        ModuleAdapter<?> adapter = loader.getModuleAdapter((Class<?>) seedModulesOrClasses[i]);
-        seedAdapters.put(adapter, adapter.newModule());
+    int seedModuleCount = seedModulesOrClasses.length;
+    ArrayList<ModuleWithAdapter> result = new ArrayList<ModuleWithAdapter>(seedModuleCount);
+    HashSet<Class<?>> visitedClasses = new HashSet<Class<?>>(seedModuleCount);
+    // Add all seed classes to visited classes right away, so that we won't instantiate modules for
+    // them in collectIncludedModulesRecursively
+    // Iterate over seedModulesOrClasses in reverse, so that if multiple instances/classes of the
+    // same module are provided, the later one is used (this matches previous behavior which some
+    // code came to depend on.)
+    for (int i = seedModuleCount-1; i >= 0; i--) {
+      Object moduleOrClass = seedModulesOrClasses[i];
+      if (moduleOrClass instanceof Class<?>) {
+        if (visitedClasses.add((Class<?>) moduleOrClass)) {
+          ModuleAdapter<?> moduleAdapter = loader.getModuleAdapter((Class<?>) moduleOrClass);
+          result.add(new ModuleWithAdapter(moduleAdapter, moduleAdapter.newModule()));
+        }
       } else {
-        ModuleAdapter<?> adapter = loader.getModuleAdapter(seedModulesOrClasses[i].getClass());
-        seedAdapters.put(adapter, seedModulesOrClasses[i]);
+        if (visitedClasses.add(moduleOrClass.getClass())) {
+          ModuleAdapter<?> moduleAdapter = loader.getModuleAdapter(moduleOrClass.getClass());
+          result.add(new ModuleWithAdapter(moduleAdapter, moduleOrClass));
+        }
       }
     }
-
-    // Add the adapters that we have module instances for. This way we won't
-    // construct module objects when we have a user-supplied instance.
-    Map<ModuleAdapter<?>, Object> result =
-        new LinkedHashMap<ModuleAdapter<?>, Object>(seedAdapters);
-
-    // Next collect included modules
-    Map<Class<?>, ModuleAdapter<?>> transitiveInclusions =
-        new LinkedHashMap<Class<?>, ModuleAdapter<?>>();
-    for (ModuleAdapter<?> adapter : seedAdapters.keySet()) {
-      collectIncludedModulesRecursively(loader, adapter, transitiveInclusions);
-    }
-    // and create them if necessary
-    for (ModuleAdapter<?> dependency : transitiveInclusions.values()) {
-      if (!result.containsKey(dependency)) {
-        result.put(dependency, dependency.newModule());
-      }
+    int dedupedSeedModuleCount = result.size();
+    for (int i = 0; i < dedupedSeedModuleCount; i++) {
+      ModuleAdapter<?> seedAdapter = result.get(i).getModuleAdapter();
+      collectIncludedModulesRecursively(loader, seedAdapter, result, visitedClasses);
     }
     return result;
+  }
+
+  /**
+   * Wrapper around a module adapter and an instance of the corresponding module.
+   */
+  public static class ModuleWithAdapter {
+    private final ModuleAdapter<?> moduleAdapter;
+    private final Object module;
+
+    ModuleWithAdapter(ModuleAdapter<?> moduleAdapter, Object module) {
+      this.moduleAdapter = moduleAdapter;
+      this.module = module;
+    }
+
+    public ModuleAdapter<?> getModuleAdapter() {
+      return moduleAdapter;
+    }
+
+    public Object getModule() {
+      return module;
+    }
   }
 
   /**
@@ -70,12 +89,13 @@ public final class Modules {
    * adapter}, and their includes recursively.
    */
   private static void collectIncludedModulesRecursively(Loader plugin, ModuleAdapter<?> adapter,
-      Map<Class<?>, ModuleAdapter<?>> result) {
+      List<ModuleWithAdapter> result, HashSet<Class<?>> visitedClasses) {
     for (Class<?> include : adapter.includes) {
-      if (!result.containsKey(include)) {
+      if (!visitedClasses.contains(include)) {
         ModuleAdapter<?> includedModuleAdapter = plugin.getModuleAdapter(include);
-        result.put(include, includedModuleAdapter);
-        collectIncludedModulesRecursively(plugin, includedModuleAdapter, result);
+        result.add(new ModuleWithAdapter(includedModuleAdapter, includedModuleAdapter.newModule()));
+        visitedClasses.add(include);
+        collectIncludedModulesRecursively(plugin, includedModuleAdapter, result, visitedClasses);
       }
     }
   }
