@@ -25,7 +25,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * Annotates methods of a module to create a provider method binding. The
- * method's return type is bound to it's returned value. The object graph will
+ * method's return type is bound to its returned value. The object graph will
  * pass dependencies to the method as parameters.
  *
  * @author Bob Lee
