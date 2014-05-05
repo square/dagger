@@ -76,5 +76,35 @@ final class ErrorMessages {
   static final String INJECT_INTO_PRIVATE_CLASS =
       "Dagger does not support injection into private classes";
 
+  /*
+   * Configuration errors
+   *
+   * These are errors that relate specifically to the Dagger configuration API (@Module, @Provides,
+   * etc.)
+   */
+  static final String PROVIDES_METHOD_RETURN_TYPE =
+      "@Provides methods must either return a primitive, an array or a declared type.";
+
+  static final String PROVIDES_METHOD_SET_VALUES_RAW_SET =
+      "@Provides methods of type set values cannot return a raw Set";
+
+  static final String PROVIDES_METHOD_SET_VALUES_RETURN_SET =
+      "@Provides methods of type set values must return a Set";
+
+  static final String PROVIDES_METHOD_MUST_RETURN_A_VALUE =
+      "@Provides methods must return a value (not void).";
+
+  static final String PROVIDES_METHOD_ABSTRACT = "@Provides methods cannot be abstract";
+
+  static final String PROVIDES_METHOD_STATIC = "@Provides methods cannot be static";
+
+  static final String PROVIDES_METHOD_PRIVATE = "@Provides methods cannot be private";
+
+  static final String PROVIDES_METHOD_TYPE_PARAMETER =
+      "@Provides methods may not have type parameters.";
+
+  static final String PROVIDES_METHOD_NOT_IN_MODULE =
+      "@Provides methods can only be present within a @Module";
+
   private ErrorMessages() {}
 }
