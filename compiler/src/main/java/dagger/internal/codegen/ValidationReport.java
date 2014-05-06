@@ -77,6 +77,10 @@ abstract class ValidationReport<T> {
       this.subject = subject;
     }
 
+    T getSubject() {
+      return subject;
+    }
+
     Builder<T> addItem(String message, Element element) {
       items.add(new AutoValue_ValidationReport_Item(message, element,
           Optional.<AnnotationMirror>absent()));

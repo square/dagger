@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import static dagger.Provides.Type.SET;
+import static dagger.Provides.Type.SET_VALUES;
 import static org.truth0.Truth.ASSERT;
 
 import com.google.common.collect.Iterables;
@@ -23,18 +25,23 @@ import com.google.testing.compile.CompilationRule;
 import dagger.Module;
 import dagger.Provides;
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Qualifier;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link Key}.
@@ -43,12 +50,19 @@ import javax.lang.model.util.Elements;
 public class KeyTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
+  private Key.Factory keyFactory;
+
+  @Before public void setUp() {
+    this.keyFactory = new Key.Factory(compilationRule.getTypes(), compilationRule.getElements());
+  }
+
   @Test public void forInjectConstructor() {
     TypeElement typeElement =
         compilationRule.getElements().getTypeElement(InjectedClass.class.getCanonicalName());
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
-    ASSERT.that(Key.forInjectConstructor(constructor)).isEqualTo(Key.create(typeElement.asType()));
+    ASSERT.that(keyFactory.forInjectConstructor(constructor))
+        .isEqualTo(Key.create(typeElement.asType()));
   }
 
   static final class InjectedClass {
@@ -63,7 +77,7 @@ public class KeyTest {
         elements.getTypeElement(ProvidesMethodModule.class.getCanonicalName());
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
-    ASSERT.that(Key.forProvidesMethod(providesMethod)).isEqualTo(Key.create(stringType));
+    ASSERT.that(keyFactory.forProvidesMethod(providesMethod)).isEqualTo(Key.create(stringType));
   }
 
   @Module(library = true)
@@ -82,7 +96,7 @@ public class KeyTest {
         elements.getTypeElement(QualifiedProvidesMethodModule.class.getCanonicalName());
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
-    Key key = Key.forProvidesMethod(providesMethod);
+    Key key = keyFactory.forProvidesMethod(providesMethod);
     ASSERT.that(Mirrors.equivalence().wrap(key.qualifier().get().getAnnotationType()))
         .isEqualTo(Mirrors.equivalence().wrap(qualifierElement.asType()));
     ASSERT.that(key.wrappedType()).isEqualTo(Mirrors.equivalence().wrap(stringType));
@@ -97,4 +111,30 @@ public class KeyTest {
 
   @Qualifier
   @interface TestQualifier {}
+
+  @Test public void forProvidesMethod_sets() {
+    Elements elements = compilationRule.getElements();
+    Types types = compilationRule.getTypes();
+    TypeElement setElement = elements.getTypeElement(Set.class.getCanonicalName());
+    TypeMirror stringType = elements.getTypeElement(String.class.getCanonicalName()).asType();
+    DeclaredType setOfStringsType = types.getDeclaredType(setElement, stringType);
+    TypeElement moduleElement =
+        elements.getTypeElement(SetProvidesMethodsModule.class.getCanonicalName());
+    for (ExecutableElement providesMethod
+        : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
+      ASSERT.that(keyFactory.forProvidesMethod(providesMethod))
+          .isEqualTo(Key.create(setOfStringsType));
+    }
+  }
+
+  @Module(library = true)
+  static final class SetProvidesMethodsModule {
+    @Provides(type = SET) String provideString() {
+      return null;
+    }
+
+    @Provides(type = SET_VALUES) Set<String> provideStrings() {
+      return null;
+    }
+  }
 }

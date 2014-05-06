@@ -16,14 +16,13 @@
 package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.annotation.Annotation;
-import java.util.Iterator;
 import java.util.List;
 
 import javax.inject.Qualifier;
@@ -40,33 +39,50 @@ import javax.lang.model.element.Element;
 final class InjectionAnnotations {
   static Optional<AnnotationMirror> getScopeAnnotation(Element e) {
     checkNotNull(e);
-    return getAnnotatedAnnotation(e, Scope.class);
+    ImmutableSet<? extends AnnotationMirror> scopeAnnotations = getScopes(e);
+    switch (scopeAnnotations.size()) {
+      case 0:
+        return Optional.absent();
+      case 1:
+        return Optional.<AnnotationMirror>of(scopeAnnotations.iterator().next());
+      default:
+        throw new IllegalArgumentException(
+            e + " was annotated with more than one @Scope annotation");
+    }
   }
 
   static Optional<AnnotationMirror> getQualifier(Element e) {
     checkNotNull(e);
-    return getAnnotatedAnnotation(e, Qualifier.class);
+    ImmutableSet<? extends AnnotationMirror> qualifierAnnotations = getQualifiers(e);
+    switch (qualifierAnnotations.size()) {
+      case 0:
+        return Optional.absent();
+      case 1:
+        return Optional.<AnnotationMirror>of(qualifierAnnotations.iterator().next());
+      default:
+        throw new IllegalArgumentException(
+            e + " was annotated with more than one @Scope annotation");
+    }
   }
 
-  private static Optional<AnnotationMirror> getAnnotatedAnnotation(Element e,
+  static ImmutableSet<? extends AnnotationMirror> getQualifiers(Element element) {
+    return getAnnotatedAnnotations(element, Qualifier.class);
+  }
+
+  static ImmutableSet<? extends AnnotationMirror> getScopes(Element element) {
+    return getAnnotatedAnnotations(element, Scope.class);
+  }
+
+  private static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,
       final Class<? extends Annotation> annotationType) {
-    List<? extends AnnotationMirror> annotations = e.getAnnotationMirrors();
-    Iterator<? extends AnnotationMirror> qualifiers = FluentIterable.from(annotations)
+    List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
+    return FluentIterable.from(annotations)
         .filter(new Predicate<AnnotationMirror>() {
-          @Override
-          public boolean apply(AnnotationMirror input) {
+          @Override public boolean apply(AnnotationMirror input) {
             return input.getAnnotationType().asElement().getAnnotation(annotationType) != null;
           }
         })
-        .iterator();
-    if (qualifiers.hasNext()) {
-      AnnotationMirror qualifier = qualifiers.next();
-      checkState(!qualifiers.hasNext(),
-          "More than one " + annotationType.getName() + " was present.");
-      return Optional.of(qualifier);
-    } else {
-      return Optional.absent();
-    }
+        .toSet();
   }
 
   private InjectionAnnotations() {}

@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.Provides.Type.UNIQUE;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
@@ -54,10 +55,18 @@ abstract class ProvisionBinding extends Binding {
   /** Returns {@code true} if this provision binding requires members to be injected implicitly. */
   abstract boolean requiresMemberInjection();
 
+  /**
+   * Returns {@code true} if this binding contributes to a single logical binding. I.e. multiple
+   * bindings are allowed for the same {@link Key}.
+   */
+  abstract boolean contributingBinding();
+
   static final class Factory {
+    private final Key.Factory keyFactory;
     private final DependencyRequest.Factory keyRequestFactory;
 
-    Factory(DependencyRequest.Factory keyRequestFactory) {
+    Factory(Key.Factory keyFactory, DependencyRequest.Factory keyRequestFactory) {
+      this.keyFactory = keyFactory;
       this.keyRequestFactory = keyRequestFactory;
     }
 
@@ -65,14 +74,15 @@ abstract class ProvisionBinding extends Binding {
       checkNotNull(constructorElement);
       checkArgument(constructorElement.getKind().equals(CONSTRUCTOR));
       checkArgument(constructorElement.getAnnotation(Inject.class) != null);
-      Key key = Key.forInjectConstructor(constructorElement);
+      Key key = keyFactory.forInjectConstructor(constructorElement);
       checkArgument(!key.qualifier().isPresent());
       return new AutoValue_ProvisionBinding(constructorElement,
           keyRequestFactory.forVariables(constructorElement.getParameters()),
           key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
           requiresMemeberInjection(
-              ElementUtil.asTypeElement(constructorElement.getEnclosingElement())));
+              ElementUtil.asTypeElement(constructorElement.getEnclosingElement())),
+          false);
     }
 
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
@@ -90,13 +100,15 @@ abstract class ProvisionBinding extends Binding {
 
     ProvisionBinding forProvidesMethod(ExecutableElement providesMethod) {
       checkNotNull(providesMethod);
-      checkArgument(providesMethod.getKind().equals(CONSTRUCTOR));
-      checkArgument(providesMethod.getAnnotation(Provides.class) != null);
+      checkArgument(providesMethod.getKind().equals(METHOD));
+      Provides providesAnnotation = providesMethod.getAnnotation(Provides.class);
+      checkArgument(providesAnnotation != null);
       return new AutoValue_ProvisionBinding(providesMethod,
           keyRequestFactory.forVariables(providesMethod.getParameters()),
-          Key.forProvidesMethod(providesMethod),
+          keyFactory.forProvidesMethod(providesMethod),
           getScopeAnnotation(providesMethod),
-          false);
+          false,
+          !providesAnnotation.type().equals(UNIQUE));
     }
   }
 }
