@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import static javax.lang.model.element.ElementKind.METHOD;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
@@ -94,7 +95,7 @@ public final class ModuleProcessor extends AbstractProcessor {
     // process each module
     for (Element moduleElement : roundEnv.getElementsAnnotatedWith(Module.class)) {
       ValidationReport<TypeElement> report =
-          moduleValidator.validate(ElementUtil.asTypeElement(moduleElement));
+          moduleValidator.validate(MoreElements.asType(moduleElement));
       report.printMessagesTo(messager);
 
       if (report.isClean()) {

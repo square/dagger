@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import static org.junit.Assert.fail;
 import static org.truth0.Truth.ASSERT;
 
+import com.google.auto.common.MoreElements;
 import com.google.testing.compile.CompilationRule;
 
 import javax.lang.model.element.Element;
@@ -37,7 +38,7 @@ public class ElementUtilTest {
   @Test public void asTypeElement() {
     Element typeElement =
         compilation.getElements().getTypeElement(String.class.getCanonicalName());
-    ASSERT.that(ElementUtil.asTypeElement(typeElement)).is(typeElement);
+    ASSERT.that(MoreElements.asType(typeElement)).is(typeElement);
   }
 
   @Test public void asTypeElement_notATypeElement() {
@@ -45,7 +46,7 @@ public class ElementUtilTest {
         compilation.getElements().getTypeElement(String.class.getCanonicalName());
     for (ExecutableElement e : ElementFilter.methodsIn(typeElement.getEnclosedElements())) {
       try {
-        ElementUtil.asTypeElement(e);
+        MoreElements.asType(e);
         fail();
       } catch (IllegalArgumentException expected) {
       }

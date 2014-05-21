@@ -23,6 +23,7 @@ import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
@@ -81,7 +82,7 @@ abstract class ProvisionBinding extends Binding {
           key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
           requiresMemeberInjection(
-              ElementUtil.asTypeElement(constructorElement.getEnclosingElement())),
+              MoreElements.asType(constructorElement.getEnclosingElement())),
           false);
     }
 

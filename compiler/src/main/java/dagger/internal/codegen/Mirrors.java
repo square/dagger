@@ -22,6 +22,7 @@ import static javax.lang.model.type.TypeKind.EXECUTABLE;
 import static javax.lang.model.type.TypeKind.TYPEVAR;
 import static javax.lang.model.type.TypeKind.WILDCARD;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
@@ -264,7 +265,7 @@ final class Mirrors {
 
       @Override
       public Void visitDeclared(DeclaredType t, Builder<TypeElement> p) {
-        p.add(ElementUtil.asTypeElement(t.asElement()));
+        p.add(MoreElements.asType(t.asElement()));
         for (TypeMirror typeArgument : t.getTypeArguments()) {
           typeArgument.accept(this, p);
         }

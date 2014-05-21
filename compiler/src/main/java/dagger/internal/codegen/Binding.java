@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
@@ -37,7 +38,7 @@ abstract class Binding {
 
   /** The type enclosing the binding {@link #bindingElement()}. */
   TypeElement enclosingType() {
-    return ElementUtil.asTypeElement(bindingElement().getEnclosingElement());
+    return MoreElements.asType(bindingElement().getEnclosingElement());
   }
 
   /**

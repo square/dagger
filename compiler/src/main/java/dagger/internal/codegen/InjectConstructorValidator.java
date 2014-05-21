@@ -29,6 +29,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +69,7 @@ final class InjectConstructorValidator implements Validator<ExecutableElement> {
     }
 
     TypeElement enclosingElement =
-        ElementUtil.asTypeElement(constructorElement.getEnclosingElement());
+        MoreElements.asType(constructorElement.getEnclosingElement());
     Set<Modifier> typeModifiers = enclosingElement.getModifiers();
 
     if (typeModifiers.contains(PRIVATE)) {
