@@ -17,7 +17,9 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.squareup.javawriter.JavaWriter.stringLiteral;
-import static dagger.internal.codegen.ProvisionBinding.Type.PROVIDES;
+import static dagger.Provides.Type.SET;
+import static dagger.Provides.Type.SET_VALUES;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
@@ -36,22 +38,26 @@ import com.google.common.base.Optional;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.squareup.javawriter.JavaWriter;
 
 import dagger.Component;
+import dagger.internal.SetFactory;
 
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
@@ -98,13 +104,13 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     writer.emitPackage(componentName.packageName());
 
     writeImports(writer, componentName, input.provisionRequests(),
-        input.resolvedBindings().keySet());
+        input.resolvedBindings().values());
 
     writer.emitAnnotation(Generated.class, stringLiteral(ComponentProcessor.class.getName()));
     writer.beginType(componentName.simpleName(), "class", EnumSet.of(PUBLIC, FINAL), null,
         input.componentDefinitionType().getQualifiedName().toString());
 
-    ImmutableMap<Key, ProvisionBinding> resolvedBindings = input.resolvedBindings();
+    ImmutableSetMultimap<Key, ProvisionBinding> resolvedBindings = input.resolvedBindings();
 
     ImmutableBiMap<Key, String> providerNames = generateProviderNamesForBindings(resolvedBindings);
 
@@ -112,8 +118,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         ImmutableBiMap.copyOf(Maps.asMap(input.moduleDependencies(), Functions.compose(
             CaseFormat.UPPER_CAMEL.converterTo(LOWER_CAMEL),
             new Function<TypeElement, String>() {
-              @Override
-              public String apply(TypeElement input) {
+              @Override public String apply(TypeElement input) {
                 return input.getSimpleName().toString();
               }
             })));
@@ -130,14 +135,17 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
   private void writeImports(JavaWriter writer, ClassName factoryClassName,
       ImmutableSet<DependencyRequest> provisionRequests,
-      ImmutableSet<Key> requiredKeys) throws IOException {
+      ImmutableCollection<ProvisionBinding> bindings) throws IOException {
     ImmutableSortedSet.Builder<ClassName> importsBuilder =
         ImmutableSortedSet.<ClassName>naturalOrder()
             .addAll(collectImportsFromDependencies(factoryClassName, provisionRequests))
             .add(ClassName.fromClass(Generated.class))
             .add(ClassName.fromClass(Provider.class));
-    for (Key requiredKey : requiredKeys) {
-      for (TypeElement referencedType : MoreTypes.referencedTypes(requiredKey.type())) {
+    for (ProvisionBinding binding : bindings) {
+      if (binding.provisionType().equals(SET) || binding.provisionType().equals(SET_VALUES)) {
+        importsBuilder.add(ClassName.fromClass(SetFactory.class));
+      }
+      for (TypeElement referencedType : MoreTypes.referencedTypes(binding.providedKey().type())) {
         ClassName className = ClassName.fromTypeElement(referencedType);
         if (!className.packageName().equals("java.lang")
             && !className.packageName().equals(factoryClassName.packageName()))
@@ -170,7 +178,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   private void writeConstructor(final JavaWriter writer,
-      Map<Key, ProvisionBinding> resolvedBindings,
+      ImmutableSetMultimap<Key, ProvisionBinding> resolvedBindings,
       ImmutableBiMap<Key, String> providerNames,
       ImmutableBiMap<TypeElement, String> moduleNames)
           throws IOException {
@@ -193,24 +201,40 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
     for (Entry<String, Key> providerFieldEntry
         : Lists.reverse(providerNames.inverse().entrySet().asList())) {
-      ProvisionBinding binding = resolvedBindings.get(providerFieldEntry.getValue());
-      List<String> parameters =
-          Lists.newArrayListWithCapacity(binding.dependenciesByKey().size() + 1);
-      if (binding.type().equals(PROVIDES)) {
-        parameters.add(moduleNames.get(binding.bindingElement().getEnclosingElement()));
+      Set<ProvisionBinding> bindings = resolvedBindings.get(providerFieldEntry.getValue());
+      if (ProvisionBinding.isSetBindingCollection(bindings)) {
+        ImmutableList.Builder<String> setFactoryParameters = ImmutableList.builder();
+        for (ProvisionBinding binding : bindings) {
+          setFactoryParameters.add(
+              initializeFactoryForBinding(writer, binding, moduleNames, providerNames));
+        }
+        writer.emitStatement("this.%s = SetFactory.create(%n%s)",
+            providerFieldEntry.getKey(),
+            Joiner.on(",\n").join(setFactoryParameters.build()));
+      } else {
+        ProvisionBinding binding = Iterables.getOnlyElement(bindings);
+        writer.emitStatement("this.%s = %s",
+            providerFieldEntry.getKey(),
+            initializeFactoryForBinding(writer, binding, moduleNames, providerNames));
       }
-      FluentIterable.from(binding.dependenciesByKey().keySet())
-          .transform(Functions.forMap(providerNames))
-          .copyInto(parameters);
-      writer.emitStatement("this.%s = new %s(%s)",
-          providerFieldEntry.getKey(),
-          writer.compressType(
-              factoryNameForProvisionBinding(binding)
-                  .toString()),
-          Joiner.on(", ").join(parameters));
     }
 
     writer.endConstructor().emitEmptyLine();
+  }
+
+  private static String initializeFactoryForBinding(JavaWriter writer, ProvisionBinding binding,
+      ImmutableBiMap<TypeElement, String> moduleNames,
+      ImmutableBiMap<Key, String> providerNames) {
+    List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
+    if (binding.bindingKind().equals(PROVISION)) {
+      parameters.add(moduleNames.get(binding.bindingElement().getEnclosingElement()));
+    }
+    FluentIterable.from(binding.dependenciesByKey().keySet())
+        .transform(Functions.forMap(providerNames))
+        .copyInto(parameters);
+    return String.format("new %s(%s)",
+        writer.compressType(factoryNameForProvisionBinding(binding).toString()),
+        Joiner.on(", ").join(parameters));
   }
 
   private void writeProvisionMethods(JavaWriter writer,

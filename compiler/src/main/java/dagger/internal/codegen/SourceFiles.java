@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
 import com.squareup.javawriter.JavaWriter;
 
 import dagger.Lazy;
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.inject.Provider;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementKindVisitor6;
@@ -187,24 +187,37 @@ class SourceFiles {
 
   // TODO(gak): this needs to suck less
   static ImmutableBiMap<Key, String> generateProviderNamesForBindings(
-      Map<Key, ProvisionBinding> bindings) {
+      SetMultimap<Key, ProvisionBinding> bindings) {
     BiMap<Key, String> providerNames = HashBiMap.create(bindings.size());
-    for (Entry<Key, ProvisionBinding> entry : bindings.entrySet()) {
-      // collect together all of the names that we would want to call the provider
-      String bindingElementName = entry.getValue().bindingElement().accept(
-          new ElementKindVisitor6<String, Void>() {
-            @Override
-            public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
-              return CaseFormat.UPPER_CAMEL
-                  .to(CaseFormat.LOWER_CAMEL, e.getEnclosingElement().getSimpleName().toString());
-            }
+    for (Entry<Key, Collection<ProvisionBinding>> entry : bindings.asMap().entrySet()) {
+      Collection<ProvisionBinding> bindingsForKey = entry.getValue();
+      final String name;
+      if (ProvisionBinding.isSetBindingCollection(bindingsForKey)) {
+        name = new KeyVariableNamer().apply(entry.getKey()) + "Provider";
+      } else {
+        ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
+        switch (binding.bindingKind()) {
+          case INJECTION:
+          case PROVISION:
+            name = binding.bindingElement().accept(
+                new ElementKindVisitor6<String, Void>() {
+                  @Override
+                  public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+                    return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                        e.getEnclosingElement().getSimpleName().toString());
+                  }
 
-            @Override
-            public String visitExecutableAsMethod(ExecutableElement e, Void p) {
-              return e.getSimpleName().toString();
-            }
-          }, null) + "Provider";
-      providerNames.put(entry.getKey(), bindingElementName);
+                  @Override
+                  public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+                    return e.getSimpleName().toString();
+                  }
+                }, null) + "Provider";
+            break;
+          default:
+            throw new AssertionError();
+        }
+      }
+      providerNames.put(entry.getKey(), name);
     }
     // return the map so that it is sorted by name
     return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
@@ -226,25 +239,28 @@ class SourceFiles {
   }
 
   static ClassName factoryNameForProvisionBinding(ProvisionBinding binding) {
-    TypeElement enclosingTypeElement = binding.enclosingType();
+    TypeElement enclosingTypeElement = binding.bindingTypeElement();
     ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
-    String factoryPrefix = binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
-      @Override protected String defaultAction(Element e, Void p) {
-        throw new IllegalStateException();
-      }
+    switch (binding.bindingKind()) {
+      case INJECTION:
+      case PROVISION:
+        return enclosingClassName.peerNamed(
+            enclosingClassName.simpleName() + "$$" + factoryPrefix(binding) + "Factory");
+      default:
+        throw new AssertionError();
+    }
+  }
 
-      @Override
-      public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+  private static String factoryPrefix(ProvisionBinding binding) {
+    switch (binding.bindingKind()) {
+      case INJECTION:
         return "";
-      }
-
-      @Override
-      public String visitExecutableAsMethod(ExecutableElement e, Void p) {
-        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, e.getSimpleName().toString());
-      }
-    }, null);
-    return enclosingClassName.peerNamed(
-        enclosingClassName.simpleName() + "$$" + factoryPrefix + "Factory");
+      case PROVISION:
+        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
+            ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
+      default:
+        throw new IllegalArgumentException();
+    }
   }
 
   private SourceFiles() {}

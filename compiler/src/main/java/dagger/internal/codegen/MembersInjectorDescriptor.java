@@ -50,7 +50,7 @@ abstract class MembersInjectorDescriptor {
     TypeElement injectedTypeElement = Iterables.getOnlyElement(FluentIterable.from(bindings)
         .transform(new Function<MembersInjectionBinding, TypeElement>() {
           @Override public TypeElement apply(MembersInjectionBinding binding) {
-            return binding.enclosingType();
+            return binding.bindingTypeElement();
           }
         })
         .toSet());

@@ -224,4 +224,83 @@ public class ComponentProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
+
+  @Test public void setBindings() {
+    JavaFileObject emptySetModuleFile = JavaFileObjects.forSourceLines("test.EmptySetModule",
+        "package test;",
+        "",
+        "import static dagger.Provides.Type.SET_VALUES;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.util.Collections;",
+        "import java.util.Set;",
+        "",
+        "@Module",
+        "final class EmptySetModule {",
+        "  @Provides(type = SET_VALUES) Set<String> emptySet() { return Collections.emptySet(); }",
+        "}");
+    JavaFileObject setModuleFile = JavaFileObjects.forSourceLines("test.SetModule",
+        "package test;",
+        "",
+        "import static dagger.Provides.Type.SET;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class SetModule {",
+        "  @Provides(type = SET) String string() { return \"\"; }",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import java.util.Set;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component(modules = {EmptySetModule.class, SetModule.class})",
+        "interface TestComponent {",
+        "  Set<String> strings();",
+        "}");
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_TestComponent",
+        "package test;",
+        "",
+        "import dagger.internal.SetFactory;",
+        "import java.util.Set;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_TestComponent implements TestComponent {",
+        "  private final EmptySetModule emptySetModule;",
+        "  private final SetModule setModule;",
+        "  private final Provider<Set<String>> setOfStringProvider;",
+        "",
+        "  public Dagger_TestComponent(EmptySetModule emptySetModule, SetModule setModule) {",
+        "    if (emptySetModule == null) {",
+        "      throw new NullPointerException(\"emptySetModule\");",
+        "    }",
+        "    this.emptySetModule = emptySetModule;",
+        "    if (setModule == null) {",
+        "      throw new NullPointerException(\"setModule\");",
+        "    }",
+        "    this.setModule = setModule;",
+        "    this.setOfStringProvider = SetFactory.create(",
+        "        new EmptySetModule$$EmptySetFactory(emptySetModule),",
+        "        new SetModule$$StringFactory(setModule));",
+        "  }",
+        "",
+        "  @Override public Set<String> strings() {",
+        "    return setOfStringProvider.get();",
+        "  }",
+        "}");
+    ASSERT.about(javaSources())
+        .that(ImmutableList.of(emptySetModuleFile, setModuleFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(generatedComponent);
+  }
 }

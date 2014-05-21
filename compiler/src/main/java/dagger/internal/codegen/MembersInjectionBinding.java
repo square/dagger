@@ -41,7 +41,7 @@ abstract class MembersInjectionBinding extends Binding {
   /**
    * Returns an {@link Ordering} suitable for sorting bindings into an ordering that abides by the
    * injection ordering specified in {@link Inject}. This ordering should not be used with bindings
-   * from different {@link #enclosingType() types}.
+   * from different {@link #bindingTypeElement() types}.
    */
   static Ordering<MembersInjectionBinding> injectionOrdering() {
     return INJECTION_ORDERING;
@@ -62,7 +62,7 @@ abstract class MembersInjectionBinding extends Binding {
       };
 
   private static int targetIndexInEnclosing(MembersInjectionBinding binding)  {
-    return binding.enclosingType().getEnclosedElements().indexOf(binding.bindingElement());
+    return binding.bindingTypeElement().getEnclosedElements().indexOf(binding.bindingElement());
   }
 
   /**

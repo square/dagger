@@ -132,7 +132,7 @@ public final class InjectProcessingStep implements ProcessingStep {
         Multimaps.index(membersInjections.build(),
             new Function<MembersInjectionBinding, TypeElement>() {
               @Override public TypeElement apply(MembersInjectionBinding binding) {
-                return binding.enclosingType();
+                return binding.bindingTypeElement();
               }
             });
 

@@ -17,7 +17,7 @@ package dagger.internal.codegen;
 
 import static com.squareup.javawriter.JavaWriter.stringLiteral;
 import static com.squareup.javawriter.JavaWriter.type;
-import static dagger.internal.codegen.ProvisionBinding.Type.PROVIDES;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
@@ -42,8 +42,10 @@ import com.google.common.collect.Maps;
 import com.squareup.javawriter.JavaWriter;
 import dagger.Factory;
 import dagger.MembersInjector;
+import dagger.Provides;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -104,8 +106,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
     ImmutableMap.Builder<String, String> variableMapBuilder =
         new ImmutableMap.Builder<String, String>();
-    if (binding.type().equals(PROVIDES)) {
-      variableMapBuilder.put("module", binding.enclosingType().getQualifiedName().toString());
+    if (binding.bindingKind().equals(PROVISION)) {
+      variableMapBuilder.put("module", binding.bindingTypeElement().getQualifiedName().toString());
     }
     if (binding.requiresMemberInjection()) {
       variableMapBuilder.put("membersInjector", type(MembersInjector.class, providedTypeString));
@@ -117,8 +119,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     if (binding.requiresMemberInjection()) {
       writeMembersInjectorField(writer, providedTypeString);
     }
-    if (binding.type().equals(PROVIDES)) {
-      writeModuleField(writer, binding.enclosingType());
+    if (binding.bindingKind().equals(PROVISION)) {
+      writeModuleField(writer, binding.bindingTypeElement());
     }
     writeProviderFields(writer, providerNames);
 
@@ -138,6 +140,9 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
             .addAll(collectImportsFromDependencies(factoryClassName, binding.dependencies()))
             .add(ClassName.fromClass(Factory.class))
             .add(ClassName.fromClass(Generated.class));
+    if (binding.provisionType().equals(Provides.Type.SET)) {
+      importsBuilder.add(ClassName.fromClass(Collections.class));
+    }
     if (binding.requiresMemberInjection()) {
       importsBuilder.add(ClassName.fromClass(MembersInjector.class));
     }
@@ -201,9 +206,20 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
                 return providerUsageStatement(providerNames.get(input.key()), input.kind());
               }
             }));
-    if (binding.type().equals(PROVIDES)) {
-      writer.emitStatement("return module.%s(%s)",
-          binding.bindingElement().getSimpleName(), parameterString);
+    if (binding.bindingKind().equals(PROVISION)) {
+      switch (binding.provisionType()) {
+        case UNIQUE:
+        case SET_VALUES:
+          writer.emitStatement("return module.%s(%s)",
+              binding.bindingElement().getSimpleName(), parameterString);
+          break;
+        case SET:
+          writer.emitStatement("return Collections.singleton(module.%s(%s))",
+              binding.bindingElement().getSimpleName(), parameterString);
+          break;
+        default:
+          throw new AssertionError();
+      }
     } else if (binding.requiresMemberInjection()) {
       writer.emitStatement("%1$s instance = new %1$s(%2$s)",
           writer.compressType(providedTypeString), parameterString);

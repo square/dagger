@@ -17,7 +17,9 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.Provides.Type.UNIQUE;
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.Provides.Type.SET;
+import static dagger.Provides.Type.SET_VALUES;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
@@ -30,6 +32,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import dagger.Provides;
+
+import java.util.Iterator;
 
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -47,13 +51,21 @@ import javax.lang.model.element.TypeElement;
  */
 @AutoValue
 abstract class ProvisionBinding extends Binding {
-  enum Type {
-    INJECT,
-    PROVIDES
+  enum Kind {
+    /** Represents an {@link Inject} binding. */
+    INJECTION,
+    /** Represents a binding configured by {@link Provides}. */
+    PROVISION,
   }
 
-  /** The type of binding ({@link Inject} or {@link Provides}). */
-  abstract Type type();
+  /**
+   * The type of binding ({@link Inject} or {@link Provides}). For the particular type of provision,
+   * use {@link #provisionType}.
+   */
+  abstract Kind bindingKind();
+
+  /** Returns provision type that was used to bind the key. */
+  abstract Provides.Type provisionType();
 
   /** The {@link Key} that is provided by this binding. */
   abstract Key providedKey();
@@ -64,19 +76,34 @@ abstract class ProvisionBinding extends Binding {
   /** Returns {@code true} if this provision binding requires members to be injected implicitly. */
   abstract boolean requiresMemberInjection();
 
+  private static ImmutableSet<Provides.Type> SET_BINDING_TYPES = immutableEnumSet(SET, SET_VALUES);
+
   /**
-   * Returns {@code true} if this binding contributes to a single logical binding. I.e. multiple
-   * bindings are allowed for the same {@link Key}.
+   * Returns {@code true} if the given bindings are all contributors to a set binding.
+   *
+   * @throws IllegalArgumentException if some of the bindings are set bindings and some are not.
    */
-  abstract boolean contributingBinding();
+  static boolean isSetBindingCollection(Iterable<ProvisionBinding> bindings) {
+    checkNotNull(bindings);
+    Iterator<ProvisionBinding> iterator = bindings.iterator();
+    checkArgument(iterator.hasNext(), "no bindings");
+    boolean setBinding = SET_BINDING_TYPES.contains(iterator.next().provisionType());
+    while (iterator.hasNext()) {
+      checkArgument(setBinding,
+          "more than one binding present, but found a non-set binding");
+      checkArgument(SET_BINDING_TYPES.contains(iterator.next().provisionType()),
+          "more than one binding present, but found a non-set binding");
+    }
+    return setBinding;
+  }
 
   static final class Factory {
     private final Key.Factory keyFactory;
-    private final DependencyRequest.Factory keyRequestFactory;
+    private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Key.Factory keyFactory, DependencyRequest.Factory keyRequestFactory) {
+    Factory(Key.Factory keyFactory, DependencyRequest.Factory dependencyRequestFactory) {
       this.keyFactory = keyFactory;
-      this.keyRequestFactory = keyRequestFactory;
+      this.dependencyRequestFactory = dependencyRequestFactory;
     }
 
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement) {
@@ -87,13 +114,13 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(!key.qualifier().isPresent());
       return new AutoValue_ProvisionBinding(
           constructorElement,
-          keyRequestFactory.forRequiredVariables(constructorElement.getParameters()),
-          Type.INJECT,
+          dependencyRequestFactory.forRequiredVariables(constructorElement.getParameters()),
+          Kind.INJECTION,
+          Provides.Type.UNIQUE,
           key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
           requiresMemeberInjection(
-              MoreElements.asType(constructorElement.getEnclosingElement())),
-          false);
+              MoreElements.asType(constructorElement.getEnclosingElement())));
     }
 
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
@@ -116,12 +143,12 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(providesAnnotation != null);
       return new AutoValue_ProvisionBinding(
           providesMethod,
-          keyRequestFactory.forRequiredVariables(providesMethod.getParameters()),
-          Type.PROVIDES,
+          dependencyRequestFactory.forRequiredVariables(providesMethod.getParameters()),
+          Kind.PROVISION,
+          providesAnnotation.type(),
           keyFactory.forProvidesMethod(providesMethod),
           getScopeAnnotation(providesMethod),
-          false,
-          !providesAnnotation.type().equals(UNIQUE));
+          false);
     }
   }
 }

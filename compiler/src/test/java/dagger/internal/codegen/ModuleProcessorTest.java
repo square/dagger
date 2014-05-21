@@ -330,4 +330,88 @@ public class ModuleProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(listFactoryFile);
   }
+
+  @Test public void proviesSetElement() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.Provides.Type.SET;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides(type = SET) String provideString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import java.util.Collections;",
+        "import java.util.Set;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProvideStringFactory implements Factory<Set<String>> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override public Set<String> get() {",
+        "    return Collections.singleton(module.provideString());",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void proviesSetValues() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.Provides.Type.SET_VALUES;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.util.Set;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides(type = SET_VALUES) Set<String> provideStrings() {",
+        "    return null;",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringsFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import java.util.Set;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProvideStringsFactory implements Factory<Set<String>> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringsFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override public Set<String> get() {",
+        "    return module.provideStrings();",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
 }

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.SimpleElementVisitor6;
 
 /**
  * An abstract type for classes representing a Dagger binding.  Particularly, contains the
@@ -36,8 +37,18 @@ abstract class Binding {
   abstract Element bindingElement();
 
   /** The type enclosing the binding {@link #bindingElement()}. */
-  TypeElement enclosingType() {
-    return MoreElements.asType(bindingElement().getEnclosingElement());
+  TypeElement bindingTypeElement() {
+    return bindingElement().accept(new SimpleElementVisitor6<TypeElement, Void>() {
+      @Override
+      protected TypeElement defaultAction(Element e, Void p) {
+        return MoreElements.asType(bindingElement().getEnclosingElement());
+      }
+
+      @Override
+      public TypeElement visitType(TypeElement e, Void p) {
+        return e;
+      }
+    }, null);
   }
 
   /**

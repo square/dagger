@@ -20,11 +20,11 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Queues;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import dagger.Component;
@@ -32,7 +32,6 @@ import dagger.Module;
 import dagger.Provides;
 
 import java.util.Deque;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Queue;
@@ -85,7 +84,7 @@ abstract class ComponentDescriptor {
    * Returns the mapping from {@link Key} to {@link ProvisionBinding} that represents the full
    * adjacency matrix for the object graph.
    */
-  abstract ImmutableMap<Key, ProvisionBinding> resolvedBindings();
+  abstract ImmutableSetMultimap<Key, ProvisionBinding> resolvedBindings();
 
   static final class Factory {
     private final Elements elements;
@@ -149,8 +148,6 @@ abstract class ComponentDescriptor {
 
       ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings = bindingIndexBuilder.build();
 
-      // TODO(gak): coalesce contributing bindings
-
       ImmutableSet.Builder<DependencyRequest> provisionRequestsBuilder = ImmutableSet.builder();
       ImmutableSet.Builder<DependencyRequest> membersInjectionRequestsBuilder =
           ImmutableSet.builder();
@@ -180,8 +177,7 @@ abstract class ComponentDescriptor {
         }
       }
 
-      LinkedHashMap<Key, ProvisionBinding> resolvedBindings =
-          new LinkedHashMap<Key, ProvisionBinding>();
+      SetMultimap<Key, ProvisionBinding> resolvedBindings = LinkedHashMultimap.create();
 
       for (DependencyRequest requestToResolve = requestsToResolve.pollLast();
           requestToResolve != null;
@@ -196,13 +192,16 @@ abstract class ComponentDescriptor {
               requestsToResolve.addAll(injectBinding.get().dependencies());
               resolvedBindings.put(key, injectBinding.get());
             } else {
-              // uh oh
+              // TODO(gak): generate a factory for an @Inject dependency that wasn't run with the
+              // processor
+              throw new UnsupportedOperationException("@Injected classes that weren't run with the "
+                  + "compoenent processor are (briefly) unsupported.");
             }
           } else {
-            for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
-              requestsToResolve.addAll(explicitBinding.dependencies());
-            }
-            resolvedBindings.put(key, Iterables.getOnlyElement(explicitBindingsForKey));
+            resolvedBindings.putAll(key, explicitBindingsForKey);
+          }
+          for (ProvisionBinding binding : explicitBindingsForKey) {
+            requestsToResolve.addAll(binding.dependencies());
           }
         }
       }
@@ -212,7 +211,7 @@ abstract class ComponentDescriptor {
           provisionRequestsBuilder.build(),
           membersInjectionRequestsBuilder.build(),
           moduleTypes,
-          ImmutableMap.copyOf(resolvedBindings));
+          ImmutableSetMultimap.copyOf(resolvedBindings));
     }
   }
 }
