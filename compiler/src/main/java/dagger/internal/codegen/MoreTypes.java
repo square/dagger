@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.lang.model.type.TypeKind.ARRAY;
 import static javax.lang.model.type.TypeKind.DECLARED;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -39,7 +41,9 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.TypeVisitor;
 import javax.lang.model.type.WildcardType;
+import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
+import javax.lang.model.util.Types;
 
 /**
  * Utilities related to {@link TypeMirror} instances.
@@ -47,16 +51,16 @@ import javax.lang.model.util.SimpleTypeVisitor6;
  * @author Gregory Kick
  * @since 2.0
  */
-final class Mirrors {
+final class MoreTypes {
   private static final Equivalence<TypeMirror> TYPE_EQUIVALENCE = new Equivalence<TypeMirror>() {
     @Override
     protected boolean doEquivalent(TypeMirror a, TypeMirror b) {
-      return Mirrors.equal(a, b);
+      return MoreTypes.equal(a, b);
     }
 
     @Override
     protected int doHash(TypeMirror t) {
-      return Mirrors.hash(t);
+      return MoreTypes.hash(t);
     }
   };
 
@@ -295,5 +299,33 @@ final class Mirrors {
     return elements.build();
   }
 
-  private Mirrors() {}
+  static TypeElement asTypeElement(Types types, TypeMirror mirror) {
+    checkNotNull(types);
+    checkNotNull(mirror);
+    Element element = types.asElement(mirror);
+    checkArgument(element != null);
+    return element.accept(new SimpleElementVisitor6<TypeElement, Void>() {
+      @Override
+      protected TypeElement defaultAction(Element e, Void p) {
+        throw new IllegalArgumentException();
+      }
+
+      @Override public TypeElement visitType(TypeElement e, Void p) {
+        return e;
+      }
+    }, null);
+  }
+
+  static ImmutableSet<TypeElement> asTypeElements(Types types,
+      Iterable<? extends TypeMirror> mirrors) {
+    checkNotNull(types);
+    checkNotNull(mirrors);
+    ImmutableSet.Builder<TypeElement> builder = ImmutableSet.builder();
+    for (TypeMirror mirror : mirrors) {
+      builder.add(asTypeElement(types, mirror));
+    }
+    return builder.build();
+  }
+
+  private MoreTypes() {}
 }

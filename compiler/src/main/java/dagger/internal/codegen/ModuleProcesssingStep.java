@@ -29,16 +29,12 @@ import dagger.Provides;
 import java.util.List;
 import java.util.Set;
 
-import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the {@link Module}
@@ -47,32 +43,24 @@ import javax.lang.model.util.Types;
  * @author Gregory Kick
  * @since 2.0
  */
-// TODO(gak): fold this into the inject processor when we start writing components
-public final class ModuleProcessor extends AbstractProcessor {
-  private Messager messager;
-  private ModuleValidator moduleValidator;
-  private ProvidesMethodValidator providesMethodValidator;
-  private ProvisionBinding.Factory provisionBindingFactory;
-  private FactoryGenerator moduleFactoriesGenerator;
+public final class ModuleProcesssingStep implements ProcessingStep {
+  private final Messager messager;
+  private final ModuleValidator moduleValidator;
+  private final ProvidesMethodValidator providesMethodValidator;
+  private final ProvisionBinding.Factory provisionBindingFactory;
+  private final FactoryGenerator factoryGenerator;
 
-  @Override
-  public synchronized void init(ProcessingEnvironment processingEnv) {
-    super.init(processingEnv);
-    this.messager = processingEnv.getMessager();
-    this.moduleValidator = new ModuleValidator();
-    Elements elements = processingEnv.getElementUtils();
-    this.providesMethodValidator = new ProvidesMethodValidator(elements);
-    Types types = processingEnv.getTypeUtils();
-    this.provisionBindingFactory = new ProvisionBinding.Factory(
-        new Key.Factory(types, elements),
-        new DependencyRequest.Factory(elements, types));
-    this.moduleFactoriesGenerator = new FactoryGenerator(processingEnv.getFiler(),
-        new ProviderTypeRepository(elements, types));
-  }
-
-  @Override
-  public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(Module.class.getName(), Provides.class.getName());
+  ModuleProcesssingStep(
+      Messager messager,
+      ModuleValidator moduleValidator,
+      ProvidesMethodValidator providesMethodValidator,
+      ProvisionBinding.Factory provisionBindingFactory,
+      FactoryGenerator factoryGenerator) {
+    this.messager = messager;
+    this.moduleValidator = moduleValidator;
+    this.providesMethodValidator = providesMethodValidator;
+    this.provisionBindingFactory = provisionBindingFactory;
+    this.factoryGenerator = factoryGenerator;
   }
 
   @Override
@@ -125,7 +113,7 @@ public final class ModuleProcessor extends AbstractProcessor {
 
           try {
             for (ProvisionBinding binding : bindings) {
-              moduleFactoriesGenerator.generate(binding);
+              factoryGenerator.generate(binding);
             }
           } catch (SourceFileGenerationException e) {
             e.printMessageTo(messager);

@@ -47,6 +47,14 @@ import javax.lang.model.element.TypeElement;
  */
 @AutoValue
 abstract class ProvisionBinding extends Binding {
+  enum Type {
+    INJECT,
+    PROVIDES
+  }
+
+  /** The type of binding ({@link Inject} or {@link Provides}). */
+  abstract Type type();
+
   /** The {@link Key} that is provided by this binding. */
   abstract Key providedKey();
 
@@ -77,8 +85,10 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(constructorElement.getAnnotation(Inject.class) != null);
       Key key = keyFactory.forInjectConstructor(constructorElement);
       checkArgument(!key.qualifier().isPresent());
-      return new AutoValue_ProvisionBinding(constructorElement,
-          keyRequestFactory.forVariables(constructorElement.getParameters()),
+      return new AutoValue_ProvisionBinding(
+          constructorElement,
+          keyRequestFactory.forRequiredVariables(constructorElement.getParameters()),
+          Type.INJECT,
           key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
           requiresMemeberInjection(
@@ -104,8 +114,10 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(providesMethod.getKind().equals(METHOD));
       Provides providesAnnotation = providesMethod.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
-      return new AutoValue_ProvisionBinding(providesMethod,
-          keyRequestFactory.forVariables(providesMethod.getParameters()),
+      return new AutoValue_ProvisionBinding(
+          providesMethod,
+          keyRequestFactory.forRequiredVariables(providesMethod.getParameters()),
+          Type.PROVIDES,
           keyFactory.forProvidesMethod(providesMethod),
           getScopeAnnotation(providesMethod),
           false,

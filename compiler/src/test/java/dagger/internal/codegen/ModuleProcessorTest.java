@@ -54,7 +54,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_NOT_IN_MODULE);
   }
@@ -71,7 +71,7 @@ public class ModuleProcessorTest {
         "  @Provides abstract String provideString();",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_ABSTRACT);
   }
@@ -90,7 +90,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_PRIVATE);
   }
@@ -109,7 +109,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_STATIC);
   }
@@ -126,7 +126,7 @@ public class ModuleProcessorTest {
         "  @Provides void provideNothing() {}",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_MUST_RETURN_A_VALUE);
   }
@@ -145,7 +145,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_TYPE_PARAMETER);
   }
@@ -168,7 +168,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_RETURN_TYPE);
   }
@@ -191,7 +191,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RAW_SET);
   }
@@ -214,7 +214,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RETURN_SET);
   }
@@ -238,7 +238,7 @@ public class ModuleProcessorTest {
         "import dagger.Factory;",
         "import javax.annotation.Generated;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -252,7 +252,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
   }
@@ -305,7 +305,7 @@ public class ModuleProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule$$ProvideObjectsFactory implements Factory<List<Object>> {",
         "  private final TestModule module;",
         "  private final Provider<Object> aProvider;",
@@ -326,7 +326,7 @@ public class ModuleProcessorTest {
         "  }",
         "}");
     ASSERT.about(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
-        .processedWith(new ModuleProcessor())
+        .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listFactoryFile);
   }

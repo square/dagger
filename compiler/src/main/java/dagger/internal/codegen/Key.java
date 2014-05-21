@@ -53,7 +53,7 @@ abstract class Key {
 
   /**
    * As documented in {@link TypeMirror}, equals and hashCode aren't implemented to represent
-   * logical equality, so we use {@link Mirrors#equivalence()} for this object.
+   * logical equality, so we use {@link MoreTypes#equivalence()} for this object.
    */
   abstract Equivalence.Wrapper<TypeMirror> wrappedType();
 
@@ -71,11 +71,12 @@ abstract class Key {
   }
 
   static Key create(TypeMirror type) {
-    return new AutoValue_Key(Optional.<AnnotationMirror>absent(), Mirrors.equivalence().wrap(type));
+    return new AutoValue_Key(Optional.<AnnotationMirror>absent(),
+        MoreTypes.equivalence().wrap(type));
   }
 
   static Key create(Optional<AnnotationMirror> qualifier, TypeMirror type) {
-    return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(type));
+    return new AutoValue_Key(qualifier, MoreTypes.equivalence().wrap(type));
   }
 
   static final class Factory {
@@ -105,26 +106,18 @@ abstract class Key {
       Optional<AnnotationMirror> qualifier = getQualifier(e);
       switch (providesAnnotation.type()) {
         case UNIQUE:
-          return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(returnType));
+          return new AutoValue_Key(qualifier, MoreTypes.equivalence().wrap(returnType));
         case SET:
           TypeMirror setType = types.getDeclaredType(getSetElement(), returnType);
-          return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(setType));
+          return new AutoValue_Key(qualifier, MoreTypes.equivalence().wrap(setType));
         case SET_VALUES:
           // TODO(gak): do we want to allow people to use "covariant return" here?
           checkArgument(returnType.getKind().equals(DECLARED));
           checkArgument(((DeclaredType) returnType).asElement().equals(getSetElement()));
-          return new AutoValue_Key(qualifier, Mirrors.equivalence().wrap(returnType));
+          return new AutoValue_Key(qualifier, MoreTypes.equivalence().wrap(returnType));
         default:
           throw new AssertionError();
       }
-    }
-
-    Key forComponentMethod(ExecutableElement e) {
-      checkNotNull(e);
-      checkArgument(e.getKind().equals(METHOD));
-      checkArgument(e.getParameters().isEmpty());
-      return new AutoValue_Key(getQualifier(e),
-          Mirrors.equivalence().wrap(normalize(e.getReturnType())));
     }
 
     Key forInjectConstructor(ExecutableElement e) {
@@ -134,8 +127,7 @@ abstract class Key {
       // Must use the enclosing element.  The return type is void for constructors(?!)
       TypeMirror type = e.getEnclosingElement().asType();
       return new AutoValue_Key(Optional.<AnnotationMirror>absent(),
-          Mirrors.equivalence().wrap(type));
+          MoreTypes.equivalence().wrap(type));
     }
   }
-
 }

@@ -81,7 +81,7 @@ abstract class MembersInjectionBinding extends Binding {
       checkArgument(methodElement.getKind().equals(METHOD));
       checkArgument(methodElement.getAnnotation(Inject.class) != null);
       return new AutoValue_MembersInjectionBinding(methodElement,
-          dependencyRequestFactory.forVariables(methodElement.getParameters()));
+          dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
     }
 
     /** Returns the field injection binding for a field annotated with {@link Inject}. */
@@ -90,7 +90,7 @@ abstract class MembersInjectionBinding extends Binding {
       checkArgument(fieldElement.getKind().equals(FIELD));
       checkArgument(fieldElement.getAnnotation(Inject.class) != null);
       return new AutoValue_MembersInjectionBinding(fieldElement,
-          ImmutableSet.of(dependencyRequestFactory.forVariable(fieldElement)));
+          ImmutableSet.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
     }
   }
 }

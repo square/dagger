@@ -81,7 +81,7 @@ public final class InjectProcessorTest {
         "class PrivateConstructor {",
         "  @Inject private PrivateConstructor() {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(INJECT_ON_PRIVATE_CONSTRUCTOR)
         .in(file).onLine(6);
   }
@@ -97,7 +97,7 @@ public final class InjectProcessorTest {
         "    @Inject InnerClass() {}",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(INJECT_CONSTRUCTOR_ON_INNER_CLASS).in(file).onLine(7);
   }
 
@@ -110,7 +110,7 @@ public final class InjectProcessorTest {
         "abstract class AbstractClass {",
         "  @Inject AbstractClass() {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS)
         .in(file).onLine(6);
   }
@@ -124,7 +124,7 @@ public final class InjectProcessorTest {
         "class GenericClass<T> {",
         "  @Inject GenericClass() {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(INJECT_CONSTRUCTOR_ON_GENERIC_CLASS)
         .in(file).onLine(6);
   }
@@ -140,7 +140,7 @@ public final class InjectProcessorTest {
         "  TooManyInjectConstructors(int i) {}",
         "  @Inject TooManyInjectConstructors(String s) {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(MULTIPLE_INJECT_CONSTRUCTORS).in(file).onLine(6)
         .and().withErrorContaining(MULTIPLE_INJECT_CONSTRUCTORS).in(file).onLine(8);
   }
@@ -155,7 +155,7 @@ public final class InjectProcessorTest {
         "  @Inject MultipleQualifierConstructorParam(@QualifierA @QualifierB String s) {}",
         "}");
     ASSERT.about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
-        .processedWith(new InjectProcessor()).failsToCompile()
+        .processedWith(new ComponentProcessor()).failsToCompile()
         // for whatever reason, javac only reports the error once on the constructor
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6);
   }
@@ -170,7 +170,7 @@ public final class InjectProcessorTest {
         "  @Inject MultipleScopeClass() {}",
         "}");
     ASSERT.about(javaSources()).that(ImmutableList.of(file, SCOPE_A, SCOPE_B))
-        .processedWith(new InjectProcessor()).failsToCompile()
+        .processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(MULTIPLE_SCOPES).in(file).onLine(5).atColumn(1)
         .and().withErrorContaining(MULTIPLE_SCOPES).in(file).onLine(5).atColumn(9);
   }
@@ -184,7 +184,7 @@ public final class InjectProcessorTest {
         "class FinalInjectField {",
         "  @Inject final String s;",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(FINAL_INJECT_FIELD).in(file).onLine(6);
   }
 
@@ -197,7 +197,7 @@ public final class InjectProcessorTest {
         "class PrivateInjectField {",
         "  @Inject private String s;",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_FIELD).in(file).onLine(6);
   }
 
@@ -211,7 +211,7 @@ public final class InjectProcessorTest {
         "  @Inject @QualifierA @QualifierB String s;",
         "}");
     ASSERT.about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
-        .processedWith(new InjectProcessor()).failsToCompile()
+        .processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6).atColumn(11)
         .and().withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6).atColumn(23);
   }
@@ -225,7 +225,7 @@ public final class InjectProcessorTest {
         "abstract class AbstractInjectMethod {",
         "  @Inject abstract void method();",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(ABSTRACT_INJECT_METHOD).in(file).onLine(6);
   }
 
@@ -238,7 +238,7 @@ public final class InjectProcessorTest {
         "class PrivateInjectMethod {",
         "  @Inject private void method();",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_METHOD).in(file).onLine(6);
   }
 
@@ -251,7 +251,7 @@ public final class InjectProcessorTest {
         "class AbstractInjectMethod {",
         "  @Inject <T> void method();",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor()).failsToCompile()
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(GENERIC_INJECT_METHOD).in(file).onLine(6);
   }
 
@@ -265,7 +265,7 @@ public final class InjectProcessorTest {
         "  @Inject void method(@QualifierA @QualifierB String s) {}",
         "}");
     ASSERT.about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
-        .processedWith(new InjectProcessor()).failsToCompile()
+        .processedWith(new ComponentProcessor()).failsToCompile()
         // for whatever reason, javac only reports the error once on the method
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6);
   }
@@ -292,7 +292,7 @@ public final class InjectProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "final class FieldInjection$$MembersInjector ",
         "    implements MembersInjector<FieldInjection> {",
         "",
@@ -312,7 +312,7 @@ public final class InjectProcessorTest {
         "    instance.stringProvider = stringProvider;",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -341,7 +341,7 @@ public final class InjectProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "final class MethodInjection$$MembersInjector ",
         "    implements MembersInjector<MethodInjection> {",
         "",
@@ -362,7 +362,7 @@ public final class InjectProcessorTest {
         "        stringProvider);",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -389,7 +389,7 @@ public final class InjectProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "final class MixedMemberInjection$$MembersInjector ",
         "    implements MembersInjector<MixedMemberInjection> {",
         "",
@@ -414,7 +414,7 @@ public final class InjectProcessorTest {
         "    instance.setObject(objectAndOProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -436,7 +436,7 @@ public final class InjectProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class InjectConstructor$$Factory ",
         "    implements Factory<InjectConstructor> {",
         "",
@@ -451,7 +451,7 @@ public final class InjectProcessorTest {
         "    return new InjectConstructor(sProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -476,7 +476,7 @@ public final class InjectProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class AllInjections$$Factory ",
         "    implements Factory<AllInjections> {",
         "",
@@ -505,7 +505,7 @@ public final class InjectProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "final class AllInjections$$MembersInjector ",
         "    implements MembersInjector<AllInjections> {",
         "",
@@ -524,7 +524,7 @@ public final class InjectProcessorTest {
         "    instance.s(sProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and()
         .generatesSources(expectedFactory, expectedMembersInjector);

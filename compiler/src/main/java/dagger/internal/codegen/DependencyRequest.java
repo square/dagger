@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoValue;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import dagger.Lazy;
+import dagger.MembersInjector;
 import dagger.Provides;
 
 import java.util.List;
@@ -32,6 +34,8 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -60,7 +64,7 @@ abstract class DependencyRequest {
 
   abstract Kind kind();
   abstract Key key();
-  abstract VariableElement requestElement();
+  abstract Element requestElement();
 
   static final class Factory {
     private final Elements elements;
@@ -71,35 +75,60 @@ abstract class DependencyRequest {
       this.types = types;
     }
 
-    ImmutableSet<DependencyRequest> forVariables(List<? extends VariableElement> variables) {
+    ImmutableSet<DependencyRequest> forRequiredVariables(
+        List<? extends VariableElement> variables) {
       return FluentIterable.from(variables)
           .transform(new Function<VariableElement, DependencyRequest>() {
             @Override public DependencyRequest apply(VariableElement input) {
-              return forVariable(input);
+              return forRequiredVariable(input);
             }
           })
           .toSet();
     }
 
-    DependencyRequest forVariable(VariableElement variableElement) {
+    DependencyRequest forRequiredVariable(VariableElement variableElement) {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
+      return newDependencyRequest(variableElement, type, qualifier);
+    }
+
+    DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod) {
+      checkNotNull(provisionMethod);
+      TypeMirror type = provisionMethod.getReturnType();
+      Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
+      return newDependencyRequest(provisionMethod, type, qualifier);
+    }
+
+    DependencyRequest forComponentMembersInjectionMethod(ExecutableElement membersInjectionMethod) {
+      checkNotNull(membersInjectionMethod);
+      DeclaredType membersInjectorType = types.getDeclaredType(
+          elements.getTypeElement(MembersInjector.class.getCanonicalName()),
+          Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType());
+      // this is where we need to wrap it in a MembersInjector
+      Optional<AnnotationMirror> qualifier =
+          InjectionAnnotations.getQualifier(membersInjectionMethod);
+      checkArgument(!qualifier.isPresent());
+      return newDependencyRequest(membersInjectionMethod, membersInjectorType, qualifier);
+    }
+
+    private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,
+        Optional<AnnotationMirror> qualifier) {
       if (elements.getTypeElement(Provider.class.getCanonicalName())
           .equals(types.asElement(type))) {
         DeclaredType providerType = (DeclaredType) type;
         return new AutoValue_DependencyRequest(Kind.PROVIDER,
             Key.create(qualifier, Iterables.getOnlyElement(providerType.getTypeArguments())),
-            variableElement);
+            requestElement);
       } else if (elements.getTypeElement(Lazy.class.getCanonicalName())
           .equals(types.asElement(type))) {
         DeclaredType lazyType = (DeclaredType) type;
         return new AutoValue_DependencyRequest(Kind.LAZY,
             Key.create(qualifier, Iterables.getOnlyElement(lazyType.getTypeArguments())),
-            variableElement);
+            requestElement);
       } else {
         return new AutoValue_DependencyRequest(Kind.INSTANCE, Key.create(qualifier, type),
-            variableElement);
+            requestElement);
       }
     }
   }

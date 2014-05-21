@@ -15,6 +15,10 @@
  */
 package dagger.internal.codegen;
 
+import static javax.lang.model.type.TypeKind.NONE;
+import static javax.lang.model.type.TypeKind.VOID;
+import static org.truth0.Truth.ASSERT;
+
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -22,10 +26,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EquivalenceTester;
 import com.google.testing.compile.CompilationRule;
+
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -40,20 +46,14 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static javax.lang.model.type.TypeKind.NONE;
-import static javax.lang.model.type.TypeKind.VOID;
-import static org.truth0.Truth.ASSERT;
-
-/**
- * Tests {@link Mirrors}.
- */
 @RunWith(JUnit4.class)
-public class MirrorsTest {
+public class MoreTypesTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
   @Test
@@ -68,7 +68,7 @@ public class MirrorsTest {
         types.getDeclaredType(mapElement, objectType, objectType);
     TypeMirror mapType = mapElement.asType();
     WildcardType wildcard = types.getWildcardType(null, null);
-    EquivalenceTester<TypeMirror> tester = EquivalenceTester.<TypeMirror>of(Mirrors.equivalence())
+    EquivalenceTester<TypeMirror> tester = EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
         .addEquivalenceGroup(types.getNullType())
         .addEquivalenceGroup(types.getNoType(NONE))
         .addEquivalenceGroup(types.getNoType(VOID))
@@ -190,27 +190,27 @@ public class MirrorsTest {
     TypeElement charSequenceElement =
         elements.getTypeElement(CharSequence.class.getCanonicalName());
 
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f1").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f1").asType()))
         .has().exactly(objectElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f2").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f2").asType()))
         .has().exactly(setElement, stringElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f3").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f3").asType()))
         .has().exactly(mapElement, stringElement, objectElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f4").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f4").asType()))
         .has().exactly(integerElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f5").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f5").asType()))
         .has().exactly(setElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f6").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f6").asType()))
         .has().exactly(setElement, charSequenceElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f7").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f7").asType()))
         .has().exactly(mapElement, stringElement, setElement, charSequenceElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f8").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f8").asType()))
         .has().exactly(stringElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f9").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f9").asType()))
         .has().exactly(stringElement);
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f10").asType())).isEmpty();
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f11").asType())).isEmpty();
-    ASSERT.that(Mirrors.referencedTypes(fieldIndex.get("f12").asType()))
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f10").asType())).isEmpty();
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f11").asType())).isEmpty();
+    ASSERT.that(MoreTypes.referencedTypes(fieldIndex.get("f12").asType()))
         .has().exactly(setElement, stringElement);
   }
 

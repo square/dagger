@@ -42,7 +42,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.inject.Provider;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.ElementKindVisitor6;
 
 /**
  * Utilities for generating files.
@@ -74,7 +77,8 @@ class SourceFiles {
     ImmutableSet<String> packagesToSkip  =
         ImmutableSet.of("java.lang", topLevelClassName.packageName());
     for (DependencyRequest dependency : dependencies) {
-      ImmutableSet<TypeElement> referencedTypes = Mirrors.referencedTypes(dependency.key().type());
+      ImmutableSet<TypeElement> referencedTypes =
+          MoreTypes.referencedTypes(dependency.key().type());
       switch (dependency.kind()) {
         case LAZY:
           builder.add(ClassName.fromClass(Lazy.class), ClassName.fromClass(DoubleCheckLazy.class));
@@ -132,15 +136,13 @@ class SourceFiles {
    * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
    * provider.
    */
-  static ImmutableBiMap<Key, String> generateProviderNames(
-      Iterable<? extends Binding> bindings) {
+  static ImmutableBiMap<Key, String> generateProviderNamesForDependencies(
+      Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
         new ImmutableSetMultimap.Builder<Key, DependencyRequest>()
             .orderValuesBy(DEPENDENCY_ORDERING);
-    for (Binding binding : bindings) {
-      for (DependencyRequest dependency : binding.dependencies()) {
-        dependenciesByKeyBuilder.put(dependency.key(), dependency);
-      }
+    for (DependencyRequest dependency : dependencies) {
+      dependenciesByKeyBuilder.put(dependency.key(), dependency);
     }
     ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
         dependenciesByKeyBuilder.build();
@@ -183,6 +185,31 @@ class SourceFiles {
     return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
   }
 
+  // TODO(gak): this needs to suck less
+  static ImmutableBiMap<Key, String> generateProviderNamesForBindings(
+      Map<Key, ProvisionBinding> bindings) {
+    BiMap<Key, String> providerNames = HashBiMap.create(bindings.size());
+    for (Entry<Key, ProvisionBinding> entry : bindings.entrySet()) {
+      // collect together all of the names that we would want to call the provider
+      String bindingElementName = entry.getValue().bindingElement().accept(
+          new ElementKindVisitor6<String, Void>() {
+            @Override
+            public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+              return CaseFormat.UPPER_CAMEL
+                  .to(CaseFormat.LOWER_CAMEL, e.getEnclosingElement().getSimpleName().toString());
+            }
+
+            @Override
+            public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+              return e.getSimpleName().toString();
+            }
+          }, null) + "Provider";
+      providerNames.put(entry.getKey(), bindingElementName);
+    }
+    // return the map so that it is sorted by name
+    return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
+  }
+
   static String providerUsageStatement(String providerName,
       DependencyRequest.Kind dependencyKind) {
     switch (dependencyKind) {
@@ -196,6 +223,28 @@ class SourceFiles {
       default:
         throw new AssertionError();
     }
+  }
+
+  static ClassName factoryNameForProvisionBinding(ProvisionBinding binding) {
+    TypeElement enclosingTypeElement = binding.enclosingType();
+    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
+    String factoryPrefix = binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
+      @Override protected String defaultAction(Element e, Void p) {
+        throw new IllegalStateException();
+      }
+
+      @Override
+      public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+        return "";
+      }
+
+      @Override
+      public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, e.getSimpleName().toString());
+      }
+    }, null);
+    return enclosingClassName.peerNamed(
+        enclosingClassName.simpleName() + "$$" + factoryPrefix + "Factory");
   }
 
   private SourceFiles() {}

@@ -37,6 +37,10 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>com.google.auto</groupId>
+      <artifactId>auto-common</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.squareup</groupId>
       <artifactId>javawriter</artifactId>
     </dependency>

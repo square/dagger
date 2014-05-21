@@ -25,10 +25,7 @@ import com.google.common.collect.Multimaps;
 import java.util.Collection;
 import java.util.Set;
 
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Inject;
@@ -37,8 +34,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementKindVisitor6;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the {@link Inject}
@@ -48,41 +43,36 @@ import javax.lang.model.util.Types;
  * @since 2.0
  */
 @SupportedSourceVersion(RELEASE_6)
-public final class InjectProcessor extends AbstractProcessor {
-  private Messager messager;
-  private InjectConstructorValidator constructorValidator;
-  private InjectFieldValidator fieldValidator;
-  private InjectMethodValidator methodValidator;
-  private ProvisionBinding.Factory provisionBindingFactory;
-  private FactoryGenerator factoryWriter;
-  private MembersInjectionBinding.Factory membersInjectionBindingFactory;
-  private MembersInjectorGenerator membersInjectorWriter;
+public final class InjectProcessingStep implements ProcessingStep {
+  private final Messager messager;
+  private final InjectConstructorValidator constructorValidator;
+  private final InjectFieldValidator fieldValidator;
+  private final InjectMethodValidator methodValidator;
+  private final ProvisionBinding.Factory provisionBindingFactory;
+  private final FactoryGenerator factoryGenerator;
+  private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
+  private final MembersInjectorGenerator membersInjectorWriter;
+  private final InjectBindingRegistry factoryRegistrar;
 
-  @Override
-  public synchronized void init(ProcessingEnvironment processingEnv) {
-    super.init(processingEnv);
-    this.messager = processingEnv.getMessager();
-    this.constructorValidator = new InjectConstructorValidator();
-    this.fieldValidator = new InjectFieldValidator();
-    this.methodValidator = new InjectMethodValidator();
-    Filer filer = processingEnv.getFiler();
-    Elements elements = processingEnv.getElementUtils();
-    Types types = processingEnv.getTypeUtils();
-    Key.Factory keyFactory = new Key.Factory(types, elements);
-    DependencyRequest.Factory dependencyRequestFactory =
-        new DependencyRequest.Factory(elements, types);
-    ProviderTypeRepository providerTypeRepository = new ProviderTypeRepository(elements, types);
-    this.provisionBindingFactory =
-        new ProvisionBinding.Factory(keyFactory, dependencyRequestFactory);
-    this.factoryWriter = new FactoryGenerator(filer, providerTypeRepository);
-    this.membersInjectionBindingFactory =
-        new MembersInjectionBinding.Factory(dependencyRequestFactory);
-    this.membersInjectorWriter = new MembersInjectorGenerator(filer, providerTypeRepository);
-  }
 
-  @Override
-  public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(Inject.class.getName());
+  InjectProcessingStep(Messager messager,
+      InjectConstructorValidator constructorValidator,
+      InjectFieldValidator fieldValidator,
+      InjectMethodValidator methodValidator,
+      ProvisionBinding.Factory provisionBindingFactory,
+      FactoryGenerator factoryGenerator,
+      MembersInjectionBinding.Factory membersInjectionBindingFactory,
+      MembersInjectorGenerator membersInjectorWriter,
+      InjectBindingRegistry factoryRegistrar) {
+    this.messager = messager;
+    this.constructorValidator = constructorValidator;
+    this.fieldValidator = fieldValidator;
+    this.methodValidator = methodValidator;
+    this.provisionBindingFactory = provisionBindingFactory;
+    this.factoryGenerator = factoryGenerator;
+    this.membersInjectionBindingFactory = membersInjectionBindingFactory;
+    this.membersInjectorWriter = membersInjectorWriter;
+    this.factoryRegistrar = factoryRegistrar;
   }
 
   @Override
@@ -156,7 +146,8 @@ public final class InjectProcessor extends AbstractProcessor {
 
     for (ProvisionBinding binding : provisions.build()) {
       try {
-        factoryWriter.generate(binding);
+        factoryGenerator.generate(binding);
+        factoryRegistrar.registerBinding(binding);
       } catch (SourceFileGenerationException e) {
         e.printMessageTo(messager);
       }

@@ -15,19 +15,18 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.squareup.javawriter.JavaWriter.stringLiteral;
 import static com.squareup.javawriter.JavaWriter.type;
+import static dagger.internal.codegen.ProvisionBinding.Type.PROVIDES;
 import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
+import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
-import static dagger.internal.codegen.SourceFiles.generateProviderNames;
+import static dagger.internal.codegen.SourceFiles.generateProviderNamesForDependencies;
 import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
-import static javax.lang.model.element.ElementKind.METHOD;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -53,10 +52,8 @@ import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementKindVisitor6;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for
@@ -75,25 +72,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   ClassName nameGeneratedType(ProvisionBinding binding) {
-    TypeElement enclosingTypeElement = binding.enclosingType();
-    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
-    String factoryPrefix = binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
-      @Override protected String defaultAction(Element e, Void p) {
-        throw new IllegalStateException();
-      }
-
-      @Override
-      public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
-        return "";
-      }
-
-      @Override
-      public String visitExecutableAsMethod(ExecutableElement e, Void p) {
-        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, e.getSimpleName().toString());
-      }
-    }, null);
-    return enclosingClassName.peerNamed(
-        enclosingClassName.simpleName() + "$$" + factoryPrefix + "Factory");
+    return factoryNameForProvisionBinding(binding);
   }
 
   @Override
@@ -116,16 +95,16 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
     writeImports(writer, factoryClassName, binding, providedType);
 
-    writer.emitAnnotation(Generated.class, stringLiteral(InjectProcessor.class.getName()))
+    writer.emitAnnotation(Generated.class, stringLiteral(ComponentProcessor.class.getName()))
         .beginType(factoryClassName.simpleName(), "class", EnumSet.of(PUBLIC, FINAL), null,
             type(Factory.class, Util.typeToString(binding.providedKey().type())));
 
     final ImmutableBiMap<Key, String> providerNames =
-        generateProviderNames(ImmutableList.of(binding));
+        generateProviderNamesForDependencies(binding.dependencies());
 
     ImmutableMap.Builder<String, String> variableMapBuilder =
         new ImmutableMap.Builder<String, String>();
-    if (binding.bindingElement().getKind().equals(METHOD)) {
+    if (binding.type().equals(PROVIDES)) {
       variableMapBuilder.put("module", binding.enclosingType().getQualifiedName().toString());
     }
     if (binding.requiresMemberInjection()) {
@@ -138,7 +117,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     if (binding.requiresMemberInjection()) {
       writeMembersInjectorField(writer, providedTypeString);
     }
-    if (binding.bindingElement().getKind().equals(METHOD)) {
+    if (binding.type().equals(PROVIDES)) {
       writeModuleField(writer, binding.enclosingType());
     }
     writeProviderFields(writer, providerNames);
@@ -162,7 +141,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     if (binding.requiresMemberInjection()) {
       importsBuilder.add(ClassName.fromClass(MembersInjector.class));
     }
-    for (TypeElement referencedProvidedType : Mirrors.referencedTypes(providedType)) {
+    for (TypeElement referencedProvidedType : MoreTypes.referencedTypes(providedType)) {
       ClassName className = ClassName.fromTypeElement(referencedProvidedType);
       if (!className.packageName().equals("java.lang")
           && !className.packageName().equals(factoryClassName.packageName()))
@@ -222,7 +201,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
                 return providerUsageStatement(providerNames.get(input.key()), input.kind());
               }
             }));
-    if (binding.bindingElement().getKind().equals(METHOD)) {
+    if (binding.type().equals(PROVIDES)) {
       writer.emitStatement("return module.%s(%s)",
           binding.bindingElement().getSimpleName(), parameterString);
     } else if (binding.requiresMemberInjection()) {

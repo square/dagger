@@ -19,7 +19,6 @@ import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 
@@ -33,7 +32,7 @@ import javax.lang.model.element.TypeElement;
  * @since 2.0
  */
 abstract class Binding {
-  /** The field or method annotated with {@link Inject}. */
+  /** Returns the {@link Element} instance that is responsible for declaring the binding. */
   abstract Element bindingElement();
 
   /** The type enclosing the binding {@link #bindingElement()}. */
