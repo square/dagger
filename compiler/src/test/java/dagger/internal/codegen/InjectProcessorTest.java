@@ -311,10 +311,6 @@ public final class InjectProcessorTest {
         "    instance.lazyString = DoubleCheckLazy.create(stringProvider);",
         "    instance.stringProvider = stringProvider;",
         "  }",
-        "",
-        "  @Override public String toString() {",
-        "    return \"MembersInjector<FieldInjection>\";",
-        "  }",
         "}");
     ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
         .compilesWithoutError()
@@ -364,10 +360,6 @@ public final class InjectProcessorTest {
         "    instance.oneArg(stringProvider.get());",
         "    instance.manyArgs(stringProvider.get(), DoubleCheckLazy.create(stringProvider),",
         "        stringProvider);",
-        "  }",
-        "",
-        "  @Override public String toString() {",
-        "    return \"MembersInjector<MethodInjection>\";",
         "  }",
         "}");
     ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
@@ -421,10 +413,6 @@ public final class InjectProcessorTest {
         "    instance.setString(stringAndSProvider.get());",
         "    instance.setObject(objectAndOProvider.get());",
         "  }",
-        "",
-        "  @Override public String toString() {",
-        "    return \"MembersInjector<MixedMemberInjection>\";",
-        "  }",
         "}");
     ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
         .compilesWithoutError()
@@ -461,10 +449,6 @@ public final class InjectProcessorTest {
         "",
         "  @Override public InjectConstructor get() {",
         "    return new InjectConstructor(sProvider.get());",
-        "  }",
-        "",
-        "  @Override public String toString() {",
-        "    return \"Factory<InjectConstructor>\";",
         "  }",
         "}");
     ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())
@@ -512,10 +496,6 @@ public final class InjectProcessorTest {
         "    membersInjector.injectMembers(instance);",
         "    return instance;",
         "  }",
-        "",
-        "  @Override public String toString() {",
-        "    return \"Factory<AllInjections>\";",
-        "  }",
         "}");
     JavaFileObject expectedMembersInjector = JavaFileObjects.forSourceLines(
         "test.AllInjections$$MembersInjector",
@@ -542,10 +522,6 @@ public final class InjectProcessorTest {
         "    }",
         "    instance.s = sProvider.get();",
         "    instance.s(sProvider.get());",
-        "  }",
-        "",
-        "  @Override public String toString() {",
-        "    return \"MembersInjector<AllInjections>\";",
         "  }",
         "}");
     ASSERT.about(javaSource()).that(file).processedWith(new InjectProcessor())

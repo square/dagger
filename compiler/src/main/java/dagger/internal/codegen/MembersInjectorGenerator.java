@@ -173,8 +173,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
     }
     writer.endMethod();
 
-    writeToString(writer, injectedClassName);
-
     writer.endType();
   }
 
@@ -200,14 +198,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
       writer.emitStatement("this.%1$s = %1$s", providerName);
     }
     writer.endConstructor().emitEmptyLine();
-  }
-
-  private void writeToString(JavaWriter writer, ClassName injectedClassName) throws IOException {
-    writer.emitAnnotation(Override.class)
-        .beginMethod("String", "toString", EnumSet.of(PUBLIC))
-        .emitStatement("return \"%s<%s>\"",
-            MembersInjector.class.getSimpleName(), injectedClassName.simpleName())
-        .endMethod();
   }
 
   private Map<String, String> providersAsVariableMap(ImmutableBiMap<Key, String> providerNames) {

@@ -54,7 +54,7 @@ public final class InjectProcessor extends AbstractProcessor {
   private InjectFieldValidator fieldValidator;
   private InjectMethodValidator methodValidator;
   private ProvisionBinding.Factory provisionBindingFactory;
-  private InjectConstructorFactoryGenerator factoryWriter;
+  private FactoryGenerator factoryWriter;
   private MembersInjectionBinding.Factory membersInjectionBindingFactory;
   private MembersInjectorGenerator membersInjectorWriter;
 
@@ -74,7 +74,7 @@ public final class InjectProcessor extends AbstractProcessor {
     ProviderTypeRepository providerTypeRepository = new ProviderTypeRepository(elements, types);
     this.provisionBindingFactory =
         new ProvisionBinding.Factory(keyFactory, dependencyRequestFactory);
-    this.factoryWriter = new InjectConstructorFactoryGenerator(filer, providerTypeRepository);
+    this.factoryWriter = new FactoryGenerator(filer, providerTypeRepository);
     this.membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(dependencyRequestFactory);
     this.membersInjectorWriter = new MembersInjectorGenerator(filer, providerTypeRepository);

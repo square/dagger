@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_NOT_IN_MODULE;
@@ -27,20 +28,9 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
 import static org.truth0.Truth.ASSERT;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 
-import dagger.Provides;
-
-import java.util.Set;
-
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.annotation.processing.Processor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.ElementFilter;
 import javax.tools.JavaFileObject;
 
 import org.junit.Test;
@@ -48,8 +38,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class ProvidesMethodValidatorTest {
-  @Test public void validate_notInModule() {
+public class ModuleProcessorTest {
+  // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
+  // for @Inject
+
+  @Test public void providesMethodNotInModule() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -61,12 +54,12 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_NOT_IN_MODULE);
   }
 
-  @Test public void validate_abstract() {
+  @Test public void providesMethodAbstract() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -78,12 +71,12 @@ public class ProvidesMethodValidatorTest {
         "  @Provides abstract String provideString();",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_ABSTRACT);
   }
 
-  @Test public void validate_private() {
+  @Test public void providesMethodPrivate() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -97,12 +90,12 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_PRIVATE);
   }
 
-  @Test public void validate_static() {
+  @Test public void providesMethodStatic() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -116,12 +109,12 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_STATIC);
   }
 
-  @Test public void validate_void() {
+  @Test public void providesMethodReturnVoid() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -133,12 +126,12 @@ public class ProvidesMethodValidatorTest {
         "  @Provides void provideNothing() {}",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_MUST_RETURN_A_VALUE);
   }
 
-  @Test public void validate_typeParameter() {
+  @Test public void providesMethodWithTypeParameter() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -152,12 +145,12 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_TYPE_PARAMETER);
   }
 
-  @Test public void validate_setValuesWildcard() {
+  @Test public void providesMethodSetValuesWildcard() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -175,12 +168,12 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_RETURN_TYPE);
   }
 
-  @Test public void validate_setValuesRawSet() {
+  @Test public void providesMethodSetValuesRawSet() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -198,12 +191,12 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RAW_SET);
   }
 
-  @Test public void validate_setValuesNotASet() {
+  @Test public void providesMethodSetValuesNotASet() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -221,33 +214,120 @@ public class ProvidesMethodValidatorTest {
         "  }",
         "}");
     ASSERT.about(javaSource()).that(moduleFile)
-        .processedWith(validationProcessor())
+        .processedWith(new ModuleProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RETURN_SET);
   }
 
-  private Processor validationProcessor() {
-    return new AbstractProcessor() {
-      ProvidesMethodValidator validator;
+  @Test public void singleProvidesMethodNoArgs() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String provideString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override public String get() {",
+        "    return module.provideString();",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ModuleProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
 
-      @Override
-      public synchronized void init(ProcessingEnvironment processingEnv) {
-        super.init(processingEnv);
-        this.validator = new ProvidesMethodValidator(processingEnv.getElementUtils());
-      }
+  private static final JavaFileObject QUALIFIER_A =
+      JavaFileObjects.forSourceLines("test.QualifierA",
+          "package test;",
+          "",
+          "import javax.inject.Qualifier;",
+          "",
+          "@Qualifier @interface QualifierA {}");
+  private static final JavaFileObject QUALIFIER_B =
+      JavaFileObjects.forSourceLines("test.QualifierB",
+          "package test;",
+          "",
+          "import javax.inject.Qualifier;",
+          "",
+          "@Qualifier @interface QualifierB {}");
 
-      @Override public Set<String> getSupportedAnnotationTypes() {
-        return ImmutableSet.of(Provides.class.getName());
-      }
-
-      @Override
-      public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        for (ExecutableElement element
-            : ElementFilter.methodsIn(roundEnv.getElementsAnnotatedWith(Provides.class))) {
-          validator.validate(element).printMessagesTo(processingEnv.getMessager());
-        }
-        return false;
-      }
-    };
+  @Test public void multipleProvidesMethods() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "import java.util.Arrays;",
+        "import java.util.List;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides List<Object> provideObjects(@QualifierA Object a, @QualifierB Object b) {",
+        "    return Arrays.asList(a, b);",
+        "  }",
+        "",
+        "  @Provides @QualifierA Object provideAObject() {",
+        "    return new Object();",
+        "  }",
+        "",
+        "  @Provides @QualifierB Object provideBObject() {",
+        "    return new Object();",
+        "  }",
+        "}");
+    JavaFileObject listFactoryFile = JavaFileObjects.forSourceLines(
+        "TestModule$$ProvideObjectsFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import java.util.List;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.InjectProcessor\")",
+        "public final class TestModule$$ProvideObjectsFactory implements Factory<List<Object>> {",
+        "  private final TestModule module;",
+        "  private final Provider<Object> aProvider;",
+        "  private final Provider<Object> bProvider;",
+        "",
+        "  public TestModule$$ProvideObjectsFactory(TestModule module,",
+        "       Provider<Object> aProvider, Provider<Object> bProvider) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "    assert aProvider != null;",
+        "    this.aProvider = aProvider;",
+        "    assert bProvider != null;",
+        "    this.bProvider = bProvider;",
+        "  }",
+        "",
+        "  @Override public List<Object> get() {",
+        "    return module.provideObjects(aProvider.get(), bProvider.get());",
+        "  }",
+        "}");
+    ASSERT.about(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
+        .processedWith(new ModuleProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(listFactoryFile);
   }
 }
