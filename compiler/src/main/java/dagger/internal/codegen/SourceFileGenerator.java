@@ -45,7 +45,7 @@ abstract class SourceFileGenerator<T> {
     this.filer = checkNotNull(filer);
   }
 
-  final void generate(T input) throws SourceFileGenerationException {
+  final ClassName generate(T input) throws SourceFileGenerationException {
     ClassName generatedTypeName = nameGeneratedType(input);
     ImmutableSet<Element> originatingElements = ImmutableSet.copyOf(getOriginatingElements(input));
     JavaFileObject file = null;
@@ -58,6 +58,7 @@ abstract class SourceFileGenerator<T> {
       boolean thrownWriting = false;
       try {
         write(generatedTypeName, writer, input);
+        return generatedTypeName;
       } catch (Exception e) {
         thrownWriting = true;
         throw new SourceFileGenerationException(generatedTypeName, e,

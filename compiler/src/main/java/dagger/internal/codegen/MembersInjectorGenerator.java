@@ -15,6 +15,17 @@
  */
 package dagger.internal.codegen;
 
+import static com.squareup.javawriter.JavaWriter.stringLiteral;
+import static com.squareup.javawriter.JavaWriter.type;
+import static dagger.internal.codegen.SourceFiles.DEPENDENCY_ORDERING;
+import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
+import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
+import static dagger.internal.codegen.SourceFiles.generateProviderNamesForDependencies;
+import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -42,17 +53,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
-
-import static com.squareup.javawriter.JavaWriter.stringLiteral;
-import static com.squareup.javawriter.JavaWriter.type;
-import static dagger.internal.codegen.SourceFiles.DEPENDENCY_ORDERING;
-import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
-import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
-import static dagger.internal.codegen.SourceFiles.generateProviderNames;
-import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Generates {@link MembersInjector} implementations from {@link MembersInjectionBinding} instances.
@@ -122,12 +122,13 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
     String membersInjectorType = type(MembersInjector.class, injectedClassName.simpleName());
     // @Generated("dagger.internal.codegen.InjectProcessor")
     // public final class Blah$$MembersInjector implements MembersInjector<Blah>
-    writer.emitAnnotation(Generated.class, stringLiteral(InjectProcessor.class.getName()))
+    writer.emitAnnotation(Generated.class, stringLiteral(ComponentProcessor.class.getName()))
         .beginType(injectorClassName.simpleName(), "class", EnumSet.of(FINAL), null,
             membersInjectorType);
 
 
-    final ImmutableBiMap<Key, String> providerNames = generateProviderNames(descriptor.bindings());
+    final ImmutableBiMap<Key, String> providerNames =
+        generateProviderNamesForDependencies(dependencies);
 
     // Add the fields
     writeProviderFields(writer, providerNames);
@@ -173,8 +174,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
     }
     writer.endMethod();
 
-    writeToString(writer, injectedClassName);
-
     writer.endType();
   }
 
@@ -200,14 +199,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
       writer.emitStatement("this.%1$s = %1$s", providerName);
     }
     writer.endConstructor().emitEmptyLine();
-  }
-
-  private void writeToString(JavaWriter writer, ClassName injectedClassName) throws IOException {
-    writer.emitAnnotation(Override.class)
-        .beginMethod("String", "toString", EnumSet.of(PUBLIC))
-        .emitStatement("return \"%s<%s>\"",
-            MembersInjector.class.getSimpleName(), injectedClassName.simpleName())
-        .endMethod();
   }
 
   private Map<String, String> providersAsVariableMap(ImmutableBiMap<Key, String> providerNames) {

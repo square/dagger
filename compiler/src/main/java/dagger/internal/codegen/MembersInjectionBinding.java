@@ -41,7 +41,7 @@ abstract class MembersInjectionBinding extends Binding {
   /**
    * Returns an {@link Ordering} suitable for sorting bindings into an ordering that abides by the
    * injection ordering specified in {@link Inject}. This ordering should not be used with bindings
-   * from different {@link #enclosingType() types}.
+   * from different {@link #bindingTypeElement() types}.
    */
   static Ordering<MembersInjectionBinding> injectionOrdering() {
     return INJECTION_ORDERING;
@@ -62,7 +62,7 @@ abstract class MembersInjectionBinding extends Binding {
       };
 
   private static int targetIndexInEnclosing(MembersInjectionBinding binding)  {
-    return binding.enclosingType().getEnclosedElements().indexOf(binding.bindingElement());
+    return binding.bindingTypeElement().getEnclosedElements().indexOf(binding.bindingElement());
   }
 
   /**
@@ -81,7 +81,7 @@ abstract class MembersInjectionBinding extends Binding {
       checkArgument(methodElement.getKind().equals(METHOD));
       checkArgument(methodElement.getAnnotation(Inject.class) != null);
       return new AutoValue_MembersInjectionBinding(methodElement,
-          dependencyRequestFactory.forVariables(methodElement.getParameters()));
+          dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
     }
 
     /** Returns the field injection binding for a field annotated with {@link Inject}. */
@@ -90,7 +90,7 @@ abstract class MembersInjectionBinding extends Binding {
       checkArgument(fieldElement.getKind().equals(FIELD));
       checkArgument(fieldElement.getAnnotation(Inject.class) != null);
       return new AutoValue_MembersInjectionBinding(fieldElement,
-          ImmutableSet.of(dependencyRequestFactory.forVariable(fieldElement)));
+          ImmutableSet.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
     }
   }
 }

@@ -15,12 +15,13 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.SimpleElementVisitor6;
 
 /**
  * An abstract type for classes representing a Dagger binding.  Particularly, contains the
@@ -32,12 +33,22 @@ import javax.lang.model.element.TypeElement;
  * @since 2.0
  */
 abstract class Binding {
-  /** The field or method annotated with {@link Inject}. */
+  /** Returns the {@link Element} instance that is responsible for declaring the binding. */
   abstract Element bindingElement();
 
   /** The type enclosing the binding {@link #bindingElement()}. */
-  TypeElement enclosingType() {
-    return ElementUtil.asTypeElement(bindingElement().getEnclosingElement());
+  TypeElement bindingTypeElement() {
+    return bindingElement().accept(new SimpleElementVisitor6<TypeElement, Void>() {
+      @Override
+      protected TypeElement defaultAction(Element e, Void p) {
+        return MoreElements.asType(bindingElement().getEnclosingElement());
+      }
+
+      @Override
+      public TypeElement visitType(TypeElement e, Void p) {
+        return e;
+      }
+    }, null);
   }
 
   /**

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
 import com.squareup.javawriter.JavaWriter;
 
 import dagger.Lazy;
@@ -42,7 +43,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.inject.Provider;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.ElementKindVisitor6;
 
 /**
  * Utilities for generating files.
@@ -74,7 +77,8 @@ class SourceFiles {
     ImmutableSet<String> packagesToSkip  =
         ImmutableSet.of("java.lang", topLevelClassName.packageName());
     for (DependencyRequest dependency : dependencies) {
-      ImmutableSet<TypeElement> referencedTypes = Mirrors.referencedTypes(dependency.key().type());
+      ImmutableSet<TypeElement> referencedTypes =
+          MoreTypes.referencedTypes(dependency.key().type());
       switch (dependency.kind()) {
         case LAZY:
           builder.add(ClassName.fromClass(Lazy.class), ClassName.fromClass(DoubleCheckLazy.class));
@@ -132,15 +136,13 @@ class SourceFiles {
    * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
    * provider.
    */
-  static ImmutableBiMap<Key, String> generateProviderNames(
-      Iterable<? extends Binding> bindings) {
+  static ImmutableBiMap<Key, String> generateProviderNamesForDependencies(
+      Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
         new ImmutableSetMultimap.Builder<Key, DependencyRequest>()
             .orderValuesBy(DEPENDENCY_ORDERING);
-    for (Binding binding : bindings) {
-      for (DependencyRequest dependency : binding.dependencies()) {
-        dependenciesByKeyBuilder.put(dependency.key(), dependency);
-      }
+    for (DependencyRequest dependency : dependencies) {
+      dependenciesByKeyBuilder.put(dependency.key(), dependency);
     }
     ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
         dependenciesByKeyBuilder.build();
@@ -183,6 +185,44 @@ class SourceFiles {
     return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
   }
 
+  // TODO(gak): this needs to suck less
+  static ImmutableBiMap<Key, String> generateProviderNamesForBindings(
+      SetMultimap<Key, ProvisionBinding> bindings) {
+    BiMap<Key, String> providerNames = HashBiMap.create(bindings.size());
+    for (Entry<Key, Collection<ProvisionBinding>> entry : bindings.asMap().entrySet()) {
+      Collection<ProvisionBinding> bindingsForKey = entry.getValue();
+      final String name;
+      if (ProvisionBinding.isSetBindingCollection(bindingsForKey)) {
+        name = new KeyVariableNamer().apply(entry.getKey()) + "Provider";
+      } else {
+        ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
+        switch (binding.bindingKind()) {
+          case INJECTION:
+          case PROVISION:
+            name = binding.bindingElement().accept(
+                new ElementKindVisitor6<String, Void>() {
+                  @Override
+                  public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+                    return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                        e.getEnclosingElement().getSimpleName().toString());
+                  }
+
+                  @Override
+                  public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+                    return e.getSimpleName().toString();
+                  }
+                }, null) + "Provider";
+            break;
+          default:
+            throw new AssertionError();
+        }
+      }
+      providerNames.put(entry.getKey(), name);
+    }
+    // return the map so that it is sorted by name
+    return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
+  }
+
   static String providerUsageStatement(String providerName,
       DependencyRequest.Kind dependencyKind) {
     switch (dependencyKind) {
@@ -195,6 +235,31 @@ class SourceFiles {
         return String.format("%s", providerName);
       default:
         throw new AssertionError();
+    }
+  }
+
+  static ClassName factoryNameForProvisionBinding(ProvisionBinding binding) {
+    TypeElement enclosingTypeElement = binding.bindingTypeElement();
+    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
+    switch (binding.bindingKind()) {
+      case INJECTION:
+      case PROVISION:
+        return enclosingClassName.peerNamed(
+            enclosingClassName.simpleName() + "$$" + factoryPrefix(binding) + "Factory");
+      default:
+        throw new AssertionError();
+    }
+  }
+
+  private static String factoryPrefix(ProvisionBinding binding) {
+    switch (binding.bindingKind()) {
+      case INJECTION:
+        return "";
+      case PROVISION:
+        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
+            ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
+      default:
+        throw new IllegalArgumentException();
     }
   }
 

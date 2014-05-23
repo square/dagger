@@ -97,9 +97,9 @@ public class KeyTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     Key key = keyFactory.forProvidesMethod(providesMethod);
-    ASSERT.that(Mirrors.equivalence().wrap(key.qualifier().get().getAnnotationType()))
-        .isEqualTo(Mirrors.equivalence().wrap(qualifierElement.asType()));
-    ASSERT.that(key.wrappedType()).isEqualTo(Mirrors.equivalence().wrap(stringType));
+    ASSERT.that(MoreTypes.equivalence().wrap(key.qualifier().get().getAnnotationType()))
+        .isEqualTo(MoreTypes.equivalence().wrap(qualifierElement.asType()));
+    ASSERT.that(key.wrappedType()).isEqualTo(MoreTypes.equivalence().wrap(stringType));
   }
 
   @Module(library = true)

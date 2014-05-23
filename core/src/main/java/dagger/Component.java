@@ -15,6 +15,11 @@
  */
 package dagger;
 
+import static java.lang.annotation.ElementType.TYPE;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.Target;
+
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
@@ -51,6 +56,8 @@ import javax.inject.Qualifier;
  */
 // TODO(gak): add missing spec for @Scope
 // TODO(gak): add missing spec for component dependencies
+@Target(TYPE)
+@Documented
 public @interface Component {
   /**
    * A list of classes annotated with {@link Module} whose bindings are used to generate the
