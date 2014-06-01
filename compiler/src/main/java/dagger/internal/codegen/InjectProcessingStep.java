@@ -17,10 +17,13 @@ package dagger.internal.codegen;
 
 import static javax.lang.model.SourceVersion.RELEASE_6;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
+
+import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
 
 import java.util.Collection;
 import java.util.Set;
@@ -50,9 +53,9 @@ public final class InjectProcessingStep implements ProcessingStep {
   private final InjectMethodValidator methodValidator;
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final FactoryGenerator factoryGenerator;
-  private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
+  private final InjectionSite.Factory injectionSiteFactory;
   private final MembersInjectorGenerator membersInjectorWriter;
-  private final InjectBindingRegistry factoryRegistrar;
+  private final InjectBindingRegistry injectBindingRegistry;
 
 
   InjectProcessingStep(Messager messager,
@@ -61,7 +64,7 @@ public final class InjectProcessingStep implements ProcessingStep {
       InjectMethodValidator methodValidator,
       ProvisionBinding.Factory provisionBindingFactory,
       FactoryGenerator factoryGenerator,
-      MembersInjectionBinding.Factory membersInjectionBindingFactory,
+      InjectionSite.Factory injectionSiteFactory,
       MembersInjectorGenerator membersInjectorWriter,
       InjectBindingRegistry factoryRegistrar) {
     this.messager = messager;
@@ -70,16 +73,16 @@ public final class InjectProcessingStep implements ProcessingStep {
     this.methodValidator = methodValidator;
     this.provisionBindingFactory = provisionBindingFactory;
     this.factoryGenerator = factoryGenerator;
-    this.membersInjectionBindingFactory = membersInjectionBindingFactory;
+    this.injectionSiteFactory = injectionSiteFactory;
     this.membersInjectorWriter = membersInjectorWriter;
-    this.factoryRegistrar = factoryRegistrar;
+    this.injectBindingRegistry = factoryRegistrar;
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     // TODO(gak): add some error handling for bad source files
     final ImmutableSet.Builder<ProvisionBinding> provisions = ImmutableSet.builder();
-    final ImmutableSet.Builder<MembersInjectionBinding> membersInjections = ImmutableSet.builder();
+    final ImmutableSet.Builder<InjectionSite> memberInjectionSites = ImmutableSet.builder();
 
     for (Element injectElement : roundEnv.getElementsAnnotatedWith(Inject.class)) {
       injectElement.accept(
@@ -105,8 +108,7 @@ public final class InjectProcessingStep implements ProcessingStep {
               report.printMessagesTo(messager);
 
               if (report.isClean()) {
-                membersInjections.add(
-                    membersInjectionBindingFactory.forInjectField(fieldElement));
+                memberInjectionSites.add(injectionSiteFactory.forInjectField(fieldElement));
               }
 
               return null;
@@ -119,8 +121,7 @@ public final class InjectProcessingStep implements ProcessingStep {
               report.printMessagesTo(messager);
 
               if (report.isClean()) {
-                membersInjections.add(
-                    membersInjectionBindingFactory.forInjectMethod(methodElement));
+                memberInjectionSites.add(injectionSiteFactory.forInjectMethod(methodElement));
               }
 
               return null;
@@ -128,17 +129,19 @@ public final class InjectProcessingStep implements ProcessingStep {
           }, null);
     }
 
-    ImmutableListMultimap<TypeElement, MembersInjectionBinding> membersInjectionsByType =
-        Multimaps.index(membersInjections.build(),
-            new Function<MembersInjectionBinding, TypeElement>() {
-              @Override public TypeElement apply(MembersInjectionBinding binding) {
-                return binding.bindingTypeElement();
+    ImmutableListMultimap<TypeElement, InjectionSite> membersInjectionsByType =
+        Multimaps.index(memberInjectionSites.build(),
+            new Function<InjectionSite, TypeElement>() {
+              @Override public TypeElement apply(InjectionSite injectionSite) {
+                return MoreElements.asType(injectionSite.element().getEnclosingElement());
               }
             });
 
-    for (Collection<MembersInjectionBinding> bindings : membersInjectionsByType.asMap().values()) {
+    for (Collection<InjectionSite> injectionSites : membersInjectionsByType.asMap().values()) {
       try {
-        membersInjectorWriter.generate(MembersInjectorDescriptor.create(bindings));
+        MembersInjectionBinding binding = MembersInjectionBinding.create(injectionSites);
+        membersInjectorWriter.generate(binding);
+        injectBindingRegistry.registerMembersInjectionBinding(binding);
       } catch (SourceFileGenerationException e) {
         e.printMessageTo(messager);
       }
@@ -147,7 +150,7 @@ public final class InjectProcessingStep implements ProcessingStep {
     for (ProvisionBinding binding : provisions.build()) {
       try {
         factoryGenerator.generate(binding);
-        factoryRegistrar.registerBinding(binding);
+        injectBindingRegistry.registerProvisionBinding(binding);
       } catch (SourceFileGenerationException e) {
         e.printMessageTo(messager);
       }

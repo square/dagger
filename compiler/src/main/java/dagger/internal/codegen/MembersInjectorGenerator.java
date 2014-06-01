@@ -15,9 +15,9 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.squareup.javawriter.JavaWriter.stringLiteral;
 import static com.squareup.javawriter.JavaWriter.type;
-import static dagger.internal.codegen.SourceFiles.DEPENDENCY_ORDERING;
 import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
 import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
 import static dagger.internal.codegen.SourceFiles.generateProviderNamesForDependencies;
@@ -33,26 +33,33 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.squareup.javawriter.JavaWriter;
+
 import dagger.MembersInjector;
+import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
+import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /**
  * Generates {@link MembersInjector} implementations from {@link MembersInjectionBinding} instances.
@@ -60,52 +67,47 @@ import javax.lang.model.element.VariableElement;
  * @author Gregory Kick
  * @since 2.0
  */
-final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectorDescriptor> {
-  private final ProviderTypeRepository providerTypeRepository;
+final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectionBinding> {
+  private final Elements elements;
+  private final Types types;
 
-  MembersInjectorGenerator(Filer filer, ProviderTypeRepository providerTypeRepository) {
+  MembersInjectorGenerator(Filer filer, Elements elements, Types types) {
     super(filer);
-    this.providerTypeRepository = providerTypeRepository;
+    this.elements = checkNotNull(elements);
+    this.types = checkNotNull(types);
   }
 
   @Override
-  ClassName nameGeneratedType(MembersInjectorDescriptor descriptor) {
-    ClassName injectedClassName = descriptor.injectedClassName();
+  ClassName nameGeneratedType(MembersInjectionBinding binding) {
+    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
     return injectedClassName.peerNamed(injectedClassName.simpleName() + "$$MembersInjector");
   }
 
   @Override
   Iterable<? extends Element> getOriginatingElements(
-      MembersInjectorDescriptor descriptor) {
-    return FluentIterable.from(descriptor.bindings())
-        .transform(new Function<MembersInjectionBinding, Element>() {
-          @Override public Element apply(MembersInjectionBinding binding) {
-            return binding.bindingElement();
+      MembersInjectionBinding binding) {
+    return FluentIterable.from(binding.injectionSites())
+        .transform(new Function<InjectionSite, Element>() {
+          @Override public Element apply(InjectionSite injectionSite) {
+            return injectionSite.element();
           }
         })
         .toSet();
   }
 
   @Override
-  Optional<? extends Element> getElementForErrorReporting(MembersInjectorDescriptor input) {
-    return Optional.of(input.injectedClass());
+  Optional<? extends Element> getElementForErrorReporting(MembersInjectionBinding binding) {
+    return Optional.of(binding.injectedType());
   }
 
   @Override
-  void write(ClassName injectorClassName, JavaWriter writer, MembersInjectorDescriptor descriptor)
+  void write(ClassName injectorClassName, JavaWriter writer, MembersInjectionBinding binding)
       throws IOException {
-    ClassName injectedClassName = descriptor.injectedClassName();
-    ImmutableSortedSet<MembersInjectionBinding> bindings = descriptor.bindings();
+    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
 
     writer.emitPackage(injectedClassName.packageName());
 
-    ImmutableSortedSet<DependencyRequest> dependencies = FluentIterable.from(descriptor.bindings())
-        .transformAndConcat(new Function<MembersInjectionBinding, Set<DependencyRequest>>() {
-          @Override public Set<DependencyRequest> apply(MembersInjectionBinding input) {
-            return input.dependencies();
-          }
-        })
-        .toSortedSet(DEPENDENCY_ORDERING);
+    ImmutableSet<DependencyRequest> dependencies = binding.dependencySet();
 
     List<ClassName> importsBuilder = new ArrayList<ClassName>();
     importsBuilder.addAll(collectImportsFromDependencies(injectorClassName, dependencies));
@@ -147,20 +149,20 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
             "throw new NullPointerException(\"Cannot inject members into a null reference\")")
         .endControlFlow();
 
-    for (MembersInjectionBinding binding : bindings) {
-      Element target = binding.bindingElement();
-      switch (target.getKind()) {
+    for (InjectionSite injectionSite : binding.injectionSites()) {
+      switch (injectionSite.kind()) {
         case FIELD:
-          Name fieldName = ((VariableElement) target).getSimpleName();
-          DependencyRequest singleDependency = Iterables.getOnlyElement(binding.dependencies());
+          Name fieldName = ((VariableElement) injectionSite.element()).getSimpleName();
+          DependencyRequest singleDependency =
+              Iterables.getOnlyElement(injectionSite.dependencies());
           String providerName = providerNames.get(singleDependency.key());
           writer.emitStatement("instance.%s = %s",
               fieldName, providerUsageStatement(providerName, singleDependency.kind()));
           break;
         case METHOD:
-          Name methodName = ((ExecutableElement) target).getSimpleName();
+          Name methodName = ((ExecutableElement) injectionSite.element()).getSimpleName();
           String parameterString =
-              Joiner.on(", ").join(FluentIterable.from(binding.dependencies())
+              Joiner.on(", ").join(FluentIterable.from(injectionSite.dependencies())
                   .transform(new Function<DependencyRequest, String>() {
                     @Override public String apply(DependencyRequest input) {
                       return providerUsageStatement(providerNames.get(input.key()), input.kind());
@@ -169,7 +171,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
           writer.emitStatement("instance.%s(%s)", methodName, parameterString);
           break;
         default:
-          throw new IllegalStateException(target.getKind().toString());
+          throw new AssertionError();
       }
     }
     writer.endMethod();
@@ -210,6 +212,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjector
   }
 
   private String providerTypeString(Key key) {
-    return Util.typeToString(providerTypeRepository.getProviderType(key));
+    return Util.typeToString(types.getDeclaredType(
+        elements.getTypeElement(Provider.class.getCanonicalName()), key.type()));
   }
 }

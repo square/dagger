@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.squareup.javawriter.JavaWriter;
@@ -86,6 +88,9 @@ class SourceFiles {
         case INSTANCE:
         case PROVIDER:
           builder.add(ClassName.fromClass(Provider.class));
+          break;
+        case MEMBERS_INJECTOR:
+          builder.add(ClassName.fromClass(MembersInjector.class));
           break;
         default:
           throw new AssertionError();
@@ -196,31 +201,35 @@ class SourceFiles {
         name = new KeyVariableNamer().apply(entry.getKey()) + "Provider";
       } else {
         ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
-        switch (binding.bindingKind()) {
-          case INJECTION:
-          case PROVISION:
-            name = binding.bindingElement().accept(
-                new ElementKindVisitor6<String, Void>() {
-                  @Override
-                  public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
-                    return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
-                        e.getEnclosingElement().getSimpleName().toString());
-                  }
+        name = binding.bindingElement().accept(
+            new ElementKindVisitor6<String, Void>() {
+              @Override
+              public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+                return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                    e.getEnclosingElement().getSimpleName().toString());
+              }
 
-                  @Override
-                  public String visitExecutableAsMethod(ExecutableElement e, Void p) {
-                    return e.getSimpleName().toString();
-                  }
-                }, null) + "Provider";
-            break;
-          default:
-            throw new AssertionError();
-        }
+              @Override
+              public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+                return e.getSimpleName().toString();
+              }
+            }, null) + "Provider";
       }
       providerNames.put(entry.getKey(), name);
     }
     // return the map so that it is sorted by name
     return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
+  }
+
+  static ImmutableBiMap<Key, String> generateMembersInjectorNamesForBindings(
+      Map<Key, MembersInjectionBinding> bindings) {
+    return ImmutableBiMap.copyOf(Maps.transformValues(bindings,
+        new Function<MembersInjectionBinding, String>() {
+          @Override public String apply(MembersInjectionBinding input) {
+            return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                input.injectedType().getSimpleName().toString()) + "MembersInjector";
+          }
+        }));
   }
 
   static String providerUsageStatement(String providerName,
@@ -249,6 +258,12 @@ class SourceFiles {
       default:
         throw new AssertionError();
     }
+  }
+
+  static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
+    TypeElement injectedTypeElement = binding.injectedType();
+    ClassName injectedClassName = ClassName.fromTypeElement(injectedTypeElement);
+    return injectedClassName.peerNamed(injectedClassName.classFileName() + "$$MembersInjector");
   }
 
   private static String factoryPrefix(ProvisionBinding binding) {

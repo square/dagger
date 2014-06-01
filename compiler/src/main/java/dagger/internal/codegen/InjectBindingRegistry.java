@@ -26,28 +26,36 @@ import java.util.Map;
 import javax.inject.Inject;
 
 /**
- * Maintains the collection of provision bindings from {@link Inject} constructors known to the
- * annotation processor.
+ * Maintains the collection of provision bindings from {@link Inject} constructors and members
+ * injection bindings from {@link Inject} fields and methods known to the annotation processor.
  *
  * @author Gregory Kick
  */
 final class InjectBindingRegistry {
-  private final Map<Key, ProvisionBinding> bindingsByKey;
+  private final Map<Key, ProvisionBinding> provisionBindingsByKey;
+  private final Map<Key, MembersInjectionBinding> membersInjectionBindingsByKey;
 
   InjectBindingRegistry() {
-    this.bindingsByKey = Maps.newLinkedHashMap();
+    this.provisionBindingsByKey = Maps.newLinkedHashMap();
+    this.membersInjectionBindingsByKey = Maps.newLinkedHashMap();
   }
 
-  boolean isRegistered(Key key) {
-    return bindingsByKey.containsKey(key);
-  }
-
-  void registerBinding(ProvisionBinding binding) {
-    ProvisionBinding previousValue = bindingsByKey.put(binding.providedKey(), binding);
+  void registerProvisionBinding(ProvisionBinding binding) {
+    ProvisionBinding previousValue = provisionBindingsByKey.put(binding.providedKey(), binding);
     checkState(previousValue == null);
   }
 
-  Optional<ProvisionBinding> getBindingForKey(Key key) {
-    return Optional.fromNullable(bindingsByKey.get(checkNotNull(key)));
+  void registerMembersInjectionBinding(MembersInjectionBinding binding) {
+    MembersInjectionBinding previousValue = membersInjectionBindingsByKey.put(
+        Key.create(binding.injectedType().asType()), binding);
+    checkState(previousValue == null);
+  }
+
+  Optional<ProvisionBinding> getProvisionBindingForKey(Key key) {
+    return Optional.fromNullable(provisionBindingsByKey.get(checkNotNull(key)));
+  }
+
+  Optional<MembersInjectionBinding> getMembersInjectionBindingForKey(Key key) {
+    return Optional.fromNullable(membersInjectionBindingsByKey.get(checkNotNull(key)));
   }
 }

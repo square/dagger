@@ -16,7 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.lang.model.element.Element;
@@ -32,6 +32,8 @@ import javax.lang.model.util.SimpleElementVisitor6;
  * @author Gregory Kick
  * @since 2.0
  */
+// TODO(gak): make a decision about whether or not to bring MembersInjectionBinding under this
+// supertype or whether to just get rid of this.
 abstract class Binding {
   /** Returns the {@link Element} instance that is responsible for declaring the binding. */
   abstract Element bindingElement();
@@ -51,12 +53,8 @@ abstract class Binding {
     }, null);
   }
 
-  /**
-   * The set of {@link DependencyRequest dependencies} required to satisfy this binding. For fields
-   * this will be a single element for the field and for methods this will be an element for each of
-   * the method parameters.
-   */
-  abstract ImmutableSet<DependencyRequest> dependencies();
+  /** The list of {@link DependencyRequest dependencies} required to satisfy this binding. */
+  abstract ImmutableList<DependencyRequest> dependencies();
 
   /** Returns the {@link #dependencies()} indexed by {@link Key}. */
   ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey() {

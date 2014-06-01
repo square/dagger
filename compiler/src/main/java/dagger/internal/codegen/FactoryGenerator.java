@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.squareup.javawriter.JavaWriter.stringLiteral;
 import static com.squareup.javawriter.JavaWriter.type;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
@@ -40,22 +41,26 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.squareup.javawriter.JavaWriter;
+
 import dagger.Factory;
 import dagger.MembersInjector;
 import dagger.Provides;
+
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for
@@ -65,11 +70,13 @@ import javax.lang.model.type.TypeMirror;
  * @since 2.0
  */
 final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
-  private final ProviderTypeRepository providerTypeRepository;
+  private final Elements elements;
+  private final Types types;
 
-  FactoryGenerator(Filer filer, ProviderTypeRepository providerTypeRepository) {
+  FactoryGenerator(Filer filer, Elements elements, Types types) {
     super(filer);
-    this.providerTypeRepository = providerTypeRepository;
+    this.elements = checkNotNull(elements);
+    this.types = checkNotNull(types);
   }
 
   @Override
@@ -241,6 +248,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   }
 
   private String providerTypeString(Key key) {
-    return Util.typeToString(providerTypeRepository.getProviderType(key));
+    return Util.typeToString(types.getDeclaredType(
+        elements.getTypeElement(Provider.class.getCanonicalName()), key.type()));
   }
 }
