@@ -141,7 +141,46 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     return provideKey != null ? provideKey : membersKey;
   }
 
-  public static <T> Binding<T> create(Class<T> type, boolean mustHaveInjections) {
+  /**
+   * A factory for creating {@code ReflectiveAtInjectBinding<T>}.
+   */
+  public static class Factory<T> {
+    private final String provideKey;
+    private final String membersKey;
+    private final boolean singleton;
+    private final Class<?> type;
+    private final Field[] fields;
+    private final Constructor<T> constructor;
+    private final int parameterCount;
+    private final Class<?> supertype;
+    private final String[] keys;
+
+    private Factory(String provideKey, String membersKey, boolean singleton,
+        Class<?> type, Field[] fields, Constructor<T> constructor, int parameterCount,
+        Class<?> supertype, String[] keys) {
+      this.provideKey = provideKey;
+      this.membersKey = membersKey;
+      this.singleton = singleton;
+      this.type = type;
+      this.fields = fields;
+      this.constructor = constructor;
+      this.parameterCount = parameterCount;
+      this.supertype = supertype;
+      this.keys = keys;
+    }
+
+    public ReflectiveAtInjectBinding<T> create(boolean mustHaveInjections) {
+      if (mustHaveInjections && constructor == null && fields.length == 0) {
+        throw new InvalidBindingException(type.getName(),
+            "has no injectable members. Do you want to add an injectable constructor?");
+      }
+      return new ReflectiveAtInjectBinding<T>(provideKey, membersKey, singleton,
+          type, fields, constructor, parameterCount,
+          supertype, keys);
+    }
+  }
+
+  public static <T> Factory<T> createFactory(Class<T> type) {
     boolean singleton = type.isAnnotationPresent(Singleton.class);
     List<String> keys = new ArrayList<String>();
 
@@ -180,9 +219,6 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
           injectedConstructor = type.getDeclaredConstructor();
         } catch (NoSuchMethodException ignored) {
         }
-      } else if (mustHaveInjections) {
-        throw new InvalidBindingException(type.getName(),
-            "has no injectable members. Do you want to add an injectable constructor?");
       }
     }
 
@@ -222,7 +258,7 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     }
 
     String membersKey = Keys.getMembersKey(type);
-    return new ReflectiveAtInjectBinding<T>(provideKey, membersKey, singleton, type,
+    return new Factory<T>(provideKey, membersKey, singleton, type,
         injectedFields.toArray(new Field[injectedFields.size()]), injectedConstructor,
         parameterCount, supertype, keys.toArray(new String[keys.size()]));
   }

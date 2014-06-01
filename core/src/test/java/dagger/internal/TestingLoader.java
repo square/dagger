@@ -37,7 +37,7 @@ public final class TestingLoader extends Loader {
       if (type.isInterface()) {
         return null; // Short-circuit since we can't build reflective bindings for interfaces.
       }
-      return ReflectiveAtInjectBinding.create(type, mustHaveInjections);
+      return ReflectiveAtInjectBinding.createFactory(type).create(mustHaveInjections);
     } catch (ClassNotFoundException e) {
       throw new TypeNotPresentException(
           String.format("Could not find %s needed for binding %s", className, key), e);
