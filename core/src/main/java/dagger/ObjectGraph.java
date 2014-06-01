@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 
 /**
@@ -130,8 +129,15 @@ public abstract class ObjectGraph {
     return DaggerObjectGraph.makeGraph(null, new FailoverLoader(), modules);
   }
 
-  // visible for testing
-  static ObjectGraph createWith(Loader loader, Object... modules) {
+  /**
+   * Load the graph with a custom loading strategy.  If you're not using this to work around
+   * proguard obfuscation, then use {@link #create(Object...)}
+   *
+   * @deprecated Recreated for reflective use of Dagger in the obfuscation case, and will be
+   *     entirely obsolete in Dagger 2.0.
+   */
+  @Deprecated
+  public static ObjectGraph createWith(Loader loader, Object... modules) {
     return DaggerObjectGraph.makeGraph(null, loader, modules);
   }
 
