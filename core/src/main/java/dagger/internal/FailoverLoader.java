@@ -19,6 +19,7 @@ package dagger.internal;
 import dagger.internal.loaders.ReflectiveAtInjectBinding;
 import dagger.internal.loaders.ReflectiveStaticInjection;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.GeneratedAdapters.MODULE_ADAPTER_SUFFIX;
@@ -112,7 +113,17 @@ public final class FailoverLoader extends Loader {
     if (info.adapterConstructor != null) {
       try {
         return info.adapterConstructor.newInstance();
-      } catch (ReflectiveOperationException e) {
+        // Duplicated catch statements becase: android.
+      } catch (InstantiationException e) {
+        throw new IllegalStateException(
+            "Could not create an instance of the inject adapter for class " + className, e);
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException(
+            "Could not create an instance of the inject adapter for class " + className, e);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalStateException(
+            "Could not create an instance of the inject adapter for class " + className, e);
+      } catch (InvocationTargetException e) {
         throw new IllegalStateException(
             "Could not create an instance of the inject adapter for class " + className, e);
       }
