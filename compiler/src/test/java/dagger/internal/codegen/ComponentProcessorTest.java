@@ -303,4 +303,70 @@ public class ComponentProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
+
+  @Test public void membersInjection() {
+    JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class SomeInjectableType {",
+        "  @Inject SomeInjectableType() {}",
+        "}");
+    JavaFileObject injectedTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectedType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class SomeInjectedType {",
+        "  @Inject SomeInjectableType injectedField;",
+        "  SomeInjectedType() {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent {",
+        "  void inject(SomeInjectedType instance);",
+        "  SomeInjectedType injectAndReturn(SomeInjectedType instance);",
+        "}");
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_SimpleComponent implements SimpleComponent {",
+        "  private final Provider<SomeInjectableType> someInjectableTypeProvider;",
+        "  private final MembersInjector<SomeInjectedType> someInjectedTypeMembersInjector;",
+        "",
+        "  public Dagger_SimpleComponent() {",
+        "    this.someInjectableTypeProvider = new SomeInjectableType$$Factory();",
+        "    this.someInjectedTypeMembersInjector = ",
+        "        new SomeInjectedType$$MembersInjector(someInjectableTypeProvider);",
+        "  }",
+        "",
+        "  @Override public void inject(SomeInjectedType instance) {",
+        "    someInjectedTypeMembersInjector.injectMembers(instance);",
+        "  }",
+        "",
+        "  @Override public SomeInjectedType injectAndReturn(SomeInjectedType instance) {",
+        "    someInjectedTypeMembersInjector.injectMembers(instance);",
+        "    return instance;",
+        "  }",
+        "}");
+    ASSERT.about(javaSources())
+        .that(ImmutableList.of(injectableTypeFile, injectedTypeFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(generatedComponent);
+  }
 }

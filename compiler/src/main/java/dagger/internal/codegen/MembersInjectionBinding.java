@@ -17,80 +17,136 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.lang.model.element.ElementKind.FIELD;
-import static javax.lang.model.element.ElementKind.METHOD;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
+import java.util.List;
+
 import javax.inject.Inject;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 /**
- * A value object representing a binding for an {@link Inject} annotation on a member (as opposed to
- * a constructor). New instances should be created using an instance of the {@link Factory}.
+ * Represents the full members injection of a particular type. This does not pay attention to
+ * injected members on supertypes.
  *
  * @author Gregory Kick
  * @since 2.0
  */
 @AutoValue
-abstract class MembersInjectionBinding extends Binding {
+abstract class MembersInjectionBinding {
   /**
-   * Returns an {@link Ordering} suitable for sorting bindings into an ordering that abides by the
-   * injection ordering specified in {@link Inject}. This ordering should not be used with bindings
-   * from different {@link #bindingTypeElement() types}.
+   * Creates a {@link MembersInjectionBinding} for the given bindings.
+   *
+   * @throws IllegalArgumentException if the bindings are not all associated with the same type.
    */
-  static Ordering<MembersInjectionBinding> injectionOrdering() {
-    return INJECTION_ORDERING;
+  static MembersInjectionBinding create(Iterable<InjectionSite> injectionSites) {
+    ImmutableSortedSet<InjectionSite> injectionSiteSet =
+        ImmutableSortedSet.copyOf(INJECTION_ORDERING, injectionSites);
+    TypeElement injectedTypeElement = Iterables.getOnlyElement(FluentIterable.from(injectionSiteSet)
+        .transform(new Function<InjectionSite, TypeElement>() {
+          @Override public TypeElement apply(InjectionSite injectionSite) {
+            return MoreElements.asType(injectionSite.element().getEnclosingElement());
+          }
+        })
+        .toSet());
+    return new AutoValue_MembersInjectionBinding(injectedTypeElement, injectionSiteSet);
   }
 
-  private static final Ordering<MembersInjectionBinding> INJECTION_ORDERING =
-      new Ordering<MembersInjectionBinding>() {
+  /** The type on which members are injected. */
+  abstract TypeElement injectedType();
+
+  /** The set of individual sites where {@link Inject} is applied. */
+  abstract ImmutableSortedSet<InjectionSite> injectionSites();
+
+  /** The total set of dependencies required by all injection sites. */
+  final ImmutableSet<DependencyRequest> dependencySet() {
+    return FluentIterable.from(injectionSites())
+        .transformAndConcat(new Function<InjectionSite, List<DependencyRequest>>() {
+          @Override public List<DependencyRequest> apply(InjectionSite input) {
+            return input.dependencies();
+          }
+        })
+        .toSet();
+  }
+
+  ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey() {
+    ImmutableSetMultimap.Builder<Key, DependencyRequest> builder = ImmutableSetMultimap.builder();
+    for (DependencyRequest dependency : dependencySet()) {
+      builder.put(dependency.key(), dependency);
+    }
+    return builder.build();
+  }
+
+  private static final Ordering<InjectionSite> INJECTION_ORDERING =
+      new Ordering<InjectionSite>() {
         @Override
-        public int compare(MembersInjectionBinding left, MembersInjectionBinding right) {
+        public int compare(InjectionSite left, InjectionSite right) {
+          checkArgument(left.element().getEnclosingElement()
+              .equals(right.element().getEnclosingElement()));
           return ComparisonChain.start()
               // fields before methods
-              .compare(left.bindingElement().getKind(), right.bindingElement().getKind())
+              .compare(left.element().getKind(), right.element().getKind())
               // then sort by whichever element comes first in the parent
               // this isn't necessary, but makes the processor nice and predictable
               .compare(targetIndexInEnclosing(left), targetIndexInEnclosing(right))
               .result();
         }
+
+        private int targetIndexInEnclosing(InjectionSite injectionSite)  {
+          return injectionSite.element().getEnclosingElement().getEnclosedElements()
+              .indexOf(injectionSite.element());
+        }
       };
 
-  private static int targetIndexInEnclosing(MembersInjectionBinding binding)  {
-    return binding.bindingTypeElement().getEnclosedElements().indexOf(binding.bindingElement());
-  }
-
-  /**
-   * A factory for creating {@link MembersInjectionBinding} instances.
-   */
-  static final class Factory {
-    private final DependencyRequest.Factory dependencyRequestFactory;
-
-    Factory(DependencyRequest.Factory dependencyRequestFactory) {
-      this.dependencyRequestFactory = checkNotNull(dependencyRequestFactory);
+  @AutoValue
+  abstract static class InjectionSite {
+    enum Kind {
+      FIELD,
+      METHOD,
     }
 
-    /** Returns the method injection binding for a method annotated with {@link Inject}. */
-    MembersInjectionBinding forInjectMethod(ExecutableElement methodElement) {
-      checkNotNull(methodElement);
-      checkArgument(methodElement.getKind().equals(METHOD));
-      checkArgument(methodElement.getAnnotation(Inject.class) != null);
-      return new AutoValue_MembersInjectionBinding(methodElement,
-          dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
-    }
+    abstract Kind kind();
 
-    /** Returns the field injection binding for a field annotated with {@link Inject}. */
-    MembersInjectionBinding forInjectField(VariableElement fieldElement) {
-      checkNotNull(fieldElement);
-      checkArgument(fieldElement.getKind().equals(FIELD));
-      checkArgument(fieldElement.getAnnotation(Inject.class) != null);
-      return new AutoValue_MembersInjectionBinding(fieldElement,
-          ImmutableSet.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
+    abstract Element element();
+
+    abstract ImmutableList<DependencyRequest> dependencies();
+
+    static final class Factory {
+      private final DependencyRequest.Factory dependencyRequestFactory;
+
+      Factory(DependencyRequest.Factory dependencyRequestFactory) {
+        this.dependencyRequestFactory = checkNotNull(dependencyRequestFactory);
+      }
+
+      InjectionSite forInjectMethod(ExecutableElement methodElement) {
+        checkNotNull(methodElement);
+        checkArgument(methodElement.getKind().equals(ElementKind.METHOD));
+        checkArgument(methodElement.getAnnotation(Inject.class) != null);
+        return new AutoValue_MembersInjectionBinding_InjectionSite(Kind.METHOD, methodElement,
+            dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
+      }
+
+      InjectionSite forInjectField(VariableElement fieldElement) {
+        checkNotNull(fieldElement);
+        checkArgument(fieldElement.getKind().equals(ElementKind.FIELD));
+        checkArgument(fieldElement.getAnnotation(Inject.class) != null);
+        return new AutoValue_MembersInjectionBinding_InjectionSite(Kind.FIELD, fieldElement,
+            ImmutableList.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
+      }
     }
   }
 }

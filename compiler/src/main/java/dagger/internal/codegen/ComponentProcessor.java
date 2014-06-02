@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
 
 import java.util.Set;
 
@@ -75,7 +76,6 @@ public final class ComponentProcessor extends AbstractProcessor {
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator = new ComponentValidator(elements);
 
-    ProviderTypeRepository providerTypeRepository = new ProviderTypeRepository(elements, types);
     InjectBindingRegistry injectBindingRegistry = new InjectBindingRegistry();
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
@@ -83,16 +83,16 @@ public final class ComponentProcessor extends AbstractProcessor {
         new DependencyRequest.Factory(elements, types);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(keyFactory, dependencyRequestFactory);
-    MembersInjectionBinding.Factory methodInjectionBindingFactory =
-        new MembersInjectionBinding.Factory(dependencyRequestFactory);
+    InjectionSite.Factory injectionSiteFactory =
+        new InjectionSite.Factory(dependencyRequestFactory);
     ComponentDescriptor.Factory componentDescriptorFactory =
         new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
             provisionBindingFactory, dependencyRequestFactory);
 
-    FactoryGenerator factoryGenerator = new FactoryGenerator(filer, providerTypeRepository);
+    FactoryGenerator factoryGenerator = new FactoryGenerator(filer, elements, types);
     MembersInjectorGenerator membersInjectorGenerator =
-        new MembersInjectorGenerator(filer, providerTypeRepository);
-    ComponentGenerator componentGenerator = new ComponentGenerator(filer, providerTypeRepository);
+        new MembersInjectorGenerator(filer, elements, types);
+    ComponentGenerator componentGenerator = new ComponentGenerator(filer, elements, types);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new InjectProcessingStep(
@@ -102,7 +102,7 @@ public final class ComponentProcessor extends AbstractProcessor {
             injectMethodValidator,
             provisionBindingFactory,
             factoryGenerator,
-            methodInjectionBindingFactory,
+            injectionSiteFactory,
             membersInjectorGenerator,
             injectBindingRegistry),
         new ModuleProcesssingStep(

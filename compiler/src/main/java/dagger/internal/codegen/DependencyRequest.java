@@ -22,7 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import dagger.Lazy;
@@ -60,6 +60,8 @@ abstract class DependencyRequest {
     PROVIDER,
     /** A request for a {@link Lazy}.  E.g.: {@code Lazy<Blah>} */
     LAZY,
+    /** A request for a {@link MembersInjector}.  E.g.: {@code MembersInjector<Blah>} */
+    MEMBERS_INJECTOR,
   }
 
   abstract Kind kind();
@@ -75,7 +77,7 @@ abstract class DependencyRequest {
       this.types = types;
     }
 
-    ImmutableSet<DependencyRequest> forRequiredVariables(
+    ImmutableList<DependencyRequest> forRequiredVariables(
         List<? extends VariableElement> variables) {
       return FluentIterable.from(variables)
           .transform(new Function<VariableElement, DependencyRequest>() {
@@ -83,7 +85,7 @@ abstract class DependencyRequest {
               return forRequiredVariable(input);
             }
           })
-          .toSet();
+          .toList();
     }
 
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
@@ -102,14 +104,13 @@ abstract class DependencyRequest {
 
     DependencyRequest forComponentMembersInjectionMethod(ExecutableElement membersInjectionMethod) {
       checkNotNull(membersInjectionMethod);
-      DeclaredType membersInjectorType = types.getDeclaredType(
-          elements.getTypeElement(MembersInjector.class.getCanonicalName()),
-          Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType());
-      // this is where we need to wrap it in a MembersInjector
       Optional<AnnotationMirror> qualifier =
           InjectionAnnotations.getQualifier(membersInjectionMethod);
       checkArgument(!qualifier.isPresent());
-      return newDependencyRequest(membersInjectionMethod, membersInjectorType, qualifier);
+      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+          Key.create(qualifier,
+              Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
+          membersInjectionMethod);
     }
 
     private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,
@@ -125,6 +126,13 @@ abstract class DependencyRequest {
         DeclaredType lazyType = (DeclaredType) type;
         return new AutoValue_DependencyRequest(Kind.LAZY,
             Key.create(qualifier, Iterables.getOnlyElement(lazyType.getTypeArguments())),
+            requestElement);
+      } else if (elements.getTypeElement(MembersInjector.class.getCanonicalName())
+          .equals(types.asElement(type))) {
+        checkArgument(!qualifier.isPresent());
+        DeclaredType membersInjectorType = (DeclaredType) type;
+        return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+            Key.create(qualifier, Iterables.getOnlyElement(membersInjectorType.getTypeArguments())),
             requestElement);
       } else {
         return new AutoValue_DependencyRequest(Kind.INSTANCE, Key.create(qualifier, type),
