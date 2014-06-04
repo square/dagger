@@ -142,8 +142,13 @@ abstract class ComponentDescriptor {
           ConfigurationAnnotations.getComponentModules(elements, componentMirror));
       ImmutableSet<TypeElement> transitiveModules = getTransitiveModules(moduleTypes);
 
+      ProvisionBinding componentBinding =
+          provisionBindingFactory.forComponent(componentDefinitionType);
+
       ImmutableSetMultimap.Builder<Key, ProvisionBinding> bindingIndexBuilder =
-          ImmutableSetMultimap.builder();
+          new ImmutableSetMultimap.Builder<Key, ProvisionBinding>()
+              .put(componentBinding.providedKey(), componentBinding);
+
 
       for (TypeElement module : transitiveModules) {
         // traverse the modules, collect the bindings
@@ -222,7 +227,7 @@ abstract class ComponentDescriptor {
                 // TODO(gak): support this
                 throw new UnsupportedOperationException(
                     "@Injected classes that weren't run with the compoenent processor are "
-                    + "(briefly) unsupported: " + key);
+                        + "(briefly) unsupported: " + key);
               }
             } else {
               resolvedProvisionBindings.putAll(key, explicitBindingsForKey);

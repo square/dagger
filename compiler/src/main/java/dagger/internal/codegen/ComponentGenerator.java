@@ -21,6 +21,7 @@ import static com.squareup.javawriter.JavaWriter.stringLiteral;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
+import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
@@ -56,6 +57,7 @@ import com.squareup.javawriter.JavaWriter;
 
 import dagger.Component;
 import dagger.MembersInjector;
+import dagger.internal.InstanceFactory;
 import dagger.internal.SetFactory;
 
 import java.io.IOException;
@@ -164,6 +166,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             .add(ClassName.fromClass(Generated.class))
             .add(ClassName.fromClass(Provider.class));
     for (ProvisionBinding binding : bindings) {
+      if (binding.bindingKind().equals(COMPONENT)) {
+        importsBuilder.add(ClassName.fromClass(InstanceFactory.class));
+      }
       if (binding.provisionType().equals(SET) || binding.provisionType().equals(SET_VALUES)) {
         importsBuilder.add(ClassName.fromClass(SetFactory.class));
       }
@@ -274,15 +279,20 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       ImmutableBiMap<TypeElement, String> moduleNames,
       ImmutableBiMap<Key, String> providerNames,
       ImmutableBiMap<Key, String> membersInjectorNames) {
-    List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-    if (binding.bindingKind().equals(PROVISION)) {
-      parameters.add(moduleNames.get(binding.bindingTypeElement()));
+    if (binding.bindingKind().equals(COMPONENT)) {
+      return String.format("InstanceFactory.<%s>create(this)",
+          writer.compressType(Util.typeToString(binding.providedKey().type())));
+    } else {
+      List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
+      if (binding.bindingKind().equals(PROVISION)) {
+        parameters.add(moduleNames.get(binding.bindingTypeElement()));
+      }
+      parameters.addAll(
+          getDependencyParameters(binding.dependencies(), providerNames, membersInjectorNames));
+      return String.format("new %s(%s)",
+          writer.compressType(factoryNameForProvisionBinding(binding).toString()),
+          Joiner.on(", ").join(parameters));
     }
-    parameters.addAll(
-        getDependencyParameters(binding.dependencies(), providerNames, membersInjectorNames));
-    return String.format("new %s(%s)",
-        writer.compressType(factoryNameForProvisionBinding(binding).toString()),
-        Joiner.on(", ").join(parameters));
   }
 
   private static String initializeMembersInjectorForBinding(JavaWriter writer,

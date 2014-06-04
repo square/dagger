@@ -369,4 +369,54 @@ public class ComponentProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
+
+  @Test public void componentInjection() {
+    JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class SomeInjectableType {",
+        "  @Inject SomeInjectableType(SimpleComponent component) {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent {",
+        "  SomeInjectableType someInjectableType();",
+        "}");
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.internal.InstanceFactory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_SimpleComponent implements SimpleComponent {",
+        "  private final Provider<SimpleComponent> simpleComponentProvider;",
+        "  private final Provider<SomeInjectableType> someInjectableTypeProvider;",
+        "",
+        "  public Dagger_SimpleComponent() {",
+        "    this.simpleComponentProvider = InstanceFactory.<SimpleComponent>create(this);",
+        "    this.someInjectableTypeProvider =",
+        "        new SomeInjectableType$$Factory(simpleComponentProvider);",
+        "  }",
+        "",
+        "  @Override public SomeInjectableType someInjectableType() {",
+        "    return someInjectableTypeProvider.get();",
+        "  }",
+        "}");
+    ASSERT.about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(generatedComponent);
+  }
 }

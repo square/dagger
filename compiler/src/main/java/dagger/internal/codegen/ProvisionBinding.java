@@ -28,9 +28,11 @@ import static javax.lang.model.element.ElementKind.METHOD;
 import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import dagger.Component;
 import dagger.Provides;
 
 import java.util.Iterator;
@@ -56,6 +58,8 @@ abstract class ProvisionBinding extends Binding {
     INJECTION,
     /** Represents a binding configured by {@link Provides}. */
     PROVISION,
+    /** Represents the implicit binding to the component. */
+    COMPONENT,
   }
 
   /**
@@ -148,6 +152,20 @@ abstract class ProvisionBinding extends Binding {
           providesAnnotation.type(),
           keyFactory.forProvidesMethod(providesMethod),
           getScopeAnnotation(providesMethod),
+          false);
+    }
+
+    ProvisionBinding forComponent(TypeElement componentDefinitionType) {
+      checkNotNull(componentDefinitionType);
+      Component componentAnnotation = componentDefinitionType.getAnnotation(Component.class);
+      checkArgument(componentAnnotation != null);
+      return new AutoValue_ProvisionBinding(
+          componentDefinitionType,
+          ImmutableList.<DependencyRequest>of(),
+          Kind.COMPONENT,
+          Provides.Type.UNIQUE,
+          Key.create(componentDefinitionType.asType()),
+          Optional.<AnnotationMirror>absent(),
           false);
     }
   }

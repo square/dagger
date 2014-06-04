@@ -205,13 +205,18 @@ class SourceFiles {
             new ElementKindVisitor6<String, Void>() {
               @Override
               public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
-                return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
-                    e.getEnclosingElement().getSimpleName().toString());
+                return e.getEnclosingElement().accept(this, null);
               }
 
               @Override
               public String visitExecutableAsMethod(ExecutableElement e, Void p) {
                 return e.getSimpleName().toString();
+              }
+
+              @Override
+              public String visitType(TypeElement e, Void p) {
+                return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                    e.getSimpleName().toString());
               }
             }, null) + "Provider";
       }
