@@ -146,6 +146,69 @@ public class ComponentProcessorTest {
         .and().generatesSources(generatedComponent);
   }
 
+  @Test public void componentWithScope() {
+    JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Singleton",
+        "final class SomeInjectableType {",
+        "  @Inject SomeInjectableType() {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "import javax.inject.Provider;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Singleton",
+        "@Component",
+        "interface SimpleComponent {",
+        "  SomeInjectableType someInjectableType();",
+        "  Lazy<SomeInjectableType> lazySomeInjectableType();",
+        "  Provider<SomeInjectableType> someInjectableTypeProvider();",
+        "}");
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Lazy;",
+        "import dagger.internal.DoubleCheckLazy;",
+        "import dagger.internal.ScopedProvider;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_SimpleComponent implements SimpleComponent {",
+        "  private final Provider<SomeInjectableType> someInjectableTypeProvider;",
+        "",
+        "  public Dagger_SimpleComponent() {",
+        "    this.someInjectableTypeProvider =",
+        "        ScopedProvider.create(new SomeInjectableType$$Factory());",
+        "  }",
+        "",
+        "  @Override public SomeInjectableType someInjectableType() {",
+        "    return someInjectableTypeProvider.get();",
+        "  }",
+        "",
+        "  @Override public Lazy<SomeInjectableType> lazySomeInjectableType() {",
+        "    return DoubleCheckLazy.create(someInjectableTypeProvider);",
+        "  }",
+        "",
+        "  @Override public Provider<SomeInjectableType> someInjectableTypeProvider() {",
+        "    return someInjectableTypeProvider;",
+        "  }",
+        "}");
+    ASSERT.about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(generatedComponent);
+  }
+
   @Test public void componentWithModule() {
     JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
         "package test;",

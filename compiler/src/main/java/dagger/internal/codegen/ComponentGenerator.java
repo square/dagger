@@ -58,6 +58,7 @@ import com.squareup.javawriter.JavaWriter;
 import dagger.Component;
 import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
+import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 
 import java.io.IOException;
@@ -166,6 +167,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             .add(ClassName.fromClass(Generated.class))
             .add(ClassName.fromClass(Provider.class));
     for (ProvisionBinding binding : bindings) {
+      if (binding.scope().isPresent()) {
+        importsBuilder.add(ClassName.fromClass(ScopedProvider.class));
+      }
       if (binding.bindingKind().equals(COMPONENT)) {
         importsBuilder.add(ClassName.fromClass(InstanceFactory.class));
       }
@@ -289,7 +293,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
       parameters.addAll(
           getDependencyParameters(binding.dependencies(), providerNames, membersInjectorNames));
-      return String.format("new %s(%s)",
+      return String.format(
+          binding.scope().isPresent() ? "ScopedProvider.create(new %s(%s))" : "new %s(%s)",
           writer.compressType(factoryNameForProvisionBinding(binding).toString()),
           Joiner.on(", ").join(parameters));
     }
