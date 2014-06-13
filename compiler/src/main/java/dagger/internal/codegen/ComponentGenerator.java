@@ -176,6 +176,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       if (binding.provisionType().equals(SET) || binding.provisionType().equals(SET_VALUES)) {
         importsBuilder.add(ClassName.fromClass(SetFactory.class));
       }
+      if (binding.requiresMemberInjection()) {
+        importsBuilder.add(ClassName.fromClass(MembersInjector.class));
+      }
       for (TypeElement referencedType : MoreTypes.referencedTypes(binding.providedKey().type())) {
         ClassName className = ClassName.fromTypeElement(referencedType);
         if (!className.packageName().equals("java.lang")
@@ -290,6 +293,15 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
       if (binding.bindingKind().equals(PROVISION)) {
         parameters.add(moduleNames.get(binding.bindingTypeElement()));
+      }
+      if (binding.requiresMemberInjection()) {
+        String membersInjectorName =
+            membersInjectorNames.get(Key.create(binding.providedKey().type()));
+        if (membersInjectorName != null) {
+          parameters.add(membersInjectorName);
+        } else {
+	    throw new UnsupportedOperationException("Non-generated MembersInjector");
+        }
       }
       parameters.addAll(
           getDependencyParameters(binding.dependencies(), providerNames, membersInjectorNames));

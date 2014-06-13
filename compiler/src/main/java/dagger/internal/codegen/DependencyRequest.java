@@ -113,6 +113,11 @@ abstract class DependencyRequest {
           membersInjectionMethod);
     }
 
+    DependencyRequest forMembersInjectedType(TypeMirror type) {
+      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR, Key.create(type),
+          types.asElement(type));
+    }
+
     private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,
         Optional<AnnotationMirror> qualifier) {
       if (elements.getTypeElement(Provider.class.getCanonicalName())
