@@ -15,6 +15,49 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.squareup.javawriter.JavaWriter;
+import dagger.Component;
+import dagger.MembersInjector;
+import dagger.internal.InstanceFactory;
+import dagger.internal.ScopedProvider;
+import dagger.internal.SetFactory;
+import java.io.IOException;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import javax.annotation.Generated;
+import javax.annotation.processing.Filer;
+import javax.inject.Provider;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.squareup.javawriter.JavaWriter.stringLiteral;
@@ -36,51 +79,6 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.type.TypeKind.VOID;
 
-import com.google.common.base.CaseFormat;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.squareup.javawriter.JavaWriter;
-
-import dagger.Component;
-import dagger.MembersInjector;
-import dagger.internal.InstanceFactory;
-import dagger.internal.ScopedProvider;
-import dagger.internal.SetFactory;
-
-import java.io.IOException;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
-import javax.annotation.Generated;
-import javax.annotation.processing.Filer;
-import javax.inject.Provider;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
-
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
  *
@@ -90,11 +88,13 @@ import javax.lang.model.util.Types;
 final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> {
   private final Elements elements;
   private final Types types;
+  private final Key.Factory keyFactory;
 
-  ComponentGenerator(Filer filer, Elements elements, Types types) {
+  ComponentGenerator(Filer filer, Elements elements, Types types, Key.Factory keyFactory) {
     super(filer);
     this.elements = checkNotNull(elements);
     this.types = checkNotNull(types);
+    this.keyFactory = keyFactory;
   }
 
   @Override
@@ -175,6 +175,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
       if (binding.provisionType().equals(SET) || binding.provisionType().equals(SET_VALUES)) {
         importsBuilder.add(ClassName.fromClass(SetFactory.class));
+      }
+      if (binding.requiresMemberInjection()) {
+        importsBuilder.add(ClassName.fromClass(MembersInjector.class));
       }
       for (TypeElement referencedType : MoreTypes.referencedTypes(binding.providedKey().type())) {
         ClassName className = ClassName.fromTypeElement(referencedType);
@@ -279,7 +282,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     writer.endConstructor().emitEmptyLine();
   }
 
-  private static String initializeFactoryForBinding(JavaWriter writer, ProvisionBinding binding,
+  private String initializeFactoryForBinding(JavaWriter writer, ProvisionBinding binding,
       ImmutableBiMap<TypeElement, String> moduleNames,
       ImmutableBiMap<Key, String> providerNames,
       ImmutableBiMap<Key, String> membersInjectorNames) {
@@ -290,6 +293,15 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
       if (binding.bindingKind().equals(PROVISION)) {
         parameters.add(moduleNames.get(binding.bindingTypeElement()));
+      }
+      if (binding.requiresMemberInjection()) {
+        String membersInjectorName =
+            membersInjectorNames.get(keyFactory.forType(binding.providedKey().type()));
+        if (membersInjectorName != null) {
+          parameters.add(membersInjectorName);
+        } else {
+	    throw new UnsupportedOperationException("Non-generated MembersInjector");
+        }
       }
       parameters.addAll(
           getDependencyParameters(binding.dependencies(), providerNames, membersInjectorNames));
@@ -352,9 +364,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
   private JavaWriter beginMethodOverride(JavaWriter writer, ExecutableElement methodElement)
       throws IOException {
-    String returnTypeString = methodElement.getReturnType().getKind().equals(VOID)
-        ? "void"
-        : writer.compressType(Util.typeToString(methodElement.getReturnType()));
+    String returnTypeString = writer.compressType(returnTypeString(methodElement.getReturnType()));
     String methodName = methodElement.getSimpleName().toString();
     Set<Modifier> modifiers = Sets.difference(methodElement.getModifiers(), EnumSet.of(ABSTRACT));
     ImmutableList.Builder<String> parametersBuilder = ImmutableList.builder();
@@ -373,6 +383,18 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             modifiers,
             parametersBuilder.build(),
             thrownTypesBuilder.build());
+  }
+
+  private String returnTypeString(TypeMirror returnType) {
+    TypeKind returnTypeKind = returnType.getKind();
+    if (returnTypeKind.equals(VOID)) {
+      return "void";
+    } else if (returnTypeKind.isPrimitive()) {
+      // TypeMirrors don't have names but PrimitiveType#toString() reflects the simple type name.
+      return returnType.toString();
+    }
+    // Util.typeToString() does boxing, so cannot be used for primitive types.
+    return Util.typeToString(returnType);
   }
 
   private String providerTypeString(Key key) {

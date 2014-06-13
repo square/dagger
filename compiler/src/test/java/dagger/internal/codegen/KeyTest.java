@@ -15,18 +15,12 @@
  */
 package dagger.internal.codegen;
 
-import static dagger.Provides.Type.SET;
-import static dagger.Provides.Type.SET_VALUES;
-import static org.truth0.Truth.ASSERT;
-
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
-
 import dagger.Module;
 import dagger.Provides;
-
+import java.util.List;
 import java.util.Set;
-
 import javax.inject.Inject;
 import javax.inject.Qualifier;
 import javax.lang.model.element.ExecutableElement;
@@ -36,12 +30,15 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import static dagger.Provides.Type.SET;
+import static dagger.Provides.Type.SET_VALUES;
+import static org.truth0.Truth.ASSERT;
 
 /**
  * Tests {@link Key}.
@@ -50,10 +47,14 @@ import org.junit.runners.JUnit4;
 public class KeyTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
+  private Elements elements;
+  private Types types;
   private Key.Factory keyFactory;
 
   @Before public void setUp() {
-    this.keyFactory = new Key.Factory(compilationRule.getTypes(), compilationRule.getElements());
+    this.elements = compilationRule.getElements();
+    this.types = compilationRule.getTypes();
+    this.keyFactory = new Key.Factory(types, elements);
   }
 
   @Test public void forInjectConstructor() {
@@ -62,7 +63,7 @@ public class KeyTest {
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
     ASSERT.that(keyFactory.forInjectConstructor(constructor))
-        .isEqualTo(Key.create(typeElement.asType()));
+        .isEqualTo(keyFactory.forType(typeElement.asType()));
   }
 
   static final class InjectedClass {
@@ -71,13 +72,13 @@ public class KeyTest {
   }
 
   @Test public void forProvidesMethod() {
-    Elements elements = compilationRule.getElements();
     TypeMirror stringType = elements.getTypeElement(String.class.getCanonicalName()).asType();
     TypeElement moduleElement =
         elements.getTypeElement(ProvidesMethodModule.class.getCanonicalName());
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
-    ASSERT.that(keyFactory.forProvidesMethod(providesMethod)).isEqualTo(Key.create(stringType));
+    ASSERT.that(keyFactory.forProvidesMethod(providesMethod))
+        .isEqualTo(keyFactory.forType(stringType));
   }
 
   @Module(library = true)
@@ -88,7 +89,6 @@ public class KeyTest {
   }
 
   @Test public void forProvidesMethod_qualified() {
-    Elements elements = compilationRule.getElements();
     TypeMirror stringType = elements.getTypeElement(String.class.getCanonicalName()).asType();
     TypeElement qualifierElement =
         elements.getTypeElement(TestQualifier.class.getCanonicalName());
@@ -113,8 +113,6 @@ public class KeyTest {
   @interface TestQualifier {}
 
   @Test public void forProvidesMethod_sets() {
-    Elements elements = compilationRule.getElements();
-    Types types = compilationRule.getTypes();
     TypeElement setElement = elements.getTypeElement(Set.class.getCanonicalName());
     TypeMirror stringType = elements.getTypeElement(String.class.getCanonicalName()).asType();
     DeclaredType setOfStringsType = types.getDeclaredType(setElement, stringType);
@@ -123,7 +121,7 @@ public class KeyTest {
     for (ExecutableElement providesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
       ASSERT.that(keyFactory.forProvidesMethod(providesMethod))
-          .isEqualTo(Key.create(setOfStringsType));
+          .isEqualTo(keyFactory.forType(setOfStringsType));
     }
   }
 
@@ -136,5 +134,26 @@ public class KeyTest {
     @Provides(type = SET_VALUES) Set<String> provideStrings() {
       return null;
     }
+  }
+
+  interface PrimitiveTypes {
+    int foo();
+    Integer bar();
+  }
+
+  @Test public void primitiveKeysMatchBoxedKeys() {
+    TypeElement holder = elements.getTypeElement(PrimitiveTypes.class.getCanonicalName());
+    List<ExecutableElement> methods = (List<ExecutableElement>) holder.getEnclosedElements();
+
+    // TODO(cgruber): Truth subject for TypeMirror and TypeElement
+    TypeMirror intType = methods.get(0).getReturnType();
+    ASSERT.that(intType.getKind().isPrimitive()).isTrue();
+    TypeMirror integerType = methods.get(1).getReturnType();
+    ASSERT.that(integerType.getKind().isPrimitive()).isFalse();
+    ASSERT.that(types.isSameType(intType, integerType)).named("type equality").isFalse();
+
+    Key intKey = keyFactory.forType(intType);
+    Key integerKey = keyFactory.forType(integerType);
+    ASSERT.that(intKey).isEqualTo(integerKey);
   }
 }

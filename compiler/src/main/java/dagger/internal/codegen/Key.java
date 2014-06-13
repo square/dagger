@@ -15,31 +15,29 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import dagger.Provides;
+import java.util.Set;
+import javax.inject.Qualifier;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.METHOD;
 import static javax.lang.model.type.TypeKind.DECLARED;
-
-import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-
-import dagger.Provides;
-
-import java.util.Set;
-
-import javax.inject.Qualifier;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /**
  * Represents a unique combination of {@linkplain TypeMirror type} and
@@ -49,11 +47,17 @@ import javax.lang.model.util.Types;
  */
 @AutoValue
 abstract class Key {
+  /**
+   * A {@link javax.inject.Qualifier} annotation that provides a unique namespace prefix
+   * for the type of this key.
+   */
   abstract Optional<AnnotationMirror> qualifier();
 
   /**
+   * The type represented by this key.
+   *
    * As documented in {@link TypeMirror}, equals and hashCode aren't implemented to represent
-   * logical equality, so we use {@link MoreTypes#equivalence()} for this object.
+   * logical equality, so {@link MoreTypes#equivalence()} wraps this type.
    */
   abstract Equivalence.Wrapper<TypeMirror> wrappedType();
 
@@ -70,15 +74,6 @@ abstract class Key {
         .toString();
   }
 
-  static Key create(TypeMirror type) {
-    return new AutoValue_Key(Optional.<AnnotationMirror>absent(),
-        MoreTypes.equivalence().wrap(type));
-  }
-
-  static Key create(Optional<AnnotationMirror> qualifier, TypeMirror type) {
-    return new AutoValue_Key(qualifier, MoreTypes.equivalence().wrap(type));
-  }
-
   static final class Factory {
     private final Types types;
     private final Elements elements;
@@ -90,7 +85,7 @@ abstract class Key {
 
     private TypeMirror normalize(TypeMirror type) {
       TypeKind kind = type.getKind();
-      return kind.isPrimitive() ? types.getPrimitiveType(kind) : type;
+      return kind.isPrimitive() ? types.boxedClass((PrimitiveType) type).asType() : type;
     }
 
     private TypeElement getSetElement() {
@@ -128,6 +123,15 @@ abstract class Key {
       TypeMirror type = e.getEnclosingElement().asType();
       return new AutoValue_Key(Optional.<AnnotationMirror>absent(),
           MoreTypes.equivalence().wrap(type));
+    }
+
+    Key forType(TypeMirror type) {
+      return new AutoValue_Key(Optional.<AnnotationMirror>absent(),
+          MoreTypes.equivalence().wrap(normalize(type)));
+    }
+
+    Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
+      return new AutoValue_Key(qualifier, MoreTypes.equivalence().wrap(normalize(type)));
     }
   }
 }

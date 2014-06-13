@@ -223,6 +223,12 @@ abstract class ComponentDescriptor {
               if (injectBinding.isPresent()) {
                 requestsToResolve.addAll(injectBinding.get().dependencies());
                 resolvedProvisionBindings.put(key, injectBinding.get());
+                if (injectBinding.get().requiresMemberInjection()) {
+                  DependencyRequest forMembersInjectedType =
+                      dependencyRequestFactory.forMembersInjectedType(
+                          injectBinding.get().providedKey().type());
+                  requestsToResolve.add(forMembersInjectedType);
+                }
               } else {
                 // TODO(gak): support this
                 throw new UnsupportedOperationException(

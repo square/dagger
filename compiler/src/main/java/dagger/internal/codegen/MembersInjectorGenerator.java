@@ -26,6 +26,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -33,6 +34,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -57,7 +59,9 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
@@ -108,11 +112,18 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     writer.emitPackage(injectedClassName.packageName());
 
     ImmutableSet<DependencyRequest> dependencies = binding.dependencySet();
+    Optional<TypeElement> supertype = supertype(binding.injectedType());
 
     List<ClassName> importsBuilder = new ArrayList<ClassName>();
     importsBuilder.addAll(collectImportsFromDependencies(injectorClassName, dependencies));
     importsBuilder.add(ClassName.fromClass(MembersInjector.class));
     importsBuilder.add(ClassName.fromClass(Generated.class));
+    if (supertype.isPresent()) {
+      ClassName supertypeClassName = ClassName.fromTypeElement(supertype.get());
+      if (!supertypeClassName.packageName().equals(injectorClassName.packageName())) {
+        importsBuilder.add(supertypeClassName);
+      }
+    }
     ImmutableSortedSet<String> imports = FluentIterable.from(importsBuilder)
         .transform(Functions.toStringFunction())
         .toSortedSet(Ordering.natural());
@@ -128,15 +139,16 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         .beginType(injectorClassName.simpleName(), "class", EnumSet.of(FINAL), null,
             membersInjectorType);
 
-
     final ImmutableBiMap<Key, String> providerNames =
         generateProviderNamesForDependencies(dependencies);
+
+    writeSupertypeInjectorField(writer, supertype);
 
     // Add the fields
     writeProviderFields(writer, providerNames);
 
     // Add the constructor
-    writeConstructor(writer, providerNames);
+    writeConstructor(writer, supertype, providerNames);
 
     // @Override public void injectMembers(Blah instance)
     writer.emitAnnotation(Override.class)
@@ -148,6 +160,10 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         .emitStatement(
             "throw new NullPointerException(\"Cannot inject members into a null reference\")")
         .endControlFlow();
+
+    if (supertype.isPresent()) {
+      writer.emitStatement("supertypeInjector.injectMembers(instance)");
+    }
 
     for (InjectionSite injectionSite : binding.injectionSites()) {
       switch (injectionSite.kind()) {
@@ -179,6 +195,23 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     writer.endType();
   }
 
+  private Optional<TypeElement> supertype(TypeElement type) {
+    TypeMirror superclass = type.getSuperclass();
+    boolean nonObjectSuperclass = !types.isSameType(
+        elements.getTypeElement(Object.class.getCanonicalName()).asType(), superclass);
+    return nonObjectSuperclass
+        ? Optional.of(MoreElements.asType(types.asElement(superclass)))
+        : Optional.<TypeElement>absent();
+  }
+
+  private void writeSupertypeInjectorField(JavaWriter writer, Optional<TypeElement> supertype)
+      throws IOException {
+    if (supertype.isPresent()) {
+      writer.emitField(type(MembersInjector.class, supertype.get().getQualifiedName().toString()),
+          "supertypeInjector", EnumSet.of(PRIVATE, FINAL));
+    }
+  }
+
   private void writeProviderFields(JavaWriter writer, ImmutableBiMap<Key, String> providerNames)
       throws IOException {
     for (Entry<Key, String> providerEntry : providerNames.entrySet()) {
@@ -191,11 +224,21 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     writer.emitEmptyLine();
   }
 
-  private void writeConstructor(JavaWriter writer, ImmutableBiMap<Key, String> providerNames)
-      throws IOException {
+  private void writeConstructor(JavaWriter writer, Optional<TypeElement> supertype,
+      ImmutableBiMap<Key, String> providerNames) throws IOException {
+    ImmutableMap.Builder<String, String> variableMapBuilder = ImmutableMap.builder();
+    if (supertype.isPresent()) {
+      variableMapBuilder.put("supertypeInjector",
+          type(MembersInjector.class, supertype.get().getQualifiedName().toString()));
+    }
+    variableMapBuilder.putAll(providersAsVariableMap(providerNames));
     writer.beginConstructor(EnumSet.noneOf(Modifier.class),
-        flattenVariableMap(providersAsVariableMap(providerNames)),
+        flattenVariableMap(variableMapBuilder.build()),
         ImmutableList.<String>of());
+    if (supertype.isPresent()) {
+      writer.emitStatement("assert %s != null", "supertypeInjector");
+      writer.emitStatement("this.%1$s = %1$s", "supertypeInjector");
+    }
     for (String providerName : providerNames.values()) {
       writer.emitStatement("assert %s != null", providerName);
       writer.emitStatement("this.%1$s = %1$s", providerName);

@@ -15,6 +15,24 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import dagger.Component;
+import dagger.Provides;
+import java.util.Iterator;
+import javax.inject.Inject;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -24,25 +42,6 @@ import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
-
-import com.google.auto.common.MoreElements;
-import com.google.auto.value.AutoValue;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-
-import dagger.Component;
-import dagger.Provides;
-
-import java.util.Iterator;
-
-import javax.inject.Inject;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -102,10 +101,15 @@ abstract class ProvisionBinding extends Binding {
   }
 
   static final class Factory {
+    private final Elements elements;
+    private final Types types;
     private final Key.Factory keyFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Key.Factory keyFactory, DependencyRequest.Factory dependencyRequestFactory) {
+    Factory(Elements elements, Types types, Key.Factory keyFactory,
+        DependencyRequest.Factory dependencyRequestFactory) {
+      this.elements = elements;
+      this.types = types;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
@@ -130,7 +134,11 @@ abstract class ProvisionBinding extends Binding {
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
         Sets.immutableEnumSet(METHOD, FIELD);
 
-    private static boolean requiresMemeberInjection(TypeElement type) {
+    private boolean requiresMemeberInjection(TypeElement type) {
+      if (!types.isSameType(elements.getTypeElement(Object.class.getCanonicalName()).asType(),
+          type.getSuperclass())) {
+        return true;
+      }
       for (Element enclosedElement : type.getEnclosedElements()) {
         if (MEMBER_KINDS.contains(enclosedElement.getKind())
             && (enclosedElement.getAnnotation(Inject.class) != null)) {
@@ -164,7 +172,7 @@ abstract class ProvisionBinding extends Binding {
           ImmutableList.<DependencyRequest>of(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
-          Key.create(componentDefinitionType.asType()),
+          keyFactory.forType(componentDefinitionType.asType()),
           Optional.<AnnotationMirror>absent(),
           false);
     }

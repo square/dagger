@@ -529,4 +529,96 @@ public final class InjectProcessorTest {
         .and()
         .generatesSources(expectedFactory, expectedMembersInjector);
   }
+
+  @Test public void supertypeRequiresMemberInjection() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "class A {}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class B extends A {",
+        "  @Inject B() {}",
+        "}");
+    JavaFileObject expectedFactory = JavaFileObjects.forSourceLines(
+        "test.B$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class B$$Factory implements Factory<B> {",
+        "",
+        "  private final MembersInjector<B> membersInjector;",
+        "",
+        "  public B$$Factory(MembersInjector<B> membersInjector) {",
+        "    assert membersInjector != null;",
+        "    this.membersInjector = membersInjector;",
+        "  }",
+        "",
+        "  @Override public B get() {",
+        "    B instance = new B();",
+        "    membersInjector.injectMembers(instance);",
+        "    return instance;",
+        "  }",
+        "}");
+    ASSERT.about(javaSources()).that(ImmutableList.of(aFile, bFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expectedFactory);
+  }
+
+  @Test public void supertypeMembersInjection() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "class A {}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class B extends A {",
+        "  @Inject String s;",
+        "}");
+    JavaFileObject expectedMembersInjector = JavaFileObjects.forSourceLines(
+        "test.AllInjections$$MembersInjector",
+        "package test;",
+        "",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "final class B$$MembersInjector ",
+        "    implements MembersInjector<B> {",
+        "",
+        "  private final MembersInjector<A> supertypeInjector;",
+        "  private final Provider<String> sProvider;",
+        "",
+        "  B$$MembersInjector(MembersInjector<A> supertypeInjector, Provider<String> sProvider) {",
+        "    assert supertypeInjector != null;",
+        "    this.supertypeInjector = supertypeInjector;",
+        "    assert sProvider != null;",
+        "    this.sProvider = sProvider;",
+        "  }",
+        "",
+        "  @Override public void injectMembers(B instance) {",
+        "    if (instance == null) {",
+        "      throw new NullPointerException(\"Cannot inject members into a null reference\");",
+        "    }",
+        "    supertypeInjector.injectMembers(instance);",
+        "    instance.s = sProvider.get();",
+        "  }",
+        "}");
+    ASSERT.about(javaSources()).that(ImmutableList.of(aFile, bFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expectedMembersInjector);
+  }
 }

@@ -124,7 +124,7 @@ abstract class ClassName implements Comparable<ClassName> {
     while (current.getKind().isClass() || current.getKind().isInterface()) {
       checkArgument(ACCEPTABLE_NESTING_KINDS.contains(element.getNestingKind()));
       enclosingNames.add(current.getSimpleName().toString());
-      current = element.getEnclosingElement();
+      current = current.getEnclosingElement();
     }
     PackageElement packageElement = Util.getPackage(current);
     Collections.reverse(enclosingNames);
