@@ -82,7 +82,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(elements, types);
     ProvisionBinding.Factory provisionBindingFactory =
-        new ProvisionBinding.Factory(keyFactory, dependencyRequestFactory);
+        new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
     InjectionSite.Factory injectionSiteFactory =
         new InjectionSite.Factory(dependencyRequestFactory);
     ComponentDescriptor.Factory componentDescriptorFactory =

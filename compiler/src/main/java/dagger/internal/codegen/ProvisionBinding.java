@@ -43,6 +43,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -102,10 +104,15 @@ abstract class ProvisionBinding extends Binding {
   }
 
   static final class Factory {
+    private final Elements elements;
+    private final Types types;
     private final Key.Factory keyFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Key.Factory keyFactory, DependencyRequest.Factory dependencyRequestFactory) {
+    Factory(Elements elements, Types types, Key.Factory keyFactory,
+        DependencyRequest.Factory dependencyRequestFactory) {
+      this.elements = elements;
+      this.types = types;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
@@ -130,7 +137,11 @@ abstract class ProvisionBinding extends Binding {
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
         Sets.immutableEnumSet(METHOD, FIELD);
 
-    private static boolean requiresMemeberInjection(TypeElement type) {
+    private boolean requiresMemeberInjection(TypeElement type) {
+      if (!types.isSameType(elements.getTypeElement(Object.class.getCanonicalName()).asType(),
+          type.getSuperclass())) {
+        return true;
+      }
       for (Element enclosedElement : type.getEnclosedElements()) {
         if (MEMBER_KINDS.contains(enclosedElement.getKind())
             && (enclosedElement.getAnnotation(Inject.class) != null)) {
