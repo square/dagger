@@ -15,18 +15,13 @@
  */
 package dagger.internal.codegen;
 
-import static javax.lang.model.SourceVersion.RELEASE_6;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
-
 import java.util.Set;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -37,6 +32,8 @@ import javax.inject.Inject;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import static javax.lang.model.SourceVersion.RELEASE_6;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
@@ -76,11 +73,12 @@ public final class ComponentProcessor extends AbstractProcessor {
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator = new ComponentValidator(elements);
 
-    InjectBindingRegistry injectBindingRegistry = new InjectBindingRegistry();
-
     Key.Factory keyFactory = new Key.Factory(types, elements);
+
+    InjectBindingRegistry injectBindingRegistry = new InjectBindingRegistry(keyFactory);
+
     DependencyRequest.Factory dependencyRequestFactory =
-        new DependencyRequest.Factory(elements, types);
+        new DependencyRequest.Factory(elements, types, keyFactory);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
     InjectionSite.Factory injectionSiteFactory =
@@ -92,7 +90,8 @@ public final class ComponentProcessor extends AbstractProcessor {
     FactoryGenerator factoryGenerator = new FactoryGenerator(filer, elements, types);
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types);
-    ComponentGenerator componentGenerator = new ComponentGenerator(filer, elements, types);
+    ComponentGenerator componentGenerator =
+        new ComponentGenerator(filer, elements, types, keyFactory);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new InjectProcessingStep(

@@ -15,15 +15,13 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
-
 import java.util.Map;
-
 import javax.inject.Inject;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members
@@ -34,10 +32,12 @@ import javax.inject.Inject;
 final class InjectBindingRegistry {
   private final Map<Key, ProvisionBinding> provisionBindingsByKey;
   private final Map<Key, MembersInjectionBinding> membersInjectionBindingsByKey;
+  private final Key.Factory keyFactory;
 
-  InjectBindingRegistry() {
+  InjectBindingRegistry(Key.Factory keyFactory) {
     this.provisionBindingsByKey = Maps.newLinkedHashMap();
     this.membersInjectionBindingsByKey = Maps.newLinkedHashMap();
+    this.keyFactory = keyFactory;
   }
 
   void registerProvisionBinding(ProvisionBinding binding) {
@@ -47,7 +47,7 @@ final class InjectBindingRegistry {
 
   void registerMembersInjectionBinding(MembersInjectionBinding binding) {
     MembersInjectionBinding previousValue = membersInjectionBindingsByKey.put(
-        Key.create(binding.injectedType().asType()), binding);
+        keyFactory.forType(binding.injectedType().asType()), binding);
     checkState(previousValue == null);
   }
 
