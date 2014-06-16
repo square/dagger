@@ -119,33 +119,34 @@ abstract class DependencyRequest {
 
     private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,
         Optional<AnnotationMirror> qualifier) {
-      if (elements.getTypeElement(Provider.class.getCanonicalName())
-          .equals(types.asElement(type))) {
-        DeclaredType providerType = (DeclaredType) type;
+      if (isTypeOf(Provider.class, type)) {
         return new AutoValue_DependencyRequest(Kind.PROVIDER,
-            keyFactory.forQualifiedType(qualifier,
-                Iterables.getOnlyElement(providerType.getTypeArguments())),
+            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
             requestElement);
-      } else if (elements.getTypeElement(Lazy.class.getCanonicalName())
-          .equals(types.asElement(type))) {
-        DeclaredType lazyType = (DeclaredType) type;
+      } else if (isTypeOf(Lazy.class, type)) {
         return new AutoValue_DependencyRequest(Kind.LAZY,
-            keyFactory.forQualifiedType(qualifier,
-                Iterables.getOnlyElement(lazyType.getTypeArguments())),
+            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
             requestElement);
-      } else if (elements.getTypeElement(MembersInjector.class.getCanonicalName())
-          .equals(types.asElement(type))) {
+      } else if (isTypeOf(MembersInjector.class, type)) {
         checkArgument(!qualifier.isPresent());
-        DeclaredType membersInjectorType = (DeclaredType) type;
         return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-            keyFactory.forQualifiedType(qualifier,
-                Iterables.getOnlyElement(membersInjectorType.getTypeArguments())),
+            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
             requestElement);
       } else {
         return new AutoValue_DependencyRequest(Kind.INSTANCE,
             keyFactory.forQualifiedType(qualifier, type),
             requestElement);
       }
+    }
+
+    private Key qualifiedTypeForParameter(
+        Optional<AnnotationMirror> qualifier, DeclaredType type) {
+      return keyFactory.forQualifiedType(qualifier,
+          Iterables.getOnlyElement(type.getTypeArguments()));
+    }
+
+    private boolean isTypeOf(Class<?> type, TypeMirror mirror) {
+      return elements.getTypeElement(type.getCanonicalName()).equals(types.asElement(mirror));
     }
   }
 }
