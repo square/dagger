@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
 import dagger.Module;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Qualifier;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
@@ -52,8 +55,8 @@ public class KeyTest {
   private Key.Factory keyFactory;
 
   @Before public void setUp() {
-    this.elements = compilationRule.getElements();
     this.types = compilationRule.getTypes();
+    this.elements = compilationRule.getElements();
     this.keyFactory = new Key.Factory(types, elements);
   }
 
@@ -102,15 +105,43 @@ public class KeyTest {
     ASSERT.that(key.wrappedType()).isEqualTo(MoreTypes.equivalence().wrap(stringType));
   }
 
+  @Test public void qualifiedKeyEquivalents() {
+    TypeElement moduleElement =
+        elements.getTypeElement(QualifiedProvidesMethodModule.class.getCanonicalName());
+    ExecutableElement providesMethod =
+        Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
+    Key provisionKey = keyFactory.forProvidesMethod(providesMethod);
+
+    TypeMirror type = elements.getTypeElement(String.class.getCanonicalName()).asType();
+    TypeElement injectableElement =
+        elements.getTypeElement(QualifiedFieldHolder.class.getCanonicalName());
+    Element injectionField =
+        Iterables.getOnlyElement(ElementFilter.fieldsIn(injectableElement.getEnclosedElements()));
+    AnnotationMirror qualifier = Iterables.getOnlyElement(injectionField.getAnnotationMirrors());
+    Key injectionKey = keyFactory.forQualifiedType(Optional.<AnnotationMirror>of(qualifier), type);
+
+    ASSERT.that(provisionKey).isEqualTo(injectionKey);
+  }
+
   @Module(library = true)
   static final class QualifiedProvidesMethodModule {
-    @Provides @TestQualifier String provideQualifiedString() {
+    @Provides
+    @TestQualifier(@InnerAnnotation)
+    String provideQualifiedString() {
       return null;
     }
   }
 
+  static final class QualifiedFieldHolder {
+    @TestQualifier(@InnerAnnotation) String aString;
+  }
+
   @Qualifier
-  @interface TestQualifier {}
+  @interface TestQualifier {
+    InnerAnnotation[] value();
+  }
+
+  @interface InnerAnnotation {}
 
   @Test public void forProvidesMethod_sets() {
     TypeElement setElement = elements.getTypeElement(Set.class.getCanonicalName());
