@@ -300,7 +300,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         if (membersInjectorName != null) {
           parameters.add(membersInjectorName);
         } else {
-	    throw new UnsupportedOperationException("Non-generated MembersInjector");
+          throw new UnsupportedOperationException("Non-generated MembersInjector");
         }
       }
       parameters.addAll(
