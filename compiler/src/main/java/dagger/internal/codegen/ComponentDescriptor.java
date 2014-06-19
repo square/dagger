@@ -93,7 +93,7 @@ abstract class ComponentDescriptor {
    * The ordering of {@link Key keys} that will allow all of the {@link Factory} and
    * {@link MembersInjector} implementations to initialize properly.
    */
-  abstract ImmutableList<Key> initializationOrdering();
+  abstract ImmutableList<FrameworkKey> initializationOrdering();
 
   static final class Factory {
     private final Elements elements;
@@ -194,7 +194,7 @@ abstract class ComponentDescriptor {
       SetMultimap<Key, ProvisionBinding> resolvedProvisionBindings = LinkedHashMultimap.create();
       Map<Key, MembersInjectionBinding> resolvedMembersInjectionBindings = Maps.newLinkedHashMap();
       // TODO(gak): we're really going to need to test this ordering
-      ImmutableSet.Builder<Key> resolutionOrder = ImmutableSet.builder();
+      ImmutableSet.Builder<FrameworkKey> resolutionOrder = ImmutableSet.builder();
 
       for (DependencyRequest requestToResolve = requestsToResolve.pollLast();
           requestToResolve != null;
@@ -240,7 +240,7 @@ abstract class ComponentDescriptor {
             }
           }
         }
-        resolutionOrder.add(key);
+        resolutionOrder.add(FrameworkKey.forDependencyRequest(requestToResolve));
       }
 
       return new AutoValue_ComponentDescriptor(
