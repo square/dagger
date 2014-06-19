@@ -17,9 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
-
 import dagger.Lazy;
-
 import javax.inject.Provider;
 
 /**

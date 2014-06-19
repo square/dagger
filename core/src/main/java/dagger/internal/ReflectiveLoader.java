@@ -21,8 +21,6 @@ import dagger.internal.loaders.ReflectiveAtInjectBinding;
 import dagger.internal.loaders.ReflectiveModuleAdapter;
 import dagger.internal.loaders.ReflectiveStaticInjection;
 
-import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
-
 /**
  * Handles loading/finding of modules, injection bindings, and static injections by use of a
  * reflective bindings.

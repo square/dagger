@@ -15,22 +15,12 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.lang.model.type.TypeKind.ARRAY;
-import static javax.lang.model.type.TypeKind.DECLARED;
-import static javax.lang.model.type.TypeKind.EXECUTABLE;
-import static javax.lang.model.type.TypeKind.TYPEVAR;
-import static javax.lang.model.type.TypeKind.WILDCARD;
-
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
-
 import java.util.Iterator;
 import java.util.List;
-
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -44,6 +34,14 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.lang.model.type.TypeKind.ARRAY;
+import static javax.lang.model.type.TypeKind.DECLARED;
+import static javax.lang.model.type.TypeKind.EXECUTABLE;
+import static javax.lang.model.type.TypeKind.TYPEVAR;
+import static javax.lang.model.type.TypeKind.WILDCARD;
 
 /**
  * Utilities related to {@link TypeMirror} instances.

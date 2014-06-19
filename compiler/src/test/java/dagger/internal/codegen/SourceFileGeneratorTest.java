@@ -15,29 +15,26 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
+import com.squareup.javawriter.JavaWriter;
+import java.io.IOException;
+import java.io.Writer;
+import javax.annotation.processing.Filer;
+import javax.lang.model.element.Element;
+import javax.tools.JavaFileObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
+
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.truth0.Truth.ASSERT;
-
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
-import com.squareup.javawriter.JavaWriter;
-
-import java.io.IOException;
-import java.io.Writer;
-
-import javax.annotation.processing.Filer;
-import javax.lang.model.element.Element;
-import javax.tools.JavaFileObject;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class SourceFileGeneratorTest {

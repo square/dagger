@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import dagger.Module;
-
 import javax.lang.model.element.TypeElement;
 
 /**

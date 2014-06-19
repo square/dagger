@@ -15,17 +15,15 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.AnnotationMirrors.getAttributeAsListOfTypes;
-
 import com.google.common.collect.ImmutableList;
-
 import dagger.Component;
 import dagger.Module;
-
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.AnnotationMirrors.getAttributeAsListOfTypes;
 
 /**
  * Utility methods related to dagger configuration annotations (e.g.: {@link Component}

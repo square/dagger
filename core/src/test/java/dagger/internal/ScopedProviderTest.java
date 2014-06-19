@@ -15,16 +15,14 @@
  */
 package dagger.internal;
 
-import static org.junit.Assert.fail;
-import static org.truth0.Truth.ASSERT;
-
 import dagger.Factory;
-
+import javax.inject.Provider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import javax.inject.Provider;
+import static org.junit.Assert.fail;
+import static org.truth0.Truth.ASSERT;
 
 /**
  * Tests {@link ScopedProvider}.

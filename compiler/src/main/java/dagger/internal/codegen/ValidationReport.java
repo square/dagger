@@ -15,15 +15,14 @@
  */
 package dagger.internal.codegen;
 
-import static javax.tools.Diagnostic.Kind.ERROR;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
-
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+
+import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * A collection of items describing contractual issues with the code as presented to an annotation

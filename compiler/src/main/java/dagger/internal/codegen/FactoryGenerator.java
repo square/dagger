@@ -15,19 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.squareup.javawriter.JavaWriter.stringLiteral;
-import static com.squareup.javawriter.JavaWriter.type;
-import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
-import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
-import static dagger.internal.codegen.SourceFiles.generateProviderNamesForDependencies;
-import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -41,17 +28,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.squareup.javawriter.JavaWriter;
-
 import dagger.Factory;
 import dagger.MembersInjector;
 import dagger.Provides;
-
 import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
@@ -61,6 +45,19 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.squareup.javawriter.JavaWriter.stringLiteral;
+import static com.squareup.javawriter.JavaWriter.type;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
+import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
+import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
+import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
+import static dagger.internal.codegen.SourceFiles.generateProviderNamesForDependencies;
+import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for

@@ -15,10 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static dagger.internal.codegen.AnnotationMirrors.getAnnotationMirror;
-import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -30,18 +26,15 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-
 import dagger.Component;
 import dagger.MembersInjector;
 import dagger.Module;
 import dagger.Provides;
-
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -49,6 +42,10 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import static dagger.internal.codegen.AnnotationMirrors.getAnnotationMirror;
+import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
+import static javax.lang.model.element.Modifier.ABSTRACT;
 
 /**
  * The logical representation of a {@link Component} definition.

@@ -16,7 +16,6 @@
 package dagger.internal;
 
 import dagger.Lazy;
-
 import javax.inject.Provider;
 
 /**

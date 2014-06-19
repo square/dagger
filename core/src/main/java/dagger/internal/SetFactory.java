@@ -15,16 +15,14 @@
  */
 package dagger.internal;
 
-import static java.util.Collections.unmodifiableSet;
-
 import dagger.Factory;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.inject.Provider;
+
+import static java.util.Collections.unmodifiableSet;
 
 /**
  * A {@link Factory} implementation used to implement {@link Set} bindings. This factory always

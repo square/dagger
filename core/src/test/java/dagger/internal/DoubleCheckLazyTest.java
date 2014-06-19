@@ -15,19 +15,10 @@
  */
 package dagger.internal;
 
-import static org.junit.Assert.fail;
-import static org.truth0.Truth.ASSERT;
-
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
-
 import dagger.Lazy;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -36,8 +27,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.inject.Provider;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import static org.junit.Assert.fail;
+import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class DoubleCheckLazyTest {

@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import java.util.Set;
-
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.TypeElement;
 
