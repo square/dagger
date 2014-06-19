@@ -15,6 +15,14 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.collect.ImmutableSet;
+import java.util.Set;
+import javax.inject.Inject;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
+
 import static dagger.internal.codegen.ErrorMessages.ABSTRACT_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.GENERIC_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
@@ -22,16 +30,6 @@ import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
-
-import com.google.common.collect.ImmutableSet;
-
-import java.util.Set;
-
-import javax.inject.Inject;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 
 /**
  * A {@link Validator} for {@link Inject} methods.

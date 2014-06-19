@@ -15,12 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.Util.isValidJavaIdentifier;
-import static javax.lang.model.element.NestingKind.MEMBER;
-import static javax.lang.model.element.NestingKind.TOP_LEVEL;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
@@ -30,16 +24,20 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import javax.lang.model.element.Element;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.Util.isValidJavaIdentifier;
+import static javax.lang.model.element.NestingKind.MEMBER;
+import static javax.lang.model.element.NestingKind.TOP_LEVEL;
 
 /**
  * Represents a fully-qualified class name for {@link NestingKind#TOP_LEVEL} and

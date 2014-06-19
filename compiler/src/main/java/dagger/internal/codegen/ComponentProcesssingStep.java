@@ -16,12 +16,9 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
-
 import dagger.Component;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
-
 import java.util.Set;
-
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;

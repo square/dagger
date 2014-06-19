@@ -15,21 +15,19 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.collect.ImmutableSet;
+import java.util.Set;
+import javax.inject.Inject;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
+
 import static dagger.internal.codegen.ErrorMessages.FINAL_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
-
-import com.google.common.collect.ImmutableSet;
-
-import java.util.Set;
-
-import javax.inject.Inject;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 
 /**
  * A {@link Validator} for {@link Inject} fields.

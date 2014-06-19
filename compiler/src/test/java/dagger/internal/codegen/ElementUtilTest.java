@@ -15,21 +15,19 @@
  */
 package dagger.internal.codegen;
 
-import static org.junit.Assert.fail;
-import static org.truth0.Truth.ASSERT;
-
 import com.google.auto.common.MoreElements;
 import com.google.testing.compile.CompilationRule;
-
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import static org.junit.Assert.fail;
+import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class ElementUtilTest {

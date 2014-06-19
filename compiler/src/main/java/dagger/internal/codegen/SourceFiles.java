@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
@@ -34,20 +32,19 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.squareup.javawriter.JavaWriter;
-
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.internal.DoubleCheckLazy;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementKindVisitor6;
+
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 
 /**
  * Utilities for generating files.

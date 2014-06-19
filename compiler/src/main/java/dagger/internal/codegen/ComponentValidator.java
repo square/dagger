@@ -15,24 +15,22 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.AnnotationMirrors.getAnnotationMirror;
-import static javax.lang.model.element.ElementKind.CLASS;
-import static javax.lang.model.element.ElementKind.INTERFACE;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableList;
-
 import dagger.Component;
 import dagger.Module;
-
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
+
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.AnnotationMirrors.getAnnotationMirror;
+import static javax.lang.model.element.ElementKind.CLASS;
+import static javax.lang.model.element.ElementKind.INTERFACE;
+import static javax.lang.model.element.Modifier.ABSTRACT;
 
 /**
  * Performs superficial validation of the contract of the {@link Component} annotation.

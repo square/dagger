@@ -15,14 +15,13 @@
  */
 package dagger;
 
-import static java.lang.annotation.ElementType.TYPE;
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.Target;
-
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
+
+import static java.lang.annotation.ElementType.TYPE;
 
 /**
  * Annotates an interface or abstract class for which a fully-formed, dependency-injected

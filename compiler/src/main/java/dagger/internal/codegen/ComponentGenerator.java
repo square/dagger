@@ -224,7 +224,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   private void writeConstructor(final JavaWriter writer,
-      ImmutableList<Key> initializationOrdering,
+      ImmutableList<FrameworkKey> initializationOrdering,
       ImmutableSetMultimap<Key, ProvisionBinding> resolvedProvisionBindings,
       ImmutableMap<Key, MembersInjectionBinding> resolvedMembersInjectionBindings,
       ImmutableBiMap<Key, String> providerNames,
@@ -248,17 +248,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       writer.emitStatement("this.%1$s = %1$s", variableName);
     }
 
-    for (Key key : initializationOrdering) {
-      // first members injectors
-      if (resolvedMembersInjectionBindings.containsKey(key)) {
-        writer.emitStatement("this.%s = %s",
-            membersInjectorNames.get(key),
-            initializeMembersInjectorForBinding(writer, resolvedMembersInjectionBindings.get(key),
-                providerNames, membersInjectorNames));
-      }
-
-      // then provisions
-      if (resolvedProvisionBindings.containsKey(key)) {
+    for (FrameworkKey frameworkKey : initializationOrdering) {
+      Key key = frameworkKey.key();
+      if (frameworkKey.frameworkClass().equals(Provider.class)) {
         Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
         if (ProvisionBinding.isSetBindingCollection(bindings)) {
           ImmutableList.Builder<String> setFactoryParameters = ImmutableList.builder();
@@ -276,6 +268,14 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
               initializeFactoryForBinding(
                   writer, binding, moduleNames, providerNames, membersInjectorNames));
         }
+      } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
+        writer.emitStatement("this.%s = %s",
+            membersInjectorNames.get(key),
+            initializeMembersInjectorForBinding(writer, resolvedMembersInjectionBindings.get(key),
+                providerNames, membersInjectorNames));
+      } else {
+        throw new IllegalStateException(
+            "unknown framework class: " + frameworkKey.frameworkClass());
       }
     }
 
@@ -300,7 +300,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         if (membersInjectorName != null) {
           parameters.add(membersInjectorName);
         } else {
-	    throw new UnsupportedOperationException("Non-generated MembersInjector");
+          throw new UnsupportedOperationException("Non-generated MembersInjector");
         }
       }
       parameters.addAll(

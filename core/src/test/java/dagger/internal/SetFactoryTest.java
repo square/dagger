@@ -15,26 +15,22 @@
  */
 package dagger.internal;
 
-import static com.google.common.collect.DiscreteDomain.integers;
-import static org.truth0.Truth.ASSERT;
-
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-
 import dagger.Factory;
-
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.inject.Provider;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.inject.Provider;
+import static com.google.common.collect.DiscreteDomain.integers;
+import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 @SuppressWarnings("unchecked")

@@ -15,15 +15,14 @@
  */
 package dagger.internal;
 
-import static org.truth0.Truth.ASSERT;
-
 import dagger.Factory;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public final class InstanceFactoryTest {

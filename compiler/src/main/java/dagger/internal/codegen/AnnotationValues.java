@@ -16,12 +16,9 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Equivalence;
-import com.google.common.collect.Sets;
 import java.util.List;
-import java.util.Map;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
 /**
