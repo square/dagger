@@ -97,7 +97,7 @@ class SourceFiles {
         // don't include classes in java.lang or the same package
         if (!packagesToSkip.contains(className.packageName())
             // or that are members of the same top-level class
-            && !className.nameOfTopLevelClass().equals(topLevelClassName)) {
+            && !className.topLevelClassName().equals(topLevelClassName)) {
           builder.add(className);
         }
       }
@@ -255,17 +255,17 @@ class SourceFiles {
     switch (binding.bindingKind()) {
       case INJECTION:
       case PROVISION:
-        return enclosingClassName.peerNamed(
-            enclosingClassName.simpleName() + "$$" + factoryPrefix(binding) + "Factory");
+        return enclosingClassName.topLevelClassName().peerNamed(
+            enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
       default:
         throw new AssertionError();
     }
   }
 
   static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
-    TypeElement injectedTypeElement = binding.injectedType();
-    ClassName injectedClassName = ClassName.fromTypeElement(injectedTypeElement);
-    return injectedClassName.peerNamed(injectedClassName.classFileName() + "$$MembersInjector");
+    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
+    return injectedClassName.topLevelClassName().peerNamed(
+        injectedClassName.classFileName() + "$$MembersInjector");
   }
 
   private static String factoryPrefix(ProvisionBinding binding) {

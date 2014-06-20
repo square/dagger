@@ -80,8 +80,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
 
   @Override
   ClassName nameGeneratedType(MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
-    return injectedClassName.peerNamed(injectedClassName.simpleName() + "$$MembersInjector");
+    return SourceFiles.membersInjectorNameForMembersInjectionBinding(binding);
   }
 
   @Override
@@ -115,6 +114,9 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     importsBuilder.addAll(collectImportsFromDependencies(injectorClassName, dependencies));
     importsBuilder.add(ClassName.fromClass(MembersInjector.class));
     importsBuilder.add(ClassName.fromClass(Generated.class));
+    if(!injectedClassName.enclosingSimpleNames().isEmpty()) {
+      importsBuilder.add(injectedClassName);
+    }
     if (supertype.isPresent()) {
       ClassName supertypeClassName = ClassName.fromTypeElement(supertype.get());
       if (!supertypeClassName.packageName().equals(injectorClassName.packageName())) {

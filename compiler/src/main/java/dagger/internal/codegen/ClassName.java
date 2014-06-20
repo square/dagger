@@ -83,7 +83,7 @@ abstract class ClassName implements Comparable<ClassName> {
         CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, simpleName()));
   }
 
-  ClassName nameOfTopLevelClass() {
+  ClassName topLevelClassName() {
     Iterator<String> enclosingIterator = enclosingSimpleNames().iterator();
     return enclosingIterator.hasNext()
         ? new AutoValue_ClassName(packageName(), ImmutableList.<String>of(),
