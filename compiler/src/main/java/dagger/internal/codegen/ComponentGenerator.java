@@ -166,7 +166,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             .add(ClassName.fromClass(Provider.class));
 
     ClassName componentClassName = ClassName.fromTypeElement(input.componentDefinitionType());
-    if(!componentClassName.enclosingSimpleNames().isEmpty()) {
+    if (!componentClassName.enclosingSimpleNames().isEmpty()) {
       importsBuilder.add(componentClassName);
     }
 
