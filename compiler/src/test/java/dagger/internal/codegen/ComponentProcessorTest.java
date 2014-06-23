@@ -207,6 +207,98 @@ public class ComponentProcessorTest {
         .and().generatesSources(generatedComponent);
   }
 
+  @Test public void simpleComponentWithNesting() {
+    JavaFileObject nestedTypesFile = JavaFileObjects.forSourceLines("test.OuterType",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import javax.inject.Inject;",
+        "",
+        "final class OuterType {",
+        "  static class A {",
+        "    @Inject A() {}",
+        "  }",
+        "  static class B {",
+        "    @Inject A a;",
+        "  }",
+        "  @Component interface SimpleComponent {",
+        "    A a();",
+        "    void inject(B b);",
+        "  }",
+        "}");
+    JavaFileObject aFactory = JavaFileObjects.forSourceLines(
+        "test.OuterType$A$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import test.OuterType.A;",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class OuterType$A$$Factory implements Factory<A> {",
+        "",
+        "  @Override public A get() {",
+        "    return new A();",
+        "  }",
+        "}");
+    JavaFileObject bMembersInjector = JavaFileObjects.forSourceLines(
+        "test.OuterType$B$$MembersInjector",
+        "package test;",
+        "",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "import test.OuterType.B;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "final class OuterType$B$$MembersInjector implements MembersInjector<B> {",
+        "  private final Provider<OuterType.A> aProvider;",
+         "",
+        "  OuterType$B$$MembersInjector(Provider<OuterType.A> aProvider) {",
+        "    assert aProvider != null;",
+        "    this.aProvider = aProvider;",
+        "  }",
+         "",
+        "  @Override",
+        "  public void injectMembers(B instance) {",
+        "    if (instance == null) {",
+        "      throw new NullPointerException(\"Cannot inject members into a null reference\");",
+        "    }",
+        "    instance.a = aProvider.get();",
+        "  }",
+        "}");
+
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_OuterType$SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.MembersInjector;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "import test.OuterType.SimpleComponent;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_OuterType$SimpleComponent implements SimpleComponent {",
+        "  private final Provider<OuterType.A> aProvider;",
+        "  private final MembersInjector<OuterType.B> bMembersInjector;",
+        "",
+        "  public Dagger_OuterType$SimpleComponent() {",
+        "    this.aProvider = new OuterType$A$$Factory();",
+        "    this.bMembersInjector = new OuterType$B$$MembersInjector(aProvider);",
+        "  }",
+        "",
+        "  @Override public OuterType.A a() {",
+        "    return aProvider.get();",
+        "  }",
+        "  @Override public void inject(OuterType.B b) {",
+        "    bMembersInjector.injectMembers(b);",
+        "  }",
+        "}");
+     ASSERT.about(javaSources()).that(ImmutableList.of(nestedTypesFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(aFactory, bMembersInjector, generatedComponent);
+  }
+
   @Test public void componentWithModule() {
     JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
         "package test;",

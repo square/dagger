@@ -144,6 +144,10 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
             .addAll(collectImportsFromDependencies(factoryClassName, binding.dependencies()))
             .add(ClassName.fromClass(Factory.class))
             .add(ClassName.fromClass(Generated.class));
+    ClassName bindingClassName = ClassName.fromTypeElement(binding.bindingTypeElement());
+    if(!bindingClassName.enclosingSimpleNames().isEmpty()) {
+      importsBuilder.add(bindingClassName);
+    }
     if (binding.provisionType().equals(Provides.Type.SET)) {
       importsBuilder.add(ClassName.fromClass(Collections.class));
     }

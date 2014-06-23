@@ -16,8 +16,14 @@
 package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.testing.compile.CompilationRule;
+import dagger.internal.codegen.ClassNameTest.OuterClass.InnerClass;
 import java.util.Map;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import org.junit.Test;
+import org.junit.Rule;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -26,6 +32,8 @@ import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class ClassNameTest {
+  @Rule public CompilationRule compilationRule = new CompilationRule();
+
   @Test public void bestGuessForString_simpleClass() {
     ASSERT.that(ClassName.bestGuessFromString(String.class.getName()))
         .isEqualTo(ClassName.create("java.lang", "String"));
@@ -66,5 +74,39 @@ public class ClassNameTest {
       ClassName.bestGuessFromString("!@#$gibberish%^&*");
       fail();
     } catch (IllegalArgumentException expected) {}
+  }
+
+  @Test public void classNameFromTypeElement() {
+    Elements elements = compilationRule.getElements();
+    TypeElement element = elements.getTypeElement(Object.class.getCanonicalName());
+    ASSERT.that(ClassName.fromTypeElement(element).fullyQualifiedName())
+        .isEqualTo("java.lang.Object");
+  }
+
+  @Test public void peerNamed_topLevelClass() {
+    Elements elements = compilationRule.getElements();
+    TypeElement element = elements.getTypeElement(ClassNameTest.class.getCanonicalName());
+    ClassName className = ClassName.fromTypeElement(element);
+    ClassName peerName = className.peerNamed("Foo");
+    ASSERT.that(peerName.fullyQualifiedName())
+        .isEqualTo("dagger.internal.codegen.Foo");
+  }
+
+  @Test public void peerNamed_nestedClass() {
+    Elements elements = compilationRule.getElements();
+    TypeElement element = elements.getTypeElement(OuterClass.class.getCanonicalName());
+    ClassName className = ClassName.fromTypeElement(element);
+    ClassName peerName = className.peerNamed("Foo");
+    ASSERT.that(peerName.fullyQualifiedName())
+        .isEqualTo("dagger.internal.codegen.ClassNameTest.Foo");
+  }
+
+  @Test public void peerNamed_deeplyNestedClass() {
+    Elements elements = compilationRule.getElements();
+    TypeElement element = elements.getTypeElement(InnerClass.class.getCanonicalName());
+    ClassName className = ClassName.fromTypeElement(element);
+    ClassName peerName = className.peerNamed("Foo");
+    ASSERT.that(peerName.fullyQualifiedName())
+        .isEqualTo("dagger.internal.codegen.ClassNameTest.OuterClass.Foo");
   }
 }

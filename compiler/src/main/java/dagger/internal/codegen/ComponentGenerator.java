@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -101,8 +100,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   ClassName nameGeneratedType(ComponentDescriptor input) {
     ClassName componentDefinitionClassName =
         ClassName.fromTypeElement(input.componentDefinitionType());
-    return componentDefinitionClassName.peerNamed(
-        "Dagger_" + componentDefinitionClassName.simpleName());
+    return componentDefinitionClassName.topLevelClassName().peerNamed(
+        "Dagger_" + componentDefinitionClassName.classFileName());
   }
 
   @Override
@@ -120,8 +119,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       throws IOException {
     writer.emitPackage(componentName.packageName());
 
-    writeImports(writer, componentName, input.interfaceRequests(),
-        input.resolvedProvisionBindings().values());
+    writeImports(writer, componentName, input);
 
     writer.emitAnnotation(Generated.class, stringLiteral(ComponentProcessor.class.getName()));
     writer.beginType(componentName.simpleName(), "class", EnumSet.of(PUBLIC, FINAL), null,
@@ -159,14 +157,20 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   private void writeImports(JavaWriter writer, ClassName factoryClassName,
-      ImmutableList<DependencyRequest> interfaceRequests,
-      ImmutableCollection<ProvisionBinding> bindings) throws IOException {
+      ComponentDescriptor input) throws IOException {
+
     ImmutableSortedSet.Builder<ClassName> importsBuilder =
         ImmutableSortedSet.<ClassName>naturalOrder()
-            .addAll(collectImportsFromDependencies(factoryClassName, interfaceRequests))
+            .addAll(collectImportsFromDependencies(factoryClassName, input.interfaceRequests()))
             .add(ClassName.fromClass(Generated.class))
             .add(ClassName.fromClass(Provider.class));
-    for (ProvisionBinding binding : bindings) {
+
+    ClassName componentClassName = ClassName.fromTypeElement(input.componentDefinitionType());
+    if (!componentClassName.enclosingSimpleNames().isEmpty()) {
+      importsBuilder.add(componentClassName);
+    }
+
+    for (ProvisionBinding binding : input.resolvedProvisionBindings().values()) {
       if (binding.scope().isPresent()) {
         importsBuilder.add(ClassName.fromClass(ScopedProvider.class));
       }
