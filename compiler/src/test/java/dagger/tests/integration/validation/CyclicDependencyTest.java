@@ -52,9 +52,7 @@ public class CyclicDependencyTest {
         "}"));
 
     ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining("0. CyclicDeps$Foo bound by").in(sourceFile).onLine(17).and()
-        .withErrorContaining("1. CyclicDeps$Bar bound by").in(sourceFile).onLine(17).and()
-        .withErrorContaining("2. CyclicDeps$Blah bound by").in(sourceFile).onLine(17);
+        .withErrorContaining("Dependency cycle:").in(sourceFile).onLine(17);
   }
 
   @Test public void cyclicDepsWithProvidesMethods() {
@@ -76,10 +74,7 @@ public class CyclicDependencyTest {
         "}"));
 
     ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining("0. CyclicDeps$A bound by Provides").in(sourceFile).onLine(9).and()
-        .withErrorContaining("1. CyclicDeps$D bound by Provides").in(sourceFile).onLine(9).and()
-        .withErrorContaining("2. CyclicDeps$C bound by Provides").in(sourceFile).onLine(9).and()
-        .withErrorContaining("3. CyclicDeps$B bound by Provides").in(sourceFile).onLine(9);
+        .withErrorContaining("Dependency cycle:").in(sourceFile).onLine(9);
   }
 
 }
