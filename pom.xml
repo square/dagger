@@ -43,7 +43,7 @@
     <!-- Compilation -->
     <java.version>1.6</java.version>
     <javax.inject.version>1</javax.inject.version>
-    <javawriter.version>2.3.0</javawriter.version>
+    <javawriter.version>2.5.0</javawriter.version>
     <guava.version>15.0</guava.version>
 
     <!-- Test Dependencies -->
