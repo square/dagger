@@ -16,6 +16,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.service.AutoService;
 import com.squareup.javawriter.JavaWriter;
 import dagger.MembersInjector;
 import dagger.internal.Binding;
@@ -31,6 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.inject.Inject;
@@ -68,6 +70,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * Generates an implementation of {@link Binding} that injects the
  * {@literal @}{@code Inject}-annotated members of a class.
  */
+@AutoService(Processor.class)
 @SupportedAnnotationTypes("javax.inject.Inject")
 public final class InjectAdapterProcessor extends AbstractProcessor {
   private final Set<String> remainingTypeNames = new LinkedHashSet<String>();

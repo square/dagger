@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.service.AutoService;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.Binding;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.inject.Singleton;
@@ -67,6 +69,7 @@ import static java.util.Arrays.asList;
 /**
  * Performs full graph analysis on a module.
  */
+@AutoService(Processor.class)
 @SupportedAnnotationTypes("dagger.Module")
 public final class GraphAnalysisProcessor extends AbstractProcessor {
   private static final Set<String> ERROR_NAMES_TO_PROPAGATE = new LinkedHashSet<String>(asList(

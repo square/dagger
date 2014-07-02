@@ -34,7 +34,7 @@ class TestApp implements Runnable {
   
   static class Dependency {
     // missing @Inject Dependency() {}
-    public void doit() { throw AssertionError(); };
+    public void doit() { throw new AssertionError(); }
   }
   
   @Module(injects = TestApp.class)
