@@ -13,29 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.writer;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
-import com.google.common.base.CaseFormat;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import dagger.internal.codegen.writer.JavaWriter.CompilationUnitContext;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.Util.isValidJavaIdentifier;
 import static javax.lang.model.element.NestingKind.MEMBER;
 import static javax.lang.model.element.NestingKind.TOP_LEVEL;
 
@@ -45,11 +48,41 @@ import static javax.lang.model.element.NestingKind.TOP_LEVEL;
  *
  * @since 2.0
  */
-@AutoValue
-abstract class ClassName implements Comparable<ClassName> {
+public final class ClassName implements Comparable<ClassName>, TypeName {
   private String fullyQualifiedName = null;
+  private final String packageName;
+  /* From top to bottom.  E.g.: this field will contian ["A", "B"] for pgk.A.B.C */
+  private final ImmutableList<String> enclosingSimpleNames;
+  private final String simpleName;
 
-  String fullyQualifiedName() {
+  private ClassName(String packageName, ImmutableList<String> enclosingSimpleNames,
+      String simpleName) {
+    this.packageName = packageName;
+    this.enclosingSimpleNames = enclosingSimpleNames;
+    this.simpleName = simpleName;
+  }
+
+  public String packageName() {
+    return packageName;
+  }
+
+  public ImmutableList<String> enclosingSimpleNames() {
+    return enclosingSimpleNames;
+  }
+
+  public Optional<ClassName> enclosingClassName() {
+    return enclosingSimpleNames.isEmpty()
+        ? Optional.<ClassName>absent()
+        : Optional.of(new ClassName(packageName,
+            enclosingSimpleNames.subList(0, enclosingSimpleNames.size() - 1),
+            enclosingSimpleNames.get(enclosingSimpleNames.size() - 1)));
+  }
+
+  public String simpleName() {
+    return simpleName;
+  }
+
+  public String canonicalName() {
     if (fullyQualifiedName == null) {
       StringBuilder builder = new StringBuilder(packageName());
       if (builder.length() > 0) {
@@ -63,7 +96,7 @@ abstract class ClassName implements Comparable<ClassName> {
     return fullyQualifiedName;
   }
 
-  String classFileName() {
+  public String classFileName() {
     StringBuilder builder = new StringBuilder();
     Joiner.on('$').appendTo(builder, enclosingSimpleNames());
     if (!enclosingSimpleNames().isEmpty()) {
@@ -72,30 +105,19 @@ abstract class ClassName implements Comparable<ClassName> {
     return builder.append(simpleName()).toString();
   }
 
-  abstract String packageName();
-  /* From top to bottom.  E.g.: this field will contian ["A", "B"] for pgk.A.B.C */
-  abstract ImmutableList<String> enclosingSimpleNames();
-  abstract String simpleName();
-
-
-  String suggestedVariableName() {
-    return CharMatcher.is('$').removeFrom(
-        CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, simpleName()));
-  }
-
-  ClassName topLevelClassName() {
+  public ClassName topLevelClassName() {
     Iterator<String> enclosingIterator = enclosingSimpleNames().iterator();
     return enclosingIterator.hasNext()
-        ? new AutoValue_ClassName(packageName(), ImmutableList.<String>of(),
+        ? new ClassName(packageName(), ImmutableList.<String>of(),
             enclosingIterator.next())
         : this;
   }
 
-  ClassName memberClassNamed(String memberClassName) {
+  public ClassName nestedClassNamed(String memberClassName) {
     checkNotNull(memberClassName);
-    checkArgument(isValidJavaIdentifier(memberClassName));
+    checkArgument(SourceVersion.isIdentifier(memberClassName));
     checkArgument(Ascii.isUpperCase(memberClassName.charAt(0)));
-    return new AutoValue_ClassName(packageName(),
+    return new ClassName(packageName(),
         new ImmutableList.Builder<String>()
             .addAll(enclosingSimpleNames())
             .add(simpleName())
@@ -103,17 +125,17 @@ abstract class ClassName implements Comparable<ClassName> {
         memberClassName);
   }
 
-  ClassName peerNamed(String peerClassName) {
+  public ClassName peerNamed(String peerClassName) {
     checkNotNull(peerClassName);
-    checkArgument(isValidJavaIdentifier(peerClassName));
+    checkArgument(SourceVersion.isIdentifier(peerClassName));
     checkArgument(Ascii.isUpperCase(peerClassName.charAt(0)));
-    return new AutoValue_ClassName(packageName(), enclosingSimpleNames(), peerClassName);
+    return new ClassName(packageName(), enclosingSimpleNames(), peerClassName);
   }
 
   private static final ImmutableSet<NestingKind> ACCEPTABLE_NESTING_KINDS =
       Sets.immutableEnumSet(TOP_LEVEL, MEMBER);
 
-  static ClassName fromTypeElement(TypeElement element) {
+  public static ClassName fromTypeElement(TypeElement element) {
     checkNotNull(element);
     checkArgument(ACCEPTABLE_NESTING_KINDS.contains(element.getNestingKind()));
     String simpleName = element.getSimpleName().toString();
@@ -124,13 +146,13 @@ abstract class ClassName implements Comparable<ClassName> {
       enclosingNames.add(current.getSimpleName().toString());
       current = current.getEnclosingElement();
     }
-    PackageElement packageElement = Util.getPackage(current);
+    PackageElement packageElement = getPackage(current);
     Collections.reverse(enclosingNames);
-    return new AutoValue_ClassName(packageElement.getQualifiedName().toString(),
+    return new ClassName(packageElement.getQualifiedName().toString(),
         ImmutableList.copyOf(enclosingNames), simpleName);
   }
 
-  static ClassName fromClass(Class<?> clazz) {
+  public static ClassName fromClass(Class<?> clazz) {
     checkNotNull(clazz);
     List<String> enclosingNames = new ArrayList<String>();
     Class<?> current = clazz.getEnclosingClass();
@@ -142,6 +164,13 @@ abstract class ClassName implements Comparable<ClassName> {
     return create(clazz.getPackage().getName(), enclosingNames, clazz.getSimpleName());
   }
 
+  private static PackageElement getPackage(Element type) {
+    while (type.getKind() != ElementKind.PACKAGE) {
+      type = type.getEnclosingElement();
+    }
+    return (PackageElement) type;
+  }
+
   /**
    * Returns a new {@link ClassName} instance for the given fully-qualified class name string. This
    * method assumes that the input is ASCII and follows typical Java style (lower-case package
@@ -150,13 +179,13 @@ abstract class ClassName implements Comparable<ClassName> {
    * {@link #fromClass(Class)} should be preferred as they can correctly create {@link ClassName}
    * instances without such restrictions.
    */
-  static ClassName bestGuessFromString(String classNameString) {
+  public static ClassName bestGuessFromString(String classNameString) {
     checkNotNull(classNameString);
     List<String> parts = Splitter.on('.').splitToList(classNameString);
     int firstClassPartIndex = -1;
     for (int i = 0; i < parts.size(); i++) {
       String part = parts.get(i);
-      checkArgument(isValidJavaIdentifier(part));
+      checkArgument(SourceVersion.isIdentifier(part));
       char firstChar = part.charAt(0);
       if (Ascii.isLowerCase(firstChar)) {
         // looks like a package part
@@ -173,7 +202,7 @@ abstract class ClassName implements Comparable<ClassName> {
       }
     }
     int lastIndex = parts.size() - 1;
-    return new AutoValue_ClassName(
+    return new ClassName(
         Joiner.on('.').join(parts.subList(0, firstClassPartIndex)),
         firstClassPartIndex == lastIndex
             ? ImmutableList.<String>of()
@@ -181,23 +210,54 @@ abstract class ClassName implements Comparable<ClassName> {
         parts.get(lastIndex));
   }
 
-  static ClassName create(String packageName,
-      List<String> enclosingSimpleNames, String simpleName) {
-    return new AutoValue_ClassName(packageName, ImmutableList.copyOf(enclosingSimpleNames),
+  public static ClassName create(
+      String packageName, List<String> enclosingSimpleNames, String simpleName) {
+    return new ClassName(packageName, ImmutableList.copyOf(enclosingSimpleNames),
         simpleName);
   }
 
-  static ClassName create(String packageName, String simpleName) {
-    return new AutoValue_ClassName(packageName, ImmutableList.<String>of(), simpleName);
+  public static ClassName create(String packageName, String simpleName) {
+    return new ClassName(packageName, ImmutableList.<String>of(), simpleName);
   }
 
   @Override
   public String toString() {
-    return fullyQualifiedName();
+    return canonicalName();
+  }
+
+  @Override
+  public Appendable write(Appendable appendable, CompilationUnitContext context)
+      throws IOException {
+    appendable.append(context.sourceReferenceForClassName(this));
+    return appendable;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    } else if (obj instanceof ClassName) {
+      ClassName that = (ClassName) obj;
+      return this.packageName.equals(that.packageName)
+          && this.enclosingSimpleNames.equals(that.enclosingSimpleNames)
+          && this.simpleName.equals(that.simpleName);
+    } else {
+      return false;
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(packageName, enclosingSimpleNames, simpleName);
   }
 
   @Override
   public int compareTo(ClassName o) {
-    return fullyQualifiedName().compareTo(o.fullyQualifiedName());
+    return canonicalName().compareTo(o.canonicalName());
+  }
+
+  @Override
+  public Set<ClassName> referencedClasses() {
+    return ImmutableSet.of(this);
   }
 }

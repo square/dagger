@@ -18,12 +18,11 @@ package dagger.internal.codegen;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.squareup.javawriter.JavaWriter;
+import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.JavaWriter;
 import java.io.IOException;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
-import javax.tools.JavaFileObject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -46,40 +45,16 @@ abstract class SourceFileGenerator<T> {
   final ClassName generate(T input) throws SourceFileGenerationException {
     ClassName generatedTypeName = nameGeneratedType(input);
     ImmutableSet<Element> originatingElements = ImmutableSet.copyOf(getOriginatingElements(input));
-    JavaFileObject file = null;
     try {
-      // first, try to create the file
-      file = filer.createSourceFile(generatedTypeName.fullyQualifiedName(),
-          Iterables.toArray(originatingElements, Element.class));
-      // try to create the writer
-      JavaWriter writer = new JavaWriter(file.openWriter());
-      boolean thrownWriting = false;
+      JavaWriter javaWriter = write(generatedTypeName, input);
       try {
-        write(generatedTypeName, writer, input);
-        return generatedTypeName;
-      } catch (Exception e) {
-        thrownWriting = true;
+        javaWriter.file(filer, originatingElements);
+      } catch (IOException e) {
         throw new SourceFileGenerationException(generatedTypeName, e,
             getElementForErrorReporting(input));
-      } finally {
-        // good or bad, we have to close the stream
-        try {
-          writer.close();
-        } catch (IOException e) {
-          // only throw this exception if nothing was thrown during writing as that one is much
-          // more likely to be interesting
-          if (!thrownWriting) {
-            throw new SourceFileGenerationException(generatedTypeName, e,
-                getElementForErrorReporting(input));
-          }
-        }
       }
+      return generatedTypeName;
     } catch (Exception e) {
-      // deletes the file if any exception occurred creating the file, opening the writer or writing
-      // the contents
-      if (file != null) {
-        file.delete();
-      }
       // if the code above threw a SFGE, use that
       Throwables.propagateIfPossible(e, SourceFileGenerationException.class);
       // otherwise, throw a new one
@@ -106,8 +81,6 @@ abstract class SourceFileGenerator<T> {
   abstract Optional<? extends Element> getElementForErrorReporting(T input);
 
   /**
-   * Implementations should emit source using the given {@link JavaWriter} instance. It is not
-   * necessary to close the writer.
    */
-  abstract void write(ClassName generatedTypeName, JavaWriter writer, T input) throws IOException;
+  abstract JavaWriter write(ClassName generatedTypeName, T input);
 }

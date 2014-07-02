@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
+import dagger.internal.codegen.writer.ClassName;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 

@@ -18,12 +18,12 @@ package dagger.internal.codegen;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.CompilationRule;
 import dagger.internal.codegen.ClassNameTest.OuterClass.InnerClass;
+import dagger.internal.codegen.writer.ClassName;
 import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
-import org.junit.Test;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -79,7 +79,7 @@ public class ClassNameTest {
   @Test public void classNameFromTypeElement() {
     Elements elements = compilationRule.getElements();
     TypeElement element = elements.getTypeElement(Object.class.getCanonicalName());
-    ASSERT.that(ClassName.fromTypeElement(element).fullyQualifiedName())
+    ASSERT.that(ClassName.fromTypeElement(element).canonicalName())
         .isEqualTo("java.lang.Object");
   }
 
@@ -88,7 +88,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(ClassNameTest.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    ASSERT.that(peerName.fullyQualifiedName())
+    ASSERT.that(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.Foo");
   }
 
@@ -97,7 +97,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(OuterClass.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    ASSERT.that(peerName.fullyQualifiedName())
+    ASSERT.that(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.ClassNameTest.Foo");
   }
 
@@ -106,7 +106,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(InnerClass.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    ASSERT.that(peerName.fullyQualifiedName())
+    ASSERT.that(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.ClassNameTest.OuterClass.Foo");
   }
 }
