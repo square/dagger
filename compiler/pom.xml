@@ -41,10 +41,6 @@
       <artifactId>auto-common</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.google.auto.service</groupId>
-      <artifactId>auto-service</artifactId>
-    </dependency>
-    <dependency>
       <groupId>com.squareup</groupId>
       <artifactId>javawriter</artifactId>
     </dependency>
@@ -54,10 +50,15 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
+    </dependency>
+    <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
       <version>1.0-rc1</version>
-      <optional>true</optional>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
     </dependency>
 
     <dependency>
@@ -101,34 +102,6 @@
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>default-compile</id>
-            <goals><goal>compile</goal></goals>
-            <configuration>
-              <annotationProcessors>
-                <annotationProcessor>com.google.auto.value.processor.AutoValueProcessor</annotationProcessor>
-              </annotationProcessors>
-            </configuration>
-          </execution>
-          <execution>
-            <id>default-test-compile</id>
-            <goals><goal>testCompile</goal></goals>
-            <configuration>
-              <annotationProcessors>
-                <annotationProcessor>dagger.internal.codegen.ValidationProcessor</annotationProcessor>
-                <annotationProcessor>dagger.internal.codegen.InjectAdapterProcessor</annotationProcessor>
-                <annotationProcessor>dagger.internal.codegen.ModuleAdapterProcessor</annotationProcessor>
-                <annotationProcessor>dagger.internal.codegen.GraphAnalysisProcessor</annotationProcessor>
-              </annotationProcessors>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-invoker-plugin</artifactId>
