@@ -16,6 +16,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.service.AutoService;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.inject.Inject;
@@ -53,6 +55,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  *  <p> Warnings for invalid use of scoping annotations can be suppressed
  *  with @SuppressWarnings("scoping")
  */
+@AutoService(Processor.class)
 @SupportedAnnotationTypes({ "*" })
 public final class ValidationProcessor extends AbstractProcessor {
 

@@ -45,6 +45,7 @@
     <javax.inject.version>1</javax.inject.version>
     <javawriter.version>2.5.0</javawriter.version>
     <auto.common.version>0.1</auto.common.version>
+    <auto.service.version>1.0-rc1</auto.service.version>
     <guava.version>17.0</guava.version>
 
     <!-- Test Dependencies -->
@@ -105,6 +106,11 @@
         <groupId>com.google.auto</groupId>
         <artifactId>auto-common</artifactId>
         <version>${auto.common.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.auto.service</groupId>
+        <artifactId>auto-service</artifactId>
+        <version>${auto.service.version}</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>

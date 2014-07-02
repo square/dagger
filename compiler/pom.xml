@@ -41,6 +41,10 @@
       <artifactId>auto-common</artifactId>
     </dependency>
     <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.squareup</groupId>
       <artifactId>javawriter</artifactId>
     </dependency>

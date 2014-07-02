@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.service.AutoService;
 import com.squareup.javawriter.JavaWriter;
 import dagger.Lazy;
 import dagger.Module;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.inject.Provider;
@@ -81,6 +83,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * Generates an implementation of {@link ModuleAdapter} that includes a binding
  * for each {@code @Provides} method of a target class.
  */
+@AutoService(Processor.class)
 @SupportedAnnotationTypes({ "*" })
 public final class ModuleAdapterProcessor extends AbstractProcessor {
   private static final String BINDINGS_MAP = JavaWriter.type(BindingsGroup.class);
