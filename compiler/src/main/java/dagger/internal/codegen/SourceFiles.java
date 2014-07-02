@@ -23,6 +23,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -31,10 +32,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
-import com.squareup.javawriter.JavaWriter;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.internal.DoubleCheckLazy;
+import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.Snippet;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
@@ -138,29 +140,31 @@ class SourceFiles {
    * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
    * provider.
    */
-  static ImmutableBiMap<Key, String> generateProviderNamesForDependencies(
+  static ImmutableMap<FrameworkKey, String> generateFrameworkReferenceNamesForDependencies(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<Key, DependencyRequest>()
+    ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest>()
             .orderValuesBy(DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(dependency.key(), dependency);
+      dependenciesByKeyBuilder.put(
+          FrameworkKey.forDependencyRequest(dependency), dependency);
     }
-    ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
+    ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey =
         dependenciesByKeyBuilder.build();
-    Map<Key, Collection<DependencyRequest>> dependenciesByKeyMap = dependenciesByKey.asMap();
-    BiMap<Key, String> providerNames = HashBiMap.create(dependenciesByKeyMap.size());
-    for (Entry<Key, Collection<DependencyRequest>> entry : dependenciesByKeyMap.entrySet()) {
+    Map<FrameworkKey, Collection<DependencyRequest>> dependenciesByKeyMap =
+        dependenciesByKey.asMap();
+    ImmutableMap.Builder<FrameworkKey, String> providerNames = ImmutableMap.builder();
+    for (Entry<FrameworkKey, Collection<DependencyRequest>> entry :
+      dependenciesByKeyMap.entrySet()) {
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames = FluentIterable.from(entry.getValue())
           .transform(new DependencyVariableNamer())
           .toSet();
 
-      final String baseProviderName;
       if (dependencyNames.size() == 1) {
         // if there's only one name, great!  use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        baseProviderName = name.endsWith("Provider") ? name : name + "Provider";
+        providerNames.put(entry.getKey(), name.endsWith("Provider") ? name : name + "Provider");
       } else {
         // in the event that a provider is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle.  E.g.: stringAndS
@@ -171,20 +175,10 @@ class SourceFiles {
           compositeNameBuilder.append("And")
               .append(CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        baseProviderName = compositeNameBuilder.append("Provider").toString();
+        providerNames.put(entry.getKey(), compositeNameBuilder.append("Provider").toString());
       }
-
-      // in the unlikely event that we have more that one provider with the exact same name,
-      // just add numbers at the end until there is no collision
-      String candidateName = baseProviderName;
-      for (int candidateNum = 2; providerNames.containsValue(candidateName); candidateNum++) {
-        candidateName = baseProviderName + candidateNum;
-      }
-
-      providerNames.put(entry.getKey(), candidateName);
     }
-    // return the map so that it is sorted by name
-    return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
+    return providerNames.build();
   }
 
   // TODO(gak): this needs to suck less
@@ -234,16 +228,17 @@ class SourceFiles {
         }));
   }
 
-  static String providerUsageStatement(String providerName,
+  static Snippet frameworkTypeUsageStatement(String frameworkTypeName,
       DependencyRequest.Kind dependencyKind) {
     switch (dependencyKind) {
       case LAZY:
-        return String.format("%s.create(%s)",
-            DoubleCheckLazy.class.getSimpleName(), providerName);
+        return Snippet.format("%s.create(%s)",
+            ClassName.fromClass(DoubleCheckLazy.class), frameworkTypeName);
       case INSTANCE:
-        return String.format("%s.get()", providerName);
+        return Snippet.format("%s.get()", frameworkTypeName);
       case PROVIDER:
-        return String.format("%s", providerName);
+      case MEMBERS_INJECTOR:
+        return Snippet.format("%s", frameworkTypeName);
       default:
         throw new AssertionError();
     }

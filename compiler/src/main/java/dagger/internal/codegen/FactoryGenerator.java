@@ -15,46 +15,35 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Maps;
-import com.squareup.javawriter.JavaWriter;
+import com.google.common.collect.Lists;
 import dagger.Factory;
 import dagger.MembersInjector;
-import dagger.Provides;
-import java.io.IOException;
+import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.ClassWriter;
+import dagger.internal.codegen.writer.ConstructorWriter;
+import dagger.internal.codegen.writer.FieldWriter;
+import dagger.internal.codegen.writer.JavaWriter;
+import dagger.internal.codegen.writer.MethodWriter;
+import dagger.internal.codegen.writer.ParameterizedTypeName;
+import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.TypeName;
+import dagger.internal.codegen.writer.TypeReferences;
 import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Map;
+import java.util.List;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.squareup.javawriter.JavaWriter.stringLiteral;
-import static com.squareup.javawriter.JavaWriter.type;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.SourceFiles.collectImportsFromDependencies;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
-import static dagger.internal.codegen.SourceFiles.flattenVariableMap;
-import static dagger.internal.codegen.SourceFiles.generateProviderNamesForDependencies;
-import static dagger.internal.codegen.SourceFiles.providerUsageStatement;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -67,13 +56,8 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @since 2.0
  */
 final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
-  private final Elements elements;
-  private final Types types;
-
-  FactoryGenerator(Filer filer, Elements elements, Types types) {
+  FactoryGenerator(Filer filer) {
     super(filer);
-    this.elements = checkNotNull(elements);
-    this.types = checkNotNull(types);
   }
 
   @Override
@@ -91,165 +75,102 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     return Optional.of(binding.bindingElement());
   }
 
+
   @Override
-  void write(ClassName factoryClassName, JavaWriter writer, ProvisionBinding binding)
-      throws IOException {
-    TypeMirror providedType = binding.providedKey().type();
-    String providedTypeString = Util.typeToString(providedType);
+  JavaWriter write(ClassName generatedTypeName, ProvisionBinding binding) {
+    TypeName providedTypeName = TypeReferences.forTypeMirror(binding.providedKey().type());
+    JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
-    writer.emitPackage(factoryClassName.packageName());
+    ClassWriter factoryWriter = writer.addClass(generatedTypeName.simpleName());
+    factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
+    factoryWriter.addModifiers(PUBLIC, FINAL);
+    factoryWriter.addImplementedType(ParameterizedTypeName.create(
+        ClassName.fromClass(Factory.class),
+        providedTypeName));
 
-    writeImports(writer, factoryClassName, binding, providedType);
 
-    writer.emitAnnotation(Generated.class, stringLiteral(ComponentProcessor.class.getName()))
-        .beginType(factoryClassName.simpleName(), "class", EnumSet.of(PUBLIC, FINAL), null,
-            type(Factory.class, Util.typeToString(binding.providedKey().type())));
+    MethodWriter getMethodWriter = factoryWriter.addMethod(binding.providedKey().type(), "get");
+    getMethodWriter.annotate(Override.class);
+    getMethodWriter.addModifiers(PUBLIC);
 
-    final ImmutableBiMap<Key, String> providerNames =
-        generateProviderNamesForDependencies(binding.dependencies());
-
-    ImmutableMap.Builder<String, String> variableMapBuilder =
-        new ImmutableMap.Builder<String, String>();
+    ConstructorWriter constructorWriter = factoryWriter.addConstructor();
+    constructorWriter.addModifiers(PUBLIC);
     if (binding.bindingKind().equals(PROVISION)) {
-      variableMapBuilder.put("module", binding.bindingTypeElement().getQualifiedName().toString());
+      factoryWriter.addField(binding.bindingTypeElement(), "module").addModifiers(PRIVATE, FINAL);
+      constructorWriter.addParameter(binding.bindingTypeElement(), "module");
+      constructorWriter.body()
+          .addSnippet("assert module != null;")
+          .addSnippet("this.module = module;");
     }
-    if (binding.requiresMemberInjection()) {
-      variableMapBuilder.put("membersInjector", type(MembersInjector.class, providedTypeString));
-    }
-    ImmutableMap<String, String> variableMap = variableMapBuilder
-        .putAll(providersAsVariableMap(providerNames))
-        .build();
 
     if (binding.requiresMemberInjection()) {
-      writeMembersInjectorField(writer, providedTypeString);
-    }
-    if (binding.bindingKind().equals(PROVISION)) {
-      writeModuleField(writer, binding.bindingTypeElement());
-    }
-    writeProviderFields(writer, providerNames);
-
-    writeConstructor(writer, variableMap);
-
-    writeGetMethod(writer, binding, providedTypeString, providerNames);
-
-    // TODO(gak): write a sensible toString
-
-    writer.endType();
-  }
-
-  private void writeImports(JavaWriter writer, ClassName factoryClassName, ProvisionBinding binding,
-      TypeMirror providedType) throws IOException {
-    ImmutableSortedSet.Builder<ClassName> importsBuilder =
-        ImmutableSortedSet.<ClassName>naturalOrder()
-            .addAll(collectImportsFromDependencies(factoryClassName, binding.dependencies()))
-            .add(ClassName.fromClass(Factory.class))
-            .add(ClassName.fromClass(Generated.class));
-    ClassName bindingClassName = ClassName.fromTypeElement(binding.bindingTypeElement());
-    if(!bindingClassName.enclosingSimpleNames().isEmpty()) {
-      importsBuilder.add(bindingClassName);
-    }
-    if (binding.provisionType().equals(Provides.Type.SET)) {
-      importsBuilder.add(ClassName.fromClass(Collections.class));
-    }
-    if (binding.requiresMemberInjection()) {
-      importsBuilder.add(ClassName.fromClass(MembersInjector.class));
-    }
-    for (TypeElement referencedProvidedType : MoreTypes.referencedTypes(providedType)) {
-      ClassName className = ClassName.fromTypeElement(referencedProvidedType);
-      if (!className.packageName().equals("java.lang")
-          && !className.packageName().equals(factoryClassName.packageName()))
-      importsBuilder.add(className);
+      ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
+          MembersInjector.class, providedTypeName);
+      factoryWriter.addField(membersInjectorType, "membersInjector").addModifiers(PRIVATE, FINAL);
+      constructorWriter.addParameter(membersInjectorType, "membersInjector");
+      constructorWriter.body()
+          .addSnippet("assert membersInjector != null;")
+          .addSnippet("this.membersInjector = membersInjector;");
     }
 
-    writer.emitImports(Collections2.transform(importsBuilder.build(), Functions.toStringFunction()))
-        .emitEmptyLine();
-  }
+    ImmutableMap<FrameworkKey, String> names =
+        SourceFiles.generateFrameworkReferenceNamesForDependencies(binding.dependencies());
 
-  private void writeMembersInjectorField(JavaWriter writer, String providedTypeString)
-      throws IOException {
-    writer.emitField(type(MembersInjector.class, providedTypeString),
-        "membersInjector", EnumSet.of(PRIVATE, FINAL));
-  }
-
-  private void writeModuleField(JavaWriter writer, TypeElement moduleType) throws IOException {
-    writer.emitField(moduleType.getQualifiedName().toString(), "module",
-        EnumSet.of(PRIVATE, FINAL));
-  }
-
-  private void writeProviderFields(JavaWriter writer, ImmutableBiMap<Key, String> providerNames)
-      throws IOException {
-    for (Entry<Key, String> providerEntry : providerNames.entrySet()) {
-      Key key = providerEntry.getKey();
-      // TODO(gak): provide more elaborate information about which requests relate
-      writer.emitJavadoc(key.toString())
-          .emitField(providerTypeString(key), providerEntry.getValue(),
-              EnumSet.of(PRIVATE, FINAL));
-    }
-    writer.emitEmptyLine();
-  }
-
-  private void writeConstructor(JavaWriter writer, Map<String, String> variableMap)
-      throws IOException {
-    if (!variableMap.isEmpty()) {
-      writer.beginConstructor(EnumSet.of(PUBLIC),
-          flattenVariableMap(variableMap),
-          ImmutableList.<String>of());
-      for (String variableName : variableMap.keySet()) {
-        writer.emitStatement("assert %s != null", variableName);
-        writer.emitStatement("this.%1$s = %1$s", variableName);
+    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
+      final FieldWriter field;
+      if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
+        ParameterizedTypeName providerType = ParameterizedTypeName.create(
+            ClassName.fromClass(Provider.class),
+            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+        field = factoryWriter.addField(providerType, nameEntry.getValue());
+      } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
+        ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
+            ClassName.fromClass(MembersInjector.class),
+            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+        field = factoryWriter.addField(membersInjectorType, nameEntry.getValue());
+      } else {
+        throw new IllegalStateException();
       }
-      writer.endConstructor().emitEmptyLine();
+      field.addModifiers(PRIVATE, FINAL);
+      constructorWriter.addParameter(field.type(), field.name());
+      constructorWriter.body()
+          .addSnippet("assert %s != null;", field.name())
+          .addSnippet("this.%1$s = %1$s;", field.name());
     }
-  }
 
-  private void writeGetMethod(JavaWriter writer, ProvisionBinding binding,
-      String providedTypeString, final ImmutableBiMap<Key, String> providerNames)
-          throws IOException {
-    writer.emitAnnotation(Override.class)
-        .beginMethod(providedTypeString, "get", EnumSet.of(PUBLIC));
-    String parameterString =
-        Joiner.on(", ").join(FluentIterable.from(binding.dependencies())
-            .transform(new Function<DependencyRequest, String>() {
-              @Override public String apply(DependencyRequest input) {
-                return providerUsageStatement(providerNames.get(input.key()), input.kind());
-              }
-            }));
+    List<Snippet> parameters = Lists.newArrayList();
+    for (DependencyRequest dependency : binding.dependencies()) {
+      parameters.add(frameworkTypeUsageStatement(
+          names.get(FrameworkKey.forDependencyRequest(dependency)), dependency.kind()));
+    }
+    Snippet parametersSnippet = makeParametersSnippet(parameters);
+
     if (binding.bindingKind().equals(PROVISION)) {
       switch (binding.provisionType()) {
         case UNIQUE:
         case SET_VALUES:
-          writer.emitStatement("return module.%s(%s)",
-              binding.bindingElement().getSimpleName(), parameterString);
+          getMethodWriter.body().addSnippet("return module.%s(%s);",
+              binding.bindingElement().getSimpleName(), parametersSnippet);
           break;
         case SET:
-          writer.emitStatement("return Collections.singleton(module.%s(%s))",
-              binding.bindingElement().getSimpleName(), parameterString);
+          getMethodWriter.body().addSnippet("return %s.singleton(module.%s(%s));",
+              ClassName.fromClass(Collections.class),
+              binding.bindingElement().getSimpleName(), parametersSnippet);
           break;
         default:
           throw new AssertionError();
       }
     } else if (binding.requiresMemberInjection()) {
-      writer.emitStatement("%1$s instance = new %1$s(%2$s)",
-          writer.compressType(providedTypeString), parameterString);
-      writer.emitStatement("membersInjector.injectMembers(instance)");
-      writer.emitStatement("return instance");
+      getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",
+          providedTypeName, parametersSnippet);
+      getMethodWriter.body().addSnippet("membersInjector.injectMembers(instance);");
+      getMethodWriter.body().addSnippet("return instance;");
     } else {
-      writer.emitStatement("return new %s(%s)",
-          writer.compressType(providedTypeString), parameterString);
+      getMethodWriter.body()
+          .addSnippet("return new %s(%s);", providedTypeName, parametersSnippet);
     }
-    writer.endMethod().emitEmptyLine();
-  }
 
-  private Map<String, String> providersAsVariableMap(ImmutableBiMap<Key, String> providerNames) {
-    return Maps.transformValues(providerNames.inverse(), new Function<Key, String>() {
-      @Override public String apply(Key key) {
-        return providerTypeString(key);
-      }
-    });
-  }
-
-  private String providerTypeString(Key key) {
-    return Util.typeToString(types.getDeclaredType(
-        elements.getTypeElement(Provider.class.getCanonicalName()), key.type()));
+    // TODO(gak): write a sensible toString
+    return writer;
   }
 }
