@@ -34,6 +34,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -133,7 +134,7 @@ abstract class MembersInjectionBinding {
       InjectionSite forInjectMethod(ExecutableElement methodElement) {
         checkNotNull(methodElement);
         checkArgument(methodElement.getKind().equals(ElementKind.METHOD));
-        checkArgument(methodElement.getAnnotation(Inject.class) != null);
+        checkArgument(isAnnotationPresent(methodElement, Inject.class));
         return new AutoValue_MembersInjectionBinding_InjectionSite(Kind.METHOD, methodElement,
             dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
       }
@@ -141,7 +142,7 @@ abstract class MembersInjectionBinding {
       InjectionSite forInjectField(VariableElement fieldElement) {
         checkNotNull(fieldElement);
         checkArgument(fieldElement.getKind().equals(ElementKind.FIELD));
-        checkArgument(fieldElement.getAnnotation(Inject.class) != null);
+        checkArgument(isAnnotationPresent(fieldElement, Inject.class));
         return new AutoValue_MembersInjectionBinding_InjectionSite(Kind.FIELD, fieldElement,
             ImmutableList.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
       }

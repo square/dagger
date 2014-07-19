@@ -31,6 +31,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
@@ -89,7 +90,7 @@ public final class ModuleProcesssingStep implements ProcessingStep {
         List<ExecutableElement> moduleMethods =
             ElementFilter.methodsIn(moduleElement.getEnclosedElements());
         for (ExecutableElement methodElement : moduleMethods) {
-          if (methodElement.getAnnotation(Provides.class) != null) {
+          if (isAnnotationPresent(methodElement, Provides.class)) {
             moduleProvidesMethodsBuilder.add(methodElement);
           }
         }

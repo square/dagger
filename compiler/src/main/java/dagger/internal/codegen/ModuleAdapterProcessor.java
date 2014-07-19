@@ -61,6 +61,7 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
@@ -80,8 +81,8 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
- * Generates an implementation of {@link ModuleAdapter} that includes a binding
- * for each {@code @Provides} method of a target class.
+ * Generates an implementation of {@link ModuleAdapter} that includes a binding for each
+ * {@code @Provides} method of a target class.
  */
 @AutoService(Processor.class)
 @SupportedAnnotationTypes({ "*" })
@@ -466,7 +467,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
 
     writer.emitEmptyLine();
     writer.beginMethod(null, className, EnumSet.of(PUBLIC), moduleType, "module");
-    boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
+    boolean singleton = isAnnotationPresent(providerMethod, Singleton.class);
     String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
     writer.emitStatement("super(%s, %s, %s, %s)",
         key, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"),

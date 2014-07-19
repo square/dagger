@@ -48,6 +48,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.Keys.isPlatformType;
 import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
 import static dagger.internal.codegen.Util.adapterName;
@@ -66,8 +67,8 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
- * Generates an implementation of {@link Binding} that injects the
- * {@literal @}{@code Inject}-annotated members of a class.
+ * Generates an implementation of {@link Binding} that injects the {@literal @}{@code Inject}
+ * -annotated members of a class.
  */
 @AutoService(Processor.class)
 @SupportedAnnotationTypes("javax.inject.Inject")
@@ -393,7 +394,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
         ? JavaWriter.stringLiteral(GeneratorKeys.get(type.asType()))
         : null;
     String membersKey = JavaWriter.stringLiteral(GeneratorKeys.rawMembersKey(type.asType()));
-    boolean singleton = type.getAnnotation(Singleton.class) != null;
+    boolean singleton = isAnnotationPresent(type, Singleton.class);
     writer.emitStatement("super(%s, %s, %s, %s.class)",
         key, membersKey, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"), strippedTypeName);
     writer.endMethod();

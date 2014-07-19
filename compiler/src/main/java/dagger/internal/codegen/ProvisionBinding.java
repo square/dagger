@@ -33,6 +33,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -119,7 +120,7 @@ abstract class ProvisionBinding extends Binding {
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement) {
       checkNotNull(constructorElement);
       checkArgument(constructorElement.getKind().equals(CONSTRUCTOR));
-      checkArgument(constructorElement.getAnnotation(Inject.class) != null);
+      checkArgument(isAnnotationPresent(constructorElement, Inject.class));
       Key key = keyFactory.forInjectConstructor(constructorElement);
       checkArgument(!key.qualifier().isPresent());
       return new AutoValue_ProvisionBinding(
@@ -143,7 +144,7 @@ abstract class ProvisionBinding extends Binding {
       }
       for (Element enclosedElement : type.getEnclosedElements()) {
         if (MEMBER_KINDS.contains(enclosedElement.getKind())
-            && (enclosedElement.getAnnotation(Inject.class) != null)) {
+            && (isAnnotationPresent(enclosedElement, Inject.class))) {
           return true;
         }
       }

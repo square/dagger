@@ -25,6 +25,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
 
 /**
@@ -41,7 +42,7 @@ final class ModuleValidator implements Validator<TypeElement> {
     ImmutableListMultimap.Builder<String, ExecutableElement> providesMethodsByName =
         ImmutableListMultimap.builder();
     for (ExecutableElement moduleMethod : moduleMethods) {
-      if (moduleMethod.getAnnotation(Provides.class) != null) {
+      if (isAnnotationPresent(moduleMethod, Provides.class)) {
         providesMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
       }
     }

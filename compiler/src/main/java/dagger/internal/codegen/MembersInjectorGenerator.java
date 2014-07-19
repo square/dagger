@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import dagger.internal.codegen.writer.VoidName;
-
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -36,6 +34,7 @@ import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.VoidName;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
@@ -45,6 +44,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static javax.lang.model.element.Modifier.FINAL;

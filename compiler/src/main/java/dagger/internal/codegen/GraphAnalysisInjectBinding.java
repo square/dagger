@@ -30,6 +30,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.Util.getApplicationSupertype;
 
 /**
@@ -43,7 +44,7 @@ final class GraphAnalysisInjectBinding extends Binding<Object> {
 
   private GraphAnalysisInjectBinding(String provideKey, String membersKey,
       TypeElement type, List<String> keys, String supertypeKey) {
-    super(provideKey, membersKey, type.getAnnotation(Singleton.class) != null,
+    super(provideKey, membersKey, isAnnotationPresent(type, Singleton.class),
         type.getQualifiedName().toString());
     this.type = type;
     this.keys = keys;
@@ -113,11 +114,11 @@ final class GraphAnalysisInjectBinding extends Binding<Object> {
   }
 
   private static boolean hasAtInject(Element enclosed) {
-    return enclosed.getAnnotation(Inject.class) != null;
+    return isAnnotationPresent(enclosed, Inject.class);
   }
 
   private static boolean hasAtSingleton(Element enclosed) {
-    return enclosed.getAnnotation(Singleton.class) != null;
+    return isAnnotationPresent(enclosed, Singleton.class);
   }
 
   @Override public void attach(Linker linker) {

@@ -40,20 +40,21 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.Util.elementToString;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.METHOD;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 
 /**
- * Checks for errors that are not directly related to modules and
- *  {@code @Inject} annotated elements.
+ * Checks for errors that are not directly related to modules and {@code @Inject} annotated
+ * elements.
  *
- *  <p> Warnings for invalid use of qualifier annotations can be suppressed
- *  with @SuppressWarnings("qualifiers")
+ * <p>Warnings for invalid use of qualifier annotations can be suppressed with
+ * @SuppressWarnings("qualifiers")
  *
- *  <p> Warnings for invalid use of scoping annotations can be suppressed
- *  with @SuppressWarnings("scoping")
+ * <p>Warnings for invalid use of scoping annotations can be suppressed with
+ * @SuppressWarnings("scoping")
  */
 @AutoService(Processor.class)
 @SupportedAnnotationTypes({ "*" })
@@ -80,16 +81,16 @@ public final class ValidationProcessor extends AbstractProcessor {
   }
 
   private void validateProvides(Element element) {
-    if (element.getAnnotation(Provides.class) != null
+    if (isAnnotationPresent(element, Provides.class)
         && Util.getAnnotation(Module.class, element.getEnclosingElement()) == null) {
       error("@Provides methods must be declared in modules: " + elementToString(element), element);
     }
   }
 
   private void validateQualifiers(Element element, Map<Element, Element> parametersToTheirMethods) {
-    boolean suppressWarnings =
-        element.getAnnotation(SuppressWarnings.class) != null && Arrays.asList(
-            element.getAnnotation(SuppressWarnings.class).value()).contains("qualifiers");
+    boolean suppressWarnings = isAnnotationPresent(element, SuppressWarnings.class)
+       && Arrays.asList(element.getAnnotation(SuppressWarnings.class).value())
+           .contains("qualifiers");
     int numberOfQualifiersOnElement = 0;
     for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
       if (annotation.getAnnotationType().asElement().getAnnotation(Qualifier.class) == null) {
@@ -132,9 +133,8 @@ public final class ValidationProcessor extends AbstractProcessor {
   }
 
   private void validateScoping(Element element) {
-    boolean suppressWarnings =
-        element.getAnnotation(SuppressWarnings.class) != null && Arrays.asList(
-            element.getAnnotation(SuppressWarnings.class).value()).contains("scoping");
+    boolean suppressWarnings = isAnnotationPresent(element, SuppressWarnings.class)
+        && Arrays.asList(element.getAnnotation(SuppressWarnings.class).value()).contains("scoping");
     int numberOfScopingAnnotationsOnElement = 0;
     for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
       if (annotation.getAnnotationType().asElement().getAnnotation(Scope.class) == null) {
@@ -187,7 +187,7 @@ public final class ValidationProcessor extends AbstractProcessor {
   }
 
   private boolean isProvidesMethod(Element element) {
-    return element.getKind() == METHOD && element.getAnnotation(Provides.class) != null;
+    return element.getKind() == METHOD && isAnnotationPresent(element, Provides.class);
   }
 
   /**
@@ -196,7 +196,7 @@ public final class ValidationProcessor extends AbstractProcessor {
    */
   private boolean isProvidesMethodParameter(
       Element parameter, Map<Element, Element> parametersToTheirMethods) {
-    return parametersToTheirMethods.get(parameter).getAnnotation(Provides.class) != null;
+    return isAnnotationPresent(parametersToTheirMethods.get(parameter), Provides.class);
   }
 
   /**
@@ -206,7 +206,7 @@ public final class ValidationProcessor extends AbstractProcessor {
   private boolean isInjectableConstructorParameter(
       Element parameter, Map<Element, Element> parametersToTheirMethods) {
     return parametersToTheirMethods.get(parameter).getKind() == CONSTRUCTOR
-        && parametersToTheirMethods.get(parameter).getAnnotation(Inject.class) != null;
+        && isAnnotationPresent(parametersToTheirMethods.get(parameter), Inject.class);
   }
 
   private void error(String msg, Element element) {

@@ -43,6 +43,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.AnnotationMirrors.getAnnotationMirror;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -176,7 +177,7 @@ abstract class ComponentDescriptor {
         List<ExecutableElement> moduleMethods =
             ElementFilter.methodsIn(elements.getAllMembers(module));
         for (ExecutableElement moduleMethod : moduleMethods) {
-          if (moduleMethod.getAnnotation(Provides.class) != null) {
+          if (isAnnotationPresent(moduleMethod, Provides.class)) {
             ProvisionBinding providesMethodBinding =
                 provisionBindingFactory.forProvidesMethod(moduleMethod);
             bindingIndexBuilder.put(providesMethodBinding.providedKey(), providesMethodBinding);
