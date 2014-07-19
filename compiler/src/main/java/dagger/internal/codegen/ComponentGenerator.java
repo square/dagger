@@ -59,6 +59,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.util.Elements;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
@@ -83,10 +84,12 @@ import static javax.lang.model.type.TypeKind.VOID;
  * @since 2.0
  */
 final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> {
+  private final Elements elements;
   private final Key.Factory keyFactory;
 
-  ComponentGenerator(Filer filer, Key.Factory keyFactory) {
+  ComponentGenerator(Filer filer, Elements elements, Key.Factory keyFactory) {
     super(filer);
+    this.elements = elements;
     this.keyFactory = keyFactory;
   }
 
@@ -115,7 +118,10 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
     JavaWriter writer = JavaWriter.inPackage(componentName.packageName());
     ClassWriter componentWriter = writer.addClass(componentName.simpleName());
-    componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
+    if (elements.getTypeElement(Generated.class.getCanonicalName()) != null) {
+      componentWriter.annotate(Generated.class)
+          .setValue(ComponentProcessor.class.getCanonicalName());
+    }
     componentWriter.addModifiers(PUBLIC, FINAL);
     componentWriter.addImplementedType(componentDefinitionTypeName);
 

@@ -89,11 +89,11 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
             provisionBindingFactory, dependencyRequestFactory);
 
-    FactoryGenerator factoryGenerator = new FactoryGenerator(filer);
+    FactoryGenerator factoryGenerator = new FactoryGenerator(filer, elements);
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types);
     ComponentGenerator componentGenerator =
-        new ComponentGenerator(filer, keyFactory);
+        new ComponentGenerator(filer, elements, keyFactory);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new InjectProcessingStep(

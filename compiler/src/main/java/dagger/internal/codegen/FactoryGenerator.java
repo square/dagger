@@ -39,6 +39,7 @@ import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
+import javax.lang.model.util.Elements;
 
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
@@ -56,8 +57,11 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @since 2.0
  */
 final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
-  FactoryGenerator(Filer filer) {
+  private final Elements elements;
+
+  FactoryGenerator(Filer filer, Elements elements) {
     super(filer);
+    this.elements = elements;
   }
 
   @Override
@@ -82,7 +86,10 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
     ClassWriter factoryWriter = writer.addClass(generatedTypeName.simpleName());
-    factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
+    if (elements.getTypeElement(Generated.class.getCanonicalName()) != null) {
+      factoryWriter.annotate(Generated.class)
+          .setValue(ComponentProcessor.class.getCanonicalName());
+    }
     factoryWriter.addModifiers(PUBLIC, FINAL);
     factoryWriter.addImplementedType(ParameterizedTypeName.create(
         ClassName.fromClass(Factory.class),
