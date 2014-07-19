@@ -43,8 +43,8 @@ import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
-import dagger.internal.codegen.writer.TypeReferences;
 import dagger.internal.codegen.writer.VoidName;
+import dagger.internal.codegen.writer.TypeNames;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -151,7 +151,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       // TODO(gak): provide more elaborate information about which requests relate
       TypeName providerTypeReferece = ParameterizedTypeName.create(
           ClassName.fromClass(Provider.class),
-          TypeReferences.forTypeMirror(key.type()));
+          TypeNames.forTypeMirror(key.type()));
       FieldWriter providerField =
           componentWriter.addField(providerTypeReferece, providerEntry.getValue());
       providerField.addModifiers(PRIVATE, FINAL);
@@ -161,7 +161,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       // TODO(gak): provide more elaborate information about which requests relate
       TypeName membersInjectorTypeReferece = ParameterizedTypeName.create(
           ClassName.fromClass(MembersInjector.class),
-          TypeReferences.forTypeMirror(key.type()));
+          TypeNames.forTypeMirror(key.type()));
       FieldWriter membersInjectorField =
           componentWriter.addField(membersInjectorTypeReferece, providerEntry.getValue());
       membersInjectorField.addModifiers(PRIVATE, FINAL);
@@ -212,7 +212,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
         Name parameterName = parameter.getSimpleName();
         interfaceMethod.addParameter(
-            TypeReferences.forTypeMirror(parameter.asType()), parameterName.toString());
+            TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
         interfaceMethod.body()
             .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
         if (!requestElement.getReturnType().getKind().equals(VOID)) {
@@ -238,7 +238,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     if (binding.bindingKind().equals(COMPONENT)) {
       return Snippet.format("%s.<%s>create(this)",
           ClassName.fromClass(InstanceFactory.class),
-          TypeReferences.forTypeMirror(binding.providedKey().type()));
+          TypeNames.forTypeMirror(binding.providedKey().type()));
     } else {
       List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
       if (binding.bindingKind().equals(PROVISION)) {

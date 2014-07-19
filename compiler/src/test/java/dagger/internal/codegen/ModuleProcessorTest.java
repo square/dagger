@@ -437,4 +437,45 @@ public class ModuleProcessorTest {
         .withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(8)
         .and().withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(12);
   }
+
+  @Test
+  public void providedTypes() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.io.Closeable;",
+        "import java.util.Set;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String string() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides Set<String> strings() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides Set<? extends Closeable> closeables() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides String[] stringArray() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides int integer() {",
+        "    return 0;",
+        "  }",
+        "",
+        "  @Provides int[] integers() {",
+        "    return null;",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
 }

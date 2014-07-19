@@ -30,7 +30,7 @@ import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
-import dagger.internal.codegen.writer.TypeReferences;
+import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -78,7 +78,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   JavaWriter write(ClassName generatedTypeName, ProvisionBinding binding) {
-    TypeName providedTypeName = TypeReferences.forTypeMirror(binding.providedKey().type());
+    TypeName providedTypeName = TypeNames.forTypeMirror(binding.providedKey().type());
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
     ClassWriter factoryWriter = writer.addClass(generatedTypeName.simpleName());
@@ -121,12 +121,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
       if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
         ParameterizedTypeName providerType = ParameterizedTypeName.create(
             ClassName.fromClass(Provider.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = factoryWriter.addField(providerType, nameEntry.getValue());
       } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
         ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
             ClassName.fromClass(MembersInjector.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = factoryWriter.addField(membersInjectorType, nameEntry.getValue());
       } else {
         throw new IllegalStateException();

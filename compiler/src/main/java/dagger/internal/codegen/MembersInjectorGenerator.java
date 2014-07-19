@@ -35,7 +35,7 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
-import dagger.internal.codegen.writer.TypeReferences;
+import dagger.internal.codegen.writer.TypeNames;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
@@ -139,12 +139,12 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
         ParameterizedTypeName providerType = ParameterizedTypeName.create(
             ClassName.fromClass(Provider.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = injectorWriter.addField(providerType, nameEntry.getValue());
       } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
         ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
             ClassName.fromClass(MembersInjector.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = injectorWriter.addField(membersInjectorType, nameEntry.getValue());
       } else {
         throw new IllegalStateException();
