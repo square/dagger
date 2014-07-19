@@ -17,16 +17,12 @@ package dagger.internal.codegen;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
-import com.google.common.collect.BiMap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -182,9 +178,9 @@ class SourceFiles {
   }
 
   // TODO(gak): this needs to suck less
-  static ImmutableBiMap<Key, String> generateProviderNamesForBindings(
+  static ImmutableMap<Key, String> generateProviderNamesForBindings(
       SetMultimap<Key, ProvisionBinding> bindings) {
-    BiMap<Key, String> providerNames = HashBiMap.create(bindings.size());
+    ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
     for (Entry<Key, Collection<ProvisionBinding>> entry : bindings.asMap().entrySet()) {
       Collection<ProvisionBinding> bindingsForKey = entry.getValue();
       final String name;
@@ -213,13 +209,24 @@ class SourceFiles {
       }
       providerNames.put(entry.getKey(), name);
     }
-    // return the map so that it is sorted by name
-    return ImmutableBiMap.copyOf(ImmutableSortedMap.copyOf(providerNames.inverse())).inverse();
+    Ordering<Entry<?, String>> entryValueOrdering =
+        Ordering.natural().onResultOf(new Function<Entry<?, String>, String>() {
+          @Override
+          public String apply(Entry<?, String> input) {
+            return input.getValue();
+          }
+        });
+    ImmutableMap.Builder<Key, String> sortedProviderNames = ImmutableMap.builder();
+    for (Entry<Key, String> providerNameEntry :
+      entryValueOrdering.sortedCopy(providerNames.build().entrySet())) {
+      sortedProviderNames.put(providerNameEntry);
+    }
+    return sortedProviderNames.build();
   }
 
-  static ImmutableBiMap<Key, String> generateMembersInjectorNamesForBindings(
+  static ImmutableMap<Key, String> generateMembersInjectorNamesForBindings(
       Map<Key, MembersInjectionBinding> bindings) {
-    return ImmutableBiMap.copyOf(Maps.transformValues(bindings,
+    return ImmutableMap.copyOf(Maps.transformValues(bindings,
         new Function<MembersInjectionBinding, String>() {
           @Override public String apply(MembersInjectionBinding input) {
             return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
