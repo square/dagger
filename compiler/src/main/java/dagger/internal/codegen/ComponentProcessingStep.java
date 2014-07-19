@@ -30,13 +30,13 @@ import javax.lang.model.element.TypeElement;
  *
  * @author Gregory Kick
  */
-final class ComponentProcesssingStep implements ProcessingStep {
+final class ComponentProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ComponentValidator componentValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final ComponentGenerator componentGenerator;
 
-  ComponentProcesssingStep(
+  ComponentProcessingStep(
       Messager messager,
       ComponentValidator componentValidator,
       Factory componentDescriptorFactory,

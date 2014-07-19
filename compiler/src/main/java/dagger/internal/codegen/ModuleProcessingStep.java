@@ -41,14 +41,14 @@ import static javax.lang.model.element.ElementKind.METHOD;
  * @author Gregory Kick
  * @since 2.0
  */
-public final class ModuleProcesssingStep implements ProcessingStep {
+public final class ModuleProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
   private final ProvidesMethodValidator providesMethodValidator;
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final FactoryGenerator factoryGenerator;
 
-  ModuleProcesssingStep(
+  ModuleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
       ProvidesMethodValidator providesMethodValidator,

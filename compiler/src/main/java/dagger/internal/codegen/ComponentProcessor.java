@@ -106,13 +106,13 @@ public final class ComponentProcessor extends AbstractProcessor {
             injectionSiteFactory,
             membersInjectorGenerator,
             injectBindingRegistry),
-        new ModuleProcesssingStep(
+        new ModuleProcessingStep(
             messager,
             moduleValidator,
             providesMethodValidator,
             provisionBindingFactory,
             factoryGenerator),
-        new ComponentProcesssingStep(
+        new ComponentProcessingStep(
             messager,
             componentValidator,
             componentDescriptorFactory,
