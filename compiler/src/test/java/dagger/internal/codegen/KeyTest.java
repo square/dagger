@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
