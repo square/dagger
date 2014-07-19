@@ -59,5 +59,14 @@ final class ConfigurationAnnotations {
     return getAttributeAsListOfTypes(elements, moduleAnnotation, INCLUDES_ATTRIBUTE);
   }
 
+  private static final String INJECTS_ATTRIBUTE = "injects";
+
+  static ImmutableList<TypeMirror> getModuleInjects(Elements elements,
+      AnnotationMirror moduleAnnotation) {
+    checkNotNull(elements);
+    checkNotNull(moduleAnnotation);
+    return getAttributeAsListOfTypes(elements, moduleAnnotation, INJECTS_ATTRIBUTE);
+  }
+
   private ConfigurationAnnotations() {}
 }

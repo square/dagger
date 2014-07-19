@@ -61,6 +61,7 @@ final class AnnotationMirrors {
         simplifyAnnotationValueMap(elements.getElementValuesWithDefaults(annotationMirror));
     ImmutableList.Builder<TypeMirror> builder = ImmutableList.builder();
 
+    @SuppressWarnings("unchecked") // that's the whole point of this method
     List<? extends AnnotationValue> typeValues =
         (List<? extends AnnotationValue>) valueMap.get(attributeName).getValue();
     for (AnnotationValue typeValue : typeValues) {
