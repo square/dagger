@@ -103,7 +103,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.module = module;");
     }
 
-    if (binding.requiresMemberInjection()) {
+    if (binding.memberInjectionRequest().isPresent()) {
       ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
           MembersInjector.class, providedTypeName);
       factoryWriter.addField(membersInjectorType, "membersInjector").addModifiers(PRIVATE, FINAL);
@@ -160,7 +160,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         default:
           throw new AssertionError();
       }
-    } else if (binding.requiresMemberInjection()) {
+    } else if (binding.memberInjectionRequest().isPresent()) {
       getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",
           providedTypeName, parametersSnippet);
       getMethodWriter.body().addSnippet("membersInjector.injectMembers(instance);");

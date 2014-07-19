@@ -86,12 +86,12 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(MembersInjectionBinding binding) {
-    return Optional.of(binding.injectedType());
+    return Optional.of(binding.bindingElement());
   }
 
   @Override
   JavaWriter write(ClassName injectorClassName, MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
+    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
 
     JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
 
@@ -114,7 +114,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         "}"));
 
 
-    Optional<TypeElement> supertype = supertype(binding.injectedType());
+    Optional<TypeElement> supertype = supertype(binding.bindingElement());
     if (supertype.isPresent()) {
       ParameterizedTypeName supertypeMemebersInjectorType = ParameterizedTypeName.create(
           MembersInjector.class, ClassName.fromTypeElement(supertype.get()));

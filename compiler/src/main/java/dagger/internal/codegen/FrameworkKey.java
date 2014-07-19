@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Function;
 import dagger.MembersInjector;
 import javax.inject.Provider;
 
@@ -30,6 +31,14 @@ import static com.google.common.base.Preconditions.checkArgument;
  */
 @AutoValue
 abstract class FrameworkKey {
+  static final Function<DependencyRequest, FrameworkKey> REQUEST_TO_FRAMEWORK_KEY =
+      new Function<DependencyRequest, FrameworkKey>() {
+        @Override public FrameworkKey apply(DependencyRequest input) {
+          return forDependencyRequest(input);
+        }
+      };
+
+  // TODO(gak): maybe just put this on DependencyRequest?
   static FrameworkKey forDependencyRequest(DependencyRequest dependencyRequest) {
     final Class<?> frameworkClass;
     switch (dependencyRequest.kind()) {

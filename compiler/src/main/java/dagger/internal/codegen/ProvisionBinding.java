@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Component;
@@ -79,8 +78,8 @@ abstract class ProvisionBinding extends Binding {
   /** The scope in which the binding declares the {@link #providedKey()}. */
   abstract Optional<AnnotationMirror> scope();
 
-  /** Returns {@code true} if this provision binding requires members to be injected implicitly. */
-  abstract boolean requiresMemberInjection();
+  /** If this provision requires members injeciton, this will be the corresonding request. */
+  abstract Optional<DependencyRequest> memberInjectionRequest();
 
   private static ImmutableSet<Provides.Type> SET_BINDING_TYPES = immutableEnumSet(SET, SET_VALUES);
 
@@ -130,25 +129,25 @@ abstract class ProvisionBinding extends Binding {
           Provides.Type.UNIQUE,
           key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
-          requiresMemeberInjection(
+          membersInjectionRequest(
               MoreElements.asType(constructorElement.getEnclosingElement())));
     }
 
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
         Sets.immutableEnumSet(METHOD, FIELD);
 
-    private boolean requiresMemeberInjection(TypeElement type) {
+    private Optional<DependencyRequest> membersInjectionRequest(TypeElement type) {
       if (!types.isSameType(elements.getTypeElement(Object.class.getCanonicalName()).asType(),
           type.getSuperclass())) {
-        return true;
+        return Optional.of(dependencyRequestFactory.forMembersInjectedType(type.asType()));
       }
       for (Element enclosedElement : type.getEnclosedElements()) {
         if (MEMBER_KINDS.contains(enclosedElement.getKind())
             && (isAnnotationPresent(enclosedElement, Inject.class))) {
-          return true;
+          return Optional.of(dependencyRequestFactory.forMembersInjectedType(type.asType()));
         }
       }
-      return false;
+      return Optional.absent();
     }
 
     ProvisionBinding forProvidesMethod(ExecutableElement providesMethod) {
@@ -163,7 +162,7 @@ abstract class ProvisionBinding extends Binding {
           providesAnnotation.type(),
           keyFactory.forProvidesMethod(providesMethod),
           getScopeAnnotation(providesMethod),
-          false);
+          Optional.<DependencyRequest>absent());
     }
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {
@@ -172,12 +171,12 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(componentAnnotation != null);
       return new AutoValue_ProvisionBinding(
           componentDefinitionType,
-          ImmutableList.<DependencyRequest>of(),
+          ImmutableSet.<DependencyRequest>of(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
           keyFactory.forType(componentDefinitionType.asType()),
           Optional.<AnnotationMirror>absent(),
-          false);
+          Optional.<DependencyRequest>absent());
     }
 
     ProvisionBinding forComponentMethod(ExecutableElement componentMethod) {
@@ -186,12 +185,12 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(componentMethod.getParameters().isEmpty());
       return new AutoValue_ProvisionBinding(
           componentMethod,
-          ImmutableList.<DependencyRequest>of(),
+          ImmutableSet.<DependencyRequest>of(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
           keyFactory.forComponentMethod(componentMethod),
           getScopeAnnotation(componentMethod),
-          false);
+          Optional.<DependencyRequest>absent());
     }
   }
 }

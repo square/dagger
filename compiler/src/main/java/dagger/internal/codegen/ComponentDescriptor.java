@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Queues;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -33,7 +33,6 @@ import dagger.Provides;
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -45,7 +44,6 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -216,66 +214,99 @@ abstract class ComponentDescriptor {
         }
       }
 
-      SetMultimap<Key, ProvisionBinding> resolvedProvisionBindings = LinkedHashMultimap.create();
-      Map<Key, MembersInjectionBinding> resolvedMembersInjectionBindings = Maps.newLinkedHashMap();
-      // TODO(gak): we're really going to need to test this ordering
-      ImmutableSet.Builder<FrameworkKey> resolutionOrder = ImmutableSet.builder();
+      ImmutableSetMultimap.Builder<Key, ProvisionBinding> resolvedProvisionBindings =
+          ImmutableSetMultimap.builder();
+      ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersInjectionBindings =
+          ImmutableMap.builder();
+      SetMultimap<FrameworkKey, Binding> resolvedBindings =
+          MultimapBuilder.linkedHashKeys().linkedHashSetValues().build();
 
-      for (DependencyRequest requestToResolve = requestsToResolve.pollLast();
-          requestToResolve != null;
-          requestToResolve = requestsToResolve.pollLast()) {
-        Key key = requestToResolve.key();
-        if (requestToResolve.kind().equals(MEMBERS_INJECTOR)) {
-          if (!resolvedMembersInjectionBindings.containsKey(key)) {
-            Optional<MembersInjectionBinding> binding =
-                injectBindingRegistry.getMembersInjectionBindingForKey(key);
-            if (binding.isPresent()) {
-              requestsToResolve.addAll(binding.get().dependencySet());
-              resolvedMembersInjectionBindings.put(key, binding.get());
-            } else {
-              // check and generate.
-            }
-          }
-        } else { // all other requests are provision requests
-          if (!resolvedProvisionBindings.containsKey(key)) {
-            ImmutableSet<ProvisionBinding> explicitBindingsForKey = explicitBindings.get(key);
-            if (explicitBindingsForKey.isEmpty()) {
-              Optional<ProvisionBinding> injectBinding =
-                  injectBindingRegistry.getProvisionBindingForKey(key);
-              if (injectBinding.isPresent()) {
-                requestsToResolve.addAll(injectBinding.get().dependencies());
-                resolvedProvisionBindings.put(key, injectBinding.get());
-                if (injectBinding.get().requiresMemberInjection()) {
-                  DependencyRequest forMembersInjectedType =
-                      dependencyRequestFactory.forMembersInjectedType(
-                          injectBinding.get().providedKey().type());
-                  requestsToResolve.add(forMembersInjectedType);
-                }
-              } else {
-                // TODO(gak): support this
-                throw new UnsupportedOperationException(
-                    "@Injected classes that weren't run with the compoenent processor are "
-                        + "(briefly) unsupported: " + key);
-              }
-            } else {
-              resolvedProvisionBindings.putAll(key, explicitBindingsForKey);
-            }
-            for (ProvisionBinding binding : explicitBindingsForKey) {
-              requestsToResolve.addAll(binding.dependencies());
-            }
-          }
-        }
-        resolutionOrder.add(FrameworkKey.forDependencyRequest(requestToResolve));
+      ImmutableList<DependencyRequest> interfaceRequests = interfaceRequestsBuilder.build();
+
+      for (DependencyRequest interfaceRequest : interfaceRequests) {
+        resolveRequest(interfaceRequest, explicitBindings, resolvedBindings,
+            resolvedProvisionBindings, resolvedMembersInjectionBindings);
       }
 
       return new AutoValue_ComponentDescriptor(
           componentDefinitionType,
           componentDependencyTypes,
-          interfaceRequestsBuilder.build(),
+          interfaceRequests,
           moduleTypes,
-          ImmutableSetMultimap.copyOf(resolvedProvisionBindings),
-          ImmutableMap.copyOf(resolvedMembersInjectionBindings),
-          resolutionOrder.build().asList().reverse());
+          resolvedProvisionBindings.build(),
+          resolvedMembersInjectionBindings.build(),
+          ImmutableList.copyOf(resolvedBindings.keySet()));
+    }
+
+    private void resolveRequest(DependencyRequest request,
+        ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings,
+        SetMultimap<FrameworkKey, Binding> resolvedBindings,
+        ImmutableSetMultimap.Builder<Key, ProvisionBinding> resolvedProvisionsBindingBuilder,
+        ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersIjectionBindingsBuilder) {
+      FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(request);
+      Key requestKey = request.key();
+      if (resolvedBindings.containsKey(frameworkKey)) {
+        return;
+      }
+      switch (request.kind()) {
+        case INSTANCE:
+        case LAZY:
+        case PROVIDER:
+          // First, check for explicit keys (those from modules and components)
+          ImmutableSet<ProvisionBinding> explicitBindingsForKey =
+              explicitBindings.get(requestKey);
+          if (explicitBindingsForKey.isEmpty()) {
+            // no explicit binding, look it up
+            Optional<ProvisionBinding> provisionBinding =
+                injectBindingRegistry.getProvisionBindingForKey(requestKey);
+            if (provisionBinding.isPresent()) {
+              // found a binding, resolve its deps and then mark it resolved
+              for (DependencyRequest dependency : Iterables.concat(
+                  provisionBinding.get().dependencies(),
+                  provisionBinding.get().memberInjectionRequest().asSet())) {
+                resolveRequest(dependency, explicitBindings, resolvedBindings,
+                    resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+              }
+              resolvedBindings.put(frameworkKey, provisionBinding.get());
+              resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
+            } else {
+              throw new UnsupportedOperationException(
+                  "@Injected classes that weren't run with the compoenent processor are "
+                      + "(briefly) unsupported: " + requestKey);
+
+            }
+          } else {
+            // we found explicit bindings. resolve the deps and them mark them resolved
+            for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
+              for (DependencyRequest dependency : explicitBinding.dependencies()) {
+                resolveRequest(dependency, explicitBindings, resolvedBindings,
+                    resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+              }
+            }
+            resolvedBindings.putAll(frameworkKey, explicitBindingsForKey);
+            resolvedProvisionsBindingBuilder.putAll(requestKey, explicitBindingsForKey);
+          }
+          break;
+        case MEMBERS_INJECTOR:
+          // no explicit deps for members injection, so just look it up
+          Optional<MembersInjectionBinding> membersInjectionBinding =
+              injectBindingRegistry.getMembersInjectionBindingForKey(requestKey);
+          if (membersInjectionBinding.isPresent()) {
+            // found a binding, resolve its deps and then mark it resolved
+            for (DependencyRequest dependency : membersInjectionBinding.get().dependencies()) {
+              resolveRequest(dependency, explicitBindings, resolvedBindings,
+                  resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+            }
+            resolvedBindings.put(frameworkKey, membersInjectionBinding.get());
+            resolvedMembersIjectionBindingsBuilder.put(requestKey, membersInjectionBinding.get());
+          } else {
+            // TOOD(gak): make an implicit injector for cases where we need one, but it has no
+            // members
+          }
+          break;
+        default:
+          throw new AssertionError();
+      }
     }
 
     private static boolean isComponentProvisionMethod(ExecutableElement method) {

@@ -230,7 +230,7 @@ class SourceFiles {
         new Function<MembersInjectionBinding, String>() {
           @Override public String apply(MembersInjectionBinding input) {
             return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
-                input.injectedType().getSimpleName().toString()) + "MembersInjector";
+                input.bindingElement().getSimpleName().toString()) + "MembersInjector";
           }
         }));
   }
@@ -265,7 +265,7 @@ class SourceFiles {
   }
 
   static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
+    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
     return injectedClassName.topLevelClassName().peerNamed(
         injectedClassName.classFileName() + "$$MembersInjector");
   }

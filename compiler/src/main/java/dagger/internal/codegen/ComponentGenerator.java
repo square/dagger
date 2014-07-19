@@ -320,7 +320,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       if (binding.bindingKind().equals(PROVISION)) {
         parameters.add(contributionFields.get(binding.bindingTypeElement()).name());
       }
-      if (binding.requiresMemberInjection()) {
+      if (binding.memberInjectionRequest().isPresent()) {
         FieldWriter membersInjectorField =
             membersInjectorFields.get(keyFactory.forType(binding.providedKey().type()));
         if (membersInjectorField != null) {

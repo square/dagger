@@ -47,7 +47,7 @@ final class InjectBindingRegistry {
 
   void registerMembersInjectionBinding(MembersInjectionBinding binding) {
     MembersInjectionBinding previousValue = membersInjectionBindingsByKey.put(
-        keyFactory.forType(binding.injectedType().asType()), binding);
+        keyFactory.forType(binding.bindingElement().asType()), binding);
     checkState(previousValue == null);
   }
 
