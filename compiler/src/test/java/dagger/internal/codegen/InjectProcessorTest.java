@@ -767,4 +767,58 @@ public final class InjectProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
+
+  @Test
+  public void samePackageNameCollision() {
+    JavaFileObject samePackageInterface = JavaFileObjects.forSourceLines("test.CommonName",
+        "package test;",
+        "",
+        "public interface CommonName {}");
+    JavaFileObject differentPackageInterface = JavaFileObjects.forSourceLines(
+        "other.pkg.CommonName",
+        "package other.pkg;",
+        "",
+        "public interface CommonName {}");
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class InjectConstructor implements CommonName {",
+        "  @Inject InjectConstructor(other.pkg.CommonName otherPackage, CommonName samePackage) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "import other.pkg.CommonName;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<CommonName> otherPackageProvider;",
+        "  private final Provider<test.CommonName> samePackageProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<CommonName> otherPackageProvider,",
+        "      Provider<test.CommonName> samePackageProvider) {",
+        "    assert otherPackageProvider != null;",
+        "    this.otherPackageProvider = otherPackageProvider;",
+        "    assert samePackageProvider != null;",
+        "    this.samePackageProvider = samePackageProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(otherPackageProvider.get(), samePackageProvider.get());",
+        "  }",
+        "}");
+    assert_().about(javaSources())
+        .that(ImmutableList.of(samePackageInterface, differentPackageInterface, file))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
 }
