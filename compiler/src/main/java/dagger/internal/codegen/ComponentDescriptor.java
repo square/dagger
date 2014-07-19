@@ -232,7 +232,7 @@ abstract class ComponentDescriptor {
           componentDefinitionType,
           componentDependencyTypes,
           interfaceRequests,
-          moduleTypes,
+          transitiveModules,
           resolvedProvisionBindings.build(),
           resolvedMembersInjectionBindings.build(),
           ImmutableList.copyOf(resolvedBindings.keySet()));
