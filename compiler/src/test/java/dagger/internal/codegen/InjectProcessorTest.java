@@ -618,4 +618,44 @@ public final class InjectProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(expectedMembersInjector);
   }
+
+  @Test
+  public void wildcardDependency() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import java.util.List;",
+        "import javax.inject.Inject;",
+        "",
+        "class InjectConstructor {",
+        "  @Inject InjectConstructor(List<? extends Object> objects) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import java.util.List;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<List<? extends Object>> objectsProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<List<? extends Object>> objectsProvider) {",
+        "    assert objectsProvider != null;",
+        "    this.objectsProvider = objectsProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(objectsProvider.get());",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
 }
