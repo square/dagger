@@ -27,13 +27,11 @@ import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Inject;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static javax.lang.model.SourceVersion.RELEASE_6;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
@@ -44,7 +42,6 @@ import static javax.lang.model.SourceVersion.RELEASE_6;
  * @author Gregory Kick
  * @since 2.0
  */
-@SupportedSourceVersion(RELEASE_6)
 public final class ComponentProcessor extends AbstractProcessor {
   private ImmutableList<ProcessingStep> processingSteps;
 
@@ -55,6 +52,11 @@ public final class ComponentProcessor extends AbstractProcessor {
         Inject.class.getName(),
         Module.class.getName(),
         Provides.class.getName());
+  }
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
   }
 
   @Override
