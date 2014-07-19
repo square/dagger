@@ -41,7 +41,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
  * @author Gregory Kick
  * @since 2.0
  */
-public final class ModuleProcessingStep implements ProcessingStep {
+final class ModuleProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
   private final ProvidesMethodValidator providesMethodValidator;

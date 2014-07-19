@@ -25,15 +25,12 @@ import java.util.Collection;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementKindVisitor6;
-
-import static javax.lang.model.SourceVersion.RELEASE_6;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the {@link Inject}
@@ -42,8 +39,7 @@ import static javax.lang.model.SourceVersion.RELEASE_6;
  * @author Gregory Kick
  * @since 2.0
  */
-@SupportedSourceVersion(RELEASE_6)
-public final class InjectProcessingStep implements ProcessingStep {
+final class InjectProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final InjectConstructorValidator constructorValidator;
   private final InjectFieldValidator fieldValidator;
