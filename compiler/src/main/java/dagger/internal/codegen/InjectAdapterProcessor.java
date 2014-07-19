@@ -16,6 +16,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.SuperficialValidation;
 import com.google.auto.service.AutoService;
 import com.squareup.javawriter.JavaWriter;
 import dagger.MembersInjector;
@@ -25,7 +26,6 @@ import dagger.internal.StaticInjection;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -44,7 +44,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
@@ -86,12 +85,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     for (Iterator<String> i = remainingTypeNames.iterator(); i.hasNext();) {
       InjectedClass injectedClass = createInjectedClass(i.next());
       // Verify that we have access to all types to be injected on this pass.
-      boolean missingDependentClasses =
-          !allTypesExist(injectedClass.fields)
-          || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
-              .getParameters()))
-          || !allTypesExist(injectedClass.staticFields);
-      if (!missingDependentClasses) {
+      if (SuperficialValidation.validateElement(injectedClass.type)) {
         try {
           generateInjectionsForClass(injectedClass);
         } catch (IOException e) {
@@ -114,19 +108,6 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     if (!injectedClass.staticFields.isEmpty()) {
       generateStaticInjection(injectedClass.type, injectedClass.staticFields);
     }
-  }
-
-  /**
-   * Return true if all element types are currently available in this code
-   * generation pass. Unavailable types will be of kind {@link TypeKind#ERROR}.
-   */
-  private boolean allTypesExist(Collection<? extends Element> elements) {
-    for (Element element : elements) {
-      if (element.asType().getKind() == TypeKind.ERROR) {
-        return false;
-      }
-    }
-    return true;
   }
 
   private Set<String> findInjectedClassNames(RoundEnvironment env) {
