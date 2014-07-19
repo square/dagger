@@ -45,6 +45,7 @@ import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.VoidName;
 import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.VoidName;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -69,6 +70,7 @@ import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersI
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
@@ -105,12 +107,23 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
   @Override
   JavaWriter write(ClassName componentName, ComponentDescriptor input)  {
-    JavaWriter writer = JavaWriter.inPackage(componentName.packageName());
+    ClassName componentDefinitionTypeName =
+        ClassName.fromTypeElement(input.componentDefinitionType());
 
+    JavaWriter writer = JavaWriter.inPackage(componentName.packageName());
     ClassWriter componentWriter = writer.addClass(componentName.simpleName());
     componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
     componentWriter.addModifiers(PUBLIC, FINAL);
-    componentWriter.addImplementedType(input.componentDefinitionType());
+    componentWriter.addImplementedType(componentDefinitionTypeName);
+
+    ClassWriter builderWriter = componentWriter.addNestedClass("Builder");
+    builderWriter.addModifiers(PUBLIC, STATIC, FINAL);
+
+    builderWriter.addConstructor().addModifiers(PRIVATE);
+
+    MethodWriter builderFactoryMethod = componentWriter.addMethod(builderWriter, "builder");
+    builderFactoryMethod.addModifiers(PUBLIC, STATIC);
+    builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
 
     ImmutableSetMultimap<Key, ProvisionBinding> resolvedProvisionBindings =
         input.resolvedProvisionBindings();
@@ -132,18 +145,56 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             })));
 
     ConstructorWriter constructorWriter = componentWriter.addConstructor();
-    constructorWriter.addModifiers(PUBLIC);
-    for (Entry<TypeElement, String> entry : moduleNames.entrySet()) {
-      componentWriter.addField(entry.getKey(), entry.getValue())
-          .addModifiers(PRIVATE, FINAL);
-      constructorWriter.addParameter(entry.getKey(), entry.getValue());
-      constructorWriter.body()
-          .addSnippet("if (%s == null) {", entry.getValue())
-          .addSnippet("  throw new NullPointerException(%s);",
-              StringLiteral.forValue(entry.getValue()))
-          .addSnippet("}")
-          .addSnippet("this.%1$s = %1$s;", entry.getValue());
+    constructorWriter.addModifiers(PRIVATE);
+    constructorWriter.addParameter(builderWriter, "builder");
+    constructorWriter.body().addSnippet("assert builder != null;");
 
+    MethodWriter buildMethod = builderWriter.addMethod(componentDefinitionTypeName, "build");
+    buildMethod.addModifiers(PUBLIC);
+
+    boolean requiresBuilder = false;
+
+    for (Entry<TypeElement, String> entry : moduleNames.entrySet()) {
+      TypeElement moduleElement = entry.getKey();
+      String moduleName = entry.getValue();
+      componentWriter.addField(moduleElement, moduleName)
+          .addModifiers(PRIVATE, FINAL);
+      builderWriter.addField(moduleElement, moduleName)
+          .addModifiers(PRIVATE);
+      constructorWriter.body()
+          .addSnippet("this.%1$s = builder.%1$s;", moduleName);
+      MethodWriter builderMethod = builderWriter.addMethod(builderWriter, moduleName);
+      builderMethod.addModifiers(PUBLIC);
+      builderMethod.addParameter(moduleElement, moduleName);
+      builderMethod.body()
+          .addSnippet("if (%s == null) {", moduleName)
+          .addSnippet("  throw new NullPointerException(%s);", StringLiteral.forValue(moduleName))
+          .addSnippet("}")
+          .addSnippet("this.%1$s = %1$s;", moduleName)
+          .addSnippet("return this;");
+      if (Util.getNoArgsConstructor(moduleElement) == null) {
+        requiresBuilder = true;
+        buildMethod.body()
+            .addSnippet("if (%s == null) {", moduleName)
+            .addSnippet("  throw new IllegalStateException(\"%s must be set\");", moduleName)
+            .addSnippet("}");
+      } else {
+        buildMethod.body()
+            .addSnippet("if (%s == null) {", moduleName)
+            .addSnippet("  this.%s = new %s();",
+                moduleName, ClassName.fromTypeElement(moduleElement))
+            .addSnippet("}");
+      }
+    }
+
+    buildMethod.body().addSnippet("return new %s(this);", componentWriter.name());
+
+    // this will eventually need to be modules & components
+    if (!requiresBuilder) {
+      MethodWriter factoryMethod = componentWriter.addMethod(componentDefinitionTypeName, "create");
+      factoryMethod.addModifiers(PUBLIC, STATIC);
+      // TODO(gak): replace this with something that doesn't allocate a builder
+      factoryMethod.body().addSnippet("return builder().build();");
     }
 
     for (Entry<Key, String> providerEntry : providerNames.entrySet()) {
