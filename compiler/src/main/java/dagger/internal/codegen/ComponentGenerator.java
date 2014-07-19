@@ -28,7 +28,9 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import dagger.Component;
+import dagger.Factory;
 import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
 import dagger.internal.ScopedProvider;
@@ -61,6 +63,7 @@ import javax.lang.model.element.VariableElement;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT;
+import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT_PROVISION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -135,14 +138,17 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     ImmutableBiMap<Key, String> membersInjectorNames =
         generateMembersInjectorNamesForBindings(resolvedMembersInjectionBindings);
 
-    ImmutableBiMap<TypeElement, String> moduleNames =
-        ImmutableBiMap.copyOf(Maps.asMap(input.moduleDependencies(), Functions.compose(
-            CaseFormat.UPPER_CAMEL.converterTo(LOWER_CAMEL),
-            new Function<TypeElement, String>() {
-              @Override public String apply(TypeElement input) {
-                return input.getSimpleName().toString();
-              }
-            })));
+    // the full set of types that calling code uses to construct a component instance
+    ImmutableBiMap<TypeElement, String> componentContributionNames =
+        ImmutableBiMap.copyOf(Maps.asMap(
+            Sets.union(input.moduleDependencies(), input.dependencies()),
+            Functions.compose(
+                CaseFormat.UPPER_CAMEL.converterTo(LOWER_CAMEL),
+                new Function<TypeElement, String>() {
+                  @Override public String apply(TypeElement input) {
+                    return input.getSimpleName().toString();
+                  }
+                })));
 
     ConstructorWriter constructorWriter = componentWriter.addConstructor();
     constructorWriter.addModifiers(PRIVATE);
@@ -154,7 +160,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
     boolean requiresBuilder = false;
 
-    for (Entry<TypeElement, String> entry : moduleNames.entrySet()) {
+    for (Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
       TypeElement moduleElement = entry.getKey();
       String moduleName = entry.getValue();
       componentWriter.addField(moduleElement, moduleName)
@@ -226,7 +232,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
           for (ProvisionBinding binding : bindings) {
             setFactoryParameters.add(initializeFactoryForBinding(
-                binding, moduleNames, providerNames,membersInjectorNames));
+                binding, componentContributionNames, providerNames,membersInjectorNames));
           }
           constructorWriter.body().addSnippet("this.%s = %s.create(%n%s);",
               providerNames.get(key),
@@ -237,7 +243,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           constructorWriter.body().addSnippet("this.%s = %s;",
               providerNames.get(key),
               initializeFactoryForBinding(
-                  binding, moduleNames, providerNames, membersInjectorNames));
+                  binding, componentContributionNames, providerNames, membersInjectorNames));
         }
       } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
         constructorWriter.body().addSnippet("this.%s = %s;",
@@ -290,6 +296,17 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       return Snippet.format("%s.<%s>create(this)",
           ClassName.fromClass(InstanceFactory.class),
           TypeNames.forTypeMirror(binding.providedKey().type()));
+    } else if (binding.bindingKind().equals(COMPONENT_PROVISION)) {
+      return Snippet.format(Joiner.on('\n').join(
+          "new %s<%2$s>() {",
+          "  @Override public %2$s get() {",
+          "    return %3$s.%4$s();",
+          "  }",
+          "}"),
+          ClassName.fromClass(Factory.class),
+          TypeNames.forTypeMirror(binding.providedKey().type()),
+          moduleNames.get(binding.bindingTypeElement()),
+          binding.bindingElement().getSimpleName().toString());
     } else {
       List<String> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
       if (binding.bindingKind().equals(PROVISION)) {

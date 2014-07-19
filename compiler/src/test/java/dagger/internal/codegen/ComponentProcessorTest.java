@@ -22,9 +22,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class ComponentProcessorTest {
@@ -36,7 +36,7 @@ public class ComponentProcessorTest {
         "",
         "@Component",
         "final class NotAComponent {}");
-    ASSERT.about(javaSource()).that(componentFile)
+    assert_().about(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("interface");
@@ -52,7 +52,7 @@ public class ComponentProcessorTest {
         "enum NotAComponent {",
         "  INSTANCE",
         "}");
-    ASSERT.about(javaSource()).that(componentFile)
+    assert_().about(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("interface");
@@ -66,7 +66,7 @@ public class ComponentProcessorTest {
         "",
         "@Component",
         "@interface NotAComponent {}");
-    ASSERT.about(javaSource()).that(componentFile)
+    assert_().about(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("interface");
@@ -80,7 +80,7 @@ public class ComponentProcessorTest {
         "",
         "@Component(modules = Object.class)",
         "interface NotAComponent {}");
-    ASSERT.about(javaSource()).that(componentFile)
+    assert_().about(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("module");
@@ -159,7 +159,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
+    assert_().about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
@@ -243,7 +243,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
+    assert_().about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
@@ -359,7 +359,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-     ASSERT.about(javaSources()).that(ImmutableList.of(nestedTypesFile))
+    assert_().about(javaSources()).that(ImmutableList.of(nestedTypesFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(aFactory, bMembersInjector, generatedComponent);
@@ -464,7 +464,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(ImmutableList.of(aFile, bFile, cFile, moduleFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
@@ -580,7 +580,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(ImmutableList.of(emptySetModuleFile, setModuleFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
@@ -663,7 +663,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(ImmutableList.of(injectableTypeFile, injectedTypeFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
@@ -733,7 +733,7 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
+    assert_().about(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
@@ -811,8 +811,112 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(ImmutableList.of(injectableTypeFile, injectedTypeFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(generatedComponent);
+  }
+
+  @Test public void componentDependency() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A() {}",
+        "}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class B {",
+        "  @Inject B(A a) {}",
+        "}");
+    JavaFileObject aComponentFile = JavaFileObjects.forSourceLines("test.AComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface AComponent {",
+        "  A a();",
+        "}");
+    JavaFileObject bComponentFile = JavaFileObjects.forSourceLines("test.AComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component(dependencies = AComponent.class)",
+        "interface BComponent {",
+        "  B b();",
+        "}");
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_BComponent",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_BComponent implements BComponent {",
+        "  private final AComponent aComponent;",
+        "  private final Provider<A> aProvider;",
+        "  private final Provider<B> bProvider;",
+        "",
+        "  private Dagger_BComponent(Builder builder) {  ",
+        "    assert builder != null;",
+        "    this.aComponent = builder.aComponent;",
+        "    this.aProvider = new Factory<A>() {",
+        "      @Override public A get() {",
+        "        return aComponent.a();",
+        "      }",
+        "    };",
+        "    this.bProvider = new B$$Factory(aProvider);",
+        "  }",
+        "",
+        "  public static Builder builder() {  ",
+        "    return new Builder();",
+        "  }",
+        "",
+        "  @Override",
+        "  public B b() {  ",
+        "    return bProvider.get();",
+        "  }",
+        "",
+        "  public static final class Builder {",
+        "    private AComponent aComponent;",
+        "  ",
+        "    private Builder() {  ",
+        "    }",
+        "  ",
+        "    public BComponent build() {  ",
+        "      if (aComponent == null) {",
+        "        throw new IllegalStateException(\"aComponent must be set\");",
+        "      }",
+        "      return new Dagger_BComponent(this);",
+        "    }",
+        "  ",
+        "    public Builder aComponent(AComponent aComponent) {  ",
+        "      if (aComponent == null) {",
+        "        throw new NullPointerException(\"aComponent\");",
+        "      }",
+        "      this.aComponent = aComponent;",
+        "      return this;",
+        "    }",
+        "  }",
+        "}");
+    assert_().about(javaSources())
+        .that(ImmutableList.of(aFile, bFile, aComponentFile, bComponentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);

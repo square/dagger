@@ -59,6 +59,8 @@ abstract class ProvisionBinding extends Binding {
     PROVISION,
     /** Represents the implicit binding to the component. */
     COMPONENT,
+    /** Represents a binding from a provision method on a component dependency. */
+    COMPONENT_PROVISION,
   }
 
   /**
@@ -174,6 +176,20 @@ abstract class ProvisionBinding extends Binding {
           Provides.Type.UNIQUE,
           keyFactory.forType(componentDefinitionType.asType()),
           Optional.<AnnotationMirror>absent(),
+          false);
+    }
+
+    ProvisionBinding forComponentMethod(ExecutableElement componentMethod) {
+      checkNotNull(componentMethod);
+      checkArgument(componentMethod.getKind().equals(METHOD));
+      checkArgument(componentMethod.getParameters().isEmpty());
+      return new AutoValue_ProvisionBinding(
+          componentMethod,
+          ImmutableList.<DependencyRequest>of(),
+          Kind.COMPONENT_PROVISION,
+          Provides.Type.UNIQUE,
+          keyFactory.forComponentMethod(componentMethod),
+          getScopeAnnotation(componentMethod),
           false);
     }
   }

@@ -46,6 +46,7 @@ import javax.lang.model.util.Types;
 import static dagger.internal.codegen.AnnotationMirrors.getAnnotationMirror;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.type.TypeKind.VOID;
 
 /**
  * The logical representation of a {@link Component} definition.
@@ -62,6 +63,11 @@ abstract class ComponentDescriptor {
    * the {@link Component} annotation was applied.
    */
   abstract TypeElement componentDefinitionType();
+
+  /**
+   *  The set of component dependencies listed in {@link Component#dependencies}.
+   */
+  abstract ImmutableSet<TypeElement> dependencies();
 
   /**
    * The list of {@link DependencyRequest} instances whose sources are methods on the component
@@ -137,6 +143,8 @@ abstract class ComponentDescriptor {
           getAnnotationMirror(componentDefinitionType, Component.class).get();
       ImmutableSet<TypeElement> moduleTypes = MoreTypes.asTypeElements(types,
           ConfigurationAnnotations.getComponentModules(elements, componentMirror));
+      ImmutableSet<TypeElement> componentDependencyTypes = MoreTypes.asTypeElements(types,
+          ConfigurationAnnotations.getComponentDependencies(elements, componentMirror));
       ImmutableSet<TypeElement> transitiveModules = getTransitiveModules(moduleTypes);
 
       ProvisionBinding componentBinding =
@@ -146,6 +154,22 @@ abstract class ComponentDescriptor {
           new ImmutableSetMultimap.Builder<Key, ProvisionBinding>()
               .put(componentBinding.providedKey(), componentBinding);
 
+
+      for (TypeElement componentDependency : componentDependencyTypes) {
+        ProvisionBinding componentDependencyBinding =
+            provisionBindingFactory.forComponent(componentDependency);
+        bindingIndexBuilder.put(
+            componentDependencyBinding.providedKey(), componentDependencyBinding);
+        List<ExecutableElement> dependencyMethods =
+            ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
+        for (ExecutableElement dependencyMethod : dependencyMethods) {
+          if (isComponentProvisionMethod(dependencyMethod)) {
+            ProvisionBinding componentMethodBinding =
+                provisionBindingFactory.forComponentMethod(dependencyMethod);
+            bindingIndexBuilder.put(componentMethodBinding.providedKey(), componentMethodBinding);
+          }
+        }
+      }
 
       for (TypeElement module : transitiveModules) {
         // traverse the modules, collect the bindings
@@ -245,11 +269,17 @@ abstract class ComponentDescriptor {
 
       return new AutoValue_ComponentDescriptor(
           componentDefinitionType,
+          componentDependencyTypes,
           interfaceRequestsBuilder.build(),
           moduleTypes,
           ImmutableSetMultimap.copyOf(resolvedProvisionBindings),
           ImmutableMap.copyOf(resolvedMembersInjectionBindings),
           resolutionOrder.build().asList().reverse());
+    }
+
+    private static boolean isComponentProvisionMethod(ExecutableElement method) {
+      return method.getParameters().isEmpty()
+          && !method.getReturnType().getKind().equals(VOID);
     }
   }
 }

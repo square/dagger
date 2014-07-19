@@ -106,6 +106,14 @@ abstract class Key {
       return elements.getTypeElement(Set.class.getCanonicalName());
     }
 
+    Key forComponentMethod(ExecutableElement componentMethod) {
+      checkNotNull(componentMethod);
+      checkArgument(componentMethod.getKind().equals(METHOD));
+      TypeMirror returnType = normalize(componentMethod.getReturnType());
+      Optional<AnnotationMirror> qualifier = getQualifier(componentMethod);
+      return new AutoValue_Key(rewrap(qualifier), MoreTypes.equivalence().wrap(returnType));
+    }
+
     Key forProvidesMethod(ExecutableElement e) {
       checkNotNull(e);
       checkArgument(e.getKind().equals(METHOD));
