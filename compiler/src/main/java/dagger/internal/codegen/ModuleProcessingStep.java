@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.SuperficialValidation;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +48,7 @@ final class ModuleProcessingStep implements ProcessingStep {
   private final ProvidesMethodValidator providesMethodValidator;
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final FactoryGenerator factoryGenerator;
+  private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
 
   ModuleProcessingStep(
       Messager messager,
@@ -79,47 +81,50 @@ final class ModuleProcessingStep implements ProcessingStep {
     ImmutableSet<ExecutableElement> validProvidesMethods = validProvidesMethodsBuilder.build();
 
     // process each module
-    for (Element moduleElement : roundEnv.getElementsAnnotatedWith(Module.class)) {
-      ValidationReport<TypeElement> report =
-          moduleValidator.validate(MoreElements.asType(moduleElement));
-      report.printMessagesTo(messager);
+    for (Element moduleElement :
+        Sets.difference(roundEnv.getElementsAnnotatedWith(Module.class), processedModuleElements)) {
+      if (SuperficialValidation.validateElement(moduleElement)) {
+        ValidationReport<TypeElement> report =
+            moduleValidator.validate(MoreElements.asType(moduleElement));
+        report.printMessagesTo(messager);
 
-      if (report.isClean()) {
-        ImmutableSet.Builder<ExecutableElement> moduleProvidesMethodsBuilder =
-            ImmutableSet.builder();
-        List<ExecutableElement> moduleMethods =
-            ElementFilter.methodsIn(moduleElement.getEnclosedElements());
-        for (ExecutableElement methodElement : moduleMethods) {
-          if (isAnnotationPresent(methodElement, Provides.class)) {
-            moduleProvidesMethodsBuilder.add(methodElement);
-          }
-        }
-        ImmutableSet<ExecutableElement> moduleProvidesMethods =
-            moduleProvidesMethodsBuilder.build();
-
-        if (Sets.difference(moduleProvidesMethods, validProvidesMethods).isEmpty()) {
-          // all of the provides methods in this module are valid!
-          // time to generate some factories!
-          ImmutableSet<ProvisionBinding> bindings = FluentIterable.from(moduleProvidesMethods)
-              .transform(new Function<ExecutableElement, ProvisionBinding>() {
-                @Override
-                public ProvisionBinding apply(ExecutableElement providesMethod) {
-                  return provisionBindingFactory.forProvidesMethod(providesMethod);
-                }
-              })
-              .toSet();
-
-          try {
-            for (ProvisionBinding binding : bindings) {
-              factoryGenerator.generate(binding);
+        if (report.isClean()) {
+          ImmutableSet.Builder<ExecutableElement> moduleProvidesMethodsBuilder =
+              ImmutableSet.builder();
+          List<ExecutableElement> moduleMethods =
+              ElementFilter.methodsIn(moduleElement.getEnclosedElements());
+          for (ExecutableElement methodElement : moduleMethods) {
+            if (isAnnotationPresent(methodElement, Provides.class)) {
+              moduleProvidesMethodsBuilder.add(methodElement);
             }
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
+          }
+          ImmutableSet<ExecutableElement> moduleProvidesMethods =
+              moduleProvidesMethodsBuilder.build();
+
+          if (Sets.difference(moduleProvidesMethods, validProvidesMethods).isEmpty()) {
+            // all of the provides methods in this module are valid!
+            // time to generate some factories!
+            ImmutableSet<ProvisionBinding> bindings = FluentIterable.from(moduleProvidesMethods)
+                .transform(new Function<ExecutableElement, ProvisionBinding>() {
+                  @Override
+                  public ProvisionBinding apply(ExecutableElement providesMethod) {
+                    return provisionBindingFactory.forProvidesMethod(providesMethod);
+                  }
+                })
+                .toSet();
+
+            try {
+              for (ProvisionBinding binding : bindings) {
+                factoryGenerator.generate(binding);
+              }
+            } catch (SourceFileGenerationException e) {
+              e.printMessageTo(messager);
+            }
           }
         }
+        processedModuleElements.add(moduleElement);
       }
     }
-
     return false;
   }
 }

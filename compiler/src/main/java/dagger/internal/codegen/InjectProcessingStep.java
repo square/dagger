@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.SuperficialValidation;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -78,48 +79,52 @@ final class InjectProcessingStep implements ProcessingStep {
     final ImmutableSet.Builder<InjectionSite> memberInjectionSites = ImmutableSet.builder();
 
     for (Element injectElement : roundEnv.getElementsAnnotatedWith(Inject.class)) {
-      injectElement.accept(
-          new ElementKindVisitor6<Void, Void>() {
-            @Override
-            public Void visitExecutableAsConstructor(ExecutableElement constructorElement, Void v) {
-              ValidationReport<ExecutableElement> report =
-                  constructorValidator.validate(constructorElement);
+      if (SuperficialValidation.validateElement(injectElement)) {
+        injectElement.accept(
+            new ElementKindVisitor6<Void, Void>() {
+              @Override
+              public Void visitExecutableAsConstructor(
+                  ExecutableElement constructorElement, Void v) {
+                ValidationReport<ExecutableElement> report =
+                    constructorValidator.validate(constructorElement);
 
-              report.printMessagesTo(messager);
+                report.printMessagesTo(messager);
 
-              if (report.isClean()) {
-                provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement));
+                if (report.isClean()) {
+                  provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement));
+                }
+
+                return null;
               }
 
-              return null;
-            }
+              @Override
+              public Void visitVariableAsField(VariableElement fieldElement, Void p) {
+                ValidationReport<VariableElement> report = fieldValidator.validate(fieldElement);
 
-            @Override
-            public Void visitVariableAsField(VariableElement fieldElement, Void p) {
-              ValidationReport<VariableElement> report = fieldValidator.validate(fieldElement);
+                report.printMessagesTo(messager);
 
-              report.printMessagesTo(messager);
+                if (report.isClean()) {
+                  memberInjectionSites.add(injectionSiteFactory.forInjectField(fieldElement));
+                }
 
-              if (report.isClean()) {
-                memberInjectionSites.add(injectionSiteFactory.forInjectField(fieldElement));
+                return null;
               }
 
-              return null;
-            }
+              @Override
+              public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
+                ValidationReport<ExecutableElement> report =
+                    methodValidator.validate(methodElement);
 
-            @Override
-            public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
-              ValidationReport<ExecutableElement> report = methodValidator.validate(methodElement);
+                report.printMessagesTo(messager);
 
-              report.printMessagesTo(messager);
+                if (report.isClean()) {
+                  memberInjectionSites.add(injectionSiteFactory.forInjectMethod(methodElement));
+                }
 
-              if (report.isClean()) {
-                memberInjectionSites.add(injectionSiteFactory.forInjectMethod(methodElement));
+                return null;
               }
-
-              return null;
-            }
-          }, null);
+            }, null);
+      }
     }
 
     ImmutableListMultimap<TypeElement, InjectionSite> membersInjectionsByType =

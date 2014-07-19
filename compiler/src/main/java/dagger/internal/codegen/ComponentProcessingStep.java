@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.SuperficialValidation;
 import dagger.Component;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
 import java.util.Set;
@@ -52,16 +53,18 @@ final class ComponentProcessingStep implements ProcessingStep {
     Set<? extends Element> componentElements = roundEnv.getElementsAnnotatedWith(Component.class);
 
     for (Element element : componentElements) {
-      TypeElement componentTypeElement = MoreElements.asType(element);
-      ValidationReport<TypeElement> report =
-          componentValidator.validate(componentTypeElement);
-      report.printMessagesTo(messager);
+      if (SuperficialValidation.validateElement(element)) {
+        TypeElement componentTypeElement = MoreElements.asType(element);
+        ValidationReport<TypeElement> report =
+            componentValidator.validate(componentTypeElement);
+        report.printMessagesTo(messager);
 
-      if (report.isClean()) {
-        try {
-          componentGenerator.generate(componentDescriptorFactory.create(componentTypeElement));
-        } catch (SourceFileGenerationException e) {
-          e.printMessageTo(messager);
+        if (report.isClean()) {
+          try {
+            componentGenerator.generate(componentDescriptorFactory.create(componentTypeElement));
+          } catch (SourceFileGenerationException e) {
+            e.printMessageTo(messager);
+          }
         }
       }
     }
