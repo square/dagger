@@ -15,8 +15,17 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.collect.ImmutableListMultimap;
 import dagger.Module;
+import dagger.Provides;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map.Entry;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.ElementFilter;
+
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
 
 /**
  * A {@link Validator} for {@link Module}s.
@@ -28,7 +37,23 @@ final class ModuleValidator implements Validator<TypeElement> {
   @Override
   public ValidationReport<TypeElement> validate(TypeElement subject) {
     ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
-    // TODO(gak): port the module validation
+    List<ExecutableElement> moduleMethods = ElementFilter.methodsIn(subject.getEnclosedElements());
+    ImmutableListMultimap.Builder<String, ExecutableElement> providesMethodsByName =
+        ImmutableListMultimap.builder();
+    for (ExecutableElement moduleMethod : moduleMethods) {
+      if (moduleMethod.getAnnotation(Provides.class) != null) {
+        providesMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
+      }
+    }
+    for (Entry<String, Collection<ExecutableElement>> entry :
+        providesMethodsByName.build().asMap().entrySet()) {
+      if (entry.getValue().size() > 1) {
+        for (ExecutableElement offendingMethod : entry.getValue()) {
+          builder.addItem(PROVIDES_METHOD_WITH_SAME_NAME, offendingMethod);
+        }
+      }
+    }
+    // TODO(gak): port the dagger 1 module validation
     return builder.build();
   }
 }

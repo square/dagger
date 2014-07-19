@@ -106,5 +106,8 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_NOT_IN_MODULE =
       "@Provides methods can only be present within a @Module";
 
+  static final String PROVIDES_METHOD_WITH_SAME_NAME =
+      "Cannot have more than one @Provides method with the same name in a single module";
+
   private ErrorMessages() {}
 }

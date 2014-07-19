@@ -33,6 +33,7 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_R
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
 import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
@@ -411,5 +412,29 @@ public class ModuleProcessorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
+  }
+
+  @Test public void multipleProvidesMethodsWithSameName() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides Object provide(int i) {",
+        "    return i;",
+        "  }",
+        "",
+        "  @Provides String provide() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(8)
+        .and().withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(12);
   }
 }
