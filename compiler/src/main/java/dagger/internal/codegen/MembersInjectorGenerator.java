@@ -96,10 +96,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
 
     ClassWriter injectorWriter = writer.addClass(injectorClassName.simpleName());
-    if (elements.getTypeElement(Generated.class.getCanonicalName()) != null) {
-      injectorWriter.annotate(Generated.class)
-          .setValue(ComponentProcessor.class.getCanonicalName());
-    }
+    injectorWriter.annotate(Generated.class)
+        .setValue(ComponentProcessor.class.getCanonicalName());
     injectorWriter.addModifiers(PUBLIC, FINAL);
     injectorWriter.addImplementedType(
         ParameterizedTypeName.create(MembersInjector.class, injectedClassName));
