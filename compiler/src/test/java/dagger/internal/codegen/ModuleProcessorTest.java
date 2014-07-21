@@ -22,6 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.ASSERT;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
@@ -34,7 +35,6 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_R
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class ModuleProcessorTest {

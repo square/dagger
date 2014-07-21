@@ -40,9 +40,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.ASSERT;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
-import static org.truth0.Truth.ASSERT;
 
 /**
  * Tests {@link Key}.
