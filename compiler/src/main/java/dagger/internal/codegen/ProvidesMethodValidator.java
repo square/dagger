@@ -28,6 +28,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
@@ -72,7 +73,7 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
     checkArgument(providesAnnotation != null);
 
     Element enclosingElement = providesMethodElement.getEnclosingElement();
-    if (enclosingElement.getAnnotation(Module.class) == null) {
+    if (!isAnnotationPresent(enclosingElement, Module.class)) {
       builder.addItem(PROVIDES_METHOD_NOT_IN_MODULE,
           providesMethodElement);
     }

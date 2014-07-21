@@ -20,13 +20,11 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import java.util.List;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -34,6 +32,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -45,7 +44,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @since 2.0
  */
 @AutoValue
-abstract class MembersInjectionBinding {
+abstract class MembersInjectionBinding extends Binding {
+  @Override abstract TypeElement bindingElement();
+
   /**
    * Creates a {@link MembersInjectionBinding} for the given bindings.
    *
@@ -61,32 +62,23 @@ abstract class MembersInjectionBinding {
           }
         })
         .toSet());
-    return new AutoValue_MembersInjectionBinding(injectedTypeElement, injectionSiteSet);
+    ImmutableSet<DependencyRequest> dependencies = FluentIterable.from(injectionSiteSet)
+        .transformAndConcat(new Function<InjectionSite, Set<DependencyRequest>>() {
+          @Override public Set<DependencyRequest> apply(InjectionSite input) {
+            return input.dependencies();
+          }
+        })
+        .toSet();
+    return new AutoValue_MembersInjectionBinding(
+        dependencies, injectedTypeElement, injectionSiteSet);
   }
-
-  /** The type on which members are injected. */
-  abstract TypeElement injectedType();
 
   /** The set of individual sites where {@link Inject} is applied. */
   abstract ImmutableSortedSet<InjectionSite> injectionSites();
 
   /** The total set of dependencies required by all injection sites. */
   final ImmutableSet<DependencyRequest> dependencySet() {
-    return FluentIterable.from(injectionSites())
-        .transformAndConcat(new Function<InjectionSite, List<DependencyRequest>>() {
-          @Override public List<DependencyRequest> apply(InjectionSite input) {
-            return input.dependencies();
-          }
-        })
-        .toSet();
-  }
-
-  ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey() {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> builder = ImmutableSetMultimap.builder();
-    for (DependencyRequest dependency : dependencySet()) {
-      builder.put(dependency.key(), dependency);
-    }
-    return builder.build();
+    return ImmutableSet.copyOf(dependencies());
   }
 
   private static final Ordering<InjectionSite> INJECTION_ORDERING =
@@ -121,7 +113,7 @@ abstract class MembersInjectionBinding {
 
     abstract Element element();
 
-    abstract ImmutableList<DependencyRequest> dependencies();
+    abstract ImmutableSet<DependencyRequest> dependencies();
 
     static final class Factory {
       private final DependencyRequest.Factory dependencyRequestFactory;
@@ -133,7 +125,7 @@ abstract class MembersInjectionBinding {
       InjectionSite forInjectMethod(ExecutableElement methodElement) {
         checkNotNull(methodElement);
         checkArgument(methodElement.getKind().equals(ElementKind.METHOD));
-        checkArgument(methodElement.getAnnotation(Inject.class) != null);
+        checkArgument(isAnnotationPresent(methodElement, Inject.class));
         return new AutoValue_MembersInjectionBinding_InjectionSite(Kind.METHOD, methodElement,
             dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
       }
@@ -141,9 +133,9 @@ abstract class MembersInjectionBinding {
       InjectionSite forInjectField(VariableElement fieldElement) {
         checkNotNull(fieldElement);
         checkArgument(fieldElement.getKind().equals(ElementKind.FIELD));
-        checkArgument(fieldElement.getAnnotation(Inject.class) != null);
+        checkArgument(isAnnotationPresent(fieldElement, Inject.class));
         return new AutoValue_MembersInjectionBinding_InjectionSite(Kind.FIELD, fieldElement,
-            ImmutableList.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
+            ImmutableSet.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
       }
     }
   }

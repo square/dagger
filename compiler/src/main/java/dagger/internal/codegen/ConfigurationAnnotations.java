@@ -41,6 +41,15 @@ final class ConfigurationAnnotations {
     return getAttributeAsListOfTypes(elements, componentAnnotation, MODULES_ATTRIBUTE);
   }
 
+  private static final String DEPENDENCIES_ATTRIBUTE = "dependencies";
+
+  static ImmutableList<TypeMirror> getComponentDependencies(Elements elements,
+      AnnotationMirror componentAnnotation) {
+    checkNotNull(elements);
+    checkNotNull(componentAnnotation);
+    return getAttributeAsListOfTypes(elements, componentAnnotation, DEPENDENCIES_ATTRIBUTE);
+  }
+
   private static final String INCLUDES_ATTRIBUTE = "includes";
 
   static ImmutableList<TypeMirror> getModuleIncludes(Elements elements,
@@ -48,6 +57,15 @@ final class ConfigurationAnnotations {
     checkNotNull(elements);
     checkNotNull(moduleAnnotation);
     return getAttributeAsListOfTypes(elements, moduleAnnotation, INCLUDES_ATTRIBUTE);
+  }
+
+  private static final String INJECTS_ATTRIBUTE = "injects";
+
+  static ImmutableList<TypeMirror> getModuleInjects(Elements elements,
+      AnnotationMirror moduleAnnotation) {
+    checkNotNull(elements);
+    checkNotNull(moduleAnnotation);
+    return getAttributeAsListOfTypes(elements, moduleAnnotation, INJECTS_ATTRIBUTE);
   }
 
   private ConfigurationAnnotations() {}

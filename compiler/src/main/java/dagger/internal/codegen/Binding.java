@@ -16,7 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -52,14 +52,15 @@ abstract class Binding {
     }, null);
   }
 
-  /** The list of {@link DependencyRequest dependencies} required to satisfy this binding. */
-  abstract ImmutableList<DependencyRequest> dependencies();
+  /** The set of {@link DependencyRequest dependencies} required to satisfy this binding. */
+  abstract ImmutableSet<DependencyRequest> dependencies();
 
   /** Returns the {@link #dependencies()} indexed by {@link Key}. */
-  ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey() {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> builder = ImmutableSetMultimap.builder();
+  ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey() {
+    ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> builder =
+        ImmutableSetMultimap.builder();
     for (DependencyRequest dependency : dependencies()) {
-      builder.put(dependency.key(), dependency);
+      builder.put(FrameworkKey.forDependencyRequest(dependency), dependency);
     }
     return builder.build();
   }

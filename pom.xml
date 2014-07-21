@@ -44,16 +44,16 @@
     <java.version>1.6</java.version>
     <javax.inject.version>1</javax.inject.version>
     <javawriter.version>2.5.0</javawriter.version>
-    <auto.common.version>0.1</auto.common.version>
+    <auto.common.version>1.0-SNAPSHOT</auto.common.version>
     <auto.service.version>1.0-rc1</auto.service.version>
     <guava.version>17.0</guava.version>
 
     <!-- Test Dependencies -->
-    <compile-testing.version>0.5</compile-testing.version>
+    <compile-testing.version>0.6-SNAPSHOT</compile-testing.version>
     <fest.version>1.4</fest.version>
     <junit.version>4.11</junit.version>
     <mockito.version>1.9.5</mockito.version>
-    <truth.version>0.20</truth.version>
+    <truth.version>1.0-SNAPSHOT</truth.version>
   </properties>
 
   <scm>
@@ -133,7 +133,7 @@
         <version>${mockito.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.truth0</groupId>
+        <groupId>com.google.truth</groupId>
         <artifactId>truth</artifactId>
         <version>${truth.version}</version>
       </dependency>

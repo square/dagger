@@ -22,6 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.ABSTRACT_INJECT_METHOD;
@@ -36,7 +37,6 @@ import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 // TODO(gak): add tests for generation in the default package.
@@ -79,9 +79,10 @@ public final class InjectProcessorTest {
         "class PrivateConstructor {",
         "  @Inject private PrivateConstructor() {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
-        .withErrorContaining(INJECT_ON_PRIVATE_CONSTRUCTOR)
-        .in(file).onLine(6);
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(INJECT_ON_PRIVATE_CONSTRUCTOR).in(file).onLine(6);
   }
 
   @Test public void injectConstructorOnInnerClass() {
@@ -95,7 +96,9 @@ public final class InjectProcessorTest {
         "    @Inject InnerClass() {}",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(INJECT_CONSTRUCTOR_ON_INNER_CLASS).in(file).onLine(7);
   }
 
@@ -108,9 +111,10 @@ public final class InjectProcessorTest {
         "abstract class AbstractClass {",
         "  @Inject AbstractClass() {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
-        .withErrorContaining(INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS)
-        .in(file).onLine(6);
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS).in(file).onLine(6);
   }
 
   @Test public void injectConstructorOnGenericClass() {
@@ -122,9 +126,10 @@ public final class InjectProcessorTest {
         "class GenericClass<T> {",
         "  @Inject GenericClass() {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
-        .withErrorContaining(INJECT_CONSTRUCTOR_ON_GENERIC_CLASS)
-        .in(file).onLine(6);
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(INJECT_CONSTRUCTOR_ON_GENERIC_CLASS).in(file).onLine(6);
   }
 
   @Test public void multipleInjectConstructors() {
@@ -138,7 +143,9 @@ public final class InjectProcessorTest {
         "  TooManyInjectConstructors(int i) {}",
         "  @Inject TooManyInjectConstructors(String s) {}",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(MULTIPLE_INJECT_CONSTRUCTORS).in(file).onLine(6)
         .and().withErrorContaining(MULTIPLE_INJECT_CONSTRUCTORS).in(file).onLine(8);
   }
@@ -152,7 +159,7 @@ public final class InjectProcessorTest {
         "class MultipleQualifierConstructorParam {",
         "  @Inject MultipleQualifierConstructorParam(@QualifierA @QualifierB String s) {}",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
+    assert_().about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
         .processedWith(new ComponentProcessor()).failsToCompile()
         // for whatever reason, javac only reports the error once on the constructor
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6);
@@ -167,7 +174,7 @@ public final class InjectProcessorTest {
         "@ScopeA @ScopeB class MultipleScopeClass {",
         "  @Inject MultipleScopeClass() {}",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(file, SCOPE_A, SCOPE_B))
+    assert_().about(javaSources()).that(ImmutableList.of(file, SCOPE_A, SCOPE_B))
         .processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(MULTIPLE_SCOPES).in(file).onLine(5).atColumn(1)
         .and().withErrorContaining(MULTIPLE_SCOPES).in(file).onLine(5).atColumn(9);
@@ -182,7 +189,9 @@ public final class InjectProcessorTest {
         "class FinalInjectField {",
         "  @Inject final String s;",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(FINAL_INJECT_FIELD).in(file).onLine(6);
   }
 
@@ -195,7 +204,9 @@ public final class InjectProcessorTest {
         "class PrivateInjectField {",
         "  @Inject private String s;",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_FIELD).in(file).onLine(6);
   }
 
@@ -208,7 +219,7 @@ public final class InjectProcessorTest {
         "class MultipleQualifierInjectField {",
         "  @Inject @QualifierA @QualifierB String s;",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
+    assert_().about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
         .processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6).atColumn(11)
         .and().withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6).atColumn(23);
@@ -223,7 +234,9 @@ public final class InjectProcessorTest {
         "abstract class AbstractInjectMethod {",
         "  @Inject abstract void method();",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(ABSTRACT_INJECT_METHOD).in(file).onLine(6);
   }
 
@@ -236,7 +249,9 @@ public final class InjectProcessorTest {
         "class PrivateInjectMethod {",
         "  @Inject private void method();",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_METHOD).in(file).onLine(6);
   }
 
@@ -249,7 +264,9 @@ public final class InjectProcessorTest {
         "class AbstractInjectMethod {",
         "  @Inject <T> void method();",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         .withErrorContaining(GENERIC_INJECT_METHOD).in(file).onLine(6);
   }
 
@@ -262,8 +279,9 @@ public final class InjectProcessorTest {
         "class MultipleQualifierMethodParam {",
         "  @Inject void method(@QualifierA @QualifierB String s) {}",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
-        .processedWith(new ComponentProcessor()).failsToCompile()
+    assert_().about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
         // for whatever reason, javac only reports the error once on the method
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6);
   }
@@ -309,7 +327,7 @@ public final class InjectProcessorTest {
         "    instance.stringProvider = stringProvider;",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
+    assert_().about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -358,7 +376,7 @@ public final class InjectProcessorTest {
         "        stringProvider);",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
+    assert_().about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -410,7 +428,7 @@ public final class InjectProcessorTest {
         "    instance.setObject(objectAndOProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
+    assert_().about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -447,7 +465,7 @@ public final class InjectProcessorTest {
         "    return new InjectConstructor(sProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
+    assert_().about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -520,7 +538,7 @@ public final class InjectProcessorTest {
         "    instance.s(sProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(file).processedWith(new ComponentProcessor())
+    assert_().about(javaSource()).that(file).processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and()
         .generatesSources(expectedFactory, expectedMembersInjector);
@@ -563,7 +581,7 @@ public final class InjectProcessorTest {
         "    return instance;",
         "  }",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(aFile, bFile))
+    assert_().about(javaSources()).that(ImmutableList.of(aFile, bFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expectedFactory);
@@ -613,9 +631,194 @@ public final class InjectProcessorTest {
         "    instance.s = sProvider.get();",
         "  }",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(aFile, bFile))
+    assert_().about(javaSources()).that(ImmutableList.of(aFile, bFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(expectedMembersInjector);
+  }
+
+  @Test
+  public void wildcardDependency() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import java.util.List;",
+        "import javax.inject.Inject;",
+        "",
+        "class InjectConstructor {",
+        "  @Inject InjectConstructor(List<? extends Object> objects) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import java.util.List;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<List<? extends Object>> objectsProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<List<? extends Object>> objectsProvider) {",
+        "    assert objectsProvider != null;",
+        "    this.objectsProvider = objectsProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(objectsProvider.get());",
+        "  }",
+        "}");
+    assert_().about(javaSource()).that(file).processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
+
+  @Test
+  public void basicNameCollision() {
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("other.pkg.Factory",
+        "package other.pkg;",
+        "",
+        "public class Factory {}");
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import other.pkg.Factory;",
+        "",
+        "class InjectConstructor {",
+        "  @Inject InjectConstructor(Factory factory) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<other.pkg.Factory> factoryProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<other.pkg.Factory> factoryProvider) {",
+        "    assert factoryProvider != null;",
+        "    this.factoryProvider = factoryProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(factoryProvider.get());",
+        "  }",
+        "}");
+    assert_().about(javaSources()).that(ImmutableList.of(factoryFile, file))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
+
+  @Test
+  public void nestedNameCollision() {
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("other.pkg.Outer",
+        "package other.pkg;",
+        "",
+        "public class Outer {",
+        "  public class Factory {}",
+        "}");
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import other.pkg.Outer;",
+        "",
+        "class InjectConstructor {",
+        "  @Inject InjectConstructor(Outer.Factory factory) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "import other.pkg.Outer;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<Outer.Factory> factoryProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<Outer.Factory> factoryProvider) {",
+        "    assert factoryProvider != null;",
+        "    this.factoryProvider = factoryProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(factoryProvider.get());",
+        "  }",
+        "}");
+    assert_().about(javaSources()).that(ImmutableList.of(factoryFile, file))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
+
+  @Test
+  public void samePackageNameCollision() {
+    JavaFileObject samePackageInterface = JavaFileObjects.forSourceLines("test.CommonName",
+        "package test;",
+        "",
+        "public interface CommonName {}");
+    JavaFileObject differentPackageInterface = JavaFileObjects.forSourceLines(
+        "other.pkg.CommonName",
+        "package other.pkg;",
+        "",
+        "public interface CommonName {}");
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class InjectConstructor implements CommonName {",
+        "  @Inject InjectConstructor(other.pkg.CommonName otherPackage, CommonName samePackage) {}",
+        "}");
+    JavaFileObject expected = JavaFileObjects.forSourceLines(
+        "test.InjectConstructor$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "import other.pkg.CommonName;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class InjectConstructor$$Factory ",
+        "    implements Factory<InjectConstructor> {",
+        "",
+        "  private final Provider<CommonName> otherPackageProvider;",
+        "  private final Provider<test.CommonName> samePackageProvider;",
+        "",
+        "  public InjectConstructor$$Factory(Provider<CommonName> otherPackageProvider,",
+        "      Provider<test.CommonName> samePackageProvider) {",
+        "    assert otherPackageProvider != null;",
+        "    this.otherPackageProvider = otherPackageProvider;",
+        "    assert samePackageProvider != null;",
+        "    this.samePackageProvider = samePackageProvider;",
+        "  }",
+        "",
+        "  @Override public InjectConstructor get() {",
+        "    return new InjectConstructor(otherPackageProvider.get(), samePackageProvider.get());",
+        "  }",
+        "}");
+    assert_().about(javaSources())
+        .that(ImmutableList.of(samePackageInterface, differentPackageInterface, file))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
   }
 }

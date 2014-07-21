@@ -26,6 +26,7 @@ import javax.inject.Scope;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -77,7 +78,7 @@ final class InjectionAnnotations {
     return FluentIterable.from(annotations)
         .filter(new Predicate<AnnotationMirror>() {
           @Override public boolean apply(AnnotationMirror input) {
-            return input.getAnnotationType().asElement().getAnnotation(annotationType) != null;
+            return isAnnotationPresent(input.getAnnotationType().asElement(), annotationType);
           }
         })
         .toSet();

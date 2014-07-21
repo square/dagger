@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,7 +31,7 @@ import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
-import dagger.internal.codegen.writer.TypeReferences;
+import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -78,7 +79,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   JavaWriter write(ClassName generatedTypeName, ProvisionBinding binding) {
-    TypeName providedTypeName = TypeReferences.forTypeMirror(binding.providedKey().type());
+    TypeName providedTypeName = TypeNames.forTypeMirror(binding.providedKey().type());
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
     ClassWriter factoryWriter = writer.addClass(generatedTypeName.simpleName());
@@ -103,7 +104,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.module = module;");
     }
 
-    if (binding.requiresMemberInjection()) {
+    if (binding.memberInjectionRequest().isPresent()) {
       ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
           MembersInjector.class, providedTypeName);
       factoryWriter.addField(membersInjectorType, "membersInjector").addModifiers(PRIVATE, FINAL);
@@ -121,12 +122,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
       if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
         ParameterizedTypeName providerType = ParameterizedTypeName.create(
             ClassName.fromClass(Provider.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = factoryWriter.addField(providerType, nameEntry.getValue());
       } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
         ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
             ClassName.fromClass(MembersInjector.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = factoryWriter.addField(membersInjectorType, nameEntry.getValue());
       } else {
         throw new IllegalStateException();
@@ -160,7 +161,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         default:
           throw new AssertionError();
       }
-    } else if (binding.requiresMemberInjection()) {
+    } else if (binding.memberInjectionRequest().isPresent()) {
       getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",
           providedTypeName, parametersSnippet);
       getMethodWriter.body().addSnippet("membersInjector.injectMembers(instance);");

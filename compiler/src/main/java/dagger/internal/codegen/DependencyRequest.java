@@ -19,7 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.Lazy;
 import dagger.MembersInjector;
@@ -76,7 +76,7 @@ abstract class DependencyRequest {
       this.keyFactory = keyFactory;
     }
 
-    ImmutableList<DependencyRequest> forRequiredVariables(
+    ImmutableSet<DependencyRequest> forRequiredVariables(
         List<? extends VariableElement> variables) {
       return FluentIterable.from(variables)
           .transform(new Function<VariableElement, DependencyRequest>() {
@@ -84,7 +84,7 @@ abstract class DependencyRequest {
               return forRequiredVariable(input);
             }
           })
-          .toList();
+          .toSet();
     }
 
     DependencyRequest forRequiredVariable(VariableElement variableElement) {

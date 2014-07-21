@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
@@ -104,6 +105,14 @@ abstract class Key {
 
     private TypeElement getSetElement() {
       return elements.getTypeElement(Set.class.getCanonicalName());
+    }
+
+    Key forComponentMethod(ExecutableElement componentMethod) {
+      checkNotNull(componentMethod);
+      checkArgument(componentMethod.getKind().equals(METHOD));
+      TypeMirror returnType = normalize(componentMethod.getReturnType());
+      Optional<AnnotationMirror> qualifier = getQualifier(componentMethod);
+      return new AutoValue_Key(rewrap(qualifier), MoreTypes.equivalence().wrap(returnType));
     }
 
     Key forProvidesMethod(ExecutableElement e) {

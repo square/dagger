@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import dagger.internal.codegen.writer.VoidName;
-
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -35,7 +33,8 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
-import dagger.internal.codegen.writer.TypeReferences;
+import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.VoidName;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
@@ -45,6 +44,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -86,12 +86,12 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(MembersInjectionBinding binding) {
-    return Optional.of(binding.injectedType());
+    return Optional.of(binding.bindingElement());
   }
 
   @Override
   JavaWriter write(ClassName injectorClassName, MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.injectedType());
+    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
 
     JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
 
@@ -114,7 +114,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         "}"));
 
 
-    Optional<TypeElement> supertype = supertype(binding.injectedType());
+    Optional<TypeElement> supertype = supertype(binding.bindingElement());
     if (supertype.isPresent()) {
       ParameterizedTypeName supertypeMemebersInjectorType = ParameterizedTypeName.create(
           MembersInjector.class, ClassName.fromTypeElement(supertype.get()));
@@ -139,12 +139,12 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
         ParameterizedTypeName providerType = ParameterizedTypeName.create(
             ClassName.fromClass(Provider.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = injectorWriter.addField(providerType, nameEntry.getValue());
       } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
         ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
             ClassName.fromClass(MembersInjector.class),
-            TypeReferences.forTypeMirror(nameEntry.getKey().key().type()));
+            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
         field = injectorWriter.addField(membersInjectorType, nameEntry.getValue());
       } else {
         throw new IllegalStateException();

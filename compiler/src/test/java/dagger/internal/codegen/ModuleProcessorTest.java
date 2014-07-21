@@ -22,6 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.ASSERT;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
@@ -33,7 +34,7 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_R
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
-import static org.truth0.Truth.ASSERT;
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
 
 @RunWith(JUnit4.class)
 public class ModuleProcessorTest {
@@ -411,5 +412,70 @@ public class ModuleProcessorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
+  }
+
+  @Test public void multipleProvidesMethodsWithSameName() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides Object provide(int i) {",
+        "    return i;",
+        "  }",
+        "",
+        "  @Provides String provide() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(8)
+        .and().withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(12);
+  }
+
+  @Test
+  public void providedTypes() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.io.Closeable;",
+        "import java.util.Set;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String string() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides Set<String> strings() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides Set<? extends Closeable> closeables() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides String[] stringArray() {",
+        "    return null;",
+        "  }",
+        "",
+        "  @Provides int integer() {",
+        "    return 0;",
+        "  }",
+        "",
+        "  @Provides int[] integers() {",
+        "    return null;",
+        "  }",
+        "}");
+    ASSERT.about(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
   }
 }

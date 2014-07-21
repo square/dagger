@@ -28,6 +28,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementFilter;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS;
 import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_GENERIC_CLASS;
 import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_INNER_CLASS;
@@ -92,7 +93,7 @@ final class InjectConstructorValidator implements Validator<ExecutableElement> {
         ElementFilter.constructorsIn(enclosingElement.getEnclosedElements()))
             .filter(new Predicate<ExecutableElement>() {
               @Override public boolean apply(ExecutableElement input) {
-                return input.getAnnotation(Inject.class) != null;
+                return isAnnotationPresent(input, Inject.class);
               }
             });
 

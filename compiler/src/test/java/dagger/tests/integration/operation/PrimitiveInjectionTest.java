@@ -23,9 +23,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.ASSERT;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public final class PrimitiveInjectionTest {
@@ -70,6 +70,7 @@ public final class PrimitiveInjectionTest {
   JavaFileObject expectedComponent = JavaFileObjects.forSourceLines(
       "test.Dagger_PrimitiveComponent",
       "package test;",
+      "",
       "import javax.annotation.Generated;",
       "import javax.inject.Provider;",
       "",
@@ -78,22 +79,53 @@ public final class PrimitiveInjectionTest {
       "  private final PrimitiveModule primitiveModule;",
       "  private final Provider<PrimitiveInjectable> primitiveInjectableProvider;",
       "  private final Provider<Integer> primitiveIntProvider;",
-      "  public Dagger_PrimitiveComponent(PrimitiveModule primitiveModule) {",
-      "    if (primitiveModule == null) {",
-      "      throw new NullPointerException(\"primitiveModule\");",
-      "    }",
-      "    this.primitiveModule = primitiveModule;",
+      "",
+      "  private Dagger_PrimitiveComponent(Builder builder) {",
+      "    assert builder != null;",
+      "    this.primitiveModule = builder.primitiveModule;",
       "    this.primitiveIntProvider = new PrimitiveModule$$PrimitiveIntFactory(primitiveModule);",
-      "    this.primitiveInjectableProvider = ",
+      "    this.primitiveInjectableProvider =",
       "        new PrimitiveInjectable$$Factory(primitiveIntProvider);",
       "  }",
+      "",
+      "  public static Builder builder() {",
+      "    return new Builder();",
+      "  }",
+      "",
+      "  public static PrimitiveComponent create() {",
+      "    return builder().build();",
+      "  }",
+      "",
       "  @Override",
       "  public int primitiveInt() {",
       "    return primitiveIntProvider.get();",
       "  }",
+      "",
       "  @Override",
       "  public PrimitiveInjectable primitiveInjectable() {",
       "    return primitiveInjectableProvider.get();",
+      "  }",
+      "",
+      "  public static final class Builder {",
+      "    private PrimitiveModule primitiveModule;",
+      "",
+      "    private Builder() {",
+      "    }",
+      "",
+      "    public PrimitiveComponent build() {",
+      "      if (primitiveModule == null) {",
+      "        this.primitiveModule = new PrimitiveModule();",
+      "      }",
+      "      return new Dagger_PrimitiveComponent(this);",
+      "    }",
+      "",
+      "    public Builder primitiveModule(PrimitiveModule primitiveModule) {",
+      "      if (primitiveModule == null) {",
+      "        throw new NullPointerException(\"primitiveModule\");",
+      "      }",
+      "      this.primitiveModule = primitiveModule;",
+      "      return this;",
+      "    }",
       "  }",
       "}");
 

@@ -63,4 +63,9 @@ public @interface Component {
    * component implementation.
    */
   Class<?>[] modules() default {};
+
+  /**
+   * A list of types that are to be used as component dependencies.
+   */
+  Class<?>[] dependencies() default {};
 }

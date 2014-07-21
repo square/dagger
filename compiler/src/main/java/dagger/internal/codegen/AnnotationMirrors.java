@@ -15,20 +15,17 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -43,22 +40,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Gregory Kick
  */
 final class AnnotationMirrors {
-  /**
-   * An alternative to {@link Element#getAnnotation} that returns an {@link AnnotationMirror} rather
-   * than the weird, half-implementation returned by that method.
-   */
-  static Optional<AnnotationMirror> getAnnotationMirror(Element element,
-      Class<? extends Annotation> annotationType) {
-    String annotationName = annotationType.getName();
-    for (AnnotationMirror annotationMirror : element.getAnnotationMirrors()) {
-      if (MoreElements.asType(annotationMirror.getAnnotationType().asElement())
-          .getQualifiedName().contentEquals(annotationName)) {
-        return Optional.of(annotationMirror);
-      }
-    }
-    return Optional.absent();
-  }
-
   /**
    * Takes a {@link Map} like that returned from {@link Elements#getElementValuesWithDefaults} and
    * key it by the member name rather than the {@link ExecutableElement}.
@@ -81,6 +62,7 @@ final class AnnotationMirrors {
         simplifyAnnotationValueMap(elements.getElementValuesWithDefaults(annotationMirror));
     ImmutableList.Builder<TypeMirror> builder = ImmutableList.builder();
 
+    @SuppressWarnings("unchecked") // that's the whole point of this method
     List<? extends AnnotationValue> typeValues =
         (List<? extends AnnotationValue>) valueMap.get(attributeName).getValue();
     for (AnnotationValue typeValue : typeValues) {
