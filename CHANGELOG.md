@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 1.2.2 *(2014-07-21)*
+----------------------------
+
+ * Update JavaWriter to 2.5.0. This fixes incorrectly compressing fully-qualified class names
+   in child packages of `java.lang` (e.g., `java.lang.ref.WeakReference`).
+
+
 Version 1.2.1 *(2014-02-16)*
 ----------------------------
 
