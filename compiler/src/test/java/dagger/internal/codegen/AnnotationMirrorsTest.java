@@ -45,6 +45,11 @@ public class AnnotationMirrorsTest {
     this.elements = compilationRule.getElements();
   }
 
+  @interface SimpleAnnotation {}
+
+  @SimpleAnnotation class SimplyAnnotated {}
+  @SimpleAnnotation class AlsoSimplyAnnotated {}
+
   enum SimpleEnum{
     BLAH, FOO
   }
@@ -64,8 +69,6 @@ public class AnnotationMirrorsTest {
   @DefaultingOuter class TestWithDefaultingOuterDefault {}
   @DefaultingOuter(BLAH) class TestWithDefaultingOuterBlah {}
   @DefaultingOuter(FOO) class TestWithDefaultingOuterFoo {}
-
-  @interface SimpleAnnotation {}
 
   @interface AnnotatedOuter {
     DefaultingOuter value();
@@ -98,6 +101,10 @@ public class AnnotationMirrorsTest {
   @Test public void testEquivalences() {
     EquivalenceTester<AnnotationMirror> tester =
         EquivalenceTester.of(AnnotationMirrors.equivalence());
+
+    tester.addEquivalenceGroup(
+        annotationOn(SimplyAnnotated.class),
+        annotationOn(AlsoSimplyAnnotated.class));
 
     tester.addEquivalenceGroup(
         annotationOn(TestClassBlah.class),

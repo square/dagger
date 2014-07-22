@@ -15,10 +15,12 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
 /**
@@ -67,11 +69,27 @@ final class AnnotationValues {
                       return false; // Not an annotation mirror, so can't be equal to such.
                     }
 
+                    @SuppressWarnings("unchecked") // safe covariant cast
                     @Override public Boolean visitArray(
                         List<? extends AnnotationValue> right ,
                         List<? extends AnnotationValue> left) {
                       return AnnotationValues.equivalence().pairwise().equivalent(
                           (List<AnnotationValue>) left, (List<AnnotationValue>) right);
+                    }
+                  }, left);
+            }
+
+            @Override
+            public Boolean visitType(TypeMirror left, AnnotationValue right) {
+              return right.accept(
+                  new SimpleAnnotationValueVisitor6<Boolean, TypeMirror>() {
+                    @Override protected Boolean defaultAction(
+                        Object ignored, TypeMirror alsoIgnored) {
+                      return false; // Not an annotation mirror, so can't be equal to such.
+                    }
+
+                    @Override public Boolean visitType(TypeMirror right, TypeMirror left) {
+                      return MoreTypes.equivalence().equivalent(left, right);
                     }
                   }, left);
             }
@@ -88,6 +106,10 @@ final class AnnotationValues {
             @Override public Integer visitArray(
                 List<? extends AnnotationValue> values, Void ignore) {
               return AnnotationValues.equivalence().pairwise().hash((List<AnnotationValue>) values);
+            }
+
+            @Override public Integer visitType(TypeMirror value, Void ignore) {
+              return MoreTypes.equivalence().hash(value);
             }
 
             @Override protected Integer defaultAction(Object value, Void ignored) {

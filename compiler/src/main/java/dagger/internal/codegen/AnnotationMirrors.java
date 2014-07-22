@@ -17,10 +17,10 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -76,16 +76,17 @@ final class AnnotationMirrors {
       @Override protected boolean doEquivalent(AnnotationMirror left, AnnotationMirror right) {
         return MoreTypes.equivalence()
             .equivalent(left.getAnnotationType(), right.getAnnotationType())
-            && AnnotationValues.equivalence().pairwise().equivalent(
-                getAnnotationValuesWithDefaults(left),
-                getAnnotationValuesWithDefaults(right));
+                && AnnotationValues.equivalence().pairwise().equivalent(
+                    getAnnotationValuesWithDefaults(left),
+                    getAnnotationValuesWithDefaults(right));
       }
 
       @Override protected int doHash(AnnotationMirror annotation) {
         DeclaredType type = annotation.getAnnotationType();
         Iterable<AnnotationValue> annotationValues = getAnnotationValuesWithDefaults(annotation);
-        return Objects.hashCode(type,
-            AnnotationValues.equivalence().pairwise().hash(annotationValues));
+        return Arrays.hashCode(new int[] {
+            MoreTypes.equivalence().hash(type),
+            AnnotationValues.equivalence().pairwise().hash(annotationValues)});
       }
     };
 
@@ -95,8 +96,8 @@ final class AnnotationMirrors {
    * states that instance/reference equality is not the proper test.
    *
    * Note: The contract of this equivalence is not quite that described in the javadoc, as
-   * hashcode values returned by {@link Equivalence#hash(T)} are not the same as would
-   * be returned from {@link AnnotationMirror#hashCode()}, though the proper invariants
+   * hash code values returned by {@link Equivalence#hash} are not the same as would
+   * be returned from {@link AnnotationMirror#hashCode}, though the proper invariants
    * relating hashCode() and equals() hold for {@code hash(T)} and {@code equivalent(T, T)}.
    */
   static Equivalence<AnnotationMirror> equivalence() {
