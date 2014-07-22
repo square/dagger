@@ -18,7 +18,6 @@ package dagger.internal;
 
 import java.lang.reflect.AccessibleObject;
 
-
 /**
  * Provides a point of configuration of the basic resolving functions within Dagger, namely
  * that of Module handling, injection binding creation, and static injection.  A plugin must

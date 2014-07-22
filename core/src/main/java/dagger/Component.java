@@ -30,7 +30,7 @@ import static java.lang.annotation.ElementType.TYPE;
  * {@code DaggerComponent_}.  For example, {@code @Component interface MyComponent {...}} will
  * produce an implementation named {@code DaggerComponent_MyComponent}.
  *
- * <h2>Component methods
+ * <h2>Component methods</h2>
  *
  * <p>Every type annotated with {@code @Component} must contain at least one abstract component
  * method. Component methods must either represent {@linkplain Provider provision} or

@@ -191,17 +191,17 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
           break;
         case CONSTRUCTOR:
           if (constructor != null) {
-            // TODO(tbroyer): pass annotation information
+            // TODO(user): pass annotation information
             error("Too many injectable constructors on " + type.getQualifiedName(), member);
           } else if (isAbstract) {
-            // TODO(tbroyer): pass annotation information
+            // TODO(user): pass annotation information
             error("Abstract class " + type.getQualifiedName()
                 + " must not have an @Inject-annotated constructor.", member);
           }
           constructor = (ExecutableElement) member;
           break;
         default:
-          // TODO(tbroyer): pass annotation information
+          // TODO(user): pass annotation information
           error("Cannot inject " + elementToString(member), member);
           break;
       }

@@ -39,7 +39,6 @@ import javax.lang.model.util.Types;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-
 /**
  * Represents a request for a key at an injection point. Parameters to {@link Inject} constructors
  * or {@link Provides} methods are examples of key requests.

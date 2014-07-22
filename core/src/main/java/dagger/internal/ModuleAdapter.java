@@ -16,7 +16,6 @@
  */
 package dagger.internal;
 
-
 /**
  * Extracts bindings from an {@code @Module}-annotated class.
  */

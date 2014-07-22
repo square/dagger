@@ -81,5 +81,4 @@ public class CyclicModuleIncludesTest {
             .in(javaFile).onLine(14);
   }
 
-
 }

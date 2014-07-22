@@ -150,7 +150,7 @@ final class Util {
           throw new CodeGenerationIncompleteException(
               "Type reported as <any> is likely a not-yet generated parameterized type.");
         }
-        // TODO(cgruber): Figure out a strategy for non-FQCN cases.
+        // TODO(user): Figure out a strategy for non-FQCN cases.
         result.append(errorType.toString());
         return null;
       }
@@ -253,7 +253,7 @@ final class Util {
     }
   }
 
-  // TODO(sgoldfed): better format for other types of elements?
+  // TODO(user): better format for other types of elements?
   static String elementToString(Element element) {
     switch (element.getKind()) {
       case FIELD:
@@ -336,7 +336,6 @@ final class Util {
     return type.getEnclosingElement().getKind() == ElementKind.PACKAGE
         || type.getModifiers().contains(Modifier.STATIC);
   }
-
 
   /**
    * Returns a user-presentable string like {@code coffee.CoffeeModule}.

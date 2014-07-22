@@ -177,7 +177,7 @@ public class KeyTest {
     TypeElement holder = elements.getTypeElement(PrimitiveTypes.class.getCanonicalName());
     List<ExecutableElement> methods = (List<ExecutableElement>) holder.getEnclosedElements();
 
-    // TODO(cgruber): Truth subject for TypeMirror and TypeElement
+    // TODO(user): Truth subject for TypeMirror and TypeElement
     TypeMirror intType = methods.get(0).getReturnType();
     ASSERT.that(intType.getKind().isPrimitive()).isTrue();
     TypeMirror integerType = methods.get(1).getReturnType();

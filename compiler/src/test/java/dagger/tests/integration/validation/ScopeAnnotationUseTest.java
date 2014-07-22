@@ -33,14 +33,14 @@ import static java.util.Arrays.asList;
  * Integration tests for the validation processors related to the use
  * of Scoping Annotations.
  */
-// TODO(cgruber): Audit this class when http://github.com/google/compile-testing
+// TODO(user): Audit this class when http://github.com/google/compile-testing
 //                has error/warning counts and other warning predicates available.
 @RunWith(JUnit4.class)
 public class ScopeAnnotationUseTest {
   private static final String ABSTRACTION_SCOPING_TEXT =
       "Scoping annotations are only allowed on concrete types and @Provides methods:";
 
-  // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
+  // TODO(user): uncomment when http://github.com/google/compile-testing supports warnings.
   //private static final String MISUSED_SCOPE_TEXT =
   //    "Dagger will ignore scoping annotations on methods that are not @Provides methods:";
 
@@ -53,7 +53,7 @@ public class ScopeAnnotationUseTest {
         "  @Inject public Test() { }",
         "}"));
 
-    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    // TODO(user): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
         //.and().hasNoWarnings();
@@ -69,7 +69,7 @@ public class ScopeAnnotationUseTest {
         "  @Provides @Singleton public String provideString() { return \"\"; }",
         "}"));
 
-    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    // TODO(user): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
         //.and().hasNoWarnings();
@@ -83,7 +83,7 @@ public class ScopeAnnotationUseTest {
         "  @Singleton void method() { }",
         "}"));
 
-    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    // TODO(user): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
         //.and().hasNoWarnings();
@@ -97,7 +97,7 @@ public class ScopeAnnotationUseTest {
         "  @Singleton void method() { }",
         "}"));
 
-    // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
+    // TODO(user): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
         //.and().hasNoWarnings();
@@ -110,7 +110,7 @@ public class ScopeAnnotationUseTest {
         "  @Singleton void method() { }",
         "}"));
 
-    // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
+    // TODO(user): uncomment when http://github.com/google/compile-testing supports warnings.
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
         //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(3).atColumn(49).and()
@@ -125,7 +125,7 @@ public class ScopeAnnotationUseTest {
         "  @Singleton void method() { }",
         "}"));
 
-    // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
+    // TODO(user): uncomment when http://github.com/google/compile-testing supports warnings.
     ASSERT.about(javaSource())
         .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
         //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(4).atColumn(49).and()
@@ -249,4 +249,3 @@ public class ScopeAnnotationUseTest {
         .withErrorContaining(singletonErrorText).in(sourceFile).onLine(6).atColumn(33);
   }
 }
-

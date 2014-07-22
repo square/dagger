@@ -154,7 +154,6 @@ abstract class ComponentDescriptor {
           new ImmutableSetMultimap.Builder<Key, ProvisionBinding>()
               .put(componentBinding.providedKey(), componentBinding);
 
-
       for (TypeElement componentDependency : componentDependencyTypes) {
         ProvisionBinding componentDependencyBinding =
             provisionBindingFactory.forComponent(componentDependency);

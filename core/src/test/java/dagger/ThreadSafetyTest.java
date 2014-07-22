@@ -45,7 +45,6 @@ public final class ThreadSafetyTest {
   private final ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
   private final CountDownLatch latch = new CountDownLatch(THREAD_COUNT + 1);
 
-
   static class LazyEntryPoint {
     @Inject Lazy<Integer> lazy;
   }

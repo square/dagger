@@ -238,7 +238,6 @@ public final class ModuleAdapterGenerationTest {
         .generatesSources(expectedModuleAdapter, expectedInjectAdapterA, expectedInjectAdapterB);
   }
 
-
   @Test public void providesHasParameterNamedModule() {
     JavaFileObject a = JavaFileObjects.forSourceString("A", Joiner.on("\n").join(
         "import javax.inject.Inject;",

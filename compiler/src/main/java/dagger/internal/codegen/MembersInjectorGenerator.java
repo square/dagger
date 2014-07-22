@@ -113,7 +113,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         "  throw new NullPointerException(\"Cannot inject members into a null reference\");",
         "}"));
 
-
     Optional<TypeElement> supertype = supertype(binding.bindingElement());
     if (supertype.isPresent()) {
       ParameterizedTypeName supertypeMemebersInjectorType = ParameterizedTypeName.create(
