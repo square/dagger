@@ -95,7 +95,6 @@ public class AnnotationMirrorsTest {
   @OuterWithValueArray({@DefaultingOuter(BLAH), @DefaultingOuter(FOO)})
   class TestValueArrayWithBlahFoo {}
 
-
   @Test public void testEquivalences() {
     EquivalenceTester<AnnotationMirror> tester =
         EquivalenceTester.of(AnnotationMirrors.equivalence());

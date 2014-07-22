@@ -349,7 +349,6 @@ public class ArrayQueue<E> extends AbstractCollection<E>
         return new QueueIterator();
     }
 
-
     private class QueueIterator implements Iterator<E> {
         /**
          * Index of element to be returned by subsequent call to next.

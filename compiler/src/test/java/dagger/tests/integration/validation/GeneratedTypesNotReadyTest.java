@@ -56,7 +56,7 @@ public class GeneratedTypesNotReadyTest {
       "}"));
 
   @Test public void withstandsMissingTypeReferencedInInjects() {
-    // TODO(cgruber): remove Foo (interface) from this when injects= analysis is fixed.
+    // TODO(user): remove Foo (interface) from this when injects= analysis is fixed.
     JavaFileObject module = JavaFileObjects.forSourceString("FooModule", Joiner.on("\n").join(
         "import dagger.Module;",
         "import dagger.Provides;",

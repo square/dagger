@@ -83,7 +83,6 @@ public final class MembersInjectorTest {
     assertThat(object.injected).isEqualTo("injected");
   }
 
-
   @Test public void injectionOfUnconstructableFails() {
     class TestEntryPoint {
       @Inject Unconstructable unconstructable;

@@ -171,7 +171,7 @@ public final class SetBindingTest {
     assertEquals(set("string4", "string3"), ep.fooStrings);
   }
 
-  // TODO(cgruber): Move this into an example project.
+  // TODO(user): Move this into an example project.
   @Test public void sampleMultiBindingLogger() {
     class TestEntryPoint {
       @Inject Logger logger;

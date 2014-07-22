@@ -51,7 +51,6 @@ final class InjectProcessingStep implements ProcessingStep {
   private final MembersInjectorGenerator membersInjectorWriter;
   private final InjectBindingRegistry injectBindingRegistry;
 
-
   InjectProcessingStep(Messager messager,
       InjectConstructorValidator constructorValidator,
       InjectFieldValidator fieldValidator,

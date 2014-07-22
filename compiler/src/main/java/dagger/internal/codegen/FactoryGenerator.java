@@ -76,7 +76,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     return Optional.of(binding.bindingElement());
   }
 
-
   @Override
   JavaWriter write(ClassName generatedTypeName, ProvisionBinding binding) {
     TypeName providedTypeName = TypeNames.forTypeMirror(binding.providedKey().type());
@@ -88,7 +87,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     factoryWriter.addImplementedType(ParameterizedTypeName.create(
         ClassName.fromClass(Factory.class),
         providedTypeName));
-
 
     MethodWriter getMethodWriter = factoryWriter.addMethod(binding.providedKey().type(), "get");
     getMethodWriter.annotate(Override.class);

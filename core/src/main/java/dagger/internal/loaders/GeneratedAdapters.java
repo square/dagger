@@ -16,7 +16,6 @@
  */
 package dagger.internal.loaders;
 
-
 /**
  * A single point for API used in common by Adapters and Adapter generators
  */

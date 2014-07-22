@@ -289,7 +289,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
       TypeElement module, Map<String, TypeElement> result, Deque<String> path) {
     Map<String, Object> annotation = getAnnotation(Module.class, module);
     if (annotation == null) {
-      // TODO(tbroyer): pass annotation information
+      // TODO(user): pass annotation information
       throw new ModuleValidationException("No @Module on " + module, module);
     }
 
@@ -321,7 +321,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
     if (!annotation.get("addsTo").equals(Void.class)) seedModules.add(annotation.get("addsTo"));
     for (Object include : seedModules) {
       if (!(include instanceof TypeMirror)) {
-        // TODO(tbroyer): pass annotation information
+        // TODO(user): pass annotation information
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
             "Unexpected value for include: " + include + " in " + module, module);
         continue;

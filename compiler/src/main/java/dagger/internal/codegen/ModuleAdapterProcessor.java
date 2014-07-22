@@ -116,7 +116,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         // CodeGenerationIncompleteException.
         Map<String, Object> parsedAnnotation = getAnnotation(Module.class, type);
 
-        //TODO(cgruber): Figure out an initial sizing of the StringWriter.
+        //TODO(user): Figure out an initial sizing of the StringWriter.
         StringWriter stringWriter = new StringWriter();
         String adapterName = adapterName(type, MODULE_ADAPTER_SUFFIX);
         generateModuleAdapter(stringWriter, adapterName, type, parsedAnnotation, providesTypes);
@@ -161,7 +161,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         case CLASS:
           break; // valid, move along
         default:
-          // TODO(tbroyer): pass annotation information
+          // TODO(user): pass annotation information
           error("Unexpected @Provides on " + elementToString(providerMethod), providerMethod);
           continue;
       }
@@ -303,7 +303,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     StringBuilder includesField = new StringBuilder().append("{ ");
     for (Object include : includes) {
       if (!(include instanceof TypeMirror)) {
-        // TODO(tbroyer): pass annotation information
+        // TODO(user): pass annotation information
         processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
             "Unexpected value: " + include + " in includes of " + type, type);
         continue;

@@ -16,7 +16,6 @@
  */
 package dagger.internal;
 
-
 import dagger.internal.loaders.ReflectiveAtInjectBinding;
 import dagger.internal.loaders.ReflectiveStaticInjection;
 
