@@ -105,9 +105,34 @@ final class ErrorMessages {
 
   static final String PROVIDES_METHOD_NOT_IN_MODULE =
       "@Provides methods can only be present within a @Module";
+  
+  static final String PROVIDES_METHOD_NOT_MAP_HAS_MAP_KEY =
+      "@Provides methods of non map type cannot declare a map key";
+  
+  static final String PROVIDES_METHOD_WITH_NO_MAP_KEY =
+      "@Provides methods of type map must declare a map key";
+
+  static final String PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY =
+      "@Provides methods may not have more than one @MapKey-marked annotation";
+
+  static final String PROVIDES_METHOD_WITH_UNSUPPORTED_MAP_KEY =
+      "@Provides methods only support String and Enum key types";
 
   static final String PROVIDES_METHOD_WITH_SAME_NAME =
       "Cannot have more than one @Provides method with the same name in a single module";
+  
+  static final String UNWRAP_MAPKEY =
+      "unwrapValue = true is not yet supported";
+  
+  /* collection binding errors */
+  static final String NON_SETBINDING =
+      "more than one binding present including at least a set binding and a non-set binding";
+
+  static final String NON_MAPBINDING =
+      "more than one binding present including at least a map binding and a non-map binding";
+
+  static final String INVALID_COLLECTIONBINDING =
+      "more than one binding present, but found an invalid binding";
 
   private ErrorMessages() {}
 }

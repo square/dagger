@@ -17,21 +17,27 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import java.lang.annotation.Annotation;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -121,6 +127,17 @@ final class AnnotationMirrors {
     values.putAll(annotation.getElementValues());
     return values.values();
   }
-
+  
+  static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,
+      final Class<? extends Annotation> annotationType) {
+    List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
+    return FluentIterable.from(annotations)
+        .filter(new Predicate<AnnotationMirror>() {
+          @Override public boolean apply(AnnotationMirror input) {
+            return isAnnotationPresent(input.getAnnotationType().asElement(), annotationType);
+          }
+        })
+        .toSet();
+  }
   private AnnotationMirrors() {}
 }

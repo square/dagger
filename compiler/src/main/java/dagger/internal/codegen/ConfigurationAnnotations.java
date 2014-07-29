@@ -16,15 +16,17 @@
 package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import dagger.Component;
+import dagger.MapKey;
 import dagger.Module;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.AnnotationMirrors.getAttributeAsListOfTypes;
-
 /**
  * Utility methods related to dagger configuration annotations (e.g.: {@link Component}
  * and {@link Module}).
@@ -66,6 +68,10 @@ final class ConfigurationAnnotations {
     checkNotNull(elements);
     checkNotNull(moduleAnnotation);
     return getAttributeAsListOfTypes(elements, moduleAnnotation, INJECTS_ATTRIBUTE);
+  }
+  
+  static ImmutableSet<? extends AnnotationMirror> getMapKeys(Element element) {
+    return AnnotationMirrors.getAnnotatedAnnotations(element, MapKey.class);
   }
 
   private ConfigurationAnnotations() {}
