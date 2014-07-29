@@ -74,6 +74,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     ModuleValidator moduleValidator = new ModuleValidator();
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator = new ComponentValidator(elements);
+    MapKeyValidator mapKeyValidator = new MapKeyValidator();
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -96,6 +97,9 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ComponentGenerator(filer, keyFactory);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
+        new MapKeyProcessingStep(
+            messager,
+            mapKeyValidator),
         new InjectProcessingStep(
             messager,
             injectConstructorValidator,

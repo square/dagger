@@ -32,8 +32,10 @@ import dagger.Component;
 import dagger.Factory;
 import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
+import dagger.internal.MapProviderFactory;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
+import dagger.internal.codegen.ProvisionBinding.BindingsType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -53,13 +55,18 @@ import java.util.Set;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Provider;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT_PROVISION;
@@ -74,7 +81,6 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.type.TypeKind.VOID;
-
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
  *
@@ -108,7 +114,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   @Override
-  JavaWriter write(ClassName componentName, ComponentDescriptor input)  {
+  JavaWriter write(ClassName componentName, ComponentDescriptor input) {
     ClassName componentDefinitionTypeName =
         ClassName.fromTypeElement(input.componentDefinitionType());
 
@@ -237,22 +243,54 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       Key key = frameworkKey.key();
       if (frameworkKey.frameworkClass().equals(Provider.class)) {
         Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
-        if (ProvisionBinding.isSetBindingCollection(bindings)) {
-          ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
-          for (ProvisionBinding binding : bindings) {
-            setFactoryParameters.add(initializeFactoryForBinding(
-                binding, componentContributionFields, providerFields, membersInjectorFields));
-          }
-          constructorWriter.body().addSnippet("this.%s = %s.create(%n%s);",
-              providerFields.get(key).name(),
-              ClassName.fromClass(SetFactory.class),
-              Snippet.makeParametersSnippet(setFactoryParameters.build()));
-        } else {
-          ProvisionBinding binding = Iterables.getOnlyElement(bindings);
-          constructorWriter.body().addSnippet("this.%s = %s;",
-              providerFields.get(key).name(),
-              initializeFactoryForBinding(
+        BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
+        switch (bindingsType) {
+          case SETBINDING:
+            ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
+            for (ProvisionBinding binding : bindings) {
+              setFactoryParameters.add(initializeFactoryForBinding(
                   binding, componentContributionFields, providerFields, membersInjectorFields));
+            }
+            constructorWriter.body().addSnippet("this.%s = %s.create(%n%s);",
+                providerFields.get(key).name(), ClassName.fromClass(SetFactory.class),
+                Snippet.makeParametersSnippet(setFactoryParameters.build()));
+            break;
+          case MAPBINDING:
+            if (bindings.iterator().hasNext()) {
+              ProvisionBinding firstBinding = bindings.iterator().next();
+              DeclaredType declaredMapType =
+                  Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
+              TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
+              TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
+              constructorWriter.body().addSnippet("this.%s = %s.<%s, %s>builder(%d)",
+                  providerNames.get(key),
+                  ClassName.fromClass(MapProviderFactory.class),
+                  TypeNames.forTypeMirror(mapKeyType),
+                  TypeNames.forTypeMirror(mapValueType),
+                  bindings.size());
+            }
+
+            for (ProvisionBinding binding : bindings) {
+              AnnotationMirror mapKeyAnnotationMirror =
+                  Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
+              Map<? extends ExecutableElement, ? extends AnnotationValue> map =
+                  mapKeyAnnotationMirror.getElementValues();
+              constructorWriter.body().addSnippet("    .put(%s, %s)",
+                  Iterables.getOnlyElement(map.entrySet()).getValue(), 
+                  initializeFactoryForBinding(
+                      binding, componentContributionFields, providerFields, membersInjectorFields));
+            }
+            constructorWriter.body().addSnippet("    .build();");
+            break;
+          case SINGULARBINDING:
+            ProvisionBinding binding = Iterables.getOnlyElement(bindings);
+            constructorWriter.body().addSnippet("this.%s = %s;",
+                providerFields.get(key).name(), 
+                initializeFactoryForBinding(
+                    binding, componentContributionFields, providerFields, membersInjectorFields));
+            break;
+          default:
+            throw new IllegalStateException();
         }
       } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
         constructorWriter.body().addSnippet("this.%s = %s;",
@@ -285,7 +323,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           interfaceMethod.body().addSnippet("return %s;", parameterName);
         }
       } else {
-        // look up the provider in the Key->field map and invoke.  Done.
         interfaceMethod.body().addSnippet("return %s;",
             frameworkTypeUsageStatement(providerFields.get(interfaceRequest.key()).name(),
                 interfaceRequest.kind()));

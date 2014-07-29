@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2014 Google, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package dagger;
+
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+/**
+ * It enables to define customized key type annotation for map binding by annotating an annotation
+ * of a {@code Map}'s key type. The defined key type annotation can be later applied to the
+ * key of the {@code Map}. Currently {@code String} and {@code enum} key types
+ * are supported for map binding.
+ *
+ * <h2>Example</h2> For example, if you want to define a key type annotation called StringKey, you
+ * can define it the following way:
+ *
+ * <pre><code>
+ * &#64;MapKey(unwrapValue = false)
+ * &#64;Retention(RUNTIME)
+ * public &#64;interface StringKey {
+ *   String value();
+ * }
+ *</code></pre>
+ */
+@Documented
+@Target(ANNOTATION_TYPE)
+@Retention(RUNTIME)
+public @interface MapKey {
+  /**
+   * if {@code unwrapValue} is true, then the whole annotation will be the type and annotation
+   * instances will be the keys. If {@code unwrapValue} is false, the value() type of key type
+   * annotation will be the key type for mapbinding and the value instances will be the keys.
+   * Currently only support {@code unwrapValue} to be false.
+   */
+  boolean unwrapValue();
+}

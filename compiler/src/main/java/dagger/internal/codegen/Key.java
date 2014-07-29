@@ -21,8 +21,11 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.Iterables;
 import dagger.Provides;
+import java.util.Map;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -36,6 +39,7 @@ import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -107,6 +111,14 @@ abstract class Key {
       return elements.getTypeElement(Set.class.getCanonicalName());
     }
 
+    private TypeElement getMapElement() {
+      return elements.getTypeElement(Map.class.getCanonicalName());
+    }
+
+    private TypeElement getProviderElement() {
+      return elements.getTypeElement(Provider.class.getCanonicalName());
+    }
+
     Key forComponentMethod(ExecutableElement componentMethod) {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
@@ -128,6 +140,13 @@ abstract class Key {
         case SET:
           TypeMirror setType = types.getDeclaredType(getSetElement(), returnType);
           return new AutoValue_Key(rewrap(qualifier), MoreTypes.equivalence().wrap(setType));
+        case MAP:
+          AnnotationMirror mapKey = Iterables.getOnlyElement(getMapKeys(e));
+          TypeElement keyTypeElement = Util.getKeyTypeElement(mapKey, elements);
+          TypeMirror valueType = types.getDeclaredType(getProviderElement(), returnType);
+          TypeMirror mapType =
+              types.getDeclaredType(getMapElement(), keyTypeElement.asType(), valueType);
+          return new AutoValue_Key(rewrap(qualifier), MoreTypes.equivalence().wrap(mapType));
         case SET_VALUES:
           // TODO(gak): do we want to allow people to use "covariant return" here?
           checkArgument(returnType.getKind().equals(DECLARED));

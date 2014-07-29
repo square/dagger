@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import dagger.Factory;
 import dagger.MembersInjector;
+import dagger.Provides.Type;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -39,6 +40,7 @@ import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeMirror;
 
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
@@ -77,7 +79,10 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   JavaWriter write(ClassName generatedTypeName, ProvisionBinding binding) {
-    TypeName providedTypeName = TypeNames.forTypeMirror(binding.providedKey().type());
+    TypeMirror keyType = binding.provisionType().equals(Type.MAP) ? Util.getValueTypeOfMap(
+        Util.getDeclaredTypeOfMap(binding.providedKey().type()))
+        : binding.providedKey().type();
+    TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
     ClassWriter factoryWriter = writer.addClass(generatedTypeName.simpleName());
@@ -87,7 +92,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         ClassName.fromClass(Factory.class),
         providedTypeName));
 
-    MethodWriter getMethodWriter = factoryWriter.addMethod(binding.providedKey().type(), "get");
+    MethodWriter getMethodWriter = factoryWriter.addMethod(keyType, "get");
     getMethodWriter.annotate(Override.class);
     getMethodWriter.addModifiers(PUBLIC);
 
@@ -146,6 +151,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     if (binding.bindingKind().equals(PROVISION)) {
       switch (binding.provisionType()) {
         case UNIQUE:
+        case MAP: 
         case SET_VALUES:
           getMethodWriter.body().addSnippet("return module.%s(%s);",
               binding.bindingElement().getSimpleName(), parametersSnippet);

@@ -32,7 +32,9 @@ import com.google.common.collect.SetMultimap;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.internal.DoubleCheckLazy;
+import dagger.internal.codegen.ProvisionBinding.BindingsType;
 import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.Snippet;
 import java.util.Collection;
 import java.util.Iterator;
@@ -184,31 +186,40 @@ class SourceFiles {
     ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
     for (Entry<Key, Collection<ProvisionBinding>> entry : bindings.asMap().entrySet()) {
       Collection<ProvisionBinding> bindingsForKey = entry.getValue();
-      final String name;
-      if (ProvisionBinding.isSetBindingCollection(bindingsForKey)) {
-        name = new KeyVariableNamer().apply(entry.getKey()) + "Provider";
-      } else {
-        ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
-        name = binding.bindingElement().accept(
-            new ElementKindVisitor6<String, Void>() {
-              @Override
-              public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
-                return e.getEnclosingElement().accept(this, null);
-              }
+      BindingsType bindingsType = ProvisionBinding.getBindingsType(bindingsForKey);
+      switch (bindingsType) {
+        case SETBINDING:
+          providerNames.put(entry.getKey(),
+              new KeyVariableNamer().apply(entry.getKey()) + "Provider");
+          break;
+        case MAPBINDING:
+          providerNames.put(entry.getKey(),
+              new KeyVariableNamer().apply(entry.getKey()) + "Provider");
+          break;
+        case SINGULARBINDING:
+          ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
+          providerNames.put(entry.getKey(),
+              binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
+                @Override
+                public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+                  return e.getEnclosingElement().accept(this, null);
+                }
 
-              @Override
-              public String visitExecutableAsMethod(ExecutableElement e, Void p) {
-                return e.getSimpleName().toString();
-              }
+                @Override
+                public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+                  return e.getSimpleName().toString();
+                }
 
-              @Override
-              public String visitType(TypeElement e, Void p) {
-                return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
-                    e.getSimpleName().toString());
-              }
-            }, null) + "Provider";
+                @Override
+                public String visitType(TypeElement e, Void p) {
+                  return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                      e.getSimpleName().toString());
+                }
+              }, null) + "Provider");
+          break;
+        default:
+          throw new IllegalStateException();
       }
-      providerNames.put(entry.getKey(), name);
     }
     Ordering<Entry<?, String>> entryValueOrdering =
         Ordering.natural().onResultOf(new Function<Entry<?, String>, String>() {

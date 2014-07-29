@@ -19,6 +19,7 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
@@ -36,12 +37,16 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.Provides.Type.MAP;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
+import static dagger.internal.codegen.ErrorMessages.NON_SETBINDING;
+import static dagger.internal.codegen.ErrorMessages.NON_MAPBINDING;
+import static dagger.internal.codegen.ErrorMessages.INVALID_COLLECTIONBINDING;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -82,26 +87,67 @@ abstract class ProvisionBinding extends Binding {
   abstract Optional<DependencyRequest> memberInjectionRequest();
 
   private static ImmutableSet<Provides.Type> SET_BINDING_TYPES = immutableEnumSet(SET, SET_VALUES);
-
-  /**
-   * Returns {@code true} if the given bindings are all contributors to a set binding.
-   *
-   * @throws IllegalArgumentException if some of the bindings are set bindings and some are not.
-   */
-  static boolean isSetBindingCollection(Iterable<ProvisionBinding> bindings) {
-    checkNotNull(bindings);
-    Iterator<ProvisionBinding> iterator = bindings.iterator();
-    checkArgument(iterator.hasNext(), "no bindings");
-    boolean setBinding = SET_BINDING_TYPES.contains(iterator.next().provisionType());
-    while (iterator.hasNext()) {
-      checkArgument(setBinding,
-          "more than one binding present, but found a non-set binding");
-      checkArgument(SET_BINDING_TYPES.contains(iterator.next().provisionType()),
-          "more than one binding present, but found a non-set binding");
-    }
-    return setBinding;
+  private static ImmutableSet<Provides.Type> MAP_BINDING_TYPES = immutableEnumSet(MAP);
+  
+  
+  static enum BindingsType {
+    /** Represents set bindings. */
+    SETBINDING, 
+    /** Represents map bindings. */
+    MAPBINDING, 
+    /** Represents a valid non-collection binding. */
+    SINGULARBINDING,
   }
+  
+  /**
+   * Returns {@code BindingsType} for bindings, which can be {@code SETBINDING} if the given
+   * bindings are all contributors to a set binding. Returns {@code MAPBINDING} if the given
+   * bindings are all contributors to a map binding. Returns {@code NONCOLLECTIONBINDING} if the
+   * given bindings is not a collection.
+   *
+   * @throws IllegalArgumentException if some of the bindings are map bindings or set bindings and
+   *         some are not.
+   * @throws IllegalArgumentException if the bindings in the collection are not supported in Dagger
+   *         (Not set bindings or map Bindings).
+   */
+  static BindingsType getBindingsType(Iterable<ProvisionBinding> bindings) {
+    checkNotNull(bindings);
+    switch (Iterables.size(bindings)) {
+      case 0:
+        throw new IllegalArgumentException("no bindings");
+      case 1:
+        if (SET_BINDING_TYPES.contains(Iterables.getOnlyElement(bindings).provisionType())) {
+          return BindingsType.SETBINDING;
+        } else if (MAP_BINDING_TYPES.contains(Iterables.getOnlyElement(bindings).provisionType())) {
+          return BindingsType.MAPBINDING;
+        }
+        return BindingsType.SINGULARBINDING;
+      default:
+        Iterator<ProvisionBinding> iterator = bindings.iterator();
+        boolean setBinding = SET_BINDING_TYPES.contains(iterator.next().provisionType());
+        if (setBinding) {
+          while (iterator.hasNext()) {
+            checkArgument(setBinding, NON_SETBINDING);
+            checkArgument(SET_BINDING_TYPES.contains(iterator.next().provisionType()),
+                NON_SETBINDING);
+          }
+          return BindingsType.SETBINDING;
+        }
 
+        iterator = bindings.iterator();
+        boolean mapBinding = MAP_BINDING_TYPES.contains(iterator.next().provisionType());
+        if (mapBinding) {
+          while (iterator.hasNext()) {
+            checkArgument(mapBinding, NON_MAPBINDING);
+            checkArgument(MAP_BINDING_TYPES.contains(iterator.next().provisionType()),
+                NON_MAPBINDING);
+          }
+          return BindingsType.MAPBINDING;
+        }
+        throw new IllegalStateException(INVALID_COLLECTIONBINDING);
+    }
+  }
+  
   static final class Factory {
     private final Elements elements;
     private final Types types;
