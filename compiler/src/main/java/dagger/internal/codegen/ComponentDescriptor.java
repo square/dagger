@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
@@ -34,6 +35,7 @@ import dagger.Provides;
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Queue;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -94,6 +96,8 @@ abstract class ComponentDescriptor {
    * graph.
    */
   abstract ImmutableMap<Key, MembersInjectionBinding> resolvedMembersInjectionBindings();
+
+  abstract ImmutableSetMultimap<String, FrameworkKey> initializationByPackage();
 
   /**
    * The ordering of {@link Key keys} that will allow all of the {@link Factory} and
@@ -228,6 +232,15 @@ abstract class ComponentDescriptor {
             resolvedProvisionBindings, resolvedMembersInjectionBindings);
       }
 
+      ImmutableSetMultimap.Builder<String, FrameworkKey> initializationByPackageBuilder =
+          ImmutableSetMultimap.builder();
+      for (Entry<FrameworkKey, Binding> resolvedBindingEntry : resolvedBindings.entries()) {
+        initializationByPackageBuilder.put(
+            resolvedBindingEntry.getValue().bindingPackage().or(
+                  MoreElements.getPackage(componentDefinitionType).getQualifiedName().toString()),
+            resolvedBindingEntry.getKey());
+      }
+
       return new AutoValue_ComponentDescriptor(
           componentDefinitionType,
           componentDependencyTypes,
@@ -235,6 +248,7 @@ abstract class ComponentDescriptor {
           transitiveModules,
           resolvedProvisionBindings.build(),
           resolvedMembersInjectionBindings.build(),
+          initializationByPackageBuilder.build(),
           ImmutableList.copyOf(resolvedBindings.keySet()));
     }
 

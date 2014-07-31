@@ -16,8 +16,8 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.SimpleElementVisitor6;
@@ -52,16 +52,20 @@ abstract class Binding {
     }, null);
   }
 
-  /** The set of {@link DependencyRequest dependencies} required to satisfy this binding. */
+  /**
+   * The explicit set of {@link DependencyRequest dependencies} required to satisfy this binding.
+   */
   abstract ImmutableSet<DependencyRequest> dependencies();
 
-  /** Returns the {@link #dependencies()} indexed by {@link Key}. */
-  ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey() {
-    ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> builder =
-        ImmutableSetMultimap.builder();
-    for (DependencyRequest dependency : dependencies()) {
-      builder.put(FrameworkKey.forDependencyRequest(dependency), dependency);
-    }
-    return builder.build();
-  }
+  /**
+   * The set of {@link DependencyRequest dependencies} required to satisfy this binding. This is a
+   * superset of {@link #dependencies()}.
+   */
+  abstract ImmutableSet<DependencyRequest> implicitDependencies();
+
+  /**
+   * Returns the name of the package in which this binding must be managed. E.g.: a binding
+   * may reference non-public types.
+   */
+  abstract Optional<String> bindingPackage();
 }

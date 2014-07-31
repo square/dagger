@@ -247,17 +247,17 @@ class SourceFiles {
         }));
   }
 
-  static Snippet frameworkTypeUsageStatement(String frameworkTypeName,
+  static Snippet frameworkTypeUsageStatement(Snippet frameworkTypeMemberSelect,
       DependencyRequest.Kind dependencyKind) {
     switch (dependencyKind) {
       case LAZY:
         return Snippet.format("%s.create(%s)",
-            ClassName.fromClass(DoubleCheckLazy.class), frameworkTypeName);
+            ClassName.fromClass(DoubleCheckLazy.class), frameworkTypeMemberSelect);
       case INSTANCE:
-        return Snippet.format("%s.get()", frameworkTypeName);
+        return Snippet.format("%s.get()", frameworkTypeMemberSelect);
       case PROVIDER:
       case MEMBERS_INJECTOR:
-        return Snippet.format("%s", frameworkTypeName);
+        return Snippet.format("%s", frameworkTypeMemberSelect);
       default:
         throw new AssertionError();
     }

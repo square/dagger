@@ -93,8 +93,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     FactoryGenerator factoryGenerator = new FactoryGenerator(filer);
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types);
-    ComponentGenerator componentGenerator =
-        new ComponentGenerator(filer, keyFactory);
+    ComponentGenerator componentGenerator = new ComponentGenerator(filer);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(

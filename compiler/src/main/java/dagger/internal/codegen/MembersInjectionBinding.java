@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +36,7 @@ import javax.lang.model.element.VariableElement;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Represents the full members injection of a particular type. This does not pay attention to
@@ -46,6 +48,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @AutoValue
 abstract class MembersInjectionBinding extends Binding {
   @Override abstract TypeElement bindingElement();
+
+  @Override ImmutableSet<DependencyRequest> implicitDependencies() {
+    return dependencies();
+  }
 
   /**
    * Creates a {@link MembersInjectionBinding} for the given bindings.
@@ -69,17 +75,15 @@ abstract class MembersInjectionBinding extends Binding {
           }
         })
         .toSet();
+    Optional<String> bindingPackage = injectedTypeElement.getModifiers().contains(PUBLIC)
+        ? Optional.<String>absent()
+        : Optional.of(MoreElements.getPackage(injectedTypeElement).getQualifiedName().toString());
     return new AutoValue_MembersInjectionBinding(
-        dependencies, injectedTypeElement, injectionSiteSet);
+        dependencies, bindingPackage, injectedTypeElement, injectionSiteSet);
   }
 
   /** The set of individual sites where {@link Inject} is applied. */
   abstract ImmutableSortedSet<InjectionSite> injectionSites();
-
-  /** The total set of dependencies required by all injection sites. */
-  final ImmutableSet<DependencyRequest> dependencySet() {
-    return ImmutableSet.copyOf(dependencies());
-  }
 
   private static final Ordering<InjectionSite> INJECTION_ORDERING =
       new Ordering<InjectionSite>() {
