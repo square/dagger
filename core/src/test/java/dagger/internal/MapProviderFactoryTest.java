@@ -15,23 +15,18 @@
  */
 package dagger.internal;
 
-import static org.truth0.Truth.ASSERT;
-
 import dagger.Factory;
-
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.inject.Provider;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.inject.Provider;
+import static com.google.common.truth.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 @SuppressWarnings("unchecked")

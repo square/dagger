@@ -28,9 +28,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.truth.Truth.ASSERT;
 import static dagger.internal.codegen.AnnotationMirrorsTest.SimpleEnum.BLAH;
 import static dagger.internal.codegen.AnnotationMirrorsTest.SimpleEnum.FOO;
-import static org.truth0.Truth.ASSERT;
 
 /**
  * Tests {@link AnnotationMirrors}.
