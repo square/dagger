@@ -22,6 +22,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
 import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
@@ -90,7 +91,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   }
 
   @Override
-  JavaWriter write(ClassName injectorClassName, MembersInjectionBinding binding) {
+  ImmutableSet<JavaWriter> write(ClassName injectorClassName, MembersInjectionBinding binding) {
     ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
 
     JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
@@ -128,7 +129,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     }
 
     ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(binding.dependencySet());
+        SourceFiles.generateFrameworkReferenceNamesForDependencies(ImmutableSet.copyOf(binding.dependencies()));
 
     ImmutableMap.Builder<FrameworkKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
@@ -164,14 +165,16 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
               fieldDependency));
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
-              frameworkTypeUsageStatement(singleField.name(), fieldDependency.kind()));
+              frameworkTypeUsageStatement(Snippet.format(singleField.name()),
+                  fieldDependency.kind()));
           break;
         case METHOD:
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
           for (DependencyRequest methodDependnecy : injectionSite.dependencies()) {
             FieldWriter field =
             depedencyFields.get(FrameworkKey.forDependencyRequest(methodDependnecy));
-            parameters.add(frameworkTypeUsageStatement(field.name(), methodDependnecy.kind()));
+            parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
+                methodDependnecy.kind()));
           }
           injectMembersWriter.body().addSnippet("instance.%s(%s);",
               injectionSite.element().getSimpleName(),
@@ -181,7 +184,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           throw new AssertionError();
       }
     }
-    return writer;
+    return ImmutableSet.of(writer);
   }
 
   private Optional<TypeElement> supertype(TypeElement type) {

@@ -24,13 +24,22 @@ import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
 import java.util.Iterator;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Name;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
+import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
@@ -44,6 +53,7 @@ import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
+import static javax.lang.model.element.Modifier.PUBLIC;
 import static dagger.internal.codegen.ErrorMessages.NON_SETBINDING;
 import static dagger.internal.codegen.ErrorMessages.NON_MAPBINDING;
 import static dagger.internal.codegen.ErrorMessages.INVALID_COLLECTIONBINDING;
@@ -57,6 +67,14 @@ import static dagger.internal.codegen.ErrorMessages.INVALID_COLLECTIONBINDING;
  */
 @AutoValue
 abstract class ProvisionBinding extends Binding {
+  @Override
+  ImmutableSet<DependencyRequest> implicitDependencies() {
+    return new ImmutableSet.Builder<DependencyRequest>()
+        .addAll(dependencies())
+        .addAll(memberInjectionRequest().asSet())
+        .build();
+  }
+
   enum Kind {
     /** Represents an {@link Inject} binding. */
     INJECTION,
@@ -162,21 +180,81 @@ abstract class ProvisionBinding extends Binding {
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
 
+    private static Optional<String> findBindingPackage(Key providedKey) {
+      Set<String> packages = nonPublicPackageUse(providedKey.type());
+      switch (packages.size()) {
+        case 0:
+          return Optional.absent();
+        case 1:
+          return Optional.of(packages.iterator().next());
+        default:
+          throw new IllegalStateException();
+      }
+    }
+
+    private static Set<String> nonPublicPackageUse(TypeMirror typeMirror) {
+      ImmutableSet.Builder<String> packages = ImmutableSet.builder();
+      typeMirror.accept(new SimpleTypeVisitor6<Void, ImmutableSet.Builder<String>>() {
+        @Override
+        public Void visitArray(ArrayType t, ImmutableSet.Builder<String> p) {
+          return t.getComponentType().accept(this, p);
+        }
+
+        @Override
+        public Void visitDeclared(DeclaredType t, ImmutableSet.Builder<String> p) {
+          for (TypeMirror typeArgument : t.getTypeArguments()) {
+            typeArgument.accept(this, p);
+          }
+          // TODO(gak): address public nested types in non-public types
+          TypeElement typeElement = MoreElements.asType(t.asElement());
+          if (!typeElement.getModifiers().contains(PUBLIC)) {
+            PackageElement elementPackage = MoreElements.getPackage(typeElement);
+            Name qualifiedName = elementPackage.getQualifiedName();
+            p.add(qualifiedName.toString());
+          }
+          return null;
+        }
+
+        @Override
+        public Void visitTypeVariable(TypeVariable t, ImmutableSet.Builder<String> p) {
+          t.getLowerBound().accept(this, p);
+          t.getUpperBound().accept(this, p);
+          return null;
+        }
+
+        @Override
+        public Void visitWildcard(WildcardType t, ImmutableSet.Builder<String> p) {
+          if (t.getExtendsBound() != null) {
+            t.getExtendsBound().accept(this, p);
+          }
+          if (t.getSuperBound() != null) {
+            t.getSuperBound().accept(this, p);
+          }
+          return null;
+        }
+      }, packages);
+      return packages.build();
+    }
+
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement) {
       checkNotNull(constructorElement);
       checkArgument(constructorElement.getKind().equals(CONSTRUCTOR));
       checkArgument(isAnnotationPresent(constructorElement, Inject.class));
       Key key = keyFactory.forInjectConstructor(constructorElement);
       checkArgument(!key.qualifier().isPresent());
+      ImmutableSet<DependencyRequest> dependencies =
+          dependencyRequestFactory.forRequiredVariables(constructorElement.getParameters());
+      Optional<DependencyRequest> membersInjectionRequest = membersInjectionRequest(
+          MoreElements.asType(constructorElement.getEnclosingElement()));
       return new AutoValue_ProvisionBinding(
           constructorElement,
-          dependencyRequestFactory.forRequiredVariables(constructorElement.getParameters()),
+          dependencies,
+          findBindingPackage(key),
           Kind.INJECTION,
           Provides.Type.UNIQUE,
           key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
-          membersInjectionRequest(
-              MoreElements.asType(constructorElement.getEnclosingElement())));
+          membersInjectionRequest);
     }
 
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
@@ -201,12 +279,16 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(providesMethod.getKind().equals(METHOD));
       Provides providesAnnotation = providesMethod.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
+      Key key = keyFactory.forProvidesMethod(providesMethod);
+      ImmutableSet<DependencyRequest> dependencies =
+          dependencyRequestFactory.forRequiredVariables(providesMethod.getParameters());
       return new AutoValue_ProvisionBinding(
           providesMethod,
-          dependencyRequestFactory.forRequiredVariables(providesMethod.getParameters()),
+          dependencies,
+          findBindingPackage(key),
           Kind.PROVISION,
           providesAnnotation.type(),
-          keyFactory.forProvidesMethod(providesMethod),
+          key,
           getScopeAnnotation(providesMethod),
           Optional.<DependencyRequest>absent());
     }
@@ -218,6 +300,7 @@ abstract class ProvisionBinding extends Binding {
       return new AutoValue_ProvisionBinding(
           componentDefinitionType,
           ImmutableSet.<DependencyRequest>of(),
+          Optional.<String>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
           keyFactory.forType(componentDefinitionType.asType()),
@@ -232,6 +315,7 @@ abstract class ProvisionBinding extends Binding {
       return new AutoValue_ProvisionBinding(
           componentMethod,
           ImmutableSet.<DependencyRequest>of(),
+          Optional.<String>absent(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
           keyFactory.forComponentMethod(componentMethod),

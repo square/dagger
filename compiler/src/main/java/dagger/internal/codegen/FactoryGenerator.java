@@ -78,7 +78,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   }
 
   @Override
-  JavaWriter write(ClassName generatedTypeName, ProvisionBinding binding) {
+  ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProvisionBinding binding) {
     TypeMirror keyType = binding.provisionType().equals(Type.MAP) ? Util.getValueTypeOfMap(
         Util.getDeclaredTypeOfMap(binding.providedKey().type()))
         : binding.providedKey().type();
@@ -144,7 +144,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          names.get(FrameworkKey.forDependencyRequest(dependency)), dependency.kind()));
+          Snippet.format(names.get(FrameworkKey.forDependencyRequest(dependency))),
+          dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);
 
@@ -175,6 +176,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     }
 
     // TODO(gak): write a sensible toString
-    return writer;
+    return ImmutableSet.of(writer);
   }
 }
