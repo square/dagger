@@ -36,7 +36,7 @@ public class ElementUtilTest {
   @Test public void asTypeElement() {
     Element typeElement =
         compilation.getElements().getTypeElement(String.class.getCanonicalName());
-    ASSERT.that(MoreElements.asType(typeElement)).is(typeElement);
+    ASSERT.that(MoreElements.asType(typeElement)).isEqualTo(typeElement);
   }
 
   @Test public void asTypeElement_notATypeElement() {

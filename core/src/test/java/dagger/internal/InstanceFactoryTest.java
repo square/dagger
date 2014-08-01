@@ -31,9 +31,9 @@ public final class InstanceFactoryTest {
   @Test public void instanceFactory() {
     Object instance = new Object();
     Factory<Object> factory = InstanceFactory.create(instance);
-    ASSERT.that(factory.get()).is(instance);
-    ASSERT.that(factory.get()).is(instance);
-    ASSERT.that(factory.get()).is(instance);
+    ASSERT.that(factory.get()).isEqualTo(instance);
+    ASSERT.that(factory.get()).isEqualTo(instance);
+    ASSERT.that(factory.get()).isEqualTo(instance);
   }
 
   @Test public void create_throwsNullPointerException() {
