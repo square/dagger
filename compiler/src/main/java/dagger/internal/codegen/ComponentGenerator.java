@@ -50,6 +50,7 @@ import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.VoidName;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -287,7 +288,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
         BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
         switch (bindingsType) {
-          case SETBINDING:
+          case SET_BINDING:
             ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
             for (ProvisionBinding binding : bindings) {
               setFactoryParameters.add(initializeFactoryForBinding(
@@ -297,9 +298,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                 memberSelectSnippets.get(frameworkKey), ClassName.fromClass(SetFactory.class),
                 Snippet.makeParametersSnippet(setFactoryParameters.build()));
             break;
-          case MAPBINDING:
-            if (bindings.iterator().hasNext()) {
-              ProvisionBinding firstBinding = bindings.iterator().next();
+          case MAP_BINDING:
+            if (!bindings.isEmpty()) {
+              Iterator<ProvisionBinding> iterator = bindings.iterator();
+              // get type information from first binding in iterator
+              ProvisionBinding firstBinding = iterator.next();
               DeclaredType declaredMapType =
                   Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
               TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
@@ -310,21 +313,17 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                   TypeNames.forTypeMirror(mapKeyType),
                   TypeNames.forTypeMirror(mapValueType),
                   bindings.size());
+              writeEntry(constructorWriter, firstBinding, initializeFactoryForBinding(
+                  firstBinding, componentContributionFields, memberSelectSnippets));
+              while (iterator.hasNext()) {
+                ProvisionBinding binding = iterator.next();
+                writeEntry(constructorWriter, binding, initializeFactoryForBinding(
+                    binding, componentContributionFields, memberSelectSnippets));
+              }
+              constructorWriter.body().addSnippet("    .build();");
             }
-
-            for (ProvisionBinding binding : bindings) {
-              AnnotationMirror mapKeyAnnotationMirror =
-                  Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
-              Map<? extends ExecutableElement, ? extends AnnotationValue> map =
-                  mapKeyAnnotationMirror.getElementValues();
-              constructorWriter.body().addSnippet("    .put(%s, %s)",
-                  Iterables.getOnlyElement(map.entrySet()).getValue(),
-                  initializeFactoryForBinding(
-                      binding, componentContributionFields, memberSelectSnippets));
-            }
-            constructorWriter.body().addSnippet("    .build();");
             break;
-          case SINGULARBINDING:
+          case SINGULAR_BINDING:
             ProvisionBinding binding = Iterables.getOnlyElement(bindings);
             constructorWriter.body().addSnippet("this.%s = %s;",
                 memberSelectSnippets.get(frameworkKey),
@@ -439,5 +438,16 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       parameters.add(memberSelectSnippets.get(FrameworkKey.forDependencyRequest(dependency)));
     }
     return parameters.build();
+  }
+
+  // add one map entry for map Provider in Constructor
+  private void writeEntry(ConstructorWriter constructorWriter, ProvisionBinding binding,
+      Snippet factory) {
+    AnnotationMirror mapKeyAnnotationMirror =
+        Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
+    Map<? extends ExecutableElement, ? extends AnnotationValue> map =
+        mapKeyAnnotationMirror.getElementValues();
+    constructorWriter.body().addSnippet("    .put(%s, %s)",
+        Iterables.getOnlyElement(map.entrySet()).getValue(), factory);
   }
 }
