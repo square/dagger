@@ -40,12 +40,16 @@ public final class FailureModeErrorsTest {
   @Module(injects = ArrayFoo.class, complete = false)
   static class ArrayFooModule {}
 
-  @Test public void failOnMissingModule_array() {
+  @Test public void failOnMissingModule_arrayorgenerics() {
+    // Generics here are crazy to try to test for, but this code path is legit regardless.
     try {
       ObjectGraph.create(new CompleteModule(), new ArrayFooModule()).get(ArrayFoo.class);
       fail("Should have thrown.");
     } catch (IllegalStateException e) {
-      assertThat(e.getMessage()).contains("is a generic class or an array");
+      assertThat(e.getMessage()).contains(
+          "java.lang.String[] is a generic class or an array and can only be bound with "
+          + "concrete type parameter(s) in a @Provides method. required by class "
+          + "dagger.tests.integration.operation.FailureModeErrorsTest$ArrayFoo");
     }
   }
 
@@ -63,8 +67,10 @@ public final class FailureModeErrorsTest {
       ObjectGraph.create(new CompleteModule(), new QualifyingFooModule()).get(QualifyingFoo.class);
       fail("Should have thrown.");
     } catch (IllegalStateException e) {
-      assertThat(e.getMessage()).contains("is a @Qualifier-annotated type and must be bound");
+      assertThat(e.getMessage()).contains(
+          "@dagger.tests.integration.operation.FailureModeErrorsTest$MyFoo()/java.lang.String "
+          + "is a @Qualifier-annotated type and must be bound by a @Provides method. required by "
+          + "class dagger.tests.integration.operation.FailureModeErrorsTest$QualifyingFoo");
     }
   }
-
 }
