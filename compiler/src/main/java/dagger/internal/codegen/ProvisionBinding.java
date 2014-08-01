@@ -110,11 +110,11 @@ abstract class ProvisionBinding extends Binding {
   
   static enum BindingsType {
     /** Represents set bindings. */
-    SETBINDING, 
+    SET_BINDING, 
     /** Represents map bindings. */
-    MAPBINDING, 
+    MAP_BINDING, 
     /** Represents a valid non-collection binding. */
-    SINGULARBINDING,
+    SINGULAR_BINDING,
   }
   
   /**
@@ -135,11 +135,11 @@ abstract class ProvisionBinding extends Binding {
         throw new IllegalArgumentException("no bindings");
       case 1:
         if (SET_BINDING_TYPES.contains(Iterables.getOnlyElement(bindings).provisionType())) {
-          return BindingsType.SETBINDING;
+          return BindingsType.SET_BINDING;
         } else if (MAP_BINDING_TYPES.contains(Iterables.getOnlyElement(bindings).provisionType())) {
-          return BindingsType.MAPBINDING;
+          return BindingsType.MAP_BINDING;
         }
-        return BindingsType.SINGULARBINDING;
+        return BindingsType.SINGULAR_BINDING;
       default:
         Iterator<ProvisionBinding> iterator = bindings.iterator();
         boolean setBinding = SET_BINDING_TYPES.contains(iterator.next().provisionType());
@@ -149,7 +149,7 @@ abstract class ProvisionBinding extends Binding {
             checkArgument(SET_BINDING_TYPES.contains(iterator.next().provisionType()),
                 NON_SETBINDING);
           }
-          return BindingsType.SETBINDING;
+          return BindingsType.SET_BINDING;
         }
 
         iterator = bindings.iterator();
@@ -160,7 +160,7 @@ abstract class ProvisionBinding extends Binding {
             checkArgument(MAP_BINDING_TYPES.contains(iterator.next().provisionType()),
                 NON_MAPBINDING);
           }
-          return BindingsType.MAPBINDING;
+          return BindingsType.MAP_BINDING;
         }
         throw new IllegalStateException(INVALID_COLLECTIONBINDING);
     }

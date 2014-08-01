@@ -188,15 +188,15 @@ class SourceFiles {
       Collection<ProvisionBinding> bindingsForKey = entry.getValue();
       BindingsType bindingsType = ProvisionBinding.getBindingsType(bindingsForKey);
       switch (bindingsType) {
-        case SETBINDING:
+        case SET_BINDING:
           providerNames.put(entry.getKey(),
               new KeyVariableNamer().apply(entry.getKey()) + "Provider");
           break;
-        case MAPBINDING:
+        case MAP_BINDING:
           providerNames.put(entry.getKey(),
               new KeyVariableNamer().apply(entry.getKey()) + "Provider");
           break;
-        case SINGULARBINDING:
+        case SINGULAR_BINDING:
           ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
           providerNames.put(entry.getKey(),
               binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
