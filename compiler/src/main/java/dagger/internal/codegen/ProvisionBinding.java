@@ -49,14 +49,14 @@ import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.Provides.Type.MAP;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
+import static dagger.internal.codegen.ErrorMessages.INVALID_COLLECTIONBINDING;
+import static dagger.internal.codegen.ErrorMessages.NON_MAPBINDING;
+import static dagger.internal.codegen.ErrorMessages.NON_SETBINDING;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
 import static javax.lang.model.element.Modifier.PUBLIC;
-import static dagger.internal.codegen.ErrorMessages.NON_SETBINDING;
-import static dagger.internal.codegen.ErrorMessages.NON_MAPBINDING;
-import static dagger.internal.codegen.ErrorMessages.INVALID_COLLECTIONBINDING;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -106,17 +106,16 @@ abstract class ProvisionBinding extends Binding {
 
   private static ImmutableSet<Provides.Type> SET_BINDING_TYPES = immutableEnumSet(SET, SET_VALUES);
   private static ImmutableSet<Provides.Type> MAP_BINDING_TYPES = immutableEnumSet(MAP);
-  
-  
+
   static enum BindingsType {
     /** Represents set bindings. */
-    SET_BINDING, 
+    SET_BINDING,
     /** Represents map bindings. */
-    MAP_BINDING, 
+    MAP_BINDING,
     /** Represents a valid non-collection binding. */
     SINGULAR_BINDING,
   }
-  
+
   /**
    * Returns {@code BindingsType} for bindings, which can be {@code SETBINDING} if the given
    * bindings are all contributors to a set binding. Returns {@code MAPBINDING} if the given
@@ -165,7 +164,7 @@ abstract class ProvisionBinding extends Binding {
         throw new IllegalStateException(INVALID_COLLECTIONBINDING);
     }
   }
-  
+
   static final class Factory {
     private final Elements elements;
     private final Types types;
@@ -263,12 +262,12 @@ abstract class ProvisionBinding extends Binding {
     private Optional<DependencyRequest> membersInjectionRequest(TypeElement type) {
       if (!types.isSameType(elements.getTypeElement(Object.class.getCanonicalName()).asType(),
           type.getSuperclass())) {
-        return Optional.of(dependencyRequestFactory.forMembersInjectedType(type.asType()));
+        return Optional.of(dependencyRequestFactory.forMembersInjectedType(type));
       }
       for (Element enclosedElement : type.getEnclosedElements()) {
         if (MEMBER_KINDS.contains(enclosedElement.getKind())
             && (isAnnotationPresent(enclosedElement, Inject.class))) {
-          return Optional.of(dependencyRequestFactory.forMembersInjectedType(type.asType()));
+          return Optional.of(dependencyRequestFactory.forMembersInjectedType(type));
         }
       }
       return Optional.absent();
