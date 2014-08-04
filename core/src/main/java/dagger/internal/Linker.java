@@ -217,9 +217,14 @@ public final class Linker {
     }
 
     String className = Keys.getClassName(key);
-    if (className == null || Keys.isAnnotated(key)) {
-      // Cannot jit-bind annotated keys or generic types.
-      throw new IllegalArgumentException(key);
+    if (className == null) {
+      throw new InvalidBindingException(key,
+          "is a generic class or an array and can only be bound with concrete type parameter(s) "
+          + "in a @Provides method.");
+    }
+    if (Keys.isAnnotated(key)) {
+      throw new InvalidBindingException(key,
+          "is a @Qualifier-annotated type and must be bound by a @Provides method.");
     }
     Binding<?> binding =
         plugin.getAtInjectBinding(key, className, classLoader, mustHaveInjections);
