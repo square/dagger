@@ -30,6 +30,7 @@ import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -111,9 +112,11 @@ abstract class DependencyRequest {
           membersInjectionMethod);
     }
 
-    DependencyRequest forMembersInjectedType(TypeMirror type) {
-      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR, keyFactory.forType(type),
-          types.asElement(type));
+    DependencyRequest forMembersInjectedType(TypeElement type) {
+      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+          // TODO(gak): handle this better
+          keyFactory.forType(types.erasure(type.asType())),
+          type);
     }
 
     private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,

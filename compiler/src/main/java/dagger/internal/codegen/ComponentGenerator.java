@@ -34,6 +34,7 @@ import dagger.Factory;
 import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
 import dagger.internal.MapProviderFactory;
+import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.ProvisionBinding.BindingsType;
@@ -424,11 +425,25 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   private static Snippet initializeMembersInjectorForBinding(
       MembersInjectionBinding binding,
       ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
-    List<Snippet> parameters = getDependencyParameters(ImmutableSet.copyOf(binding.dependencies()),
-        memberSelectSnippets);
-    return Snippet.format("new %s(%s)",
-       membersInjectorNameForMembersInjectionBinding(binding).toString(),
-        Joiner.on(", ").join(parameters));
+    if (binding.injectionSites().isEmpty()) {
+      if (binding.parentInjectorRequest().isPresent()) {
+        DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
+        return Snippet.format("%s.delegatingTo(%s)",
+            ClassName.fromClass(MembersInjectors.class),
+            memberSelectSnippets.get(
+                FrameworkKey.forDependencyRequest(parentInjectorRequest)));
+      } else {
+        return Snippet.format("%s.noOp()",
+            ClassName.fromClass(MembersInjectors.class));
+      }
+    } else {
+      List<Snippet> parameters = getDependencyParameters(
+          Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
+          memberSelectSnippets);
+      return Snippet.format("new %s(%s)",
+          membersInjectorNameForMembersInjectionBinding(binding).toString(),
+          Joiner.on(", ").join(parameters));
+    }
   }
 
   private static List<Snippet> getDependencyParameters(Iterable<DependencyRequest> dependencies,

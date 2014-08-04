@@ -47,6 +47,7 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkState;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -142,7 +143,8 @@ abstract class ComponentDescriptor {
       return ImmutableSet.copyOf(moduleElements);
     }
 
-    ComponentDescriptor create(TypeElement componentDefinitionType) {
+    ComponentDescriptor create(TypeElement componentDefinitionType)
+        throws SourceFileGenerationException {
       AnnotationMirror componentMirror =
           getAnnotationMirror(componentDefinitionType, Component.class).get();
       ImmutableSet<TypeElement> moduleTypes = MoreTypes.asTypeElements(types,
@@ -256,7 +258,8 @@ abstract class ComponentDescriptor {
         ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings,
         SetMultimap<FrameworkKey, Binding> resolvedBindings,
         ImmutableSetMultimap.Builder<Key, ProvisionBinding> resolvedProvisionsBindingBuilder,
-        ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersIjectionBindingsBuilder) {
+        ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersIjectionBindingsBuilder)
+            throws SourceFileGenerationException {
       FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(request);
       Key requestKey = request.key();
       if (resolvedBindings.containsKey(frameworkKey)) {
@@ -272,23 +275,19 @@ abstract class ComponentDescriptor {
           if (explicitBindingsForKey.isEmpty()) {
             // no explicit binding, look it up
             Optional<ProvisionBinding> provisionBinding =
-                injectBindingRegistry.getProvisionBindingForKey(requestKey);
-            if (provisionBinding.isPresent()) {
-              // found a binding, resolve its deps and then mark it resolved
-              for (DependencyRequest dependency : Iterables.concat(
-                  provisionBinding.get().dependencies(),
-                  provisionBinding.get().memberInjectionRequest().asSet())) {
-                resolveRequest(dependency, explicitBindings, resolvedBindings,
-                    resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
-              }
-              resolvedBindings.put(frameworkKey, provisionBinding.get());
-              resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
-            } else {
-              throw new UnsupportedOperationException(
-                  "@Injected classes that weren't run with the compoenent processor are "
-                      + "(briefly) unsupported: " + requestKey);
-
+                injectBindingRegistry.getOrFindOrCreateProvisionBindingForKey(requestKey);
+            checkState(provisionBinding.isPresent(),
+                "could not find a provision binding for %s. this should not have passed validation",
+                requestKey);
+            // found a binding, resolve its deps and then mark it resolved
+            for (DependencyRequest dependency : Iterables.concat(
+                provisionBinding.get().dependencies(),
+                provisionBinding.get().memberInjectionRequest().asSet())) {
+              resolveRequest(dependency, explicitBindings, resolvedBindings,
+                  resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
             }
+            resolvedBindings.put(frameworkKey, provisionBinding.get());
+            resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
           } else {
             // we found explicit bindings. resolve the deps and them mark them resolved
             for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
@@ -302,21 +301,18 @@ abstract class ComponentDescriptor {
           }
           break;
         case MEMBERS_INJECTOR:
-          // no explicit deps for members injection, so just look it up
-          Optional<MembersInjectionBinding> membersInjectionBinding =
-              injectBindingRegistry.getMembersInjectionBindingForKey(requestKey);
-          if (membersInjectionBinding.isPresent()) {
-            // found a binding, resolve its deps and then mark it resolved
-            for (DependencyRequest dependency : membersInjectionBinding.get().dependencies()) {
-              resolveRequest(dependency, explicitBindings, resolvedBindings,
-                  resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
-            }
-            resolvedBindings.put(frameworkKey, membersInjectionBinding.get());
-            resolvedMembersIjectionBindingsBuilder.put(requestKey, membersInjectionBinding.get());
-          } else {
-            // TOOD(gak): make an implicit injector for cases where we need one, but it has no
-            // members
+         // no explicit deps for members injection, so just look it up
+          MembersInjectionBinding membersInjectionBinding =
+              injectBindingRegistry.getOrFindOrCreateMembersInjectionBindingForKey(requestKey);
+          //resolve its deps and then mark it resolved
+          for (DependencyRequest dependency : Iterables.concat(
+              membersInjectionBinding.dependencies(),
+              membersInjectionBinding.parentInjectorRequest().asSet())) {
+            resolveRequest(dependency, explicitBindings, resolvedBindings,
+                resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
           }
+          resolvedBindings.put(frameworkKey, membersInjectionBinding);
+          resolvedMembersIjectionBindingsBuilder.put(requestKey, membersInjectionBinding);
           break;
         default:
           throw new AssertionError();
