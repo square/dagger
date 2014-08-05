@@ -81,8 +81,8 @@ public class MapBindingComponentProcessorTest {
         "    LOGIN;",
         "}");
 
-    JavaFileObject HandlerFile = JavaFileObjects.forSourceLines("test.Handler", 
-        "package test;", 
+    JavaFileObject HandlerFile = JavaFileObjects.forSourceLines("test.Handler",
+        "package test;",
         "",
         "interface Handler {}");
     JavaFileObject LoginHandlerFile = JavaFileObjects.forSourceLines("test.LoginHandler",
@@ -131,9 +131,9 @@ public class MapBindingComponentProcessorTest {
                 "    this.mapModuleTwo = builder.mapModuleTwo;",
                 "    this.mapOfPathEnumAndProviderOfHandlerProvider = ",
                 "        MapProviderFactory.<PathEnum, Handler>builder(2)",
-                "            .put(PathEnum.ADMIN, ",
+                "            .put(test.PathEnum.ADMIN, ",
                 "                new MapModuleOne$$ProvideAdminHandlerFactory(mapModuleOne))",
-                "            .put(PathEnum.LOGIN, ",
+                "            .put(test.PathEnum.LOGIN, ",
                 "                new MapModuleTwo$$ProvideLoginHandlerFactory(mapModuleTwo))",
                 "            .build();",
                 "  }",
@@ -187,7 +187,7 @@ public class MapBindingComponentProcessorTest {
                 "}",
                 "");
     ASSERT.about(javaSources())
-        .that(ImmutableList.of(mapModuleOneFile, 
+        .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             enumKeyFile,
             pathEnumFile,
@@ -247,7 +247,7 @@ public class MapBindingComponentProcessorTest {
         "  String value();",
         "}");
     JavaFileObject HandlerFile = JavaFileObjects.forSourceLines("test.Handler",
-        "package test;", 
+        "package test;",
         "",
         "interface Handler {}");
     JavaFileObject LoginHandlerFile = JavaFileObjects.forSourceLines("test.LoginHandler",
@@ -296,7 +296,7 @@ public class MapBindingComponentProcessorTest {
                 "    this.mapModuleOne = builder.mapModuleOne;",
                 "    this.mapModuleTwo = builder.mapModuleTwo;",
                 "    this.mapOfStringAndProviderOfHandlerProvider =",
-                "        MapProviderFactory.<java.lang.String, Handler>builder(2)",
+                "        MapProviderFactory.<String, Handler>builder(2)",
                 "            .put(\"Admin\", ",
                 "                new MapModuleOne$$ProvideAdminHandlerFactory(mapModuleOne))",
                 "            .put(\"Login\", ",
