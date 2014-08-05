@@ -441,7 +441,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
           memberSelectSnippets);
       return Snippet.format("new %s(%s)",
-          membersInjectorNameForMembersInjectionBinding(binding).toString(),
+          membersInjectorNameForMembersInjectionBinding(binding),
           Joiner.on(", ").join(parameters));
     }
   }
@@ -462,6 +462,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
     Map<? extends ExecutableElement, ? extends AnnotationValue> map =
         mapKeyAnnotationMirror.getElementValues();
+    // TODO(gak): this somewhat wrongly relies on the toString of AnnotationValue being valid java
     constructorWriter.body().addSnippet("    .put(%s, %s)",
         Iterables.getOnlyElement(map.entrySet()).getValue(), factory);
   }
