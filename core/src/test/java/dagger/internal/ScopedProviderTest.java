@@ -21,7 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 
 /**
@@ -57,8 +57,8 @@ public class ScopedProviderTest {
         return i++;
       }
     });
-    ASSERT.that(scopedProvider.get()).is(0);
-    ASSERT.that(scopedProvider.get()).is(0);
-    ASSERT.that(scopedProvider.get()).is(0);
+    assert_().that(scopedProvider.get()).is(0);
+    assert_().that(scopedProvider.get()).is(0);
+    assert_().that(scopedProvider.get()).is(0);
   }
 }

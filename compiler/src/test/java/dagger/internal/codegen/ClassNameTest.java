@@ -27,7 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
@@ -35,7 +35,7 @@ public class ClassNameTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
   @Test public void bestGuessForString_simpleClass() {
-    ASSERT.that(ClassName.bestGuessFromString(String.class.getName()))
+    assert_().that(ClassName.bestGuessFromString(String.class.getName()))
         .isEqualTo(ClassName.create("java.lang", "String"));
   }
 
@@ -44,20 +44,20 @@ public class ClassNameTest {
   }
 
   @Test public void bestGuessForString_nestedClass() {
-    ASSERT.that(ClassName.bestGuessFromString(Map.Entry.class.getCanonicalName()))
+    assert_().that(ClassName.bestGuessFromString(Map.Entry.class.getCanonicalName()))
         .isEqualTo(ClassName.create("java.util", ImmutableList.of("Map"), "Entry"));
-    ASSERT.that(ClassName.bestGuessFromString(OuterClass.InnerClass.class.getCanonicalName()))
+    assert_().that(ClassName.bestGuessFromString(OuterClass.InnerClass.class.getCanonicalName()))
         .isEqualTo(
             ClassName.create("dagger.internal.codegen",
                 ImmutableList.of("ClassNameTest", "OuterClass"), "InnerClass"));
   }
 
   @Test public void bestGuessForString_defaultPackage() {
-    ASSERT.that(ClassName.bestGuessFromString("SomeClass"))
+    assert_().that(ClassName.bestGuessFromString("SomeClass"))
         .isEqualTo(ClassName.create("", "SomeClass"));
-    ASSERT.that(ClassName.bestGuessFromString("SomeClass.Nested"))
+    assert_().that(ClassName.bestGuessFromString("SomeClass.Nested"))
         .isEqualTo(ClassName.create("", ImmutableList.of("SomeClass"), "Nested"));
-    ASSERT.that(ClassName.bestGuessFromString("SomeClass.Nested.EvenMore"))
+    assert_().that(ClassName.bestGuessFromString("SomeClass.Nested.EvenMore"))
         .isEqualTo(ClassName.create("", ImmutableList.of("SomeClass", "Nested"), "EvenMore"));
   }
 
@@ -79,7 +79,7 @@ public class ClassNameTest {
   @Test public void classNameFromTypeElement() {
     Elements elements = compilationRule.getElements();
     TypeElement element = elements.getTypeElement(Object.class.getCanonicalName());
-    ASSERT.that(ClassName.fromTypeElement(element).canonicalName())
+    assert_().that(ClassName.fromTypeElement(element).canonicalName())
         .isEqualTo("java.lang.Object");
   }
 
@@ -88,7 +88,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(ClassNameTest.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    ASSERT.that(peerName.canonicalName())
+    assert_().that(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.Foo");
   }
 
@@ -97,7 +97,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(OuterClass.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    ASSERT.that(peerName.canonicalName())
+    assert_().that(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.ClassNameTest.Foo");
   }
 
@@ -106,7 +106,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(InnerClass.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    ASSERT.that(peerName.canonicalName())
+    assert_().that(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.ClassNameTest.OuterClass.Foo");
   }
 }

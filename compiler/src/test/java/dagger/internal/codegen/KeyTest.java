@@ -40,7 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 
@@ -66,7 +66,7 @@ public class KeyTest {
         compilationRule.getElements().getTypeElement(InjectedClass.class.getCanonicalName());
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
-    ASSERT.that(keyFactory.forInjectConstructor(constructor))
+    assert_().that(keyFactory.forInjectConstructor(constructor))
         .isEqualTo(keyFactory.forType(typeElement.asType()));
   }
 
@@ -81,7 +81,7 @@ public class KeyTest {
         elements.getTypeElement(ProvidesMethodModule.class.getCanonicalName());
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
-    ASSERT.that(keyFactory.forProvidesMethod(providesMethod))
+    assert_().that(keyFactory.forProvidesMethod(providesMethod))
         .isEqualTo(keyFactory.forType(stringType));
   }
 
@@ -101,9 +101,9 @@ public class KeyTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     Key key = keyFactory.forProvidesMethod(providesMethod);
-    ASSERT.that(MoreTypes.equivalence().wrap(key.qualifier().get().getAnnotationType()))
+    assert_().that(MoreTypes.equivalence().wrap(key.qualifier().get().getAnnotationType()))
         .isEqualTo(MoreTypes.equivalence().wrap(qualifierElement.asType()));
-    ASSERT.that(key.wrappedType()).isEqualTo(MoreTypes.equivalence().wrap(stringType));
+    assert_().that(key.wrappedType()).isEqualTo(MoreTypes.equivalence().wrap(stringType));
   }
 
   @Test public void qualifiedKeyEquivalents() {
@@ -121,7 +121,7 @@ public class KeyTest {
     AnnotationMirror qualifier = Iterables.getOnlyElement(injectionField.getAnnotationMirrors());
     Key injectionKey = keyFactory.forQualifiedType(Optional.<AnnotationMirror>of(qualifier), type);
 
-    ASSERT.that(provisionKey).isEqualTo(injectionKey);
+    assert_().that(provisionKey).isEqualTo(injectionKey);
   }
 
   @Module(library = true)
@@ -152,7 +152,7 @@ public class KeyTest {
         elements.getTypeElement(SetProvidesMethodsModule.class.getCanonicalName());
     for (ExecutableElement providesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
-      ASSERT.that(keyFactory.forProvidesMethod(providesMethod))
+      assert_().that(keyFactory.forProvidesMethod(providesMethod))
           .isEqualTo(keyFactory.forType(setOfStringsType));
     }
   }
@@ -179,13 +179,13 @@ public class KeyTest {
 
     // TODO(user): Truth subject for TypeMirror and TypeElement
     TypeMirror intType = methods.get(0).getReturnType();
-    ASSERT.that(intType.getKind().isPrimitive()).isTrue();
+    assert_().that(intType.getKind().isPrimitive()).isTrue();
     TypeMirror integerType = methods.get(1).getReturnType();
-    ASSERT.that(integerType.getKind().isPrimitive()).isFalse();
-    ASSERT.that(types.isSameType(intType, integerType)).named("type equality").isFalse();
+    assert_().that(integerType.getKind().isPrimitive()).isFalse();
+    assert_().that(types.isSameType(intType, integerType)).named("type equality").isFalse();
 
     Key intKey = keyFactory.forType(intType);
     Key integerKey = keyFactory.forType(integerType);
-    ASSERT.that(intKey).isEqualTo(integerKey);
+    assert_().that(intKey).isEqualTo(integerKey);
   }
 }

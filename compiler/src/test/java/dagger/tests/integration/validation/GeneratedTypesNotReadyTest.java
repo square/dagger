@@ -32,7 +32,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.common.collect.Iterables.concat;
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 import static java.util.Arrays.asList;
@@ -68,7 +68,7 @@ public class GeneratedTypesNotReadyTest {
         "  }",
         "}"));
 
-    ASSERT.about(javaSources()).that(asList(foo, main, module))
+    assert_().about(javaSources()).that(asList(foo, main, module))
         .processedWith(concat(asList(new FooImplGenerator()), daggerProcessors()))
         .compilesWithoutError();
   }
@@ -85,7 +85,7 @@ public class GeneratedTypesNotReadyTest {
         "  }",
         "}"));
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assert_().about(javaSources()).that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .compilesWithoutError();
   }
@@ -106,7 +106,7 @@ public class GeneratedTypesNotReadyTest {
         "  }",
         "}"));
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assert_().about(javaSources()).that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .compilesWithoutError();
   }
@@ -127,10 +127,10 @@ public class GeneratedTypesNotReadyTest {
         "  }",
         "}"));
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assert_().about(javaSources()).that(asList(foo, module, main))
         .processedWith(new FooImplGenerator())
         .compilesWithoutError();
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assert_().about(javaSources()).that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .failsToCompile()
         .withErrorContaining("Could not find types required by provides methods for [FooModule]");
@@ -150,7 +150,7 @@ public class GeneratedTypesNotReadyTest {
         "class FooModule {",
         "}"));
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assert_().about(javaSources()).that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .compilesWithoutError();
   }
@@ -166,7 +166,7 @@ public class GeneratedTypesNotReadyTest {
         "    return impl;",
         "  }",
         "}"));
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assert_().about(javaSources()).that(asList(foo, module, main))
         .processedWith(new FooImplGenerator())
         .compilesWithoutError();
   }

@@ -28,7 +28,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static dagger.internal.codegen.AnnotationMirrorsTest.SimpleEnum.BLAH;
 import static dagger.internal.codegen.AnnotationMirrorsTest.SimpleEnum.FOO;
 
@@ -157,7 +157,7 @@ public class AnnotationMirrorsTest {
   @Stringy("foo") class StringySet {}
 
   @Test public void testGetDefaultValuesUnset() {
-    ASSERT.that(annotationOn(StringyUnset.class).getElementValues()).isEmpty();
+    assert_().that(annotationOn(StringyUnset.class).getElementValues()).isEmpty();
     Iterable<AnnotationValue> values = AnnotationMirrors.getAnnotationValuesWithDefaults(
         annotationOn(StringyUnset.class));
     String value = getOnlyElement(values).accept(new SimpleAnnotationValueVisitor6<String, Void>() {
@@ -165,7 +165,7 @@ public class AnnotationMirrorsTest {
             return value;
           }
         }, null);
-    ASSERT.that(value).isEqualTo("default");
+    assert_().that(value).isEqualTo("default");
   }
 
   @Test public void testGetDefaultValuesSet() {
@@ -176,7 +176,7 @@ public class AnnotationMirrorsTest {
             return value;
           }
         }, null);
-    ASSERT.that(value).isEqualTo("foo");
+    assert_().that(value).isEqualTo("foo");
   }
 
   private AnnotationMirror annotationOn(Class<?> clazz) {

@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 
@@ -45,7 +45,7 @@ public class SimpleMissingDependencyTest {
         "  }",
         "}"));
 
-    ASSERT.about(javaSource())
+    assert_().about(javaSource())
         .that(file).processedWith(daggerProcessors())
         .failsToCompile()
         .withErrorContaining("MissingDep$Dependency could not be bound").in(file).onLine(9).and()

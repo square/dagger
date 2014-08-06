@@ -30,7 +30,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.common.collect.DiscreteDomain.integers;
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 
 @RunWith(JUnit4.class)
 @SuppressWarnings("unchecked")
@@ -94,9 +94,9 @@ public class SetFactoryTest {
         incrementingIntegerProvider(0),
         incrementingIntegerProvider(10),
         incrementingIntegerProvider(20));
-    ASSERT.that(factory.get()).has().exactly(0, 10, 20);
-    ASSERT.that(factory.get()).has().exactly(1, 11, 21);
-    ASSERT.that(factory.get()).has().exactly(2, 12, 22);
+    assert_().that(factory.get()).has().exactly(0, 10, 20);
+    assert_().that(factory.get()).has().exactly(1, 11, 21);
+    assert_().that(factory.get()).has().exactly(2, 12, 22);
   }
 
   @Test
@@ -105,7 +105,7 @@ public class SetFactoryTest {
         integerSetProvider(Range.closed(5, 9)),
         integerSetProvider(Range.closed(3, 6)),
         integerSetProvider(Range.closed(0, 5)));
-    ASSERT.that(factory.get()).iteratesAs(5, 6, 7, 8, 9, 3, 4, 0, 1, 2);
+    assert_().that(factory.get()).iteratesAs(5, 6, 7, 8, 9, 3, 4, 0, 1, 2);
   }
 
   private static Provider<Set<Integer>> incrementingIntegerProvider(int seed) {

@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 
@@ -48,13 +48,13 @@ public class CyclicModuleIncludesTest {
           "}"));
 
   @Test public void cyclicModuleSelfIncludes() {
-    ASSERT.about(javaSource()).that(javaFile).processedWith(daggerProcessors()).failsToCompile()
+    assert_().about(javaSource()).that(javaFile).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining("CyclicModules.SelfReferencingModule includes itself directly")
             .in(javaFile).onLine(4);
   }
 
   @Test public void cyclicModuleIncludes_full_cycle() {
-    ASSERT.about(javaSource()).that(javaFile).processedWith(daggerProcessors()).failsToCompile()
+    assert_().about(javaSource()).that(javaFile).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining("0. CyclicModules.Rock included by CyclicModules.Paper")
             .in(javaFile).onLine(6).and()
         .withErrorContaining("1. CyclicModules.Paper included by CyclicModules.Scissors")
@@ -68,7 +68,7 @@ public class CyclicModuleIncludesTest {
   }
 
   @Test public void cyclicModuleIncludes_initial_inclusion() {
-    ASSERT.about(javaSource()).that(javaFile).processedWith(daggerProcessors()).failsToCompile()
+    assert_().about(javaSource()).that(javaFile).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining("0. CyclicModules.Rock included by CyclicModules.Paper")
             .in(javaFile).onLine(6).and()
         .withErrorContaining("0. CyclicModules.Paper included by CyclicModules.Scissors")
