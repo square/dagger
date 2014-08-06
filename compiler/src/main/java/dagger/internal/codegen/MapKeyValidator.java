@@ -18,7 +18,7 @@ package dagger.internal.codegen;
 import dagger.MapKey;
 import javax.lang.model.element.Element;
 
-import static dagger.internal.codegen.ErrorMessages.UNWRAP_MAPKEY;
+import static dagger.internal.codegen.ErrorMessages.WRAP_MAPKEY;
 
 /**
  * A {@link Validator} for {@link MapKey} Annotation.
@@ -32,8 +32,8 @@ final class MapKeyValidator implements Validator<Element>  {
     ValidationReport.Builder<Element> builder =
         ValidationReport.Builder.about(element);
     MapKey mapkey = element.getAnnotation(MapKey.class);
-    if (mapkey.unwrapValue()) {
-      builder.addItem(UNWRAP_MAPKEY, element);
+    if (!mapkey.unwrapValue()) {
+      builder.addItem(WRAP_MAPKEY, element);
     }
     return builder.build();
   }

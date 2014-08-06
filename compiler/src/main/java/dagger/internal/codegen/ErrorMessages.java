@@ -121,8 +121,8 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_WITH_SAME_NAME =
       "Cannot have more than one @Provides method with the same name in a single module";
   
-  static final String UNWRAP_MAPKEY =
-      "unwrapValue = true is not yet supported";
+  static final String WRAP_MAPKEY =
+      "unwrapValue = false is not yet supported";
   
   /* collection binding errors */
   static final String NON_SETBINDING =

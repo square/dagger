@@ -44,10 +44,10 @@ import java.lang.annotation.Target;
 @Retention(RUNTIME)
 public @interface MapKey {
   /**
-   * if {@code unwrapValue} is true, then the whole annotation will be the type and annotation
-   * instances will be the keys. If {@code unwrapValue} is false, the value() type of key type
-   * annotation will be the key type for mapbinding and the value instances will be the keys.
-   * Currently only support {@code unwrapValue} to be false.
+   * if {@code unwrapValue} is false, then the whole annotation will be the type and annotation
+   * instances will be the keys. If {@code unwrapValue} is true, the value() type of key type
+   * annotation will be the key type for injected map and the value instances will be the keys.
+   * Currently only support {@code unwrapValue} to be true.
    */
   boolean unwrapValue();
 }
