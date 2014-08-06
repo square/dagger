@@ -22,7 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 @RunWith(JUnit4.class)
@@ -186,7 +186,7 @@ public class MapBindingComponentProcessorTest {
                 "  }",
                 "}",
                 "");
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             enumKeyFile,
@@ -352,7 +352,7 @@ public class MapBindingComponentProcessorTest {
                 "  }",
                 "}");
 
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             stringKeyFile,

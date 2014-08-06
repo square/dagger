@@ -26,7 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
@@ -36,7 +36,7 @@ public class ElementUtilTest {
   @Test public void asTypeElement() {
     Element typeElement =
         compilation.getElements().getTypeElement(String.class.getCanonicalName());
-    ASSERT.that(MoreElements.asType(typeElement)).isEqualTo(typeElement);
+    assert_().that(MoreElements.asType(typeElement)).isEqualTo(typeElement);
   }
 
   @Test public void asTypeElement_notATypeElement() {

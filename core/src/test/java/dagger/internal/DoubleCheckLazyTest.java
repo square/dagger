@@ -32,7 +32,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
@@ -57,12 +57,12 @@ public class DoubleCheckLazyTest {
 
     List<Future<Object>> futures = executor.invokeAll(tasks);
 
-    ASSERT.that(provider.provisions.get()).is(1);
+    assert_().that(provider.provisions.get()).is(1);
     Set<Object> results = Sets.newIdentityHashSet();
     for (Future<Object> future : futures) {
       results.add(future.get());
     }
-    ASSERT.that(results.size()).is(1);
+    assert_().that(results.size()).is(1);
   }
 
   @Test public void get_null() {

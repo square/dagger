@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static java.util.Arrays.asList;
 
@@ -130,7 +130,7 @@ public final class PrimitiveInjectionTest {
       "}");
 
   @Test public void primitiveArrayTypesAllInjected() {
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(asList(component, primitiveInjectable, primitiveModule))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()

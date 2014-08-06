@@ -24,7 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
@@ -42,7 +42,7 @@ public final class LibraryModuleTest {
         "    return \"string\";",
         "  }",
         "}"));
-    ASSERT.about(javaSource())
+    assert_().about(javaSource())
         .that(source).processedWith(daggerProcessors()).compilesWithoutError();
   }
 
@@ -57,7 +57,7 @@ public final class LibraryModuleTest {
         "    return \"string\";",
         "  }",
         "}"));
-    ASSERT.about(javaSource()).that(source).processedWith(daggerProcessors()).failsToCompile()
+    assert_().about(javaSource()).that(source).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining("Graph validation failed:").in(source).onLine(5).and()
         .withErrorContaining("You have these unused @Provider methods:").in(source).onLine(5).and()
         .withErrorContaining("1. TestModule.string()").in(source).onLine(5).and()
@@ -76,7 +76,7 @@ public final class LibraryModuleTest {
         "    return new Foo() {};",
         "  }",
         "}"));
-    ASSERT.about(javaSources()).that(Arrays.asList(foo, module))
+    assert_().about(javaSources()).that(Arrays.asList(foo, module))
         .processedWith(daggerProcessors())
         .compilesWithoutError();
   }
@@ -93,7 +93,7 @@ public final class LibraryModuleTest {
         "    return new Foo() {};",
         "  }",
         "}"));
-    ASSERT.about(javaSources()).that(Arrays.asList(foo, module))
+    assert_().about(javaSources()).that(Arrays.asList(foo, module))
         .processedWith(daggerProcessors())
         .compilesWithoutError();
   }

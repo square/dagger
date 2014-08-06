@@ -26,7 +26,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 
 @RunWith(JUnit4.class)
 @SuppressWarnings("unchecked")
@@ -69,7 +69,7 @@ public class MapProviderFactoryTest {
     expectedMap.put("three", p3);
     expectedMap.put("one", p5);
     expectedMap.put("four", p4);
-    ASSERT.that(factory.get().entrySet()).iteratesAs(expectedMap.entrySet());
+    assert_().that(factory.get().entrySet()).iteratesAs(expectedMap.entrySet());
   }
 
   private static Provider<Integer> incrementingIntegerProvider(int seed) {

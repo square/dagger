@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 
@@ -71,7 +71,7 @@ public final class InjectAdapterGenerationTest {
             "  }",
             "}"));
 
-    ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors())
+    assert_().about(javaSource()).that(sourceFile).processedWith(daggerProcessors())
         .compilesWithoutError().and()
         .generatesSources(expectedModuleAdapter, expectedInjectAdapter);
 

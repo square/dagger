@@ -22,7 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
@@ -52,7 +52,7 @@ public class ModuleProcessorTest {
         "    return \"\";",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_NOT_IN_MODULE);
@@ -69,7 +69,7 @@ public class ModuleProcessorTest {
         "abstract class TestModule {",
         "  @Provides abstract String provideString();",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_ABSTRACT);
@@ -88,7 +88,7 @@ public class ModuleProcessorTest {
         "    return \"\";",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_PRIVATE);
@@ -107,7 +107,7 @@ public class ModuleProcessorTest {
         "    return \"\";",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_STATIC);
@@ -124,7 +124,7 @@ public class ModuleProcessorTest {
         "final class TestModule {",
         "  @Provides void provideNothing() {}",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_MUST_RETURN_A_VALUE);
@@ -143,7 +143,7 @@ public class ModuleProcessorTest {
         "    return \"\";",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_TYPE_PARAMETER);
@@ -166,7 +166,7 @@ public class ModuleProcessorTest {
         "    return null;",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_RETURN_TYPE);
@@ -189,7 +189,7 @@ public class ModuleProcessorTest {
         "    return null;",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RAW_SET);
@@ -212,7 +212,7 @@ public class ModuleProcessorTest {
         "    return null;",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RETURN_SET);
@@ -250,7 +250,7 @@ public class ModuleProcessorTest {
         "    return module.provideString();",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -324,7 +324,7 @@ public class ModuleProcessorTest {
         "    return module.provideObjects(aProvider.get(), bProvider.get());",
         "  }",
         "}");
-    ASSERT.about(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
+    assert_().about(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listFactoryFile);
@@ -366,7 +366,7 @@ public class ModuleProcessorTest {
         "    return Collections.singleton(module.provideString());",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -408,7 +408,7 @@ public class ModuleProcessorTest {
         "    return module.provideStrings();",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -431,7 +431,7 @@ public class ModuleProcessorTest {
         "    return \"\";",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(8)
@@ -474,7 +474,7 @@ public class ModuleProcessorTest {
         "    return null;",
         "  }",
         "}");
-    ASSERT.about(javaSource()).that(moduleFile)
+    assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
   }
