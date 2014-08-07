@@ -235,10 +235,13 @@ public class ModuleProcessorTest {
         "package test;",
         "",
         "import dagger.Factory;",
+        "import java.util.logging.Logger;",
         "import javax.annotation.Generated;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
+        "  private static final Logger logger =",
+        "      Logger.getLogger(TestModule$$ProvideStringFactory.class.getCanonicalName());",
         "  private final TestModule module;",
         "",
         "  public TestModule$$ProvideStringFactory(TestModule module) {",
@@ -247,7 +250,13 @@ public class ModuleProcessorTest {
         "  }",
         "",
         "  @Override public String get() {",
-        "    return module.provideString();",
+        "    String result =  module.provideString();",
+        "    if (result == null) {",
+        "      logger.warning("
+            + "\"test.TestModule.provideString() provided null. "
+            + "This is not allowed and will soon throw a NullPointerException.\");",
+        "    }",
+        "    return result;",
         "  }",
         "}");
     assert_().about(javaSource()).that(moduleFile)
@@ -301,11 +310,14 @@ public class ModuleProcessorTest {
         "",
         "import dagger.Factory;",
         "import java.util.List;",
+        "import java.util.logging.Logger;",
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule$$ProvideObjectsFactory implements Factory<List<Object>> {",
+        "  private static final Logger logger =",
+        "      Logger.getLogger(TestModule$$ProvideObjectsFactory.class.getCanonicalName());",
         "  private final TestModule module;",
         "  private final Provider<Object> aProvider;",
         "  private final Provider<Object> bProvider;",
@@ -321,7 +333,13 @@ public class ModuleProcessorTest {
         "  }",
         "",
         "  @Override public List<Object> get() {",
-        "    return module.provideObjects(aProvider.get(), bProvider.get());",
+        "    List<Object> result = module.provideObjects(aProvider.get(), bProvider.get());",
+        "    if (result == null) {",
+        "      logger.warning("
+            + "\"test.TestModule.provideObjects(java.lang.Object,java.lang.Object) provided null. "
+            + "This is not allowed and will soon throw a NullPointerException.\");",
+        "    }",
+        "    return result;",
         "  }",
         "}");
     assert_().about(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
@@ -336,6 +354,7 @@ public class ModuleProcessorTest {
         "",
         "import static dagger.Provides.Type.SET;",
         "",
+        "import java.util.logging.Logger;",
         "import dagger.Module;",
         "import dagger.Provides;",
         "",
@@ -351,10 +370,13 @@ public class ModuleProcessorTest {
         "import dagger.Factory;",
         "import java.util.Collections;",
         "import java.util.Set;",
+        "import java.util.logging.Logger;",
         "import javax.annotation.Generated;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule$$ProvideStringFactory implements Factory<Set<String>> {",
+        "  private static final Logger logger =",
+        "      Logger.getLogger(TestModule$$ProvideStringFactory.class.getCanonicalName());",
         "  private final TestModule module;",
         "",
         "  public TestModule$$ProvideStringFactory(TestModule module) {",
@@ -363,7 +385,13 @@ public class ModuleProcessorTest {
         "  }",
         "",
         "  @Override public Set<String> get() {",
-        "    return Collections.singleton(module.provideString());",
+        "    String result =  module.provideString();",
+        "    if (result == null) {",
+        "      logger.warning("
+            + "\"test.TestModule.provideString() provided null. "
+            + "This is not allowed and will soon throw a NullPointerException.\");",
+        "    }",
+        "    return Collections.singleton(result);",
         "  }",
         "}");
     assert_().about(javaSource()).that(moduleFile)
@@ -393,10 +421,13 @@ public class ModuleProcessorTest {
         "",
         "import dagger.Factory;",
         "import java.util.Set;",
+        "import java.util.logging.Logger;",
         "import javax.annotation.Generated;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule$$ProvideStringsFactory implements Factory<Set<String>> {",
+        "  private static final Logger logger =",
+        "      Logger.getLogger(TestModule$$ProvideStringsFactory.class.getCanonicalName());",
         "  private final TestModule module;",
         "",
         "  public TestModule$$ProvideStringsFactory(TestModule module) {",
@@ -405,7 +436,13 @@ public class ModuleProcessorTest {
         "  }",
         "",
         "  @Override public Set<String> get() {",
-        "    return module.provideStrings();",
+        "    Set<String> result = module.provideStrings();",
+        "    if (result == null) {",
+        "      logger.warning("
+            + "\"test.TestModule.provideStrings() provided null. "
+            + "This is not allowed and will soon throw a NullPointerException.\");",
+        "    }",
+        "    return result;",
         "  }",
         "}");
     assert_().about(javaSource()).that(moduleFile)
