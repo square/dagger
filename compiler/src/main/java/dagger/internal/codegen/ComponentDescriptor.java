@@ -37,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -191,6 +192,8 @@ abstract class ComponentDescriptor {
 
       ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings = bindingIndexBuilder.build();
 
+      Set<MethodSignature> interfaceMethods = Sets.newHashSet();
+
       ImmutableList.Builder<DependencyRequest> interfaceRequestsBuilder = ImmutableList.builder();
 
       Deque<DependencyRequest> requestsToResolve = Queues.newArrayDeque();
@@ -198,24 +201,28 @@ abstract class ComponentDescriptor {
       for (ExecutableElement componentMethod
           : ElementFilter.methodsIn(elements.getAllMembers(componentDefinitionType))) {
         if (componentMethod.getModifiers().contains(ABSTRACT)) {
-          List<? extends VariableElement> parameters = componentMethod.getParameters();
-          switch (parameters.size()) {
-            case 0:
-              // provision method
-              DependencyRequest provisionRequest =
-                  dependencyRequestFactory.forComponentProvisionMethod(componentMethod);
-              interfaceRequestsBuilder.add(provisionRequest);
-              requestsToResolve.addLast(provisionRequest);
-              break;
-            case 1:
-              // members injection method
-              DependencyRequest membersInjectionRequest =
-                  dependencyRequestFactory.forComponentMembersInjectionMethod(componentMethod);
-              interfaceRequestsBuilder.add(membersInjectionRequest);
-              requestsToResolve.addLast(membersInjectionRequest);
-              break;
-            default:
-              throw new IllegalStateException();
+          MethodSignature signature = MethodSignature.fromExecutableElement(componentMethod);
+          if (!interfaceMethods.contains(signature)) {
+            List<? extends VariableElement> parameters = componentMethod.getParameters();
+            switch (parameters.size()) {
+              case 0:
+                // provision method
+                DependencyRequest provisionRequest =
+                dependencyRequestFactory.forComponentProvisionMethod(componentMethod);
+                interfaceRequestsBuilder.add(provisionRequest);
+                requestsToResolve.addLast(provisionRequest);
+                break;
+              case 1:
+                // members injection method
+                DependencyRequest membersInjectionRequest =
+                dependencyRequestFactory.forComponentMembersInjectionMethod(componentMethod);
+                interfaceRequestsBuilder.add(membersInjectionRequest);
+                requestsToResolve.addLast(membersInjectionRequest);
+                break;
+              default:
+                throw new IllegalStateException();
+            }
+            interfaceMethods.add(signature);
           }
         }
       }
