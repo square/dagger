@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,11 +32,13 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.logging.Logger;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
@@ -42,6 +46,7 @@ import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
+import static dagger.Provides.Type.SET;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -49,6 +54,7 @@ import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for
@@ -91,6 +97,16 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     factoryWriter.addImplementedType(ParameterizedTypeName.create(
         ClassName.fromClass(Factory.class),
         providedTypeName));
+
+    // TODO(gak): stop doing this weird thing with the optional when javawriter lets me put fields
+    // in arbitrary places
+    Optional<FieldWriter> loggerField = Optional.absent();
+    if (binding.bindingKind().equals(PROVISION)) {
+      loggerField = Optional.of(factoryWriter.addField(Logger.class, "logger"));
+      loggerField.get().addModifiers(PRIVATE, STATIC, FINAL);
+      loggerField.get().setInitializer("%s.getLogger(%s.class.getCanonicalName())",
+          ClassName.fromClass(Logger.class), factoryWriter.name());
+    }
 
     MethodWriter getMethodWriter = factoryWriter.addMethod(keyType, "get");
     getMethodWriter.annotate(Override.class);
@@ -150,20 +166,28 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     Snippet parametersSnippet = makeParametersSnippet(parameters);
 
     if (binding.bindingKind().equals(PROVISION)) {
-      switch (binding.provisionType()) {
-        case UNIQUE:
-        case MAP: 
-        case SET_VALUES:
-          getMethodWriter.body().addSnippet("return module.%s(%s);",
-              binding.bindingElement().getSimpleName(), parametersSnippet);
-          break;
-        case SET:
-          getMethodWriter.body().addSnippet("return %s.singleton(module.%s(%s));",
-              ClassName.fromClass(Collections.class),
-              binding.bindingElement().getSimpleName(), parametersSnippet);
-          break;
-        default:
-          throw new AssertionError();
+      TypeMirror providesMethodReturnType =
+          MoreElements.asExecutable(binding.bindingElement()).getReturnType();
+      getMethodWriter.body().addSnippet("%s result = module.%s(%s);",
+          TypeNames.forTypeMirror(providesMethodReturnType),
+          binding.bindingElement().getSimpleName(), parametersSnippet);
+      if (!providesMethodReturnType.getKind().isPrimitive()) {
+        getMethodWriter.body().addSnippet(Joiner.on('\n').join(
+            "if (result == null) {",
+            "  %s.warning(%s);",
+            "}"),
+            loggerField.get().name(),
+            StringLiteral.forValue(String.format(
+                "%s.%s provided null. "
+                    + "This is not allowed and will soon throw a NullPointerException.",
+                    binding.bindingTypeElement().getQualifiedName(),
+                    binding.bindingElement())));
+      }
+      if (binding.provisionType().equals(SET)) {
+        getMethodWriter.body().addSnippet("return %s.singleton(result);",
+            ClassName.fromClass(Collections.class));
+      } else {
+        getMethodWriter.body().addSnippet("return result;");
       }
     } else if (binding.memberInjectionRequest().isPresent()) {
       getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",

@@ -25,30 +25,30 @@ import javax.inject.Provider;
  * @since 2.0
  */
 public final class ScopedProvider<T> implements Provider<T> {
+  private static final Object UNINITIALIZED = new Object();
+
   private final Factory<T> factory;
-  private volatile T instance = null;
+  private volatile Object instance = UNINITIALIZED;
 
   private ScopedProvider(Factory<T> factory) {
     assert factory != null;
     this.factory = factory;
   }
 
+  @SuppressWarnings("unchecked") // cast only happens when result comes from the factory
   @Override
   public T get() {
     // double-check idiom from EJ2: Item 71
-    T result = instance;
-    if (result == null) {
+    Object result = instance;
+    if (result == UNINITIALIZED) {
       synchronized (this) {
         result = instance;
-        if (result == null) {
+        if (result == UNINITIALIZED) {
           instance = result = factory.get();
-          if (result == null) {
-            throw new NullPointerException(factory + " returned null");
-          }
         }
       }
     }
-    return result;
+    return (T) result;
   }
 
   /** Returns a new scoped provider for the given factory. */
