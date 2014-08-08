@@ -35,13 +35,17 @@ import dagger.Provides;
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import javax.inject.Provider;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -280,21 +284,35 @@ abstract class ComponentDescriptor {
           ImmutableSet<ProvisionBinding> explicitBindingsForKey =
               explicitBindings.get(requestKey);
           if (explicitBindingsForKey.isEmpty()) {
-            // no explicit binding, look it up
-            Optional<ProvisionBinding> provisionBinding =
-                injectBindingRegistry.getOrFindOrCreateProvisionBindingForKey(requestKey);
-            checkState(provisionBinding.isPresent(),
-                "could not find a provision binding for %s. this should not have passed validation",
-                requestKey);
-            // found a binding, resolve its deps and then mark it resolved
-            for (DependencyRequest dependency : Iterables.concat(
-                provisionBinding.get().dependencies(),
-                provisionBinding.get().memberInjectionRequest().asSet())) {
-              resolveRequest(dependency, explicitBindings, resolvedBindings,
-                  resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
-            }
-            resolvedBindings.put(frameworkKey, provisionBinding.get());
-            resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
+            // If the key is Map<K, V>, get its implicit binding key which is Map<K, Provider<V>>
+            Optional<Key> key = findMapKey(request);
+            if (key.isPresent()) {
+              DependencyRequest implicitRequest =
+                  dependencyRequestFactory.forImplicitMapBinding(request, key.get());
+              ProvisionBinding implicitBinding =
+                  provisionBindingFactory.forImplicitMapBinding(request, implicitRequest);
+              resolveRequest(Iterables.getOnlyElement(implicitBinding.dependencies()),
+                  explicitBindings, resolvedBindings, resolvedProvisionsBindingBuilder,
+                  resolvedMembersIjectionBindingsBuilder);
+              resolvedBindings.put(frameworkKey, implicitBinding);
+              resolvedProvisionsBindingBuilder.put(request.key(), implicitBinding);
+            } else {
+              // no explicit binding, look it up
+              Optional<ProvisionBinding> provisionBinding =
+                  injectBindingRegistry.getOrFindOrCreateProvisionBindingForKey(requestKey);
+              checkState(provisionBinding.isPresent(),
+                  "Can not find a provision binding for %s. this should not have passed validation",
+                  requestKey);
+              // found a binding, resolve its deps and then mark it resolved
+              for (DependencyRequest dependency : Iterables.concat(
+                  provisionBinding.get().dependencies(),
+                  provisionBinding.get().memberInjectionRequest().asSet())) {
+                resolveRequest(dependency, explicitBindings, resolvedBindings,
+                    resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+              }
+              resolvedBindings.put(frameworkKey, provisionBinding.get());
+              resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
+              } 
           } else {
             // we found explicit bindings. resolve the deps and them mark them resolved
             for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
@@ -324,6 +342,25 @@ abstract class ComponentDescriptor {
         default:
           throw new AssertionError();
       }
+
+    }
+
+    private Optional<Key> findMapKey(final DependencyRequest request) {
+      if (Util.isTypeOf(Map.class, request.key().type(), elements, types)) {
+        DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(request.key().type());
+        TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
+        if (!Util.isTypeOf(Provider.class, mapValueType, elements, types)) {
+          TypeMirror keyType =
+              Util.getKeyTypeOfMap((DeclaredType) (request.key().wrappedType().get()));
+          TypeMirror valueType = types.getDeclaredType(
+              elements.getTypeElement(Provider.class.getCanonicalName()), mapValueType);
+          TypeMirror mapType = types.getDeclaredType(
+              elements.getTypeElement(Map.class.getCanonicalName()), keyType, valueType);
+          return Optional.of((Key) new AutoValue_Key(request.key().wrappedQualifier(),
+              MoreTypes.equivalence().wrap(mapType)));
+        }
+      }
+      return Optional.absent();
     }
 
     private static boolean isComponentProvisionMethod(ExecutableElement method) {

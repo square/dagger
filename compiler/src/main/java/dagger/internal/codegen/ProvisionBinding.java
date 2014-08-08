@@ -291,6 +291,22 @@ abstract class ProvisionBinding extends Binding {
           getScopeAnnotation(providesMethod),
           Optional.<DependencyRequest>absent());
     }
+    
+    ProvisionBinding forImplicitMapBinding(DependencyRequest explicitRequest,
+        DependencyRequest implicitRequest) {
+      checkNotNull(explicitRequest);
+      checkNotNull(implicitRequest);
+      ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
+      return new AutoValue_ProvisionBinding(
+          implicitRequest.requestElement(),
+          dependencies, 
+          findBindingPackage(explicitRequest.key()), 
+          Kind.PROVISION, 
+          Provides.Type.MAP, 
+          explicitRequest.key(), 
+          getScopeAnnotation(implicitRequest.requestElement()), 
+          Optional.<DependencyRequest>absent());
+    }
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {
       checkNotNull(componentDefinitionType);
