@@ -35,6 +35,7 @@ import dagger.Factory;
 import dagger.MapKey;
 import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
+import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
@@ -286,9 +287,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     }
 
     ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
-
     for (FrameworkKey frameworkKey : input.initializationOrdering()) {
       Key key = frameworkKey.key();
+
       if (frameworkKey.frameworkClass().equals(Provider.class)) {
         Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
         BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
@@ -308,24 +309,30 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
               Iterator<ProvisionBinding> iterator = bindings.iterator();
               // get type information from first binding in iterator
               ProvisionBinding firstBinding = iterator.next();
-              DeclaredType declaredMapType =
-                  Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
-              TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
-              TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
-              constructorWriter.body().addSnippet("this.%s = %s.<%s, %s>builder(%d)",
-                  providerNames.get(key),
-                  ClassName.fromClass(MapProviderFactory.class),
-                  TypeNames.forTypeMirror(mapKeyType),
-                  TypeNames.forTypeMirror(mapValueType),
-                  bindings.size());
-              writeEntry(constructorWriter, firstBinding, initializeFactoryForBinding(
-                  firstBinding, componentContributionFields, memberSelectSnippets));
-              while (iterator.hasNext()) {
-                ProvisionBinding binding = iterator.next();
-                writeEntry(constructorWriter, binding, initializeFactoryForBinding(
-                    binding, componentContributionFields, memberSelectSnippets));
+              if (isNonProviderMap(firstBinding)) {
+                constructorWriter.body().addSnippet("this.%s = %s.create(%s);",
+                    providerNames.get(key), ClassName.fromClass(MapFactory.class),
+                    providerNames.get(Iterables.getOnlyElement(firstBinding.dependencies()).key()));
+              } else {
+                DeclaredType declaredMapType =
+                    Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
+                TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
+                TypeMirror mapValueType = Util.getProvideValueTypeOfMap(declaredMapType);
+                constructorWriter.body().addSnippet("this.%s = %s.<%s, %s>builder(%d)",
+                    providerNames.get(key),
+                    ClassName.fromClass(MapProviderFactory.class),
+                    TypeNames.forTypeMirror(mapKeyType),
+                    TypeNames.forTypeMirror(mapValueType),
+                    bindings.size());
+                writeEntry(constructorWriter, firstBinding, initializeFactoryForBinding(
+                    firstBinding, componentContributionFields, memberSelectSnippets));
+                while (iterator.hasNext()) {
+                  ProvisionBinding binding = iterator.next();
+                  writeEntry(constructorWriter, binding, initializeFactoryForBinding(binding,
+                      componentContributionFields, memberSelectSnippets));
+                }
+                constructorWriter.body().addSnippet("    .build();");
               }
-              constructorWriter.body().addSnippet("    .build();");
             }
             break;
           case SINGULAR_BINDING:
@@ -491,7 +498,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     }
   }
 
-  // Get the string representation of a Annotation Value
+  // Get the Snippet representation of a Annotation Value
   // TODO(user) write corresponding test to verify the AnnotationValueVisitor is right
   private Snippet getValueSnippet(AnnotationValue value) {
     AnnotationValueVisitor<Snippet, Void> mapKeyVisitor =
@@ -549,4 +556,12 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     return value.accept(mapKeyVisitor, null);
   }
 
+  private boolean isNonProviderMap(ProvisionBinding binding) {
+    DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(binding.providedKey().type());
+    TypeMirror mapValueType = Util.getProvideValueTypeOfMap(declaredMapType);
+    if (mapValueType == null) {
+      return true;
+    }
+    return false;
+  }
 }

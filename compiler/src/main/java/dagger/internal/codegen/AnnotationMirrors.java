@@ -78,15 +78,14 @@ final class AnnotationMirrors {
   }
 
   private static final Equivalence<AnnotationMirror> ANNOTATION_MIRROR_EQUIVALENCE =
-    new Equivalence<AnnotationMirror>() {
-      @Override protected boolean doEquivalent(AnnotationMirror left, AnnotationMirror right) {
-        return MoreTypes.equivalence()
-            .equivalent(left.getAnnotationType(), right.getAnnotationType())
-                && AnnotationValues.equivalence().pairwise().equivalent(
-                    getAnnotationValuesWithDefaults(left).values(),
-                    getAnnotationValuesWithDefaults(right).values());
-      }
-
+      new Equivalence<AnnotationMirror>() {
+        @Override
+        protected boolean doEquivalent(AnnotationMirror left, AnnotationMirror right) {
+          return MoreTypes.equivalence().equivalent(left.getAnnotationType(),
+              right.getAnnotationType()) && AnnotationValues.equivalence().pairwise().equivalent(
+              getAnnotationValuesWithDefaults(left).values(),
+              getAnnotationValuesWithDefaults(right).values());
+        }
         @Override
         protected int doHash(AnnotationMirror annotation) {
           DeclaredType type = annotation.getAnnotationType();

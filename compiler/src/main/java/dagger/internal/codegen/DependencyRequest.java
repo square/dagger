@@ -86,6 +86,17 @@ abstract class DependencyRequest {
           })
           .toSet();
     }
+    
+    /**
+     * Creates a DependencyRequest for implictMapBinding, this request's key will be
+     * {@code Map<K, Provider<V>>}, this DependencyRequest is depended by the DependencyRequest
+     * whose key is {@code Map<K, V>}
+     */
+    DependencyRequest forImplicitMapBinding(DependencyRequest delegatingRequest, Key delegateKey) {
+      checkNotNull(delegatingRequest);
+      return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
+          delegatingRequest.requestElement());
+    }
 
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
       checkNotNull(variableElement);

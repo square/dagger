@@ -16,6 +16,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.collect.Iterables;
 import dagger.internal.Keys;
 import java.lang.reflect.Method;
@@ -43,6 +44,8 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
+import javax.lang.model.util.Types;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -388,17 +391,35 @@ final class Util {
   /**
    * Returns the value type for a {@link Map} type like Map<K, Provider<V>>}.
    */
-  public static TypeMirror getValueTypeOfMap(DeclaredType declaredMapType) {
+  public static TypeMirror getProvideValueTypeOfMap(DeclaredType declaredMapType) {
+    if (!isMapType(declaredMapType)) {
+      throw new IllegalStateException();
+    }
     List<? extends TypeMirror> mapArgs = declaredMapType.getTypeArguments();
     DeclaredType declaredValueType = (DeclaredType) mapArgs.get(1);
     List<? extends TypeMirror> mapValueArgs = declaredValueType.getTypeArguments();
-    return mapValueArgs.get(0);
+    return mapValueArgs.isEmpty() ? null : mapValueArgs.get(0);
+  }
+
+  /**
+   * returns the value type for a {@link Map} type like Map<K, V>}.
+   */
+  public static TypeMirror getValueTypeOfMap(DeclaredType declaredMapType) {
+    if (!isMapType(declaredMapType)) {
+      throw new IllegalStateException();
+    }
+    List<? extends TypeMirror> mapArgs = declaredMapType.getTypeArguments();
+    DeclaredType declaredValueType = (DeclaredType) mapArgs.get(1);
+    return declaredValueType;
   }
 
   /**
    * Returns the key type for a {@link Map} type like Map<K, Provider<V>>}
    */
   public static TypeMirror getKeyTypeOfMap(DeclaredType declaredMapType) {
+    if (!isMapType(declaredMapType)) {
+      throw new IllegalStateException();
+    }
     List<? extends TypeMirror> mapArgs = declaredMapType.getTypeArguments();
     return mapArgs.get(0);
   }
@@ -414,7 +435,7 @@ final class Util {
         new SimpleAnnotationValueVisitor6<TypeElement, Void>() {
           @Override
           public TypeElement visitEnumConstant(VariableElement c, Void p) {
-            return (TypeElement) c.getEnclosingElement();
+            return MoreElements.asType(c.getEnclosingElement()) ;
           }
 
           @Override
@@ -444,10 +465,20 @@ final class Util {
     }
     // check whether the element associate with this DeclaredType is a map
     DeclaredType declaredMapType = (DeclaredType) map;
-    if (!((TypeElement) declaredMapType.asElement()).getQualifiedName().contentEquals(
-        "java.util.Map")) {
+    if (!isMapType(declaredMapType)) {
       throw new IllegalStateException();
     }
     return declaredMapType;
+  }
+
+  public static boolean isMapType(DeclaredType type) {
+    if (MoreElements.asType(type.asElement()).getQualifiedName().contentEquals("java.util.Map")) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  public static boolean isTypeOf(Class<?> type, TypeMirror mirror, Elements elements, Types types) {
+    return elements.getTypeElement(type.getCanonicalName()).equals(types.asElement(mirror));
   }
 }
