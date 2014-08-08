@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import dagger.MapKey;
+
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
@@ -36,7 +38,6 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
@@ -141,8 +142,12 @@ abstract class Key {
           TypeMirror setType = types.getDeclaredType(getSetElement(), returnType);
           return new AutoValue_Key(rewrap(qualifier), MoreTypes.equivalence().wrap(setType));
         case MAP:
-          AnnotationMirror mapKey = Iterables.getOnlyElement(getMapKeys(e));
-          TypeElement keyTypeElement = Util.getKeyTypeElement(mapKey, elements);
+          AnnotationMirror mapKeyAnnotation = Iterables.getOnlyElement(getMapKeys(e));
+          MapKey mapKey =
+              mapKeyAnnotation.getAnnotationType().asElement().getAnnotation(MapKey.class);
+          TypeElement keyTypeElement =
+              mapKey.unwrapValue() ? Util.getKeyTypeElement(mapKeyAnnotation, elements)
+                  : (TypeElement) mapKeyAnnotation.getAnnotationType().asElement();
           TypeMirror valueType = types.getDeclaredType(getProviderElement(), returnType);
           TypeMirror mapType =
               types.getDeclaredType(getMapElement(), keyTypeElement.asType(), valueType);

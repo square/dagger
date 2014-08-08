@@ -46,7 +46,6 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_NO_MAP_KEY;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_UNSUPPORTED_MAP_KEY;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -128,11 +127,6 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
             builder.addItem(PROVIDES_METHOD_WITH_NO_MAP_KEY, providesMethodElement);
             break;
           case 1:
-            AnnotationMirror mapKeyAnnotationMirror = Iterables.getOnlyElement(annotationMirrors); 
-            TypeElement keyTypeElement = Util.getKeyTypeElement(mapKeyAnnotationMirror, elements);
-            if (keyTypeElement == null) {
-              builder.addItem(PROVIDES_METHOD_WITH_UNSUPPORTED_MAP_KEY, providesMethodElement);
-            }
             break;
           default:
             builder.addItem(PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY, providesMethodElement);

@@ -23,21 +23,26 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * It enables to define customized key type annotation for map binding by annotating an annotation
- * of a {@code Map}'s key type. The defined key type annotation can be later applied to the
- * key of the {@code Map}. Currently {@code String} and {@code enum} key types
- * are supported for map binding.
+ * It enables to define customized key type annotation for map binding by
+ * annotating an annotation of a {@code Map}'s key type. The defined key type
+ * annotation can be later applied to the key of the {@code Map}. Currently
+ * {@code String} and {@code enum} key types are supported for map binding.
  *
- * <h2>Example</h2> For example, if you want to define a key type annotation called StringKey, you
- * can define it the following way:
+ * <h2>Example</h2> For example, if you want to define a key type annotation
+ * called StringKey, you can define it the following way:
  *
  * <pre><code>
- * &#64;MapKey(unwrapValue = false)
- * &#64;Retention(RUNTIME)
- * public &#64;interface StringKey {
- *   String value();
- * }
+ *&#64;MapKey(unwrapValue = true)
+ *&#64;Retention(RUNTIME)
+ *public &#64;interface StringKey {
+ *String value();
+ *}
  *</code></pre>
+ *
+ * if {@code unwrapValue} is false, then the whole annotation will be the key
+ * type for the map and annotation instances will be the keys. If
+ * {@code unwrapValue} is true, the value() type of key type annotation will be
+ * the key type for injected map and the value instances will be the keys.
  */
 @Documented
 @Target(ANNOTATION_TYPE)

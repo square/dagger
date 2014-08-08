@@ -15,11 +15,14 @@
  */
 package dagger.internal.codegen;
 
+import dagger.MapKey;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -50,7 +53,8 @@ public final class ComponentProcessor extends AbstractProcessor {
         Component.class.getName(),
         Inject.class.getName(),
         Module.class.getName(),
-        Provides.class.getName());
+        Provides.class.getName(),
+        MapKey.class.getName());
   }
 
   @Override
@@ -97,11 +101,13 @@ public final class ComponentProcessor extends AbstractProcessor {
     ComponentDescriptor.Factory componentDescriptorFactory =
         new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
             provisionBindingFactory, dependencyRequestFactory);
+    MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
             messager,
-            mapKeyValidator),
+            mapKeyValidator,
+            mapKeyGenerator),
         new InjectProcessingStep(
             messager,
             injectConstructorValidator,

@@ -159,7 +159,7 @@ public class AnnotationMirrorsTest {
   @Test public void testGetDefaultValuesUnset() {
     assert_().that(annotationOn(StringyUnset.class).getElementValues()).isEmpty();
     Iterable<AnnotationValue> values = AnnotationMirrors.getAnnotationValuesWithDefaults(
-        annotationOn(StringyUnset.class));
+        annotationOn(StringyUnset.class)).values();
     String value = getOnlyElement(values).accept(new SimpleAnnotationValueVisitor6<String, Void>() {
           @Override public String visitString(String value, Void ignored) {
             return value;
@@ -170,7 +170,7 @@ public class AnnotationMirrorsTest {
 
   @Test public void testGetDefaultValuesSet() {
     Iterable<AnnotationValue> values = AnnotationMirrors.getAnnotationValuesWithDefaults(
-        annotationOn(StringySet.class));
+        annotationOn(StringySet.class)).values();
     String value = getOnlyElement(values).accept(new SimpleAnnotationValueVisitor6<String, Void>() {
           @Override public String visitString(String value, Void ignored) {
             return value;

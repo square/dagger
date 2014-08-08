@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +32,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Factory;
+import dagger.MapKey;
 import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
 import dagger.internal.MapProviderFactory;
@@ -61,6 +63,7 @@ import javax.annotation.processing.Filer;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -69,6 +72,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
@@ -462,8 +466,87 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
     Map<? extends ExecutableElement, ? extends AnnotationValue> map =
         mapKeyAnnotationMirror.getElementValues();
-    // TODO(gak): this somewhat wrongly relies on the toString of AnnotationValue being valid java
-    constructorWriter.body().addSnippet("    .put(%s, %s)",
-        Iterables.getOnlyElement(map.entrySet()).getValue(), factory);
+    MapKey mapKey =
+        mapKeyAnnotationMirror.getAnnotationType().asElement().getAnnotation(MapKey.class);
+    if (!mapKey.unwrapValue()) {// wrapped key case
+      FluentIterable<AnnotationValue> originIterable = FluentIterable.from(
+          AnnotationMirrors.getAnnotationValuesWithDefaults(mapKeyAnnotationMirror).values());
+      FluentIterable<Snippet> annotationValueNames =
+          originIterable.transform(new Function<AnnotationValue, Snippet>() {
+            @Override
+            public Snippet apply(AnnotationValue value) {
+              return getValueSnippet(value);
+            }
+          });
+      ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
+      for (Snippet snippet : annotationValueNames) {
+        snippets.add(snippet);
+      }
+      constructorWriter.body().addSnippet("    .put(%sCreator.create(%s),%n         %s)",
+          TypeNames.forTypeMirror(mapKeyAnnotationMirror.getAnnotationType()),
+          Snippet.makeParametersSnippet(snippets.build()), factory);
+    } else { // unwrapped key case
+      constructorWriter.body().addSnippet("    .put(%s, %s)",
+          getValueSnippet(Iterables.getOnlyElement(map.entrySet()).getValue()), factory);
+    }
   }
+
+  // Get the string representation of a Annotation Value
+  // TODO(user) write corresponding test to verify the AnnotationValueVisitor is right
+  private Snippet getValueSnippet(AnnotationValue value) {
+    AnnotationValueVisitor<Snippet, Void> mapKeyVisitor =
+        new SimpleAnnotationValueVisitor6<Snippet, Void>() {
+          @Override
+          public Snippet visitEnumConstant(VariableElement c, Void p) {
+            return Snippet.format("%s.%s",
+                TypeNames.forTypeMirror(c.getEnclosingElement().asType()), c.getSimpleName());
+          }
+
+          @Override
+          public Snippet visitAnnotation(AnnotationMirror a, Void p) {
+            if (a.getElementValues().isEmpty()) {
+              return Snippet.format("@%s", TypeNames.forTypeMirror(a.getAnnotationType()));
+            } else {
+              Map<ExecutableElement, AnnotationValue> map =
+                  AnnotationMirrors.getAnnotationValuesWithDefaults(a);
+              // build "@Annotation(a = , b = , c = ))
+              ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
+              for (Entry<ExecutableElement, AnnotationValue> entry : map.entrySet()) {
+                snippets.add(Snippet.format("%s = %s",
+                    TypeNames.forTypeMirror(entry.getKey().asType()),
+                    getValueSnippet(entry.getValue())));
+
+              }
+              return Snippet.format("@%s(%s)", TypeNames.forTypeMirror(a.getAnnotationType()),
+                  Snippet.makeParametersSnippet(snippets.build()));
+            }
+          }
+
+          @Override
+          public Snippet visitType(TypeMirror t, Void p) {
+            return Snippet.format("%s", TypeNames.forTypeMirror(t));
+          }
+
+          @Override
+          public Snippet visitString(String s, Void p) {
+            return Snippet.format("\"%s\"", s);
+          }
+
+          @Override
+          protected Snippet defaultAction(Object o, Void v) {
+            return Snippet.format("%s", o);
+          }
+
+          @Override
+          public Snippet visitArray(List<? extends AnnotationValue> values, Void v) {
+            ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
+            for (int i = 0; i < values.size(); i++) {
+              snippets.add(values.get(i).accept(this, null));
+            }
+            return Snippet.format("[%s]", Snippet.makeParametersSnippet(snippets.build()));
+          }
+        };
+    return value.accept(mapKeyVisitor, null);
+  }
+
 }

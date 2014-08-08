@@ -83,17 +83,18 @@ final class AnnotationMirrors {
         return MoreTypes.equivalence()
             .equivalent(left.getAnnotationType(), right.getAnnotationType())
                 && AnnotationValues.equivalence().pairwise().equivalent(
-                    getAnnotationValuesWithDefaults(left),
-                    getAnnotationValuesWithDefaults(right));
+                    getAnnotationValuesWithDefaults(left).values(),
+                    getAnnotationValuesWithDefaults(right).values());
       }
 
-      @Override protected int doHash(AnnotationMirror annotation) {
-        DeclaredType type = annotation.getAnnotationType();
-        Iterable<AnnotationValue> annotationValues = getAnnotationValuesWithDefaults(annotation);
-        return Arrays.hashCode(new int[] {
-            MoreTypes.equivalence().hash(type),
-            AnnotationValues.equivalence().pairwise().hash(annotationValues)});
-      }
+        @Override
+        protected int doHash(AnnotationMirror annotation) {
+          DeclaredType type = annotation.getAnnotationType();
+          Iterable<AnnotationValue> annotationValues =
+              getAnnotationValuesWithDefaults(annotation).values();
+          return Arrays.hashCode(new int[] {MoreTypes.equivalence().hash(type),
+              AnnotationValues.equivalence().pairwise().hash(annotationValues)});
+        }
     };
 
   /**
@@ -117,15 +118,15 @@ final class AnnotationMirrors {
    * {@link Elements#getElementValuesWithDefaults(AnnotationMirror)} but can be called
    * statically without an {@Elements} instance.
    */
-  static Iterable<AnnotationValue> getAnnotationValuesWithDefaults(
+  static Map<ExecutableElement, AnnotationValue> getAnnotationValuesWithDefaults(
       AnnotationMirror annotation) {
-    Map<ExecutableElement, AnnotationValue> values = Maps.newHashMap();
+    Map<ExecutableElement, AnnotationValue> values = Maps.newLinkedHashMap();
     for (ExecutableElement method :
         ElementFilter.methodsIn(annotation.getAnnotationType().asElement().getEnclosedElements())) {
       values.put(method, method.getDefaultValue());
     }
     values.putAll(annotation.getElementValues());
-    return values.values();
+    return values;
   }
   
   static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,

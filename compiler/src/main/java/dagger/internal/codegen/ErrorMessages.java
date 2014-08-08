@@ -115,24 +115,22 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY =
       "@Provides methods may not have more than one @MapKey-marked annotation";
 
-  static final String PROVIDES_METHOD_WITH_UNSUPPORTED_MAP_KEY =
-      "@Provides methods only support String and Enum key types";
-
   static final String PROVIDES_METHOD_WITH_SAME_NAME =
       "Cannot have more than one @Provides method with the same name in a single module";
-  
-  static final String WRAP_MAPKEY =
-      "unwrapValue = false is not yet supported";
-  
+
+  /*mapKey errors*/
+  static final String MAPKEY_WITHOUT_FIELDS = 
+      "Map key annotation does not have fields";
+
   /* collection binding errors */
   static final String NON_SETBINDING =
-      "more than one binding present including at least a set binding and a non-set binding";
+      "More than one binding present including at least a set binding and a non-set binding";
 
   static final String NON_MAPBINDING =
-      "more than one binding present including at least a map binding and a non-map binding";
+      "More than one binding present including at least a map binding and a non-map binding";
 
   static final String INVALID_COLLECTIONBINDING =
-      "more than one binding present, but found an invalid binding";
+      "More than one binding present, but found an invalid binding";
 
   private ErrorMessages() {}
 }
