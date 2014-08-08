@@ -386,7 +386,7 @@ final class Util {
   }
 
   /**
-   * returns the value type for a {@link Map} type like Map<K, Provider<V>>}.
+   * Returns the value type for a {@link Map} type like Map<K, Provider<V>>}.
    */
   public static TypeMirror getValueTypeOfMap(DeclaredType declaredMapType) {
     List<? extends TypeMirror> mapArgs = declaredMapType.getTypeArguments();
@@ -396,7 +396,7 @@ final class Util {
   }
 
   /**
-   * returns the key type for a {@link Map} type like Map<K, Provider<V>>}
+   * Returns the key type for a {@link Map} type like Map<K, Provider<V>>}
    */
   public static TypeMirror getKeyTypeOfMap(DeclaredType declaredMapType) {
     List<? extends TypeMirror> mapArgs = declaredMapType.getTypeArguments();
@@ -404,8 +404,8 @@ final class Util {
   }
 
   /**
-   * returns the key's {@link TypeElement} for a {@link Map} given the {@link AnnotationMirror} of
-   * the key..
+   * Returns the unwrapped key's {@link TypeElement} for a {@link Map} given the
+   * {@link AnnotationMirror} of the key.
    */
   public static TypeElement getKeyTypeElement(AnnotationMirror mapKey, final Elements elements) {
     Map<? extends ExecutableElement, ? extends AnnotationValue> map = mapKey.getElementValues();
@@ -424,15 +424,12 @@ final class Util {
 
           @Override
           protected TypeElement defaultAction(Object o, Void v) {
-            throw new IllegalStateException();
+            throw new IllegalStateException(
+                "Non-supported key type for map binding " + o.getClass().getCanonicalName());
           }
         };
     TypeElement keyTypeElement =
         Iterables.getOnlyElement(map.entrySet()).getValue().accept(mapKeyVisitor, null);
-    if (keyTypeElement == null) {
-      throw new IllegalStateException("Non-supported key type for map binding "
-          + Iterables.getOnlyElement(map.entrySet()).getValue());
-    }
     return keyTypeElement;
   }
 
