@@ -20,10 +20,13 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import dagger.internal.codegen.writer.ClassName;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.ExecutableElement;
@@ -55,6 +58,7 @@ final class InjectBindingRegistry {
   private final Key.Factory keyFactory;
   private final Map<Key, ProvisionBinding> provisionBindingsByKey;
   private final Map<Key, MembersInjectionBinding> membersInjectionBindingsByKey;
+  private final Set<ClassName> generatedTypeNames;
 
   InjectBindingRegistry(Elements elements,
       Types types,
@@ -73,7 +77,14 @@ final class InjectBindingRegistry {
     this.membersInjectorGenerator = membersInjectorGenerator;
     this.provisionBindingsByKey = Maps.newLinkedHashMap();
     this.membersInjectionBindingsByKey = Maps.newLinkedHashMap();
+    this.generatedTypeNames = Sets.newLinkedHashSet();
     this.keyFactory = keyFactory;
+  }
+
+  // TODO(gak): rework how we handle knowing what we've generated and not.
+  void registerGeneratedFile(ClassName generatedTypeName) {
+    checkState(generatedTypeNames.add(generatedTypeName),
+        "couldn't register %s as it was already registered.", generatedTypeName);
   }
 
   void registerProvisionBinding(ProvisionBinding binding) {
@@ -89,13 +100,29 @@ final class InjectBindingRegistry {
         previousValue);
   }
 
-  Optional<ProvisionBinding> getOrFindOrCreateProvisionBindingForKey(Key key)
+  Optional<ProvisionBinding> getOrFindOrCreateProvisionBinding(Key key)
       throws SourceFileGenerationException {
+    Optional<ProvisionBinding> binding = getOrFindProvisionBinding(key);
+    if (binding.isPresent()) {
+      ClassName factoryName = SourceFiles.factoryNameForProvisionBinding(binding.get());
+      if (!generatedTypeNames.contains(factoryName)
+          && elements.getTypeElement(factoryName.canonicalName()) == null) {
+        // does not exist.  generate
+        factoryGenerator.generate(binding.get());
+        generatedTypeNames.add(factoryName);
+        messager.printMessage(Kind.NOTE, String.format("Generating a Factory for %s. "
+            + "Prefer to run the dagger processor over that class instead.", key.type()));
+      }
+    }
+    return binding;
+  }
+
+  Optional<ProvisionBinding> getOrFindProvisionBinding(Key key) {
     checkNotNull(key);
     checkArgument(!key.qualifier().isPresent());
-    ProvisionBinding bindingFromThisProcessor = provisionBindingsByKey.get(key);
-    if (bindingFromThisProcessor != null) {
-      return Optional.of(bindingFromThisProcessor);
+    Optional<ProvisionBinding> binding = Optional.fromNullable(provisionBindingsByKey.get(key));
+    if (binding.isPresent()) {
+      return binding;
     }
     // ok, let's see if we can find an @Inject constructor
     TypeElement element = MoreElements.asType(types.asElement(key.type()));
@@ -109,18 +136,12 @@ final class InjectBindingRegistry {
         }).toSet();
     switch (injectConstructors.size()) {
       case 0:
+        // No constructor found.
         return Optional.absent();
       case 1:
         ProvisionBinding constructorBinding = provisionBindingFactory.forInjectConstructor(
-            injectConstructors.iterator().next());
+            Iterables.getOnlyElement(injectConstructors));
         registerProvisionBinding(constructorBinding);
-        ClassName factoryName = SourceFiles.factoryNameForProvisionBinding(constructorBinding);
-        if (elements.getTypeElement(factoryName.canonicalName()) == null) {
-          // does not exist.  generate
-          factoryGenerator.generate(constructorBinding);
-          messager.printMessage(Kind.NOTE, String.format("Generating a Factory for %s. "
-              + "Prefer to run the dagger processor over that class instead.", key.type()));
-        }
         return Optional.of(constructorBinding);
       default:
         throw new IllegalStateException("Found multiple @Inject constructors: "
@@ -128,26 +149,32 @@ final class InjectBindingRegistry {
     }
   }
 
-    MembersInjectionBinding getOrFindOrCreateMembersInjectionBindingForKey(Key key)
+  MembersInjectionBinding getOrFindOrCreateMembersInjectionBinding(Key key)
       throws SourceFileGenerationException {
-    checkNotNull(key);
-    checkArgument(!key.qualifier().isPresent());
-    MembersInjectionBinding bindingFromThisProcessor = membersInjectionBindingsByKey.get(key);
-    if (bindingFromThisProcessor != null) {
-      return bindingFromThisProcessor;
-    }
-    TypeElement element = MoreElements.asType(types.asElement(key.type()));
-    MembersInjectionBinding binding = membersInjectionBindingFactory.forInjectedType(element);
+    MembersInjectionBinding binding = getOrFindMembersInjectionBinding(key);
     if (!binding.injectionSites().isEmpty()) {
       ClassName membersInjectorName =
           SourceFiles.membersInjectorNameForMembersInjectionBinding(binding);
-      if (elements.getTypeElement(membersInjectorName.canonicalName()) == null) {
+      if (!generatedTypeNames.contains(membersInjectorName)
+          && elements.getTypeElement(membersInjectorName.canonicalName()) == null) {
         // does not exist.  generate
         membersInjectorGenerator.generate(binding);
         messager.printMessage(Kind.NOTE, String.format("Generating a MembersInjector for %s. "
             + "Prefer to run the dagger processor over that class instead.", key.type()));
         registerMembersInjectionBinding(binding);
+        generatedTypeNames.add(membersInjectorName);
       }
+    }
+    return binding;
+  }
+
+  MembersInjectionBinding getOrFindMembersInjectionBinding(Key key) {
+    checkNotNull(key);
+    checkArgument(!key.qualifier().isPresent());
+    MembersInjectionBinding binding = membersInjectionBindingsByKey.get(key);
+    if (binding == null) {
+      TypeElement element = MoreElements.asType(types.asElement(key.type()));
+      binding = membersInjectionBindingFactory.forInjectedType(element);
     }
     return binding;
   }

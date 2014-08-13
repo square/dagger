@@ -107,6 +107,8 @@ abstract class DependencyRequest {
 
     DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod) {
       checkNotNull(provisionMethod);
+      checkArgument(provisionMethod.getParameters().isEmpty(),
+          "Component provision methods must be empty: " + provisionMethod);
       TypeMirror type = provisionMethod.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
       return newDependencyRequest(provisionMethod, type, qualifier);

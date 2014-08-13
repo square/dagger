@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
-import javax.inject.Provider;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -299,7 +299,7 @@ abstract class ComponentDescriptor {
             } else {
               // no explicit binding, look it up
               Optional<ProvisionBinding> provisionBinding =
-                  injectBindingRegistry.getOrFindOrCreateProvisionBindingForKey(requestKey);
+                  injectBindingRegistry.getOrFindOrCreateProvisionBinding(requestKey);
               checkState(provisionBinding.isPresent(),
                   "Can not find a provision binding for %s. this should not have passed validation",
                   requestKey);
@@ -312,7 +312,7 @@ abstract class ComponentDescriptor {
               }
               resolvedBindings.put(frameworkKey, provisionBinding.get());
               resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
-              } 
+              }
           } else {
             // we found explicit bindings. resolve the deps and them mark them resolved
             for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
@@ -328,7 +328,7 @@ abstract class ComponentDescriptor {
         case MEMBERS_INJECTOR:
          // no explicit deps for members injection, so just look it up
           MembersInjectionBinding membersInjectionBinding =
-              injectBindingRegistry.getOrFindOrCreateMembersInjectionBindingForKey(requestKey);
+              injectBindingRegistry.getOrFindOrCreateMembersInjectionBinding(requestKey);
           //resolve its deps and then mark it resolved
           for (DependencyRequest dependency : Iterables.concat(
               membersInjectionBinding.dependencies(),
