@@ -57,6 +57,10 @@ abstract class FrameworkKey {
     return new AutoValue_FrameworkKey(dependencyRequest.key(), frameworkClass);
   }
 
+  static FrameworkKey forProvisionBinding(ProvisionBinding binding) {
+    return new AutoValue_FrameworkKey(binding.providedKey(), Provider.class);
+  }
+
   abstract Key key();
   abstract Class<?> frameworkClass();
 }

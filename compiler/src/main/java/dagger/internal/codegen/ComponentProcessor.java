@@ -15,14 +15,12 @@
  */
 package dagger.internal.codegen;
 
-import dagger.MapKey;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Component;
+import dagger.MapKey;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -103,6 +101,9 @@ public final class ComponentProcessor extends AbstractProcessor {
             provisionBindingFactory, dependencyRequestFactory);
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
 
+    GraphValidator graphValidator = new GraphValidator(elements, types, dependencyRequestFactory,
+        provisionBindingFactory, injectBindingRegistry);
+
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
             messager,
@@ -127,6 +128,7 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ComponentProcessingStep(
             messager,
             componentValidator,
+            graphValidator,
             componentDescriptorFactory,
             componentGenerator));
   }

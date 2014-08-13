@@ -37,8 +37,6 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  *
  * @author Gregory Kick
  */
-// TODO(gak): this class does superficial component validation, but we need to do graph validation
-// as well
 final class ComponentValidator implements Validator<TypeElement> {
   private final Elements elements;
 

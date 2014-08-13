@@ -43,7 +43,7 @@ final class InjectProcessingStep implements ProcessingStep {
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final FactoryGenerator factoryGenerator;
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
-  private final MembersInjectorGenerator membersInjectorWriter;
+  private final MembersInjectorGenerator membersInjectorGenerator;
   private final InjectBindingRegistry injectBindingRegistry;
 
   InjectProcessingStep(Messager messager,
@@ -62,7 +62,7 @@ final class InjectProcessingStep implements ProcessingStep {
     this.provisionBindingFactory = provisionBindingFactory;
     this.factoryGenerator = factoryGenerator;
     this.membersInjectionBindingFactory = membersInjectionBindingFactory;
-    this.membersInjectorWriter = membersInjectorWriter;
+    this.membersInjectorGenerator = membersInjectorWriter;
     this.injectBindingRegistry = factoryRegistrar;
   }
 
@@ -127,8 +127,10 @@ final class InjectProcessingStep implements ProcessingStep {
       try {
         MembersInjectionBinding binding =
             membersInjectionBindingFactory.forInjectedType(injectedType);
-        membersInjectorWriter.generate(binding);
+        membersInjectorGenerator.generate(binding);
         injectBindingRegistry.registerMembersInjectionBinding(binding);
+        injectBindingRegistry.registerGeneratedFile(
+            membersInjectorGenerator.nameGeneratedType(binding));
       } catch (SourceFileGenerationException e) {
         e.printMessageTo(messager);
       }
@@ -138,6 +140,7 @@ final class InjectProcessingStep implements ProcessingStep {
       try {
         factoryGenerator.generate(binding);
         injectBindingRegistry.registerProvisionBinding(binding);
+        injectBindingRegistry.registerGeneratedFile(factoryGenerator.nameGeneratedType(binding));
       } catch (SourceFileGenerationException e) {
         e.printMessageTo(messager);
       }
