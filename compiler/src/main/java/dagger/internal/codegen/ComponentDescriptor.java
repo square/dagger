@@ -312,7 +312,7 @@ abstract class ComponentDescriptor {
               }
               resolvedBindings.put(frameworkKey, provisionBinding.get());
               resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
-              }
+            }
           } else {
             // we found explicit bindings. resolve the deps and them mark them resolved
             for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
