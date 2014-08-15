@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -90,6 +91,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.Modifier.VOLATILE;
 import static javax.lang.model.type.TypeKind.VOID;
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
@@ -120,6 +122,16 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     return Optional.of(input.componentDefinitionType());
   }
 
+  // TODO(gak): consider a single-check variant for cases where we know that it's safe
+  private static final String DOUBLE_CHECK_FORMAT = Joiner.on('\n').join(
+      "if (%1$s == null) {",
+      "  synchronized (%3$s) {",
+      "    if (%1$s == null) {",
+      "      this.%1$s = %2$s;",
+      "    }",
+      "  }",
+      "}");
+
   @Override
   ImmutableSet<JavaWriter> write(ClassName componentName, ComponentDescriptor input) {
     ClassName componentDefinitionTypeName =
@@ -130,6 +142,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
     componentWriter.addModifiers(PUBLIC, FINAL);
     componentWriter.addImplementedType(componentDefinitionTypeName);
+
+    // TODO(gak): there's not actually an reason that we need all initialization on the same lock
+    FieldWriter initLock = componentWriter.addField(Object.class, "initLock");
+    initLock.addModifiers(PRIVATE, FINAL);
+    initLock.setInitializer("new %s()", ClassName.fromClass(Object.class));
 
     ClassWriter builderWriter = componentWriter.addNestedClass("Builder");
     builderWriter.addModifiers(PUBLIC, STATIC, FINAL);
@@ -162,8 +179,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                   }
                 })));
 
-    ImmutableMap.Builder<FrameworkKey, Snippet> memberSelectSnippetsBuilder =
-        ImmutableMap.builder();
     ImmutableSet.Builder<JavaWriter> packageProxies = ImmutableSet.builder();
 
     ConstructorWriter constructorWriter = componentWriter.addConstructor();
@@ -215,6 +230,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
     }
 
+    ImmutableMap.Builder<FrameworkKey, Snippet> memberSelectSnippetsBuilder =
+        ImmutableMap.builder();
+    ImmutableMap.Builder<FrameworkKey, String> initializeMethodNamesBuilder =
+        ImmutableMap.builder();
+
     for (Entry<String, Set<FrameworkKey>> packageEntry :
         Multimaps.asMap(input.initializationByPackage()).entrySet()) {
       String packageName = packageEntry.getKey();
@@ -229,7 +249,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         // component gets the fields
         classWithFields = componentWriter;
         // private fields
-        fieldModifiers = EnumSet.of(PRIVATE, FINAL);
+        fieldModifiers = EnumSet.of(PRIVATE);
       } else {
         // create the proxy
         JavaWriter proxyWriter = JavaWriter.inPackage(packageName);
@@ -268,12 +288,20 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
         FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
         frameworkField.addModifiers(fieldModifiers);
+        frameworkField.addModifiers(VOLATILE);
 
-        memberSelectSnippetsBuilder.put(frameworkKey, Snippet.memberSelectSnippet(
-            new ImmutableList.Builder<String>()
-                .addAll(proxySelector.asSet())
-                .add(frameworkField.name())
-                .build()));
+        ImmutableList<String> memberSelectTokens = new ImmutableList.Builder<String>()
+            .addAll(proxySelector.asSet())
+            .add(frameworkField.name())
+            .build();
+        memberSelectSnippetsBuilder.put(frameworkKey,
+            Snippet.memberSelectSnippet(memberSelectTokens));
+        String memberSelectTokensAsString = Joiner.on('_').join(memberSelectTokens);
+        initializeMethodNamesBuilder.put(frameworkKey, "initialize"
+            + new StringBuilder(memberSelectTokensAsString.length())
+                .append(Ascii.toUpperCase(memberSelectTokensAsString.charAt(0)))
+                .append(memberSelectTokensAsString.substring(1))
+                .toString());
       }
     }
 
@@ -287,11 +315,20 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     }
 
     ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
-    for (FrameworkKey frameworkKey : input.initializationOrdering()) {
+    ImmutableMap<FrameworkKey, String> initializeMethodNames = initializeMethodNamesBuilder.build();
+
+    for (FrameworkKey frameworkKey : input.initializationByPackage().values()) {
       Key key = frameworkKey.key();
+      Snippet memberSelectSnippet = memberSelectSnippets.get(frameworkKey);
+      String initializeMethodName = initializeMethodNames.get(frameworkKey);
+
+      MethodWriter initializeMethod =
+          componentWriter.addMethod(VoidName.VOID, initializeMethodName);
+      initializeMethod.addModifiers(PRIVATE);
 
       if (frameworkKey.frameworkClass().equals(Provider.class)) {
         Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
+        initializeDependenciesForBinding(initializeMethodNames, initializeMethod, bindings);
         BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
         switch (bindingsType) {
           case SET_BINDING:
@@ -300,56 +337,41 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
               setFactoryParameters.add(initializeFactoryForBinding(
                   binding, componentContributionFields, memberSelectSnippets));
             }
-            constructorWriter.body().addSnippet("this.%s = %s.create(%n%s);",
-                memberSelectSnippets.get(frameworkKey), ClassName.fromClass(SetFactory.class),
+            Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
+                ClassName.fromClass(SetFactory.class),
                 Snippet.makeParametersSnippet(setFactoryParameters.build()));
+            initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
+                memberSelectSnippet, initializeSetSnippet, initLock.name());
             break;
           case MAP_BINDING:
             if (!bindings.isEmpty()) {
-              Iterator<ProvisionBinding> iterator = bindings.iterator();
-              // get type information from first binding in iterator
-              ProvisionBinding firstBinding = iterator.next();
-              if (isNonProviderMap(firstBinding)) {
-                constructorWriter.body().addSnippet("this.%s = %s.create(%s);",
-                    providerNames.get(key), ClassName.fromClass(MapFactory.class),
-                    providerNames.get(Iterables.getOnlyElement(firstBinding.dependencies()).key()));
-              } else {
-                DeclaredType declaredMapType =
-                    Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
-                TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
-                TypeMirror mapValueType = Util.getProvideValueTypeOfMap(declaredMapType);
-                constructorWriter.body().addSnippet("this.%s = %s.<%s, %s>builder(%d)",
-                    providerNames.get(key),
-                    ClassName.fromClass(MapProviderFactory.class),
-                    TypeNames.forTypeMirror(mapKeyType),
-                    TypeNames.forTypeMirror(mapValueType),
-                    bindings.size());
-                writeEntry(constructorWriter, firstBinding, initializeFactoryForBinding(
-                    firstBinding, componentContributionFields, memberSelectSnippets));
-                while (iterator.hasNext()) {
-                  ProvisionBinding binding = iterator.next();
-                  writeEntry(constructorWriter, binding, initializeFactoryForBinding(binding,
-                      componentContributionFields, memberSelectSnippets));
-                }
-                constructorWriter.body().addSnippet("    .build();");
-              }
+              Snippet initializeMapSnippet =
+                  initializeMapBinding(componentContributionFields, memberSelectSnippets, bindings);
+              initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
+                  memberSelectSnippet, initializeMapSnippet, initLock.name());
+
             }
             break;
           case SINGULAR_BINDING:
             ProvisionBinding binding = Iterables.getOnlyElement(bindings);
-            constructorWriter.body().addSnippet("this.%s = %s;",
-                memberSelectSnippets.get(frameworkKey),
+            initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
+                memberSelectSnippet,
                 initializeFactoryForBinding(
-                    binding, componentContributionFields, memberSelectSnippets));
+                    binding, componentContributionFields, memberSelectSnippets),
+                initLock.name());
             break;
           default:
             throw new IllegalStateException();
         }
       } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
-        constructorWriter.body().addSnippet("this.%s = %s;",
-            memberSelectSnippets.get(frameworkKey),
-            initializeMembersInjectorForBinding(resolvedMembersInjectionBindings.get(key),
-                memberSelectSnippets));
+        MembersInjectionBinding binding = resolvedMembersInjectionBindings.get(key);
+        initializeDependenciesForBinding(initializeMethodNames, initializeMethod,
+            ImmutableList.of(binding));
+        initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
+            memberSelectSnippet,
+            initializeMembersInjectorForBinding(binding,
+                memberSelectSnippets),
+            initLock.name());
       } else {
         throw new IllegalStateException(
             "unknown framework class: " + frameworkKey.frameworkClass());
@@ -365,6 +387,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       interfaceMethod.annotate(Override.class);
       interfaceMethod.addModifiers(PUBLIC);
       FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(interfaceRequest);
+      interfaceMethod.body().addSnippet("%s();", initializeMethodNames.get(frameworkKey));
       if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
         Snippet membersInjectorName = memberSelectSnippets.get(frameworkKey);
         VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
@@ -387,6 +410,24 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         .addAll(packageProxies.build())
         .add(writer)
         .build();
+  }
+
+  // TODO(gak): integrate this into the DCL structure to avoid some superfluous (albeit cheap) null
+  // checks
+  private void initializeDependenciesForBinding(
+      ImmutableMap<FrameworkKey, String> initializeMethodNames, MethodWriter methodWriter,
+      Iterable<? extends Binding> bindings) {
+    ImmutableSet<FrameworkKey> dependencyKeys = FluentIterable.from(bindings)
+        .transformAndConcat(new Function<Binding, Iterable<DependencyRequest>>() {
+          @Override public Iterable<DependencyRequest> apply(Binding input) {
+            return input.implicitDependencies();
+          }
+        })
+        .transform(FrameworkKey.REQUEST_TO_FRAMEWORK_KEY)
+        .toSet();
+    for (FrameworkKey dependencyKey: dependencyKeys) {
+      methodWriter.body().addSnippet("%s();", initializeMethodNames.get(dependencyKey));
+    }
   }
 
   private Snippet initializeFactoryForBinding(ProvisionBinding binding,
@@ -466,8 +507,50 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     return parameters.build();
   }
 
+  private Snippet initializeMapBinding(
+      Map<TypeElement, FieldWriter> contributionFields,
+      ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets,
+      Set<ProvisionBinding> bindings) {
+    Iterator<ProvisionBinding> iterator = bindings.iterator();
+    // get type information from first binding in iterator
+    ProvisionBinding firstBinding = iterator.next();
+    if (isNonProviderMap(firstBinding)) {
+      return Snippet.format("%s.create(%s)",
+          ClassName.fromClass(MapFactory.class),
+          memberSelectSnippets.get(FrameworkKey.forDependencyRequest(
+              Iterables.getOnlyElement(firstBinding.dependencies()))));
+    } else {
+      DeclaredType declaredMapType =
+          Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
+      TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
+      TypeMirror mapValueType = Util.getProvideValueTypeOfMap(declaredMapType);
+      StringBuilder snippetFormatBuilder = new StringBuilder("%s.<%s, %s>builder(%d)");
+      for (int i = 0; i < bindings.size(); i++) {
+        snippetFormatBuilder.append("\n    .put(%s, %s)");
+      }
+      snippetFormatBuilder.append("\n    .build()");
+
+      List<Object> argsBuilder = Lists.newArrayList();
+      argsBuilder.add(ClassName.fromClass(MapProviderFactory.class));
+      argsBuilder.add(TypeNames.forTypeMirror(mapKeyType));
+      argsBuilder.add(TypeNames.forTypeMirror(mapValueType));
+      argsBuilder.add(bindings.size());
+
+      writeEntry(argsBuilder, firstBinding, initializeFactoryForBinding(
+          firstBinding, contributionFields, memberSelectSnippets));
+      while (iterator.hasNext()) {
+        ProvisionBinding binding = iterator.next();
+        writeEntry(argsBuilder, binding, initializeFactoryForBinding(
+            binding, contributionFields, memberSelectSnippets));
+      }
+
+      return Snippet.format(snippetFormatBuilder.toString(),
+          argsBuilder.toArray(new Object[0]));
+    }
+  }
+
   // add one map entry for map Provider in Constructor
-  private void writeEntry(ConstructorWriter constructorWriter, ProvisionBinding binding,
+  private void writeEntry(List<Object> argsBuilder, ProvisionBinding binding,
       Snippet factory) {
     AnnotationMirror mapKeyAnnotationMirror =
         Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
@@ -489,12 +572,13 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       for (Snippet snippet : annotationValueNames) {
         snippets.add(snippet);
       }
-      constructorWriter.body().addSnippet("    .put(%sCreator.create(%s),%n         %s)",
+      argsBuilder.add(Snippet.format("%sCreator.create(%s)",
           TypeNames.forTypeMirror(mapKeyAnnotationMirror.getAnnotationType()),
-          Snippet.makeParametersSnippet(snippets.build()), factory);
+          Snippet.makeParametersSnippet(snippets.build())));
+      argsBuilder.add(factory);
     } else { // unwrapped key case
-      constructorWriter.body().addSnippet("    .put(%s, %s)",
-          getValueSnippet(Iterables.getOnlyElement(map.entrySet()).getValue()), factory);
+      argsBuilder.add(Iterables.getOnlyElement(map.entrySet()).getValue());
+      argsBuilder.add(factory);
     }
   }
 
