@@ -1507,7 +1507,7 @@ public class ComponentProcessorTest {
         .and().generatesSources(generatedComponent);
   }
 
-  @Test public void simpleComponent_redundantCompoentMethod() {
+  @Test public void simpleComponent_redundantComponentMethod() {
     JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
         "package test;",
         "",
@@ -1602,6 +1602,106 @@ public class ComponentProcessorTest {
         "}");
     assert_().about(javaSources()).that(ImmutableList.of(
             injectableTypeFile, componentSupertypeAFile, componentSupertypeBFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(generatedComponent);
+  }
+
+  @Test public void simpleComponent_inheritedComponentMethodDep() {
+    JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class SomeInjectableType {",
+        "  @Inject SomeInjectableType() {}",
+        "}");
+    JavaFileObject componentSupertype = JavaFileObjects.forSourceLines("test.Supertype",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface Supertype {",
+        "  SomeInjectableType someInjectableType();",
+        "}");
+    JavaFileObject depComponentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent extends Supertype {",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.ComponentWithDep",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component(dependencies = SimpleComponent.class)",
+        "interface ComponentWithDep {",
+        "  SomeInjectableType someInjectableType();",
+        "}");
+    JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
+        "test.Dagger_SimpleComponent",
+        "package test;",
+        "",
+        "import javax.annotation.Generated;",
+        "import javax.inject.Provider;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class Dagger_SimpleComponent implements SimpleComponent {",
+        "  private final Object initLock = new Object();",
+        "  private volatile Provider<SomeInjectableType> someInjectableTypeProvider;",
+        "",
+        "  private Dagger_SimpleComponent(Builder builder) {  ",
+        "    assert builder != null;",
+        "  }",
+        "",
+        "  public static Builder builder() {  ",
+        "    return new Builder();",
+        "  }",
+        "",
+        "  public static SimpleComponent create() {  ",
+        "    return builder().build();",
+        "  }",
+        "",
+        "  private void initializeSomeInjectableTypeProvider() {  ",
+        "    if (someInjectableTypeProvider == null) {",
+        "      synchronized (initLock) {",
+        "        if (someInjectableTypeProvider == null) {",
+        "          this.someInjectableTypeProvider = new SomeInjectableType$$Factory();",
+        "        }",
+        "      }",
+        "    }",
+        "  }",
+        "",
+        "  @Override",
+        "  public SomeInjectableType someInjectableType() {  ",
+        "    initializeSomeInjectableTypeProvider();",
+        "    return someInjectableTypeProvider.get();",
+        "  }",
+        "",
+        "  public static final class Builder {",
+        "    private Builder() {  ",
+        "    }",
+        "  ",
+        "    public SimpleComponent build() {  ",
+        "      return new Dagger_SimpleComponent(this);",
+        "    }",
+        "  }",
+        "}");
+    assert_().about(javaSources()).that(ImmutableList.of(
+            injectableTypeFile, componentSupertype, depComponentFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);

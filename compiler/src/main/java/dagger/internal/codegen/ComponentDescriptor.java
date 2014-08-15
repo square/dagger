@@ -72,9 +72,16 @@ abstract class ComponentDescriptor {
   abstract TypeElement componentDefinitionType();
 
   /**
-   *  The set of component dependencies listed in {@link Component#dependencies}.
+   * The set of component dependencies listed in {@link Component#dependencies}.
    */
   abstract ImmutableSet<TypeElement> dependencies();
+
+  /**
+   * An index of the type to which this component holds a reference (the type listed in
+   * {@link Component#dependencies} as opposed to the enclosing type) for each method from a
+   * component dependency that can be used for binding.
+   */
+  abstract ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex();
 
   /**
    * The list of {@link DependencyRequest} instances whose sources are methods on the component
@@ -154,14 +161,16 @@ abstract class ComponentDescriptor {
       ProvisionBinding componentBinding =
           provisionBindingFactory.forComponent(componentDefinitionType);
 
-      ImmutableSetMultimap.Builder<Key, ProvisionBinding> bindingIndexBuilder =
+      ImmutableSetMultimap.Builder<Key, ProvisionBinding> explicitBindingIndexBuilder =
           new ImmutableSetMultimap.Builder<Key, ProvisionBinding>()
               .put(componentBinding.providedKey(), componentBinding);
+      ImmutableMap.Builder<ExecutableElement, TypeElement> dependencyMethodIndex =
+          ImmutableMap.builder();
 
       for (TypeElement componentDependency : componentDependencyTypes) {
         ProvisionBinding componentDependencyBinding =
             provisionBindingFactory.forComponent(componentDependency);
-        bindingIndexBuilder.put(
+        explicitBindingIndexBuilder.put(
             componentDependencyBinding.providedKey(), componentDependencyBinding);
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
@@ -169,7 +178,9 @@ abstract class ComponentDescriptor {
           if (isComponentProvisionMethod(dependencyMethod)) {
             ProvisionBinding componentMethodBinding =
                 provisionBindingFactory.forComponentMethod(dependencyMethod);
-            bindingIndexBuilder.put(componentMethodBinding.providedKey(), componentMethodBinding);
+            explicitBindingIndexBuilder
+                .put(componentMethodBinding.providedKey(), componentMethodBinding);
+            dependencyMethodIndex.put(dependencyMethod, componentDependency);
           }
         }
       }
@@ -182,12 +193,14 @@ abstract class ComponentDescriptor {
           if (isAnnotationPresent(moduleMethod, Provides.class)) {
             ProvisionBinding providesMethodBinding =
                 provisionBindingFactory.forProvidesMethod(moduleMethod);
-            bindingIndexBuilder.put(providesMethodBinding.providedKey(), providesMethodBinding);
+            explicitBindingIndexBuilder
+                .put(providesMethodBinding.providedKey(), providesMethodBinding);
           }
         }
       }
 
-      ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings = bindingIndexBuilder.build();
+      ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings =
+          explicitBindingIndexBuilder.build();
 
       Set<MethodSignature> interfaceMethods = Sets.newHashSet();
 
@@ -250,6 +263,7 @@ abstract class ComponentDescriptor {
       return new AutoValue_ComponentDescriptor(
           componentDefinitionType,
           componentDependencyTypes,
+          dependencyMethodIndex.build(),
           interfaceRequests,
           transitiveModules,
           resolvedProvisionBindings.build(),

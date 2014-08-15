@@ -334,8 +334,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           case SET_BINDING:
             ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
             for (ProvisionBinding binding : bindings) {
-              setFactoryParameters.add(initializeFactoryForBinding(
-                  binding, componentContributionFields, memberSelectSnippets));
+              setFactoryParameters.add(initializeFactoryForBinding(binding,
+                  input.dependencyMethodIndex(), componentContributionFields,
+                  memberSelectSnippets));
             }
             Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
                 ClassName.fromClass(SetFactory.class),
@@ -346,7 +347,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           case MAP_BINDING:
             if (!bindings.isEmpty()) {
               Snippet initializeMapSnippet =
-                  initializeMapBinding(componentContributionFields, memberSelectSnippets, bindings);
+                  initializeMapBinding(componentContributionFields, input.dependencyMethodIndex(),
+                      memberSelectSnippets, bindings);
               initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
                   memberSelectSnippet, initializeMapSnippet, initLock.name());
 
@@ -356,8 +358,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             ProvisionBinding binding = Iterables.getOnlyElement(bindings);
             initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
                 memberSelectSnippet,
-                initializeFactoryForBinding(
-                    binding, componentContributionFields, memberSelectSnippets),
+                initializeFactoryForBinding(binding, input.dependencyMethodIndex(),
+                    componentContributionFields, memberSelectSnippets),
                 initLock.name());
             break;
           default:
@@ -431,6 +433,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   private Snippet initializeFactoryForBinding(ProvisionBinding binding,
+      ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
       Map<TypeElement, FieldWriter> contributionFields,
       ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
     if (binding.bindingKind().equals(COMPONENT)) {
@@ -446,7 +449,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           "}"),
           ClassName.fromClass(Factory.class),
           TypeNames.forTypeMirror(binding.providedKey().type()),
-          contributionFields.get(binding.bindingTypeElement()).name(),
+          contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
           binding.bindingElement().getSimpleName().toString());
     } else {
       List<Snippet> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
@@ -509,6 +512,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
   private Snippet initializeMapBinding(
       Map<TypeElement, FieldWriter> contributionFields,
+      ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
       ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets,
       Set<ProvisionBinding> bindings) {
     Iterator<ProvisionBinding> iterator = bindings.iterator();
@@ -537,11 +541,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       argsBuilder.add(bindings.size());
 
       writeEntry(argsBuilder, firstBinding, initializeFactoryForBinding(
-          firstBinding, contributionFields, memberSelectSnippets));
+          firstBinding, dependencyMethodIndex, contributionFields, memberSelectSnippets));
       while (iterator.hasNext()) {
         ProvisionBinding binding = iterator.next();
         writeEntry(argsBuilder, binding, initializeFactoryForBinding(
-            binding, contributionFields, memberSelectSnippets));
+            binding, dependencyMethodIndex, contributionFields, memberSelectSnippets));
       }
 
       return Snippet.format(snippetFormatBuilder.toString(),
