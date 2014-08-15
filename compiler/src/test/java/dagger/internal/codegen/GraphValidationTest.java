@@ -55,8 +55,57 @@ public class GraphValidationTest {
     assert_().about(javaSources()).that(Arrays.asList(component, injectable, nonInjectable))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining("test.Bar cannot be provided without an @Inject constructor")
+        .withErrorContaining("test.Bar cannot be provided without an @Provides-annotated method.")
             .in(component).onLine(7);
+  }
+
+  @Test public void componentProvisionWithNoDependencyChain() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "final class TestClass {",
+        "  interface A {}",
+        "",
+        "  @Component()",
+        "  interface AComponent {",
+        "    A getA();",
+        "  }",
+        "}");
+    String expectedError =
+        "test.TestClass.A cannot be provided without an @Provides-annotated method.";
+    assert_().about(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError).in(component).onLine(10);
+  }
+
+  @Test public void constructorInjectionWithoutAnnotation() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "final class TestClass {",
+        "  static class A {",
+        "    A() {}",
+        "  }",
+        "",
+        "  @Component()",
+        "  interface AComponent {",
+        "    A getA();",
+        "  }",
+        "}");
+    String expectedError = "test.TestClass.A cannot be provided without an "
+        + "@Inject constructor or from an @Provides-annotated method.";
+    assert_().about(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError).in(component).onLine(15);
   }
 
   @Test public void membersInjectWithoutProvision() {
@@ -171,8 +220,8 @@ public class GraphValidationTest {
         "    C injectC(C c);",
         "  }",
         "}");
-    String errorText = "test.TestClass.A cannot be provided without "
-        + "an @Inject constructor or from an @Provides-annotated method.\n";
+    String errorText =
+        "test.TestClass.A cannot be provided without an @Provides-annotated method.\n";
     String firstError = errorText
         + "      test.TestClass.DModule.d(test.TestClass.DImpl impl)\n"
         + "          [parameter: test.TestClass.DImpl impl]\n"

@@ -135,6 +135,9 @@ final class ErrorMessages {
   static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT =
       "%s cannot be provided without an @Inject constructor or from an @Provides-annotated method.";
 
+  static final String REQUIRES_PROVIDER_FORMAT =
+      "%s cannot be provided without an @Provides-annotated method.";
+
   static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
       "This type supports members injection but cannot be implicitly provided.";
 

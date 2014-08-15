@@ -38,19 +38,24 @@ import java.util.Queue;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static javax.lang.model.type.TypeKind.VOID;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
@@ -328,10 +333,31 @@ public class GraphValidator implements Validator<TypeElement> {
       DependencyRequest rootRequest, Deque<DependencyRequest> dependencyPath) {
     Optional<ProvisionBinding> binding = bindingRegistry.getOrFindProvisionBinding(key);
     if (!binding.isPresent()) {
-      TypeElement type = (TypeElement) types.asElement(key.type());
-      StringBuilder errorMessage = new StringBuilder(
-          String.format(ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT,
-              type.getQualifiedName()));
+      TypeMirror type = key.type();
+      Name typeName = MoreElements.asType(types.asElement(type)).getQualifiedName();
+      boolean requiresProvidesMethod = type.accept(new SimpleTypeVisitor6<Boolean, Void>() {
+        @Override protected Boolean defaultAction(TypeMirror e, Void p) {
+          return true;
+        }
+
+        @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
+          // Note - this logic is also in InjectConstructorValidator but is woven into errors.
+          TypeElement typeElement = MoreElements.asType(type.asElement());
+          if (typeElement.getTypeParameters().isEmpty()
+              && typeElement.getKind().equals(ElementKind.CLASS)
+              && !typeElement.getModifiers().contains(Modifier.ABSTRACT)) {
+            return false;
+          }
+          return true;
+        }
+      }, null);
+      StringBuilder errorMessage = new StringBuilder();
+      if(requiresProvidesMethod) {
+        errorMessage.append(String.format(REQUIRES_PROVIDER_FORMAT, typeName));
+      } else {
+        errorMessage.append(
+            String.format(REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT, typeName));
+      }
       if (!bindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites().isEmpty()) {
         errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
       }
