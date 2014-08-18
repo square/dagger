@@ -351,7 +351,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                       memberSelectSnippets, bindings);
               initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
                   memberSelectSnippet, initializeMapSnippet, initLock.name());
-
             }
             break;
           case SINGULAR_BINDING:

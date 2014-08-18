@@ -358,7 +358,8 @@ public class GraphValidator implements Validator<TypeElement> {
         errorMessage.append(
             String.format(REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT, typeName));
       }
-      if (!bindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites().isEmpty()) {
+      if (!key.qualifier().isPresent()
+          && !bindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites().isEmpty()) {
         errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
       }
       dependencyPath = Queues.newArrayDeque(dependencyPath); // copy
@@ -378,16 +379,20 @@ public class GraphValidator implements Validator<TypeElement> {
     return MoreElements.isAnnotationPresent(types.asElement(type), Component.class);
   }
 
-  private static boolean isComponentProvisionMethod(ExecutableElement method) {
+  private boolean isComponentProvisionMethod(ExecutableElement method) {
     return method.getParameters().isEmpty()
-        && !method.getReturnType().getKind().equals(VOID);
+        && !method.getReturnType().getKind().equals(VOID)
+        && !elements.getTypeElement(Object.class.getCanonicalName())
+            .equals(method.getEnclosingElement());
   }
 
-  private static boolean isComponentMembersInjectionMethod(ExecutableElement method) {
+  private boolean isComponentMembersInjectionMethod(ExecutableElement method) {
     List<? extends VariableElement> parameters = method.getParameters();
     TypeMirror returnType = method.getReturnType();
     return parameters.size() == 1
         && (returnType.getKind().equals(VOID)
-            || MoreTypes.equivalence().equivalent(returnType, parameters.get(0).asType()));
+            || MoreTypes.equivalence().equivalent(returnType, parameters.get(0).asType()))
+        && !elements.getTypeElement(Object.class.getCanonicalName())
+            .equals(method.getEnclosingElement());
   }
 }

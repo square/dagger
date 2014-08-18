@@ -119,7 +119,9 @@ final class InjectBindingRegistry {
 
   Optional<ProvisionBinding> getOrFindProvisionBinding(Key key) {
     checkNotNull(key);
-    checkArgument(!key.qualifier().isPresent());
+    if (key.qualifier().isPresent()) {
+      return Optional.absent();
+    }
     Optional<ProvisionBinding> binding = Optional.fromNullable(provisionBindingsByKey.get(key));
     if (binding.isPresent()) {
       return binding;
