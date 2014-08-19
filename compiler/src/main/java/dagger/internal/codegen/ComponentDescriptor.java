@@ -275,7 +275,7 @@ abstract class ComponentDescriptor {
         ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings,
         SetMultimap<FrameworkKey, Binding> resolvedBindings,
         ImmutableSetMultimap.Builder<Key, ProvisionBinding> resolvedProvisionsBindingBuilder,
-        ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersIjectionBindingsBuilder)
+        ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersInjectionBindingsBuilder)
             throws SourceFileGenerationException {
       FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(request);
       Key requestKey = request.key();
@@ -299,7 +299,7 @@ abstract class ComponentDescriptor {
                   provisionBindingFactory.forImplicitMapBinding(request, implicitRequest);
               resolveRequest(Iterables.getOnlyElement(implicitBinding.dependencies()),
                   explicitBindings, resolvedBindings, resolvedProvisionsBindingBuilder,
-                  resolvedMembersIjectionBindingsBuilder);
+                  resolvedMembersInjectionBindingsBuilder);
               resolvedBindings.put(frameworkKey, implicitBinding);
               resolvedProvisionsBindingBuilder.put(request.key(), implicitBinding);
             } else {
@@ -314,7 +314,7 @@ abstract class ComponentDescriptor {
                   provisionBinding.get().dependencies(),
                   provisionBinding.get().memberInjectionRequest().asSet())) {
                 resolveRequest(dependency, explicitBindings, resolvedBindings,
-                    resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+                    resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
               }
               resolvedBindings.put(frameworkKey, provisionBinding.get());
               resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
@@ -324,7 +324,7 @@ abstract class ComponentDescriptor {
             for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
               for (DependencyRequest dependency : explicitBinding.dependencies()) {
                 resolveRequest(dependency, explicitBindings, resolvedBindings,
-                    resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+                    resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
               }
             }
             resolvedBindings.putAll(frameworkKey, explicitBindingsForKey);
@@ -340,10 +340,10 @@ abstract class ComponentDescriptor {
               membersInjectionBinding.dependencies(),
               membersInjectionBinding.parentInjectorRequest().asSet())) {
             resolveRequest(dependency, explicitBindings, resolvedBindings,
-                resolvedProvisionsBindingBuilder, resolvedMembersIjectionBindingsBuilder);
+                resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
           }
           resolvedBindings.put(frameworkKey, membersInjectionBinding);
-          resolvedMembersIjectionBindingsBuilder.put(requestKey, membersInjectionBinding);
+          resolvedMembersInjectionBindingsBuilder.put(requestKey, membersInjectionBinding);
           break;
         default:
           throw new AssertionError();
