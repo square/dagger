@@ -172,7 +172,7 @@ final class InjectBindingRegistry {
 
   MembersInjectionBinding getOrFindMembersInjectionBinding(Key key) {
     checkNotNull(key);
-    checkArgument(!key.qualifier().isPresent());
+    checkArgument(key.isValidMembersInjectionKey());
     MembersInjectionBinding binding = membersInjectionBindingsByKey.get(key);
     if (binding == null) {
       TypeElement element = MoreElements.asType(types.asElement(key.type()));

@@ -129,7 +129,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     }
 
     ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(ImmutableSet.copyOf(binding.dependencies()));
+        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+            ImmutableSet.copyOf(binding.dependencies()));
 
     ImmutableMap.Builder<FrameworkKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
@@ -161,8 +162,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         case FIELD:
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
-          FieldWriter singleField = depedencyFields.get(FrameworkKey.forDependencyRequest(
-              fieldDependency));
+          FieldWriter singleField = depedencyFields.get(fieldDependency.frameworkKey());
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
               frameworkTypeUsageStatement(Snippet.format(singleField.name()),
@@ -170,11 +170,11 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           break;
         case METHOD:
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-          for (DependencyRequest methodDependnecy : injectionSite.dependencies()) {
+          for (DependencyRequest methodDependency : injectionSite.dependencies()) {
             FieldWriter field =
-            depedencyFields.get(FrameworkKey.forDependencyRequest(methodDependnecy));
+            depedencyFields.get(methodDependency.frameworkKey());
             parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
-                methodDependnecy.kind()));
+                methodDependency.kind()));
           }
           injectMembersWriter.body().addSnippet("instance.%s(%s);",
               injectionSite.element().getSimpleName(),

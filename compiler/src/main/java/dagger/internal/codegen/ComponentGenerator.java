@@ -387,7 +387,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
               requestElement.getSimpleName().toString());
       interfaceMethod.annotate(Override.class);
       interfaceMethod.addModifiers(PUBLIC);
-      FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(interfaceRequest);
+      FrameworkKey frameworkKey = interfaceRequest.frameworkKey();
       interfaceMethod.body().addSnippet("%s();", initializeMethodNames.get(frameworkKey));
       if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
         Snippet membersInjectorName = memberSelectSnippets.get(frameworkKey);
@@ -424,7 +424,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             return input.implicitDependencies();
           }
         })
-        .transform(FrameworkKey.REQUEST_TO_FRAMEWORK_KEY)
+        .transform(new Function<DependencyRequest, FrameworkKey>() {
+          @Override public FrameworkKey apply(DependencyRequest input) {
+            return input.frameworkKey();
+          }
+        })
         .toSet();
     for (FrameworkKey dependencyKey: dependencyKeys) {
       methodWriter.body().addSnippet("%s();", initializeMethodNames.get(dependencyKey));
@@ -457,7 +461,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
       if (binding.memberInjectionRequest().isPresent()) {
         Snippet snippet = memberSelectSnippets.get(
-            FrameworkKey.forDependencyRequest(binding.memberInjectionRequest().get()));
+            binding.memberInjectionRequest().get().frameworkKey());
         if (snippet != null) {
           parameters.add(snippet);
         } else {
@@ -485,7 +489,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
             memberSelectSnippets.get(
-                FrameworkKey.forDependencyRequest(parentInjectorRequest)));
+                parentInjectorRequest.frameworkKey()));
       } else {
         return Snippet.format("%s.noOp()",
             ClassName.fromClass(MembersInjectors.class));
@@ -504,7 +508,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (DependencyRequest dependency : dependencies) {
-      parameters.add(memberSelectSnippets.get(FrameworkKey.forDependencyRequest(dependency)));
+      parameters.add(memberSelectSnippets.get(dependency.frameworkKey()));
     }
     return parameters.build();
   }
@@ -520,8 +524,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     if (isNonProviderMap(firstBinding)) {
       return Snippet.format("%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(FrameworkKey.forDependencyRequest(
-              Iterables.getOnlyElement(firstBinding.dependencies()))));
+          memberSelectSnippets.get(Iterables.getOnlyElement(firstBinding.dependencies())
+              .frameworkKey()));
     } else {
       DeclaredType declaredMapType =
           Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());

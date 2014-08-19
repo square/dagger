@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import dagger.MapKey;
-
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
@@ -24,6 +22,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
+import dagger.MapKey;
 import dagger.Provides;
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +36,9 @@ import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
@@ -83,6 +84,16 @@ abstract class Key {
 
   TypeMirror type() {
     return wrappedType().get();
+  }
+
+  boolean isValidMembersInjectionKey() {
+    return !qualifier().isPresent()
+        && type().accept(new SimpleTypeVisitor6<Boolean, Void>(false) {
+          @Override
+          public Boolean visitDeclared(DeclaredType t, Void p) {
+            return t.getTypeArguments().isEmpty();
+          }
+        }, null);
   }
 
   @Override
