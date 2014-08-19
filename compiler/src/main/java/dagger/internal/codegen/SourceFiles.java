@@ -146,7 +146,7 @@ class SourceFiles {
             .orderValuesBy(DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
       dependenciesByKeyBuilder.put(
-          FrameworkKey.forDependencyRequest(dependency), dependency);
+          dependency.frameworkKey(), dependency);
     }
     ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey =
         dependenciesByKeyBuilder.build();

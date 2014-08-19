@@ -65,6 +65,24 @@ abstract class DependencyRequest {
   abstract Key key();
   abstract Element requestElement();
 
+  FrameworkKey frameworkKey() {
+    final Class<?> frameworkClass;
+    switch (kind()) {
+      case INSTANCE:
+      case LAZY:
+      case PROVIDER:
+        frameworkClass = Provider.class;
+        break;
+      case MEMBERS_INJECTOR:
+        checkArgument(key().isValidMembersInjectionKey());
+        frameworkClass = MembersInjector.class;
+        break;
+      default:
+        throw new AssertionError();
+    }
+    return FrameworkKey.create(this.key(), frameworkClass);
+  }
+
   static final class Factory {
     private final Elements elements;
     private final Types types;
@@ -86,7 +104,7 @@ abstract class DependencyRequest {
           })
           .toSet();
     }
-    
+
     /**
      * Creates a DependencyRequest for implictMapBinding, this request's key will be
      * {@code Map<K, Provider<V>>}, this DependencyRequest is depended by the DependencyRequest

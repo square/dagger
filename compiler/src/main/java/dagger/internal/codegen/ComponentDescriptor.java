@@ -277,7 +277,7 @@ abstract class ComponentDescriptor {
         ImmutableSetMultimap.Builder<Key, ProvisionBinding> resolvedProvisionsBindingBuilder,
         ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersInjectionBindingsBuilder)
             throws SourceFileGenerationException {
-      FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(request);
+      FrameworkKey frameworkKey = request.frameworkKey();
       Key requestKey = request.key();
       if (resolvedBindings.containsKey(frameworkKey)) {
         return;

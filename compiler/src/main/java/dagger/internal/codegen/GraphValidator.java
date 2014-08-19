@@ -212,7 +212,7 @@ public class GraphValidator implements Validator<TypeElement> {
       Deque<FrameworkKey> cycleStack,
       Deque<DependencyRequest> dependencyPath) {
 
-    FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(request);
+    FrameworkKey frameworkKey = request.frameworkKey();
     if (cycleStack.contains(frameworkKey) && !isComponent(frameworkKey.key().type())) {
       resolvedBindings.add(frameworkKey); // it's present, but bad, and we report that.
       dependencyPath = Queues.newArrayDeque(dependencyPath); // copy
@@ -358,7 +358,7 @@ public class GraphValidator implements Validator<TypeElement> {
         errorMessage.append(
             String.format(REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT, typeName));
       }
-      if (!key.qualifier().isPresent()
+      if (key.isValidMembersInjectionKey()
           && !bindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites().isEmpty()) {
         errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
       }

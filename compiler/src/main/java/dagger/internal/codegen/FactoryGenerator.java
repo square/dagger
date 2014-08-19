@@ -160,7 +160,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          Snippet.format(names.get(FrameworkKey.forDependencyRequest(dependency))),
+          Snippet.format(names.get(dependency.frameworkKey())),
           dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);

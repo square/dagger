@@ -16,11 +16,9 @@
 package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import dagger.MembersInjector;
 import javax.inject.Provider;
-
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * A value object that pairs a {@link Key} with a framework class (e.g.: {@link Provider},
@@ -31,30 +29,8 @@ import static com.google.common.base.Preconditions.checkArgument;
  */
 @AutoValue
 abstract class FrameworkKey {
-  static final Function<DependencyRequest, FrameworkKey> REQUEST_TO_FRAMEWORK_KEY =
-      new Function<DependencyRequest, FrameworkKey>() {
-        @Override public FrameworkKey apply(DependencyRequest input) {
-          return forDependencyRequest(input);
-        }
-      };
-
-  // TODO(gak): maybe just put this on DependencyRequest?
-  static FrameworkKey forDependencyRequest(DependencyRequest dependencyRequest) {
-    final Class<?> frameworkClass;
-    switch (dependencyRequest.kind()) {
-      case INSTANCE:
-      case LAZY:
-      case PROVIDER:
-        frameworkClass = Provider.class;
-        break;
-      case MEMBERS_INJECTOR:
-        checkArgument(!dependencyRequest.key().qualifier().isPresent());
-        frameworkClass = MembersInjector.class;
-        break;
-      default:
-        throw new AssertionError();
-    }
-    return new AutoValue_FrameworkKey(dependencyRequest.key(), frameworkClass);
+  static FrameworkKey create(Key key, Class<?> frameworkClass) {
+    return new AutoValue_FrameworkKey(checkNotNull(key), checkNotNull(frameworkClass));
   }
 
   static FrameworkKey forProvisionBinding(ProvisionBinding binding) {
