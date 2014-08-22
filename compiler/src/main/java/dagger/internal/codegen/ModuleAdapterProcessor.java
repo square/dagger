@@ -213,7 +213,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
       TypeElement moduleType = (TypeElement) module;
 
       // Verify that all modules do not extend from non-Object types.
-      if (!moduleType.getSuperclass().equals(objectType)) {
+      if (!types.isSameType(moduleType.getSuperclass(), objectType)) {
         error("Modules must not extend from other classes: " + elementToString(module), module);
       }
 
