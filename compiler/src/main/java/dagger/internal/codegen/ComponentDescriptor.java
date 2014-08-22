@@ -29,6 +29,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import dagger.Component;
+import dagger.MembersInjector;
 import dagger.Module;
 import dagger.Provides;
 import java.util.Deque;
@@ -109,7 +110,14 @@ abstract class ComponentDescriptor {
    */
   abstract ImmutableMap<Key, MembersInjectionBinding> resolvedMembersInjectionBindings();
 
+  /** The package in which each {@link FrameworkKey} initialization must happen.  */
   abstract ImmutableSetMultimap<String, FrameworkKey> initializationByPackage();
+
+  /**
+   * The ordering of {@link FrameworkKey keys} that will allow all of the {@link Factory} and
+   * {@link MembersInjector} implementations to initialize properly.
+   */
+  abstract ImmutableList<FrameworkKey> initializationOrdering();
 
   static final class Factory {
     private final Elements elements;
@@ -268,7 +276,8 @@ abstract class ComponentDescriptor {
           transitiveModules,
           resolvedProvisionBindings.build(),
           resolvedMembersInjectionBindings.build(),
-          initializationByPackageBuilder.build());
+          initializationByPackageBuilder.build(),
+          ImmutableList.copyOf(resolvedBindings.keySet()));
     }
 
     private void resolveRequest(DependencyRequest request,
