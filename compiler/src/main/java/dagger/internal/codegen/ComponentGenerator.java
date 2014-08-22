@@ -15,7 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -91,7 +90,6 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.element.Modifier.VOLATILE;
 import static javax.lang.model.type.TypeKind.VOID;
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
@@ -122,16 +120,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     return Optional.of(input.componentDefinitionType());
   }
 
-  // TODO(gak): consider a single-check variant for cases where we know that it's safe
-  private static final String DOUBLE_CHECK_FORMAT = Joiner.on('\n').join(
-      "if (%1$s == null) {",
-      "  synchronized (%3$s) {",
-      "    if (%1$s == null) {",
-      "      this.%1$s = %2$s;",
-      "    }",
-      "  }",
-      "}");
-
   @Override
   ImmutableSet<JavaWriter> write(ClassName componentName, ComponentDescriptor input) {
     ClassName componentDefinitionTypeName =
@@ -142,11 +130,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
     componentWriter.addModifiers(PUBLIC, FINAL);
     componentWriter.addImplementedType(componentDefinitionTypeName);
-
-    // TODO(gak): there's not actually an reason that we need all initialization on the same lock
-    FieldWriter initLock = componentWriter.addField(Object.class, "initLock");
-    initLock.addModifiers(PRIVATE, FINAL);
-    initLock.setInitializer("new %s()", ClassName.fromClass(Object.class));
 
     ClassWriter builderWriter = componentWriter.addNestedClass("Builder");
     builderWriter.addModifiers(PUBLIC, STATIC, FINAL);
@@ -232,8 +215,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
     ImmutableMap.Builder<FrameworkKey, Snippet> memberSelectSnippetsBuilder =
         ImmutableMap.builder();
-    ImmutableMap.Builder<FrameworkKey, String> initializeMethodNamesBuilder =
-        ImmutableMap.builder();
 
     for (Entry<String, Set<FrameworkKey>> packageEntry :
         Multimaps.asMap(input.initializationByPackage()).entrySet()) {
@@ -288,7 +269,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
         FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
         frameworkField.addModifiers(fieldModifiers);
-        frameworkField.addModifiers(VOLATILE);
 
         ImmutableList<String> memberSelectTokens = new ImmutableList.Builder<String>()
             .addAll(proxySelector.asSet())
@@ -296,12 +276,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             .build();
         memberSelectSnippetsBuilder.put(frameworkKey,
             Snippet.memberSelectSnippet(memberSelectTokens));
-        String memberSelectTokensAsString = Joiner.on('_').join(memberSelectTokens);
-        initializeMethodNamesBuilder.put(frameworkKey, "initialize"
-            + new StringBuilder(memberSelectTokensAsString.length())
-                .append(Ascii.toUpperCase(memberSelectTokensAsString.charAt(0)))
-                .append(memberSelectTokensAsString.substring(1))
-                .toString());
       }
     }
 
@@ -315,67 +289,64 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     }
 
     ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
-    ImmutableMap<FrameworkKey, String> initializeMethodNames = initializeMethodNamesBuilder.build();
 
-    for (FrameworkKey frameworkKey : input.initializationByPackage().values()) {
-      Key key = frameworkKey.key();
-      Snippet memberSelectSnippet = memberSelectSnippets.get(frameworkKey);
-      String initializeMethodName = initializeMethodNames.get(frameworkKey);
-
+    List<List<FrameworkKey>> partitions = Lists.partition(input.initializationOrdering(), 100);
+    for (int i = 0; i < partitions.size(); i++) {
       MethodWriter initializeMethod =
-          componentWriter.addMethod(VoidName.VOID, initializeMethodName);
+          componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
       initializeMethod.addModifiers(PRIVATE);
+      constructorWriter.body().addSnippet("%s();", initializeMethod.name());
 
-      if (frameworkKey.frameworkClass().equals(Provider.class)) {
-        Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
-        initializeDependenciesForBinding(initializeMethodNames, initializeMethod, bindings);
-        BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
-        switch (bindingsType) {
-          case SET_BINDING:
-            ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
-            for (ProvisionBinding binding : bindings) {
-              setFactoryParameters.add(initializeFactoryForBinding(binding,
-                  input.dependencyMethodIndex(), componentContributionFields,
+      for (FrameworkKey frameworkKey : partitions.get(i)) {
+        Key key = frameworkKey.key();
+        Snippet memberSelectSnippet = memberSelectSnippets.get(frameworkKey);
+
+        if (frameworkKey.frameworkClass().equals(Provider.class)) {
+          Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
+          BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
+          switch (bindingsType) {
+            case SET_BINDING:
+              ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
+              for (ProvisionBinding binding : bindings) {
+                setFactoryParameters.add(initializeFactoryForBinding(binding,
+                    input.dependencyMethodIndex(), componentContributionFields,
+                    memberSelectSnippets));
+              }
+              Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
+                  ClassName.fromClass(SetFactory.class),
+                  Snippet.makeParametersSnippet(setFactoryParameters.build()));
+              initializeMethod.body().addSnippet("this.%s = %s;",
+                  memberSelectSnippet, initializeSetSnippet);
+              break;
+            case MAP_BINDING:
+              if (!bindings.isEmpty()) {
+                Snippet initializeMapSnippet =
+                    initializeMapBinding(componentContributionFields, input.dependencyMethodIndex(),
+                        memberSelectSnippets, bindings);
+                initializeMethod.body().addSnippet("this.%s = %s;",
+                    memberSelectSnippet, initializeMapSnippet);
+              }
+              break;
+            case SINGULAR_BINDING:
+              ProvisionBinding binding = Iterables.getOnlyElement(bindings);
+              initializeMethod.body().addSnippet("this.%s = %s;",
+                  memberSelectSnippet,
+                  initializeFactoryForBinding(binding, input.dependencyMethodIndex(),
+                      componentContributionFields, memberSelectSnippets));
+              break;
+            default:
+              throw new IllegalStateException();
+          }
+        } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
+          MembersInjectionBinding binding = resolvedMembersInjectionBindings.get(key);
+          initializeMethod.body().addSnippet("this.%s = %s;",
+              memberSelectSnippet,
+              initializeMembersInjectorForBinding(binding,
                   memberSelectSnippets));
-            }
-            Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
-                ClassName.fromClass(SetFactory.class),
-                Snippet.makeParametersSnippet(setFactoryParameters.build()));
-            initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
-                memberSelectSnippet, initializeSetSnippet, initLock.name());
-            break;
-          case MAP_BINDING:
-            if (!bindings.isEmpty()) {
-              Snippet initializeMapSnippet =
-                  initializeMapBinding(componentContributionFields, input.dependencyMethodIndex(),
-                      memberSelectSnippets, bindings);
-              initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
-                  memberSelectSnippet, initializeMapSnippet, initLock.name());
-            }
-            break;
-          case SINGULAR_BINDING:
-            ProvisionBinding binding = Iterables.getOnlyElement(bindings);
-            initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
-                memberSelectSnippet,
-                initializeFactoryForBinding(binding, input.dependencyMethodIndex(),
-                    componentContributionFields, memberSelectSnippets),
-                initLock.name());
-            break;
-          default:
-            throw new IllegalStateException();
+        } else {
+          throw new IllegalStateException(
+              "unknown framework class: " + frameworkKey.frameworkClass());
         }
-      } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
-        MembersInjectionBinding binding = resolvedMembersInjectionBindings.get(key);
-        initializeDependenciesForBinding(initializeMethodNames, initializeMethod,
-            ImmutableList.of(binding));
-        initializeMethod.body().addSnippet(DOUBLE_CHECK_FORMAT,
-            memberSelectSnippet,
-            initializeMembersInjectorForBinding(binding,
-                memberSelectSnippets),
-            initLock.name());
-      } else {
-        throw new IllegalStateException(
-            "unknown framework class: " + frameworkKey.frameworkClass());
       }
     }
 
@@ -383,12 +354,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       ExecutableElement requestElement = (ExecutableElement) interfaceRequest.requestElement();
       MethodWriter interfaceMethod = requestElement.getReturnType().getKind().equals(VOID)
           ? componentWriter.addMethod(VoidName.VOID, requestElement.getSimpleName().toString())
-          : componentWriter.addMethod(requestElement.getReturnType(),
-              requestElement.getSimpleName().toString());
+              : componentWriter.addMethod(requestElement.getReturnType(),
+                  requestElement.getSimpleName().toString());
       interfaceMethod.annotate(Override.class);
       interfaceMethod.addModifiers(PUBLIC);
       FrameworkKey frameworkKey = interfaceRequest.frameworkKey();
-      interfaceMethod.body().addSnippet("%s();", initializeMethodNames.get(frameworkKey));
       if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
         Snippet membersInjectorName = memberSelectSnippets.get(frameworkKey);
         VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
@@ -396,7 +366,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         interfaceMethod.addParameter(
             TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
         interfaceMethod.body()
-            .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
+        .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
         if (!requestElement.getReturnType().getKind().equals(VOID)) {
           interfaceMethod.body().addSnippet("return %s;", parameterName);
         }
@@ -411,28 +381,6 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         .addAll(packageProxies.build())
         .add(writer)
         .build();
-  }
-
-  // TODO(gak): integrate this into the DCL structure to avoid some superfluous (albeit cheap) null
-  // checks
-  private void initializeDependenciesForBinding(
-      ImmutableMap<FrameworkKey, String> initializeMethodNames, MethodWriter methodWriter,
-      Iterable<? extends Binding> bindings) {
-    ImmutableSet<FrameworkKey> dependencyKeys = FluentIterable.from(bindings)
-        .transformAndConcat(new Function<Binding, Iterable<DependencyRequest>>() {
-          @Override public Iterable<DependencyRequest> apply(Binding input) {
-            return input.implicitDependencies();
-          }
-        })
-        .transform(new Function<DependencyRequest, FrameworkKey>() {
-          @Override public FrameworkKey apply(DependencyRequest input) {
-            return input.frameworkKey();
-          }
-        })
-        .toSet();
-    for (FrameworkKey dependencyKey: dependencyKeys) {
-      methodWriter.body().addSnippet("%s();", initializeMethodNames.get(dependencyKey));
-    }
   }
 
   private Snippet initializeFactoryForBinding(ProvisionBinding binding,
