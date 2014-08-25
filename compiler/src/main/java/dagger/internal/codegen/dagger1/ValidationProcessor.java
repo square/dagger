@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import com.google.auto.service.AutoService;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
+import dagger.internal.codegen.dagger1.Util.CodeGenerationIncompleteException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -41,7 +41,7 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static dagger.internal.codegen.Util.elementToString;
+import static dagger.internal.codegen.dagger1.Util.elementToString;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.METHOD;
 import static javax.lang.model.element.Modifier.ABSTRACT;

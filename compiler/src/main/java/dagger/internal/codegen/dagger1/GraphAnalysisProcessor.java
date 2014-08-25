@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import com.google.auto.service.AutoService;
 import dagger.Module;
@@ -25,7 +25,7 @@ import dagger.internal.Linker;
 import dagger.internal.ProblemDetector;
 import dagger.internal.ProvidesBinding;
 import dagger.internal.SetBinding;
-import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
+import dagger.internal.codegen.dagger1.Util.CodeGenerationIncompleteException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -61,10 +61,10 @@ import javax.tools.StandardLocation;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
-import static dagger.internal.codegen.Util.className;
-import static dagger.internal.codegen.Util.getAnnotation;
-import static dagger.internal.codegen.Util.getPackage;
-import static dagger.internal.codegen.Util.isInterface;
+import static dagger.internal.codegen.dagger1.Util.className;
+import static dagger.internal.codegen.dagger1.Util.getAnnotation;
+import static dagger.internal.codegen.dagger1.Util.getPackage;
+import static dagger.internal.codegen.dagger1.Util.isInterface;
 import static java.util.Arrays.asList;
 
 /**

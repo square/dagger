@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import com.google.auto.service.AutoService;
 import com.squareup.javawriter.JavaWriter;
@@ -26,7 +26,7 @@ import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
 import dagger.internal.ProvidesBinding;
 import dagger.internal.SetBinding;
-import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
+import dagger.internal.codegen.dagger1.Util.CodeGenerationIncompleteException;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -64,15 +64,15 @@ import javax.tools.JavaFileObject;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
-import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
-import static dagger.internal.codegen.Util.adapterName;
-import static dagger.internal.codegen.Util.elementToString;
-import static dagger.internal.codegen.Util.getAnnotation;
-import static dagger.internal.codegen.Util.getNoArgsConstructor;
-import static dagger.internal.codegen.Util.getPackage;
-import static dagger.internal.codegen.Util.isCallableConstructor;
-import static dagger.internal.codegen.Util.isInterface;
-import static dagger.internal.codegen.Util.typeToString;
+import static dagger.internal.codegen.dagger1.AdapterJavadocs.bindingTypeDocs;
+import static dagger.internal.codegen.dagger1.Util.adapterName;
+import static dagger.internal.codegen.dagger1.Util.elementToString;
+import static dagger.internal.codegen.dagger1.Util.getAnnotation;
+import static dagger.internal.codegen.dagger1.Util.getNoArgsConstructor;
+import static dagger.internal.codegen.dagger1.Util.getPackage;
+import static dagger.internal.codegen.dagger1.Util.isCallableConstructor;
+import static dagger.internal.codegen.dagger1.Util.isInterface;
+import static dagger.internal.codegen.dagger1.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.MODULE_ADAPTER_SUFFIX;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;

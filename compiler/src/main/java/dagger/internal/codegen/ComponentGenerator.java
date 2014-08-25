@@ -66,6 +66,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -197,7 +198,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           .addSnippet("}")
           .addSnippet("this.%s = %s;", builderField.name(), contributionName)
           .addSnippet("return this;");
-      if (Util.getNoArgsConstructor(contributionElement) == null) {
+      if (getNoArgsConstructor(contributionElement) == null) {
         requiresBuilder = true;
         buildMethod.body()
             .addSnippet("if (%s == null) {", builderField.name())
@@ -602,5 +603,18 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       return true;
     }
     return false;
+  }
+
+  private ExecutableElement getNoArgsConstructor(TypeElement type) {
+    for (Element enclosed : type.getEnclosedElements()) {
+      if (enclosed.getKind() != ElementKind.CONSTRUCTOR) {
+        continue;
+      }
+      ExecutableElement constructor = (ExecutableElement) enclosed;
+      if (constructor.getParameters().isEmpty()) {
+        return constructor;
+      }
+    }
+    return null;
   }
 }

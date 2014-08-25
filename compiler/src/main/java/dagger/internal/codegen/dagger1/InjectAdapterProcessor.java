@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import com.google.auto.common.SuperficialValidation;
 import com.google.auto.service.AutoService;
@@ -50,14 +50,14 @@ import javax.tools.JavaFileObject;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.Keys.isPlatformType;
-import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
-import static dagger.internal.codegen.Util.adapterName;
-import static dagger.internal.codegen.Util.elementToString;
-import static dagger.internal.codegen.Util.getNoArgsConstructor;
-import static dagger.internal.codegen.Util.getPackage;
-import static dagger.internal.codegen.Util.isCallableConstructor;
-import static dagger.internal.codegen.Util.rawTypeToString;
-import static dagger.internal.codegen.Util.typeToString;
+import static dagger.internal.codegen.dagger1.AdapterJavadocs.bindingTypeDocs;
+import static dagger.internal.codegen.dagger1.Util.adapterName;
+import static dagger.internal.codegen.dagger1.Util.elementToString;
+import static dagger.internal.codegen.dagger1.Util.getNoArgsConstructor;
+import static dagger.internal.codegen.dagger1.Util.getPackage;
+import static dagger.internal.codegen.dagger1.Util.isCallableConstructor;
+import static dagger.internal.codegen.dagger1.Util.rawTypeToString;
+import static dagger.internal.codegen.dagger1.Util.typeToString;
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
 import static javax.lang.model.element.Modifier.ABSTRACT;
