@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.tests.integration;
+package dagger.tests.integration.dagger1;
 
-import dagger.internal.codegen.GraphAnalysisProcessor;
-import dagger.internal.codegen.InjectAdapterProcessor;
-import dagger.internal.codegen.ModuleAdapterProcessor;
-import dagger.internal.codegen.ValidationProcessor;
+import dagger.internal.codegen.dagger1.GraphAnalysisProcessor;
+import dagger.internal.codegen.dagger1.InjectAdapterProcessor;
+import dagger.internal.codegen.dagger1.ModuleAdapterProcessor;
+import dagger.internal.codegen.dagger1.ValidationProcessor;
 import java.util.Arrays;
 import javax.annotation.processing.Processor;
 

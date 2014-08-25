@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.tests.integration.codegen;
+package dagger.tests.integration.codegen.dagger1;
 
 import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
-import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
+import static dagger.tests.integration.dagger1.ProcessorTestUtils.daggerProcessors;
 
 @RunWith(JUnit4.class)
 public final class InjectAdapterGenerationTest {

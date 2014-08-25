@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import java.util.List;
 import java.util.Map;
@@ -25,8 +25,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
-import static dagger.internal.codegen.Util.rawTypeToString;
-import static dagger.internal.codegen.Util.typeToString;
+import static dagger.internal.codegen.dagger1.Util.rawTypeToString;
+import static dagger.internal.codegen.dagger1.Util.typeToString;
 
 /**
  * Creates keys using javac's mirror APIs. Unlike {@code Keys}, this class uses

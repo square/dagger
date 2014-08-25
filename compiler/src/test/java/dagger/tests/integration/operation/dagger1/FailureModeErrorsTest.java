@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.tests.integration.operation;
+package dagger.tests.integration.operation.dagger1;
 
 import dagger.Module;
 import dagger.ObjectGraph;
@@ -49,7 +49,7 @@ public final class FailureModeErrorsTest {
       assertThat(e.getMessage()).contains(
           "java.lang.String[] is a generic class or an array and can only be bound with "
               + "concrete type parameter(s) in a @Provides method. required by class "
-              + "dagger.tests.integration.operation.FailureModeErrorsTest$ArrayFoo");
+              + FailureModeErrorsTest.class.getCanonicalName() + "$ArrayFoo");
     }
   }
 
@@ -68,9 +68,10 @@ public final class FailureModeErrorsTest {
       fail("Should have thrown.");
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()).contains(
-          "@dagger.tests.integration.operation.FailureModeErrorsTest$MyFoo()/java.lang.String "
+          "@" + FailureModeErrorsTest.class.getCanonicalName() + "$MyFoo()/java.lang.String "
               + "is a @Qualifier-annotated type and must be bound by a @Provides method. required "
-              + "by class dagger.tests.integration.operation.FailureModeErrorsTest$QualifyingFoo");
+              + "by class "
+              + FailureModeErrorsTest.class.getCanonicalName() + "$QualifyingFoo");
     }
   }
 }

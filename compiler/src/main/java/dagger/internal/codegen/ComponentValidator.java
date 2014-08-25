@@ -61,8 +61,8 @@ final class ComponentValidator implements Validator<TypeElement> {
     for (TypeMirror moduleType : moduleTypes) {
       moduleType.accept(new SimpleTypeVisitor6<Void, Void>() {
         @Override
-        protected Void defaultAction(TypeMirror e, Void p) {
-          builder.addItem(Util.typeToString(e) + " is not a valid module type.", subject);
+        protected Void defaultAction(TypeMirror mirror, Void p) {
+          builder.addItem(mirror + " is not a valid module type.", subject);
           return null;
         }
 

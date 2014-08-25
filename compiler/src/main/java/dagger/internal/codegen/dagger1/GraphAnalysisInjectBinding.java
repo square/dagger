@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import dagger.internal.Binding;
 import dagger.internal.Linker;
@@ -31,7 +31,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static dagger.internal.codegen.Util.getApplicationSupertype;
+import static dagger.internal.codegen.dagger1.Util.getApplicationSupertype;
 
 /**
  * A build time binding that injects the constructor and fields of a class.

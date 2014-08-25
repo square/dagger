@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package dagger.internal.codegen.dagger1;
 
 import dagger.internal.Linker;
 import dagger.internal.StaticInjection;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 
-import static dagger.internal.codegen.Util.isStatic;
+import static dagger.internal.codegen.dagger1.Util.isStatic;
 
 public final class GraphAnalysisStaticInjection extends StaticInjection {
 

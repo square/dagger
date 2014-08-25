@@ -37,7 +37,7 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMET
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
 
 @RunWith(JUnit4.class)
-public class ModuleProcessorTest {
+public class ModuleFactoryGeneratorTest {
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject
 

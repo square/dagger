@@ -40,7 +40,7 @@ import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
 
 @RunWith(JUnit4.class)
 // TODO(gak): add tests for generation in the default package.
-public final class InjectProcessorTest {
+public final class InjectConstructorFactoryGeneratorTest {
   private static final JavaFileObject QUALIFIER_A =
       JavaFileObjects.forSourceLines("test.QualifierA",
           "package test;",
