@@ -6,6 +6,7 @@ jdk:
   - openjdk7
 
 before_install:
+  - sudo apt-get update -qq
   - sudo apt-get install -qq libstdc++6:i386 lib32z1
   - export COMPONENTS=build-tools-19.0.1,android-16
   - curl -L https://raw.github.com/embarkmobile/android-sdk-installer/version-1/android-sdk-installer | bash /dev/stdin --install=$COMPONENTS
