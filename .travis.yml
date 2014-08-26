@@ -1,15 +1,16 @@
-language: java
+language: android
 
 jdk:
   - oraclejdk8
   - oraclejdk7
   - openjdk7
 
-before_install:
-  - sudo apt-get install -qq libstdc++6:i386 lib32z1
-  - export COMPONENTS=build-tools-19.0.1,android-16
-  - curl -L https://raw.github.com/embarkmobile/android-sdk-installer/version-1/android-sdk-installer | bash /dev/stdin --install=$COMPONENTS
-  - source ~/.android-sdk-installer/env
+android:
+  components:
+    - build-tools-20.0.0
+    - android-16
+  licenses:
+    - android-sdk-license-5be876d5
 
 install: mvn install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
 
