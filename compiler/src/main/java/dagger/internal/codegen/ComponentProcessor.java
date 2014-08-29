@@ -72,7 +72,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
     InjectFieldValidator injectFieldValidator = new InjectFieldValidator();
     InjectMethodValidator injectMethodValidator = new InjectMethodValidator();
-    ModuleValidator moduleValidator = new ModuleValidator();
+    ModuleValidator moduleValidator = new ModuleValidator(elements, types);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator = new ComponentValidator(elements);
     MapKeyValidator mapKeyValidator = new MapKeyValidator();

@@ -66,7 +66,6 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -87,11 +86,15 @@ import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateMembersInjectorNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.generateProviderNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.NestingKind.MEMBER;
+import static javax.lang.model.element.NestingKind.TOP_LEVEL;
 import static javax.lang.model.type.TypeKind.VOID;
+
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
  *
@@ -198,18 +201,18 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           .addSnippet("}")
           .addSnippet("this.%s = %s;", builderField.name(), contributionName)
           .addSnippet("return this;");
-      if (getNoArgsConstructor(contributionElement) == null) {
+      if (hasNoArgsConstructor(contributionElement)) {
+        buildMethod.body()
+            .addSnippet("if (%s == null) {", builderField.name())
+            .addSnippet("  this.%s = new %s();",
+                builderField.name(), ClassName.fromTypeElement(contributionElement))
+            .addSnippet("}");
+      } else {
         requiresBuilder = true;
         buildMethod.body()
             .addSnippet("if (%s == null) {", builderField.name())
             .addSnippet("  throw new IllegalStateException(\"%s must be set\");",
                 builderField.name())
-            .addSnippet("}");
-      } else {
-        buildMethod.body()
-            .addSnippet("if (%s == null) {", builderField.name())
-            .addSnippet("  this.%s = new %s();",
-                builderField.name(), ClassName.fromTypeElement(contributionElement))
             .addSnippet("}");
       }
     }
@@ -605,16 +608,17 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     return false;
   }
 
-  private ExecutableElement getNoArgsConstructor(TypeElement type) {
-    for (Element enclosed : type.getEnclosedElements()) {
-      if (enclosed.getKind() != ElementKind.CONSTRUCTOR) {
-        continue;
-      }
-      ExecutableElement constructor = (ExecutableElement) enclosed;
-      if (constructor.getParameters().isEmpty()) {
-        return constructor;
+  private boolean hasNoArgsConstructor(TypeElement type) {
+    if (type.getNestingKind().equals(TOP_LEVEL)
+        || type.getNestingKind().equals(MEMBER) && type.getModifiers().contains(STATIC)) {
+      for (Element enclosed : type.getEnclosedElements()) {
+        if (enclosed.getKind().equals(CONSTRUCTOR)) {
+          if (((ExecutableElement) enclosed).getParameters().isEmpty()) {
+            return true;
+          }
+        }
       }
     }
-    return null;
+    return false;
   }
 }

@@ -515,4 +515,92 @@ public class ModuleFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
   }
+
+  @Test
+  public void privateModule() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.Enclosing",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "final class Enclosing {",
+        "  @Module private static final class PrivateModule {",
+        "  }",
+        "}");
+    assert_().about(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Modules cannot be private.")
+        .in(moduleFile).onLine(6);
+  }
+
+  @Test
+  public void enclosedInPrivateModule() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.Enclosing",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "final class Enclosing {",
+        "  private static final class PrivateEnclosing {",
+        "    @Module static final class TestModule {",
+        "    }",
+        "  }",
+        "}");
+    assert_().about(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Modules cannot be enclosed in private types.")
+        .in(moduleFile).onLine(7);
+  }
+
+  @Test
+  public void publicModuleNonPublicIncludes() {
+    JavaFileObject publicModuleFile = JavaFileObjects.forSourceLines("test.PublicModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = {",
+        "    NonPublicModule1.class, OtherPublicModule.class, NonPublicModule2.class",
+        "})",
+        "public final class PublicModule {",
+        "}");
+    JavaFileObject nonPublicModule1File = JavaFileObjects.forSourceLines("test.NonPublicModule1",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "final class NonPublicModule1 {",
+        "}");
+    JavaFileObject nonPublicModule2File = JavaFileObjects.forSourceLines("test.NonPublicModule2",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "final class NonPublicModule2 {",
+        "}");
+    JavaFileObject otherPublicModuleFile = JavaFileObjects.forSourceLines("test.OtherPublicModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "public final class OtherPublicModule {",
+        "}");
+    assert_().about(javaSources())
+        .that(ImmutableList.of(
+            publicModuleFile, nonPublicModule1File, nonPublicModule2File, otherPublicModuleFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("This module is public, but it includes non-public "
+            + "(or effectively non-public) modules. "
+            + "Either reduce the visibility of this module or make "
+            + "test.NonPublicModule1 and test.NonPublicModule2 public.")
+        .in(publicModuleFile).onLine(8);
+  }
 }

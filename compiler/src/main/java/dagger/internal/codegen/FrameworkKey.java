@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.value.AutoValue;
 import dagger.MembersInjector;
 import javax.inject.Provider;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**

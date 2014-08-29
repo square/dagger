@@ -30,14 +30,11 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.MembersInjector;
-import dagger.Module;
 import dagger.Provides;
 import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -53,6 +50,7 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -136,26 +134,6 @@ abstract class ComponentDescriptor {
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
 
-    private ImmutableSet<TypeElement> getTransitiveModules(ImmutableSet<TypeElement> seedModules) {
-      Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
-      LinkedHashSet<TypeElement> moduleElements = Sets.newLinkedHashSet();
-      for (TypeElement moduleElement = moduleQueue.poll();
-          moduleElement != null;
-          moduleElement = moduleQueue.poll()) {
-        moduleElements.add(moduleElement);
-        AnnotationMirror moduleMirror =
-            getAnnotationMirror(moduleElement, Module.class).get();
-        ImmutableSet<TypeElement> moduleDependencies = MoreTypes.asTypeElements(types,
-            ConfigurationAnnotations.getModuleIncludes(elements, moduleMirror));
-        for (TypeElement dependencyType : moduleDependencies) {
-          if (!moduleElements.contains(dependencyType)) {
-            moduleQueue.add(dependencyType);
-          }
-        }
-      }
-      return ImmutableSet.copyOf(moduleElements);
-    }
-
     ComponentDescriptor create(TypeElement componentDefinitionType)
         throws SourceFileGenerationException {
       AnnotationMirror componentMirror =
@@ -164,7 +142,8 @@ abstract class ComponentDescriptor {
           ConfigurationAnnotations.getComponentModules(elements, componentMirror));
       ImmutableSet<TypeElement> componentDependencyTypes = MoreTypes.asTypeElements(types,
           ConfigurationAnnotations.getComponentDependencies(elements, componentMirror));
-      ImmutableSet<TypeElement> transitiveModules = getTransitiveModules(moduleTypes);
+      ImmutableSet<TypeElement> transitiveModules =
+          getTransitiveModules(elements, types, moduleTypes);
 
       ProvisionBinding componentBinding =
           provisionBindingFactory.forComponent(componentDefinitionType);
