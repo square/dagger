@@ -25,16 +25,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Queues;
-import com.google.common.collect.Sets;
 import dagger.Component;
-import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.ValidationReport.Builder;
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -54,6 +51,7 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
+import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static javax.lang.model.type.TypeKind.VOID;
@@ -92,28 +90,6 @@ public class GraphValidator implements Validator<TypeElement> {
     return reportBuilder.build();
   }
 
-  private ImmutableSet<TypeElement> getTransitiveModules(ImmutableSet<TypeElement> seedModules) {
-    // TODO(user): Detect and report module cycles.
-    Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
-    LinkedHashSet<TypeElement> moduleElements = Sets.newLinkedHashSet();
-    for (TypeElement moduleElement = moduleQueue.poll();
-        moduleElement != null;
-        moduleElement = moduleQueue.poll()) {
-      moduleElements.add(moduleElement);
-      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class);
-      if (moduleMirror.isPresent()) {
-        ImmutableSet<TypeElement> moduleDependencies = MoreTypes.asTypeElements(types,
-            ConfigurationAnnotations.getModuleIncludes(elements, moduleMirror.get()));
-        for (TypeElement dependencyType : moduleDependencies) {
-          if (!moduleElements.contains(dependencyType)) {
-            moduleQueue.add(dependencyType);
-          }
-        }
-      }
-    }
-    return ImmutableSet.copyOf(moduleElements);
-  }
-
   void validateGraph(TypeElement component,
       ValidationReport.Builder<TypeElement> reportBuilder) {
     AnnotationMirror componentMirror =
@@ -145,7 +121,8 @@ public class GraphValidator implements Validator<TypeElement> {
     // Collect transitive modules provisions.
     ImmutableSet<TypeElement> moduleTypes =
         MoreTypes.asTypeElements(types, getComponentModules(elements, componentMirror));
-    for (TypeElement module : getTransitiveModules(moduleTypes)) {
+
+    for (TypeElement module : getTransitiveModules(elements, types, moduleTypes)) {
       // traverse the modules, collect the bindings
       List<ExecutableElement> moduleMethods = methodsIn(elements.getAllMembers(module));
       for (ExecutableElement moduleMethod : moduleMethods) {
