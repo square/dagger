@@ -60,7 +60,7 @@ abstract class Key {
    * for the type of this key.
    *
    * Despite documentation in {@link AnnotationMirror}, equals and hashCode aren't implemented
-   * to represent logical equality, so {@link MoreTypes#annotationMirrorEquivalence()}
+   * to represent logical equality, so {@link AnnotationMirrors#equivalence()}
    * provides this facility.
    */
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedQualifier();
@@ -192,6 +192,29 @@ abstract class Key {
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
       return new AutoValue_Key(rewrap(qualifier), MoreTypes.equivalence().wrap(normalize(type)));
+    }
+
+    /**
+     * Optionally extract a {@link Key} for the underlying provision binding(s) if such a
+     * valid key can be inferred from the given key.  Specifically, if the key represents a 
+     * {@link Map}{@code <K, V>}, a key of {@code Map<K, Provider<V>>} will be returned.
+     */
+    Optional<Key> implicitMapProviderKeyFrom(Key possibleMapKey) {
+      if (Util.isTypeOf(Map.class, possibleMapKey.type(), elements, types)) {
+        DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(possibleMapKey.type());
+        TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
+        if (!Util.isTypeOf(Provider.class, mapValueType, elements, types)) {
+          TypeMirror keyType =
+              Util.getKeyTypeOfMap((DeclaredType) (possibleMapKey.wrappedType().get()));
+          TypeMirror valueType = types.getDeclaredType(
+              elements.getTypeElement(Provider.class.getCanonicalName()), mapValueType);
+          TypeMirror mapType = types.getDeclaredType(
+              elements.getTypeElement(Map.class.getCanonicalName()), keyType, valueType);
+          return Optional.<Key>of(new AutoValue_Key(possibleMapKey.wrappedQualifier(),
+              MoreTypes.equivalence().wrap(mapType)));
+        }
+      }
+      return Optional.absent();
     }
 
     private Optional<Equivalence.Wrapper<AnnotationMirror>>

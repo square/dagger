@@ -127,7 +127,11 @@ final class AnnotationMirrors {
     values.putAll(annotation.getElementValues());
     return values;
   }
-  
+
+  /**
+   * Returns all {@linkplain AnnotationMirror annotations} that are present on the given
+   * {@link Element} which are themselves annotated with {@code annotationType}.
+   */
   static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,
       final Class<? extends Annotation> annotationType) {
     List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();

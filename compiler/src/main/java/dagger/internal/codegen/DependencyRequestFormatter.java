@@ -28,6 +28,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.SimpleElementVisitor6;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ErrorMessages.INDENT;
 
 /**
  * Formats a {@link DependencyRequest} into a {@link String} suitable for an error message listing
@@ -38,7 +39,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  */
 final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
   private static final DependencyRequestFormatter INSTANCE = new DependencyRequestFormatter();
-  private static final String INDENT = "    ";
 
   static DependencyRequestFormatter instance() {
     return INSTANCE;

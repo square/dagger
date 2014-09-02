@@ -33,16 +33,12 @@ import dagger.MembersInjector;
 import dagger.Provides;
 import java.util.Deque;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -121,17 +117,21 @@ abstract class ComponentDescriptor {
     private final Elements elements;
     private final Types types;
     private final InjectBindingRegistry injectBindingRegistry;
+    private final Key.Factory keyFactory;
     private final ProvisionBinding.Factory provisionBindingFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Elements elements, Types types, InjectBindingRegistry injectBindingRegistry,
-        ProvisionBinding.Factory provisionBindingFactory,
-        DependencyRequest.Factory dependencyRequestFactory) {
+    Factory(Elements elements, Types types,
+        InjectBindingRegistry injectBindingRegistry,
+        DependencyRequest.Factory dependencyRequestFactory,
+        Key.Factory keyFactory,
+        ProvisionBinding.Factory provisionBindingFactory) {
       this.elements = elements;
       this.types = types;
       this.injectBindingRegistry = injectBindingRegistry;
-      this.provisionBindingFactory = provisionBindingFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
+      this.keyFactory = keyFactory;
+      this.provisionBindingFactory = provisionBindingFactory;
     }
 
     ComponentDescriptor create(TypeElement componentDefinitionType)
@@ -279,7 +279,7 @@ abstract class ComponentDescriptor {
               explicitBindings.get(requestKey);
           if (explicitBindingsForKey.isEmpty()) {
             // If the key is Map<K, V>, get its implicit binding key which is Map<K, Provider<V>>
-            Optional<Key> key = findMapKey(request);
+            Optional<Key> key = keyFactory.implicitMapProviderKeyFrom(request.key());
             if (key.isPresent()) {
               DependencyRequest implicitRequest =
                   dependencyRequestFactory.forImplicitMapBinding(request, key.get());
@@ -337,24 +337,6 @@ abstract class ComponentDescriptor {
           throw new AssertionError();
       }
 
-    }
-
-    private Optional<Key> findMapKey(final DependencyRequest request) {
-      if (Util.isTypeOf(Map.class, request.key().type(), elements, types)) {
-        DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(request.key().type());
-        TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
-        if (!Util.isTypeOf(Provider.class, mapValueType, elements, types)) {
-          TypeMirror keyType =
-              Util.getKeyTypeOfMap((DeclaredType) (request.key().wrappedType().get()));
-          TypeMirror valueType = types.getDeclaredType(
-              elements.getTypeElement(Provider.class.getCanonicalName()), mapValueType);
-          TypeMirror mapType = types.getDeclaredType(
-              elements.getTypeElement(Map.class.getCanonicalName()), keyType, valueType);
-          return Optional.of((Key) new AutoValue_Key(request.key().wrappedQualifier(),
-              MoreTypes.equivalence().wrap(mapType)));
-        }
-      }
-      return Optional.absent();
     }
 
     private static boolean isComponentProvisionMethod(ExecutableElement method) {

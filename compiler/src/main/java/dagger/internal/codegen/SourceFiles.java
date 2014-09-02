@@ -32,7 +32,7 @@ import com.google.common.collect.SetMultimap;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.internal.DoubleCheckLazy;
-import dagger.internal.codegen.ProvisionBinding.BindingsType;
+import dagger.internal.codegen.ProvisionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.Snippet;
@@ -186,17 +186,17 @@ class SourceFiles {
     ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
     for (Entry<Key, Collection<ProvisionBinding>> entry : bindings.asMap().entrySet()) {
       Collection<ProvisionBinding> bindingsForKey = entry.getValue();
-      BindingsType bindingsType = ProvisionBinding.getBindingsType(bindingsForKey);
+      BindingType bindingsType = ProvisionBinding.bindingTypeFor(bindingsForKey);
       switch (bindingsType) {
-        case SET_BINDING:
+        case SET:
           providerNames.put(entry.getKey(),
               new KeyVariableNamer().apply(entry.getKey()) + "Provider");
           break;
-        case MAP_BINDING:
+        case MAP:
           providerNames.put(entry.getKey(),
               new KeyVariableNamer().apply(entry.getKey()) + "Provider");
           break;
-        case SINGULAR_BINDING:
+        case UNIQUE:
           ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
           providerNames.put(entry.getKey(),
               binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {

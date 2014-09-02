@@ -98,11 +98,11 @@ public final class ComponentProcessor extends AbstractProcessor {
 
     ComponentDescriptor.Factory componentDescriptorFactory =
         new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
-            provisionBindingFactory, dependencyRequestFactory);
+            dependencyRequestFactory, keyFactory, provisionBindingFactory);
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
 
-    GraphValidator graphValidator = new GraphValidator(elements, types, dependencyRequestFactory,
-        provisionBindingFactory, injectBindingRegistry);
+    GraphValidator graphValidator = new GraphValidator(elements, types, injectBindingRegistry,
+        dependencyRequestFactory, keyFactory, provisionBindingFactory);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(

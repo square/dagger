@@ -40,7 +40,7 @@ import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
-import dagger.internal.codegen.ProvisionBinding.BindingsType;
+import dagger.internal.codegen.ProvisionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -307,9 +307,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
         if (frameworkKey.frameworkClass().equals(Provider.class)) {
           Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
-          BindingsType bindingsType = ProvisionBinding.getBindingsType(bindings);
+          BindingType bindingsType = ProvisionBinding.bindingTypeFor(bindings);
           switch (bindingsType) {
-            case SET_BINDING:
+            case SET:
               ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
               for (ProvisionBinding binding : bindings) {
                 setFactoryParameters.add(initializeFactoryForBinding(binding,
@@ -322,7 +322,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
               initializeMethod.body().addSnippet("this.%s = %s;",
                   memberSelectSnippet, initializeSetSnippet);
               break;
-            case MAP_BINDING:
+            case MAP:
               if (!bindings.isEmpty()) {
                 Snippet initializeMapSnippet =
                     initializeMapBinding(componentContributionFields, input.dependencyMethodIndex(),
@@ -331,7 +331,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                     memberSelectSnippet, initializeMapSnippet);
               }
               break;
-            case SINGULAR_BINDING:
+            case UNIQUE:
               ProvisionBinding binding = Iterables.getOnlyElement(bindings);
               initializeMethod.body().addSnippet("this.%s = %s;",
                   memberSelectSnippet,
