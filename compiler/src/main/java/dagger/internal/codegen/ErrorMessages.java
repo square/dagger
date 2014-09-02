@@ -23,6 +23,11 @@ package dagger.internal.codegen;
  */
 final class ErrorMessages {
   /*
+   * Common constants.
+   */
+  static final String INDENT = "    ";
+
+  /*
    * JSR-330 errors
    *
    * These are errors that are explicitly outlined in the JSR-330 APIs
@@ -82,6 +87,9 @@ final class ErrorMessages {
    * These are errors that relate specifically to the Dagger configuration API (@Module, @Provides,
    * etc.)
    */
+  static final String DUPLICATE_BINDINGS_FOR_KEY_FORMAT =
+      "%s is bound multiple times:";
+
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
 
@@ -123,14 +131,11 @@ final class ErrorMessages {
       "Map key annotation does not have fields";
 
   /* collection binding errors */
-  static final String NON_SETBINDING =
-      "More than one binding present including at least a set binding and a non-set binding";
+  static final String MULTIPLE_BINDING_TYPES_FORMAT =
+      "More than one binding present of different types %s";
 
-  static final String NON_MAPBINDING =
-      "More than one binding present including at least a map binding and a non-map binding";
-
-  static final String INVALID_COLLECTIONBINDING =
-      "More than one binding present, but found an invalid binding";
+  static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
+      "%s has incompatible bindings:\n";
 
   static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT =
       "%s cannot be provided without an @Inject constructor or from an @Provides-annotated method.";

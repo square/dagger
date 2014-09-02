@@ -39,6 +39,7 @@ abstract class Formatter<T> implements Function<T, String> {
    *
    * @deprecated Override {@link #format(T)} instead.
    */
+  @SuppressWarnings("javadoc")
   @Deprecated
   @Override final public String apply(T object) {
     return format(object);

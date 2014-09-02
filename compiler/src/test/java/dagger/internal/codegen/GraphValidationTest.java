@@ -182,6 +182,160 @@ public class GraphValidationTest {
         .withErrorContaining(expectedError).in(component).onLine(23);
   }
 
+  @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "final class Outer {",
+        "  interface A {}",
+        "",
+        "  interface B {}",
+        "",
+        "  @Module",
+        "  static class AModule {",
+        "    @Provides String provideString() { return \"\"; }",
+        "    @Provides A provideA(String s) { return new A() {}; }",
+        "  }",
+        "",
+        "  @Component(modules = AModule.class)",
+        "  interface Parent {",
+        "    A getA();",
+        "  }",
+        "",
+        "  @Module",
+        "  static class BModule {",
+        "    @Provides B provideB(A a) { return new B() {}; }",
+        "  }",
+        "",
+        "  @Component(dependencies = Parent.class, modules = { BModule.class, AModule.class})",
+        "  interface Child {",
+        "    B getB();",
+        "  }",
+        "}");
+
+    String expectedError = "test.Outer.A is bound multiple times:\n"
+        + "      test.Outer.Parent.getA()\n"
+        + "      test.Outer.AModule.provideA(java.lang.String)";
+
+    assert_().about(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError).in(component).onLine(30);
+  }
+
+  @Test public void duplicateExplicitBindings_TwoProvidesMethods() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "final class Outer {",
+        "  interface A {}",
+        "",
+        "  @Module",
+        "  static class Module1 {",
+        "    @Provides A provideA1() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module2 {",
+        "    @Provides String provideString() { return \"\"; }",
+        "    @Provides A provideA2(String s) { return new A() {}; }",
+        "  }",
+        "",
+        "  @Component(modules = { Module1.class, Module2.class})",
+        "  interface TestComponent {",
+        "    A getA();",
+        "  }",
+        "}");
+
+    String expectedError = "test.Outer.A is bound multiple times:\n"
+        + "      test.Outer.Module1.provideA1()\n"
+        + "      test.Outer.Module2.provideA2(java.lang.String)";
+
+    assert_().about(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError).in(component).onLine(24);
+  }
+
+  @Test public void duplicateExplicitBindings_MultipleProvisionTypes() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.MapKey;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import dagger.MapKey;",
+        "import java.util.HashMap;",
+        "import java.util.HashSet;",
+        "import java.util.Map;",
+        "import java.util.Set;",
+        "",
+        "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+        "import static dagger.Provides.Type.MAP;",
+        "import static dagger.Provides.Type.SET;",
+        "",
+        "final class Outer {",
+        "  @MapKey(unwrapValue = true)",
+        "  @interface StringKey {",
+        "    String value();",
+        "  }",
+        "",
+        "  @Module",
+        "  static class TestModule1 {",
+        "    @Provides(type = MAP)",
+        "    @StringKey(\"foo\")",
+        "    String provideStringMapEntry() { return \"\"; }",
+        "",
+        "    @Provides(type = SET) String provideStringSetElement() { return \"\"; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class TestModule2 {",
+        "    @Provides Set<String> provideStringSet() { return new HashSet<String>(); }",
+        "",
+        "    @Provides Map<String, String> provideStringMap() {",
+        "      return new HashMap<String, String>();",
+        "    }",
+        "  }",
+        "",
+        "  @Component(modules = { TestModule1.class, TestModule2.class })",
+        "  interface TestComponent {",
+        "    Set<String> getStringSet();",
+        "    Map<String, String> getStringMap();",
+        "  }",
+        "}");
+
+    String expectedSetError =
+        "java.util.Set<java.lang.String> has incompatible bindings:\n"
+            + "      Set bindings:\n"
+            + "          test.Outer.TestModule1.provideStringSetElement()\n"
+            + "      Unique bindings:\n"
+            + "          test.Outer.TestModule2.provideStringSet()";
+
+    String expectedMapError =
+        "java.util.Map<java.lang.String,java.lang.String> has incompatible bindings:\n"
+            + "      Map bindings:\n"
+            + "          test.Outer.TestModule1.provideStringMapEntry()\n"
+            + "      Unique bindings:\n"
+            + "          test.Outer.TestModule2.provideStringMap()";
+
+    assert_().about(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedSetError).in(component).onLine(43)
+        .and().withErrorContaining(expectedMapError).in(component).onLine(44);
+  }
+
   @Test public void longChainOfDependencies() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
         "package test;",

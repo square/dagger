@@ -21,19 +21,22 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Queues;
 import dagger.Component;
 import dagger.Provides;
+import dagger.internal.codegen.ProvisionBinding.BindingType;
 import dagger.internal.codegen.ValidationReport.Builder;
 import java.util.Deque;
+import java.util.Formatter;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -50,8 +53,10 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
+import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static javax.lang.model.type.TypeKind.VOID;
@@ -66,21 +71,24 @@ import static javax.lang.model.util.ElementFilter.methodsIn;
 public class GraphValidator implements Validator<TypeElement> {
   private final Elements elements;
   private final Types types;
-  private final DependencyRequest.Factory dependencyRequestFactory;
-  private final ProvisionBinding.Factory provisionBindingFactory;
   private final InjectBindingRegistry bindingRegistry;
+  private final DependencyRequest.Factory dependencyRequestFactory;
+  private final Key.Factory keyFactory;
+  private final ProvisionBinding.Factory provisionBindingFactory;
 
   GraphValidator(
       Elements elements,
       Types types,
+      InjectBindingRegistry bindingRegistry,
       DependencyRequest.Factory dependencyRequestFactory,
-      ProvisionBinding.Factory provisionBindingFactory,
-      InjectBindingRegistry bindingRegistry) {
+      Key.Factory keyFactory,
+      ProvisionBinding.Factory provisionBindingFactory) {
     this.elements = elements;
     this.types = types;
-    this.provisionBindingFactory = provisionBindingFactory;
-    this.dependencyRequestFactory = dependencyRequestFactory;
     this.bindingRegistry = bindingRegistry;
+    this.dependencyRequestFactory = dependencyRequestFactory;
+    this.keyFactory = keyFactory;
+    this.provisionBindingFactory = provisionBindingFactory;
   }
 
   @Override
@@ -225,7 +233,7 @@ public class GraphValidator implements Validator<TypeElement> {
           ImmutableSet<ProvisionBinding> explicitBindingsForKey = explicitBindings.get(requestKey);
           if (explicitBindingsForKey.isEmpty()) {
             // If the key is Map<K, V>, get its implicit binding key which is Map<K, Provider<V>>
-            Optional<Key> key = findMapKey(request);
+            Optional<Key> key = keyFactory.implicitMapProviderKeyFrom(request.key());
             if (key.isPresent()) {
               DependencyRequest implicitRequest =
                   dependencyRequestFactory.forImplicitMapBinding(request, key.get());
@@ -241,20 +249,33 @@ public class GraphValidator implements Validator<TypeElement> {
                   findProvidableType(requestKey, reportBuilder, rootRequest, dependencyPath);
               if (provisionBinding.isPresent()) {
                 // found a binding, resolve its deps and then mark it resolved
-                for (DependencyRequest dependency : provisionBinding.get().dependencies()) {
+                for (DependencyRequest dependency : provisionBinding.get().implicitDependencies()) {
                   resolveRequest(dependency, rootRequest, reportBuilder, explicitBindings,
                       resolvedBindings, cycleStack, dependencyPath);
-                }
-                if (provisionBinding.get().memberInjectionRequest().isPresent()) {
-                  resolveRequest(provisionBinding.get().memberInjectionRequest().get(),
-                      rootRequest, reportBuilder, explicitBindings, resolvedBindings, cycleStack,
-                      dependencyPath);
                 }
                 resolvedBindings.add(frameworkKey);
               }
             }
           } else {
-            // we found explicit bindings. resolve the deps and them mark them resolved
+            // If this is an explicit Map<K, V> request then add in any map binding provision
+            // methods which are implied by and must collide with explicit Map<K, V> bindings.
+            Optional<Key> underlyingMapKey = keyFactory.implicitMapProviderKeyFrom(request.key());
+            if (underlyingMapKey.isPresent()) {
+              explicitBindingsForKey = ImmutableSet.<ProvisionBinding>builder()
+                  .addAll(explicitBindingsForKey)
+                  .addAll(explicitBindings.get(underlyingMapKey.get()))
+                  .build();
+            }
+            if (explicitBindingsForKey.size() > 1) {
+              // Multiple Explicit bindings. Validate that they are multi-bindings.
+              ImmutableListMultimap<BindingType, ProvisionBinding> bindingsByType =
+                  ProvisionBinding.bindingTypesFor(explicitBindingsForKey);
+              if (bindingsByType.keySet().size() > 1) {
+                reportMultipleBindingTypes(rootRequest, requestKey, bindingsByType, reportBuilder);
+              } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
+                reportDuplicateBindings(rootRequest, requestKey, bindingsByType, reportBuilder);
+              }
+            }
             for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
               for (DependencyRequest dependency : explicitBinding.dependencies()) {
                 resolveRequest(dependency, rootRequest, reportBuilder, explicitBindings,
@@ -286,23 +307,52 @@ public class GraphValidator implements Validator<TypeElement> {
     }
   }
 
-  // TODO(user): Unify this with ComponentDescriptor.findMapKey() and put it somewhere in common.
-  private Optional<Key> findMapKey(final DependencyRequest request) {
-    if (Util.isTypeOf(Map.class, request.key().type(), elements, types)) {
-      DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(request.key().type());
-      TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
-      if (!Util.isTypeOf(Provider.class, mapValueType, elements, types)) {
-        TypeMirror keyType =
-            Util.getKeyTypeOfMap((DeclaredType) (request.key().wrappedType().get()));
-        TypeMirror valueType = types.getDeclaredType(
-            elements.getTypeElement(Provider.class.getCanonicalName()), mapValueType);
-        TypeMirror mapType = types.getDeclaredType(
-            elements.getTypeElement(Map.class.getCanonicalName()), keyType, valueType);
-        return Optional.of((Key) new AutoValue_Key(request.key().wrappedQualifier(),
-            MoreTypes.equivalence().wrap(mapType)));
+  @SuppressWarnings("resource") // Appendable is a StringBuilder.
+  private void reportDuplicateBindings(DependencyRequest rootRequest, Key requestKey,
+      ListMultimap<BindingType, ProvisionBinding> bindingsByType,
+      ValidationReport.Builder<TypeElement> reportBuilder) {
+    StringBuilder builder = new StringBuilder();
+    new Formatter(builder).format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT,
+        KeyFormatter.instance().format(requestKey));
+    for (ProvisionBinding binding : bindingsByType.values()) {
+      builder.append('\n').append(INDENT);
+      builder.append(ProvisionBindingFormatter.instance().format(binding));
+    }
+    reportBuilder.addItem(builder.toString(), rootRequest.requestElement());
+  }
+
+  @SuppressWarnings("resource") // Appendable is a StringBuilder.
+  private void reportMultipleBindingTypes(DependencyRequest rootRequest, Key requestKey,
+      ListMultimap<BindingType, ProvisionBinding> bindingsByType,
+      ValidationReport.Builder<TypeElement> reportBuilder) {
+    StringBuilder builder = new StringBuilder();
+    new Formatter(builder).format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT,
+        KeyFormatter.instance().format(requestKey));
+    for (BindingType type :
+        Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
+      builder.append(INDENT);
+      builder.append(formatBindingType(type));
+      builder.append(" bindings:\n");
+      for (ProvisionBinding binding : bindingsByType.get(type)) {
+        builder.append(INDENT).append(INDENT);
+        builder.append(ProvisionBindingFormatter.instance().format(binding));
+        builder.append('\n');
       }
     }
-    return Optional.absent();
+    reportBuilder.addItem(builder.toString(), rootRequest.requestElement());
+  }
+
+  private String formatBindingType(BindingType type) {
+    switch(type) {
+      case MAP:
+        return "Map";
+      case SET:
+        return "Set";
+      case UNIQUE:
+        return "Unique";
+      default:
+        throw new IllegalStateException("Unknown binding type: " + type);
+    }
   }
 
   // TODO(user) determine what bits of InjectBindingRegistry's findOrCreate logic to factor out.

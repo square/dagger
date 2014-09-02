@@ -18,12 +18,13 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
-import java.util.Iterator;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -45,13 +46,6 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Sets.immutableEnumSet;
-import static dagger.Provides.Type.MAP;
-import static dagger.Provides.Type.SET;
-import static dagger.Provides.Type.SET_VALUES;
-import static dagger.internal.codegen.ErrorMessages.INVALID_COLLECTIONBINDING;
-import static dagger.internal.codegen.ErrorMessages.NON_MAPBINDING;
-import static dagger.internal.codegen.ErrorMessages.NON_SETBINDING;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
@@ -104,64 +98,63 @@ abstract class ProvisionBinding extends Binding {
   /** If this provision requires members injeciton, this will be the corresonding request. */
   abstract Optional<DependencyRequest> memberInjectionRequest();
 
-  private static ImmutableSet<Provides.Type> SET_BINDING_TYPES = immutableEnumSet(SET, SET_VALUES);
-  private static ImmutableSet<Provides.Type> MAP_BINDING_TYPES = immutableEnumSet(MAP);
-
-  static enum BindingsType {
-    /** Represents set bindings. */
-    SET_BINDING,
+  static enum BindingType {
     /** Represents map bindings. */
-    MAP_BINDING,
+    MAP,
+    /** Represents set bindings. */
+    SET,
     /** Represents a valid non-collection binding. */
-    SINGULAR_BINDING,
+    UNIQUE;
+  }
+
+  BindingType bindingType() {
+    switch (provisionType()) {
+      case SET:
+      case SET_VALUES:
+        return BindingType.SET;
+      case MAP:
+        return BindingType.MAP;
+      case UNIQUE:
+        return BindingType.UNIQUE;
+      default:
+        throw new IllegalStateException("Unknown provision type: " + provisionType());
+    }
   }
 
   /**
-   * Returns {@code BindingsType} for bindings, which can be {@code SETBINDING} if the given
-   * bindings are all contributors to a set binding. Returns {@code MAPBINDING} if the given
-   * bindings are all contributors to a map binding. Returns {@code NONCOLLECTIONBINDING} if the
-   * given bindings is not a collection.
-   *
-   * @throws IllegalArgumentException if some of the bindings are map bindings or set bindings and
-   *         some are not.
-   * @throws IllegalArgumentException if the bindings in the collection are not supported in Dagger
-   *         (Not set bindings or map Bindings).
+   * Returns the set of {@link BindingType} enum values implied by a given
+   * {@link ProvisionBinding} collection.
    */
-  static BindingsType getBindingsType(Iterable<ProvisionBinding> bindings) {
+  static ImmutableListMultimap<BindingType, ProvisionBinding> bindingTypesFor(
+      Iterable<ProvisionBinding> bindings) {
+    ImmutableListMultimap.Builder<BindingType, ProvisionBinding> builder =
+        ImmutableListMultimap.builder();
+    builder.orderKeysBy(Ordering.<BindingType>natural());
+    for (ProvisionBinding binding : bindings) {
+      builder.put(binding.bindingType(), binding);
+    }
+    return builder.build();
+  }
+
+  /**
+   * Returns a single {@code BindingsType} represented by a given collection of
+   * {@code ProvisionBindings} or throws an IllegalArgumentException if the given bindings
+   * are not all of one type.
+   */
+  static BindingType bindingTypeFor(Iterable<ProvisionBinding> bindings) {
     checkNotNull(bindings);
     switch (Iterables.size(bindings)) {
       case 0:
         throw new IllegalArgumentException("no bindings");
       case 1:
-        if (SET_BINDING_TYPES.contains(Iterables.getOnlyElement(bindings).provisionType())) {
-          return BindingsType.SET_BINDING;
-        } else if (MAP_BINDING_TYPES.contains(Iterables.getOnlyElement(bindings).provisionType())) {
-          return BindingsType.MAP_BINDING;
-        }
-        return BindingsType.SINGULAR_BINDING;
+        return Iterables.getOnlyElement(bindings).bindingType();
       default:
-        Iterator<ProvisionBinding> iterator = bindings.iterator();
-        boolean setBinding = SET_BINDING_TYPES.contains(iterator.next().provisionType());
-        if (setBinding) {
-          while (iterator.hasNext()) {
-            checkArgument(setBinding, NON_SETBINDING);
-            checkArgument(SET_BINDING_TYPES.contains(iterator.next().provisionType()),
-                NON_SETBINDING);
-          }
-          return BindingsType.SET_BINDING;
+        Set<BindingType> types = bindingTypesFor(bindings).keySet();
+        if (types.size() > 1) {
+          throw new IllegalArgumentException(
+              String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
         }
-
-        iterator = bindings.iterator();
-        boolean mapBinding = MAP_BINDING_TYPES.contains(iterator.next().provisionType());
-        if (mapBinding) {
-          while (iterator.hasNext()) {
-            checkArgument(mapBinding, NON_MAPBINDING);
-            checkArgument(MAP_BINDING_TYPES.contains(iterator.next().provisionType()),
-                NON_MAPBINDING);
-          }
-          return BindingsType.MAP_BINDING;
-        }
-        throw new IllegalStateException(INVALID_COLLECTIONBINDING);
+        return Iterables.getOnlyElement(types);
     }
   }
 
@@ -291,7 +284,7 @@ abstract class ProvisionBinding extends Binding {
           getScopeAnnotation(providesMethod),
           Optional.<DependencyRequest>absent());
     }
-    
+
     ProvisionBinding forImplicitMapBinding(DependencyRequest explicitRequest,
         DependencyRequest implicitRequest) {
       checkNotNull(explicitRequest);
@@ -299,12 +292,12 @@ abstract class ProvisionBinding extends Binding {
       ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
       return new AutoValue_ProvisionBinding(
           implicitRequest.requestElement(),
-          dependencies, 
-          findBindingPackage(explicitRequest.key()), 
-          Kind.PROVISION, 
-          Provides.Type.MAP, 
-          explicitRequest.key(), 
-          getScopeAnnotation(implicitRequest.requestElement()), 
+          dependencies,
+          findBindingPackage(explicitRequest.key()),
+          Kind.PROVISION,
+          Provides.Type.MAP,
+          explicitRequest.key(),
+          getScopeAnnotation(implicitRequest.requestElement()),
           Optional.<DependencyRequest>absent());
     }
 
