@@ -53,7 +53,7 @@
     <fest.version>1.4</fest.version>
     <junit.version>4.11</junit.version>
     <mockito.version>1.9.5</mockito.version>
-    <truth.version>1.0-SNAPSHOT</truth.version>
+    <truth.version>0.23</truth.version>
   </properties>
 
   <scm>
