@@ -33,7 +33,6 @@ import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Factory;
 import dagger.MapKey;
-import dagger.MembersInjector;
 import dagger.internal.InstanceFactory;
 import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
@@ -61,7 +60,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
-import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -217,10 +215,10 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
     }
 
-    ImmutableMap.Builder<FrameworkKey, Snippet> memberSelectSnippetsBuilder =
+    ImmutableMap.Builder<Key, Snippet> memberSelectSnippetsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<String, Set<FrameworkKey>> packageEntry :
+    for (Entry<String, Set<Key>> packageEntry :
         Multimaps.asMap(input.initializationByPackage()).entrySet()) {
       String packageName = packageEntry.getKey();
 
@@ -256,19 +254,21 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         fieldModifiers = EnumSet.of(PUBLIC);
       }
 
-      for (FrameworkKey frameworkKey : packageEntry.getValue()) {
-        Key key = frameworkKey.key();
+      for (Key key : packageEntry.getValue()) {
         TypeName frameworkTypeName = ParameterizedTypeName.create(
-            ClassName.fromClass(frameworkKey.frameworkClass()),
+            ClassName.fromClass(key.kind().frameworkClass()),
             TypeNames.forTypeMirror(key.type()));
 
         final String fieldName;
-        if (frameworkKey.frameworkClass().equals(Provider.class)) {
-          fieldName = providerNames.get(key);
-        } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
-          fieldName = membersInjectorNames.get(key);
-        } else {
-          throw new IllegalStateException();
+        switch (key.kind()) {
+          case PROVIDER:
+            fieldName = providerNames.get(key);
+            break;
+          case MEMBERS_INJECTOR:
+            fieldName = membersInjectorNames.get(key);
+            break;
+          default:
+            throw new AssertionError();
         }
 
         FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
@@ -278,7 +278,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             .addAll(proxySelector.asSet())
             .add(frameworkField.name())
             .build();
-        memberSelectSnippetsBuilder.put(frameworkKey,
+        memberSelectSnippetsBuilder.put(key,
             Snippet.memberSelectSnippet(memberSelectTokens));
       }
     }
@@ -292,64 +292,63 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       factoryMethod.body().addSnippet("return builder().build();");
     }
 
-    ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
+    ImmutableMap<Key, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
 
-    List<List<FrameworkKey>> partitions = Lists.partition(input.initializationOrdering(), 100);
+    List<List<Key>> partitions = Lists.partition(input.initializationOrdering(), 100);
     for (int i = 0; i < partitions.size(); i++) {
       MethodWriter initializeMethod =
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
       initializeMethod.addModifiers(PRIVATE);
       constructorWriter.body().addSnippet("%s();", initializeMethod.name());
 
-      for (FrameworkKey frameworkKey : partitions.get(i)) {
-        Key key = frameworkKey.key();
-        Snippet memberSelectSnippet = memberSelectSnippets.get(frameworkKey);
-
-        if (frameworkKey.frameworkClass().equals(Provider.class)) {
-          Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
-          BindingType bindingsType = ProvisionBinding.bindingTypeFor(bindings);
-          switch (bindingsType) {
-            case SET:
-              ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
-              for (ProvisionBinding binding : bindings) {
-                setFactoryParameters.add(initializeFactoryForBinding(binding,
-                    input.dependencyMethodIndex(), componentContributionFields,
-                    memberSelectSnippets));
-              }
-              Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
-                  ClassName.fromClass(SetFactory.class),
-                  Snippet.makeParametersSnippet(setFactoryParameters.build()));
-              initializeMethod.body().addSnippet("this.%s = %s;",
-                  memberSelectSnippet, initializeSetSnippet);
-              break;
-            case MAP:
-              if (!bindings.isEmpty()) {
-                Snippet initializeMapSnippet =
-                    initializeMapBinding(componentContributionFields, input.dependencyMethodIndex(),
-                        memberSelectSnippets, bindings);
+      for (Key key : partitions.get(i)) {
+        Snippet memberSelectSnippet = memberSelectSnippets.get(key);
+        switch (key.kind()) {
+          case PROVIDER:
+            Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
+            BindingType bindingsType = ProvisionBinding.bindingTypeFor(bindings);
+            switch (bindingsType) {
+              case SET:
+                ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
+                for (ProvisionBinding binding : bindings) {
+                  setFactoryParameters.add(initializeFactoryForBinding(binding,
+                      input.dependencyMethodIndex(), componentContributionFields,
+                      memberSelectSnippets));
+                }
+                Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
+                    ClassName.fromClass(SetFactory.class),
+                    Snippet.makeParametersSnippet(setFactoryParameters.build()));
                 initializeMethod.body().addSnippet("this.%s = %s;",
-                    memberSelectSnippet, initializeMapSnippet);
-              }
-              break;
-            case UNIQUE:
-              ProvisionBinding binding = Iterables.getOnlyElement(bindings);
-              initializeMethod.body().addSnippet("this.%s = %s;",
-                  memberSelectSnippet,
-                  initializeFactoryForBinding(binding, input.dependencyMethodIndex(),
-                      componentContributionFields, memberSelectSnippets));
-              break;
-            default:
-              throw new IllegalStateException();
-          }
-        } else if (frameworkKey.frameworkClass().equals(MembersInjector.class)) {
-          MembersInjectionBinding binding = resolvedMembersInjectionBindings.get(key);
-          initializeMethod.body().addSnippet("this.%s = %s;",
-              memberSelectSnippet,
-              initializeMembersInjectorForBinding(binding,
-                  memberSelectSnippets));
-        } else {
-          throw new IllegalStateException(
-              "unknown framework class: " + frameworkKey.frameworkClass());
+                    memberSelectSnippet, initializeSetSnippet);
+                break;
+              case MAP:
+                if (!bindings.isEmpty()) {
+                  Snippet initializeMapSnippet =
+                      initializeMapBinding(componentContributionFields,
+                          input.dependencyMethodIndex(), memberSelectSnippets, bindings);
+                  initializeMethod.body().addSnippet("this.%s = %s;",
+                      memberSelectSnippet, initializeMapSnippet);
+                }
+                break;
+              case UNIQUE:
+                ProvisionBinding binding = Iterables.getOnlyElement(bindings);
+                initializeMethod.body().addSnippet("this.%s = %s;",
+                    memberSelectSnippet,
+                    initializeFactoryForBinding(binding, input.dependencyMethodIndex(),
+                        componentContributionFields, memberSelectSnippets));
+                break;
+              default:
+                throw new IllegalStateException();
+            }
+            break;
+          case MEMBERS_INJECTOR:
+            MembersInjectionBinding binding = resolvedMembersInjectionBindings.get(key);
+            initializeMethod.body().addSnippet("this.%s = %s;",
+                memberSelectSnippet,
+                initializeMembersInjectorForBinding(binding, memberSelectSnippets));
+            break;
+          default:
+            throw new AssertionError();
         }
       }
     }
@@ -362,9 +361,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                   requestElement.getSimpleName().toString());
       interfaceMethod.annotate(Override.class);
       interfaceMethod.addModifiers(PUBLIC);
-      FrameworkKey frameworkKey = interfaceRequest.frameworkKey();
+      Key key = interfaceRequest.key();
       if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
-        Snippet membersInjectorName = memberSelectSnippets.get(frameworkKey);
+        Snippet membersInjectorName = memberSelectSnippets.get(key);
         VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
         Name parameterName = parameter.getSimpleName();
         interfaceMethod.addParameter(
@@ -376,7 +375,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         }
       } else {
         interfaceMethod.body().addSnippet("return %s;",
-            frameworkTypeUsageStatement(memberSelectSnippets.get(frameworkKey),
+            frameworkTypeUsageStatement(memberSelectSnippets.get(key),
                 interfaceRequest.kind()));
       }
     }
@@ -390,7 +389,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   private Snippet initializeFactoryForBinding(ProvisionBinding binding,
       ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
       Map<TypeElement, FieldWriter> contributionFields,
-      ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
+      ImmutableMap<Key, Snippet> memberSelectSnippets) {
     if (binding.bindingKind().equals(COMPONENT)) {
       return Snippet.format("%s.<%s>create(this)",
           ClassName.fromClass(InstanceFactory.class),
@@ -413,7 +412,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
       if (binding.memberInjectionRequest().isPresent()) {
         Snippet snippet = memberSelectSnippets.get(
-            binding.memberInjectionRequest().get().frameworkKey());
+            binding.memberInjectionRequest().get().key());
         if (snippet != null) {
           parameters.add(snippet);
         } else {
@@ -434,14 +433,14 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
   private static Snippet initializeMembersInjectorForBinding(
       MembersInjectionBinding binding,
-      ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
+      ImmutableMap<Key, Snippet> memberSelectSnippets) {
     if (binding.injectionSites().isEmpty()) {
       if (binding.parentInjectorRequest().isPresent()) {
         DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
             memberSelectSnippets.get(
-                parentInjectorRequest.frameworkKey()));
+                parentInjectorRequest.key()));
       } else {
         return Snippet.format("%s.noOp()",
             ClassName.fromClass(MembersInjectors.class));
@@ -457,10 +456,10 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   private static List<Snippet> getDependencyParameters(Iterable<DependencyRequest> dependencies,
-      ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
+      ImmutableMap<Key, Snippet> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (DependencyRequest dependency : dependencies) {
-      parameters.add(memberSelectSnippets.get(dependency.frameworkKey()));
+      parameters.add(memberSelectSnippets.get(dependency.key()));
     }
     return parameters.build();
   }
@@ -468,7 +467,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   private Snippet initializeMapBinding(
       Map<TypeElement, FieldWriter> contributionFields,
       ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
-      ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets,
+      ImmutableMap<Key, Snippet> memberSelectSnippets,
       Set<ProvisionBinding> bindings) {
     Iterator<ProvisionBinding> iterator = bindings.iterator();
     // get type information from first binding in iterator
@@ -476,8 +475,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     if (isNonProviderMap(firstBinding)) {
       return Snippet.format("%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(Iterables.getOnlyElement(firstBinding.dependencies())
-              .frameworkKey()));
+          memberSelectSnippets.get(Iterables.getOnlyElement(firstBinding.dependencies()).key()));
     } else {
       DeclaredType declaredMapType =
           Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());

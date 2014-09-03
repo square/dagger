@@ -16,12 +16,13 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
+import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
 import dagger.Module;
 import dagger.Provides;
-import java.util.List;
+import dagger.internal.codegen.Key.Kind;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Qualifier;
@@ -29,7 +30,6 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
@@ -67,7 +67,9 @@ public class KeyTest {
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
     assert_().that(keyFactory.forInjectConstructor(constructor))
-        .isEqualTo(keyFactory.forType(typeElement.asType()));
+        .isEqualTo(new AutoValue_Key(Kind.PROVIDER,
+            Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+            MoreTypes.equivalence().wrap(typeElement.asType())));
   }
 
   static final class InjectedClass {
@@ -82,7 +84,9 @@ public class KeyTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     assert_().that(keyFactory.forProvidesMethod(providesMethod))
-        .isEqualTo(keyFactory.forType(stringType));
+        .isEqualTo(new AutoValue_Key(Kind.PROVIDER,
+            Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+            MoreTypes.equivalence().wrap(stringType)));
   }
 
   @Module(library = true)
@@ -147,13 +151,15 @@ public class KeyTest {
   @Test public void forProvidesMethod_sets() {
     TypeElement setElement = elements.getTypeElement(Set.class.getCanonicalName());
     TypeMirror stringType = elements.getTypeElement(String.class.getCanonicalName()).asType();
-    DeclaredType setOfStringsType = types.getDeclaredType(setElement, stringType);
+    TypeMirror setOfStringsType = types.getDeclaredType(setElement, stringType);
     TypeElement moduleElement =
         elements.getTypeElement(SetProvidesMethodsModule.class.getCanonicalName());
     for (ExecutableElement providesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
       assert_().that(keyFactory.forProvidesMethod(providesMethod))
-          .isEqualTo(keyFactory.forType(setOfStringsType));
+          .isEqualTo(new AutoValue_Key(Kind.PROVIDER,
+              Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+              MoreTypes.equivalence().wrap(setOfStringsType)));
     }
   }
 
@@ -168,24 +174,38 @@ public class KeyTest {
     }
   }
 
-  interface PrimitiveTypes {
-    int foo();
-    Integer bar();
+  @Module(library = true)
+  static final class PrimitiveTypes {
+    @Provides int foo() {
+      return 0;
+    }
+  }
+
+  @Module(library = true)
+  static final class BoxedPrimitiveTypes {
+    @Provides Integer foo() {
+      return 0;
+    }
   }
 
   @Test public void primitiveKeysMatchBoxedKeys() {
-    TypeElement holder = elements.getTypeElement(PrimitiveTypes.class.getCanonicalName());
-    List<ExecutableElement> methods = (List<ExecutableElement>) holder.getEnclosedElements();
+    TypeElement primitiveHolder = elements.getTypeElement(PrimitiveTypes.class.getCanonicalName());
+    ExecutableElement intMethod =
+        Iterables.getOnlyElement(ElementFilter.methodsIn(primitiveHolder.getEnclosedElements()));
+    TypeElement boxedPrimitiveHolder =
+        elements.getTypeElement(BoxedPrimitiveTypes.class.getCanonicalName());
+    ExecutableElement integerMethod = Iterables.getOnlyElement(
+        ElementFilter.methodsIn(boxedPrimitiveHolder.getEnclosedElements()));
 
     // TODO(user): Truth subject for TypeMirror and TypeElement
-    TypeMirror intType = methods.get(0).getReturnType();
+    TypeMirror intType = intMethod.getReturnType();
     assert_().that(intType.getKind().isPrimitive()).isTrue();
-    TypeMirror integerType = methods.get(1).getReturnType();
+    TypeMirror integerType = integerMethod.getReturnType();
     assert_().that(integerType.getKind().isPrimitive()).isFalse();
     assert_().that(types.isSameType(intType, integerType)).named("type equality").isFalse();
 
-    Key intKey = keyFactory.forType(intType);
-    Key integerKey = keyFactory.forType(integerType);
+    Key intKey = keyFactory.forProvidesMethod(intMethod);
+    Key integerKey = keyFactory.forProvidesMethod(integerMethod);
     assert_().that(intKey).isEqualTo(integerKey);
   }
 }

@@ -311,7 +311,7 @@ abstract class ProvisionBinding extends Binding {
           Optional.<String>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
-          keyFactory.forType(componentDefinitionType.asType()),
+          keyFactory.forComponent(componentDefinitionType.asType()),
           Optional.<AnnotationMirror>absent(),
           Optional.<DependencyRequest>absent());
     }

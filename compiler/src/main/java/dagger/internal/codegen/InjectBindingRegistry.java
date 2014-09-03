@@ -95,7 +95,7 @@ final class InjectBindingRegistry {
 
   void registerMembersInjectionBinding(MembersInjectionBinding binding) {
     MembersInjectionBinding previousValue = membersInjectionBindingsByKey.put(
-        keyFactory.forType(binding.bindingElement().asType()), binding);
+        keyFactory.forMembersInjectedType(binding.bindingElement().asType()), binding);
     checkState(previousValue == null, "couldn't register %s. %s was already registered", binding,
         previousValue);
   }

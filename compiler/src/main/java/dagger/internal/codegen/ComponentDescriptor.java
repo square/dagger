@@ -104,14 +104,14 @@ abstract class ComponentDescriptor {
    */
   abstract ImmutableMap<Key, MembersInjectionBinding> resolvedMembersInjectionBindings();
 
-  /** The package in which each {@link FrameworkKey} initialization must happen.  */
-  abstract ImmutableSetMultimap<String, FrameworkKey> initializationByPackage();
+  /** The package in which each {@link Key} initialization must happen.  */
+  abstract ImmutableSetMultimap<String, Key> initializationByPackage();
 
   /**
-   * The ordering of {@link FrameworkKey keys} that will allow all of the {@link Factory} and
+   * The ordering of {@link Key keys} that will allow all of the {@link Factory} and
    * {@link MembersInjector} implementations to initialize properly.
    */
-  abstract ImmutableList<FrameworkKey> initializationOrdering();
+  abstract ImmutableList<Key> initializationOrdering();
 
   static final class Factory {
     private final Elements elements;
@@ -228,7 +228,7 @@ abstract class ComponentDescriptor {
           ImmutableSetMultimap.builder();
       ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersInjectionBindings =
           ImmutableMap.builder();
-      SetMultimap<FrameworkKey, Binding> resolvedBindings =
+      SetMultimap<Key, Binding> resolvedBindings =
           MultimapBuilder.linkedHashKeys().linkedHashSetValues().build();
 
       ImmutableList<DependencyRequest> interfaceRequests = interfaceRequestsBuilder.build();
@@ -238,9 +238,9 @@ abstract class ComponentDescriptor {
             resolvedProvisionBindings, resolvedMembersInjectionBindings);
       }
 
-      ImmutableSetMultimap.Builder<String, FrameworkKey> initializationByPackageBuilder =
+      ImmutableSetMultimap.Builder<String, Key> initializationByPackageBuilder =
           ImmutableSetMultimap.builder();
-      for (Entry<FrameworkKey, Binding> resolvedBindingEntry : resolvedBindings.entries()) {
+      for (Entry<Key, Binding> resolvedBindingEntry : resolvedBindings.entries()) {
         initializationByPackageBuilder.put(
             resolvedBindingEntry.getValue().bindingPackage().or(
                   MoreElements.getPackage(componentDefinitionType).getQualifiedName().toString()),
@@ -261,13 +261,12 @@ abstract class ComponentDescriptor {
 
     private void resolveRequest(DependencyRequest request,
         ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings,
-        SetMultimap<FrameworkKey, Binding> resolvedBindings,
+        SetMultimap<Key, Binding> resolvedBindings,
         ImmutableSetMultimap.Builder<Key, ProvisionBinding> resolvedProvisionsBindingBuilder,
         ImmutableMap.Builder<Key, MembersInjectionBinding> resolvedMembersInjectionBindingsBuilder)
             throws SourceFileGenerationException {
-      FrameworkKey frameworkKey = request.frameworkKey();
       Key requestKey = request.key();
-      if (resolvedBindings.containsKey(frameworkKey)) {
+      if (resolvedBindings.containsKey(requestKey)) {
         return;
       }
       switch (request.kind()) {
@@ -288,7 +287,7 @@ abstract class ComponentDescriptor {
               resolveRequest(Iterables.getOnlyElement(implicitBinding.dependencies()),
                   explicitBindings, resolvedBindings, resolvedProvisionsBindingBuilder,
                   resolvedMembersInjectionBindingsBuilder);
-              resolvedBindings.put(frameworkKey, implicitBinding);
+              resolvedBindings.put(requestKey, implicitBinding);
               resolvedProvisionsBindingBuilder.put(request.key(), implicitBinding);
             } else {
               // no explicit binding, look it up
@@ -304,7 +303,7 @@ abstract class ComponentDescriptor {
                 resolveRequest(dependency, explicitBindings, resolvedBindings,
                     resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
               }
-              resolvedBindings.put(frameworkKey, provisionBinding.get());
+              resolvedBindings.put(requestKey, provisionBinding.get());
               resolvedProvisionsBindingBuilder.put(requestKey, provisionBinding.get());
             }
           } else {
@@ -315,7 +314,7 @@ abstract class ComponentDescriptor {
                     resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
               }
             }
-            resolvedBindings.putAll(frameworkKey, explicitBindingsForKey);
+            resolvedBindings.putAll(requestKey, explicitBindingsForKey);
             resolvedProvisionsBindingBuilder.putAll(requestKey, explicitBindingsForKey);
           }
           break;
@@ -330,7 +329,7 @@ abstract class ComponentDescriptor {
             resolveRequest(dependency, explicitBindings, resolvedBindings,
                 resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
           }
-          resolvedBindings.put(frameworkKey, membersInjectionBinding);
+          resolvedBindings.put(requestKey, membersInjectionBinding);
           resolvedMembersInjectionBindingsBuilder.put(requestKey, membersInjectionBinding);
           break;
         default:
