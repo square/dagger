@@ -41,7 +41,7 @@
       <artifactId>auto-common</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.google.auto</groupId>
+      <groupId>com.google.auto.service</groupId>
       <artifactId>auto-service</artifactId>
     </dependency>
     <dependency>
