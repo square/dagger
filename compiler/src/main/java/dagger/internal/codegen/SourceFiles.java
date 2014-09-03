@@ -139,21 +139,21 @@ class SourceFiles {
    * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
    * provider.
    */
-  static ImmutableMap<FrameworkKey, String> generateFrameworkReferenceNamesForDependencies(
+  static ImmutableMap<Key, String> generateFrameworkReferenceNamesForDependencies(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest>()
+    ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<Key, DependencyRequest>()
             .orderValuesBy(DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
       dependenciesByKeyBuilder.put(
-          dependency.frameworkKey(), dependency);
+          dependency.key(), dependency);
     }
-    ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey =
+    ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
         dependenciesByKeyBuilder.build();
-    Map<FrameworkKey, Collection<DependencyRequest>> dependenciesByKeyMap =
+    Map<Key, Collection<DependencyRequest>> dependenciesByKeyMap =
         dependenciesByKey.asMap();
-    ImmutableMap.Builder<FrameworkKey, String> providerNames = ImmutableMap.builder();
-    for (Entry<FrameworkKey, Collection<DependencyRequest>> entry :
+    ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
+    for (Entry<Key, Collection<DependencyRequest>> entry :
       dependenciesByKeyMap.entrySet()) {
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames = FluentIterable.from(entry.getValue())

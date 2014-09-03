@@ -65,24 +65,6 @@ abstract class DependencyRequest {
   abstract Key key();
   abstract Element requestElement();
 
-  FrameworkKey frameworkKey() {
-    final Class<?> frameworkClass;
-    switch (kind()) {
-      case INSTANCE:
-      case LAZY:
-      case PROVIDER:
-        frameworkClass = Provider.class;
-        break;
-      case MEMBERS_INJECTOR:
-        checkArgument(key().isValidMembersInjectionKey());
-        frameworkClass = MembersInjector.class;
-        break;
-      default:
-        throw new AssertionError();
-    }
-    return FrameworkKey.create(this.key(), frameworkClass);
-  }
-
   static final class Factory {
     private final Elements elements;
     private final Types types;
@@ -138,7 +120,7 @@ abstract class DependencyRequest {
           InjectionAnnotations.getQualifier(membersInjectionMethod);
       checkArgument(!qualifier.isPresent());
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-          keyFactory.forQualifiedType(qualifier,
+          keyFactory.forMembersInjectedType(
               Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
           membersInjectionMethod);
     }
@@ -146,7 +128,7 @@ abstract class DependencyRequest {
     DependencyRequest forMembersInjectedType(TypeElement type) {
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
           // TODO(gak): handle this better
-          keyFactory.forType(types.erasure(type.asType())),
+          keyFactory.forMembersInjectedType(types.erasure(type.asType())),
           type);
     }
 

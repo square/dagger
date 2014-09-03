@@ -132,23 +132,26 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.membersInjector = membersInjector;");
     }
 
-    ImmutableMap<FrameworkKey, String> names =
+    ImmutableMap<Key, String> names =
         SourceFiles.generateFrameworkReferenceNamesForDependencies(binding.dependencies());
 
-    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
+    for (Entry<Key, String> nameEntry : names.entrySet()) {
       final FieldWriter field;
-      if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
-        ParameterizedTypeName providerType = ParameterizedTypeName.create(
-            ClassName.fromClass(Provider.class),
-            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
-        field = factoryWriter.addField(providerType, nameEntry.getValue());
-      } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
-        ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
-            ClassName.fromClass(MembersInjector.class),
-            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
-        field = factoryWriter.addField(membersInjectorType, nameEntry.getValue());
-      } else {
-        throw new IllegalStateException();
+      switch (nameEntry.getKey().kind()) {
+        case PROVIDER:
+          ParameterizedTypeName providerType = ParameterizedTypeName.create(
+              ClassName.fromClass(Provider.class),
+              TypeNames.forTypeMirror(nameEntry.getKey().type()));
+          field = factoryWriter.addField(providerType, nameEntry.getValue());
+          break;
+        case MEMBERS_INJECTOR:
+          ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
+              ClassName.fromClass(MembersInjector.class),
+              TypeNames.forTypeMirror(nameEntry.getKey().type()));
+          field = factoryWriter.addField(membersInjectorType, nameEntry.getValue());
+          break;
+        default:
+          throw new AssertionError();
       }
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
@@ -160,7 +163,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          Snippet.format(names.get(dependency.frameworkKey())),
+          Snippet.format(names.get(dependency.key())),
           dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);

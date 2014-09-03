@@ -150,14 +150,14 @@ public class GraphValidator implements Validator<TypeElement> {
     }
 
     for (DependencyRequest componentMethodRequest : componentMethodRequests(component)) {
-      Deque<FrameworkKey> cycleStack = Queues.newArrayDeque();
+      Deque<Key> cycleStack = Queues.newArrayDeque();
       Deque<DependencyRequest> dependencyPath = Queues.newArrayDeque();
       resolveRequest(
           componentMethodRequest,
           componentMethodRequest,
           reportBuilder,
           explicitBindingsByKey(explicitBindingsBuilder.build()),
-          new LinkedHashSet<FrameworkKey>(),
+          new LinkedHashSet<Key>(),
           cycleStack,
           dependencyPath);
     }
@@ -193,13 +193,13 @@ public class GraphValidator implements Validator<TypeElement> {
       DependencyRequest rootRequest,
       ValidationReport.Builder<TypeElement> reportBuilder,
       ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings,
-      Set<FrameworkKey> resolvedBindings,
-      Deque<FrameworkKey> cycleStack,
+      Set<Key> resolvedBindings,
+      Deque<Key> cycleStack,
       Deque<DependencyRequest> dependencyPath) {
 
-    FrameworkKey frameworkKey = request.frameworkKey();
-    if (cycleStack.contains(frameworkKey) && !isComponent(frameworkKey.key().type())) {
-      resolvedBindings.add(frameworkKey); // it's present, but bad, and we report that.
+    Key requestKey = request.key();
+    if (cycleStack.contains(requestKey) && !isComponent(requestKey.type())) {
+      resolvedBindings.add(requestKey); // it's present, but bad, and we report that.
       dependencyPath = Queues.newArrayDeque(dependencyPath); // copy
       dependencyPath.push(request); // add current request.
       dependencyPath.pollLast(); // strip off original request from the component method.
@@ -217,14 +217,13 @@ public class GraphValidator implements Validator<TypeElement> {
 
       return;
     }
-    if (resolvedBindings.contains(frameworkKey)) {
+    if (resolvedBindings.contains(requestKey)) {
       return;
     }
 
     dependencyPath.push(request);
-    cycleStack.push(frameworkKey);
+    cycleStack.push(requestKey);
     try {
-      Key requestKey = request.key();
       switch (request.kind()) {
         case INSTANCE:
         case LAZY:
@@ -242,7 +241,7 @@ public class GraphValidator implements Validator<TypeElement> {
               resolveRequest(Iterables.getOnlyElement(implicitBinding.dependencies()),
                   rootRequest, reportBuilder, explicitBindings, resolvedBindings, cycleStack,
                   dependencyPath);
-              resolvedBindings.add(frameworkKey);
+              resolvedBindings.add(requestKey);
             } else {
               // no explicit binding, look it up or fail.
               Optional<ProvisionBinding> provisionBinding =
@@ -253,7 +252,7 @@ public class GraphValidator implements Validator<TypeElement> {
                   resolveRequest(dependency, rootRequest, reportBuilder, explicitBindings,
                       resolvedBindings, cycleStack, dependencyPath);
                 }
-                resolvedBindings.add(frameworkKey);
+                resolvedBindings.add(requestKey);
               }
             }
           } else {
@@ -282,7 +281,7 @@ public class GraphValidator implements Validator<TypeElement> {
                     resolvedBindings, cycleStack, dependencyPath);
               }
             }
-            resolvedBindings.add(frameworkKey);
+            resolvedBindings.add(requestKey);
           }
           break;
         case MEMBERS_INJECTOR:
@@ -295,7 +294,7 @@ public class GraphValidator implements Validator<TypeElement> {
               resolveRequest(dependency, rootRequest, reportBuilder, explicitBindings,
                   resolvedBindings, cycleStack, dependencyPath);
             }
-            resolvedBindings.add(frameworkKey);
+            resolvedBindings.add(requestKey);
           }
           break;
         default:
