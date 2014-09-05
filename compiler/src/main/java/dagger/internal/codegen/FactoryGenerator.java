@@ -85,8 +85,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProvisionBinding binding) {
-    TypeMirror keyType = binding.provisionType().equals(Type.MAP) ? Util.getProvideValueTypeOfMap(
-        Util.getDeclaredTypeOfMap(binding.providedKey().type()))
+    TypeMirror keyType = binding.provisionType().equals(Type.MAP)
+        ? Util.getProvidedValueTypeOfMap(Util.asDeclaredType(binding.providedKey().type()))
         : binding.providedKey().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());

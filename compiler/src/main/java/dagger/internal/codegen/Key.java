@@ -237,16 +237,13 @@ abstract class Key {
      * {@link Map}{@code <K, V>}, a key of {@code Map<K, Provider<V>>} will be returned.
      */
     Optional<Key> implicitMapProviderKeyFrom(Key possibleMapKey) {
-      if (Util.isTypeOf(Map.class, possibleMapKey.type(), elements, types)) {
-        DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(possibleMapKey.type());
+      if (Util.isTypeOf(Map.class, possibleMapKey.type())) {
+        DeclaredType declaredMapType = Util.asDeclaredType(possibleMapKey.type());
         TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
-        if (!Util.isTypeOf(Provider.class, mapValueType, elements, types)) {
-          TypeMirror keyType =
-              Util.getKeyTypeOfMap((DeclaredType) (possibleMapKey.wrappedType().get()));
-          TypeMirror valueType = types.getDeclaredType(
-              elements.getTypeElement(Provider.class.getCanonicalName()), mapValueType);
-          TypeMirror mapType = types.getDeclaredType(
-              elements.getTypeElement(Map.class.getCanonicalName()), keyType, valueType);
+        if (!Util.isTypeOf(Provider.class, mapValueType)) {
+          DeclaredType keyType = Util.getKeyTypeOfMap(declaredMapType);
+          DeclaredType providerType = types.getDeclaredType(getProviderElement(), mapValueType);
+          TypeMirror mapType = types.getDeclaredType(getMapElement(), keyType, providerType);
           return Optional.<Key>of(new AutoValue_Key(Kind.PROVIDER,
               possibleMapKey.wrappedQualifier(),
               MoreTypes.equivalence().wrap(mapType)));

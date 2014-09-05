@@ -60,6 +60,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -84,6 +85,7 @@ import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateMembersInjectorNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.generateProviderNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
+import static dagger.internal.codegen.Util.asDeclaredType;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -477,10 +479,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           ClassName.fromClass(MapFactory.class),
           memberSelectSnippets.get(Iterables.getOnlyElement(firstBinding.dependencies()).key()));
     } else {
-      DeclaredType declaredMapType =
-          Util.getDeclaredTypeOfMap(firstBinding.providedKey().type());
-      TypeMirror mapKeyType = Util.getKeyTypeOfMap(declaredMapType);
-      TypeMirror mapValueType = Util.getProvideValueTypeOfMap(declaredMapType);
+      DeclaredType mapType = Util.asDeclaredType(firstBinding.providedKey().type());
+      TypeMirror mapKeyType = Util.getKeyTypeOfMap(mapType);
+      TypeMirror mapValueType = Util.getProvidedValueTypeOfMap(mapType); // V of Map<K, Provider<V>>
       StringBuilder snippetFormatBuilder = new StringBuilder("%s.<%s, %s>builder(%d)");
       for (int i = 0; i < bindings.size(); i++) {
         snippetFormatBuilder.append("\n    .put(%s, %s)");
@@ -598,12 +599,9 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   private boolean isNonProviderMap(ProvisionBinding binding) {
-    DeclaredType declaredMapType = Util.getDeclaredTypeOfMap(binding.providedKey().type());
-    TypeMirror mapValueType = Util.getProvideValueTypeOfMap(declaredMapType);
-    if (mapValueType == null) {
-      return true;
-    }
-    return false;
+    TypeMirror bindingType = binding.providedKey().type();
+    return Util.isTypeOf(Map.class, bindingType) // Implicitly guarantees a declared type.
+        && !Util.isTypeOf(Provider.class, asDeclaredType(bindingType).getTypeArguments().get(1));
   }
 
   private boolean hasNoArgsConstructor(TypeElement type) {
