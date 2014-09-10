@@ -46,7 +46,7 @@
     <javawriter.version>2.5.0</javawriter.version>
     <auto.common.version>1.0-SNAPSHOT</auto.common.version>
     <auto.service.version>1.0-rc1</auto.service.version>
-    <guava.version>17.0</guava.version>
+    <guava.version>18.0</guava.version>
 
     <!-- Test Dependencies -->
     <compile-testing.version>0.6-SNAPSHOT</compile-testing.version>
