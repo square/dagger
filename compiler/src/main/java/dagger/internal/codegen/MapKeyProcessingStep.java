@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.SuperficialValidation;
 import dagger.MapKey;
 import java.util.Set;
 import javax.annotation.processing.Messager;
@@ -43,20 +44,21 @@ public class MapKeyProcessingStep implements ProcessingStep {
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     if (!roundEnv.getElementsAnnotatedWith(MapKey.class).isEmpty()) {
-      Set<? extends Element> mapKeyAnnotateds = roundEnv.getElementsAnnotatedWith(MapKey.class);
       // for each element annotated with @mapKey, validate it and auto generate key creator file for
       // any unwrapped key
-      for (Element element : mapKeyAnnotateds) {
-        ValidationReport<Element> mapKeyReport = mapKeyValidator.validate(element);
-        mapKeyReport.printMessagesTo(messager);
+      for (Element element : roundEnv.getElementsAnnotatedWith(MapKey.class)) {
+        if (SuperficialValidation.validateElement(element)) {
+          ValidationReport<Element> mapKeyReport = mapKeyValidator.validate(element);
+          mapKeyReport.printMessagesTo(messager);
 
-        if (mapKeyReport.isClean()) {
-          MapKey mapkey = element.getAnnotation(MapKey.class);
-          if (!mapkey.unwrapValue()) {
-            try {
-              mapKeyGenerator.generate(element);
-            } catch (SourceFileGenerationException e) {
-              e.printMessageTo(messager);
+          if (mapKeyReport.isClean()) {
+            MapKey mapkey = element.getAnnotation(MapKey.class);
+            if (!mapkey.unwrapValue()) {
+              try {
+                mapKeyGenerator.generate(element);
+              } catch (SourceFileGenerationException e) {
+                e.printMessageTo(messager);
+              }
             }
           }
         }
