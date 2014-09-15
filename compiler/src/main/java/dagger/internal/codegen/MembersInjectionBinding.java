@@ -95,11 +95,14 @@ abstract class MembersInjectionBinding extends Binding {
   static final class Factory {
     private final Elements elements;
     private final Types types;
+    private final Key.Factory keyFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Elements elements, Types types, DependencyRequest.Factory dependencyRequestFactory) {
+    Factory(Elements elements, Types types, Key.Factory keyFactory,
+        DependencyRequest.Factory dependencyRequestFactory) {
       this.elements = checkNotNull(elements);
       this.types = checkNotNull(types);
+      this.keyFactory = checkNotNull(keyFactory);
       this.dependencyRequestFactory = checkNotNull(dependencyRequestFactory);
     }
 
@@ -162,6 +165,7 @@ abstract class MembersInjectionBinding extends Binding {
           });
 
       return new AutoValue_MembersInjectionBinding(
+          keyFactory.forMembersInjectedType(typeElement.asType()),
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
               .addAll(dependencies)

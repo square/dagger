@@ -150,7 +150,7 @@ abstract class ComponentDescriptor {
 
       ImmutableSetMultimap.Builder<Key, ProvisionBinding> explicitBindingIndexBuilder =
           new ImmutableSetMultimap.Builder<Key, ProvisionBinding>()
-              .put(componentBinding.providedKey(), componentBinding);
+              .put(componentBinding.key(), componentBinding);
       ImmutableMap.Builder<ExecutableElement, TypeElement> dependencyMethodIndex =
           ImmutableMap.builder();
 
@@ -158,7 +158,7 @@ abstract class ComponentDescriptor {
         ProvisionBinding componentDependencyBinding =
             provisionBindingFactory.forComponent(componentDependency);
         explicitBindingIndexBuilder.put(
-            componentDependencyBinding.providedKey(), componentDependencyBinding);
+            componentDependencyBinding.key(), componentDependencyBinding);
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement dependencyMethod : dependencyMethods) {
@@ -166,7 +166,7 @@ abstract class ComponentDescriptor {
             ProvisionBinding componentMethodBinding =
                 provisionBindingFactory.forComponentMethod(dependencyMethod);
             explicitBindingIndexBuilder
-                .put(componentMethodBinding.providedKey(), componentMethodBinding);
+                .put(componentMethodBinding.key(), componentMethodBinding);
             dependencyMethodIndex.put(dependencyMethod, componentDependency);
           }
         }
@@ -181,7 +181,7 @@ abstract class ComponentDescriptor {
             ProvisionBinding providesMethodBinding =
                 provisionBindingFactory.forProvidesMethod(moduleMethod);
             explicitBindingIndexBuilder
-                .put(providesMethodBinding.providedKey(), providesMethodBinding);
+                .put(providesMethodBinding.key(), providesMethodBinding);
           }
         }
       }
@@ -292,7 +292,7 @@ abstract class ComponentDescriptor {
             } else {
               // no explicit binding, look it up
               Optional<ProvisionBinding> provisionBinding =
-                  injectBindingRegistry.getOrFindOrCreateProvisionBinding(requestKey);
+                  injectBindingRegistry.getOrFindProvisionBinding(requestKey);
               checkState(provisionBinding.isPresent(),
                   "Can not find a provision binding for %s. this should not have passed validation",
                   requestKey);
@@ -308,7 +308,7 @@ abstract class ComponentDescriptor {
             }
           } else {
             // we found explicit bindings. resolve the deps and them mark them resolved
-            for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
+            for (Binding explicitBinding : explicitBindingsForKey) {
               for (DependencyRequest dependency : explicitBinding.dependencies()) {
                 resolveRequest(dependency, explicitBindings, resolvedBindings,
                     resolvedProvisionsBindingBuilder, resolvedMembersInjectionBindingsBuilder);
@@ -321,7 +321,7 @@ abstract class ComponentDescriptor {
         case MEMBERS_INJECTOR:
          // no explicit deps for members injection, so just look it up
           MembersInjectionBinding membersInjectionBinding =
-              injectBindingRegistry.getOrFindOrCreateMembersInjectionBinding(requestKey);
+              injectBindingRegistry.getOrFindMembersInjectionBinding(requestKey);
           //resolve its deps and then mark it resolved
           for (DependencyRequest dependency : Iterables.concat(
               membersInjectionBinding.dependencies(),

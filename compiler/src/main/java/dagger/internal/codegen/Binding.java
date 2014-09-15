@@ -34,6 +34,9 @@ import javax.lang.model.util.SimpleElementVisitor6;
 // TODO(gak): make a decision about whether or not to bring MembersInjectionBinding under this
 // supertype or whether to just get rid of this.
 abstract class Binding {
+  /** The {@link Key} that is provided by this binding. */
+  protected abstract Key key();
+
   /** Returns the {@link Element} instance that is responsible for declaring the binding. */
   abstract Element bindingElement();
 
@@ -68,4 +71,5 @@ abstract class Binding {
    * may reference non-public types.
    */
   abstract Optional<String> bindingPackage();
+
 }

@@ -89,10 +89,7 @@ abstract class ProvisionBinding extends Binding {
   /** Returns provision type that was used to bind the key. */
   abstract Provides.Type provisionType();
 
-  /** The {@link Key} that is provided by this binding. */
-  abstract Key providedKey();
-
-  /** The scope in which the binding declares the {@link #providedKey()}. */
+  /** The scope in which the binding declares the {@link #key()}. */
   abstract Optional<AnnotationMirror> scope();
 
   /** If this provision requires members injeciton, this will be the corresonding request. */
@@ -239,12 +236,12 @@ abstract class ProvisionBinding extends Binding {
       Optional<DependencyRequest> membersInjectionRequest = membersInjectionRequest(
           MoreElements.asType(constructorElement.getEnclosingElement()));
       return new AutoValue_ProvisionBinding(
+          key,
           constructorElement,
           dependencies,
           findBindingPackage(key),
           Kind.INJECTION,
           Provides.Type.UNIQUE,
-          key,
           getScopeAnnotation(constructorElement.getEnclosingElement()),
           membersInjectionRequest);
     }
@@ -275,12 +272,12 @@ abstract class ProvisionBinding extends Binding {
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredVariables(providesMethod.getParameters());
       return new AutoValue_ProvisionBinding(
+          key,
           providesMethod,
           dependencies,
           findBindingPackage(key),
           Kind.PROVISION,
           providesAnnotation.type(),
-          key,
           getScopeAnnotation(providesMethod),
           Optional.<DependencyRequest>absent());
     }
@@ -291,12 +288,12 @@ abstract class ProvisionBinding extends Binding {
       checkNotNull(implicitRequest);
       ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
       return new AutoValue_ProvisionBinding(
+          explicitRequest.key(),
           implicitRequest.requestElement(),
           dependencies,
           findBindingPackage(explicitRequest.key()),
           Kind.PROVISION,
           Provides.Type.MAP,
-          explicitRequest.key(),
           getScopeAnnotation(implicitRequest.requestElement()),
           Optional.<DependencyRequest>absent());
     }
@@ -306,12 +303,12 @@ abstract class ProvisionBinding extends Binding {
       Component componentAnnotation = componentDefinitionType.getAnnotation(Component.class);
       checkArgument(componentAnnotation != null);
       return new AutoValue_ProvisionBinding(
+          keyFactory.forComponent(componentDefinitionType.asType()),
           componentDefinitionType,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
-          keyFactory.forComponent(componentDefinitionType.asType()),
           Optional.<AnnotationMirror>absent(),
           Optional.<DependencyRequest>absent());
     }
@@ -321,12 +318,12 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(componentMethod.getKind().equals(METHOD));
       checkArgument(componentMethod.getParameters().isEmpty());
       return new AutoValue_ProvisionBinding(
+          keyFactory.forComponentMethod(componentMethod),
           componentMethod,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
-          keyFactory.forComponentMethod(componentMethod),
           getScopeAnnotation(componentMethod),
           Optional.<DependencyRequest>absent());
     }

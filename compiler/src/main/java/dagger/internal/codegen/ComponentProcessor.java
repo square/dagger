@@ -44,6 +44,7 @@ import javax.lang.model.util.Types;
  */
 public final class ComponentProcessor extends AbstractProcessor {
   private ImmutableList<ProcessingStep> processingSteps;
+  private InjectBindingRegistry injectBindingRegistry;
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {
@@ -90,11 +91,11 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
-        new MembersInjectionBinding.Factory(elements, types, dependencyRequestFactory);
+        new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
-    InjectBindingRegistry injectBindingRegistry = new InjectBindingRegistry(
+    this.injectBindingRegistry = new InjectBindingRegistry(
         elements, types, messager, provisionBindingFactory, factoryGenerator,
-        membersInjectionBindingFactory, membersInjectorGenerator, keyFactory);
+        membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
         new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
@@ -115,9 +116,7 @@ public final class ComponentProcessor extends AbstractProcessor {
             injectFieldValidator,
             injectMethodValidator,
             provisionBindingFactory,
-            factoryGenerator,
             membersInjectionBindingFactory,
-            membersInjectorGenerator,
             injectBindingRegistry),
         new ModuleProcessingStep(
             messager,
@@ -137,6 +136,11 @@ public final class ComponentProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (ProcessingStep processingStep : processingSteps) {
       processingStep.process(annotations, roundEnv);
+    }
+    try {
+      injectBindingRegistry.generateSourcesForRequiredBindings();
+    } catch (SourceFileGenerationException e) {
+      e.printMessageTo(processingEnv.getMessager());
     }
     return false;
   }
