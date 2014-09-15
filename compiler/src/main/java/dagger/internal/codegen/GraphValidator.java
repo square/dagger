@@ -168,7 +168,7 @@ public class GraphValidator implements Validator<TypeElement> {
     // Multimaps.index() doesn't do ImmutableSetMultimaps.
     ImmutableSetMultimap.Builder<Key, ProvisionBinding> builder = ImmutableSetMultimap.builder();
     for (ProvisionBinding binding : bindings) {
-      builder.put(binding.providedKey(), binding);
+      builder.put(binding.key(), binding);
     }
     return builder.build();
   }
@@ -236,7 +236,7 @@ public class GraphValidator implements Validator<TypeElement> {
             if (key.isPresent()) {
               DependencyRequest implicitRequest =
                   dependencyRequestFactory.forImplicitMapBinding(request, key.get());
-              ProvisionBinding implicitBinding =
+              Binding implicitBinding =
                   provisionBindingFactory.forImplicitMapBinding(request, implicitRequest);
               resolveRequest(Iterables.getOnlyElement(implicitBinding.dependencies()),
                   rootRequest, reportBuilder, explicitBindings, resolvedBindings, cycleStack,
@@ -275,7 +275,7 @@ public class GraphValidator implements Validator<TypeElement> {
                 reportDuplicateBindings(rootRequest, requestKey, bindingsByType, reportBuilder);
               }
             }
-            for (ProvisionBinding explicitBinding : explicitBindingsForKey) {
+            for (Binding explicitBinding : explicitBindingsForKey) {
               for (DependencyRequest dependency : explicitBinding.dependencies()) {
                 resolveRequest(dependency, rootRequest, reportBuilder, explicitBindings,
                     resolvedBindings, cycleStack, dependencyPath);

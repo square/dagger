@@ -197,7 +197,7 @@ class SourceFiles {
               new KeyVariableNamer().apply(entry.getKey()) + "Provider");
           break;
         case UNIQUE:
-          ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
+          Binding binding = Iterables.getOnlyElement(bindingsForKey);
           providerNames.put(entry.getKey(),
               binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
                 @Override

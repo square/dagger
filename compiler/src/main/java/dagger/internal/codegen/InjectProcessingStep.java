@@ -41,9 +41,7 @@ final class InjectProcessingStep implements ProcessingStep {
   private final InjectFieldValidator fieldValidator;
   private final InjectMethodValidator methodValidator;
   private final ProvisionBinding.Factory provisionBindingFactory;
-  private final FactoryGenerator factoryGenerator;
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
-  private final MembersInjectorGenerator membersInjectorGenerator;
   private final InjectBindingRegistry injectBindingRegistry;
 
   InjectProcessingStep(Messager messager,
@@ -51,18 +49,14 @@ final class InjectProcessingStep implements ProcessingStep {
       InjectFieldValidator fieldValidator,
       InjectMethodValidator methodValidator,
       ProvisionBinding.Factory provisionBindingFactory,
-      FactoryGenerator factoryGenerator,
       MembersInjectionBinding.Factory membersInjectionBindingFactory,
-      MembersInjectorGenerator membersInjectorWriter,
       InjectBindingRegistry factoryRegistrar) {
     this.messager = messager;
     this.constructorValidator = constructorValidator;
     this.fieldValidator = fieldValidator;
     this.methodValidator = methodValidator;
     this.provisionBindingFactory = provisionBindingFactory;
-    this.factoryGenerator = factoryGenerator;
     this.membersInjectionBindingFactory = membersInjectionBindingFactory;
-    this.membersInjectorGenerator = membersInjectorWriter;
     this.injectBindingRegistry = factoryRegistrar;
   }
 
@@ -124,26 +118,12 @@ final class InjectProcessingStep implements ProcessingStep {
     }
 
     for (TypeElement injectedType : membersInjectedTypes.build()) {
-      try {
-        MembersInjectionBinding binding =
-            membersInjectionBindingFactory.forInjectedType(injectedType);
-        membersInjectorGenerator.generate(binding);
-        injectBindingRegistry.registerMembersInjectionBinding(binding);
-        injectBindingRegistry.registerGeneratedFile(
-            membersInjectorGenerator.nameGeneratedType(binding));
-      } catch (SourceFileGenerationException e) {
-        e.printMessageTo(messager);
-      }
+      injectBindingRegistry.registerBinding(
+          membersInjectionBindingFactory.forInjectedType(injectedType));
     }
 
     for (ProvisionBinding binding : provisions.build()) {
-      try {
-        factoryGenerator.generate(binding);
-        injectBindingRegistry.registerProvisionBinding(binding);
-        injectBindingRegistry.registerGeneratedFile(factoryGenerator.nameGeneratedType(binding));
-      } catch (SourceFileGenerationException e) {
-        e.printMessageTo(messager);
-      }
+      injectBindingRegistry.registerBinding(binding);
     }
 
     return false;

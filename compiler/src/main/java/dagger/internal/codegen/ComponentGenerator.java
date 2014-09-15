@@ -395,7 +395,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     if (binding.bindingKind().equals(COMPONENT)) {
       return Snippet.format("%s.<%s>create(this)",
           ClassName.fromClass(InstanceFactory.class),
-          TypeNames.forTypeMirror(binding.providedKey().type()));
+          TypeNames.forTypeMirror(binding.key().type()));
     } else if (binding.bindingKind().equals(COMPONENT_PROVISION)) {
       return Snippet.format(Joiner.on('\n').join(
           "new %s<%2$s>() {",
@@ -404,7 +404,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           "  }",
           "}"),
           ClassName.fromClass(Factory.class),
-          TypeNames.forTypeMirror(binding.providedKey().type()),
+          TypeNames.forTypeMirror(binding.key().type()),
           contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
           binding.bindingElement().getSimpleName().toString());
     } else {
@@ -479,7 +479,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           ClassName.fromClass(MapFactory.class),
           memberSelectSnippets.get(Iterables.getOnlyElement(firstBinding.dependencies()).key()));
     } else {
-      DeclaredType mapType = Util.asDeclaredType(firstBinding.providedKey().type());
+      DeclaredType mapType = Util.asDeclaredType(firstBinding.key().type());
       TypeMirror mapKeyType = Util.getKeyTypeOfMap(mapType);
       TypeMirror mapValueType = Util.getProvidedValueTypeOfMap(mapType); // V of Map<K, Provider<V>>
       StringBuilder snippetFormatBuilder = new StringBuilder("%s.<%s, %s>builder(%d)");
@@ -508,7 +508,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
   }
 
   // add one map entry for map Provider in Constructor
-  private void writeEntry(List<Object> argsBuilder, ProvisionBinding binding,
+  private void writeEntry(List<Object> argsBuilder, Binding binding,
       Snippet factory) {
     AnnotationMirror mapKeyAnnotationMirror =
         Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
@@ -598,8 +598,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     return value.accept(mapKeyVisitor, null);
   }
 
-  private boolean isNonProviderMap(ProvisionBinding binding) {
-    TypeMirror bindingType = binding.providedKey().type();
+  private boolean isNonProviderMap(Binding binding) {
+    TypeMirror bindingType = binding.key().type();
     return Util.isTypeOf(Map.class, bindingType) // Implicitly guarantees a declared type.
         && !Util.isTypeOf(Provider.class, asDeclaredType(bindingType).getTypeArguments().get(1));
   }
