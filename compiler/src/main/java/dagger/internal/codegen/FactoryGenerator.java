@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
@@ -86,7 +87,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProvisionBinding binding) {
     TypeMirror keyType = binding.provisionType().equals(Type.MAP)
-        ? Util.getProvidedValueTypeOfMap(Util.asDeclaredType(binding.key().type()))
+
+        ? Util.getProvidedValueTypeOfMap(MoreTypes.asDeclared(binding.key().type()))
         : binding.key().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
