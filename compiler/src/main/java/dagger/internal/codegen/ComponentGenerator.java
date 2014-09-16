@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -74,6 +75,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
+import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
@@ -85,7 +87,6 @@ import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateMembersInjectorNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.generateProviderNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
-import static dagger.internal.codegen.Util.asDeclaredType;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -479,7 +480,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           ClassName.fromClass(MapFactory.class),
           memberSelectSnippets.get(Iterables.getOnlyElement(firstBinding.dependencies()).key()));
     } else {
-      DeclaredType mapType = Util.asDeclaredType(firstBinding.key().type());
+      DeclaredType mapType = asDeclared(firstBinding.key().type());
       TypeMirror mapKeyType = Util.getKeyTypeOfMap(mapType);
       TypeMirror mapValueType = Util.getProvidedValueTypeOfMap(mapType); // V of Map<K, Provider<V>>
       StringBuilder snippetFormatBuilder = new StringBuilder("%s.<%s, %s>builder(%d)");
@@ -600,8 +601,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
   private boolean isNonProviderMap(Binding binding) {
     TypeMirror bindingType = binding.key().type();
-    return Util.isTypeOf(Map.class, bindingType) // Implicitly guarantees a declared type.
-        && !Util.isTypeOf(Provider.class, asDeclaredType(bindingType).getTypeArguments().get(1));
+    return MoreTypes.isTypeOf(Map.class, bindingType) // Implicitly guarantees a declared type.
+        && !MoreTypes.isTypeOf(Provider.class, asDeclared(bindingType).getTypeArguments().get(1));
   }
 
   private boolean hasNoArgsConstructor(TypeElement type) {
