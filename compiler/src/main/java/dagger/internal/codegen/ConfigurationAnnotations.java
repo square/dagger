@@ -18,14 +18,15 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
-import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
+import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -88,26 +89,26 @@ final class ConfigurationAnnotations {
    * given seed modules.  If a module is malformed and a type listed in {@link Module#includes}
    * is not annotated with {@link Module}, it is ignored.
    */
-  static ImmutableSet<TypeElement> getTransitiveModules(Elements elements, Types types,
-      ImmutableSet<TypeElement> seedModules) {
+  static ImmutableMap<TypeElement, ImmutableSet<TypeElement>> getTransitiveModules(
+      Elements elements, Types types, ImmutableSet<TypeElement> seedModules) {
     Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
-    Set<TypeElement> moduleElements = Sets.newLinkedHashSet();
+    Map<TypeElement, ImmutableSet<TypeElement>> moduleElements = Maps.newLinkedHashMap();
     for (TypeElement moduleElement = moduleQueue.poll();
         moduleElement != null;
         moduleElement = moduleQueue.poll()) {
-      moduleElements.add(moduleElement);
       Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class);
       if (moduleMirror.isPresent()) {
         ImmutableSet<TypeElement> moduleDependencies = MoreTypes.asTypeElements(types,
             ConfigurationAnnotations.getModuleIncludes(elements, moduleMirror.get()));
+        moduleElements.put(moduleElement, moduleDependencies);
         for (TypeElement dependencyType : moduleDependencies) {
-          if (!moduleElements.contains(dependencyType)) {
+          if (!moduleElements.containsKey(dependencyType)) {
             moduleQueue.add(dependencyType);
           }
         }
       }
     }
-    return ImmutableSet.copyOf(moduleElements);
+    return ImmutableMap.copyOf(moduleElements);
   }
 
   private ConfigurationAnnotations() {}

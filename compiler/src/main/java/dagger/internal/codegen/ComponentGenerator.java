@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
+import com.google.auto.common.MoreElements;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -29,7 +30,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Factory;
@@ -40,6 +40,7 @@ import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
+import dagger.internal.codegen.BindingGraph.ResolvedBindings;
 import dagger.internal.codegen.ProvisionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
@@ -54,6 +55,7 @@ import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.TypeWriter;
 import dagger.internal.codegen.writer.VoidName;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -74,6 +76,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
 import static com.google.auto.common.MoreTypes.asDeclared;
@@ -86,8 +89,6 @@ import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.generateMembersInjectorNamesForBindings;
-import static dagger.internal.codegen.SourceFiles.generateProviderNamesForBindings;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -104,33 +105,33 @@ import static javax.lang.model.type.TypeKind.VOID;
  * @author Gregory Kick
  * @since 2.0
  */
-final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> {
+final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   ComponentGenerator(Filer filer) {
     super(filer);
   }
 
   @Override
-  ClassName nameGeneratedType(ComponentDescriptor input) {
+  ClassName nameGeneratedType(BindingGraph input) {
     ClassName componentDefinitionClassName =
-        ClassName.fromTypeElement(input.componentDefinitionType());
+        ClassName.fromTypeElement(input.componentDescriptor().componentDefinitionType());
     return componentDefinitionClassName.topLevelClassName().peerNamed(
         "Dagger_" + componentDefinitionClassName.classFileName());
   }
 
   @Override
-  Iterable<? extends Element> getOriginatingElements(ComponentDescriptor input) {
-    return ImmutableSet.of(input.componentDefinitionType());
+  Iterable<? extends Element> getOriginatingElements(BindingGraph input) {
+    return ImmutableSet.of(input.componentDescriptor().componentDefinitionType());
   }
 
   @Override
-  Optional<? extends Element> getElementForErrorReporting(ComponentDescriptor input) {
-    return Optional.of(input.componentDefinitionType());
+  Optional<? extends Element> getElementForErrorReporting(BindingGraph input) {
+    return Optional.of(input.componentDescriptor().componentDefinitionType());
   }
 
   @Override
-  ImmutableSet<JavaWriter> write(ClassName componentName, ComponentDescriptor input) {
+  ImmutableSet<JavaWriter> write(ClassName componentName, BindingGraph input) {
     ClassName componentDefinitionTypeName =
-        ClassName.fromTypeElement(input.componentDefinitionType());
+        ClassName.fromTypeElement(input.componentDescriptor().componentDefinitionType());
 
     JavaWriter writer = JavaWriter.inPackage(componentName.packageName());
     ClassWriter componentWriter = writer.addClass(componentName.simpleName());
@@ -147,20 +148,14 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     builderFactoryMethod.addModifiers(PUBLIC, STATIC);
     builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
 
-    ImmutableSetMultimap<Key, ProvisionBinding> resolvedProvisionBindings =
-        input.resolvedProvisionBindings();
-    ImmutableMap<Key, MembersInjectionBinding> resolvedMembersInjectionBindings =
-        input.resolvedMembersInjectionBindings();
-
-    ImmutableMap<Key, String> providerNames =
-        generateProviderNamesForBindings(resolvedProvisionBindings);
-    ImmutableMap<Key, String> membersInjectorNames =
-        generateMembersInjectorNamesForBindings(resolvedMembersInjectionBindings);
+    ImmutableMap<Key, String> framekworkTypeNames = generateFrameworkTypeNames(input);
 
     // the full set of types that calling code uses to construct a component instance
     ImmutableMap<TypeElement, String> componentContributionNames =
         ImmutableMap.copyOf(Maps.asMap(
-            Sets.union(input.moduleDependencies(), input.dependencies()),
+            Sets.union(
+                input.transitiveModules().keySet(),
+                input.componentDescriptor().dependencies()),
             Functions.compose(
                 CaseFormat.UPPER_CAMEL.converterTo(LOWER_CAMEL),
                 new Function<TypeElement, String>() {
@@ -223,8 +218,11 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
     ImmutableMap.Builder<Key, Snippet> memberSelectSnippetsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<String, Set<Key>> packageEntry :
-        Multimaps.asMap(input.initializationByPackage()).entrySet()) {
+    ImmutableSetMultimap.Builder<String, Key> initializationByPackageBuilder =
+        indexInitializations(input, componentDefinitionTypeName);
+
+    for (Entry<String, Collection<Key>> packageEntry :
+        initializationByPackageBuilder.build().asMap().entrySet()) {
       String packageName = packageEntry.getKey();
 
       final Optional<String> proxySelector;
@@ -264,17 +262,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             ClassName.fromClass(key.kind().frameworkClass()),
             TypeNames.forTypeMirror(key.type()));
 
-        final String fieldName;
-        switch (key.kind()) {
-          case PROVIDER:
-            fieldName = providerNames.get(key);
-            break;
-          case MEMBERS_INJECTOR:
-            fieldName = membersInjectorNames.get(key);
-            break;
-          default:
-            throw new AssertionError();
-        }
+        String fieldName = framekworkTypeNames.get(key);
 
         FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
         frameworkField.addModifiers(fieldModifiers);
@@ -299,7 +287,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
 
     ImmutableMap<Key, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
 
-    List<List<Key>> partitions = Lists.partition(input.initializationOrdering(), 100);
+    List<List<Key>> partitions = Lists.partition(input.resolvedBindings().keySet().asList(), 100);
     for (int i = 0; i < partitions.size(); i++) {
       MethodWriter initializeMethod =
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
@@ -310,14 +298,17 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         Snippet memberSelectSnippet = memberSelectSnippets.get(key);
         switch (key.kind()) {
           case PROVIDER:
-            Set<ProvisionBinding> bindings = resolvedProvisionBindings.get(key);
+            @SuppressWarnings("unchecked")
+            Set<ProvisionBinding> bindings =
+                (Set<ProvisionBinding>) input.resolvedBindings().get(key).bindings();
             BindingType bindingsType = ProvisionBinding.bindingTypeFor(bindings);
             switch (bindingsType) {
               case SET:
                 ImmutableList.Builder<Snippet> setFactoryParameters = ImmutableList.builder();
                 for (ProvisionBinding binding : bindings) {
                   setFactoryParameters.add(initializeFactoryForBinding(binding,
-                      input.dependencyMethodIndex(), componentContributionFields,
+                      input.componentDescriptor().dependencyMethodIndex(),
+                      componentContributionFields,
                       memberSelectSnippets));
                 }
                 Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
@@ -330,7 +321,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                 if (!bindings.isEmpty()) {
                   Snippet initializeMapSnippet =
                       initializeMapBinding(componentContributionFields,
-                          input.dependencyMethodIndex(), memberSelectSnippets, bindings);
+                          input.componentDescriptor().dependencyMethodIndex(),
+                          memberSelectSnippets, bindings);
                   initializeMethod.body().addSnippet("this.%s = %s;",
                       memberSelectSnippet, initializeMapSnippet);
                 }
@@ -339,7 +331,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
                 ProvisionBinding binding = Iterables.getOnlyElement(bindings);
                 initializeMethod.body().addSnippet("this.%s = %s;",
                     memberSelectSnippet,
-                    initializeFactoryForBinding(binding, input.dependencyMethodIndex(),
+                    initializeFactoryForBinding(binding,
+                        input.componentDescriptor().dependencyMethodIndex(),
                         componentContributionFields, memberSelectSnippets));
                 break;
               default:
@@ -347,7 +340,8 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
             }
             break;
           case MEMBERS_INJECTOR:
-            MembersInjectionBinding binding = resolvedMembersInjectionBindings.get(key);
+            MembersInjectionBinding binding = (MembersInjectionBinding) Iterables.getOnlyElement(
+                input.resolvedBindings().get(key).bindings());
             initializeMethod.body().addSnippet("this.%s = %s;",
                 memberSelectSnippet,
                 initializeMembersInjectorForBinding(binding, memberSelectSnippets));
@@ -358,30 +352,37 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       }
     }
 
-    for (DependencyRequest interfaceRequest : input.interfaceRequests()) {
-      ExecutableElement requestElement = (ExecutableElement) interfaceRequest.requestElement();
-      MethodWriter interfaceMethod = requestElement.getReturnType().getKind().equals(VOID)
-          ? componentWriter.addMethod(VoidName.VOID, requestElement.getSimpleName().toString())
-              : componentWriter.addMethod(requestElement.getReturnType(),
-                  requestElement.getSimpleName().toString());
-      interfaceMethod.annotate(Override.class);
-      interfaceMethod.addModifiers(PUBLIC);
-      Key key = interfaceRequest.key();
-      if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
-        Snippet membersInjectorName = memberSelectSnippets.get(key);
-        VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
-        Name parameterName = parameter.getSimpleName();
-        interfaceMethod.addParameter(
-            TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
-        interfaceMethod.body()
-        .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
-        if (!requestElement.getReturnType().getKind().equals(VOID)) {
-          interfaceMethod.body().addSnippet("return %s;", parameterName);
-        }
-      } else {
-        interfaceMethod.body().addSnippet("return %s;",
-            frameworkTypeUsageStatement(memberSelectSnippets.get(key),
-                interfaceRequest.kind()));
+    Set<MethodSignature> interfaceMethods = Sets.newHashSet();
+
+    for (DependencyRequest interfaceRequest : input.entryPoints()) {
+      ExecutableElement requestElement =
+          MoreElements.asExecutable(interfaceRequest.requestElement());
+      MethodSignature signature = MethodSignature.fromExecutableElement(requestElement);
+      if (!interfaceMethods.contains(signature)) {
+        interfaceMethods.add(signature);
+        MethodWriter interfaceMethod = requestElement.getReturnType().getKind().equals(VOID)
+            ? componentWriter.addMethod(VoidName.VOID, requestElement.getSimpleName().toString())
+                : componentWriter.addMethod(requestElement.getReturnType(),
+                    requestElement.getSimpleName().toString());
+            interfaceMethod.annotate(Override.class);
+            interfaceMethod.addModifiers(PUBLIC);
+            Key key = interfaceRequest.key();
+            if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
+              Snippet membersInjectorName = memberSelectSnippets.get(key);
+              VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
+              Name parameterName = parameter.getSimpleName();
+              interfaceMethod.addParameter(
+                  TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
+              interfaceMethod.body()
+              .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
+              if (!requestElement.getReturnType().getKind().equals(VOID)) {
+                interfaceMethod.body().addSnippet("return %s;", parameterName);
+              }
+            } else {
+              interfaceMethod.body().addSnippet("return %s;",
+                  frameworkTypeUsageStatement(memberSelectSnippets.get(key),
+                      interfaceRequest.kind()));
+            }
       }
     }
 
@@ -389,6 +390,88 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         .addAll(packageProxies.build())
         .add(writer)
         .build();
+  }
+
+  private ImmutableSetMultimap.Builder<String, Key> indexInitializations(BindingGraph input,
+      ClassName componentName) {
+    ImmutableSetMultimap.Builder<String, Key> initializationByPackageBuilder =
+        ImmutableSetMultimap.builder();
+    for (Entry<Key, ResolvedBindings> resolvedBindingEntry : input.resolvedBindings().entrySet()) {
+      ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
+      for (Binding binding : resolvedBindingEntry.getValue().bindings()) {
+        bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
+      }
+      ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
+      final String bindingPackage;
+      switch (bindingPackages.size()) {
+        case 0:
+          bindingPackage = componentName.packageName();
+          break;
+        case 1:
+          bindingPackage = bindingPackages.iterator().next();
+          break;
+        default:
+          throw new IllegalStateException();
+      }
+      initializationByPackageBuilder.put(bindingPackage, resolvedBindingEntry.getKey());
+    }
+    return initializationByPackageBuilder;
+  }
+
+  private ImmutableMap<Key, String> generateFrameworkTypeNames(BindingGraph graph) {
+    ImmutableMap.Builder<Key, String> names = ImmutableMap.builder();
+    for (Entry<Key, ResolvedBindings> entry : graph.resolvedBindings().entrySet()) {
+      Key key = entry.getKey();
+      switch (key.kind()) {
+        case PROVIDER:
+          @SuppressWarnings("unchecked")
+          ImmutableSet<ProvisionBinding> bindingsForKey =
+              (ImmutableSet<ProvisionBinding>) entry.getValue().bindings();
+          BindingType bindingsType = ProvisionBinding.bindingTypeFor(bindingsForKey);
+          switch (bindingsType) {
+            case SET:
+              names.put(key,
+                  new KeyVariableNamer().apply(key) + "Provider");
+              break;
+            case MAP:
+              names.put(key,
+                  new KeyVariableNamer().apply(key) + "Provider");
+              break;
+            case UNIQUE:
+              ProvisionBinding binding = Iterables.getOnlyElement(bindingsForKey);
+              names.put(key,
+                  binding.bindingElement().accept(new ElementKindVisitor6<String, Void>() {
+                    @Override
+                    public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
+                      return e.getEnclosingElement().accept(this, null);
+                    }
+
+                    @Override
+                    public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+                      return e.getSimpleName().toString();
+                    }
+
+                    @Override
+                    public String visitType(TypeElement e, Void p) {
+                      return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+                          e.getSimpleName().toString());
+                    }
+                  }, null) + "Provider");
+              break;
+            default:
+              throw new AssertionError();
+          }
+          break;
+        case MEMBERS_INJECTOR:
+          names.put(key, CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL,
+              Iterables.getOnlyElement(entry.getValue().bindings())
+                  .bindingElement().getSimpleName().toString()) + "MembersInjector");
+          break;
+        default:
+          throw new AssertionError();
+      }
+    }
+    return names.build();
   }
 
   private Snippet initializeFactoryForBinding(ProvisionBinding binding,

@@ -98,12 +98,16 @@ public final class ComponentProcessor extends AbstractProcessor {
         membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
-            dependencyRequestFactory, keyFactory, provisionBindingFactory);
+        new ComponentDescriptor.Factory(elements, types, provisionBindingFactory);
+
+    BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
+        elements, types, injectBindingRegistry, keyFactory, dependencyRequestFactory,
+        provisionBindingFactory);
+
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
 
-    GraphValidator graphValidator = new GraphValidator(elements, types, injectBindingRegistry,
-        dependencyRequestFactory, keyFactory, provisionBindingFactory);
+    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(types,
+        injectBindingRegistry);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
@@ -127,8 +131,9 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ComponentProcessingStep(
             messager,
             componentValidator,
-            graphValidator,
+            bindingGraphValidator,
             componentDescriptorFactory,
+            bindingGraphFactory,
             componentGenerator));
   }
 
