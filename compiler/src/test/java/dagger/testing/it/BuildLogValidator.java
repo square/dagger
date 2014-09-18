@@ -22,6 +22,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 
+// TODO(user) remove when invoker tests are deleted.
 public class BuildLogValidator {
 
   /**

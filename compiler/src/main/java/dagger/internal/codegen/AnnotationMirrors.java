@@ -17,21 +17,27 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -72,21 +78,22 @@ final class AnnotationMirrors {
   }
 
   private static final Equivalence<AnnotationMirror> ANNOTATION_MIRROR_EQUIVALENCE =
-    new Equivalence<AnnotationMirror>() {
-      @Override protected boolean doEquivalent(AnnotationMirror left, AnnotationMirror right) {
-        return MoreTypes.equivalence()
-            .equivalent(left.getAnnotationType(), right.getAnnotationType())
-            && AnnotationValues.equivalence().pairwise().equivalent(
-                getAnnotationValuesWithDefaults(left),
-                getAnnotationValuesWithDefaults(right));
-      }
-
-      @Override protected int doHash(AnnotationMirror annotation) {
-        DeclaredType type = annotation.getAnnotationType();
-        Iterable<AnnotationValue> annotationValues = getAnnotationValuesWithDefaults(annotation);
-        return Objects.hashCode(type,
-            AnnotationValues.equivalence().pairwise().hash(annotationValues));
-      }
+      new Equivalence<AnnotationMirror>() {
+        @Override
+        protected boolean doEquivalent(AnnotationMirror left, AnnotationMirror right) {
+          return MoreTypes.equivalence().equivalent(left.getAnnotationType(),
+              right.getAnnotationType()) && AnnotationValues.equivalence().pairwise().equivalent(
+              getAnnotationValuesWithDefaults(left).values(),
+              getAnnotationValuesWithDefaults(right).values());
+        }
+        @Override
+        protected int doHash(AnnotationMirror annotation) {
+          DeclaredType type = annotation.getAnnotationType();
+          Iterable<AnnotationValue> annotationValues =
+              getAnnotationValuesWithDefaults(annotation).values();
+          return Arrays.hashCode(new int[] {MoreTypes.equivalence().hash(type),
+              AnnotationValues.equivalence().pairwise().hash(annotationValues)});
+        }
     };
 
   /**
@@ -95,8 +102,8 @@ final class AnnotationMirrors {
    * states that instance/reference equality is not the proper test.
    *
    * Note: The contract of this equivalence is not quite that described in the javadoc, as
-   * hashcode values returned by {@link Equivalence#hash(T)} are not the same as would
-   * be returned from {@link AnnotationMirror#hashCode()}, though the proper invariants
+   * hash code values returned by {@link Equivalence#hash} are not the same as would
+   * be returned from {@link AnnotationMirror#hashCode}, though the proper invariants
    * relating hashCode() and equals() hold for {@code hash(T)} and {@code equivalent(T, T)}.
    */
   static Equivalence<AnnotationMirror> equivalence() {
@@ -110,16 +117,31 @@ final class AnnotationMirrors {
    * {@link Elements#getElementValuesWithDefaults(AnnotationMirror)} but can be called
    * statically without an {@Elements} instance.
    */
-  static Iterable<AnnotationValue> getAnnotationValuesWithDefaults(
+  static Map<ExecutableElement, AnnotationValue> getAnnotationValuesWithDefaults(
       AnnotationMirror annotation) {
-    Map<ExecutableElement, AnnotationValue> values = Maps.newHashMap();
+    Map<ExecutableElement, AnnotationValue> values = Maps.newLinkedHashMap();
     for (ExecutableElement method :
         ElementFilter.methodsIn(annotation.getAnnotationType().asElement().getEnclosedElements())) {
       values.put(method, method.getDefaultValue());
     }
     values.putAll(annotation.getElementValues());
-    return values.values();
+    return values;
   }
 
+  /**
+   * Returns all {@linkplain AnnotationMirror annotations} that are present on the given
+   * {@link Element} which are themselves annotated with {@code annotationType}.
+   */
+  static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,
+      final Class<? extends Annotation> annotationType) {
+    List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
+    return FluentIterable.from(annotations)
+        .filter(new Predicate<AnnotationMirror>() {
+          @Override public boolean apply(AnnotationMirror input) {
+            return isAnnotationPresent(input.getAnnotationType().asElement(), annotationType);
+          }
+        })
+        .toSet();
+  }
   private AnnotationMirrors() {}
 }

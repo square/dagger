@@ -15,7 +15,6 @@
  */
 package dagger.internal;
 
-
 /**
  * Injects a Provider or a MembersInjector.
  */

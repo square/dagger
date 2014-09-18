@@ -23,6 +23,11 @@ package dagger.internal.codegen;
  */
 final class ErrorMessages {
   /*
+   * Common constants.
+   */
+  static final String INDENT = "    ";
+
+  /*
    * JSR-330 errors
    *
    * These are errors that are explicitly outlined in the JSR-330 APIs
@@ -82,6 +87,9 @@ final class ErrorMessages {
    * These are errors that relate specifically to the Dagger configuration API (@Module, @Provides,
    * etc.)
    */
+  static final String DUPLICATE_BINDINGS_FOR_KEY_FORMAT =
+      "%s is bound multiple times:";
+
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
 
@@ -106,8 +114,42 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_NOT_IN_MODULE =
       "@Provides methods can only be present within a @Module";
 
+  static final String PROVIDES_METHOD_NOT_MAP_HAS_MAP_KEY =
+      "@Provides methods of non map type cannot declare a map key";
+
+  static final String PROVIDES_METHOD_WITH_NO_MAP_KEY =
+      "@Provides methods of type map must declare a map key";
+
+  static final String PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY =
+      "@Provides methods may not have more than one @MapKey-marked annotation";
+
   static final String PROVIDES_METHOD_WITH_SAME_NAME =
       "Cannot have more than one @Provides method with the same name in a single module";
+
+  /*mapKey errors*/
+  static final String MAPKEY_WITHOUT_FIELDS =
+      "Map key annotation does not have fields";
+
+  /* collection binding errors */
+  static final String MULTIPLE_BINDING_TYPES_FORMAT =
+      "More than one binding present of different types %s";
+
+  static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
+      "%s has incompatible bindings:\n";
+
+  static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT =
+      "%s cannot be provided without an @Inject constructor or from an @Provides-annotated method.";
+
+  static final String REQUIRES_PROVIDER_FORMAT =
+      "%s cannot be provided without an @Provides-annotated method.";
+
+  static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
+      "This type supports members injection but cannot be implicitly provided.";
+
+  static final String CONTAINS_DEPENDENCY_CYCLE_FORMAT = "%s.%s() contains a dependency cycle:\n%s";
+
+  static final String MALFORMED_MODULE_METHOD_FORMAT =
+      "Cannot generated a graph because method %s on module %s was malformed";
 
   private ErrorMessages() {}
 }

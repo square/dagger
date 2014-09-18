@@ -29,11 +29,11 @@ import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
 import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 
 /**
  * A graph of objects linked by their dependencies.
@@ -141,7 +141,7 @@ public abstract class ObjectGraph {
     return DaggerObjectGraph.makeGraph(null, loader, modules);
   }
 
-  // TODO(cgruber): Move this internal implementation of ObjectGraph into the internal package.
+  // TODO(user): Move this internal implementation of ObjectGraph into the internal package.
   static class DaggerObjectGraph extends ObjectGraph {
     private final DaggerObjectGraph base;
     private final Linker linker;
@@ -324,7 +324,6 @@ public abstract class ObjectGraph {
       }
     }
   }
-
 
   /**
    * A BindingsGroup which fails when existing values are clobbered and sets aside

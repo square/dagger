@@ -121,7 +121,6 @@ public final class InjectionTest {
     assertThat(entryPoint.aProvider.get()).isNotSameAs(entryPoint.aProvider.get());
   }
 
-
   @Test public void singletons() {
     class TestEntryPoint {
       @Inject Provider<F> fProvider;

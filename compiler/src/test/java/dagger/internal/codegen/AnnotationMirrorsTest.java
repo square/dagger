@@ -28,9 +28,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.truth.Truth.assert_;
 import static dagger.internal.codegen.AnnotationMirrorsTest.SimpleEnum.BLAH;
 import static dagger.internal.codegen.AnnotationMirrorsTest.SimpleEnum.FOO;
-import static org.truth0.Truth.ASSERT;
 
 /**
  * Tests {@link AnnotationMirrors}.
@@ -44,6 +44,11 @@ public class AnnotationMirrorsTest {
   @Before public void setUp() {
     this.elements = compilationRule.getElements();
   }
+
+  @interface SimpleAnnotation {}
+
+  @SimpleAnnotation class SimplyAnnotated {}
+  @SimpleAnnotation class AlsoSimplyAnnotated {}
 
   enum SimpleEnum{
     BLAH, FOO
@@ -64,8 +69,6 @@ public class AnnotationMirrorsTest {
   @DefaultingOuter class TestWithDefaultingOuterDefault {}
   @DefaultingOuter(BLAH) class TestWithDefaultingOuterBlah {}
   @DefaultingOuter(FOO) class TestWithDefaultingOuterFoo {}
-
-  @interface SimpleAnnotation {}
 
   @interface AnnotatedOuter {
     DefaultingOuter value();
@@ -95,10 +98,13 @@ public class AnnotationMirrorsTest {
   @OuterWithValueArray({@DefaultingOuter(BLAH), @DefaultingOuter(FOO)})
   class TestValueArrayWithBlahFoo {}
 
-
   @Test public void testEquivalences() {
     EquivalenceTester<AnnotationMirror> tester =
         EquivalenceTester.of(AnnotationMirrors.equivalence());
+
+    tester.addEquivalenceGroup(
+        annotationOn(SimplyAnnotated.class),
+        annotationOn(AlsoSimplyAnnotated.class));
 
     tester.addEquivalenceGroup(
         annotationOn(TestClassBlah.class),
@@ -151,26 +157,26 @@ public class AnnotationMirrorsTest {
   @Stringy("foo") class StringySet {}
 
   @Test public void testGetDefaultValuesUnset() {
-    ASSERT.that(annotationOn(StringyUnset.class).getElementValues()).isEmpty();
+    assert_().that(annotationOn(StringyUnset.class).getElementValues()).isEmpty();
     Iterable<AnnotationValue> values = AnnotationMirrors.getAnnotationValuesWithDefaults(
-        annotationOn(StringyUnset.class));
+        annotationOn(StringyUnset.class)).values();
     String value = getOnlyElement(values).accept(new SimpleAnnotationValueVisitor6<String, Void>() {
           @Override public String visitString(String value, Void ignored) {
             return value;
           }
         }, null);
-    ASSERT.that(value).isEqualTo("default");
+    assert_().that(value).isEqualTo("default");
   }
 
   @Test public void testGetDefaultValuesSet() {
     Iterable<AnnotationValue> values = AnnotationMirrors.getAnnotationValuesWithDefaults(
-        annotationOn(StringySet.class));
+        annotationOn(StringySet.class)).values();
     String value = getOnlyElement(values).accept(new SimpleAnnotationValueVisitor6<String, Void>() {
           @Override public String visitString(String value, Void ignored) {
             return value;
           }
         }, null);
-    ASSERT.that(value).isEqualTo("foo");
+    assert_().that(value).isEqualTo("foo");
   }
 
   private AnnotationMirror annotationOn(Class<?> clazz) {

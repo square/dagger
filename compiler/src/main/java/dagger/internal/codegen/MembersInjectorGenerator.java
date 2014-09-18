@@ -22,6 +22,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
 import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
@@ -90,7 +91,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   }
 
   @Override
-  JavaWriter write(ClassName injectorClassName, MembersInjectionBinding binding) {
+  ImmutableSet<JavaWriter> write(ClassName injectorClassName, MembersInjectionBinding binding) {
     ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
 
     JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
@@ -113,7 +114,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         "  throw new NullPointerException(\"Cannot inject members into a null reference\");",
         "}"));
 
-
     Optional<TypeElement> supertype = supertype(binding.bindingElement());
     if (supertype.isPresent()) {
       ParameterizedTypeName supertypeMemebersInjectorType = ParameterizedTypeName.create(
@@ -128,26 +128,30 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       injectMembersWriter.body().addSnippet("supertypeInjector.injectMembers(instance);");
     }
 
-    ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(binding.dependencySet());
+    ImmutableMap<Key, String> names =
+        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+            ImmutableSet.copyOf(binding.dependencies()));
 
-    ImmutableMap.Builder<FrameworkKey, FieldWriter> dependencyFieldsBuilder =
+    ImmutableMap.Builder<Key, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
+    for (Entry<Key, String> nameEntry : names.entrySet()) {
       final FieldWriter field;
-      if (nameEntry.getKey().frameworkClass().equals(Provider.class)) {
-        ParameterizedTypeName providerType = ParameterizedTypeName.create(
-            ClassName.fromClass(Provider.class),
-            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
-        field = injectorWriter.addField(providerType, nameEntry.getValue());
-      } else if (nameEntry.getKey().frameworkClass().equals(MembersInjector.class)) {
-        ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
-            ClassName.fromClass(MembersInjector.class),
-            TypeNames.forTypeMirror(nameEntry.getKey().key().type()));
-        field = injectorWriter.addField(membersInjectorType, nameEntry.getValue());
-      } else {
-        throw new IllegalStateException();
+      switch (nameEntry.getKey().kind()) {
+        case PROVIDER:
+          ParameterizedTypeName providerType = ParameterizedTypeName.create(
+              ClassName.fromClass(Provider.class),
+              TypeNames.forTypeMirror(nameEntry.getKey().type()));
+          field = injectorWriter.addField(providerType, nameEntry.getValue());
+          break;
+        case MEMBERS_INJECTOR:
+          ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
+              ClassName.fromClass(MembersInjector.class),
+              TypeNames.forTypeMirror(nameEntry.getKey().type()));
+          field = injectorWriter.addField(membersInjectorType, nameEntry.getValue());
+          break;
+        default:
+          throw new AssertionError();
       }
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
@@ -155,24 +159,25 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       constructorWriter.body().addSnippet("this.%1$s = %1$s;", field.name());
       dependencyFieldsBuilder.put(nameEntry.getKey(), field);
     }
-    ImmutableMap<FrameworkKey, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
+    ImmutableMap<Key, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
     for (InjectionSite injectionSite : binding.injectionSites()) {
       switch (injectionSite.kind()) {
         case FIELD:
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
-          FieldWriter singleField = depedencyFields.get(FrameworkKey.forDependencyRequest(
-              fieldDependency));
+          FieldWriter singleField = depedencyFields.get(fieldDependency.key());
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
-              frameworkTypeUsageStatement(singleField.name(), fieldDependency.kind()));
+              frameworkTypeUsageStatement(Snippet.format(singleField.name()),
+                  fieldDependency.kind()));
           break;
         case METHOD:
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-          for (DependencyRequest methodDependnecy : injectionSite.dependencies()) {
+          for (DependencyRequest methodDependency : injectionSite.dependencies()) {
             FieldWriter field =
-            depedencyFields.get(FrameworkKey.forDependencyRequest(methodDependnecy));
-            parameters.add(frameworkTypeUsageStatement(field.name(), methodDependnecy.kind()));
+            depedencyFields.get(methodDependency.key());
+            parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
+                methodDependency.kind()));
           }
           injectMembersWriter.body().addSnippet("instance.%s(%s);",
               injectionSite.element().getSimpleName(),
@@ -182,7 +187,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           throw new AssertionError();
       }
     }
-    return writer;
+    return ImmutableSet.of(writer);
   }
 
   private Optional<TypeElement> supertype(TypeElement type) {

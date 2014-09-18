@@ -30,6 +30,7 @@ import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -38,7 +39,6 @@ import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-
 
 /**
  * Represents a request for a key at an injection point. Parameters to {@link Inject} constructors
@@ -87,6 +87,17 @@ abstract class DependencyRequest {
           .toSet();
     }
 
+    /**
+     * Creates a DependencyRequest for implictMapBinding, this request's key will be
+     * {@code Map<K, Provider<V>>}, this DependencyRequest is depended by the DependencyRequest
+     * whose key is {@code Map<K, V>}
+     */
+    DependencyRequest forImplicitMapBinding(DependencyRequest delegatingRequest, Key delegateKey) {
+      checkNotNull(delegatingRequest);
+      return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
+          delegatingRequest.requestElement());
+    }
+
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
@@ -96,6 +107,8 @@ abstract class DependencyRequest {
 
     DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod) {
       checkNotNull(provisionMethod);
+      checkArgument(provisionMethod.getParameters().isEmpty(),
+          "Component provision methods must be empty: " + provisionMethod);
       TypeMirror type = provisionMethod.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
       return newDependencyRequest(provisionMethod, type, qualifier);
@@ -107,14 +120,16 @@ abstract class DependencyRequest {
           InjectionAnnotations.getQualifier(membersInjectionMethod);
       checkArgument(!qualifier.isPresent());
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-          keyFactory.forQualifiedType(qualifier,
+          keyFactory.forMembersInjectedType(
               Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
           membersInjectionMethod);
     }
 
-    DependencyRequest forMembersInjectedType(TypeMirror type) {
-      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR, keyFactory.forType(type),
-          types.asElement(type));
+    DependencyRequest forMembersInjectedType(TypeElement type) {
+      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+          // TODO(gak): handle this better
+          keyFactory.forMembersInjectedType(types.erasure(type.asType())),
+          type);
     }
 
     private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,

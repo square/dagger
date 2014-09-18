@@ -46,7 +46,8 @@
     <javawriter.version>2.5.0</javawriter.version>
     <auto.common.version>1.0-SNAPSHOT</auto.common.version>
     <auto.service.version>1.0-rc1</auto.service.version>
-    <guava.version>17.0</guava.version>
+    <auto.value.version>1.0-SNAPSHOT</auto.value.version>
+    <guava.version>18.0</guava.version>
 
     <!-- Test Dependencies -->
     <compile-testing.version>0.6-SNAPSHOT</compile-testing.version>
@@ -111,6 +112,11 @@
         <groupId>com.google.auto.service</groupId>
         <artifactId>auto-service</artifactId>
         <version>${auto.service.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.auto.value</groupId>
+        <artifactId>auto-value</artifactId>
+        <version>${auto.value.version}</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>

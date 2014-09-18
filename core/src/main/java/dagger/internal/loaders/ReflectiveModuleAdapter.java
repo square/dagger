@@ -36,7 +36,6 @@ import java.util.Set;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
-
 /**
  * @deprecated this is in place to temporarily support obfuscation needs and
  *     will not exist as of Dagger 2.0

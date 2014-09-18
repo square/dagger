@@ -23,14 +23,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static java.util.Arrays.asList;
 
 @RunWith(JUnit4.class)
 public final class PrimitiveInjectionTest {
 
-  // TODO(cgruber): Use @test.ForTest to qualify primitives once qualifier equivalence is working.
+  // TODO(user): Use @test.ForTest to qualify primitives once qualifier equivalence is working.
   /*
   JavaFileObject annotation = JavaFileObjects.forSourceLines("test.ForTest",
       "package test;",
@@ -40,7 +40,7 @@ public final class PrimitiveInjectionTest {
       "}");
   */
 
-  // TODO(cgruber): Expand test to support more primitive types when b/15512877 is fixed.
+  // TODO(user): Expand test to support more primitive types when b/15512877 is fixed.
   JavaFileObject primitiveInjectable = JavaFileObjects.forSourceLines("test.PrimitiveInjectable",
       "package test;",
       "import javax.inject.Inject;",
@@ -77,15 +77,13 @@ public final class PrimitiveInjectionTest {
       "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
       "public final class Dagger_PrimitiveComponent implements PrimitiveComponent {",
       "  private final PrimitiveModule primitiveModule;",
-      "  private final Provider<PrimitiveInjectable> primitiveInjectableProvider;",
-      "  private final Provider<Integer> primitiveIntProvider;",
+      "  private Provider<Integer> primitiveIntProvider;",
+      "  private Provider<PrimitiveInjectable> primitiveInjectableProvider;",
       "",
       "  private Dagger_PrimitiveComponent(Builder builder) {",
       "    assert builder != null;",
       "    this.primitiveModule = builder.primitiveModule;",
-      "    this.primitiveIntProvider = new PrimitiveModule$$PrimitiveIntFactory(primitiveModule);",
-      "    this.primitiveInjectableProvider =",
-      "        new PrimitiveInjectable$$Factory(primitiveIntProvider);",
+      "    initialize();",
       "  }",
       "",
       "  public static Builder builder() {",
@@ -94,6 +92,12 @@ public final class PrimitiveInjectionTest {
       "",
       "  public static PrimitiveComponent create() {",
       "    return builder().build();",
+      "  }",
+      "",
+      "  private void initialize() {",
+      "    this.primitiveIntProvider = new PrimitiveModule$$PrimitiveIntFactory(primitiveModule);",
+      "    this.primitiveInjectableProvider =",
+      "        new PrimitiveInjectable$$Factory(primitiveIntProvider);",
       "  }",
       "",
       "  @Override",
@@ -130,7 +134,7 @@ public final class PrimitiveInjectionTest {
       "}");
 
   @Test public void primitiveArrayTypesAllInjected() {
-    ASSERT.about(javaSources())
+    assert_().about(javaSources())
         .that(asList(component, primitiveInjectable, primitiveModule))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()

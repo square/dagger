@@ -22,7 +22,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assert_;
 
 @RunWith(JUnit4.class)
 public final class InstanceFactoryTest {
@@ -31,9 +31,9 @@ public final class InstanceFactoryTest {
   @Test public void instanceFactory() {
     Object instance = new Object();
     Factory<Object> factory = InstanceFactory.create(instance);
-    ASSERT.that(factory.get()).is(instance);
-    ASSERT.that(factory.get()).is(instance);
-    ASSERT.that(factory.get()).is(instance);
+    assert_().that(factory.get()).isEqualTo(instance);
+    assert_().that(factory.get()).isEqualTo(instance);
+    assert_().that(factory.get()).isEqualTo(instance);
   }
 
   @Test public void create_throwsNullPointerException() {

@@ -16,6 +16,8 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import dagger.internal.codegen.writer.ClassName;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
@@ -34,35 +36,39 @@ import static javax.tools.Diagnostic.Kind.ERROR;
  * @since 2.0
  */
 final class SourceFileGenerationException extends Exception implements PrintableErrorMessage {
-  private final ClassName generatedClassName;
+  private final ImmutableSet<ClassName> generatedClassNames;
   private final Optional<? extends Element> associatedElement;
 
-  SourceFileGenerationException(ClassName generatedClassName, Throwable cause,
+  SourceFileGenerationException(Iterable<ClassName> generatedClassNames, Throwable cause,
       Optional<? extends Element> associatedElement) {
-    super(createMessage(generatedClassName, cause.getMessage()), cause);
-    this.generatedClassName = checkNotNull(generatedClassName);
+    super(createMessage(generatedClassNames, cause.getMessage()), cause);
+    this.generatedClassNames = ImmutableSet.copyOf(generatedClassNames);
     this.associatedElement = checkNotNull(associatedElement);
   }
 
-  SourceFileGenerationException(ClassName generatedClassName, Throwable cause) {
-    this(generatedClassName, cause, Optional.<Element>absent());
+  SourceFileGenerationException(Iterable<ClassName> generatedClassNames, Throwable cause) {
+    this(generatedClassNames, cause, Optional.<Element>absent());
   }
 
-  SourceFileGenerationException(ClassName generatedClassName, Throwable cause,
+  SourceFileGenerationException(Iterable<ClassName> generatedClassNames, Throwable cause,
       Element associatedElement) {
-    this(generatedClassName, cause, Optional.of(associatedElement));
+    this(generatedClassNames, cause, Optional.of(associatedElement));
   }
 
-  public ClassName generatedClassName() {
-    return generatedClassName;
+  public ImmutableSet<ClassName> generatedClassNames() {
+    return generatedClassNames;
   }
 
   public Optional<? extends Element> associatedElement() {
     return associatedElement;
   }
 
-  private static String createMessage(ClassName generatedClassName, String message) {
-    return String.format("Could not generate %s: %s.", generatedClassName, message);
+  private static String createMessage(Iterable<ClassName> generatedClassNames, String message) {
+    return String.format("Could not generate %s: %s.",
+        Iterables.isEmpty(generatedClassNames)
+            ? "unknown files"
+            : Iterables.toString(generatedClassNames),
+        message);
   }
 
   @Override

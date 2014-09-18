@@ -36,16 +36,19 @@ final class ComponentProcessingStep implements ProcessingStep {
   private final ComponentValidator componentValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final ComponentGenerator componentGenerator;
+  private final GraphValidator graphValidator;
 
   ComponentProcessingStep(
       Messager messager,
       ComponentValidator componentValidator,
+      GraphValidator graphValidator,
       Factory componentDescriptorFactory,
       ComponentGenerator componentGenerator) {
     this.messager = messager;
     this.componentValidator = componentValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
     this.componentGenerator = componentGenerator;
+    this.graphValidator = graphValidator;
   }
 
   @Override
@@ -55,11 +58,13 @@ final class ComponentProcessingStep implements ProcessingStep {
     for (Element element : componentElements) {
       if (SuperficialValidation.validateElement(element)) {
         TypeElement componentTypeElement = MoreElements.asType(element);
-        ValidationReport<TypeElement> report =
+        ValidationReport<TypeElement> componentReport =
             componentValidator.validate(componentTypeElement);
-        report.printMessagesTo(messager);
-
-        if (report.isClean()) {
+        componentReport.printMessagesTo(messager);
+        ValidationReport<TypeElement> graphReport =
+            graphValidator.validate(componentTypeElement);
+        graphReport.printMessagesTo(messager);
+        if (componentReport.isClean() && graphReport.isClean()) {
           try {
             componentGenerator.generate(componentDescriptorFactory.create(componentTypeElement));
           } catch (SourceFileGenerationException e) {

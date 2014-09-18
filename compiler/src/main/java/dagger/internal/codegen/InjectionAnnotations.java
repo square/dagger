@@ -16,17 +16,12 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
-import java.lang.annotation.Annotation;
-import java.util.List;
 import javax.inject.Qualifier;
 import javax.inject.Scope;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -65,23 +60,11 @@ final class InjectionAnnotations {
   }
 
   static ImmutableSet<? extends AnnotationMirror> getQualifiers(Element element) {
-    return getAnnotatedAnnotations(element, Qualifier.class);
+    return AnnotationMirrors.getAnnotatedAnnotations(element, Qualifier.class);
   }
 
   static ImmutableSet<? extends AnnotationMirror> getScopes(Element element) {
-    return getAnnotatedAnnotations(element, Scope.class);
-  }
-
-  private static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,
-      final Class<? extends Annotation> annotationType) {
-    List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
-    return FluentIterable.from(annotations)
-        .filter(new Predicate<AnnotationMirror>() {
-          @Override public boolean apply(AnnotationMirror input) {
-            return isAnnotationPresent(input.getAnnotationType().asElement(), annotationType);
-          }
-        })
-        .toSet();
+    return AnnotationMirrors.getAnnotatedAnnotations(element, Scope.class);
   }
 
   private InjectionAnnotations() {}

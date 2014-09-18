@@ -11,12 +11,12 @@ android:
   licenses:
     - android-sdk-license-5be876d5
 
-install: mvn install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
+install: mvn -P!standard-with-extra-repos -U install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
 
-script: mvn verify
+script: mvn -P!standard-with-extra-repos -U verify
 
 notifications:
-  email: false
+  email: dagger-firehose@googlegroups.com
 
 branches:
   except:
