@@ -52,6 +52,7 @@ import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.TypeWriter;
 import dagger.internal.codegen.writer.VoidName;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -81,6 +82,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT_PROVISION;
+import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -226,7 +228,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
       String packageName = packageEntry.getKey();
 
       final Optional<String> proxySelector;
-      final ClassWriter classWithFields;
+      final TypeWriter classWithFields;
       final Set<Modifier> fieldModifiers;
 
       if (packageName.equals(componentName.packageName())) {
@@ -240,7 +242,7 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
         // create the proxy
         JavaWriter proxyWriter = JavaWriter.inPackage(packageName);
         packageProxies.add(proxyWriter);
-        ClassWriter proxyClassWriter =
+        TypeWriter proxyClassWriter =
             proxyWriter.addClass(componentName.simpleName() + "__PackageProxy");
         proxyClassWriter.addModifiers(PUBLIC, FINAL);
         // create the field for the proxy in the component
@@ -409,18 +411,20 @@ final class ComponentGenerator extends SourceFileGenerator<ComponentDescriptor> 
           contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
           binding.bindingElement().getSimpleName().toString());
     } else {
+      if (binding.bindingKind().equals(INJECTION) && binding.implicitDependencies().isEmpty()) {
+        return binding.scope().isPresent()
+            ? Snippet.format("%s.create(%s.INSTANCE)",
+                ClassName.fromClass(ScopedProvider.class),
+                factoryNameForProvisionBinding(binding))
+            : Snippet.format("%s.INSTANCE",
+                factoryNameForProvisionBinding(binding));
+      }
       List<Snippet> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
       if (binding.bindingKind().equals(PROVISION)) {
         parameters.add(Snippet.format(contributionFields.get(binding.bindingTypeElement()).name()));
       }
       if (binding.memberInjectionRequest().isPresent()) {
-        Snippet snippet = memberSelectSnippets.get(
-            binding.memberInjectionRequest().get().key());
-        if (snippet != null) {
-          parameters.add(snippet);
-        } else {
-          throw new UnsupportedOperationException("Non-generated MembersInjector");
-        }
+        parameters.add(memberSelectSnippets.get(binding.memberInjectionRequest().get().key()));
       }
       parameters.addAll(getDependencyParameters(binding.dependencies(), memberSelectSnippets));
       return binding.scope().isPresent()

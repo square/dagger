@@ -73,7 +73,7 @@ public class PackageProxyTest {
         "  }",
         "",
         "  private void initialize() {",
-        "    this.foreign_Proxy.nonPublicClassProvider = new NonPublicClass$$Factory();",
+        "    this.foreign_Proxy.nonPublicClassProvider = NonPublicClass$$Factory.INSTANCE;",
         "    this.publicClassProvider =",
         "        new PublicClass$$Factory(foreign_Proxy.nonPublicClassProvider);",
         "  }",

@@ -158,7 +158,7 @@ public class MembersInjectionTest {
         "  }",
         "",
         "  private void initialize() {",
-        "    this.depProvider = new Dep$$Factory();",
+        "    this.depProvider = Dep$$Factory.INSTANCE;",
         "    this.parentMembersInjector = new Parent$$MembersInjector(depProvider);",
         "    this.childMembersInjector = MembersInjectors.delegatingTo(parentMembersInjector);",
         "    this.childProvider = new Child$$Factory(childMembersInjector);",
