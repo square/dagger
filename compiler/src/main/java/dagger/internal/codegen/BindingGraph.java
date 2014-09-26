@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
+
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
@@ -116,7 +118,7 @@ abstract class BindingGraph {
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement method : dependencyMethods) {
-          if (isComponentProvisionMethod(method)) {
+          if (isComponentProvisionMethod(elements, method)) {
             // MembersInjection methods aren't "provided" explicitly, so ignore them.
             explicitBindingsBuilder.add(provisionBindingFactory.forComponentMethod(method));
           }
@@ -174,7 +176,7 @@ abstract class BindingGraph {
       ImmutableSet.Builder<DependencyRequest> interfaceRequestsBuilder = ImmutableSet.builder();
       for (ExecutableElement componentMethod : methodsIn(elements.getAllMembers(componentType))) {
         if (componentMethod.getModifiers().contains(Modifier.ABSTRACT)) { // Elide Object.*;
-          if (isComponentProvisionMethod(componentMethod)) {
+          if (ComponentDescriptor.isComponentProvisionMethod(elements, componentMethod)) {
             interfaceRequestsBuilder.add(
                 dependencyRequestFactory.forComponentProvisionMethod(componentMethod));
           } else if (isComponentMembersInjectionMethod(componentMethod)) {
@@ -347,13 +349,6 @@ abstract class BindingGraph {
         }
         return bindingState;
       }
-    }
-
-    private boolean isComponentProvisionMethod(ExecutableElement method) {
-      return method.getParameters().isEmpty()
-          && !method.getReturnType().getKind().equals(VOID)
-          && !elements.getTypeElement(Object.class.getCanonicalName())
-              .equals(method.getEnclosingElement());
     }
   }
 }

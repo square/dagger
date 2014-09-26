@@ -96,7 +96,7 @@ abstract class ComponentDescriptor {
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement dependencyMethod : dependencyMethods) {
-          if (isComponentProvisionMethod(dependencyMethod)) {
+          if (isComponentProvisionMethod(elements, dependencyMethod)) {
             ProvisionBinding componentMethodBinding =
                 provisionBindingFactory.forComponentMethod(dependencyMethod);
             explicitBindingIndexBuilder
@@ -112,10 +112,12 @@ abstract class ComponentDescriptor {
           componentDependencyTypes,
           dependencyMethodIndex.build());
     }
+  }
 
-    private static boolean isComponentProvisionMethod(ExecutableElement method) {
-      return method.getParameters().isEmpty()
-          && !method.getReturnType().getKind().equals(VOID);
-    }
+  static boolean isComponentProvisionMethod(Elements elements, ExecutableElement method) {
+    return method.getParameters().isEmpty()
+        && !method.getReturnType().getKind().equals(VOID)
+        && !elements.getTypeElement(Object.class.getCanonicalName())
+            .equals(method.getEnclosingElement());
   }
 }
