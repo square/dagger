@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Component;
@@ -26,6 +27,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
@@ -42,6 +44,7 @@ import javax.lang.model.util.Types;
  * @author Gregory Kick
  * @since 2.0
  */
+@AutoService(Processor.class)
 public final class ComponentProcessor extends AbstractProcessor {
   private ImmutableList<ProcessingStep> processingSteps;
   private InjectBindingRegistry injectBindingRegistry;
