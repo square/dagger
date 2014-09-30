@@ -47,7 +47,7 @@ public class UnusedProviderTest {
     class BagOfMoney {
     }
 
-    @Module(injects = EntryPoint.class) class TestModule {
+    @Module(injects = EntryPoint.class, library = false) class TestModule {
       @Provides BagOfMoney providesMoney() {
         return new BagOfMoney();
       }
@@ -83,7 +83,7 @@ public class UnusedProviderTest {
   }
 
   @Test public void unusedSetBinding() throws Exception {
-    @Module
+    @Module(library = false)
     class TestModule {
       @Provides(type = Provides.Type.SET) String provideA() {
         throw new AssertionError();
@@ -99,7 +99,7 @@ public class UnusedProviderTest {
   }
 
   @Test public void unusedSetValuesBinding() throws Exception {
-    @Module
+    @Module(library = false)
     class TestModule {
       @Provides(type = Provides.Type.SET_VALUES) Set<String> provideA() {
         throw new AssertionError();

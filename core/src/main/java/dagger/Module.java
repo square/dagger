@@ -89,7 +89,10 @@ public @interface Module {
    * included bindings are not necessary. If you provide bindings that are not
    * used by this module's graph, then you must declare {@code library = true}.
    *
-   * <p>This is intended to help you detect dead code.
+   * <p>This is intended to help you detect dead code.  As of 2.0 Dagger ignores
+   * this property and it is present for compatibility with Dagger 1.x during
+   * migrations.
    */
-  boolean library() default false;
+  // TODO(user): Deprecate this property.
+  boolean library() default true;
 }

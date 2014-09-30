@@ -49,7 +49,7 @@ public final class InjectAdapterGenerationTest {
             "  private static final Class<?>[] INCLUDES = {};",
             "  public Basic$AModule$$ModuleAdapter() {",
             "    super(Basic.AModule.class, INJECTS, STATIC_INJECTIONS, false, INCLUDES,",
-            "      true, false);",
+            "      true, true);",
             "  }",
             "  @Override public Basic.AModule newModule() {",
             "    return new Basic.AModule();",
