@@ -35,6 +35,15 @@ dependency:
 </dependencies>
 ```
 
+You can include Dagger in your Android gradle projects with the following:
+
+```gradle
+dependencies {
+  compile 'com.squareup.dagger:dagger:${dagger.version}'
+  provided 'com.squareup.dagger:dagger-compiler:${dagger.version}'
+}
+```
+
 You can also find downloadable .jars on Maven Central. You'll need
 [Dagger][dl-dagger], [JavaWriter][dl-javawriter], and [javax.inject][dl-inject].
 
