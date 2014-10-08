@@ -304,11 +304,7 @@ public abstract class ObjectGraph {
      */
     private Binding<?> getInjectableTypeBinding(
         ClassLoader classLoader, String injectableKey, String key) {
-      Class<?> moduleClass = null;
-      for (DaggerObjectGraph graph = this; graph != null; graph = graph.base) {
-        moduleClass = graph.injectableTypes.get(injectableKey);
-        if (moduleClass != null) break;
-      }
+      Class<?> moduleClass = getModuleClassDeclaringInjects(injectableKey);
       if (moduleClass == null) {
         throw new IllegalArgumentException("No inject registered for " + injectableKey
             + ". You must explicitly add it to the 'injects' option in one of your modules.");
@@ -322,6 +318,15 @@ public abstract class ObjectGraph {
         }
         return binding;
       }
+    }
+
+    private Class<?> getModuleClassDeclaringInjects(String injectableKey) {
+      Class<?> moduleClass = null;
+      for (DaggerObjectGraph graph = this; graph != null; graph = graph.base) {
+        moduleClass = graph.injectableTypes.get(injectableKey);
+        if (moduleClass != null) break;
+      }
+      return moduleClass;
     }
   }
 
