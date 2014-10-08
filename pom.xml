@@ -34,7 +34,6 @@
   <modules>
     <module>compiler</module>
     <module>core</module>
-    <module>examples</module>
   </modules>
 
   <properties>
@@ -205,4 +204,21 @@
       </plugin>
     </plugins>
   </build>
+
+  <!-- 
+    A profile which when switched off excludes example modules - used for javadoc publishing
+  -->
+  <profiles>
+    <profile>
+      <id>examples</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>core</module>
+        <module>compiler</module>
+        <module>examples</module>
+      </modules>
+    </profile>
+  </profiles>
 </project>
