@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
@@ -128,15 +129,25 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     reportBuilder.addItem(errorMessage.toString(), requestPath.getLast().requestElement());
   }
 
+  private static final int DUPLICATE_SIZE_LIMIT = 10;
+
   @SuppressWarnings("resource") // Appendable is a StringBuilder.
   private void reportDuplicateBindings(Deque<DependencyRequest> requestPath,
       ResolvedBindings resolvedBinding, ValidationReport.Builder<BindingGraph> reportBuilder) {
     StringBuilder builder = new StringBuilder();
     new Formatter(builder).format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT,
         KeyFormatter.instance().format(requestPath.peek().key()));
-    for (Binding binding : resolvedBinding.bindings()) {
+    for (Binding binding : Iterables.limit(resolvedBinding.bindings(), DUPLICATE_SIZE_LIMIT)) {
       builder.append('\n').append(INDENT);
       builder.append(ProvisionBindingFormatter.instance().format((ProvisionBinding) binding));
+    }
+    int numberOfOtherBindings = resolvedBinding.bindings().size() - DUPLICATE_SIZE_LIMIT;
+    if (numberOfOtherBindings > 0) {
+      builder.append('\n').append(INDENT)
+          .append("and ").append(numberOfOtherBindings).append(" other");
+    }
+    if (numberOfOtherBindings > 1) {
+      builder.append('s');
     }
     reportBuilder.addItem(builder.toString(), requestPath.getLast().requestElement());
   }

@@ -336,6 +336,116 @@ public class GraphValidationTest {
         .and().withErrorContaining(expectedMapError).in(component).onLine(44);
   }
 
+  @Test public void duplicateBindings_TruncateAfterLimit() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "final class Outer {",
+        "  interface A {}",
+        "",
+        "  @Module",
+        "  static class Module1 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module2 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module3 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module4 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module5 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module6 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module7 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module8 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module9 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module10 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module11 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Module",
+        "  static class Module12 {",
+        "    @Provides A provideA() { return new A() {}; }",
+        "  }",
+        "",
+        "  @Component(modules = {",
+        "    Module1.class,",
+        "    Module2.class,",
+        "    Module3.class,",
+        "    Module4.class,",
+        "    Module5.class,",
+        "    Module6.class,",
+        "    Module7.class,",
+        "    Module8.class,",
+        "    Module9.class,",
+        "    Module10.class,",
+        "    Module11.class,",
+        "    Module12.class",
+        "  })",
+        "  interface TestComponent {",
+        "    A getA();",
+        "  }",
+        "}");
+
+    String expectedError = "test.Outer.A is bound multiple times:\n"
+        + "      test.Outer.Module1.provideA()\n"
+        + "      test.Outer.Module2.provideA()\n"
+        + "      test.Outer.Module3.provideA()\n"
+        + "      test.Outer.Module4.provideA()\n"
+        + "      test.Outer.Module5.provideA()\n"
+        + "      test.Outer.Module6.provideA()\n"
+        + "      test.Outer.Module7.provideA()\n"
+        + "      test.Outer.Module8.provideA()\n"
+        + "      test.Outer.Module9.provideA()\n"
+        + "      test.Outer.Module10.provideA()\n"
+        + "      and 2 others";
+
+    assert_().about(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError).in(component).onLine(86);
+  }
+
   @Test public void longChainOfDependencies() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
         "package test;",
