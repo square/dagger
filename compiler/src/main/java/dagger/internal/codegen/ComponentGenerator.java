@@ -15,8 +15,8 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreTypes;
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -26,7 +26,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -55,7 +54,6 @@ import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.TypeWriter;
 import dagger.internal.codegen.writer.VoidName;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -83,6 +81,7 @@ import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
+import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT;
 import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT_PROVISION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
@@ -164,8 +163,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                   }
                 })));
 
-    ImmutableSet.Builder<JavaWriter> packageProxies = ImmutableSet.builder();
-
     ConstructorWriter constructorWriter = componentWriter.addConstructor();
     constructorWriter.addModifiers(PRIVATE);
     constructorWriter.addParameter(builderWriter, "builder");
@@ -218,18 +215,50 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     ImmutableMap.Builder<Key, Snippet> memberSelectSnippetsBuilder =
         ImmutableMap.builder();
 
-    ImmutableSetMultimap.Builder<String, Key> initializationByPackageBuilder =
-        indexInitializations(input, componentDefinitionTypeName);
+    ImmutableSet.Builder<JavaWriter> proxyWriters = ImmutableSet.builder();
+    Map<String, ClassWriter> packageProxies = Maps.newHashMap();
 
-    for (Entry<String, Collection<Key>> packageEntry :
-        initializationByPackageBuilder.build().asMap().entrySet()) {
-      String packageName = packageEntry.getKey();
+    for (Entry<Key, ResolvedBindings> resolvedBindingsEntry : input.resolvedBindings().entrySet()) {
+      Key key = resolvedBindingsEntry.getKey();
+
+      ImmutableSet<? extends Binding> bindings = resolvedBindingsEntry.getValue().bindings();
+      if (bindings.size() == 1) {
+        Binding onlyBinding = bindings.iterator().next();
+        if (onlyBinding instanceof ProvisionBinding) {
+          ProvisionBinding provisionBinding = ((ProvisionBinding) onlyBinding);
+          if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+              && !provisionBinding.scope().isPresent()) {
+            // skip keys whose factories are enum instances and aren't scoped
+            memberSelectSnippetsBuilder.put(key, Snippet.format("%s.INSTANCE",
+                factoryNameForProvisionBinding(provisionBinding)));
+            continue;
+          }
+        }
+      }
+
+      ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
+      for (Binding binding : bindings) {
+        bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
+      }
+      ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
+
+      final String bindingPackage;
+      switch (bindingPackages.size()) {
+        case 0:
+          bindingPackage = componentName.packageName();
+          break;
+        case 1:
+          bindingPackage = bindingPackages.iterator().next();
+          break;
+        default:
+          throw new IllegalStateException();
+      }
 
       final Optional<String> proxySelector;
       final TypeWriter classWithFields;
       final Set<Modifier> fieldModifiers;
 
-      if (packageName.equals(componentName.packageName())) {
+      if (bindingPackage.equals(componentName.packageName())) {
         // no proxy
         proxySelector = Optional.absent();
         // component gets the fields
@@ -237,15 +266,18 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         // private fields
         fieldModifiers = EnumSet.of(PRIVATE);
       } else {
-        // create the proxy
-        JavaWriter proxyWriter = JavaWriter.inPackage(packageName);
-        packageProxies.add(proxyWriter);
-        TypeWriter proxyClassWriter =
-            proxyWriter.addClass(componentName.simpleName() + "__PackageProxy");
+        // get or create the proxy
+        ClassWriter proxyClassWriter = packageProxies.get(bindingPackage);
+        if (proxyClassWriter == null) {
+          JavaWriter proxyWriter = JavaWriter.inPackage(bindingPackage);
+          proxyWriters.add(proxyWriter);
+          proxyClassWriter = proxyWriter.addClass(componentName.simpleName() + "__PackageProxy");
+          packageProxies.put(bindingPackage, proxyClassWriter);
+        }
         proxyClassWriter.addModifiers(PUBLIC, FINAL);
         // create the field for the proxy in the component
         FieldWriter proxyField =
-            componentWriter.addField(proxyClassWriter.name(), packageName.replace('.', '_')
+            componentWriter.addField(proxyClassWriter.name(), bindingPackage.replace('.', '_')
                 + "_Proxy");
         proxyField.addModifiers(PRIVATE, FINAL);
         proxyField.setInitializer("new %s()", proxyClassWriter.name());
@@ -257,23 +289,21 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         fieldModifiers = EnumSet.of(PUBLIC);
       }
 
-      for (Key key : packageEntry.getValue()) {
-        TypeName frameworkTypeName = ParameterizedTypeName.create(
-            ClassName.fromClass(key.kind().frameworkClass()),
-            TypeNames.forTypeMirror(key.type()));
+      TypeName frameworkTypeName = ParameterizedTypeName.create(
+          ClassName.fromClass(key.kind().frameworkClass()),
+          TypeNames.forTypeMirror(key.type()));
 
-        String fieldName = framekworkTypeNames.get(key);
+      String fieldName = framekworkTypeNames.get(key);
 
-        FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
-        frameworkField.addModifiers(fieldModifiers);
+      FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
+      frameworkField.addModifiers(fieldModifiers);
 
-        ImmutableList<String> memberSelectTokens = new ImmutableList.Builder<String>()
-            .addAll(proxySelector.asSet())
-            .add(frameworkField.name())
-            .build();
-        memberSelectSnippetsBuilder.put(key,
-            Snippet.memberSelectSnippet(memberSelectTokens));
-      }
+      ImmutableList<String> memberSelectTokens = new ImmutableList.Builder<String>()
+          .addAll(proxySelector.asSet())
+          .add(frameworkField.name())
+          .build();
+      memberSelectSnippetsBuilder.put(key,
+          Snippet.memberSelectSnippet(memberSelectTokens));
     }
 
     buildMethod.body().addSnippet("return new %s(this);", componentWriter.name());
@@ -291,6 +321,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     for (int i = 0; i < partitions.size(); i++) {
       MethodWriter initializeMethod =
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
+      initializeMethod.body();
       initializeMethod.addModifiers(PRIVATE);
       constructorWriter.body().addSnippet("%s();", initializeMethod.name());
 
@@ -329,11 +360,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 break;
               case UNIQUE:
                 ProvisionBinding binding = Iterables.getOnlyElement(bindings);
-                initializeMethod.body().addSnippet("this.%s = %s;",
-                    memberSelectSnippet,
-                    initializeFactoryForBinding(binding,
-                        input.componentDescriptor().dependencyMethodIndex(),
-                        componentContributionFields, memberSelectSnippets));
+                if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+                    || binding.scope().isPresent()) {
+                  initializeMethod.body().addSnippet("this.%s = %s;",
+                      memberSelectSnippet,
+                      initializeFactoryForBinding(binding,
+                          input.componentDescriptor().dependencyMethodIndex(),
+                          componentContributionFields, memberSelectSnippets));
+                }
                 break;
               default:
                 throw new IllegalStateException();
@@ -387,35 +421,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     }
 
     return new ImmutableSet.Builder<JavaWriter>()
-        .addAll(packageProxies.build())
+        .addAll(proxyWriters.build())
         .add(writer)
         .build();
-  }
-
-  private ImmutableSetMultimap.Builder<String, Key> indexInitializations(BindingGraph input,
-      ClassName componentName) {
-    ImmutableSetMultimap.Builder<String, Key> initializationByPackageBuilder =
-        ImmutableSetMultimap.builder();
-    for (Entry<Key, ResolvedBindings> resolvedBindingEntry : input.resolvedBindings().entrySet()) {
-      ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
-      for (Binding binding : resolvedBindingEntry.getValue().bindings()) {
-        bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
-      }
-      ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
-      final String bindingPackage;
-      switch (bindingPackages.size()) {
-        case 0:
-          bindingPackage = componentName.packageName();
-          break;
-        case 1:
-          bindingPackage = bindingPackages.iterator().next();
-          break;
-        default:
-          throw new IllegalStateException();
-      }
-      initializationByPackageBuilder.put(bindingPackage, resolvedBindingEntry.getKey());
-    }
-    return initializationByPackageBuilder;
   }
 
   private ImmutableMap<Key, String> generateFrameworkTypeNames(BindingGraph graph) {
@@ -510,14 +518,15 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         parameters.add(memberSelectSnippets.get(binding.memberInjectionRequest().get().key()));
       }
       parameters.addAll(getDependencyParameters(binding.dependencies(), memberSelectSnippets));
+
       return binding.scope().isPresent()
           ? Snippet.format("%s.create(new %s(%s))",
               ClassName.fromClass(ScopedProvider.class),
               factoryNameForProvisionBinding(binding),
-              Joiner.on(", ").join(parameters))
+              Snippet.makeParametersSnippet(parameters))
           : Snippet.format("new %s(%s)",
               factoryNameForProvisionBinding(binding),
-              Joiner.on(", ").join(parameters));
+              Snippet.makeParametersSnippet(parameters));
     }
   }
 
@@ -541,7 +550,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           memberSelectSnippets);
       return Snippet.format("new %s(%s)",
           membersInjectorNameForMembersInjectionBinding(binding),
-          Joiner.on(", ").join(parameters));
+          Snippet.makeParametersSnippet(parameters));
     }
   }
 

@@ -50,7 +50,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
 import static dagger.Provides.Type.SET;
-import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -90,7 +89,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProvisionBinding binding) {
     TypeMirror keyType = binding.provisionType().equals(Type.MAP)
-
         ? Util.getProvidedValueTypeOfMap(MoreTypes.asDeclared(binding.key().type()))
         : binding.key().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
@@ -101,29 +99,35 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     // TODO(gak): stop doing this weird thing with the optional when javawriter lets me put fields
     // in arbitrary places
     Optional<FieldWriter> loggerField = Optional.absent();
-    if (binding.bindingKind().equals(INJECTION) && binding.implicitDependencies().isEmpty()) {
-      EnumWriter enumWriter = writer.addEnum(generatedTypeName.simpleName());
-      enumWriter.addConstant("INSTANCE");
-      constructorWriter = Optional.absent();
-      factoryWriter = enumWriter;
-    } else {
-      ClassWriter classWriter = writer.addClass(generatedTypeName.simpleName());
-      classWriter.addModifiers(FINAL);
-      constructorWriter = Optional.of(classWriter.addConstructor());
-      constructorWriter.get().addModifiers(PUBLIC);
-      factoryWriter = classWriter;
-      if (binding.bindingKind().equals(PROVISION)) {
-        loggerField = Optional.of(factoryWriter.addField(Logger.class, "logger"));
-        loggerField.get().addModifiers(PRIVATE, STATIC, FINAL);
-        loggerField.get().setInitializer("%s.getLogger(%s.class.getCanonicalName())",
-            ClassName.fromClass(Logger.class), factoryWriter.name());
+    switch (binding.factoryCreationStrategy()) {
+      case ENUM_INSTANCE:
+        EnumWriter enumWriter = writer.addEnum(generatedTypeName.simpleName());
+        enumWriter.addConstant("INSTANCE");
+        constructorWriter = Optional.absent();
+        factoryWriter = enumWriter;
+        break;
+      case CLASS_CONSTRUCTOR:
+        ClassWriter classWriter = writer.addClass(generatedTypeName.simpleName());
+        classWriter.addModifiers(FINAL);
+        constructorWriter = Optional.of(classWriter.addConstructor());
+        constructorWriter.get().addModifiers(PUBLIC);
+        factoryWriter = classWriter;
+        if (binding.bindingKind().equals(PROVISION)) {
+          loggerField = Optional.of(factoryWriter.addField(Logger.class, "logger"));
+          loggerField.get().addModifiers(PRIVATE, STATIC, FINAL);
+          loggerField.get().setInitializer("%s.getLogger(%s.class.getCanonicalName())",
+              ClassName.fromClass(Logger.class), factoryWriter.name());
 
-        factoryWriter.addField(binding.bindingTypeElement(), "module").addModifiers(PRIVATE, FINAL);
-        constructorWriter.get().addParameter(binding.bindingTypeElement(), "module");
-        constructorWriter.get().body()
-            .addSnippet("assert module != null;")
-            .addSnippet("this.module = module;");
-      }
+          factoryWriter.addField(binding.bindingTypeElement(), "module")
+              .addModifiers(PRIVATE, FINAL);
+          constructorWriter.get().addParameter(binding.bindingTypeElement(), "module");
+          constructorWriter.get().body()
+              .addSnippet("assert module != null;")
+              .addSnippet("this.module = module;");
+        }
+        break;
+      default:
+        throw new AssertionError();
     }
 
     factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());

@@ -13,13 +13,21 @@ import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 @RunWith(JUnit4.class)
 public class PackageProxyTest {
   @Test public void testPackageProxy() {
+    JavaFileObject noDepClassFile = JavaFileObjects.forSourceLines("foreign.NoDepClass",
+        "package foreign;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "public final class NoDepClass {",
+        "  @Inject NoDepClass() {}",
+        "}");
     JavaFileObject publicClassFile = JavaFileObjects.forSourceLines("foreign.PublicClass",
         "package foreign;",
         "",
         "import javax.inject.Inject;",
         "",
         "public final class PublicClass {",
-        "  @Inject PublicClass(NonPublicClass dep) {}",
+        "  @Inject PublicClass(NonPublicClass dep1, NoDepClass dep2) {}",
         "}");
     JavaFileObject nonPublicClassFile = JavaFileObjects.forSourceLines("foreign.NonPublicClass",
         "package foreign;",
@@ -27,7 +35,7 @@ public class PackageProxyTest {
         "import javax.inject.Inject;",
         "",
         "final class NonPublicClass {",
-        "  @Inject NonPublicClass() {}",
+        "  @Inject NonPublicClass(NoDepClass dep) {}",
         "}");
 
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.TestComponent",
@@ -47,6 +55,7 @@ public class PackageProxyTest {
         "package test;",
         "",
         "import foreign.Dagger_TestComponent__PackageProxy;",
+        "import foreign.NoDepClass$$Factory;",
         "import foreign.NonPublicClass$$Factory;",
         "import foreign.PublicClass;",
         "import foreign.PublicClass$$Factory;",
@@ -73,9 +82,10 @@ public class PackageProxyTest {
         "  }",
         "",
         "  private void initialize() {",
-        "    this.foreign_Proxy.nonPublicClassProvider = NonPublicClass$$Factory.INSTANCE;",
-        "    this.publicClassProvider =",
-        "        new PublicClass$$Factory(foreign_Proxy.nonPublicClassProvider);",
+        "    this.foreign_Proxy.nonPublicClassProvider =",
+        "        new NonPublicClass$$Factory(NoDepClass$$Factory.INSTANCE);",
+        "    this.publicClassProvider = new PublicClass$$Factory(",
+        "        foreign_Proxy.nonPublicClassProvider, NoDepClass$$Factory.INSTANCE);",
         "  }",
         "",
         "  @Override",
@@ -93,7 +103,7 @@ public class PackageProxyTest {
         "  }",
         "}");
     assert_().about(javaSources())
-        .that(ImmutableList.of(publicClassFile, nonPublicClassFile, componentFile))
+        .that(ImmutableList.of(noDepClassFile, publicClassFile, nonPublicClassFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
