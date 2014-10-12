@@ -15,6 +15,7 @@ if [ "$TRAVIS_REPO_SLUG" == "google/dagger" ] && \
   git config --global user.email "travis@travis-ci.org"
   git config --global user.name "travis-ci"
   git rm -rf api/latest 
+  mkdir -p api
   mv ${TARGET}/site/apidocs api/latest
   git add -f api/latest
   git commit -m "Lastest javadoc on successful travis build $TRAVIS_BUILD_NUMBER auto-pushed to gh-pages"

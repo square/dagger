@@ -20,8 +20,8 @@ notifications:
 
 env:
   global:
-    - secure: Q8O565LFFwytrjS+vRHlzw0sYGjFA4npvaMbyG5w3uoodnHKTh0tMOwiToGzGS0CHRf83LffTlbodVVIWkiyzxcbNwMslkOxLpFtI0Hif2apb/mSQ6vdO/SXTb1MVwQBqBGCF47KBw5XDjvRbXmIh8+4z9yIBO8oWqEbHvBYQl0=
-    - secure: EMRsJLQfGoSrArcemMmjmlI4Ut2eGoLgIW/lxHEa/zSzOqSGMUdxo7+Hd23VxQqWWYAa2fV4NPSUqBZrJkS6RFxQOE4CYLpmVenSRdVTNXa0Cw+48k6aw4/kOfOafn7s5EJ/pA0dYjFgj1V2F+vRIywrNs0tpziFanWvMVUBAOY=
+    - secure: eGc3LHBRIPmTnXLM1YoIqG1do9BkpFI2pJm3fz5Cd8UaXtf7Oefa+Ts3rcn4ipee5A+lf8kEouPshSoaQs81KZ2/qf8rSTCIqeFjHR8hzmOVYo/0zRfS/VSUT0yqN+jeRhuNk3+A49RTPlcfJqPv3tyddtrM1vF7axhCJPQIRJM=
+    - secure: LTzrlqcSNeZTOV52D3ibY9RBdxY4Yu8dUOYhAonrWLE+eDTzuoyCzcPw8pEcYVNUi1rG6Q7v3QBDTnBztsPoCbcN5tEGjw5cQEbfEzSTkWaNCFjncWn36cLwx9lgbF+5Db/L0mYJ36unDKUpKVC8AgOtxQibfv/ffugfxxj8ohY=
     - secure: PEdRiHTy+xVFPnlBwOhr7RVW/QIFSgd4hO0LESRBeF7KGIjxTZWtKPjnYrysZFm6tozMk6WBVJO6avOss0v7L64nemwpCnSspNYBa6pRGPgQ3rv/wgdPSzqDDmABmpPC18EHbUtF94KVdRX3Cr4kmwKQyD+YUKNRCY11Txt+xfo=
 
 after_success:
@@ -31,4 +31,3 @@ after_success:
 branches:
   except:
     - gh-pages
-    - travis
