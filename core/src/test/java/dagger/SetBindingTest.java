@@ -34,7 +34,7 @@ import org.junit.runners.JUnit4;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 import static java.util.Collections.emptySet;
-import static org.fest.assertions.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
