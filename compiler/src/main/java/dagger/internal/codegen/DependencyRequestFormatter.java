@@ -46,7 +46,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
 
   // TODO(user): Sweep this class for TypeMirror.toString() usage and do some preventive format.
   // TODO(user): consider returning a small structure containing strings to be indented later.
-  @Override public String format(DependencyRequest request) {
+  @Override public String format(final DependencyRequest request) {
     Element requestElement = request.requestElement();
     Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(requestElement);
     return requestElement.accept(new SimpleElementVisitor6<String, Optional<AnnotationMirror>>(){
@@ -110,6 +110,11 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
         }
         builder.append(variable.asType()).append(' ').append(variable.getSimpleName()).append(']');
         return builder.toString();
+      }
+
+      @Override
+      public String visitType(TypeElement e, Optional<AnnotationMirror> p) {
+        return INDENT + e.getQualifiedName();
       }
 
       @Override protected String defaultAction(Element element, Optional<AnnotationMirror> ignore) {

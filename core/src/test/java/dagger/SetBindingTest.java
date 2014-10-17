@@ -286,7 +286,7 @@ public final class SetBindingTest {
       }
     }
 
-    @Module
+    @Module(library = false)
     class SetModule2 {
       @Provides(type = SET)
       public String provideString() {
@@ -301,7 +301,7 @@ public final class SetBindingTest {
         new TestModule(), new SetModule1(), new SetModule2());
     try {
       graph.validate();
-      fail();
+      fail("Should have failed validation.");
     } catch (IllegalStateException expected) {}
   }
 

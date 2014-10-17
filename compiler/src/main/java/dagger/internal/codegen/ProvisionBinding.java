@@ -47,6 +47,7 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
+import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -153,6 +154,17 @@ abstract class ProvisionBinding extends Binding {
         }
         return Iterables.getOnlyElement(types);
     }
+  }
+
+  enum FactoryCreationStrategy {
+    ENUM_INSTANCE,
+    CLASS_CONSTRUCTOR,
+  }
+
+  FactoryCreationStrategy factoryCreationStrategy() {
+    return (bindingKind().equals(INJECTION) && implicitDependencies().isEmpty())
+        ? FactoryCreationStrategy.ENUM_INSTANCE
+        : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
   }
 
   static final class Factory {

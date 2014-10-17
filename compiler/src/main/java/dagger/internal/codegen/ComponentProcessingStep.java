@@ -34,21 +34,24 @@ import javax.lang.model.element.TypeElement;
 final class ComponentProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ComponentValidator componentValidator;
+  private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
+  private final BindingGraph.Factory bindingGraphFactory;
   private final ComponentGenerator componentGenerator;
-  private final GraphValidator graphValidator;
 
   ComponentProcessingStep(
       Messager messager,
       ComponentValidator componentValidator,
-      GraphValidator graphValidator,
+      BindingGraphValidator bindingGraphValidator,
       Factory componentDescriptorFactory,
+      BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     this.messager = messager;
     this.componentValidator = componentValidator;
+    this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
+    this.bindingGraphFactory = bindingGraphFactory;
     this.componentGenerator = componentGenerator;
-    this.graphValidator = graphValidator;
   }
 
   @Override
@@ -61,14 +64,19 @@ final class ComponentProcessingStep implements ProcessingStep {
         ValidationReport<TypeElement> componentReport =
             componentValidator.validate(componentTypeElement);
         componentReport.printMessagesTo(messager);
-        ValidationReport<TypeElement> graphReport =
-            graphValidator.validate(componentTypeElement);
-        graphReport.printMessagesTo(messager);
-        if (componentReport.isClean() && graphReport.isClean()) {
-          try {
-            componentGenerator.generate(componentDescriptorFactory.create(componentTypeElement));
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
+        if (componentReport.isClean()) {
+          ComponentDescriptor componentDescriptor =
+              componentDescriptorFactory.create(componentTypeElement);
+          BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+          ValidationReport<BindingGraph> graphReport =
+              bindingGraphValidator.validate(bindingGraph);
+          graphReport.printMessagesTo(messager);
+          if (graphReport.isClean()) {
+            try {
+              componentGenerator.generate(bindingGraph);
+            } catch (SourceFileGenerationException e) {
+              e.printMessageTo(messager);
+            }
           }
         }
       }

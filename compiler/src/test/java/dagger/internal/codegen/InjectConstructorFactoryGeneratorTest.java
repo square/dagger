@@ -821,4 +821,35 @@ public final class InjectConstructorFactoryGeneratorTest {
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
+
+  @Test
+  public void noDeps() {
+    JavaFileObject simpleType = JavaFileObjects.forSourceLines("test.SimpleType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class SimpleType {",
+        "  @Inject SimpleType() {}",
+        "}");
+    JavaFileObject factory = JavaFileObjects.forSourceLines("test.SimpleType$$Factory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public enum SimpleType$$Factory implements Factory<SimpleType> {",
+        "  INSTANCE;",
+        "",
+        "  @Override public SimpleType get() {",
+        "    return new SimpleType();",
+        "  }",
+        "}");
+    assert_().about(javaSource())
+        .that(simpleType)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factory);
+  }
 }

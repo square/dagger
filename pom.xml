@@ -49,7 +49,7 @@
     <guava.version>18.0</guava.version>
 
     <!-- Test Dependencies -->
-    <compile-testing.version>0.6-SNAPSHOT</compile-testing.version>
+    <compile-testing.version>1.0-SNAPSHOT</compile-testing.version>
     <fest.version>1.4</fest.version>
     <junit.version>4.11</junit.version>
     <mockito.version>1.9.5</mockito.version>

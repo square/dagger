@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Component;
@@ -26,6 +27,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
@@ -42,6 +44,7 @@ import javax.lang.model.util.Types;
  * @author Gregory Kick
  * @since 2.0
  */
+@AutoService(Processor.class)
 public final class ComponentProcessor extends AbstractProcessor {
   private ImmutableList<ProcessingStep> processingSteps;
   private InjectBindingRegistry injectBindingRegistry;
@@ -98,12 +101,16 @@ public final class ComponentProcessor extends AbstractProcessor {
         membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, types, injectBindingRegistry,
-            dependencyRequestFactory, keyFactory, provisionBindingFactory);
+        new ComponentDescriptor.Factory(elements, types, provisionBindingFactory);
+
+    BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
+        elements, types, injectBindingRegistry, keyFactory, dependencyRequestFactory,
+        provisionBindingFactory);
+
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
 
-    GraphValidator graphValidator = new GraphValidator(elements, types, injectBindingRegistry,
-        dependencyRequestFactory, keyFactory, provisionBindingFactory);
+    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(types,
+        injectBindingRegistry);
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
@@ -127,8 +134,9 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ComponentProcessingStep(
             messager,
             componentValidator,
-            graphValidator,
+            bindingGraphValidator,
             componentDescriptorFactory,
+            bindingGraphFactory,
             componentGenerator));
   }
 

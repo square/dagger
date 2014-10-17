@@ -15,13 +15,14 @@
  */
 package dagger.internal.codegen;
 
+import dagger.internal.codegen.writer.TypeWriter;
+
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import dagger.MapKey;
 import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import java.util.ArrayList;
@@ -33,7 +34,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
@@ -68,7 +68,7 @@ final class MapKeyGenerator extends SourceFileGenerator<Element> {
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, Element e) {
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
-    ClassWriter mapKeyWriter = writer.addClass(generatedTypeName.simpleName());
+    TypeWriter mapKeyWriter = writer.addClass(generatedTypeName.simpleName());
     mapKeyWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     mapKeyWriter.addModifiers(PUBLIC);
 
