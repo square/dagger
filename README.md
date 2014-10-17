@@ -3,36 +3,45 @@ Dagger 2
 
 A fast dependency injector for Android and Java.
 
-For more information please see [the website][1].
-
 About Google's Fork
 -------------
 
-This project represents Google's fork of [Square's Dagger][upstream].
-Google's Dagger fork is intended to vary from Square's project only where features are
-needed to deviate from Square's feature-set.  Google's Dagger should be a drop-in compatible
-alternative to Square's Dagger, and many features in this fork will, if successful, be
-merged into the upstream project.  
+Dagger 2.0 is a completely compile-time evolution of the Dagger approach to dependency injection,
+eliminating all reflection, and moving towards user-specified access to managed graphs (vs.
+the traditional Context/Injector/ObjectGraph found in earlier dependency-injection frameworks.
 
-Efforts are made to also keep Google's fork as close in structure to Square's as possible,
-to facilitate merging and compatibility.  Google/dagger will release shortly after Square's
-releases.
+This github project represents the Dagger 2.0 development stream.  The earlier 
+[project page][square] (Square, Inc's repository) represents the earlier 1.0 development stream.  
+Both versions have benefitted from strong involvement from Square, Google, and other contributors. 
 
-Differences with square/dagger
-------------------------------
+Status
+------
 
-  * Injectable types with inheritance hierarchies are scanned at compile time and adapters are generated for their parent types statically.  This differs from square/dagger which always falls back to reflection for the parent types
-    * Pro: Reflection can be entirely avoided in an application.
-    * Con: Changes to parent types to add or remove @Inject members require that this class' adapter be regenerated
-    * Con: Extra code is generated for each concrete sub-type which generates its own copy of the parent adapter (since we don't rely on the parent type having had InjectAdapterProcessor run over it)
+***Version:* 2.0-SNAPSHOT** 
 
+Dagger is currently in active development, primarily internally at Google, with regular pushes
+to the open-source community.  Snapshot releases are auto-deployed to sonatype's central maven
+repository on a clean build with the version tag `2.0-SNAPSHOT`.
+
+Dagger 2.0 is pre-alpha and should be used with caution, though it is usable.  Stable 
+pre-releases will be made as stable points in 2.0's development occur.
+
+Documentation
+-------------
+
+The Dagger project will undergo a documentation re-vamp in preparation for 2.0.  In the mean-time,
+you can get an initial picture of Dagger 2.0's direction from [the original proposal][proposal],
+[this talk by Greg Kick][gaktalk], and discussions on the dagger-discuss@googlegroups.com 
+mailing list.
+
+Also, Javadocs are updated on every merge and are [available here][latestapi]
 
 Installation
 --------
 
-You will need to include the `dagger-${dagger.version}.jar` in your
-application's runtime.  In order to activate code generation you will need to
-include `dagger-compiler-${dagger.version}.jar` in your build at compile time.
+You will need to include the `dagger-2.0-SNAPSHOT.jar` in your
+application's runtime.   In order to activate code generation you will need to
+include `dagger-compiler-2.0-SNAPSHOT.jar` in your build at compile time.
 
 In a Maven project, one would include the runtime in the dependencies section
 of your `pom.xml` (replacing `${dagger.version}` with the appropriate current
@@ -44,12 +53,12 @@ dependency:
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger</artifactId>
-    <version>${dagger.version}</version>
+    <version>2.0-SNAPSHOT</version>
   </dependency>
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
-    <version>${dagger.version}</version>
+    <version>2.0-SNAPSHOT</version>
     <optional>true</optional>
   </dependency>
 </dependencies>
@@ -61,6 +70,14 @@ dependency:
 
 ### Download 
 
+  * 2.0 (google/dagger)
+    * [Dagger 2.0 Javadocs][latestapi]
+    * [Google's Dagger project site on GitHub][project]
+    * <a href="https://plus.google.com/118328287768685565185" rel="publisher">Google+ Dagger Project Page</a>
+    * [Google+ Dagger Users Community][community]
+  * 1.0 (square/dagger)
+    * [Square's original Dagger project site on GitHub][square]
+    * [Square Open Source Community][squarecommunity]
 
 
 Upon release, downloadable .jars will appear via search on Maven Central. You'll need
@@ -89,8 +106,15 @@ License
 
 
  [1]: http://google.github.com/dagger/
- [upstream]: http://github.com/square/dagger/
  [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger%22
  [dl-dagger-compiler]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger-compiler%22
  [dl-javawriter]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javawriter%22
  [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22
+ [latestapi]: http://google.github.io/dagger/api/latest/
+ [gaktalk]: https://www.youtube.com/watch?v=oK_XtfXPkqw
+ [proposal]: https://github.com/square/dagger/issues/366
+ [project]: http://github.com/google/dagger/
+ [community]: https://plus.google.com/communities/111933036769103367883
+ [square]: http://github.com/square/dagger/
+ [squarecommunity]: https://plus.google.com/communities/109244258569782858265
+
