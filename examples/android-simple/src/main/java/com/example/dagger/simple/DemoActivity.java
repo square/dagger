@@ -13,27 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.dagger.activitygraphs;
+package com.example.dagger.simple;
 
 import android.app.Activity;
-import dagger.Module;
-import dagger.Provides;
+import android.os.Bundle;
 
-/**
- * A module to wrap the Activity state and expose it to the graph.
- */
-@Module
-public class ActivityModule {
-  private final Activity activity;
-
-  public ActivityModule(Activity activity) {
-    this.activity = activity;
-  }
-
-  /**
-   * Expose the activity to dependents in the graph.
-   */
-  @Provides @PerActivity Activity activity() {
-    return activity;
+public abstract class DemoActivity extends Activity {
+  @Override protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    // Perform injection so that when this call returns all dependencies will be available for use.
+    ((DemoApplication) getApplication()).component().inject(this);
   }
 }

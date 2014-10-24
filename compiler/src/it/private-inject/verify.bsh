@@ -1,8 +1,0 @@
-import dagger.testing.it.BuildLogValidator;
-import java.io.File;
-
-File buildLog = new File(basedir, "build.log");
-new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "Can't inject a private field: test.TestApp.nope"});
-new BuildLogValidator().assertHasText(buildLog, new String[]{
-    "Can't inject a private constructor: test.TestFoo.TestFoo()"});

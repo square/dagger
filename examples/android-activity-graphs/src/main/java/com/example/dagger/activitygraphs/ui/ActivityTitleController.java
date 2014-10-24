@@ -16,6 +16,8 @@
 package com.example.dagger.activitygraphs.ui;
 
 import android.app.Activity;
+import com.example.dagger.activitygraphs.PerActivity;
+import javax.inject.Inject;
 
 /**
  * A simple abstraction which provides the ability to set the title on an activity.
@@ -25,10 +27,11 @@ import android.app.Activity;
  * control of the activity title. While not exceedingly useful in practice, this concept could be
  * expanded to things like facilitating control over the action bar, dialogs, notifications, etc.
  */
+@PerActivity
 public class ActivityTitleController {
   private final Activity activity;
 
-  public ActivityTitleController(Activity activity) {
+  @Inject public ActivityTitleController(Activity activity) {
     this.activity = activity;
   }
 

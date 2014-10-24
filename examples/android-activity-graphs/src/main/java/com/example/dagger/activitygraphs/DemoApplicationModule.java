@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.dagger.simple;
+package com.example.dagger.activitygraphs;
 
-import android.content.Context;
+import android.app.Application;
 import android.location.LocationManager;
 import dagger.Module;
 import dagger.Provides;
@@ -28,18 +28,17 @@ import static android.content.Context.LOCATION_SERVICE;
  * {@link android.app.Application} to create.
  */
 @Module
-public class AndroidModule {
-  private final DemoApplication application;
+public class DemoApplicationModule {
+  private final Application application;
 
-  public AndroidModule(DemoApplication application) {
+  public DemoApplicationModule(Application application) {
     this.application = application;
   }
 
   /**
-   * Allow the application context to be injected but require that it be annotated with
-   * {@link ForApplication @Annotation} to explicitly differentiate it from an activity context.
+   * Expose the application to the graph.
    */
-  @Provides @Singleton @ForApplication Context provideApplicationContext() {
+  @Provides @Singleton Application application() {
     return application;
   }
 
