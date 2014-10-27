@@ -38,17 +38,17 @@ import static java.lang.annotation.ElementType.TYPE;
  *
  * Provision methods have no arguments and return an {@link Inject injected} or
  * {@link Provides provided} type.  Each may have a {@link Qualifier} annotation as well. The
- * following are all valid provision method declarations: <pre>   {@code
+ * following are all valid provision method declarations: <pre><code>
  *   SomeType getSomeType();
- *   Set<SomeType> getSomeTypes();
- *   @PortNumber int getPortNumber();
- *   }</pre>
+ *   {@literal Set<SomeType>} getSomeTypes();
+ *   {@literal @PortNumber} int getPortNumber();
+ * </code></pre>
  *
  * Member injection methods take a single parameter and optionally return that same type. The
- * following are all valid member injection method declarations: <pre>   {@code
+ * following are all valid member injection method declarations: <pre><code>
  *   void injectSomeType(SomeType someType);
  *   SomeType injectAndReturnSomeType(SomeType someType);
- *   }</pre>
+ * </code></pre>
  *
  * @author Gregory Kick
  * @since 2.0
