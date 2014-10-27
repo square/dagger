@@ -147,7 +147,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     builderFactoryMethod.addModifiers(PUBLIC, STATIC);
     builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
 
-    ImmutableMap<Key, String> framekworkTypeNames = generateFrameworkTypeNames(input);
+    ImmutableMap<Key, String> frameworkTypeNames = generateFrameworkTypeNames(input);
 
     // the full set of types that calling code uses to construct a component instance
     ImmutableMap<TypeElement, String> componentContributionNames =
@@ -293,7 +293,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           ClassName.fromClass(key.kind().frameworkClass()),
           TypeNames.forTypeMirror(key.type()));
 
-      String fieldName = framekworkTypeNames.get(key);
+      String fieldName = frameworkTypeNames.get(key);
 
       FieldWriter frameworkField = classWithFields.addField(frameworkTypeName, fieldName);
       frameworkField.addModifiers(fieldModifiers);
