@@ -94,9 +94,9 @@ public class SetFactoryTest {
         incrementingIntegerProvider(0),
         incrementingIntegerProvider(10),
         incrementingIntegerProvider(20));
-    assert_().that(factory.get()).has().exactly(0, 10, 20);
-    assert_().that(factory.get()).has().exactly(1, 11, 21);
-    assert_().that(factory.get()).has().exactly(2, 12, 22);
+    assert_().that(factory.get()).containsExactly(0, 10, 20);
+    assert_().that(factory.get()).containsExactly(1, 11, 21);
+    assert_().that(factory.get()).containsExactly(2, 12, 22);
   }
 
   @Test
