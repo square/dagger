@@ -15,13 +15,10 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import static com.google.auto.common.MoreElements.asExecutable;
 
 /**
- * Formats a {@link Key} into a {@link String} suitable for use in error messages.
+ * Formats a {@link ProvisionBinding} into a {@link String} suitable for use in error messages.
  *
  * @author Christian Gruber
  * @since 2.0
@@ -34,21 +31,10 @@ final class ProvisionBindingFormatter extends Formatter<ProvisionBinding> {
   }
 
   @Override public String format(ProvisionBinding binding) {
-    StringBuilder builder = new StringBuilder();
     switch (binding.bindingKind()) {
       case PROVISION:
       case COMPONENT_PROVISION:
-        ExecutableElement method = MoreElements.asExecutable(binding.bindingElement());
-        TypeElement type = MoreElements.asType(method.getEnclosingElement());
-        builder.append(type.getQualifiedName());
-        builder.append('.');
-        builder.append(method.getSimpleName());
-        builder.append('(');
-        for (VariableElement parameter : method.getParameters()) {
-          builder.append(parameter.asType()); // TODO(user): Use TypeMirrorFormatter.
-        }
-        builder.append(')');
-        return builder.toString();
+        return MethodSignatureFormatter.instance().format(asExecutable(binding.bindingElement()));
       default:
         throw new UnsupportedOperationException(
             "Not yet supporting " + binding.bindingKind() + " binding types.");

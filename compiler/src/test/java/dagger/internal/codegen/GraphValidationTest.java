@@ -25,6 +25,7 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static java.util.Arrays.asList;
 
 @RunWith(JUnit4.class)
 public class GraphValidationTest {
@@ -218,8 +219,8 @@ public class GraphValidationTest {
         "}");
 
     String expectedError = "test.Outer.A is bound multiple times:\n"
-        + "      test.Outer.Parent.getA()\n"
-        + "      test.Outer.AModule.provideA(java.lang.String)";
+        + "      test.Outer.A test.Outer.Parent.getA()\n"
+        + "      @Provides test.Outer.A test.Outer.AModule.provideA(String)";
 
     assert_().about(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
@@ -257,8 +258,8 @@ public class GraphValidationTest {
         "}");
 
     String expectedError = "test.Outer.A is bound multiple times:\n"
-        + "      test.Outer.Module1.provideA1()\n"
-        + "      test.Outer.Module2.provideA2(java.lang.String)";
+        + "      @Provides test.Outer.A test.Outer.Module1.provideA1()\n"
+        + "      @Provides test.Outer.A test.Outer.Module2.provideA2(String)";
 
     assert_().about(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
@@ -294,16 +295,16 @@ public class GraphValidationTest {
         "  static class TestModule1 {",
         "    @Provides(type = MAP)",
         "    @StringKey(\"foo\")",
-        "    String provideStringMapEntry() { return \"\"; }",
+        "    String stringMapEntry() { return \"\"; }",
         "",
-        "    @Provides(type = SET) String provideStringSetElement() { return \"\"; }",
+        "    @Provides(type = SET) String stringSetElement() { return \"\"; }",
         "  }",
         "",
         "  @Module",
         "  static class TestModule2 {",
-        "    @Provides Set<String> provideStringSet() { return new HashSet<String>(); }",
+        "    @Provides Set<String> stringSet() { return new HashSet<String>(); }",
         "",
-        "    @Provides Map<String, String> provideStringMap() {",
+        "    @Provides Map<String, String> stringMap() {",
         "      return new HashMap<String, String>();",
         "    }",
         "  }",
@@ -318,16 +319,17 @@ public class GraphValidationTest {
     String expectedSetError =
         "java.util.Set<java.lang.String> has incompatible bindings:\n"
             + "      Set bindings:\n"
-            + "          test.Outer.TestModule1.provideStringSetElement()\n"
+            + "          @Provides(type=SET) String test.Outer.TestModule1.stringSetElement()\n"
             + "      Unique bindings:\n"
-            + "          test.Outer.TestModule2.provideStringSet()";
+            + "          @Provides Set<String> test.Outer.TestModule2.stringSet()";
 
     String expectedMapError =
         "java.util.Map<java.lang.String,java.lang.String> has incompatible bindings:\n"
             + "      Map bindings:\n"
-            + "          test.Outer.TestModule1.provideStringMapEntry()\n"
+            + "          @Provides(type=MAP) @test.Outer.StringKey(\"foo\") String"
+            + " test.Outer.TestModule1.stringMapEntry()\n"
             + "      Unique bindings:\n"
-            + "          test.Outer.TestModule2.provideStringMap()";
+            + "          @Provides Map<String,String> test.Outer.TestModule2.stringMap()";
 
     assert_().about(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
@@ -428,16 +430,16 @@ public class GraphValidationTest {
         "}");
 
     String expectedError = "test.Outer.A is bound multiple times:\n"
-        + "      test.Outer.Module1.provideA()\n"
-        + "      test.Outer.Module2.provideA()\n"
-        + "      test.Outer.Module3.provideA()\n"
-        + "      test.Outer.Module4.provideA()\n"
-        + "      test.Outer.Module5.provideA()\n"
-        + "      test.Outer.Module6.provideA()\n"
-        + "      test.Outer.Module7.provideA()\n"
-        + "      test.Outer.Module8.provideA()\n"
-        + "      test.Outer.Module9.provideA()\n"
-        + "      test.Outer.Module10.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module1.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module2.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module3.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module4.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module5.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module6.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module7.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module8.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module9.provideA()\n"
+        + "      @Provides test.Outer.A test.Outer.Module10.provideA()\n"
         + "      and 2 others";
 
     assert_().about(javaSource()).that(component)
@@ -505,5 +507,99 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(firstError).in(component).onLine(33)
         .and().withErrorContaining(secondError).in(component).onLine(34);
+  }
+
+  @Test public void componentWithoutScopeIncludesScopedBindings() {
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.MyComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Component(modules = ScopedModule.class)",
+        "interface MyComponent {",
+        "  ScopedType string();",
+        "}");
+    JavaFileObject typeFile = JavaFileObjects.forSourceLines("test.ScopedType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Singleton",
+        "class ScopedType {",
+        "  @Inject ScopedType(String s, long l, float f) {}",
+        "}");
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.ScopedModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Module",
+        "class ScopedModule {",
+        "  @Provides @Singleton String string() { return \"a string\"; }",
+        "  @Provides long integer() { return 0L; }",
+        "  @Provides float floatingPoint() { return 0.0f; }",
+        "}");
+    String errorMessage = "test.MyComponent (unscoped) may not reference scoped bindings:\n"
+        + "      @Provides @Singleton String test.ScopedModule.string()\n"
+        + "      @Singleton class test.ScopedType";
+    assert_().about(javaSources()).that(asList(componentFile, typeFile, moduleFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(errorMessage);
+  }
+
+  @Test public void componentWithScopeIncludesIncompatiblyScopedBindings() {
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.MyComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Singleton",
+        "@Component(modules = ScopedModule.class)",
+        "interface MyComponent {",
+        "  ScopedType string();",
+        "}");
+    JavaFileObject scopeFile = JavaFileObjects.forSourceLines("test.PerTest",
+        "package test;",
+        "",
+        "import javax.inject.Scope;",
+        "",
+        "@Scope",
+        "@interface PerTest {}");
+    JavaFileObject typeFile = JavaFileObjects.forSourceLines("test.ScopedType",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "@PerTest", // incompatible scope
+        "class ScopedType {",
+        "  @Inject ScopedType(String s, long l, float f) {}",
+        "}");
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.ScopedModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Module",
+        "class ScopedModule {",
+        "  @Provides @PerTest String string() { return \"a string\"; }", // incompatible scope
+        "  @Provides long integer() { return 0L; }", // unscoped - valid
+        "  @Provides @Singleton float floatingPoint() { return 0.0f; }", // same scope - valid
+        "}");
+    String errorMessage = "test.MyComponent scoped with @Singleton "
+        + "may not reference bindings with different scopes:\n"
+        + "      @Provides @test.PerTest String test.ScopedModule.string()\n"
+        + "      @test.PerTest class test.ScopedType";
+    assert_().about(javaSources()).that(asList(componentFile, scopeFile, typeFile, moduleFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(errorMessage);
   }
 }

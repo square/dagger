@@ -1,8 +1,10 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -18,7 +20,9 @@ import java.util.Deque;
 import java.util.Formatter;
 import java.util.LinkedList;
 import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
@@ -30,6 +34,7 @@ import javax.lang.model.util.Types;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 
 public class BindingGraphValidator implements Validator<BindingGraph> {
   private final Types types;
@@ -45,6 +50,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     final ValidationReport.Builder<BindingGraph> reportBuilder =
         ValidationReport.Builder.about(subject);
     ImmutableMap<Key, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
+
+    validateComponentScope(subject, reportBuilder, resolvedBindings);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
       ResolvedBindings resolvedBinding = resolvedBindings.get(entryPoint.key());
@@ -82,6 +89,64 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
 
     return reportBuilder.build();
+  }
+
+  /**
+   * Validates that the scope (if any) of this component are compatible with the scopes of the
+   * bindings available in this component
+   */
+  void validateComponentScope(final BindingGraph subject,
+      final ValidationReport.Builder<BindingGraph> reportBuilder,
+      ImmutableMap<Key, ResolvedBindings> resolvedBindings) {
+    Optional<Equivalence.Wrapper<AnnotationMirror>> componentScope =
+        subject.componentDescriptor().wrappedScope();
+    ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
+    for (ResolvedBindings bindings : resolvedBindings.values()) {
+      for (Binding binding : bindings.bindings()) {
+        if (binding instanceof ProvisionBinding) {
+          ProvisionBinding provisionBinding = (ProvisionBinding) binding;
+          if (provisionBinding.scope().isPresent()
+              && !componentScope.equals(provisionBinding.wrappedScope())) {
+            // Scoped components cannot reference bindings to @Provides methods or @Inject
+            // types decorated by a different scope annotation. Unscoped components cannot
+            // reference to scoped @Provides methods or @Inject types decorated by any
+            // scope annotation.
+            switch (provisionBinding.bindingKind()) {
+              case PROVISION:
+                ExecutableElement provisionMethod =
+                    MoreElements.asExecutable(provisionBinding.bindingElement());
+                incompatiblyScopedMethodsBuilder.add(
+                    MethodSignatureFormatter.instance().format(provisionMethod));
+                break;
+              case INJECTION:
+                incompatiblyScopedMethodsBuilder.add(
+                    stripCommonTypePrefixes(provisionBinding.scope().get().toString()) + " class "
+                        + provisionBinding.bindingTypeElement().getQualifiedName());
+                break;
+              default:
+                throw new IllegalStateException();
+            }
+          }
+        }
+      }
+    }
+    ImmutableSet<String> incompatiblyScopedMethods = incompatiblyScopedMethodsBuilder.build();
+    if (!incompatiblyScopedMethods.isEmpty()) {
+      TypeElement componentType = subject.componentDescriptor().componentDefinitionType();
+      StringBuilder message = new StringBuilder(componentType.getQualifiedName());
+      if (componentScope.isPresent()) {
+        message.append(" scoped with ");
+        message.append(stripCommonTypePrefixes(ErrorMessages.format(componentScope.get().get())));
+        message.append(" may not reference bindings with different scopes:\n");
+      } else {
+        message.append(" (unscoped) may not reference scoped bindings:\n");
+      }
+      for (String method : incompatiblyScopedMethods) {
+        message.append(ErrorMessages.INDENT).append(method).append("\n");
+      }
+      reportBuilder.addItem(message.toString(), componentType,
+          subject.componentDescriptor().componentAnnotation());
+    }
   }
 
   private void reportMissingBinding(

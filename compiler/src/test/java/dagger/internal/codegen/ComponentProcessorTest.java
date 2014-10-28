@@ -83,7 +83,7 @@ public class ComponentProcessorTest {
     assert_().about(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining("module");
+        .withErrorContaining("is not annotated with @Module");
   }
 
   @Test public void simpleComponent() {
