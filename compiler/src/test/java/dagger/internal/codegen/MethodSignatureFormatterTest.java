@@ -51,11 +51,16 @@ public class MethodSignatureFormatterTest {
     Elements elements = compilationRule.getElements();
     TypeElement inner = elements.getTypeElement(InnerClass.class.getCanonicalName());
     ExecutableElement method = Iterables.getOnlyElement(methodsIn(inner.getEnclosedElements()));
-    assertThat(MethodSignatureFormatter.instance().format(method))
-        .isEqualTo(
-            "@dagger.internal.codegen.MethodSignatureFormatterTest.OuterClass.Foo(bar=String.class)"
-            + " @Singleton String "
-            + "dagger.internal.codegen.MethodSignatureFormatterTest.OuterClass.InnerClass.foo"
-            + "(int, ImmutableList<Boolean>)");
+    String formatted = MethodSignatureFormatter.instance().format(method);
+    // This is gross, but it turns out that annotation order is not guaranteed when getting
+    // all the AnnotationMirrors from an Element, so I have to test this chopped-up to make it
+    // less brittle.
+    assertThat(formatted).contains("@Singleton");
+    assertThat(formatted).doesNotContain("@javax.inject.Singleton"); // maybe more importantly
+    assertThat(formatted)
+        .contains("@dagger.internal.codegen.MethodSignatureFormatterTest.OuterClass.Foo"
+            + "(bar=String.class)");
+    assertThat(formatted).contains(" String "); // return type compressed
+    assertThat(formatted).contains("int, ImmutableList<Boolean>)"); // parameters compressed.
   }
 }
