@@ -27,7 +27,7 @@ Differences with square/dagger
     * Con: Extra code is generated for each concrete sub-type which generates its own copy of the parent adapter (since we don't rely on the parent type having had InjectAdapterProcessor run over it)
 
 
-Download
+Installation
 --------
 
 You will need to include the `dagger-${dagger.version}.jar` in your
@@ -55,10 +55,18 @@ dependency:
 </dependencies>
 ```
 
-You can also find downloadable .jars on Maven Central. You'll need
+  - ***Release Version:* N/A**
+  - ***Pre-Release Version:* N/A**
+  - ***Snapshot Version:* 2.0-SNAPSHOT**
+
+### Download 
+
+
+
+Upon release, downloadable .jars will appear via search on Maven Central. You'll need
 [Dagger][dl-dagger], [JavaWriter][dl-javawriter], and [javax.inject][dl-inject].
 
-
+Pre-release directly downloaddable jars of the snapshots are available for [dagger](https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger/2.0-SNAPSHOT/) and [dagger-compiler](https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger-compiler/2.0-SNAPSHOT/) from sonatype's snapshot repository, and are built on a clean build at head.
 
 License
 -------
