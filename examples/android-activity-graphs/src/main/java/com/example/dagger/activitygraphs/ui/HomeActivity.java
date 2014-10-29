@@ -17,19 +17,26 @@ package com.example.dagger.activitygraphs.ui;
 
 import android.location.LocationManager;
 import android.os.Bundle;
-import com.example.dagger.activitygraphs.DemoBaseActivity;
 import javax.inject.Inject;
 
-public class HomeActivity extends DemoBaseActivity {
+public class HomeActivity extends Activity {
   @Inject LocationManager locationManager;
+
+  @Override HomeComponent initComponent() {
+    return component;
+  }
 
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    // After the super.onCreate call returns we are guaranteed our injections are available.
+    Dagger_HomeActivity$HomeComponent.builder()
+        .applicationComponent(((DemoApplication) getApplication()).component())
+        .activityModule(new ActivityModule(this))
+        .build()
+        .inject(this);
 
     if (savedInstanceState == null) {
       getSupportFragmentManager().beginTransaction()
-          .add(android.R.id.content, HomeFragment.newInstance())
+          .add(android.R.id.content, new HomeFragment())
           .commit();
     }
 

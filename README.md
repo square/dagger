@@ -1,5 +1,5 @@
-Dagger
-======
+Dagger 2
+========
 
 A fast dependency injector for Android and Java.
 

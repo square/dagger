@@ -17,22 +17,19 @@ package com.example.dagger.activitygraphs;
 
 import android.app.Application;
 import android.location.LocationManager;
-import javax.inject.Inject;
+import dagger.Component;
+import javax.inject.Singleton;
 
-public class DemoApplication extends Application {
-  private ApplicationComponent applicationComponent;
+/**
+ * A component whose lifetime is the life of the application.
+ */
+@Singleton // Constraints this component to one-per-application or unscoped bindings.
+@Component(modules = DemoApplicationModule.class)
+public interface ApplicationComponent {
+  // Field injections of any dependencies of the DemoApplication
+  void inject(DemoApplication application);
 
-  // TODO(user): Figure out a better example of something one might inject into the app.
-  @Inject LocationManager locationManager; // to illustrate injecting somethign into the app.
-
-  @Override public void onCreate() {
-    super.onCreate();
-    applicationComponent = Dagger_ApplicationComponent.builder()
-        .androidModule(new DemoApplicationModule(this))
-        .build();
-  }
-
-  ApplicationComponent component() {
-    return applicationComponent;
-  }
+  // Exported for child-components.
+  Application application();
+  LocationManager locationManager();
 }

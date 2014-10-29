@@ -57,17 +57,13 @@
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
+      <version>1.0-SNAPSHOT</version>
       <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.easytesting</groupId>
-      <artifactId>fest-assert</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -110,8 +106,8 @@
             <goals><goal>compile</goal></goals>
             <configuration>
               <annotationProcessors>
-                <annotationProcessor>com.google.auto.service.processor.AutoServiceProcessor</annotationProcessor>
                 <annotationProcessor>com.google.auto.value.processor.AutoValueProcessor</annotationProcessor>
+                <annotationProcessor>com.google.auto.service.processor.AutoServiceProcessor</annotationProcessor>
               </annotationProcessors>
             </configuration>
           </execution>
@@ -120,16 +116,12 @@
             <goals><goal>testCompile</goal></goals>
             <configuration>
               <annotationProcessors>
-                <annotationProcessor>dagger.internal.codegen.dagger1.ValidationProcessor</annotationProcessor>
-                <annotationProcessor>dagger.internal.codegen.dagger1.InjectAdapterProcessor</annotationProcessor>
-                <annotationProcessor>dagger.internal.codegen.dagger1.ModuleAdapterProcessor</annotationProcessor>
-                <annotationProcessor>dagger.internal.codegen.dagger1.GraphAnalysisProcessor</annotationProcessor>
+                <annotationProcessor>dagger.internal.codegen.ComponentProcessor</annotationProcessor>
               </annotationProcessors>
             </configuration>
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>

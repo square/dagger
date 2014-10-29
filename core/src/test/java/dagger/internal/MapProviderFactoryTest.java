@@ -69,7 +69,10 @@ public class MapProviderFactoryTest {
     expectedMap.put("three", p3);
     expectedMap.put("one", p5);
     expectedMap.put("four", p4);
-    assert_().that(factory.get().entrySet()).iteratesAs(expectedMap.entrySet());
+    assert_()
+        .that(factory.get().entrySet())
+        .containsExactlyElementsIn(expectedMap.entrySet())
+        .inOrder();
   }
 
   private static Provider<Integer> incrementingIntegerProvider(int seed) {

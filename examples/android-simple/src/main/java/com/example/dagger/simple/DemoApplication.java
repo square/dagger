@@ -16,27 +16,34 @@
 package com.example.dagger.simple;
 
 import android.app.Application;
-import dagger.ObjectGraph;
+import android.location.LocationManager;
+import com.example.dagger.simple.ui.HomeActivity;
+import dagger.Component;
 import java.util.Arrays;
 import java.util.List;
+import javax.inject.Inject;
 
 public class DemoApplication extends Application {
-  private ObjectGraph graph;
+  
+  @Component(modules = AndroidModule.class) interface ApplicationComponent {
+    void inject(DemoApplication application);
+    void inject(HomeActivity homeActivity);
+    void inject(DemoActivity demoActivity);
+  }
+  
+  @Inject LocationManager locationManager; // for some reason.
+  
+  private ApplicationComponent component;
 
   @Override public void onCreate() {
     super.onCreate();
-
-    graph = ObjectGraph.create(getModules().toArray());
+    component = Dagger_DemoApplication$ApplicationComponent.builder()
+        .androidModule(new AndroidModule(this))
+        .build();
+    component().inject(this); // As of now, LocationManager should be injected into this.
   }
 
-  protected List<Object> getModules() {
-    return Arrays.asList(
-        new AndroidModule(this),
-        new DemoModule()
-    );
-  }
-
-  public void inject(Object object) {
-    graph.inject(object);
+  public ApplicationComponent component() {
+    return component;
   }
 }

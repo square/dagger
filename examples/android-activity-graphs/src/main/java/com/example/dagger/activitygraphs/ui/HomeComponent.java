@@ -13,27 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.dagger.activitygraphs;
+package com.example.dagger.activitygraphs.ui;
 
-import android.app.Activity;
-import dagger.Module;
-import dagger.Provides;
+import com.example.dagger.activitygraphs.AbstractActivityComponent;
+import com.example.dagger.activitygraphs.ActivityModule;
+import com.example.dagger.activitygraphs.ApplicationComponent;
+import com.example.dagger.activitygraphs.PerActivity;
+import dagger.Component;
 
-/**
- * A module to wrap the Activity state and expose it to the graph.
- */
-@Module
-public class ActivityModule {
-  private final Activity activity;
-
-  public ActivityModule(Activity activity) {
-    this.activity = activity;
-  }
-
-  /**
-   * Expose the activity to dependents in the graph.
-   */
-  @Provides @PerActivity Activity activity() {
-    return activity;
-  }
+@PerActivity
+@Component(dependencies = ApplicationComponent.class, modules = ActivityModule.class)
+public interface HomeComponent extends AbstractActivityComponent {
+  void inject(HomeActivity homeActivity);
+  void inject(HomeFragment homeFragment);
 }

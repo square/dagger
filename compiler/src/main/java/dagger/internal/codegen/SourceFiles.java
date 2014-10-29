@@ -59,6 +59,17 @@ class SourceFiles {
     }
   };
 
+  static ImmutableSetMultimap<Key, DependencyRequest> indexDependenciesByKey(
+      Iterable<? extends DependencyRequest> dependencies) {
+    ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<Key, DependencyRequest>().orderValuesBy(
+            DEPENDENCY_ORDERING);
+    for (DependencyRequest dependency : dependencies) {
+      dependenciesByKeyBuilder.put(dependency.key(), dependency);
+    }
+    return dependenciesByKeyBuilder.build();
+  }
+
   /**
    * This method generates names for the {@link Provider} references necessary for all of the
    * bindings. It is responsible for the following:
@@ -74,14 +85,8 @@ class SourceFiles {
    */
   static ImmutableMap<Key, String> generateFrameworkReferenceNamesForDependencies(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<Key, DependencyRequest>().orderValuesBy(
-            DEPENDENCY_ORDERING);
-    for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(dependency.key(), dependency);
-    }
     ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
-        dependenciesByKeyBuilder.build();
+        indexDependenciesByKey(dependencies);
     Map<Key, Collection<DependencyRequest>> dependenciesByKeyMap = dependenciesByKey.asMap();
     ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
     for (Entry<Key, Collection<DependencyRequest>> entry : dependenciesByKeyMap.entrySet()) {

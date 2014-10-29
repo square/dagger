@@ -16,11 +16,9 @@
 package dagger.internal;
 
 import dagger.Factory;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 import javax.inject.Provider;
 
 /**

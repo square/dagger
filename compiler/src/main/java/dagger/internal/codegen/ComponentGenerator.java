@@ -557,8 +557,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private static List<Snippet> getDependencyParameters(Iterable<DependencyRequest> dependencies,
       ImmutableMap<Key, Snippet> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-    for (DependencyRequest dependency : dependencies) {
-      parameters.add(memberSelectSnippets.get(dependency.key()));
+    for (Key dependencyKey : SourceFiles.indexDependenciesByKey(dependencies).keySet()) {
+      parameters.add(memberSelectSnippets.get(dependencyKey));
     }
     return parameters.build();
   }

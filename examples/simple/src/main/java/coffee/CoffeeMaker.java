@@ -1,11 +1,17 @@
 package coffee;
 
 import dagger.Lazy;
+
 import javax.inject.Inject;
 
 class CoffeeMaker {
-  @Inject Lazy<Heater> heater; // Don't want to create a possibly costly heater until we need it.
-  @Inject Pump pump;
+  private final Lazy<Heater> heater; // Create a possibly costly heater only when we use it.
+  private final Pump pump;
+
+  @Inject CoffeeMaker(Lazy<Heater> heater, Pump pump) {
+    this.heater = heater;
+    this.pump = pump;
+  }
 
   public void brew() {
     heater.get().on();

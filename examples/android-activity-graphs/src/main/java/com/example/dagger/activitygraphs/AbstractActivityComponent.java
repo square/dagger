@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 Square, Inc.
+ * Copyright (C) 2014 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +17,14 @@
 package com.example.dagger.activitygraphs;
 
 import android.app.Activity;
-import dagger.Module;
-import dagger.Provides;
+import dagger.Component;
 
 /**
- * A module to wrap the Activity state and expose it to the graph.
+ * A base component upon which fragment's components may depend.  Activity-level components
+ * should extend this component.
  */
-@Module
-public class ActivityModule {
-  private final Activity activity;
-
-  public ActivityModule(Activity activity) {
-    this.activity = activity;
-  }
-
-  /**
-   * Expose the activity to dependents in the graph.
-   */
-  @Provides @PerActivity Activity activity() {
-    return activity;
-  }
+// @PerActivity - Subtypes of ActivityComponent should be decorated with @PerActivity
+@Component(dependencies = ApplicationComponent.class, modules = ActivityModule.class)
+public interface AbstractDemoActivityComponent {
+  Activity activity(); // Expose the activity to sub-graphs.
 }

@@ -15,25 +15,17 @@
  */
 package com.example.dagger.activitygraphs;
 
-import android.app.Activity;
-import dagger.Module;
-import dagger.Provides;
+import java.lang.annotation.Retention;
+import javax.inject.Scope;
+
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * A module to wrap the Activity state and expose it to the graph.
+ * A scoping annotation to permit objects whose lifetime should
+ * conform to the life of the activity to be memoized in the
+ * correct component.
  */
-@Module
-public class ActivityModule {
-  private final Activity activity;
-
-  public ActivityModule(Activity activity) {
-    this.activity = activity;
-  }
-
-  /**
-   * Expose the activity to dependents in the graph.
-   */
-  @Provides @PerActivity Activity activity() {
-    return activity;
-  }
+@Scope
+@Retention(RUNTIME)
+public @interface PerActivity {
 }

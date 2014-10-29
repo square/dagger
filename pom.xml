@@ -50,7 +50,6 @@
 
     <!-- Test Dependencies -->
     <compile-testing.version>1.0-SNAPSHOT</compile-testing.version>
-    <fest.version>1.4</fest.version>
     <junit.version>4.11</junit.version>
     <mockito.version>1.9.5</mockito.version>
     <truth.version>1.0-SNAPSHOT</truth.version>
@@ -121,11 +120,6 @@
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
         <version>${junit.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.easytesting</groupId>
-        <artifactId>fest-assert</artifactId>
-        <version>${fest.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.testing.compile</groupId>
