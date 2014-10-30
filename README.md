@@ -42,9 +42,9 @@ Also, Javadocs are updated on every merge and are [available here][latestapi]
 Installation
 --------
 
-You will need to include the `dagger-2.0-SNAPSHOT.jar` in your
+You will need to include the `dagger-${dagger.version}.jar` in your
 application's runtime.   In order to activate code generation you will need to
-include `dagger-compiler-2.0-SNAPSHOT.jar` in your build at compile time.
+include `dagger-compiler-${dagger.version}.jar` in your build at compile time.
 
 In a Maven project, one would include the runtime in the dependencies section
 of your `pom.xml` (replacing `${dagger.version}` with the appropriate current
@@ -56,12 +56,12 @@ dependency:
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger</artifactId>
-    <version>2.0-SNAPSHOT</version>
+    <version>${dagger.version}</version>
   </dependency>
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
-    <version>2.0-SNAPSHOT</version>
+    <version>${dagger.version}</version>
     <optional>true</optional>
   </dependency>
 </dependencies>
