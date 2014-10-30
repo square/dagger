@@ -64,7 +64,7 @@ dependency:
 
 
 Upon release, downloadable .jars will appear via search on Maven Central. You'll need
-[Dagger][dl-dagger], [JavaWriter][dl-javawriter], and [javax.inject][dl-inject].
+[Dagger][dl-dagger], [dagger-compiler][dl-dagger-compiler] and [javax.inject][dl-inject].
 
 Pre-release directly downloaddable jars of the snapshots are available for [dagger](https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger/2.0-SNAPSHOT/) and [dagger-compiler](https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger-compiler/2.0-SNAPSHOT/) from sonatype's snapshot repository, and are built on a clean build at head.
 
@@ -91,5 +91,6 @@ License
  [1]: http://google.github.com/dagger/
  [upstream]: http://github.com/square/dagger/
  [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger%22
+ [dl-dagger-compiler]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger-compiler%22
  [dl-javawriter]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javawriter%22
  [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22
