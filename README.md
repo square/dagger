@@ -43,7 +43,7 @@ Installation
 --------
 
 You will need to include the `dagger-${dagger.version}.jar` in your
-application's runtime. In order to activate code generation you will need to
+application's runtime.  In order to activate code generation you will need to
 include `dagger-compiler-${dagger.version}.jar` in your build at compile time.
 
 In a Maven project, one would include the runtime in the dependencies section
