@@ -22,9 +22,10 @@ import dagger.Component;
 import java.util.Arrays;
 import java.util.List;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 public class DemoApplication extends Application {
-  
+  @Singleton
   @Component(modules = AndroidModule.class) interface ApplicationComponent {
     void inject(DemoApplication application);
     void inject(HomeActivity homeActivity);
