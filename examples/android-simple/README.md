@@ -11,3 +11,7 @@ Injection of activities is done automatically in a base activity.
 
 _Note: The app does not actually do anything when it is run. It is only to show how you can
  structure Dagger within an Android app_
+
+_Note: The app is in transition to Dagger 2 and may not reflect recommended patterns.  Before
+ we release Dagger 2.0 it will, but until this note is removed, please do not rely on this
+ example as a strong recommendation._

@@ -17,6 +17,8 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -30,6 +32,9 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
+import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
+import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
@@ -61,6 +66,20 @@ abstract class ComponentDescriptor {
    * component dependency that can be used for binding.
    */
   abstract ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex();
+
+  /**
+   * An optional annotation constraining the scope of this component.
+   */
+  Optional<AnnotationMirror> scope() {
+    return unwrapOptionalEquivalence(wrappedScope());
+  }
+
+  /**
+   * An optional annotation constraining the scope of this component wrapped in an
+   * {@link com.google.common.base.Equivalence.Wrapper} to preserve comparison semantics of
+   * {@link AnnotationMirror}.
+   */
+  abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
 
   static final class Factory {
     private final Elements elements;
@@ -106,11 +125,13 @@ abstract class ComponentDescriptor {
         }
       }
 
+      Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
           componentMirror,
           componentDefinitionType,
           componentDependencyTypes,
-          dependencyMethodIndex.build());
+          dependencyMethodIndex.build(),
+          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope));
     }
   }
 

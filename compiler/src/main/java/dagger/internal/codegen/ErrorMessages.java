@@ -15,6 +15,11 @@
  */
 package dagger.internal.codegen;
 
+import dagger.Provides;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.lang.model.element.AnnotationMirror;
+
 /**
  * The collection of error messages to be reported back to users.
  *
@@ -150,6 +155,57 @@ final class ErrorMessages {
 
   static final String MALFORMED_MODULE_METHOD_FORMAT =
       "Cannot generated a graph because method %s on module %s was malformed";
+
+  /**
+   * A regular expression to match a small list of specific packages deemed to
+   * be unhelpful to display in fully qualified types in error messages.
+   *
+   * Note: This should never be applied to messages themselves.
+   */
+  private static final Pattern COMMON_PACKAGE_PATTERN = Pattern.compile(
+      "(?:^|[^.a-z_])"     // What we want to match on but not capture.
+      + "((?:"             // Start a group with a non-capturing or part
+      + "java[.]lang"
+      + "|java[.]util"
+      + "|javax[.]inject"
+      + "|dagger"
+      + "|com[.]google[.]common[.]base"
+      + "|com[.]google[.]common[.]collect"
+      + ")[.])"            // Always end with a literal .
+      + "[A-Z]");           // What we want to match on but not capture.
+
+  /**
+   * A method to strip out common packages and a few rare type prefixes
+   * from types' string representation before being used in error messages.
+   *
+   * This type assumes a String value that is a valid fully qualified
+   * (and possibly parameterized) type, and should NOT be used with
+   * arbitrary text, especially prose error messages.
+   *
+   * TODO(user): Tighten these to take type representations (mirrors
+   *     and elements) to avoid accidental mis-use by running errors
+   *     through this method.
+   */
+  static String stripCommonTypePrefixes(String type) {
+    // Special case this enum's constants since they will be incredibly common.
+    type = type.replace(Provides.Type.class.getCanonicalName() + ".", "");
+
+    // Do regex magic to remove common packages we care to shorten.
+    Matcher matcher = COMMON_PACKAGE_PATTERN.matcher(type);
+    StringBuilder result = new StringBuilder();
+    int index = 0;
+    while (matcher.find()) {
+      result.append(type.subSequence(index, matcher.start(1)));
+      index = matcher.end(1); // Skip the matched pattern content.
+    }
+    result.append(type.subSequence(index, type.length()));
+    return result.toString();
+  }
+
+  //TODO(user): Extract Formatter and do something less stringy.
+  static String format(AnnotationMirror annotation) {
+    return stripCommonTypePrefixes(annotation.toString());
+  }
 
   private ErrorMessages() {}
 }

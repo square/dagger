@@ -18,6 +18,8 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -93,6 +96,28 @@ final class Util {
     TypeElement keyTypeElement =
         Iterables.getOnlyElement(map.entrySet()).getValue().accept(mapKeyVisitor, null);
     return keyTypeElement;
+  }
+
+  /**
+   * Wraps an {@link Optional} of a type in an {@code Optional} of an {@link Equivalence.Wrapper}
+   * for that type.
+   */
+  static <T> Optional<Equivalence.Wrapper<T>> wrapOptionalInEquivalence(
+      Equivalence<T> equivalence, Optional<T> optional) {
+    return optional.isPresent()
+        ? Optional.of(equivalence.wrap(optional.get()))
+        : Optional.<Equivalence.Wrapper<T>>absent();
+  }
+
+  /**
+   * Unwraps an {@link Optional} of an {@link Equivalence.Wrapper} into an {@code Optional} of
+   * the underlying type.
+   */
+  static <T> Optional<T> unwrapOptionalEquivalence(
+      Optional<Equivalence.Wrapper<T>> wrappedOptional) {
+    return wrappedOptional.isPresent()
+        ? Optional.of(wrappedOptional.get().get())
+        : Optional.<T>absent();
   }
 
   private Util() {}
