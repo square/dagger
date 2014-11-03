@@ -272,6 +272,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           JavaWriter proxyWriter = JavaWriter.inPackage(bindingPackage);
           proxyWriters.add(proxyWriter);
           proxyClassWriter = proxyWriter.addClass(componentName.simpleName() + "__PackageProxy");
+          proxyClassWriter.annotate(Generated.class)
+              .setValue(ComponentProcessor.class.getCanonicalName());
           packageProxies.put(bindingPackage, proxyClassWriter);
         }
         proxyClassWriter.addModifiers(PUBLIC, FINAL);
