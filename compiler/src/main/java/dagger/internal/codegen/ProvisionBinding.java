@@ -32,16 +32,8 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.ArrayType;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVariable;
-import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
@@ -54,7 +46,6 @@ import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
-import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -191,62 +182,6 @@ abstract class ProvisionBinding extends Binding {
       this.types = types;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
-    }
-
-    private static Optional<String> findBindingPackage(Key providedKey) {
-      Set<String> packages = nonPublicPackageUse(providedKey.type());
-      switch (packages.size()) {
-        case 0:
-          return Optional.absent();
-        case 1:
-          return Optional.of(packages.iterator().next());
-        default:
-          throw new IllegalStateException();
-      }
-    }
-
-    private static Set<String> nonPublicPackageUse(TypeMirror typeMirror) {
-      ImmutableSet.Builder<String> packages = ImmutableSet.builder();
-      typeMirror.accept(new SimpleTypeVisitor6<Void, ImmutableSet.Builder<String>>() {
-        @Override
-        public Void visitArray(ArrayType t, ImmutableSet.Builder<String> p) {
-          return t.getComponentType().accept(this, p);
-        }
-
-        @Override
-        public Void visitDeclared(DeclaredType t, ImmutableSet.Builder<String> p) {
-          for (TypeMirror typeArgument : t.getTypeArguments()) {
-            typeArgument.accept(this, p);
-          }
-          // TODO(gak): address public nested types in non-public types
-          TypeElement typeElement = MoreElements.asType(t.asElement());
-          if (!typeElement.getModifiers().contains(PUBLIC)) {
-            PackageElement elementPackage = MoreElements.getPackage(typeElement);
-            Name qualifiedName = elementPackage.getQualifiedName();
-            p.add(qualifiedName.toString());
-          }
-          return null;
-        }
-
-        @Override
-        public Void visitTypeVariable(TypeVariable t, ImmutableSet.Builder<String> p) {
-          t.getLowerBound().accept(this, p);
-          t.getUpperBound().accept(this, p);
-          return null;
-        }
-
-        @Override
-        public Void visitWildcard(WildcardType t, ImmutableSet.Builder<String> p) {
-          if (t.getExtendsBound() != null) {
-            t.getExtendsBound().accept(this, p);
-          }
-          if (t.getSuperBound() != null) {
-            t.getSuperBound().accept(this, p);
-          }
-          return null;
-        }
-      }, packages);
-      return packages.build();
     }
 
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement) {

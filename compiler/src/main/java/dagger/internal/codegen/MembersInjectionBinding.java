@@ -164,14 +164,15 @@ abstract class MembersInjectionBinding extends Binding {
             }
           });
 
+      Key key = keyFactory.forMembersInjectedType(typeElement.asType());
       return new AutoValue_MembersInjectionBinding(
-          keyFactory.forMembersInjectedType(typeElement.asType()),
+          key,
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
               .addAll(dependencies)
               .addAll(parentInjectorRequest.asSet())
               .build(),
-          Optional.of(MoreElements.getPackage(typeElement).getQualifiedName().toString()),
+          findBindingPackage(key),
           typeElement,
           injectionSites,
           parentInjectorRequest);
