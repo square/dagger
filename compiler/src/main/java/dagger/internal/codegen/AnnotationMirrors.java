@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Predicate;
@@ -60,12 +61,12 @@ final class AnnotationMirrors {
     return builder.build();
   }
 
-  static ImmutableList<TypeMirror> getAttributeAsListOfTypes(Elements elements,
-      AnnotationMirror annotationMirror, String attributeName) {
+  static ImmutableList<TypeMirror> getAttributeAsListOfTypes(AnnotationMirror annotationMirror,
+      String attributeName) {
     checkNotNull(annotationMirror);
     checkNotNull(attributeName);
     ImmutableMap<String, AnnotationValue> valueMap =
-        simplifyAnnotationValueMap(elements.getElementValuesWithDefaults(annotationMirror));
+        simplifyAnnotationValueMap(getAnnotationValuesWithDefaults(annotationMirror));
     ImmutableList.Builder<TypeMirror> builder = ImmutableList.builder();
 
     @SuppressWarnings("unchecked") // that's the whole point of this method
@@ -120,11 +121,22 @@ final class AnnotationMirrors {
   static Map<ExecutableElement, AnnotationValue> getAnnotationValuesWithDefaults(
       AnnotationMirror annotation) {
     Map<ExecutableElement, AnnotationValue> values = Maps.newLinkedHashMap();
+    Map<? extends ExecutableElement, ? extends AnnotationValue> declaredValues =
+        annotation.getElementValues();
     for (ExecutableElement method :
         ElementFilter.methodsIn(annotation.getAnnotationType().asElement().getEnclosedElements())) {
-      values.put(method, method.getDefaultValue());
+      // Must iterate and put in this order, to ensure consistency in generated code.
+      if (declaredValues.containsKey(method)) {
+        values.put(method, declaredValues.get(method));
+      } else if (method.getDefaultValue() != null) {
+        values.put(method, method.getDefaultValue());
+      } else {
+        throw new IllegalStateException(
+            "Unset annotation value without default should never happen: "
+            + MoreElements.asType(method.getEnclosingElement()).getQualifiedName()
+            + '.' + method.getSimpleName() + "()");
+      }
     }
-    values.putAll(annotation.getElementValues());
     return values;
   }
 

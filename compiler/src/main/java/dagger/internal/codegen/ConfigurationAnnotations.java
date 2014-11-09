@@ -31,7 +31,6 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
@@ -46,38 +45,30 @@ import static dagger.internal.codegen.AnnotationMirrors.getAttributeAsListOfType
 final class ConfigurationAnnotations {
   private static final String MODULES_ATTRIBUTE = "modules";
 
-  static ImmutableList<TypeMirror> getComponentModules(Elements elements,
-      AnnotationMirror componentAnnotation) {
-    checkNotNull(elements);
+  static ImmutableList<TypeMirror> getComponentModules(AnnotationMirror componentAnnotation) {
     checkNotNull(componentAnnotation);
-    return getAttributeAsListOfTypes(elements, componentAnnotation, MODULES_ATTRIBUTE);
+    return getAttributeAsListOfTypes(componentAnnotation, MODULES_ATTRIBUTE);
   }
 
   private static final String DEPENDENCIES_ATTRIBUTE = "dependencies";
 
-  static ImmutableList<TypeMirror> getComponentDependencies(Elements elements,
-      AnnotationMirror componentAnnotation) {
-    checkNotNull(elements);
+  static ImmutableList<TypeMirror> getComponentDependencies(AnnotationMirror componentAnnotation) {
     checkNotNull(componentAnnotation);
-    return getAttributeAsListOfTypes(elements, componentAnnotation, DEPENDENCIES_ATTRIBUTE);
+    return getAttributeAsListOfTypes(componentAnnotation, DEPENDENCIES_ATTRIBUTE);
   }
 
   private static final String INCLUDES_ATTRIBUTE = "includes";
 
-  static ImmutableList<TypeMirror> getModuleIncludes(Elements elements,
-      AnnotationMirror moduleAnnotation) {
-    checkNotNull(elements);
+  static ImmutableList<TypeMirror> getModuleIncludes(AnnotationMirror moduleAnnotation) {
     checkNotNull(moduleAnnotation);
-    return getAttributeAsListOfTypes(elements, moduleAnnotation, INCLUDES_ATTRIBUTE);
+    return getAttributeAsListOfTypes(moduleAnnotation, INCLUDES_ATTRIBUTE);
   }
 
   private static final String INJECTS_ATTRIBUTE = "injects";
 
-  static ImmutableList<TypeMirror> getModuleInjects(Elements elements,
-      AnnotationMirror moduleAnnotation) {
-    checkNotNull(elements);
+  static ImmutableList<TypeMirror> getModuleInjects(AnnotationMirror moduleAnnotation) {
     checkNotNull(moduleAnnotation);
-    return getAttributeAsListOfTypes(elements, moduleAnnotation, INJECTS_ATTRIBUTE);
+    return getAttributeAsListOfTypes(moduleAnnotation, INJECTS_ATTRIBUTE);
   }
 
   static ImmutableSet<? extends AnnotationMirror> getMapKeys(Element element) {
@@ -90,7 +81,7 @@ final class ConfigurationAnnotations {
    * is not annotated with {@link Module}, it is ignored.
    */
   static ImmutableMap<TypeElement, ImmutableSet<TypeElement>> getTransitiveModules(
-      Elements elements, Types types, ImmutableSet<TypeElement> seedModules) {
+      Types types, ImmutableSet<TypeElement> seedModules) {
     Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
     Map<TypeElement, ImmutableSet<TypeElement>> moduleElements = Maps.newLinkedHashMap();
     for (TypeElement moduleElement = moduleQueue.poll();
@@ -98,8 +89,8 @@ final class ConfigurationAnnotations {
         moduleElement = moduleQueue.poll()) {
       Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class);
       if (moduleMirror.isPresent()) {
-        ImmutableSet<TypeElement> moduleDependencies = MoreTypes.asTypeElements(types,
-            ConfigurationAnnotations.getModuleIncludes(elements, moduleMirror.get()));
+        ImmutableSet<TypeElement> moduleDependencies =
+            MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get()));
         moduleElements.put(moduleElement, moduleDependencies);
         for (TypeElement dependencyType : moduleDependencies) {
           if (!moduleElements.containsKey(dependencyType)) {
