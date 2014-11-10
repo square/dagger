@@ -32,6 +32,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
 import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
@@ -95,8 +96,8 @@ abstract class ComponentDescriptor {
     ComponentDescriptor create(TypeElement componentDefinitionType) {
       AnnotationMirror componentMirror =
           getAnnotationMirror(componentDefinitionType, Component.class).get();
-      ImmutableSet<TypeElement> componentDependencyTypes = MoreTypes.asTypeElements(types,
-          ConfigurationAnnotations.getComponentDependencies(elements, componentMirror));
+      ImmutableSet<TypeElement> componentDependencyTypes =
+          MoreTypes.asTypeElements(types, getComponentDependencies(componentMirror));
 
       ProvisionBinding componentBinding =
           provisionBindingFactory.forComponent(componentDefinitionType);

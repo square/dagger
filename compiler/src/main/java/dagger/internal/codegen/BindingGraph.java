@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
-
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
@@ -35,6 +33,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -46,6 +45,8 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
 import static javax.lang.model.type.TypeKind.VOID;
@@ -103,6 +104,7 @@ abstract class BindingGraph {
 
     BindingGraph create(ComponentDescriptor componentDescriptor) {
       ImmutableSet.Builder<ProvisionBinding> explicitBindingsBuilder = ImmutableSet.builder();
+      AnnotationMirror componentAnnotation = componentDescriptor.componentAnnotation();
 
       // binding for the component itself
       ProvisionBinding componentBinding =
@@ -110,9 +112,8 @@ abstract class BindingGraph {
       explicitBindingsBuilder.add(componentBinding);
 
       // Collect Component dependencies.
-      ImmutableSet<TypeElement> componentDependencyTypes = MoreTypes.asTypeElements(types,
-          ConfigurationAnnotations.getComponentDependencies(
-              elements, componentDescriptor.componentAnnotation()));
+      ImmutableSet<TypeElement> componentDependencyTypes =
+          MoreTypes.asTypeElements(types, getComponentDependencies(componentAnnotation));
       for (TypeElement componentDependency : componentDependencyTypes) {
         explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDependency));
         List<ExecutableElement> dependencyMethods =
@@ -127,11 +128,10 @@ abstract class BindingGraph {
 
       // Collect transitive modules provisions.
       ImmutableSet<TypeElement> moduleTypes =
-          MoreTypes.asTypeElements(types,
-              getComponentModules(elements, componentDescriptor.componentAnnotation()));
+          MoreTypes.asTypeElements(types, getComponentModules(componentAnnotation));
 
       ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules =
-          getTransitiveModules(elements, types, moduleTypes);
+          getTransitiveModules(types, moduleTypes);
       for (TypeElement module : transitiveModules.keySet()) {
         // traverse the modules, collect the bindings
         List<ExecutableElement> moduleMethods = methodsIn(elements.getAllMembers(module));

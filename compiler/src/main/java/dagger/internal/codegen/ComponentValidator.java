@@ -23,11 +23,11 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.ElementKind.INTERFACE;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -38,14 +38,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  * @author Gregory Kick
  */
 final class ComponentValidator implements Validator<TypeElement> {
-  private final Elements elements;
-
-  ComponentValidator(Elements elements) {
-    this.elements = elements;
-  }
-
-  @Override
-  public ValidationReport<TypeElement> validate(final TypeElement subject) {
+  @Override public ValidationReport<TypeElement> validate(final TypeElement subject) {
     final ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
 
     if (!subject.getKind().equals(INTERFACE)
@@ -54,8 +47,7 @@ final class ComponentValidator implements Validator<TypeElement> {
     }
 
     AnnotationMirror componentMirror = getAnnotationMirror(subject, Component.class).get();
-    ImmutableList<TypeMirror> moduleTypes =
-        ConfigurationAnnotations.getComponentModules(elements, componentMirror);
+    ImmutableList<TypeMirror> moduleTypes = getComponentModules(componentMirror);
 
     // TODO(gak): make unused modules an error
     for (TypeMirror moduleType : moduleTypes) {

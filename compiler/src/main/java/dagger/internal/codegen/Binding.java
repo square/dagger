@@ -18,9 +18,20 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import java.util.Set;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Name;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
+import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleElementVisitor6;
+import javax.lang.model.util.SimpleTypeVisitor6;
+
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * An abstract type for classes representing a Dagger binding.  Particularly, contains the
@@ -71,5 +82,54 @@ abstract class Binding {
    * may reference non-public types.
    */
   abstract Optional<String> bindingPackage();
+
+  protected static Optional<String> findBindingPackage(Key bindingKey) {
+    Set<String> packages = nonPublicPackageUse(bindingKey.type());
+    switch (packages.size()) {
+      case 0:
+        return Optional.absent();
+      case 1:
+        return Optional.of(packages.iterator().next());
+      default:
+        throw new IllegalStateException();
+    }
+  }
+
+  private static Set<String> nonPublicPackageUse(TypeMirror typeMirror) {
+    ImmutableSet.Builder<String> packages = ImmutableSet.builder();
+    typeMirror.accept(new SimpleTypeVisitor6<Void, ImmutableSet.Builder<String>>() {
+      @Override
+      public Void visitArray(ArrayType t, ImmutableSet.Builder<String> p) {
+        return t.getComponentType().accept(this, p);
+      }
+
+      @Override
+      public Void visitDeclared(DeclaredType t, ImmutableSet.Builder<String> p) {
+        for (TypeMirror typeArgument : t.getTypeArguments()) {
+          typeArgument.accept(this, p);
+        }
+        // TODO(gak): address public nested types in non-public types
+        TypeElement typeElement = MoreElements.asType(t.asElement());
+        if (!typeElement.getModifiers().contains(PUBLIC)) {
+          PackageElement elementPackage = MoreElements.getPackage(typeElement);
+          Name qualifiedName = elementPackage.getQualifiedName();
+          p.add(qualifiedName.toString());
+        }
+        return null;
+      }
+
+      @Override
+      public Void visitWildcard(WildcardType t, ImmutableSet.Builder<String> p) {
+        if (t.getExtendsBound() != null) {
+          t.getExtendsBound().accept(this, p);
+        }
+        if (t.getSuperBound() != null) {
+          t.getSuperBound().accept(this, p);
+        }
+        return null;
+      }
+    }, packages);
+    return packages.build();
+  }
 
 }

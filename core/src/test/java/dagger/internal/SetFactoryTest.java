@@ -105,7 +105,7 @@ public class SetFactoryTest {
         integerSetProvider(Range.closed(5, 9)),
         integerSetProvider(Range.closed(3, 6)),
         integerSetProvider(Range.closed(0, 5)));
-    assert_().that(factory.get()).iteratesAs(5, 6, 7, 8, 9, 3, 4, 0, 1, 2);
+    assert_().that(factory.get()).containsExactly(5, 6, 7, 8, 9, 3, 4, 0, 1, 2).inOrder();
   }
 
   private static Provider<Set<Integer>> incrementingIntegerProvider(int seed) {
