@@ -144,8 +144,8 @@
         <artifactId>maven-invoker-plugin</artifactId>
         <configuration>
           <addTestClassPath>true</addTestClassPath>
-          <!--<cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
-          <cloneClean>true</cloneClean>-->
+          <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
+          <cloneClean>true</cloneClean>
           <pomIncludes>
             <pomInclude>*/pom.xml</pomInclude>
           </pomIncludes>
@@ -168,25 +168,4 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>ide</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-invoker-plugin</artifactId>
-            <configuration>
-              <addTestClassPath>true</addTestClassPath>
-              <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
-              <cloneClean>true</cloneClean>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>
