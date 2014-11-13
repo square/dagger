@@ -82,7 +82,7 @@ dependency:
 Upon release, downloadable .jars will appear via search on Maven Central. You'll need
 [Dagger][dl-dagger], [dagger-compiler][dl-dagger-compiler] and [javax.inject][dl-inject].
 
-Pre-release directly downloaddable jars of the snapshots are available for [dagger][dagger-snap] and [dagger-compiler][dagger-compiler-snap] from sonatype's snapshot repository, and are built on a clean build at head.
+Pre-release directly downloadable jars of the snapshots are available for [dagger][dagger-snap] and [dagger-compiler][dagger-compiler-snap] from sonatype's snapshot repository, and are built on a clean build at head.
 
 License
 -------
