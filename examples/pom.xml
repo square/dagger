@@ -37,9 +37,6 @@
   <profiles>
     <profile>
       <id>android</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
       <modules>
         <module>simple</module>
         <module>android-simple</module>

@@ -16,6 +16,7 @@ lib
 target
 pom.xml.*
 release.properties
+build.log
 
 .idea
 *.iml
