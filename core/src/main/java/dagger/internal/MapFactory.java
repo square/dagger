@@ -16,14 +16,12 @@
 package dagger.internal;
 
 import dagger.Factory;
-
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-
 import javax.inject.Provider;
+
+import static dagger.internal.Collections.newLinkedHashMapWithExpectedSize;
+import static java.util.Collections.unmodifiableMap;
 
 /**
  * A {@link Factory} implementation used to implement {@link Map} bindings. This factory returns a
@@ -33,11 +31,11 @@ import javax.inject.Provider;
  * @since 2.0
  *
  */
-public class MapFactory<K, V> implements Factory<Map<K, V>> {
+public final class MapFactory<K, V> implements Factory<Map<K, V>> {
   private final Map<K, Provider<V>> contributingMap;
-  
+
   private MapFactory(Map<K, Provider<V>> map) {
-    this.contributingMap = Collections.unmodifiableMap(map);
+    this.contributingMap = unmodifiableMap(map);
   }
 
   /**
@@ -51,14 +49,13 @@ public class MapFactory<K, V> implements Factory<Map<K, V>> {
   /**
    * Returns a {@code Map<K, V>} whose iteration order is that of the elements
    * given by each of the providers, which are invoked in the order given at creation.
-   *
    */
   @Override
   public Map<K, V> get() {
-    LinkedHashMap<K, V> result = new LinkedHashMap<K, V>();
+    Map<K, V> result = newLinkedHashMapWithExpectedSize(contributingMap.size());
     for (Entry<K, Provider<V>> entry: contributingMap.entrySet()) {
       result.put(entry.getKey(), entry.getValue().get());
     }
-    return result;
+    return unmodifiableMap(result);
   }
 }

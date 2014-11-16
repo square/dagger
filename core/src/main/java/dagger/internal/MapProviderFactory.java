@@ -16,10 +16,12 @@
 package dagger.internal;
 
 import dagger.Factory;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.inject.Provider;
+
+import static dagger.internal.Collections.newLinkedHashMapWithExpectedSize;
+import static java.util.Collections.unmodifiableMap;
 
 /**
  * A {@link Factory} implementation used to implement {@link Map} bindings. This factory returns a
@@ -29,7 +31,7 @@ import javax.inject.Provider;
  * @since 2.0
  *
  */
-public class MapProviderFactory<K, V> implements Factory<Map<K, Provider<V>>> {
+public final class MapProviderFactory<K, V> implements Factory<Map<K, Provider<V>>> {
   private final Map<K, Provider<V>> contributingMap;
 
   /**
@@ -40,7 +42,7 @@ public class MapProviderFactory<K, V> implements Factory<Map<K, Provider<V>>> {
   }
 
   private MapProviderFactory(LinkedHashMap<K, Provider<V>> contributingMap) {
-    this.contributingMap = Collections.unmodifiableMap(contributingMap);
+    this.contributingMap = unmodifiableMap(contributingMap);
   }
 
   /**
@@ -56,7 +58,7 @@ public class MapProviderFactory<K, V> implements Factory<Map<K, Provider<V>>> {
   /**
    * A builder to help build the {@link MapProviderFactory}
    */
-  public static class Builder<K, V> {
+  public static final class Builder<K, V> {
     private final LinkedHashMap<K, Provider<V>> mapBuilder;
 
     private Builder(int size) {
@@ -84,17 +86,6 @@ public class MapProviderFactory<K, V> implements Factory<Map<K, Provider<V>>> {
 
       this.mapBuilder.put(key, providerOfValue);
       return this;
-    }
-
-    private static <K, V> LinkedHashMap<K, Provider<V>> newLinkedHashMapWithExpectedSize(
-        int expectedSize) {
-      if (expectedSize < 0) {
-        throw new IllegalArgumentException("The expected size of map cannot be negative.");
-      }
-      int initialCapacity = (expectedSize < 3) ? expectedSize + 1
-          : (expectedSize < (1 << (Integer.SIZE - 2))) ? expectedSize + expectedSize / 3
-              : Integer.MAX_VALUE;
-      return new LinkedHashMap<K, Provider<V>>(initialCapacity);
     }
   }
 }

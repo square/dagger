@@ -17,11 +17,11 @@ package dagger.internal;
 
 import dagger.Factory;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Provider;
 
+import static dagger.internal.Collections.newLinkedHashSetWithExpectedSize;
 import static java.util.Collections.unmodifiableSet;
 
 /**
@@ -93,16 +93,5 @@ public final class SetFactory<T> implements Factory<Set<T>> {
       }
     }
     return unmodifiableSet(result);
-  }
-
-  // TODO(gak): consider whether (expectedSize, 1.0f) is better for this use case since callers are
-  // typically only going to iterate
-  private static <E> LinkedHashSet<E> newLinkedHashSetWithExpectedSize(int expectedSize) {
-    int initialCapacity = (expectedSize < 3)
-        ? expectedSize + 1
-        : (expectedSize < (1 << (Integer.SIZE - 2)))
-            ? expectedSize + expectedSize / 3
-            : Integer.MAX_VALUE;
-    return new LinkedHashSet<E>(initialCapacity);
   }
 }
