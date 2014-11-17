@@ -25,8 +25,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 public class DemoApplication extends Application {
+  
   @Singleton
-  @Component(modules = AndroidModule.class) interface ApplicationComponent {
+  @Component(modules = AndroidModule.class)
+  public interface ApplicationComponent {
     void inject(DemoApplication application);
     void inject(HomeActivity homeActivity);
     void inject(DemoActivity demoActivity);
