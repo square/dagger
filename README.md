@@ -15,6 +15,8 @@ This github project represents the Dagger 2.0 development stream.  The earlier
 [project page][square] (Square, Inc's repository) represents the earlier 1.0 development stream.  
 Both versions have benefitted from strong involvement from Square, Google, and other contributors. 
 
+## [Dagger 2's main documentation website can be found here.][website]
+
 Status
 ------
 
@@ -70,6 +72,7 @@ dependency:
 ### Download 
 
   * 2.0 (google/dagger)
+    * [Dagger 2.0 Documentation][website]
     * [Dagger 2.0 Javadocs][latestapi]
     * [Google's Dagger project site on GitHub][project]
     * <a href="https://plus.google.com/118328287768685565185" rel="publisher">Google+ Dagger Project Page</a>
@@ -111,6 +114,7 @@ License
  [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22
  [dagger-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger/2.0-SNAPSHOT/
  [dagger-compiler-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger-compiler/2.0-SNAPSHOT/
+ [website]: http://google.github.io/dagger
  [latestapi]: http://google.github.io/dagger/api/latest/
  [gaktalk]: https://www.youtube.com/watch?v=oK_XtfXPkqw
  [proposal]: https://github.com/square/dagger/issues/366
