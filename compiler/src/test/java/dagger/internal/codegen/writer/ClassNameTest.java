@@ -19,7 +19,6 @@ import dagger.internal.codegen.writer.ClassNameTest.OuterClass.InnerClass;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.CompilationRule;
-import dagger.internal.codegen.writer.ClassName;
 import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
