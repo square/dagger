@@ -317,7 +317,7 @@ public class ComponentProcessorTest {
         "}");
 
     JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
-        "test.Dagger_OuterType$SimpleComponent",
+        "test.Dagger_OuterType_SimpleComponent",
         "package test;",
         "",
         "import dagger.MembersInjector;",
@@ -327,10 +327,10 @@ public class ComponentProcessorTest {
         "import test.OuterType.SimpleComponent;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
-        "public final class Dagger_OuterType$SimpleComponent implements SimpleComponent {",
+        "public final class Dagger_OuterType_SimpleComponent implements SimpleComponent {",
         "  private MembersInjector<B> bMembersInjector;",
         "",
-        "  private Dagger_OuterType$SimpleComponent(Builder builder) {",
+        "  private Dagger_OuterType_SimpleComponent(Builder builder) {",
         "    assert builder != null;",
         "    initialize();",
         "  }",
@@ -363,7 +363,7 @@ public class ComponentProcessorTest {
         "    }",
         "",
         "    public SimpleComponent build() {",
-        "      return new Dagger_OuterType$SimpleComponent(this);",
+        "      return new Dagger_OuterType_SimpleComponent(this);",
         "    }",
         "  }",
         "}");
