@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Provider;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -65,7 +66,8 @@ public class DoubleCheckLazyTest {
     assert_().that(results.size()).is(1);
   }
 
-  @Test public void get_null() {
+  // TODO(gak): reenable this test once we can ensure that factories are no longer providing null
+  @Ignore @Test public void get_null() {
     Lazy<Object> lazy = DoubleCheckLazy.create(new Provider<Object> () {
       @Override public Object get() {
         return null;

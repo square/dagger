@@ -25,30 +25,32 @@ import javax.inject.Provider;
  * @author Gregory Kick
  * @since 2.0
  */
+// TODO(gak): Unify the duplicated code between this and ScopedProvider.
 public final class DoubleCheckLazy<T> implements Lazy<T> {
+  private static final Object UNINITIALIZED = new Object();
+
   private final Provider<T> provider;
-  private volatile T instance = null;
+  private volatile Object instance = UNINITIALIZED;
 
   private DoubleCheckLazy(Provider<T> provider) {
     assert provider != null;
     this.provider = provider;
   }
 
+  @SuppressWarnings("unchecked") // cast only happens when result comes from the factory
   @Override
   public T get() {
-    T result = instance;
-    if (result == null) {
+    // to suppress it.
+    Object result = instance;
+    if (result == UNINITIALIZED) {
       synchronized (this) {
         result = instance;
-        if (result == null) {
+        if (result == UNINITIALIZED) {
           instance = result = provider.get();
-          if (result == null) {
-            throw new NullPointerException(provider + " returned null");
-          }
         }
       }
     }
-    return result;
+    return (T) result;
   }
 
   public static <T> Lazy<T> create(Provider<T> provider) {
