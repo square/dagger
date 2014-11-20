@@ -73,6 +73,8 @@ final class ErrorMessages {
           + "Use a @Provides method to bind the type parameters.";
   static final String INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS =
       "@Inject is nonsense on the constructor of an abstract class";
+    static final String QUALIFIER_ON_INJECT_CONSTRUCTOR =
+      "@Qualifier annotations are not allowed on @Inject constructors.";
 
   /* fields */
   static final String PRIVATE_INJECT_FIELD =

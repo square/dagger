@@ -37,6 +37,7 @@ import static dagger.internal.codegen.ErrorMessages.INJECT_ON_PRIVATE_CONSTRUCTO
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_INJECT_CONSTRUCTORS;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
+import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static dagger.internal.codegen.InjectionAnnotations.getScopes;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -56,6 +57,10 @@ final class InjectConstructorValidator implements Validator<ExecutableElement> {
         ValidationReport.Builder.about(constructorElement);
     if (constructorElement.getModifiers().contains(PRIVATE)) {
       builder.addItem(INJECT_ON_PRIVATE_CONSTRUCTOR, constructorElement);
+    }
+
+    for (AnnotationMirror qualifier : getQualifiers(constructorElement)) {
+      builder.addItem(QUALIFIER_ON_INJECT_CONSTRUCTOR, constructorElement, qualifier);
     }
 
     for (VariableElement parameter : constructorElement.getParameters()) {

@@ -37,6 +37,7 @@ import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
+import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
 
 @RunWith(JUnit4.class)
 // TODO(gak): add tests for generation in the default package.
@@ -178,6 +179,24 @@ public final class InjectConstructorFactoryGeneratorTest {
         .processedWith(new ComponentProcessor()).failsToCompile()
         .withErrorContaining(MULTIPLE_SCOPES).in(file).onLine(5).atColumn(1)
         .and().withErrorContaining(MULTIPLE_SCOPES).in(file).onLine(5).atColumn(9);
+  }
+
+  @Test public void injectConstructorWithQualifier() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.MultipleScopeClass",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class MultipleScopeClass {",
+        "  @Inject",
+        "  @QualifierA",
+        "  @QualifierB",
+        "  MultipleScopeClass() {}",
+        "}");
+    assert_().about(javaSources()).that(ImmutableList.of(file, QUALIFIER_A, QUALIFIER_B))
+        .processedWith(new ComponentProcessor()).failsToCompile()
+        .withErrorContaining(QUALIFIER_ON_INJECT_CONSTRUCTOR).in(file).onLine(7)
+        .and().withErrorContaining(QUALIFIER_ON_INJECT_CONSTRUCTOR).in(file).onLine(8);
   }
 
   @Test public void finalInjectField() {
