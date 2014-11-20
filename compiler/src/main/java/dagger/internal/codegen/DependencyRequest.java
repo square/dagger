@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreTypes.isTypeOf;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -158,10 +160,6 @@ abstract class DependencyRequest {
         Optional<AnnotationMirror> qualifier, DeclaredType type) {
       return keyFactory.forQualifiedType(qualifier,
           Iterables.getOnlyElement(type.getTypeArguments()));
-    }
-
-    private boolean isTypeOf(Class<?> type, TypeMirror mirror) {
-      return elements.getTypeElement(type.getCanonicalName()).equals(types.asElement(mirror));
     }
   }
 }
