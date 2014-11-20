@@ -25,6 +25,7 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_NOT_IN_MODULE;
@@ -34,7 +35,6 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_R
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
@@ -432,11 +432,12 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
+    String errorMessage = String.format(BINDING_METHOD_WITH_SAME_NAME, "Provides");
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(8)
-        .and().withErrorContaining(PROVIDES_METHOD_WITH_SAME_NAME).in(moduleFile).onLine(12);
+        .withErrorContaining(errorMessage).in(moduleFile).onLine(8)
+        .and().withErrorContaining(errorMessage).in(moduleFile).onLine(12);
   }
 
   @Test

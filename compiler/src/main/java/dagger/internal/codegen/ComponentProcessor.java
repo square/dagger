@@ -22,6 +22,8 @@ import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
 import dagger.Provides;
+import dagger.producers.ProducerModule;
+import dagger.producers.Produces;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -56,7 +58,9 @@ public final class ComponentProcessor extends AbstractProcessor {
         Inject.class.getName(),
         Module.class.getName(),
         Provides.class.getName(),
-        MapKey.class.getName());
+        MapKey.class.getName(),
+        ProducerModule.class.getName(),
+        Produces.class.getName());
   }
 
   @Override
@@ -76,10 +80,12 @@ public final class ComponentProcessor extends AbstractProcessor {
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
     InjectFieldValidator injectFieldValidator = new InjectFieldValidator();
     InjectMethodValidator injectMethodValidator = new InjectMethodValidator();
-    ModuleValidator moduleValidator = new ModuleValidator(types);
+    ModuleValidator moduleValidator = new ModuleValidator(types, Module.class, Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator = new ComponentValidator();
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
+    ModuleValidator producerModuleValidator = new ModuleValidator(
+        types, ProducerModule.class, Produces.class);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -137,7 +143,10 @@ public final class ComponentProcessor extends AbstractProcessor {
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
-            componentGenerator));
+            componentGenerator),
+        new ProducerModuleProcessingStep(
+            messager,
+            producerModuleValidator));
   }
 
   @Override

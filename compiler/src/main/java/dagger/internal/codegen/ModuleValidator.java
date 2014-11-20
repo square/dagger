@@ -22,8 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import dagger.Module;
-import dagger.Provides;
+import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
@@ -40,19 +39,26 @@ import static com.google.auto.common.Visibility.PRIVATE;
 import static com.google.auto.common.Visibility.PUBLIC;
 import static com.google.auto.common.Visibility.effectiveVisibilityOfElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_SAME_NAME;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 
 /**
- * A {@link Validator} for {@link Module}s.
+ * A {@link Validator} for {@link Module}s or {@link ProducerModule}s.
  *
  * @author Gregory Kick
  * @since 2.0
  */
 final class ModuleValidator implements Validator<TypeElement> {
   private final Types types;
+  private final Class<? extends Annotation> moduleClass;
+  private final Class<? extends Annotation> methodClass;
 
-  ModuleValidator(Types types) {
+  ModuleValidator(
+      Types types,
+      Class<? extends Annotation> moduleClass,
+      Class<? extends Annotation> methodClass) {
     this.types = types;
+    this.moduleClass = moduleClass;
+    this.methodClass = methodClass;
   }
 
   @Override
@@ -62,18 +68,19 @@ final class ModuleValidator implements Validator<TypeElement> {
     validateModuleVisibility(subject, builder);
 
     List<ExecutableElement> moduleMethods = ElementFilter.methodsIn(subject.getEnclosedElements());
-    ImmutableListMultimap.Builder<String, ExecutableElement> providesMethodsByName =
+    ImmutableListMultimap.Builder<String, ExecutableElement> bindingMethodsByName =
         ImmutableListMultimap.builder();
     for (ExecutableElement moduleMethod : moduleMethods) {
-      if (isAnnotationPresent(moduleMethod, Provides.class)) {
-        providesMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
+      if (isAnnotationPresent(moduleMethod, methodClass)) {
+        bindingMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
       }
     }
     for (Entry<String, Collection<ExecutableElement>> entry :
-        providesMethodsByName.build().asMap().entrySet()) {
+        bindingMethodsByName.build().asMap().entrySet()) {
       if (entry.getValue().size() > 1) {
         for (ExecutableElement offendingMethod : entry.getValue()) {
-          builder.addItem(PROVIDES_METHOD_WITH_SAME_NAME, offendingMethod);
+          builder.addItem(String.format(BINDING_METHOD_WITH_SAME_NAME, methodClass.getSimpleName()),
+              offendingMethod);
         }
       }
     }
@@ -99,7 +106,7 @@ final class ModuleValidator implements Validator<TypeElement> {
       case TOP_LEVEL:
         if (moduleVisibility.equals(PUBLIC)) {
           ImmutableSet<Element> nonPublicModules = FluentIterable.from(getModuleIncludes(
-              getAnnotationMirror(moduleElement, Module.class).get()))
+              getAnnotationMirror(moduleElement, moduleClass).get()))
                   .transform(new Function<TypeMirror, Element>() {
                     @Override public Element apply(TypeMirror input) {
                       return types.asElement(input);

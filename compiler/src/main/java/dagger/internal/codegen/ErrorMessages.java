@@ -128,8 +128,8 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY =
       "@Provides methods may not have more than one @MapKey-marked annotation";
 
-  static final String PROVIDES_METHOD_WITH_SAME_NAME =
-      "Cannot have more than one @Provides method with the same name in a single module";
+  static final String BINDING_METHOD_WITH_SAME_NAME =
+      "Cannot have more than one @%s method with the same name in a single module";
 
   /*mapKey errors*/
   static final String MAPKEY_WITHOUT_FIELDS =
