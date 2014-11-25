@@ -50,7 +50,7 @@ import static javax.lang.model.element.NestingKind.TOP_LEVEL;
 public final class ClassName implements TypeName, Comparable<ClassName> {
   private String fullyQualifiedName = null;
   private final String packageName;
-  /* From top to bottom.  E.g.: this field will contian ["A", "B"] for pgk.A.B.C */
+  /* From top to bottom.  E.g.: this field will contain ["A", "B"] for pgk.A.B.C */
   private final ImmutableList<String> enclosingSimpleNames;
   private final String simpleName;
 
