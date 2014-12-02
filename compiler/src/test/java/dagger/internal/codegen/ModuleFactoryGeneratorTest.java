@@ -25,21 +25,29 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_STATIC;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_MUST_RETURN_A_VALUE;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_NOT_IN_MODULE;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_PRIVATE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RAW_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject
+
+  private String formatErrorMessage(String msg) {
+    return String.format(msg, "Provides");
+  }
+
+  private String formatModuleErrorMessage(String msg) {
+    return String.format(msg, "Provides", "Module");
+  }
 
   @Test public void providesMethodNotInModule() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
@@ -55,7 +63,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_NOT_IN_MODULE);
+        .withErrorContaining(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE));
   }
 
   @Test public void providesMethodAbstract() {
@@ -72,7 +80,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_ABSTRACT);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_ABSTRACT));
   }
 
   @Test public void providesMethodPrivate() {
@@ -91,7 +99,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_PRIVATE);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_PRIVATE));
   }
 
   @Test public void providesMethodStatic() {
@@ -110,7 +118,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_STATIC);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_STATIC));
   }
 
   @Test public void providesMethodReturnVoid() {
@@ -127,7 +135,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_MUST_RETURN_A_VALUE);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
   }
 
   @Test public void providesMethodWithTypeParameter() {
@@ -146,7 +154,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_TYPE_PARAMETER);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER));
   }
 
   @Test public void providesMethodSetValuesWildcard() {
@@ -192,7 +200,7 @@ public class ModuleFactoryGeneratorTest {
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RAW_SET);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET));
   }
 
   @Test public void providesMethodSetValuesNotASet() {
@@ -330,7 +338,7 @@ public class ModuleFactoryGeneratorTest {
         .and().generatesSources(listFactoryFile);
   }
 
-  @Test public void proviesSetElement() {
+  @Test public void providesSetElement() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -432,12 +440,12 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
-    String errorMessage = String.format(BINDING_METHOD_WITH_SAME_NAME, "Provides");
     assert_().about(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(errorMessage).in(moduleFile).onLine(8)
-        .and().withErrorContaining(errorMessage).in(moduleFile).onLine(12);
+    .withErrorContaining(formatErrorMessage(BINDING_METHOD_WITH_SAME_NAME)).in(moduleFile).onLine(8)
+        .and().withErrorContaining(formatErrorMessage(BINDING_METHOD_WITH_SAME_NAME))
+        .in(moduleFile).onLine(12);
   }
 
   @Test

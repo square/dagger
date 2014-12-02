@@ -100,35 +100,45 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
 
-  static final String PROVIDES_METHOD_SET_VALUES_RAW_SET =
-      "@Provides methods of type set values cannot return a raw Set";
+  static final String PRODUCES_METHOD_RETURN_TYPE =
+      "@Produces methods must either return a primitive, an array or a declared type, or a"
+      + " ListenableFuture of one of those types.";
+
+  static final String PRODUCES_METHOD_RAW_FUTURE =
+      "@Produces methods cannot return a raw ListenableFuture.";
+
+  static final String BINDING_METHOD_SET_VALUES_RAW_SET =
+      "@%s methods of type set values cannot return a raw Set";
 
   static final String PROVIDES_METHOD_SET_VALUES_RETURN_SET =
       "@Provides methods of type set values must return a Set";
 
-  static final String PROVIDES_METHOD_MUST_RETURN_A_VALUE =
-      "@Provides methods must return a value (not void).";
+  static final String PRODUCES_METHOD_SET_VALUES_RETURN_SET =
+      "@Produces methods of type set values must return a Set or ListenableFuture of Set";
 
-  static final String PROVIDES_METHOD_ABSTRACT = "@Provides methods cannot be abstract";
+  static final String BINDING_METHOD_MUST_RETURN_A_VALUE =
+      "@%s methods must return a value (not void).";
 
-  static final String PROVIDES_METHOD_STATIC = "@Provides methods cannot be static";
+  static final String BINDING_METHOD_ABSTRACT = "@%s methods cannot be abstract";
 
-  static final String PROVIDES_METHOD_PRIVATE = "@Provides methods cannot be private";
+  static final String BINDING_METHOD_STATIC = "@%s methods cannot be static";
 
-  static final String PROVIDES_METHOD_TYPE_PARAMETER =
-      "@Provides methods may not have type parameters.";
+  static final String BINDING_METHOD_PRIVATE = "@%s methods cannot be private";
 
-  static final String PROVIDES_METHOD_NOT_IN_MODULE =
-      "@Provides methods can only be present within a @Module";
+  static final String BINDING_METHOD_TYPE_PARAMETER =
+      "@%s methods may not have type parameters.";
 
-  static final String PROVIDES_METHOD_NOT_MAP_HAS_MAP_KEY =
-      "@Provides methods of non map type cannot declare a map key";
+  static final String BINDING_METHOD_NOT_IN_MODULE =
+      "@%s methods can only be present within a @%s";
 
-  static final String PROVIDES_METHOD_WITH_NO_MAP_KEY =
-      "@Provides methods of type map must declare a map key";
+  static final String BINDING_METHOD_NOT_MAP_HAS_MAP_KEY =
+      "@%s methods of non map type cannot declare a map key";
 
-  static final String PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY =
-      "@Provides methods may not have more than one @MapKey-marked annotation";
+  static final String BINDING_METHOD_WITH_NO_MAP_KEY =
+      "@%s methods of type map must declare a map key";
+
+  static final String BINDING_METHOD_WITH_MULTIPLE_MAP_KEY =
+      "@%s methods may not have more than one @MapKey-marked annotation";
 
   static final String BINDING_METHOD_WITH_SAME_NAME =
       "Cannot have more than one @%s method with the same name in a single module";

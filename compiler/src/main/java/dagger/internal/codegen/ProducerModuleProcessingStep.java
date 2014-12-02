@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.SuperficialValidation;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
@@ -24,7 +25,10 @@ import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+
+import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the
@@ -36,17 +40,36 @@ import javax.lang.model.element.TypeElement;
 final class ProducerModuleProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
+  private final ProducesMethodValidator producesMethodValidator;
   private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
 
   ProducerModuleProcessingStep(
       Messager messager,
-      ModuleValidator moduleValidator) {
+      ModuleValidator moduleValidator,
+      ProducesMethodValidator producesMethodValidator) {
     this.messager = messager;
     this.moduleValidator = moduleValidator;
+    this.producesMethodValidator = producesMethodValidator;
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    // first, check and collect all produces methods
+    ImmutableSet.Builder<ExecutableElement> validProducesMethodsBuilder = ImmutableSet.builder();
+    for (Element producesElement : roundEnv.getElementsAnnotatedWith(Produces.class)) {
+      if (producesElement.getKind().equals(METHOD)) {
+        ExecutableElement producesMethodElement = (ExecutableElement) producesElement;
+        ValidationReport<ExecutableElement> methodReport =
+            producesMethodValidator.validate(producesMethodElement);
+        methodReport.printMessagesTo(messager);
+        if (methodReport.isClean()) {
+          validProducesMethodsBuilder.add(producesMethodElement);
+        }
+      }
+    }
+    @SuppressWarnings("unused")
+    ImmutableSet<ExecutableElement> validProducesMethods = validProducesMethodsBuilder.build();
+
     // process each module
     for (Element moduleElement :
         Sets.difference(roundEnv.getElementsAnnotatedWith(ProducerModule.class),

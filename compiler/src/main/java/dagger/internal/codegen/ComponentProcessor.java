@@ -86,6 +86,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ModuleValidator producerModuleValidator = new ModuleValidator(
         types, ProducerModule.class, Produces.class);
+    ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -146,7 +147,8 @@ public final class ComponentProcessor extends AbstractProcessor {
             componentGenerator),
         new ProducerModuleProcessingStep(
             messager,
-            producerModuleValidator));
+            producerModuleValidator,
+            producesMethodValidator));
   }
 
   @Override

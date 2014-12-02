@@ -25,10 +25,313 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_STATIC;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 
 @RunWith(JUnit4.class)
 public class ProducerModuleFactoryGeneratorTest {
+  private String formatErrorMessage(String msg) {
+    return String.format(msg, "Produces");
+  }
+
+  private String formatModuleErrorMessage(String msg) {
+    return String.format(msg, "Produces", "ProducerModule");
+  }
+
+  @Test public void producesMethodNotInModule() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.Produces;",
+        "",
+        "final class TestModule {",
+        "  @Produces String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE));
+  }
+
+  @Test public void producesMethodAbstract() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "abstract class TestModule {",
+        "  @Produces abstract String produceString();",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_ABSTRACT));
+  }
+
+  @Test public void producesMethodPrivate() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces private String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_PRIVATE));
+  }
+
+  @Test public void producesMethodStatic() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces static String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_STATIC));
+  }
+
+  @Test public void producesMethodReturnVoid() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces void produceNothing() {}",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
+  }
+
+  @Test public void producesMethodReturnRawFuture() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces ListenableFuture produceRaw() {}",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_RAW_FUTURE);
+  }
+
+  @Test public void producesMethodReturnWildcardFuture() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces ListenableFuture<?> produceRaw() {}",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_RETURN_TYPE);
+  }
+
+  @Test public void producesMethodWithTypeParameter() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces <T> String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER));
+  }
+
+  @Test public void producesMethodSetValuesWildcard() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.producers.Produces.Type.SET_VALUES;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "import java.util.Set;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = SET_VALUES) Set<?> produceWildcard() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_RETURN_TYPE);
+  }
+
+  @Test public void producesMethodSetValuesRawSet() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.producers.Produces.Type.SET_VALUES;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "import java.util.Set;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = SET_VALUES) Set produceSomething() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET));
+  }
+
+  @Test public void producesMethodSetValuesNotASet() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.producers.Produces.Type.SET_VALUES;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "import java.util.List;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = SET_VALUES) List<String> produceStrings() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_SET_VALUES_RETURN_SET);
+  }
+
+  @Test public void producesMethodSetValuesWildcardInFuture() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.producers.Produces.Type.SET_VALUES;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "import java.util.Set;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = SET_VALUES) ListenableFuture<Set<?>> produceWildcard() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_RETURN_TYPE);
+  }
+
+  @Test public void producesMethodSetValuesFutureRawSet() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.producers.Produces.Type.SET_VALUES;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "import java.util.Set;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = SET_VALUES) ListenableFuture<Set> produceSomething() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET));
+  }
+
+  @Test public void producesMethodSetValuesFutureNotASet() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.producers.Produces.Type.SET_VALUES;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "import java.util.List;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = SET_VALUES) ListenableFuture<List<String>> produceStrings() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_SET_VALUES_RETURN_SET);
+  }
+
   @Test public void multipleProducesMethodsWithSameName() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
