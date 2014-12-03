@@ -41,7 +41,6 @@ import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
-import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
@@ -137,27 +136,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.membersInjector = membersInjector;");
     }
 
-    ImmutableMap<Key, String> names =
+    ImmutableMap<FrameworkKey, String> names =
         SourceFiles.generateFrameworkReferenceNamesForDependencies(binding.dependencies());
 
-    for (Entry<Key, String> nameEntry : names.entrySet()) {
-      final FieldWriter field;
-      switch (nameEntry.getKey().kind()) {
-        case PROVIDER:
-          ParameterizedTypeName providerType = ParameterizedTypeName.create(
-              ClassName.fromClass(Provider.class),
-              TypeNames.forTypeMirror(nameEntry.getKey().type()));
-          field = factoryWriter.addField(providerType, nameEntry.getValue());
-          break;
-        case MEMBERS_INJECTOR:
-          ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
-              ClassName.fromClass(MembersInjector.class),
-              TypeNames.forTypeMirror(nameEntry.getKey().type()));
-          field = factoryWriter.addField(membersInjectorType, nameEntry.getValue());
-          break;
-        default:
-          throw new AssertionError();
-      }
+    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
+      ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
+      FieldWriter field = factoryWriter.addField(fieldType, nameEntry.getValue());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.get().addParameter(field.type(), field.name());
       constructorWriter.get().body()
@@ -168,7 +152,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          Snippet.format(names.get(dependency.key())),
+          Snippet.format(names.get(FrameworkKey.forDependencyRequest(dependency))),
           dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);

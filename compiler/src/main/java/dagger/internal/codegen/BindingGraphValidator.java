@@ -49,12 +49,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   public ValidationReport<BindingGraph> validate(final BindingGraph subject) {
     final ValidationReport.Builder<BindingGraph> reportBuilder =
         ValidationReport.Builder.about(subject);
-    ImmutableMap<Key, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
+    ImmutableMap<FrameworkKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
 
     validateComponentScope(subject, reportBuilder, resolvedBindings);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
-      ResolvedBindings resolvedBinding = resolvedBindings.get(entryPoint.key());
+      ResolvedBindings resolvedBinding = resolvedBindings.get(
+          FrameworkKey.forDependencyRequest(entryPoint));
       if (!resolvedBinding.state().equals(State.COMPLETE)) {
         LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
         requestPath.push(entryPoint);
@@ -97,14 +98,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
    */
   void validateComponentScope(final BindingGraph subject,
       final ValidationReport.Builder<BindingGraph> reportBuilder,
-      ImmutableMap<Key, ResolvedBindings> resolvedBindings) {
+      ImmutableMap<FrameworkKey, ResolvedBindings> resolvedBindings) {
     Optional<Equivalence.Wrapper<AnnotationMirror>> componentScope =
         subject.componentDescriptor().wrappedScope();
     ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
     for (ResolvedBindings bindings : resolvedBindings.values()) {
-      for (Binding binding : bindings.bindings()) {
-        if (binding instanceof ProvisionBinding) {
-          ProvisionBinding provisionBinding = (ProvisionBinding) binding;
+      if (bindings.kind().equals(FrameworkKey.Kind.PROVIDER)) {
+        for (ProvisionBinding provisionBinding : bindings.provisionBindings()) {
           if (provisionBinding.scope().isPresent()
               && !componentScope.equals(provisionBinding.wrappedScope())) {
             // Scoped components cannot reference bindings to @Provides methods or @Inject
@@ -285,7 +285,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
   private void traversalHelper(BindingGraph graph, Deque<DependencyRequest> requestPath,
       Traverser traverser) {
-    ResolvedBindings resolvedBinding = graph.resolvedBindings().get(requestPath.peek().key());
+    ResolvedBindings resolvedBinding = graph.resolvedBindings().get(
+        FrameworkKey.forDependencyRequest(requestPath.peek()));
     ImmutableSet<DependencyRequest> allDeps =
         FluentIterable.from(resolvedBinding.bindings())
             .transformAndConcat(

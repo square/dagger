@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.Key.Kind;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Qualifier;
@@ -67,7 +66,7 @@ public class KeyTest {
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
     assert_().that(keyFactory.forInjectConstructor(constructor))
-        .isEqualTo(new AutoValue_Key(Kind.PROVIDER,
+        .isEqualTo(new AutoValue_Key(
             Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
             MoreTypes.equivalence().wrap(typeElement.asType())));
   }
@@ -84,7 +83,7 @@ public class KeyTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     assert_().that(keyFactory.forProvidesMethod(providesMethod))
-        .isEqualTo(new AutoValue_Key(Kind.PROVIDER,
+        .isEqualTo(new AutoValue_Key(
             Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
             MoreTypes.equivalence().wrap(stringType)));
   }
@@ -157,7 +156,7 @@ public class KeyTest {
     for (ExecutableElement providesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
       assert_().that(keyFactory.forProvidesMethod(providesMethod))
-          .isEqualTo(new AutoValue_Key(Kind.PROVIDER,
+          .isEqualTo(new AutoValue_Key(
               Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
               MoreTypes.equivalence().wrap(setOfStringsType)));
     }

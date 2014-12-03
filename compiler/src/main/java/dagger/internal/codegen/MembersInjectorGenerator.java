@@ -34,12 +34,10 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
-import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.VoidName;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
-import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
@@ -128,44 +126,30 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       injectMembersWriter.body().addSnippet("supertypeInjector.injectMembers(instance);");
     }
 
-    ImmutableMap<Key, String> names =
+    ImmutableMap<FrameworkKey, String> names =
         SourceFiles.generateFrameworkReferenceNamesForDependencies(
             ImmutableSet.copyOf(binding.dependencies()));
 
-    ImmutableMap.Builder<Key, FieldWriter> dependencyFieldsBuilder =
+    ImmutableMap.Builder<FrameworkKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<Key, String> nameEntry : names.entrySet()) {
-      final FieldWriter field;
-      switch (nameEntry.getKey().kind()) {
-        case PROVIDER:
-          ParameterizedTypeName providerType = ParameterizedTypeName.create(
-              ClassName.fromClass(Provider.class),
-              TypeNames.forTypeMirror(nameEntry.getKey().type()));
-          field = injectorWriter.addField(providerType, nameEntry.getValue());
-          break;
-        case MEMBERS_INJECTOR:
-          ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
-              ClassName.fromClass(MembersInjector.class),
-              TypeNames.forTypeMirror(nameEntry.getKey().type()));
-          field = injectorWriter.addField(membersInjectorType, nameEntry.getValue());
-          break;
-        default:
-          throw new AssertionError();
-      }
+    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
+      ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
+      FieldWriter field = injectorWriter.addField(fieldType, nameEntry.getValue());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
       constructorWriter.body().addSnippet("assert %s != null;", field.name());
       constructorWriter.body().addSnippet("this.%1$s = %1$s;", field.name());
       dependencyFieldsBuilder.put(nameEntry.getKey(), field);
     }
-    ImmutableMap<Key, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
+    ImmutableMap<FrameworkKey, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
     for (InjectionSite injectionSite : binding.injectionSites()) {
       switch (injectionSite.kind()) {
         case FIELD:
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
-          FieldWriter singleField = depedencyFields.get(fieldDependency.key());
+          FieldWriter singleField = depedencyFields.get(
+              FrameworkKey.forDependencyRequest(fieldDependency));
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
               frameworkTypeUsageStatement(Snippet.format(singleField.name()),
@@ -174,8 +158,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         case METHOD:
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
           for (DependencyRequest methodDependency : injectionSite.dependencies()) {
-            FieldWriter field =
-            depedencyFields.get(methodDependency.key());
+            FieldWriter field = depedencyFields.get(
+                FrameworkKey.forDependencyRequest(methodDependency));
             parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
                 methodDependency.kind()));
           }

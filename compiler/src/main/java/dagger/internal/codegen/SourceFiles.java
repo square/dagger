@@ -59,13 +59,13 @@ class SourceFiles {
     }
   };
 
-  static ImmutableSetMultimap<Key, DependencyRequest> indexDependenciesByKey(
+  static ImmutableSetMultimap<FrameworkKey, DependencyRequest> indexDependenciesByKey(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<Key, DependencyRequest>().orderValuesBy(
+    ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest>().orderValuesBy(
             DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(dependency.key(), dependency);
+      dependenciesByKeyBuilder.put(FrameworkKey.forDependencyRequest(dependency), dependency);
     }
     return dependenciesByKeyBuilder.build();
   }
@@ -83,13 +83,15 @@ class SourceFiles {
    * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
    *         provider.
    */
-  static ImmutableMap<Key, String> generateFrameworkReferenceNamesForDependencies(
+  static ImmutableMap<FrameworkKey, String> generateFrameworkReferenceNamesForDependencies(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
+    ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey =
         indexDependenciesByKey(dependencies);
-    Map<Key, Collection<DependencyRequest>> dependenciesByKeyMap = dependenciesByKey.asMap();
-    ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
-    for (Entry<Key, Collection<DependencyRequest>> entry : dependenciesByKeyMap.entrySet()) {
+    Map<FrameworkKey, Collection<DependencyRequest>> dependenciesByKeyMap =
+        dependenciesByKey.asMap();
+    ImmutableMap.Builder<FrameworkKey, String> providerNames = ImmutableMap.builder();
+    for (Entry<FrameworkKey, Collection<DependencyRequest>> entry
+        : dependenciesByKeyMap.entrySet()) {
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames =
           FluentIterable.from(entry.getValue()).transform(new DependencyVariableNamer()).toSet();

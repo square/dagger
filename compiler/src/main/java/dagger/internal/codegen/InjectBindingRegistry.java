@@ -44,8 +44,6 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static dagger.internal.codegen.Key.Kind.PROVIDER;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members
@@ -64,9 +62,58 @@ final class InjectBindingRegistry {
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
   private final MembersInjectorGenerator membersInjectorGenerator;
 
-  private final Map<Key, Binding> bindingsByKey = Maps.newLinkedHashMap();
-  private final Deque<Binding> bindingsRequiringGeneration = Queues.newArrayDeque();
-  private final Set<Binding> materializedBindings = Sets.newLinkedHashSet();
+  final class BindingsCollection<B extends Binding> {
+    private final Map<Key, B> bindingsByKey = Maps.newLinkedHashMap();
+    private final Deque<B> bindingsRequiringGeneration = Queues.newArrayDeque();
+    private final Set<B> materializedBindings = Sets.newLinkedHashSet();
+
+    void generateBindings(SourceFileGenerator<B> generator) throws SourceFileGenerationException {
+      for (B binding = bindingsRequiringGeneration.poll();
+          binding != null;
+          binding = bindingsRequiringGeneration.poll()) {
+        generator.generate(binding);
+        materializedBindings.add(binding);
+      }
+    }
+
+    B getBinding(Key key) {
+      return bindingsByKey.get(key);
+    }
+
+    B tryMaterializeBinding(B binding) {
+      if (canRegisterBinding(binding)) {
+        materializedBindings.add(binding);
+      }
+      return binding;
+    }
+
+    B tryRegisterBinding(B binding, boolean explicit) {
+      if (canRegisterBinding(binding)) {
+        bindingsRequiringGeneration.offer(binding);
+        if (!explicit) {
+          messager.printMessage(Kind.NOTE, String.format(
+              "Generating a MembersInjector for %s. "
+                    + "Prefer to run the dagger processor over that class instead.",
+              binding.key().type()));
+        }
+      }
+      return binding;
+    }
+
+    private boolean canRegisterBinding(B binding) {
+      Key key = binding.key();
+      Binding previousValue = bindingsByKey.put(key, binding);
+      checkState(previousValue == null || binding.equals(previousValue),
+          "couldn't register %s. %s was already registered for %s",
+          binding, previousValue, key);
+      return !materializedBindings.contains(binding)
+          && !bindingsRequiringGeneration.contains(binding);
+    }
+  }
+
+  private final BindingsCollection<ProvisionBinding> provisionBindings = new BindingsCollection<>();
+  private final BindingsCollection<MembersInjectionBinding> membersInjectionBindings =
+      new BindingsCollection<>();
 
   InjectBindingRegistry(Elements elements,
       Types types,
@@ -90,68 +137,37 @@ final class InjectBindingRegistry {
    * {@link #getOrFindMembersInjectionBinding} or {@link #getOrFindProvisionBinding}) are generated.
    */
   void generateSourcesForRequiredBindings() throws SourceFileGenerationException {
-    for (Binding binding = bindingsRequiringGeneration.poll();
-        binding != null;
-        binding = bindingsRequiringGeneration.poll()) {
-      switch (binding.key().kind()) {
-        case PROVIDER:
-          factoryGenerator.generate((ProvisionBinding) binding);
-          break;
-        case MEMBERS_INJECTOR:
-          membersInjectorGenerator.generate((MembersInjectionBinding) binding);
-          break;
-        default:
-          throw new AssertionError();
-      }
-      materializedBindings.add(binding);
-    }
+    provisionBindings.generateBindings(factoryGenerator);
+    membersInjectionBindings.generateBindings(membersInjectorGenerator);
   }
 
-  <B extends Binding> B registerBinding(B binding) {
+  ProvisionBinding registerBinding(ProvisionBinding binding) {
     return registerBinding(binding, true);
   }
 
-  private <B extends Binding> B registerBinding(B binding, boolean explicit) {
-    Key key = binding.key();
-    Binding previousValue = bindingsByKey.put(key, binding);
-    checkState(previousValue == null || binding.equals(previousValue),
-        "couldn't register %s. %s was already registered for %s",
-        binding, previousValue, key);
-    if (!materializedBindings.contains(binding) && !bindingsRequiringGeneration.contains(binding)) {
-      switch (key.kind()) {
-        case PROVIDER:
-          ProvisionBinding provisionBinding =  (ProvisionBinding) binding;
-          ClassName factoryName = SourceFiles.factoryNameForProvisionBinding(provisionBinding);
-          if (elements.getTypeElement(factoryName.canonicalName()) == null) {
-            bindingsRequiringGeneration.offer(provisionBinding);
-            if (!explicit) {
-              messager.printMessage(Kind.NOTE, String.format("Generating a Factory for %s. "
-                  + "Prefer to run the dagger processor over that class instead.", key.type()));
-            }
-          }
-          break;
-        case MEMBERS_INJECTOR:
-          MembersInjectionBinding membersInjectionBinding = (MembersInjectionBinding) binding;
-          if (membersInjectionBinding.injectionSites().isEmpty()) {
-            // empty members injection bindings are special and don't need source files.
-            // so, we just pretend
-            materializedBindings.add(binding);
-          } else  {
-            ClassName membersInjectorName =
-                SourceFiles.membersInjectorNameForMembersInjectionBinding(membersInjectionBinding);
-            if (elements.getTypeElement(membersInjectorName.canonicalName()) == null) {
-              bindingsRequiringGeneration.offer(membersInjectionBinding);
-              if (!explicit) {
-                messager.printMessage(Kind.NOTE, String.format(
-                    "Generating a MembersInjector for %s. "
-                          + "Prefer to run the dagger processor over that class instead.",
-                    key.type()));
-              }
-            }
-          }
-          break;
-        default:
-          throw new AssertionError();
+  MembersInjectionBinding registerBinding(MembersInjectionBinding binding) {
+    return registerBinding(binding, true);
+  }
+
+  private ProvisionBinding registerBinding(ProvisionBinding binding, boolean explicit) {
+    ClassName factoryName = SourceFiles.factoryNameForProvisionBinding(binding);
+    if (elements.getTypeElement(factoryName.canonicalName()) == null) {
+      return provisionBindings.tryRegisterBinding(binding, explicit);
+    }
+    return binding;
+  }
+
+  private MembersInjectionBinding registerBinding(
+      MembersInjectionBinding binding, boolean explicit) {
+    if (binding.injectionSites().isEmpty()) {
+      // empty members injection bindings are special and don't need source files.
+      // so, we just pretend
+      return membersInjectionBindings.tryMaterializeBinding(binding);
+    } else  {
+      ClassName membersInjectorName =
+          SourceFiles.membersInjectorNameForMembersInjectionBinding(binding);
+      if (elements.getTypeElement(membersInjectorName.canonicalName()) == null) {
+        return membersInjectionBindings.tryRegisterBinding(binding, explicit);
       }
     }
     return binding;
@@ -159,14 +175,12 @@ final class InjectBindingRegistry {
 
   Optional<ProvisionBinding> getOrFindProvisionBinding(Key key) {
     checkNotNull(key);
-    checkArgument(key.kind().equals(PROVIDER));
     if (key.qualifier().isPresent()) {
       return Optional.absent();
     }
-    Binding binding = bindingsByKey.get(key);
+    ProvisionBinding binding = provisionBindings.getBinding(key);
     if (binding != null) {
-      verify(binding instanceof ProvisionBinding);
-      return Optional.of((ProvisionBinding) binding);
+      return Optional.of(binding);
     }
     // ok, let's see if we can find an @Inject constructor
     TypeElement element = MoreElements.asType(types.asElement(key.type()));
@@ -196,12 +210,11 @@ final class InjectBindingRegistry {
     checkNotNull(key);
     // TODO(gak): is checking the kind enough?
     checkArgument(key.isValidMembersInjectionKey());
-    Binding binding = bindingsByKey.get(key);
-    if (binding == null) {
-      TypeElement element = MoreElements.asType(types.asElement(key.type()));
-      binding = registerBinding(membersInjectionBindingFactory.forInjectedType(element), false);
+    MembersInjectionBinding binding = membersInjectionBindings.getBinding(key);
+    if (binding != null) {
+      return binding;
     }
-    verify(binding instanceof MembersInjectionBinding);
-    return (MembersInjectionBinding) binding;
+    TypeElement element = MoreElements.asType(types.asElement(key.type()));
+    return registerBinding(membersInjectionBindingFactory.forInjectedType(element), false);
   }
 }
