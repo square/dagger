@@ -42,8 +42,6 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @author Gregory Kick
  * @since 2.0
  */
-// TODO(gak): make a decision about whether or not to bring MembersInjectionBinding under this
-// supertype or whether to just get rid of this.
 abstract class Binding {
   /** The {@link Key} that is provided by this binding. */
   protected abstract Key key();
