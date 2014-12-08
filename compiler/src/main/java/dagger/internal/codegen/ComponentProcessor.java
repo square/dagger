@@ -94,11 +94,14 @@ public final class ComponentProcessor extends AbstractProcessor {
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types);
     ComponentGenerator componentGenerator = new ComponentGenerator(filer);
+    ProducerFactoryGenerator producerFactoryGenerator = new ProducerFactoryGenerator(filer);
 
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(types, keyFactory);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
+    ProductionBinding.Factory productionBindingFactory =
+        new ProductionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
@@ -148,7 +151,9 @@ public final class ComponentProcessor extends AbstractProcessor {
         new ProducerModuleProcessingStep(
             messager,
             producerModuleValidator,
-            producesMethodValidator));
+            producesMethodValidator,
+            productionBindingFactory,
+            producerFactoryGenerator));
   }
 
   @Override

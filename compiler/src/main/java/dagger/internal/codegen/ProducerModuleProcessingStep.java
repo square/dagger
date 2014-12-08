@@ -17,17 +17,22 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.SuperficialValidation;
+import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.ElementFilter;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
@@ -41,15 +46,21 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
   private final ProducesMethodValidator producesMethodValidator;
+  private final ProductionBinding.Factory productionBindingFactory;
+  private final ProducerFactoryGenerator factoryGenerator;
   private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
 
   ProducerModuleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
-      ProducesMethodValidator producesMethodValidator) {
+      ProducesMethodValidator producesMethodValidator,
+      ProductionBinding.Factory productionBindingFactory,
+      ProducerFactoryGenerator factoryGenerator) {
     this.messager = messager;
     this.moduleValidator = moduleValidator;
     this.producesMethodValidator = producesMethodValidator;
+    this.productionBindingFactory = productionBindingFactory;
+    this.factoryGenerator = factoryGenerator;
   }
 
   @Override
@@ -67,7 +78,6 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
         }
       }
     }
-    @SuppressWarnings("unused")
     ImmutableSet<ExecutableElement> validProducesMethods = validProducesMethodsBuilder.build();
 
     // process each module
@@ -78,7 +88,42 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
         ValidationReport<TypeElement> report =
             moduleValidator.validate(MoreElements.asType(moduleElement));
         report.printMessagesTo(messager);
-        // TODO(user): Validate @Produces methods and generate factories.
+
+        if (report.isClean()) {
+          ImmutableSet.Builder<ExecutableElement> moduleProducesMethodsBuilder =
+              ImmutableSet.builder();
+          List<ExecutableElement> moduleMethods =
+              ElementFilter.methodsIn(moduleElement.getEnclosedElements());
+          for (ExecutableElement methodElement : moduleMethods) {
+            if (isAnnotationPresent(methodElement, Produces.class)) {
+              moduleProducesMethodsBuilder.add(methodElement);
+            }
+          }
+          ImmutableSet<ExecutableElement> moduleProducesMethods =
+              moduleProducesMethodsBuilder.build();
+
+          if (Sets.difference(moduleProducesMethods, validProducesMethods).isEmpty()) {
+            // all of the produces methods in this module are valid!
+            // time to generate some factories!
+            ImmutableSet<ProductionBinding> bindings = FluentIterable.from(moduleProducesMethods)
+                .transform(new Function<ExecutableElement, ProductionBinding>() {
+                  @Override
+                  public ProductionBinding apply(ExecutableElement producesMethod) {
+                    return productionBindingFactory.forProducesMethod(producesMethod);
+                  }
+                })
+                .toSet();
+
+            try {
+              for (ProductionBinding binding : bindings) {
+                factoryGenerator.generate(binding);
+              }
+            } catch (SourceFileGenerationException e) {
+              e.printMessageTo(messager);
+            }
+          }
+        }
+
         processedModuleElements.add(moduleElement);
       }
     }

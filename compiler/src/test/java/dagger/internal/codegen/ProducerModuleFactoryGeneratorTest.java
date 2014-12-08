@@ -444,4 +444,91 @@ public class ProducerModuleFactoryGeneratorTest {
             + "test.NonPublicModule1 and test.NonPublicModule2 public.")
         .in(publicModuleFile).onLine(8);
   }
+
+  @Test public void singleProducesMethodNoArgsFuture() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces ListenableFuture<String> produceString() {",
+        "    return null;",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProduceStringFactory",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.Producer;",
+        "import java.util.concurrent.Executor;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProduceStringFactory implements Producer<String> {",
+        "  private final TestModule module;",
+        "  private final Executor executor;",
+        "",
+        "  public TestModule$$ProduceStringFactory(TestModule module, Executor executor) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "    assert executor != null;",
+        "    this.executor = executor;",
+        "  }",
+        "",
+        "  @Override public ListenableFuture<String> get() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void singleProducesMethodNoArgsNoFuture() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProduceStringFactory",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.Producer;",
+        "import java.util.concurrent.Executor;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProduceStringFactory implements Producer<String> {",
+        "  private final TestModule module;",
+        "  private final Executor executor;",
+        "",
+        "  public TestModule$$ProduceStringFactory(TestModule module, Executor executor) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "    assert executor != null;",
+        "    this.executor = executor;",
+        "  }",
+        "",
+        "  @Override public ListenableFuture<String> get() {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
 }
