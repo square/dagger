@@ -96,7 +96,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     ComponentGenerator componentGenerator = new ComponentGenerator(filer);
 
     DependencyRequest.Factory dependencyRequestFactory =
-        new DependencyRequest.Factory(elements, types, keyFactory);
+        new DependencyRequest.Factory(types, keyFactory);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 

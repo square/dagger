@@ -26,6 +26,8 @@ import com.google.common.collect.Iterables;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Provides;
+import dagger.producers.Produced;
+import dagger.producers.Producer;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -36,7 +38,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -61,6 +62,10 @@ abstract class DependencyRequest {
     LAZY,
     /** A request for a {@link MembersInjector}.  E.g.: {@code MembersInjector<Blah>} */
     MEMBERS_INJECTOR,
+    /** A request for a {@link Producer}.  E.g.: {@code Producer<Blah>} */
+    PRODUCER,
+    /** A request for a {@link Produced}.  E.g.: {@code Produced<Blah>} */
+    PRODUCED,
   }
 
   abstract Kind kind();
@@ -68,12 +73,10 @@ abstract class DependencyRequest {
   abstract Element requestElement();
 
   static final class Factory {
-    private final Elements elements;
     private final Types types;
     private final Key.Factory keyFactory;
 
-    Factory(Elements elements, Types types, Key.Factory keyFactory) {
-      this.elements = elements;
+    Factory(Types types, Key.Factory keyFactory) {
       this.types = types;
       this.keyFactory = keyFactory;
     }
@@ -147,6 +150,14 @@ abstract class DependencyRequest {
       } else if (isTypeOf(MembersInjector.class, type)) {
         checkArgument(!qualifier.isPresent());
         return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
+            requestElement);
+      } else if (isTypeOf(Producer.class, type)) {
+        return new AutoValue_DependencyRequest(Kind.PRODUCER,
+            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
+            requestElement);
+      } else if (isTypeOf(Produced.class, type)) {
+        return new AutoValue_DependencyRequest(Kind.PRODUCED,
             qualifiedTypeForParameter(qualifier, (DeclaredType) type),
             requestElement);
       } else {

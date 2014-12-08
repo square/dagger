@@ -21,8 +21,10 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.MapKey;
 import dagger.Provides;
+import dagger.producers.Produces;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
@@ -172,6 +174,53 @@ abstract class Key {
           return new AutoValue_Key(
               wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
               MoreTypes.equivalence().wrap(returnType));
+        default:
+          throw new AssertionError();
+      }
+    }
+
+    // TODO(user): Reconcile this method with forProvidesMethod when Provides.Type and
+    // Produces.Type are no longer different.
+    Key forProducesMethod(ExecutableElement e) {
+      checkNotNull(e);
+      checkArgument(e.getKind().equals(METHOD));
+      Produces producesAnnotation = e.getAnnotation(Produces.class);
+      checkArgument(producesAnnotation != null);
+      TypeMirror returnType = normalize(e.getReturnType());
+      TypeMirror keyType = returnType;
+      if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
+        keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
+      }
+      switch (producesAnnotation.type()) {
+        case UNIQUE:
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(keyType));
+        case SET:
+          TypeMirror setType = types.getDeclaredType(getSetElement(), keyType);
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(setType));
+        case MAP:
+          AnnotationMirror mapKeyAnnotation = Iterables.getOnlyElement(getMapKeys(e));
+          MapKey mapKey =
+              mapKeyAnnotation.getAnnotationType().asElement().getAnnotation(MapKey.class);
+          TypeElement keyTypeElement =
+              mapKey.unwrapValue() ? Util.getKeyTypeElement(mapKeyAnnotation, elements)
+                  : (TypeElement) mapKeyAnnotation.getAnnotationType().asElement();
+          TypeMirror valueType = types.getDeclaredType(getProviderElement(), keyType);
+          TypeMirror mapType =
+              types.getDeclaredType(getMapElement(), keyTypeElement.asType(), valueType);
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(mapType));
+        case SET_VALUES:
+          // TODO(gak): do we want to allow people to use "covariant return" here?
+          checkArgument(keyType.getKind().equals(DECLARED));
+          checkArgument(((DeclaredType) keyType).asElement().equals(getSetElement()));
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(keyType));
         default:
           throw new AssertionError();
       }

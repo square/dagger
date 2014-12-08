@@ -56,11 +56,10 @@ public class FrameworkKeyTest {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
     this.keyFactory = new Key.Factory(types, elements);
-    this.dependencyRequestFactory = new DependencyRequest.Factory(elements, types, keyFactory);
+    this.dependencyRequestFactory = new DependencyRequest.Factory(types, keyFactory);
   }
 
   private List<? extends VariableElement> sampleProviderParameters() {
-    TypeMirror stringType = elements.getTypeElement(String.class.getCanonicalName()).asType();
     TypeElement moduleElement =
         elements.getTypeElement(ProvidesMethodModule.class.getCanonicalName());
     ExecutableElement providesMethod =
