@@ -41,7 +41,7 @@ import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
-import dagger.internal.codegen.ProvisionBinding.BindingType;
+import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;

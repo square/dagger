@@ -145,6 +145,19 @@ class SourceFiles {
     }
   }
 
+  static ClassName factoryNameForProductionBinding(ProductionBinding binding) {
+    TypeElement enclosingTypeElement = binding.bindingTypeElement();
+    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
+    switch (binding.bindingKind()) {
+      case IMMEDIATE:
+      case FUTURE_PRODUCTION:
+        return enclosingClassName.topLevelClassName().peerNamed(
+            enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
+      default:
+        throw new AssertionError();
+    }
+  }
+
   static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
     ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
     return injectedClassName.topLevelClassName().peerNamed(
@@ -156,6 +169,17 @@ class SourceFiles {
       case INJECTION:
         return "";
       case PROVISION:
+        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
+            ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
+      default:
+        throw new IllegalArgumentException();
+    }
+  }
+
+  private static String factoryPrefix(ProductionBinding binding) {
+    switch (binding.bindingKind()) {
+      case IMMEDIATE:
+      case FUTURE_PRODUCTION:
         return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
             ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
       default:

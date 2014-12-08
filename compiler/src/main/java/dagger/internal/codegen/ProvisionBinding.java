@@ -19,14 +19,10 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
-import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -55,7 +51,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
  * @since 2.0
  */
 @AutoValue
-abstract class ProvisionBinding extends Binding {
+abstract class ProvisionBinding extends ContributionBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
@@ -99,15 +95,7 @@ abstract class ProvisionBinding extends Binding {
   /** If this provision requires members injeciton, this will be the corresonding request. */
   abstract Optional<DependencyRequest> memberInjectionRequest();
 
-  static enum BindingType {
-    /** Represents map bindings. */
-    MAP,
-    /** Represents set bindings. */
-    SET,
-    /** Represents a valid non-collection binding. */
-    UNIQUE;
-  }
-
+  @Override
   BindingType bindingType() {
     switch (provisionType()) {
       case SET:
@@ -119,43 +107,6 @@ abstract class ProvisionBinding extends Binding {
         return BindingType.UNIQUE;
       default:
         throw new IllegalStateException("Unknown provision type: " + provisionType());
-    }
-  }
-
-  /**
-   * Returns the set of {@link BindingType} enum values implied by a given
-   * {@link ProvisionBinding} collection.
-   */
-  static ImmutableListMultimap<BindingType, ProvisionBinding> bindingTypesFor(
-      Iterable<ProvisionBinding> bindings) {
-    ImmutableListMultimap.Builder<BindingType, ProvisionBinding> builder =
-        ImmutableListMultimap.builder();
-    builder.orderKeysBy(Ordering.<BindingType>natural());
-    for (ProvisionBinding binding : bindings) {
-      builder.put(binding.bindingType(), binding);
-    }
-    return builder.build();
-  }
-
-  /**
-   * Returns a single {@code BindingsType} represented by a given collection of
-   * {@code ProvisionBindings} or throws an IllegalArgumentException if the given bindings
-   * are not all of one type.
-   */
-  static BindingType bindingTypeFor(Iterable<ProvisionBinding> bindings) {
-    checkNotNull(bindings);
-    switch (Iterables.size(bindings)) {
-      case 0:
-        throw new IllegalArgumentException("no bindings");
-      case 1:
-        return Iterables.getOnlyElement(bindings).bindingType();
-      default:
-        Set<BindingType> types = bindingTypesFor(bindings).keySet();
-        if (types.size() > 1) {
-          throw new IllegalArgumentException(
-              String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
-        }
-        return Iterables.getOnlyElement(types);
     }
   }
 

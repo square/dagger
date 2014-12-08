@@ -28,7 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import dagger.Provides;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings.State;
-import dagger.internal.codegen.ProvisionBinding.BindingType;
+import dagger.internal.codegen.ContributionBinding.BindingType;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;

@@ -15,7 +15,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings.State;
-import dagger.internal.codegen.ProvisionBinding.BindingType;
+import dagger.internal.codegen.ContributionBinding.BindingType;
 import java.util.Deque;
 import java.util.Formatter;
 import java.util.LinkedList;
