@@ -22,8 +22,10 @@ import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.BindingGraphValidator.ScopeCycleValidation;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -36,6 +38,8 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
@@ -66,6 +70,11 @@ public final class ComponentProcessor extends AbstractProcessor {
   @Override
   public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
+  }
+
+  @Override
+  public Set<String> getSupportedOptions() {
+    return ImmutableSet.of(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY);
   }
 
   @Override
@@ -118,9 +127,8 @@ public final class ComponentProcessor extends AbstractProcessor {
         provisionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
-
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(types,
-        injectBindingRegistry);
+        injectBindingRegistry, disableInterComponentScopeValidation(processingEnv));
 
     this.processingSteps = ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
@@ -167,5 +175,25 @@ public final class ComponentProcessor extends AbstractProcessor {
       e.printMessageTo(processingEnv.getMessager());
     }
     return false;
+  }
+
+  private static final String DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY =
+      "dagger.disableInterComponentScopeValidation";
+
+  private static ScopeCycleValidation disableInterComponentScopeValidation(
+      ProcessingEnvironment processingEnv) {
+    Map<String, String> options = processingEnv.getOptions();
+    if(options.containsKey(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY)) {
+      try {
+        return ScopeCycleValidation.valueOf(
+            options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY).toUpperCase());
+      } catch (IllegalArgumentException e) {
+        processingEnv.getMessager().printMessage(ERROR, "Processor option -A"
+            + DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY
+            + " may only have the values ERROR, WARNING, or NONE (case insensitive) "
+            + " found: " + options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY));
+      }
+    }
+    return ScopeCycleValidation.ERROR;
   }
 }

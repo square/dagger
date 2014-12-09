@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.tools.Diagnostic.Kind;
 
 import static javax.tools.Diagnostic.Kind.ERROR;
 
@@ -39,7 +40,15 @@ abstract class ValidationReport<T> {
   abstract ImmutableSet<Item> items();
 
   boolean isClean() {
-    return items().isEmpty();
+    for (Item item : items()) {
+      switch (item.kind()) {
+        case ERROR:
+          return false;
+        default:
+          break;
+      }
+    }
+    return true;
   }
 
   void printMessagesTo(Messager messager) {
@@ -51,15 +60,16 @@ abstract class ValidationReport<T> {
   @AutoValue
   static abstract class Item implements PrintableErrorMessage {
     abstract String message();
+    abstract Kind kind();
     abstract Element element();
     abstract Optional<AnnotationMirror> annotation();
 
     @Override
     public void printMessageTo(Messager messager) {
       if (annotation().isPresent()) {
-        messager.printMessage(ERROR, message(), element(), annotation().get());
+        messager.printMessage(kind(), message(), element(), annotation().get());
       } else {
-        messager.printMessage(ERROR, message(), element());
+        messager.printMessage(kind(), message(), element());
       }
     }
   }
@@ -81,13 +91,28 @@ abstract class ValidationReport<T> {
     }
 
     Builder<T> addItem(String message, Element element) {
-      items.add(new AutoValue_ValidationReport_Item(message, element,
-          Optional.<AnnotationMirror>absent()));
+      addItem(message, ERROR, element, Optional.<AnnotationMirror>absent());
+      return this;
+    }
+
+    Builder<T> addItem(String message, Kind kind, Element element) {
+      addItem(message, kind, element, Optional.<AnnotationMirror>absent());
       return this;
     }
 
     Builder<T> addItem(String message, Element element, AnnotationMirror annotation) {
-      items.add(new AutoValue_ValidationReport_Item(message, element, Optional.of(annotation)));
+      addItem(message, ERROR, element, Optional.of(annotation));
+      return this;
+    }
+
+    Builder<T> addItem(String message, Kind kind, Element element, AnnotationMirror annotation) {
+      addItem(message, kind, element, Optional.of(annotation));
+      return this;
+    }
+
+    private Builder<T> addItem(String message, Kind kind, Element element,
+        Optional<AnnotationMirror> annotation) {
+      items.add(new AutoValue_ValidationReport_Item(message, kind, element, annotation));
       return this;
     }
 

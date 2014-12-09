@@ -1,10 +1,12 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -13,13 +15,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings.State;
 import dagger.internal.codegen.ContributionBinding.BindingType;
+import dagger.internal.codegen.ValidationReport.Builder;
+import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Formatter;
 import java.util.LinkedList;
 import java.util.Set;
+import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -30,19 +36,29 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
 
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
 public class BindingGraphValidator implements Validator<BindingGraph> {
+
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
+  private final ScopeCycleValidation disableInterComponentScopeCycles;
 
-  BindingGraphValidator(Types types, InjectBindingRegistry injectBindingRegistry) {
+  BindingGraphValidator(Types types, InjectBindingRegistry injectBindingRegistry,
+      ScopeCycleValidation disableInterComponentScopeCycles) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
+    this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
   }
 
   @Override
@@ -52,6 +68,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     ImmutableMap<FrameworkKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
 
     validateComponentScope(subject, reportBuilder, resolvedBindings);
+    validateDependencyScopes(subject, reportBuilder);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
       ResolvedBindings resolvedBinding = resolvedBindings.get(
@@ -90,6 +107,142 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
 
     return reportBuilder.build();
+  }
+
+  /**
+   * Validates that among the dependencies are at most one scoped dependency,
+   * that there are no cycles within the scoping chain, and that singleton
+   * components have no scoped dependencies.
+   */
+  private void validateDependencyScopes(BindingGraph subject,
+      Builder<BindingGraph> reportBuilder) {
+    ComponentDescriptor descriptor = subject.componentDescriptor();
+    Optional<AnnotationMirror> scope = subject.componentDescriptor().scope();
+    ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
+    if (scope.isPresent()) {
+      // Dagger 1.x scope compatibility requires this be suppress-able.
+      if (disableInterComponentScopeCycles.diagnosticKind().isPresent()
+          && isTypeOf(Singleton.class, scope.get().getAnnotationType())) {
+        // Singleton is a special-case representing the longest lifetime, and therefore
+        // @Singleton components may not depend on scoped components
+        if (!scopedDependencies.isEmpty()) {
+          StringBuilder message = new StringBuilder(
+              "This @Singleton component cannot depend on scoped components:\n");
+          appendIndentedComponentsList(message, scopedDependencies);
+          reportBuilder.addItem(message.toString(),
+              disableInterComponentScopeCycles.diagnosticKind().get(),
+              descriptor.componentDefinitionType(),
+              descriptor.componentAnnotation());
+        }
+      } else if (scopedDependencies.size() > 1) {
+        // Scoped components may depend on at most one scoped component.
+        StringBuilder message = new StringBuilder(ErrorMessages.format(scope.get()))
+            .append(' ')
+            .append(descriptor.componentDefinitionType().getQualifiedName())
+            .append(" depends on more than one scoped component:\n");
+        appendIndentedComponentsList(message, scopedDependencies);
+        reportBuilder.addItem(message.toString(),
+            descriptor.componentDefinitionType(),
+            descriptor.componentAnnotation());
+      } else {
+        // Dagger 1.x scope compatibility requires this be suppress-able.
+        if (!disableInterComponentScopeCycles.equals(ScopeCycleValidation.NONE)) {
+          validateScopeHierarchy(descriptor.componentDefinitionType(),
+              descriptor.componentDefinitionType(),
+              reportBuilder,
+              new ArrayDeque<Equivalence.Wrapper<AnnotationMirror>>(),
+              new ArrayDeque<TypeElement>());
+        }
+      }
+    } else {
+      // Scopeless components may not depend on scoped components.
+      if (!scopedDependencies.isEmpty()) {
+        StringBuilder message =
+            new StringBuilder(descriptor.componentDefinitionType().getQualifiedName())
+                .append(" (unscoped) cannot depend on scoped components:\n");
+        appendIndentedComponentsList(message, scopedDependencies);
+        reportBuilder.addItem(message.toString(),
+            descriptor.componentDefinitionType(),
+            descriptor.componentAnnotation());
+      }
+    }
+  }
+
+  /**
+   * Append and format a list of indented component types (with their scope annotations)
+   */
+  private void appendIndentedComponentsList(StringBuilder message, Iterable<TypeElement> types) {
+    for (TypeElement scopedComponent : types) {
+      message.append(INDENT);
+      Optional<AnnotationMirror> scope = getScopeAnnotation(scopedComponent);
+      if (scope.isPresent()) {
+        message.append(ErrorMessages.format(scope.get())).append(' ');
+      }
+      message.append(stripCommonTypePrefixes(scopedComponent.getQualifiedName().toString()))
+          .append('\n');
+    }
+  }
+
+  /**
+   * Returns a set of type elements containing only those found in the input set that have
+   * a scoping annotation.
+   */
+  private ImmutableSet<TypeElement> scopedTypesIn(Set<TypeElement> types) {
+    return FluentIterable.from(types).filter(new Predicate<TypeElement>() {
+      @Override public boolean apply(TypeElement input) {
+        return getScopeAnnotation(input).isPresent();
+      }
+    }).toSet();
+  }
+
+  /**
+   * Validates that scopes do not participate in a scoping cycle - that is to say, scoped
+   * components are in a hierarchical relationship terminating with Singleton.
+   *
+   * <p>As a side-effect, this means scoped components cannot have a dependency cycle between
+   * themselves, since a component's presence within its own dependency path implies a cyclical
+   * relationship between scopes.
+   */
+  private void validateScopeHierarchy(TypeElement rootComponent,
+      TypeElement componentType,
+      Builder<BindingGraph> reportBuilder,
+      Deque<Equivalence.Wrapper<AnnotationMirror>> scopeStack,
+      Deque<TypeElement> scopedDependencyStack) {
+    Optional<AnnotationMirror> scope = getScopeAnnotation(componentType);
+    if (scope.isPresent()) {
+      Equivalence.Wrapper<AnnotationMirror> wrappedScope =
+          AnnotationMirrors.equivalence().wrap(scope.get());
+      if (scopeStack.contains(wrappedScope)) {
+        scopedDependencyStack.push(componentType);
+        // Current scope has already appeared in the component chain.
+        StringBuilder message = new StringBuilder();
+        message.append(rootComponent.getQualifiedName());
+        message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
+        appendIndentedComponentsList(message, scopedDependencyStack);
+        if (disableInterComponentScopeCycles.diagnosticKind().isPresent()) {
+          reportBuilder.addItem(message.toString(),
+              disableInterComponentScopeCycles.diagnosticKind().get(),
+              rootComponent, getAnnotationMirror(rootComponent, Component.class).get());
+        }
+        scopedDependencyStack.pop();
+      } else {
+        Optional<AnnotationMirror> componentAnnotation =
+            getAnnotationMirror(componentType, Component.class);
+        if (componentAnnotation.isPresent()) {
+          ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(
+              MoreTypes.asTypeElements(types, getComponentDependencies(componentAnnotation.get())));
+          if (scopedDependencies.size() == 1) {
+            // empty can be ignored (base-case), and > 1 is a different error reported separately.
+            scopeStack.push(wrappedScope);
+            scopedDependencyStack.push(componentType);
+            validateScopeHierarchy(rootComponent, getOnlyElement(scopedDependencies),
+                reportBuilder, scopeStack, scopedDependencyStack);
+            scopedDependencyStack.pop();
+            scopeStack.pop();
+          }
+        } // else: we skip component dependencies which are not components
+      }
+    }
   }
 
   /**
@@ -310,5 +463,31 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   static abstract class Traverser {
     abstract boolean visitResolvedBinding(
         Deque<DependencyRequest> requestPath, ResolvedBindings binding);
+  }
+
+  /**
+   * {@code -Adagger.disableInterComponentScopeValidation=none} will suppress validation of
+   * scoping relationships between dagger {@code @Component} interfaces. This is a migration
+   * tool to permit easier migration from Dagger 1.x which used {@code @Singleton} for scoped
+   * graphs in any lifetime.
+   *
+   * <p>The value can be (case-insensitively) set to any of {@code ERROR}, {@code WARNING},
+   * or {@code NONE} and defaults to {@code ERROR}.
+   */
+  enum ScopeCycleValidation {
+    ERROR,
+    WARNING,
+    NONE;
+
+    Optional<Diagnostic.Kind> diagnosticKind() {
+      switch (this) {
+        case ERROR:
+          return Optional.of(Diagnostic.Kind.ERROR);
+        case WARNING:
+          return Optional.of(Diagnostic.Kind.WARNING);
+        default:
+          return Optional.absent();
+      }
+    }
   }
 }
