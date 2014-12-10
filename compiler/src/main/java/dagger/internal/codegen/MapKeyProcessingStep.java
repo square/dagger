@@ -15,13 +15,13 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.SuperficialValidation;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import dagger.MapKey;
+import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
 
 /**
  * The annotation processor responsible for validating the mapKey annotation and auto-generate
@@ -30,40 +30,39 @@ import javax.lang.model.element.TypeElement;
  * @author Chenying Hou
  * @since 2.0
  */
-public class MapKeyProcessingStep implements ProcessingStep {
+public class MapKeyProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
   private final Messager messager;
   private final MapKeyValidator mapKeyValidator;
   private final MapKeyGenerator mapKeyGenerator;
 
-  MapKeyProcessingStep(Messager messager, MapKeyValidator mapKeyValidator, MapKeyGenerator mapKeyGenerator) {
+  MapKeyProcessingStep(Messager messager, MapKeyValidator mapKeyValidator,
+      MapKeyGenerator mapKeyGenerator) {
     this.messager = messager;
     this.mapKeyValidator = mapKeyValidator;
     this.mapKeyGenerator = mapKeyGenerator;
   }
 
   @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    if (!roundEnv.getElementsAnnotatedWith(MapKey.class).isEmpty()) {
-      // for each element annotated with @mapKey, validate it and auto generate key creator file for
-      // any unwrapped key
-      for (Element element : roundEnv.getElementsAnnotatedWith(MapKey.class)) {
-        if (SuperficialValidation.validateElement(element)) {
-          ValidationReport<Element> mapKeyReport = mapKeyValidator.validate(element);
-          mapKeyReport.printMessagesTo(messager);
+  public Set<Class<? extends Annotation>> annotations() {
+    return ImmutableSet.<Class<? extends Annotation>>of(MapKey.class);
+  }
 
-          if (mapKeyReport.isClean()) {
-            MapKey mapkey = element.getAnnotation(MapKey.class);
-            if (!mapkey.unwrapValue()) {
-              try {
-                mapKeyGenerator.generate(element);
-              } catch (SourceFileGenerationException e) {
-                e.printMessageTo(messager);
-              }
-            }
+  @Override
+  public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+    for (Element element : elementsByAnnotation.get(MapKey.class)) {
+      ValidationReport<Element> mapKeyReport = mapKeyValidator.validate(element);
+      mapKeyReport.printMessagesTo(messager);
+
+      if (mapKeyReport.isClean()) {
+        MapKey mapkey = element.getAnnotation(MapKey.class);
+        if (!mapkey.unwrapValue()) {
+          try {
+            mapKeyGenerator.generate(element);
+          } catch (SourceFileGenerationException e) {
+            e.printMessageTo(messager);
           }
         }
       }
     }
-    return false;
   }
 }

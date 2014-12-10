@@ -18,8 +18,6 @@ package dagger.internal.codegen;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import dagger.Component;
-import dagger.MapKey;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.BindingGraphValidator.ScopeCycleValidation;
@@ -27,15 +25,11 @@ import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
@@ -51,21 +45,8 @@ import static javax.tools.Diagnostic.Kind.ERROR;
  * @since 2.0
  */
 @AutoService(Processor.class)
-public final class ComponentProcessor extends AbstractProcessor {
-  private ImmutableList<ProcessingStep> processingSteps;
+public final class ComponentProcessor extends BasicAnnotationProcessor {
   private InjectBindingRegistry injectBindingRegistry;
-
-  @Override
-  public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(
-        Component.class.getName(),
-        Inject.class.getName(),
-        Module.class.getName(),
-        Provides.class.getName(),
-        MapKey.class.getName(),
-        ProducerModule.class.getName(),
-        Produces.class.getName());
-  }
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -78,9 +59,7 @@ public final class ComponentProcessor extends AbstractProcessor {
   }
 
   @Override
-  public synchronized void init(ProcessingEnvironment processingEnv) {
-    super.init(processingEnv);
-
+  protected Iterable<ProcessingStep> initSteps() {
     Messager messager = processingEnv.getMessager();
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
@@ -130,7 +109,7 @@ public final class ComponentProcessor extends AbstractProcessor {
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(types,
         injectBindingRegistry, disableInterComponentScopeValidation(processingEnv));
 
-    this.processingSteps = ImmutableList.<ProcessingStep>of(
+    return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
             messager,
             mapKeyValidator,
@@ -165,16 +144,12 @@ public final class ComponentProcessor extends AbstractProcessor {
   }
 
   @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    for (ProcessingStep processingStep : processingSteps) {
-      processingStep.process(annotations, roundEnv);
-    }
+  protected void postProcess() {
     try {
       injectBindingRegistry.generateSourcesForRequiredBindings();
     } catch (SourceFileGenerationException e) {
       e.printMessageTo(processingEnv.getMessager());
     }
-    return false;
   }
 
   private static final String DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY =

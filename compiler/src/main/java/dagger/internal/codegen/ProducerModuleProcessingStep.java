@@ -20,13 +20,15 @@ import com.google.auto.common.SuperficialValidation;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import dagger.internal.codegen.BasicAnnotationProcessor.ProcessingStep;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -64,10 +66,15 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
   }
 
   @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+  public Set<Class<? extends Annotation>> annotations() {
+    return ImmutableSet.of(Produces.class, ProducerModule.class);
+  }
+
+  @Override
+  public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     // first, check and collect all produces methods
     ImmutableSet.Builder<ExecutableElement> validProducesMethodsBuilder = ImmutableSet.builder();
-    for (Element producesElement : roundEnv.getElementsAnnotatedWith(Produces.class)) {
+    for (Element producesElement : elementsByAnnotation.get(Produces.class)) {
       if (producesElement.getKind().equals(METHOD)) {
         ExecutableElement producesMethodElement = (ExecutableElement) producesElement;
         ValidationReport<ExecutableElement> methodReport =
@@ -82,7 +89,7 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
 
     // process each module
     for (Element moduleElement :
-        Sets.difference(roundEnv.getElementsAnnotatedWith(ProducerModule.class),
+        Sets.difference(elementsByAnnotation.get(ProducerModule.class),
             processedModuleElements)) {
       if (SuperficialValidation.validateElement(moduleElement)) {
         ValidationReport<TypeElement> report =
@@ -127,6 +134,5 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
         processedModuleElements.add(moduleElement);
       }
     }
-    return false;
   }
 }
