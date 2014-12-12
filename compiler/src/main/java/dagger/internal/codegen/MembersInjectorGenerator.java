@@ -59,11 +59,17 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectionBinding> {
   private final Elements elements;
   private final Types types;
+  private final DependencyRequestMapper dependencyRequestMapper;
 
-  MembersInjectorGenerator(Filer filer, Elements elements, Types types) {
+  MembersInjectorGenerator(
+      Filer filer,
+      Elements elements,
+      Types types,
+      DependencyRequestMapper dependencyRequestMapper) {
     super(filer);
     this.elements = checkNotNull(elements);
     this.types = checkNotNull(types);
+    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -128,7 +134,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
 
     ImmutableMap<FrameworkKey, String> names =
         SourceFiles.generateFrameworkReferenceNamesForDependencies(
-            ImmutableSet.copyOf(binding.dependencies()));
+            dependencyRequestMapper, ImmutableSet.copyOf(binding.dependencies()));
 
     ImmutableMap.Builder<FrameworkKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
@@ -149,7 +155,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
           FieldWriter singleField = depedencyFields.get(
-              FrameworkKey.forDependencyRequest(fieldDependency));
+              dependencyRequestMapper.getFrameworkKey(fieldDependency));
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
               frameworkTypeUsageStatement(Snippet.format(singleField.name()),
@@ -159,7 +165,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
           for (DependencyRequest methodDependency : injectionSite.dependencies()) {
             FieldWriter field = depedencyFields.get(
-                FrameworkKey.forDependencyRequest(methodDependency));
+                dependencyRequestMapper.getFrameworkKey(methodDependency));
             parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
                 methodDependency.kind()));
           }

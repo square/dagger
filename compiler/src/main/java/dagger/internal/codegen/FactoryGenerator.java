@@ -61,8 +61,11 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @since 2.0
  */
 final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
-  FactoryGenerator(Filer filer) {
+  private final DependencyRequestMapper dependencyRequestMapper;
+
+  FactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper) {
     super(filer);
+    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -137,7 +140,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     }
 
     ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(binding.dependencies());
+        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+            dependencyRequestMapper, binding.dependencies());
 
     for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
       ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
@@ -152,7 +156,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          Snippet.format(names.get(FrameworkKey.forDependencyRequest(dependency))),
+          Snippet.format(names.get(dependencyRequestMapper.getFrameworkKey(dependency))),
           dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);

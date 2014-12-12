@@ -17,18 +17,15 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
-import dagger.Lazy;
 import dagger.MembersInjector;
-import dagger.Module;
-import dagger.Provides;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
-import java.util.List;
+import dagger.internal.codegen.writer.TypeName;
+import dagger.internal.codegen.writer.TypeNames;
+import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -50,65 +47,31 @@ public class FrameworkKeyTest {
   private Elements elements;
   private Types types;
   private Key.Factory keyFactory;
-  private DependencyRequest.Factory dependencyRequestFactory;
 
   @Before public void setUp() {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
     this.keyFactory = new Key.Factory(types, elements);
-    this.dependencyRequestFactory = new DependencyRequest.Factory(types, keyFactory);
   }
 
-  private List<? extends VariableElement> sampleProviderParameters() {
-    TypeElement moduleElement =
-        elements.getTypeElement(ProvidesMethodModule.class.getCanonicalName());
-    ExecutableElement providesMethod =
-        Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
-    return providesMethod.getParameters();
-  }
-
-  private DependencyRequest dependencyRequestForInstance() {
-    return dependencyRequestFactory.forRequiredVariable(sampleProviderParameters().get(0));
-  }
-
-  private DependencyRequest dependencyRequestForLazy() {
-    return dependencyRequestFactory.forRequiredVariable(sampleProviderParameters().get(1));
-  }
-
-  private DependencyRequest dependencyRequestForProvider() {
-    return dependencyRequestFactory.forRequiredVariable(sampleProviderParameters().get(2));
-  }
-
-  private DependencyRequest dependencyRequestForMembersInjector() {
-    return dependencyRequestFactory.forRequiredVariable(sampleProviderParameters().get(3));
-  }
-
-  @Test public void forDependencyRequest() {
-    assertThat(FrameworkKey.forDependencyRequest(dependencyRequestForInstance()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(FrameworkKey.forDependencyRequest(dependencyRequestForLazy()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(FrameworkKey.forDependencyRequest(dependencyRequestForProvider()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(FrameworkKey.forDependencyRequest(dependencyRequestForMembersInjector()).kind())
-        .isEqualTo(FrameworkKey.Kind.MEMBERS_INJECTOR);
+  private ExecutableElement getXConstructor() {
+    TypeElement classElement = elements.getTypeElement(X.class.getCanonicalName());
+    return Iterables.getOnlyElement(
+        ElementFilter.constructorsIn(classElement.getEnclosedElements()));
   }
 
   @Test public void frameworkType() {
-    assertThat(FrameworkKey.forDependencyRequest(dependencyRequestForInstance()).frameworkType())
+    Key key = keyFactory.forInjectConstructor(getXConstructor());
+    TypeName xClass = TypeNames.forTypeMirror(key.type());
+    assertThat(FrameworkKey.create(FrameworkKey.Kind.PROVIDER, key).frameworkType())
         .isEqualTo(ParameterizedTypeName.create(
-            ClassName.fromClass(Provider.class), ClassName.fromClass(Integer.class)));
-    assertThat(FrameworkKey.forDependencyRequest(dependencyRequestForMembersInjector())
-        .frameworkType())
+            ClassName.fromClass(Provider.class), xClass));
+    assertThat(FrameworkKey.create(FrameworkKey.Kind.MEMBERS_INJECTOR, key).frameworkType())
         .isEqualTo(ParameterizedTypeName.create(
-            ClassName.fromClass(MembersInjector.class), ClassName.fromClass(Integer.class)));
+            ClassName.fromClass(MembersInjector.class), xClass));
   }
 
-  @Module(library = true)
-  static final class ProvidesMethodModule {
-    @Provides String provideString(
-        Integer a, Lazy<Integer> b, Provider<Integer> c, MembersInjector<Integer> d) {
-      return null;
-    }
+  static final class X {
+    @Inject X() {}
   }
 }

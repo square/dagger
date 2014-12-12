@@ -20,6 +20,7 @@ import dagger.MembersInjector;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
+import dagger.producers.Producer;
 import javax.inject.Provider;
 
 /**
@@ -38,6 +39,7 @@ abstract class FrameworkKey {
   enum Kind {
     PROVIDER(Provider.class),
     MEMBERS_INJECTOR(MembersInjector.class),
+    PRODUCER(Producer.class),
     ;
 
     private final Class<?> frameworkClass;
@@ -51,19 +53,8 @@ abstract class FrameworkKey {
     }
   }
 
-  // TODO(user): Pass instructions for how to handle requests for instances, since producers will
-  // handle them differently.
-  static FrameworkKey forDependencyRequest(DependencyRequest request) {
-    switch (request.kind()) {
-      case INSTANCE:
-      case PROVIDER:
-      case LAZY:
-        return new AutoValue_FrameworkKey(Kind.PROVIDER, request.key());
-      case MEMBERS_INJECTOR:
-        return new AutoValue_FrameworkKey(Kind.MEMBERS_INJECTOR, request.key());
-      default:
-        throw new AssertionError();
-    }
+  static FrameworkKey create(Kind kind, Key key) {
+    return new AutoValue_FrameworkKey(kind, key);
   }
 
   ParameterizedTypeName frameworkType() {
@@ -73,4 +64,17 @@ abstract class FrameworkKey {
 
   abstract Kind kind();
   abstract Key key();
+
+  String defaultSuffix() {
+    switch (kind()) {
+      case PROVIDER:
+        return "Provider";
+      case MEMBERS_INJECTOR:
+        return "MembersInjector";
+      case PRODUCER:
+        return "Producer";
+      default:
+        throw new AssertionError();
+    }
+  }
 }

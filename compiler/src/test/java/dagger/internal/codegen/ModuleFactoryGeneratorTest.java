@@ -280,9 +280,18 @@ public class ModuleFactoryGeneratorTest {
           "@Qualifier @interface QualifierB {}");
 
   @Test public void multipleProvidesMethods() {
+    JavaFileObject classXFile = JavaFileObjects.forSourceLines("test.X",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class X {",
+        "  @Inject public String s;",
+        "}");
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
+        "import dagger.MembersInjector;",
         "import dagger.Module;",
         "import dagger.Provides;",
         "",
@@ -291,7 +300,8 @@ public class ModuleFactoryGeneratorTest {
         "",
         "@Module",
         "final class TestModule {",
-        "  @Provides List<Object> provideObjects(@QualifierA Object a, @QualifierB Object b) {",
+        "  @Provides List<Object> provideObjects(",
+        "      @QualifierA Object a, @QualifierB Object b, MembersInjector<X> x) {",
         "    return Arrays.asList(a, b);",
         "  }",
         "",
@@ -308,6 +318,7 @@ public class ModuleFactoryGeneratorTest {
         "package test;",
         "",
         "import dagger.Factory;",
+        "import dagger.MembersInjector;",
         "import java.util.List;",
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
@@ -317,22 +328,29 @@ public class ModuleFactoryGeneratorTest {
         "  private final TestModule module;",
         "  private final Provider<Object> aProvider;",
         "  private final Provider<Object> bProvider;",
+        "  private final MembersInjector<X> xMembersInjector;",
         "",
-        "  public TestModule$$ProvideObjectsFactory(TestModule module,",
-        "       Provider<Object> aProvider, Provider<Object> bProvider) {",
+        "  public TestModule$$ProvideObjectsFactory(",
+        "      TestModule module,",
+        "      Provider<Object> aProvider,",
+        "      Provider<Object> bProvider,",
+        "      MembersInjector<X> xMembersInjector) {",
         "    assert module != null;",
         "    this.module = module;",
         "    assert aProvider != null;",
         "    this.aProvider = aProvider;",
         "    assert bProvider != null;",
         "    this.bProvider = bProvider;",
+        "    assert xMembersInjector != null;",
+        "    this.xMembersInjector = xMembersInjector;",
         "  }",
         "",
         "  @Override public List<Object> get() {",
-        "    return module.provideObjects(aProvider.get(), bProvider.get());",
+        "    return module.provideObjects(aProvider.get(), bProvider.get(), xMembersInjector);",
         "  }",
         "}");
-    assert_().about(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
+    assert_().about(javaSources()).that(
+            ImmutableList.of(classXFile, moduleFile, QUALIFIER_A, QUALIFIER_B))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listFactoryFile);

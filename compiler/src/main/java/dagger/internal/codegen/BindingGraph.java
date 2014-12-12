@@ -123,6 +123,7 @@ abstract class BindingGraph {
     private final Types types;
     private final InjectBindingRegistry injectBindingRegistry;
     private final Key.Factory keyFactory;
+    private final DependencyRequestMapper dependencyRequestMapper;
     private final DependencyRequest.Factory dependencyRequestFactory;
     private final ProvisionBinding.Factory provisionBindingFactory;
 
@@ -130,12 +131,14 @@ abstract class BindingGraph {
         Types types,
         InjectBindingRegistry injectBindingRegistry,
         dagger.internal.codegen.Key.Factory keyFactory,
+        dagger.internal.codegen.DependencyRequestMapper dependencyRequestMapper,
         dagger.internal.codegen.DependencyRequest.Factory dependencyRequestFactory,
         dagger.internal.codegen.ProvisionBinding.Factory provisionBindingFactory) {
       this.elements = elements;
       this.types = types;
       this.injectBindingRegistry = injectBindingRegistry;
       this.keyFactory = keyFactory;
+      this.dependencyRequestMapper = dependencyRequestMapper;
       this.dependencyRequestFactory = dependencyRequestFactory;
       this.provisionBindingFactory = provisionBindingFactory;
     }
@@ -249,7 +252,7 @@ abstract class BindingGraph {
 
       State resolve(DependencyRequest request) {
         Key requestKey = request.key();
-        FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(request);
+        FrameworkKey frameworkKey = dependencyRequestMapper.getFrameworkKey(request);
 
         ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(frameworkKey);
         if (previouslyResolvedBinding != null) {

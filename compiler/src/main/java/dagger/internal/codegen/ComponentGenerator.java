@@ -105,8 +105,11 @@ import static javax.lang.model.type.TypeKind.VOID;
  * @since 2.0
  */
 final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
-  ComponentGenerator(Filer filer) {
+  private final DependencyRequestMapper dependencyRequestMapper;
+
+  ComponentGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper) {
     super(filer);
+    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -392,7 +395,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 input.resolvedBindings().get(frameworkKey).membersInjectionBindings());
             initializeMethod.body().addSnippet("this.%s = %s;",
                 memberSelectSnippet,
-                initializeMembersInjectorForBinding(binding, memberSelectSnippets));
+                initializeMembersInjectorForBinding(
+                    dependencyRequestMapper, binding, memberSelectSnippets));
             break;
           default:
             throw new AssertionError();
@@ -414,7 +418,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                     requestElement.getSimpleName().toString());
             interfaceMethod.annotate(Override.class);
             interfaceMethod.addModifiers(PUBLIC);
-            FrameworkKey frameworkKey = FrameworkKey.forDependencyRequest(interfaceRequest);
+            FrameworkKey frameworkKey = dependencyRequestMapper.getFrameworkKey(interfaceRequest);
             if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
               Snippet membersInjectorName = memberSelectSnippets.get(frameworkKey);
               VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
@@ -528,10 +532,11 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         parameters.add(Snippet.format(contributionFields.get(binding.bindingTypeElement()).name()));
       }
       if (binding.memberInjectionRequest().isPresent()) {
-        parameters.add(memberSelectSnippets.get(FrameworkKey.forDependencyRequest(
+        parameters.add(memberSelectSnippets.get(dependencyRequestMapper.getFrameworkKey(
             binding.memberInjectionRequest().get())));
       }
-      parameters.addAll(getDependencyParameters(binding.dependencies(), memberSelectSnippets));
+      parameters.addAll(getDependencyParameters(
+          dependencyRequestMapper, binding.dependencies(), memberSelectSnippets));
 
       return binding.scope().isPresent()
           ? Snippet.format("%s.create(new %s(%s))",
@@ -545,6 +550,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   }
 
   private static Snippet initializeMembersInjectorForBinding(
+      DependencyRequestMapper dependencyRequestMapper,
       MembersInjectionBinding binding,
       ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
     if (binding.injectionSites().isEmpty()) {
@@ -553,13 +559,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
             memberSelectSnippets.get(
-                FrameworkKey.forDependencyRequest(parentInjectorRequest)));
+                dependencyRequestMapper.getFrameworkKey(parentInjectorRequest)));
       } else {
         return Snippet.format("%s.noOp()",
             ClassName.fromClass(MembersInjectors.class));
       }
     } else {
       List<Snippet> parameters = getDependencyParameters(
+          dependencyRequestMapper,
           Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
           memberSelectSnippets);
       return Snippet.format("new %s(%s)",
@@ -568,10 +575,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     }
   }
 
-  private static List<Snippet> getDependencyParameters(Iterable<DependencyRequest> dependencies,
+  private static List<Snippet> getDependencyParameters(
+      DependencyRequestMapper dependencyRequestMapper,
+      Iterable<DependencyRequest> dependencies,
       ImmutableMap<FrameworkKey, Snippet> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-    for (FrameworkKey dependencyKey : SourceFiles.indexDependenciesByKey(dependencies).keySet()) {
+    for (FrameworkKey dependencyKey :
+         SourceFiles.indexDependenciesByKey(dependencyRequestMapper, dependencies).keySet()) {
       parameters.add(memberSelectSnippets.get(dependencyKey));
     }
     return parameters.build();
@@ -588,7 +598,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     if (isNonProviderMap(firstBinding)) {
       return Snippet.format("%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(FrameworkKey.forDependencyRequest(
+          memberSelectSnippets.get(dependencyRequestMapper.getFrameworkKey(
               Iterables.getOnlyElement(firstBinding.dependencies()))));
     } else {
       DeclaredType mapType = asDeclared(firstBinding.key().type());

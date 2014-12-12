@@ -17,18 +17,21 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Provides.Type;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
+import dagger.internal.codegen.writer.FieldWriter;
 import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.producers.Producer;
+import java.util.Map.Entry;
 import java.util.concurrent.Executor;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
@@ -47,8 +50,11 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @since 2.0
  */
 final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBinding> {
-  ProducerFactoryGenerator(Filer filer) {
+  private final DependencyRequestMapper dependencyRequestMapper;
+
+  ProducerFactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper) {
     super(filer);
+    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -100,11 +106,23 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     factoryWriter.addImplementedType(
         ParameterizedTypeName.create(Producer.class, providedTypeName));
 
-    // TODO(user): Add dependencies.
-
     MethodWriter getMethodWriter = factoryWriter.addMethod(futureTypeName, "get");
     getMethodWriter.annotate(Override.class);
     getMethodWriter.addModifiers(PUBLIC);
+
+    ImmutableMap<FrameworkKey, String> names =
+        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+            dependencyRequestMapper, binding.dependencies());
+
+    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
+      ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
+      FieldWriter field = factoryWriter.addField(fieldType, nameEntry.getValue());
+      field.addModifiers(PRIVATE, FINAL);
+      constructorWriter.addParameter(field.type(), field.name());
+      constructorWriter.body()
+          .addSnippet("assert %s != null;", field.name())
+          .addSnippet("this.%1$s = %1$s;", field.name());
+    }
 
     // TODO(user): Implement this method.
     getMethodWriter.body().addSnippet("return null;");

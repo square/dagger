@@ -60,12 +60,14 @@ class SourceFiles {
   };
 
   static ImmutableSetMultimap<FrameworkKey, DependencyRequest> indexDependenciesByKey(
+      DependencyRequestMapper dependencyRequestMapper,
       Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> dependenciesByKeyBuilder =
         new ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest>().orderValuesBy(
             DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(FrameworkKey.forDependencyRequest(dependency), dependency);
+      dependenciesByKeyBuilder.put(
+          dependencyRequestMapper.getFrameworkKey(dependency), dependency);
     }
     return dependenciesByKeyBuilder.build();
   }
@@ -84,14 +86,17 @@ class SourceFiles {
    *         provider.
    */
   static ImmutableMap<FrameworkKey, String> generateFrameworkReferenceNamesForDependencies(
+      DependencyRequestMapper dependencyRequestMapper,
       Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey =
-        indexDependenciesByKey(dependencies);
+        indexDependenciesByKey(dependencyRequestMapper, dependencies);
     Map<FrameworkKey, Collection<DependencyRequest>> dependenciesByKeyMap =
         dependenciesByKey.asMap();
     ImmutableMap.Builder<FrameworkKey, String> providerNames = ImmutableMap.builder();
     for (Entry<FrameworkKey, Collection<DependencyRequest>> entry
         : dependenciesByKeyMap.entrySet()) {
+      FrameworkKey frameworkKey = entry.getKey();
+      String suffix = frameworkKey.defaultSuffix();
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames =
           FluentIterable.from(entry.getValue()).transform(new DependencyVariableNamer()).toSet();
@@ -99,7 +104,7 @@ class SourceFiles {
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        providerNames.put(entry.getKey(), name.endsWith("Provider") ? name : name + "Provider");
+        providerNames.put(frameworkKey, name.endsWith(suffix) ? name : name + suffix);
       } else {
         // in the event that a provider is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
@@ -110,7 +115,7 @@ class SourceFiles {
           compositeNameBuilder.append("And").append(
               CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        providerNames.put(entry.getKey(), compositeNameBuilder.append("Provider").toString());
+        providerNames.put(frameworkKey, compositeNameBuilder.append(suffix).toString());
       }
     }
     return providerNames.build();

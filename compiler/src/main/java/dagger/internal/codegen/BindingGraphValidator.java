@@ -53,12 +53,17 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
   private final ScopeCycleValidation disableInterComponentScopeCycles;
+  private final DependencyRequestMapper dependencyRequestMapper;
 
-  BindingGraphValidator(Types types, InjectBindingRegistry injectBindingRegistry,
-      ScopeCycleValidation disableInterComponentScopeCycles) {
+  BindingGraphValidator(
+      Types types,
+      InjectBindingRegistry injectBindingRegistry,
+      ScopeCycleValidation disableInterComponentScopeCycles,
+      DependencyRequestMapper dependencyRequestMapper) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
     this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
+    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -72,7 +77,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
       ResolvedBindings resolvedBinding = resolvedBindings.get(
-          FrameworkKey.forDependencyRequest(entryPoint));
+          dependencyRequestMapper.getFrameworkKey(entryPoint));
       if (!resolvedBinding.state().equals(State.COMPLETE)) {
         LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
         requestPath.push(entryPoint);
@@ -439,7 +444,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private void traversalHelper(BindingGraph graph, Deque<DependencyRequest> requestPath,
       Traverser traverser) {
     ResolvedBindings resolvedBinding = graph.resolvedBindings().get(
-        FrameworkKey.forDependencyRequest(requestPath.peek()));
+        dependencyRequestMapper.getFrameworkKey(requestPath.peek()));
     ImmutableSet<DependencyRequest> allDeps =
         FluentIterable.from(resolvedBinding.bindings())
             .transformAndConcat(

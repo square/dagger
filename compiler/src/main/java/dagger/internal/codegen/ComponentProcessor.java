@@ -78,11 +78,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
-    FactoryGenerator factoryGenerator = new FactoryGenerator(filer);
+    FactoryGenerator factoryGenerator =
+        new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
     MembersInjectorGenerator membersInjectorGenerator =
-        new MembersInjectorGenerator(filer, elements, types);
-    ComponentGenerator componentGenerator = new ComponentGenerator(filer);
-    ProducerFactoryGenerator producerFactoryGenerator = new ProducerFactoryGenerator(filer);
+        new MembersInjectorGenerator(filer, elements, types, DependencyRequestMapper.FOR_PROVIDER);
+    ComponentGenerator componentGenerator =
+        new ComponentGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
+    ProducerFactoryGenerator producerFactoryGenerator =
+        new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
 
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(types, keyFactory);
@@ -102,12 +105,15 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ComponentDescriptor.Factory(elements, types);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
-        elements, types, injectBindingRegistry, keyFactory, dependencyRequestFactory,
-        provisionBindingFactory);
+        elements, types, injectBindingRegistry, keyFactory, DependencyRequestMapper.FOR_PROVIDER,
+        dependencyRequestFactory, provisionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
-    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(types,
-        injectBindingRegistry, disableInterComponentScopeValidation(processingEnv));
+    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
+        types,
+        injectBindingRegistry,
+        disableInterComponentScopeValidation(processingEnv),
+        DependencyRequestMapper.FOR_PROVIDER);
 
     return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
