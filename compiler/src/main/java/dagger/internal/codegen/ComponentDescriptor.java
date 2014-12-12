@@ -21,7 +21,6 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import dagger.Component;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
@@ -85,12 +84,10 @@ abstract class ComponentDescriptor {
   static final class Factory {
     private final Elements elements;
     private final Types types;
-    private final ProvisionBinding.Factory provisionBindingFactory;
 
-    Factory(Elements elements, Types types, ProvisionBinding.Factory provisionBindingFactory) {
+    Factory(Elements elements, Types types) {
       this.elements = elements;
       this.types = types;
-      this.provisionBindingFactory = provisionBindingFactory;
     }
 
     ComponentDescriptor create(TypeElement componentDefinitionType) {
@@ -99,28 +96,14 @@ abstract class ComponentDescriptor {
       ImmutableSet<TypeElement> componentDependencyTypes =
           MoreTypes.asTypeElements(types, getComponentDependencies(componentMirror));
 
-      ProvisionBinding componentBinding =
-          provisionBindingFactory.forComponent(componentDefinitionType);
-
-      ImmutableSetMultimap.Builder<Key, ProvisionBinding> explicitBindingIndexBuilder =
-          new ImmutableSetMultimap.Builder<Key, ProvisionBinding>()
-              .put(componentBinding.key(), componentBinding);
       ImmutableMap.Builder<ExecutableElement, TypeElement> dependencyMethodIndex =
           ImmutableMap.builder();
 
       for (TypeElement componentDependency : componentDependencyTypes) {
-        ProvisionBinding componentDependencyBinding =
-            provisionBindingFactory.forComponent(componentDependency);
-        explicitBindingIndexBuilder.put(
-            componentDependencyBinding.key(), componentDependencyBinding);
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement dependencyMethod : dependencyMethods) {
           if (isComponentProvisionMethod(elements, dependencyMethod)) {
-            ProvisionBinding componentMethodBinding =
-                provisionBindingFactory.forComponentMethod(dependencyMethod);
-            explicitBindingIndexBuilder
-                .put(componentMethodBinding.key(), componentMethodBinding);
             dependencyMethodIndex.put(dependencyMethod, componentDependency);
           }
         }

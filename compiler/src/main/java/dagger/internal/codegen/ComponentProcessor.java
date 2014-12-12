@@ -99,7 +99,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, types, provisionBindingFactory);
+        new ComponentDescriptor.Factory(elements, types);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
         elements, types, injectBindingRegistry, keyFactory, dependencyRequestFactory,
@@ -158,7 +158,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   private static ScopeCycleValidation disableInterComponentScopeValidation(
       ProcessingEnvironment processingEnv) {
     Map<String, String> options = processingEnv.getOptions();
-    if(options.containsKey(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY)) {
+    if (options.containsKey(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY)) {
       try {
         return ScopeCycleValidation.valueOf(
             options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY).toUpperCase());
