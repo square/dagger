@@ -30,7 +30,7 @@ public class HomeFragment extends Fragment {
 
   @Override public void onActivityCreated(Bundle savedInstanceState) {
     super.onActivityCreated(savedInstanceState);
-    ((AbstractDemoActivity) getActivity()).inject(this);
+    ((HomeActivity) getActivity()).component().inject(this);
   }
 
   @Override public View onCreateView(LayoutInflater inflater, ViewGroup container,

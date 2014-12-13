@@ -24,16 +24,16 @@ public class DemoApplication extends Application {
   private ApplicationComponent applicationComponent;
 
   // TODO(cgruber): Figure out a better example of something one might inject into the app.
-  @Inject LocationManager locationManager; // to illustrate injecting somethign into the app.
+  @Inject LocationManager locationManager; // to illustrate injecting something into the app.
 
   @Override public void onCreate() {
     super.onCreate();
     applicationComponent = Dagger_ApplicationComponent.builder()
-        .androidModule(new DemoApplicationModule(this))
+        .demoApplicationModule(new DemoApplicationModule(this))
         .build();
   }
 
-  ApplicationComponent component() {
+  public ApplicationComponent component() {
     return applicationComponent;
   }
 }

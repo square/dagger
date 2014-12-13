@@ -17,22 +17,28 @@ package com.example.dagger.activitygraphs.ui;
 
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
+import com.example.dagger.activitygraphs.ActivityModule;
+import com.example.dagger.activitygraphs.DemoApplication;
 import javax.inject.Inject;
 
-public class HomeActivity extends Activity {
+public class HomeActivity extends FragmentActivity {
   @Inject LocationManager locationManager;
+  private HomeComponent component;
 
-  @Override HomeComponent initComponent() {
+  HomeComponent component() {
+    if (component == null) {
+      component = Dagger_HomeComponent.builder()
+          .applicationComponent(((DemoApplication) getApplication()).component())
+          .activityModule(new ActivityModule(this))
+          .build();
+    }
     return component;
   }
 
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    Dagger_HomeActivity_HomeComponent.builder()
-        .applicationComponent(((DemoApplication) getApplication()).component())
-        .activityModule(new ActivityModule(this))
-        .build()
-        .inject(this);
+    component().inject(this);
 
     if (savedInstanceState == null) {
       getSupportFragmentManager().beginTransaction()
