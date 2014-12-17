@@ -357,20 +357,15 @@ abstract class BindingGraph {
               }
             case MEMBERS_INJECTOR:
               // no explicit deps for members injection, so just look it up
-              Optional<MembersInjectionBinding> membersInjectionBinding = Optional.fromNullable(
-                  injectBindingRegistry.getOrFindMembersInjectionBinding(requestKey));
-              if (membersInjectionBinding.isPresent()) {
-                // found a binding, resolve its deps and then mark it resolved
-                State bindingState =
-                    resolveDependencies(membersInjectionBinding.get().implicitDependencies());
-                resolvedBindings.put(frameworkKey,
-                    ResolvedBindings.createForMembersInjectionBindings(
-                        bindingState,
-                        ImmutableSet.copyOf(membersInjectionBinding.asSet())));
-                return bindingState;
-              } else {
-                return State.MISSING;
-              }
+              MembersInjectionBinding membersInjectionBinding =
+                  injectBindingRegistry.getOrFindMembersInjectionBinding(requestKey);
+              State bindingState =
+                  resolveDependencies(membersInjectionBinding.implicitDependencies());
+              resolvedBindings.put(frameworkKey,
+                  ResolvedBindings.createForMembersInjectionBindings(
+                      bindingState,
+                      ImmutableSet.of(membersInjectionBinding)));
+              return bindingState;
             default:
               throw new AssertionError();
           }

@@ -244,9 +244,11 @@ abstract class Key {
     }
 
     Key forMembersInjectedType(TypeMirror type) {
+      // TODO(gak): handle the type of the MembersInjection<Foo> field better
+      // (instead of just erasing the key type)
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(type)));
+          MoreTypes.equivalence().wrap(types.erasure(normalize(type))));
     }
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {

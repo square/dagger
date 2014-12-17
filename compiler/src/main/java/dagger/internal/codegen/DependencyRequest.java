@@ -132,8 +132,7 @@ abstract class DependencyRequest {
 
     DependencyRequest forMembersInjectedType(TypeElement type) {
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-          // TODO(gak): handle this better
-          keyFactory.forMembersInjectedType(types.erasure(type.asType())),
+          keyFactory.forMembersInjectedType(type.asType()),
           type);
     }
 
