@@ -117,7 +117,7 @@ abstract class BasicAnnotationProcessor extends AbstractProcessor {
   }
 
   private static final String INVALID_ELEMENT_MESSAGE_FORMAT = "%s was unable to process %s"
-      + " because all of its dependencies could not be resolved. Check for compilation errors or a"
+      + " because not all of its dependencies could be resolved. Check for compilation errors or a"
       + " circular dependency with generated code.";
 
   @Override
