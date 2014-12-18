@@ -34,13 +34,15 @@
   <modules>
     <module>compiler</module>
     <module>core</module>
+    <module>examples</module>
+    <module>producers</module>
   </modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <!-- Compilation -->
-    <java.version>1.6</java.version>
+    <java.version>1.7</java.version>
     <javax.inject.version>1</javax.inject.version>
     <javawriter.version>2.5.0</javawriter.version>
     <auto.common.version>1.0-SNAPSHOT</auto.common.version>
