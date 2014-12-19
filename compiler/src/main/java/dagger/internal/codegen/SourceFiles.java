@@ -130,6 +130,7 @@ class SourceFiles {
       case INSTANCE:
         return Snippet.format("%s.get()", frameworkTypeMemberSelect);
       case PROVIDER:
+      case PRODUCER:
       case MEMBERS_INJECTOR:
         return Snippet.format("%s", frameworkTypeMemberSelect);
       default:
