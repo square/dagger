@@ -75,6 +75,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ModuleValidator producerModuleValidator = new ModuleValidator(
         types, ProducerModule.class, Produces.class);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements);
+    ProductionComponentValidator productionComponentValidator = new ProductionComponentValidator();
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -146,7 +147,11 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             producerModuleValidator,
             producesMethodValidator,
             productionBindingFactory,
-            producerFactoryGenerator));
+            producerFactoryGenerator),
+        new ProductionComponentProcessingStep(
+            messager,
+            productionComponentValidator,
+            componentDescriptorFactory));
   }
 
   @Override

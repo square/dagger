@@ -22,6 +22,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import dagger.Component;
+import dagger.producers.ProductionComponent;
+import java.lang.annotation.Annotation;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -38,7 +40,7 @@ import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
- * The logical representation of a {@link Component} definition.
+ * The logical representation of a {@link Component} or {@link ProductionComponent} definition.
  *
  * @author Gregory Kick
  * @since 2.0
@@ -46,6 +48,23 @@ import static javax.lang.model.type.TypeKind.VOID;
 @AutoValue
 abstract class ComponentDescriptor {
   ComponentDescriptor() {}
+
+  enum Kind {
+    COMPONENT(Component.class),
+    PRODUCTION_COMPONENT(ProductionComponent.class);
+
+    private final Class<? extends Annotation> annotationType;
+
+    Kind(Class<? extends Annotation> annotationType) {
+      this.annotationType = annotationType;
+    }
+
+    Class<? extends Annotation> annotationType() {
+      return annotationType;
+    }
+  }
+
+  abstract Kind kind();
 
   abstract AnnotationMirror componentAnnotation();
 
@@ -62,8 +81,8 @@ abstract class ComponentDescriptor {
 
   /**
    * An index of the type to which this component holds a reference (the type listed in
-   * {@link Component#dependencies} as opposed to the enclosing type) for each method from a
-   * component dependency that can be used for binding.
+   * {@link Component#dependencies} or {@link ProductionComponent#dependencies} as opposed to the
+   * enclosing type) for each method from a component dependency that can be used for binding.
    */
   abstract ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex();
 
@@ -90,9 +109,17 @@ abstract class ComponentDescriptor {
       this.types = types;
     }
 
-    ComponentDescriptor create(TypeElement componentDefinitionType) {
+    ComponentDescriptor forComponent(TypeElement componentDefinitionType) {
+      return create(componentDefinitionType, Kind.COMPONENT);
+    }
+
+    ComponentDescriptor forProductionComponent(TypeElement componentDefinitionType) {
+      return create(componentDefinitionType, Kind.PRODUCTION_COMPONENT);
+    }
+
+    private ComponentDescriptor create(TypeElement componentDefinitionType, Kind kind) {
       AnnotationMirror componentMirror =
-          getAnnotationMirror(componentDefinitionType, Component.class).get();
+          getAnnotationMirror(componentDefinitionType, kind.annotationType()).get();
       ImmutableSet<TypeElement> componentDependencyTypes =
           MoreTypes.asTypeElements(types, getComponentDependencies(componentMirror));
 
@@ -111,6 +138,7 @@ abstract class ComponentDescriptor {
 
       Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
+          kind,
           componentMirror,
           componentDefinitionType,
           componentDependencyTypes,

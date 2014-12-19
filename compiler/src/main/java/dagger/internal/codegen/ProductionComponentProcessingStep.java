@@ -18,7 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
-import dagger.Component;
+import dagger.producers.ProductionComponent;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
 import java.lang.annotation.Annotation;
 import java.util.Set;
@@ -27,42 +27,33 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 
 /**
- * A {@link ProcessingStep} that is responsible for dealing with the {@link Component} annotation
- * as part of the {@link ComponentProcessor}.
+ * A {@link ProcessingStep} that is responsible for dealing with the {@link ProductionComponent}
+ * annotation as part of the {@link ComponentProcessor}.
  *
- * @author Gregory Kick
+ * @author Jesse Beder
  */
-final class ComponentProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
+final class ProductionComponentProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
   private final Messager messager;
-  private final ComponentValidator componentValidator;
-  private final BindingGraphValidator bindingGraphValidator;
+  private final ProductionComponentValidator componentValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
-  private final BindingGraph.Factory bindingGraphFactory;
-  private final ComponentGenerator componentGenerator;
 
-  ComponentProcessingStep(
+  ProductionComponentProcessingStep(
       Messager messager,
-      ComponentValidator componentValidator,
-      BindingGraphValidator bindingGraphValidator,
-      Factory componentDescriptorFactory,
-      BindingGraph.Factory bindingGraphFactory,
-      ComponentGenerator componentGenerator) {
+      ProductionComponentValidator componentValidator,
+      Factory componentDescriptorFactory) {
     this.messager = messager;
     this.componentValidator = componentValidator;
-    this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
-    this.bindingGraphFactory = bindingGraphFactory;
-    this.componentGenerator = componentGenerator;
   }
 
   @Override
   public Set<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.<Class<? extends Annotation>>of(Component.class);
+    return ImmutableSet.<Class<? extends Annotation>>of(ProductionComponent.class);
   }
 
   @Override
   public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    Set<? extends Element> componentElements = elementsByAnnotation.get(Component.class);
+    Set<? extends Element> componentElements = elementsByAnnotation.get(ProductionComponent.class);
 
     for (Element element : componentElements) {
       TypeElement componentTypeElement = MoreElements.asType(element);
@@ -70,19 +61,7 @@ final class ComponentProcessingStep implements BasicAnnotationProcessor.Processi
           componentValidator.validate(componentTypeElement);
       componentReport.printMessagesTo(messager);
       if (componentReport.isClean()) {
-        ComponentDescriptor componentDescriptor =
-            componentDescriptorFactory.forComponent(componentTypeElement);
-        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-        ValidationReport<BindingGraph> graphReport =
-            bindingGraphValidator.validate(bindingGraph);
-        graphReport.printMessagesTo(messager);
-        if (graphReport.isClean()) {
-          try {
-            componentGenerator.generate(bindingGraph);
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
-          }
-        }
+        componentDescriptorFactory.forProductionComponent(componentTypeElement);
       }
     }
   }
