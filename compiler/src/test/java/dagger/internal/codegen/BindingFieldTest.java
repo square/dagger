@@ -38,10 +38,10 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertThat;
 
 /**
- * Test case for {@link FrameworkKey}.
+ * Test case for {@link BindingField}.
  */
 @RunWith(JUnit4.class)
-public class FrameworkKeyTest {
+public class BindingFieldTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
   private Elements elements;
@@ -63,12 +63,28 @@ public class FrameworkKeyTest {
   @Test public void frameworkType() {
     Key key = keyFactory.forInjectConstructor(getXConstructor());
     TypeName xClass = TypeNames.forTypeMirror(key.type());
-    assertThat(FrameworkKey.create(FrameworkKey.Kind.PROVIDER, key).frameworkType())
+    assertThat(BindingField.create(Provider.class,
+            BindingKey.create(BindingKey.Kind.CONTRIBUTION, key), "test")
+        .frameworkType())
         .isEqualTo(ParameterizedTypeName.create(
             ClassName.fromClass(Provider.class), xClass));
-    assertThat(FrameworkKey.create(FrameworkKey.Kind.MEMBERS_INJECTOR, key).frameworkType())
+    assertThat(BindingField.create(MembersInjector.class,
+            BindingKey.create(BindingKey.Kind.MEMBERS_INJECTION, key), "test")
+        .frameworkType())
         .isEqualTo(ParameterizedTypeName.create(
             ClassName.fromClass(MembersInjector.class), xClass));
+  }
+
+  @Test public void nameSuffix() {
+    Key key = keyFactory.forInjectConstructor(getXConstructor());
+    TypeName xClass = TypeNames.forTypeMirror(key.type());
+    assertThat(BindingField.create(Provider.class,
+            BindingKey.create(BindingKey.Kind.CONTRIBUTION, key), "foo").name())
+        .isEqualTo("fooProvider");
+    assertThat(BindingField.create(Provider.class,
+            BindingKey.create(BindingKey.Kind.CONTRIBUTION, key), "fooProvider").name())
+        .isEqualTo("fooProvider");
+
   }
 
   static final class X {

@@ -83,8 +83,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types, DependencyRequestMapper.FOR_PROVIDER);
-    ComponentGenerator componentGenerator =
-        new ComponentGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
+    ComponentGenerator componentGenerator = new ComponentGenerator(filer);
     ProducerFactoryGenerator producerFactoryGenerator =
         new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
 
@@ -106,15 +105,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ComponentDescriptor.Factory(elements, types);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
-        elements, types, injectBindingRegistry, keyFactory, DependencyRequestMapper.FOR_PROVIDER,
+        elements, types, injectBindingRegistry, keyFactory,
         dependencyRequestFactory, provisionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
         types,
         injectBindingRegistry,
-        disableInterComponentScopeValidation(processingEnv),
-        DependencyRequestMapper.FOR_PROVIDER);
+        disableInterComponentScopeValidation(processingEnv));
 
     return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(

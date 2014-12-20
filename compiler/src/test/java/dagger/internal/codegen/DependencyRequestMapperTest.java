@@ -21,8 +21,6 @@ import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.ProducerModule;
@@ -32,7 +30,6 @@ import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -105,30 +102,30 @@ public class DependencyRequestMapperTest {
 
   @Test public void forProvider() {
     DependencyRequestMapper mapper = DependencyRequestMapper.FOR_PROVIDER;
-    assertThat(mapper.getFrameworkKey(dependencyRequestForInstance()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForLazy()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForProvider()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForMembersInjector()).kind())
-        .isEqualTo(FrameworkKey.Kind.MEMBERS_INJECTOR);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForInstance()))
+        .isEqualTo(Provider.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForLazy()))
+        .isEqualTo(Provider.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForProvider()))
+        .isEqualTo(Provider.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForMembersInjector()))
+        .isEqualTo(MembersInjector.class);
   }
 
   @Test public void forProducer() {
     DependencyRequestMapper mapper = DependencyRequestMapper.FOR_PRODUCER;
-    assertThat(mapper.getFrameworkKey(dependencyRequestForInstance()).kind())
-        .isEqualTo(FrameworkKey.Kind.PRODUCER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForLazy()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForProvider()).kind())
-        .isEqualTo(FrameworkKey.Kind.PROVIDER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForMembersInjector()).kind())
-        .isEqualTo(FrameworkKey.Kind.MEMBERS_INJECTOR);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForProducer()).kind())
-        .isEqualTo(FrameworkKey.Kind.PRODUCER);
-    assertThat(mapper.getFrameworkKey(dependencyRequestForProduced()).kind())
-        .isEqualTo(FrameworkKey.Kind.PRODUCER);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForInstance()))
+        .isEqualTo(Producer.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForLazy()))
+        .isEqualTo(Provider.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForProvider()))
+        .isEqualTo(Provider.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForMembersInjector()))
+        .isEqualTo(MembersInjector.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForProducer()))
+        .isEqualTo(Producer.class);
+    assertThat(mapper.getFrameworkClass(dependencyRequestForProduced()))
+        .isEqualTo(Producer.class);
   }
 
   @Module(library = true)

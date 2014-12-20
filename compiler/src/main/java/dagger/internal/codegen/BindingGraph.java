@@ -44,6 +44,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
@@ -63,7 +64,7 @@ abstract class BindingGraph {
   abstract ComponentDescriptor componentDescriptor();
   abstract ImmutableSet<DependencyRequest> entryPoints();
   abstract ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules();
-  abstract ImmutableMap<FrameworkKey, ResolvedBindings> resolvedBindings();
+  abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
 
   @AutoValue
   abstract static class ResolvedBindings {
@@ -77,44 +78,36 @@ abstract class BindingGraph {
       MISSING,
     }
 
-    abstract FrameworkKey.Kind kind();
+    abstract BindingKey bindingKey();
     abstract State state();
-    abstract ImmutableSet<ProvisionBinding> internalProvisionBindings();
-    abstract ImmutableSet<MembersInjectionBinding> internalMembersInjectionBindings();
+    abstract ImmutableSet<? extends Binding> bindings();
 
-    static ResolvedBindings createForProvisionBindings(
-        State state, ImmutableSet<ProvisionBinding> provisionBindings) {
-      return new AutoValue_BindingGraph_ResolvedBindings(
-          FrameworkKey.Kind.PROVIDER, state, provisionBindings,
-          ImmutableSet.<MembersInjectionBinding>of());
+    static ResolvedBindings createForContributionBindings(
+        BindingKey bindingKey,
+        State state,
+        ImmutableSet<? extends ContributionBinding> bindings) {
+      checkArgument(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION));
+      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, state, bindings);
     }
 
     static ResolvedBindings createForMembersInjectionBindings(
-        State state, ImmutableSet<MembersInjectionBinding> membersInjectionBindings) {
-      return new AutoValue_BindingGraph_ResolvedBindings(
-          FrameworkKey.Kind.MEMBERS_INJECTOR, state, ImmutableSet.<ProvisionBinding>of(),
-          membersInjectionBindings);
+        BindingKey bindingKey,
+        State state,
+        ImmutableSet<? extends MembersInjectionBinding> bindings) {
+      checkArgument(bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
+      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, state, bindings);
     }
 
-    ImmutableSet<? extends Binding> bindings() {
-      switch (kind()) {
-        case PROVIDER:
-          return internalProvisionBindings();
-        case MEMBERS_INJECTOR:
-          return internalMembersInjectionBindings();
-        default:
-          throw new AssertionError();
-      }
+    @SuppressWarnings("unchecked")  // checked by constructor
+    ImmutableSet<? extends ContributionBinding> contributionBindings() {
+      checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
+      return (ImmutableSet<? extends ContributionBinding>) bindings();
     }
 
-    ImmutableSet<ProvisionBinding> provisionBindings() {
-      checkState(kind() == FrameworkKey.Kind.PROVIDER);
-      return internalProvisionBindings();
-    }
-
-    ImmutableSet<MembersInjectionBinding> membersInjectionBindings() {
-      checkState(kind() == FrameworkKey.Kind.MEMBERS_INJECTOR);
-      return internalMembersInjectionBindings();
+    @SuppressWarnings("unchecked")  // checked by constructor
+    ImmutableSet<? extends MembersInjectionBinding> membersInjectionBindings() {
+      checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
+      return (ImmutableSet<? extends MembersInjectionBinding>) bindings();
     }
   }
 
@@ -123,22 +116,19 @@ abstract class BindingGraph {
     private final Types types;
     private final InjectBindingRegistry injectBindingRegistry;
     private final Key.Factory keyFactory;
-    private final DependencyRequestMapper dependencyRequestMapper;
     private final DependencyRequest.Factory dependencyRequestFactory;
     private final ProvisionBinding.Factory provisionBindingFactory;
 
     Factory(Elements elements,
         Types types,
         InjectBindingRegistry injectBindingRegistry,
-        dagger.internal.codegen.Key.Factory keyFactory,
-        dagger.internal.codegen.DependencyRequestMapper dependencyRequestMapper,
-        dagger.internal.codegen.DependencyRequest.Factory dependencyRequestFactory,
-        dagger.internal.codegen.ProvisionBinding.Factory provisionBindingFactory) {
+        Key.Factory keyFactory,
+        DependencyRequest.Factory dependencyRequestFactory,
+        ProvisionBinding.Factory provisionBindingFactory) {
       this.elements = elements;
       this.types = types;
       this.injectBindingRegistry = injectBindingRegistry;
       this.keyFactory = keyFactory;
-      this.dependencyRequestMapper = dependencyRequestMapper;
       this.dependencyRequestFactory = dependencyRequestFactory;
       this.provisionBindingFactory = provisionBindingFactory;
     }
@@ -241,8 +231,8 @@ abstract class BindingGraph {
 
     private final class RequestResolver {
       final ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings;
-      final Map<FrameworkKey, ResolvedBindings> resolvedBindings;
-      final Deque<FrameworkKey> cycleStack = Queues.newArrayDeque();
+      final Map<BindingKey, ResolvedBindings> resolvedBindings;
+      final Deque<BindingKey> cycleStack = Queues.newArrayDeque();
 
       RequestResolver(ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings) {
         assert explicitBindings != null;
@@ -252,20 +242,20 @@ abstract class BindingGraph {
 
       State resolve(DependencyRequest request) {
         Key requestKey = request.key();
-        FrameworkKey frameworkKey = dependencyRequestMapper.getFrameworkKey(request);
+        BindingKey bindingKey = BindingKey.forDependencyRequest(request);
 
-        ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(frameworkKey);
+        ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(bindingKey);
         if (previouslyResolvedBinding != null) {
           return previouslyResolvedBinding.state();
         }
 
-        if (cycleStack.contains(frameworkKey)) {
+        if (cycleStack.contains(bindingKey)) {
           // return malformed, but don't add a resolved binding.
           // the original request will add it with all of the other resolved deps
           return State.CYCLE;
         }
 
-        cycleStack.push(frameworkKey);
+        cycleStack.push(bindingKey);
         try {
           switch (request.kind()) {
             case INSTANCE:
@@ -284,8 +274,9 @@ abstract class BindingGraph {
                   ProvisionBinding implicitBinding =
                       provisionBindingFactory.forImplicitMapBinding(request, implicitRequest);
                   State implicitState = resolve(implicitRequest);
-                  resolvedBindings.put(frameworkKey,
-                      ResolvedBindings.createForProvisionBindings(
+                  resolvedBindings.put(bindingKey,
+                      ResolvedBindings.createForContributionBindings(
+                          bindingKey,
                           implicitState.equals(State.COMPLETE) ? State.COMPLETE : State.INCOMPLETE,
                           ImmutableSet.of(implicitBinding)));
                   return State.COMPLETE;
@@ -297,16 +288,17 @@ abstract class BindingGraph {
                     // found a binding, resolve its deps and then mark it resolved
                     State bindingState =
                         resolveDependencies(provisionBinding.get().implicitDependencies());
-                    resolvedBindings.put(frameworkKey,
-                        ResolvedBindings.createForProvisionBindings(
+                    resolvedBindings.put(bindingKey,
+                        ResolvedBindings.createForContributionBindings(
+                            bindingKey,
                             bindingState,
                             ImmutableSet.copyOf(provisionBinding.asSet())));
                     return bindingState;
                   } else {
                     // no explicit binding, no inject binding.  it's missing
-                    resolvedBindings.put(frameworkKey,
-                        ResolvedBindings.createForProvisionBindings(
-                            State.MISSING, ImmutableSet.<ProvisionBinding>of()));
+                    resolvedBindings.put(bindingKey,
+                        ResolvedBindings.createForContributionBindings(
+                            bindingKey, State.MISSING, ImmutableSet.<ProvisionBinding>of()));
                     return State.MISSING;
                   }
                 }
@@ -337,22 +329,26 @@ abstract class BindingGraph {
                   ImmutableListMultimap<BindingType, ProvisionBinding> bindingsByType =
                       ProvisionBinding.bindingTypesFor(explicitBindingsForKey);
                   if (bindingsByType.keySet().size() > 1) {
-                    resolvedBindings.put(frameworkKey,
-                        ResolvedBindings.createForProvisionBindings(
+                    resolvedBindings.put(bindingKey,
+                        ResolvedBindings.createForContributionBindings(
+                            bindingKey,
                             State.MULTIPLE_BINDING_TYPES,
                             explicitBindingsForKey));
                     return State.MULTIPLE_BINDING_TYPES;
                   } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
-                    resolvedBindings.put(frameworkKey,
-                        ResolvedBindings.createForProvisionBindings(
+                    resolvedBindings.put(bindingKey,
+                        ResolvedBindings.createForContributionBindings(
+                            bindingKey,
                             State.DUPLICATE_BINDINGS,
                             explicitBindingsForKey));
                     return State.DUPLICATE_BINDINGS;
                   }
                 }
-                resolvedBindings.put(frameworkKey,
-                    ResolvedBindings.createForProvisionBindings(
-                        bindingState, explicitBindingsForKey));
+                resolvedBindings.put(bindingKey,
+                    ResolvedBindings.createForContributionBindings(
+                        bindingKey,
+                        bindingState,
+                        explicitBindingsForKey));
                 return bindingState;
               }
             case MEMBERS_INJECTOR:
@@ -361,10 +357,8 @@ abstract class BindingGraph {
                   injectBindingRegistry.getOrFindMembersInjectionBinding(requestKey);
               State bindingState =
                   resolveDependencies(membersInjectionBinding.implicitDependencies());
-              resolvedBindings.put(frameworkKey,
-                  ResolvedBindings.createForMembersInjectionBindings(
-                      bindingState,
-                      ImmutableSet.of(membersInjectionBinding)));
+              resolvedBindings.put(bindingKey, ResolvedBindings.createForMembersInjectionBindings(
+                  bindingKey, bindingState, ImmutableSet.of(membersInjectionBinding)));
               return bindingState;
             default:
               throw new AssertionError();

@@ -37,7 +37,6 @@ import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.TypeWriter;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
@@ -139,13 +138,13 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.membersInjector = membersInjector;");
     }
 
-    ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+    ImmutableMap<BindingKey, BindingField> fields =
+        SourceFiles.generateBindingFieldsForDependencies(
             dependencyRequestMapper, binding.dependencies());
 
-    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
-      ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
-      FieldWriter field = factoryWriter.addField(fieldType, nameEntry.getValue());
+    for (BindingField bindingField : fields.values()) {
+      ParameterizedTypeName fieldType = bindingField.frameworkType();
+      FieldWriter field = factoryWriter.addField(fieldType, bindingField.name());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.get().addParameter(field.type(), field.name());
       constructorWriter.get().body()
@@ -156,7 +155,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          Snippet.format(names.get(dependencyRequestMapper.getFrameworkKey(dependency))),
+          Snippet.format(fields.get(BindingKey.forDependencyRequest(dependency)).name()),
           dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);

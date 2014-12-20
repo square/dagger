@@ -53,31 +53,28 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
   private final ScopeCycleValidation disableInterComponentScopeCycles;
-  private final DependencyRequestMapper dependencyRequestMapper;
 
   BindingGraphValidator(
       Types types,
       InjectBindingRegistry injectBindingRegistry,
-      ScopeCycleValidation disableInterComponentScopeCycles,
-      DependencyRequestMapper dependencyRequestMapper) {
+      ScopeCycleValidation disableInterComponentScopeCycles) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
     this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
-    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
   public ValidationReport<BindingGraph> validate(final BindingGraph subject) {
     final ValidationReport.Builder<BindingGraph> reportBuilder =
         ValidationReport.Builder.about(subject);
-    ImmutableMap<FrameworkKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
+    ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
 
     validateComponentScope(subject, reportBuilder, resolvedBindings);
     validateDependencyScopes(subject, reportBuilder);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
       ResolvedBindings resolvedBinding = resolvedBindings.get(
-          dependencyRequestMapper.getFrameworkKey(entryPoint));
+          BindingKey.forDependencyRequest(entryPoint));
       if (!resolvedBinding.state().equals(State.COMPLETE)) {
         LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
         requestPath.push(entryPoint);
@@ -256,33 +253,36 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
    */
   void validateComponentScope(final BindingGraph subject,
       final ValidationReport.Builder<BindingGraph> reportBuilder,
-      ImmutableMap<FrameworkKey, ResolvedBindings> resolvedBindings) {
+      ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings) {
     Optional<Equivalence.Wrapper<AnnotationMirror>> componentScope =
         subject.componentDescriptor().wrappedScope();
     ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
     for (ResolvedBindings bindings : resolvedBindings.values()) {
-      if (bindings.kind().equals(FrameworkKey.Kind.PROVIDER)) {
-        for (ProvisionBinding provisionBinding : bindings.provisionBindings()) {
-          if (provisionBinding.scope().isPresent()
-              && !componentScope.equals(provisionBinding.wrappedScope())) {
-            // Scoped components cannot reference bindings to @Provides methods or @Inject
-            // types decorated by a different scope annotation. Unscoped components cannot
-            // reference to scoped @Provides methods or @Inject types decorated by any
-            // scope annotation.
-            switch (provisionBinding.bindingKind()) {
-              case PROVISION:
-                ExecutableElement provisionMethod =
-                    MoreElements.asExecutable(provisionBinding.bindingElement());
-                incompatiblyScopedMethodsBuilder.add(
-                    MethodSignatureFormatter.instance().format(provisionMethod));
-                break;
-              case INJECTION:
-                incompatiblyScopedMethodsBuilder.add(
-                    stripCommonTypePrefixes(provisionBinding.scope().get().toString()) + " class "
-                        + provisionBinding.bindingTypeElement().getQualifiedName());
-                break;
-              default:
-                throw new IllegalStateException();
+      if (bindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
+        for (ContributionBinding contributionBinding : bindings.contributionBindings()) {
+          if (contributionBinding instanceof ProvisionBinding) {
+            ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
+            if (provisionBinding.scope().isPresent()
+                && !componentScope.equals(provisionBinding.wrappedScope())) {
+              // Scoped components cannot reference bindings to @Provides methods or @Inject
+              // types decorated by a different scope annotation. Unscoped components cannot
+              // reference to scoped @Provides methods or @Inject types decorated by any
+              // scope annotation.
+              switch (provisionBinding.bindingKind()) {
+                case PROVISION:
+                  ExecutableElement provisionMethod =
+                      MoreElements.asExecutable(provisionBinding.bindingElement());
+                  incompatiblyScopedMethodsBuilder.add(
+                      MethodSignatureFormatter.instance().format(provisionMethod));
+                  break;
+                case INJECTION:
+                  incompatiblyScopedMethodsBuilder.add(stripCommonTypePrefixes(
+                      provisionBinding.scope().get().toString()) + " class "
+                          + provisionBinding.bindingTypeElement().getQualifiedName());
+                  break;
+                default:
+                  throw new IllegalStateException();
+              }
             }
           }
         }
@@ -444,7 +444,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private void traversalHelper(BindingGraph graph, Deque<DependencyRequest> requestPath,
       Traverser traverser) {
     ResolvedBindings resolvedBinding = graph.resolvedBindings().get(
-        dependencyRequestMapper.getFrameworkKey(requestPath.peek()));
+        BindingKey.forDependencyRequest(requestPath.peek()));
     ImmutableSet<DependencyRequest> allDeps =
         FluentIterable.from(resolvedBinding.bindings())
             .transformAndConcat(

@@ -126,13 +126,13 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     getMethodWriter.annotate(Override.class);
     getMethodWriter.addModifiers(PUBLIC);
 
-    final ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+    final ImmutableMap<BindingKey, BindingField> fields =
+        SourceFiles.generateBindingFieldsForDependencies(
             dependencyRequestMapper, binding.dependencies());
 
-    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
-      ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
-      FieldWriter field = factoryWriter.addField(fieldType, nameEntry.getValue());
+    for (BindingField bindingField : fields.values()) {
+      ParameterizedTypeName fieldType = bindingField.frameworkType();
+      FieldWriter field = factoryWriter.addField(fieldType, bindingField.name());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
       constructorWriter.body()
@@ -154,7 +154,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
       ParameterizedTypeName futureType = ParameterizedTypeName.create(
           ClassName.fromClass(ListenableFuture.class),
           asyncDependencyType(dependency));
-      String name = names.get(dependencyRequestMapper.getFrameworkKey(dependency));
+      String name = fields.get(BindingKey.forDependencyRequest(dependency)).name();
       Snippet futureAccess = Snippet.format("%s.get()", name);
       getMethodWriter.body().addSnippet("%s %sFuture = %s;",
           futureType,
@@ -169,7 +169,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
       ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
       for (DependencyRequest dependency : binding.dependencies()) {
         parameterSnippets.add(frameworkTypeUsageStatement(
-            Snippet.format(names.get(dependencyRequestMapper.getFrameworkKey(dependency))),
+            Snippet.format(fields.get(BindingKey.forDependencyRequest(dependency)).name()),
             dependency.kind()));
       }
       Snippet invocationSnippet = getInvocationSnippet(binding, parameterSnippets.build());
@@ -199,7 +199,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
       if (asyncDependencies.size() == 1) {
         DependencyRequest asyncDependency = Iterables.getOnlyElement(asyncDependencies);
         futureSnippet = Snippet.format("%s",
-            names.get(dependencyRequestMapper.getFrameworkKey(asyncDependency)) + "Future");
+            fields.get(BindingKey.forDependencyRequest(asyncDependency)).name() + "Future");
         String argName = asyncDependency.requestElement().getSimpleName().toString();
         ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
         for (DependencyRequest dependency : binding.dependencies()) {
@@ -209,7 +209,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             parameterSnippets.add(Snippet.format("%s", argName));
           } else {
             parameterSnippets.add(frameworkTypeUsageStatement(
-                Snippet.format(names.get(dependencyRequestMapper.getFrameworkKey(dependency))),
+                Snippet.format(fields.get(BindingKey.forDependencyRequest(dependency)).name()),
                 dependency.kind()));
           }
         }
@@ -234,11 +234,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 .from(asyncDependencies)
                 .transform(new Function<DependencyRequest, String>() {
                   @Override public String apply(DependencyRequest dependency) {
-                    return names.get(dependencyRequestMapper.getFrameworkKey(dependency))
+                    return fields.get(BindingKey.forDependencyRequest(dependency)).name()
                         + "Future";
                   }
                 })));
-        ImmutableList<Snippet> parameterSnippets = getParameterSnippets(binding, names, "args");
+        ImmutableList<Snippet> parameterSnippets = getParameterSnippets(binding, fields, "args");
         Snippet invocationSnippet = getInvocationSnippet(binding, parameterSnippets);
         ParameterizedTypeName listOfObject = ParameterizedTypeName.create(
             ClassName.fromClass(List.class), ClassName.fromClass(Object.class));
@@ -289,7 +289,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
   }
 
   private ImmutableList<Snippet> getParameterSnippets(ProductionBinding binding,
-      ImmutableMap<FrameworkKey, String> names,
+      ImmutableMap<BindingKey, BindingField> fields,
       String listArgName) {
     int argIndex = 0;
     ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
@@ -303,7 +303,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
         argIndex++;
       } else {
         snippets.add(frameworkTypeUsageStatement(
-            Snippet.format(names.get(dependencyRequestMapper.getFrameworkKey(dependency))),
+            Snippet.format(fields.get(BindingKey.forDependencyRequest(dependency)).name()),
             dependency.kind()));
       }
     }

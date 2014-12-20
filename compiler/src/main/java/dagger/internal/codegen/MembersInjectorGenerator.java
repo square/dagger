@@ -132,30 +132,31 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       injectMembersWriter.body().addSnippet("supertypeInjector.injectMembers(instance);");
     }
 
-    ImmutableMap<FrameworkKey, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(
+    ImmutableMap<BindingKey, BindingField> fields =
+        SourceFiles.generateBindingFieldsForDependencies(
             dependencyRequestMapper, ImmutableSet.copyOf(binding.dependencies()));
 
-    ImmutableMap.Builder<FrameworkKey, FieldWriter> dependencyFieldsBuilder =
+    ImmutableMap.Builder<BindingKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<FrameworkKey, String> nameEntry : names.entrySet()) {
-      ParameterizedTypeName fieldType = nameEntry.getKey().frameworkType();
-      FieldWriter field = injectorWriter.addField(fieldType, nameEntry.getValue());
+    for (Entry<BindingKey, BindingField> fieldEntry : fields.entrySet()) {
+      BindingField bindingField = fieldEntry.getValue();
+      ParameterizedTypeName fieldType = bindingField.frameworkType();
+      FieldWriter field = injectorWriter.addField(fieldType, bindingField.name());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
       constructorWriter.body().addSnippet("assert %s != null;", field.name());
       constructorWriter.body().addSnippet("this.%1$s = %1$s;", field.name());
-      dependencyFieldsBuilder.put(nameEntry.getKey(), field);
+      dependencyFieldsBuilder.put(fieldEntry.getKey(), field);
     }
-    ImmutableMap<FrameworkKey, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
+    ImmutableMap<BindingKey, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
     for (InjectionSite injectionSite : binding.injectionSites()) {
       switch (injectionSite.kind()) {
         case FIELD:
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
           FieldWriter singleField = depedencyFields.get(
-              dependencyRequestMapper.getFrameworkKey(fieldDependency));
+              BindingKey.forDependencyRequest(fieldDependency));
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
               frameworkTypeUsageStatement(Snippet.format(singleField.name()),
@@ -165,7 +166,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
           for (DependencyRequest methodDependency : injectionSite.dependencies()) {
             FieldWriter field = depedencyFields.get(
-                dependencyRequestMapper.getFrameworkKey(methodDependency));
+                BindingKey.forDependencyRequest(methodDependency));
             parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
                 methodDependency.kind()));
           }

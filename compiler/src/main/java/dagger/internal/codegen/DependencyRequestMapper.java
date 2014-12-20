@@ -15,33 +15,29 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.value.AutoValue;
 import dagger.MembersInjector;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ParameterizedTypeName;
-import dagger.internal.codegen.writer.TypeNames;
 import dagger.producers.Producer;
 import javax.inject.Provider;
 
 /**
- * A mapper for associated a {@link DependencyRequest} to a {@link FrameworkKey}, dependent on the
- * type of code to be generated (e.g., for {@link Provider} or {@link Producer}).
+ * A mapper for associating a {@link DependencyRequest} to a framework class, dependent on
+ * the type of code to be generated (e.g., for {@link Provider} or {@link Producer}).
  *
  *  @author Jesse Beder
  *  @since 2.0
  */
 abstract class DependencyRequestMapper {
-  abstract FrameworkKey getFrameworkKey(DependencyRequest request);
+  abstract Class<?> getFrameworkClass(DependencyRequest request);
 
   private static final class MapperForProvider extends DependencyRequestMapper {
-    @Override public FrameworkKey getFrameworkKey(DependencyRequest request) {
+    @Override public Class<?> getFrameworkClass(DependencyRequest request) {
       switch (request.kind()) {
         case INSTANCE:
         case PROVIDER:
         case LAZY:
-          return FrameworkKey.create(FrameworkKey.Kind.PROVIDER, request.key());
+          return Provider.class;
         case MEMBERS_INJECTOR:
-          return FrameworkKey.create(FrameworkKey.Kind.MEMBERS_INJECTOR, request.key());
+          return MembersInjector.class;
         case PRODUCED:
         case PRODUCER:
           throw new IllegalArgumentException();
@@ -54,17 +50,17 @@ abstract class DependencyRequestMapper {
   static final DependencyRequestMapper FOR_PROVIDER = new MapperForProvider();
 
   private static final class MapperForProducer extends DependencyRequestMapper {
-    @Override public FrameworkKey getFrameworkKey(DependencyRequest request) {
+    @Override public Class<?> getFrameworkClass(DependencyRequest request) {
       switch (request.kind()) {
         case INSTANCE:
         case PRODUCED:
         case PRODUCER:
-          return FrameworkKey.create(FrameworkKey.Kind.PRODUCER, request.key());
+          return Producer.class;
         case PROVIDER:
         case LAZY:
-          return FrameworkKey.create(FrameworkKey.Kind.PROVIDER, request.key());
+          return Provider.class;
         case MEMBERS_INJECTOR:
-          return FrameworkKey.create(FrameworkKey.Kind.MEMBERS_INJECTOR, request.key());
+          return MembersInjector.class;
         default:
           throw new AssertionError();
       }

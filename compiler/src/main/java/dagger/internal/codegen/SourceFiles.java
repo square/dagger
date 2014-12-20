@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
@@ -59,54 +58,54 @@ class SourceFiles {
     }
   };
 
-  static ImmutableSetMultimap<FrameworkKey, DependencyRequest> indexDependenciesByKey(
-      DependencyRequestMapper dependencyRequestMapper,
+  static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByKey(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<FrameworkKey, DependencyRequest>().orderValuesBy(
+    ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
             DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
       dependenciesByKeyBuilder.put(
-          dependencyRequestMapper.getFrameworkKey(dependency), dependency);
+          BindingKey.forDependencyRequest(dependency), dependency);
     }
     return dependenciesByKeyBuilder.build();
   }
 
   /**
-   * This method generates names for the {@link Provider} references necessary for all of the
+   * This method generates names and keys for the framework classes necessary for all of the
    * bindings. It is responsible for the following:
    * <ul>
-   * <li>Choosing a name that associates the provider with all of the dependency requests for this
+   * <li>Choosing a name that associates the binding with all of the dependency requests for this
    * type.
-   * <li>Choosing a name that is <i>probably</i> associated with the type being provided.
-   * <li>Ensuring that no two providers end up with the same name.
+   * <li>Choosing a name that is <i>probably</i> associated with the type being bound.
+   * <li>Ensuring that no two bindings end up with the same name.
    * </ul>
    *
-   * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
-   *         provider.
+   * @return Returns the mapping from {@link BindingKey} to field, sorted by the name of the field.
    */
-  static ImmutableMap<FrameworkKey, String> generateFrameworkReferenceNamesForDependencies(
+  static ImmutableMap<BindingKey, BindingField> generateBindingFieldsForDependencies(
       DependencyRequestMapper dependencyRequestMapper,
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap<FrameworkKey, DependencyRequest> dependenciesByKey =
-        indexDependenciesByKey(dependencyRequestMapper, dependencies);
-    Map<FrameworkKey, Collection<DependencyRequest>> dependenciesByKeyMap =
+    ImmutableSetMultimap<BindingKey, DependencyRequest> dependenciesByKey =
+        indexDependenciesByKey(dependencies);
+    Map<BindingKey, Collection<DependencyRequest>> dependenciesByKeyMap =
         dependenciesByKey.asMap();
-    ImmutableMap.Builder<FrameworkKey, String> providerNames = ImmutableMap.builder();
-    for (Entry<FrameworkKey, Collection<DependencyRequest>> entry
+    ImmutableMap.Builder<BindingKey, BindingField> bindingFields = ImmutableMap.builder();
+    for (Entry<BindingKey, Collection<DependencyRequest>> entry
         : dependenciesByKeyMap.entrySet()) {
-      FrameworkKey frameworkKey = entry.getKey();
-      String suffix = frameworkKey.defaultSuffix();
+      BindingKey bindingKey = entry.getKey();
+      Collection<DependencyRequest> requests = entry.getValue();
+      Class<?> frameworkClass =
+          dependencyRequestMapper.getFrameworkClass(requests.iterator().next());
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames =
-          FluentIterable.from(entry.getValue()).transform(new DependencyVariableNamer()).toSet();
+          FluentIterable.from(requests).transform(new DependencyVariableNamer()).toSet();
 
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        providerNames.put(frameworkKey, name.endsWith(suffix) ? name : name + suffix);
+        bindingFields.put(bindingKey, BindingField.create(frameworkClass, bindingKey, name));
       } else {
-        // in the event that a provider is being used for a bunch of deps with different names,
+        // in the event that a field is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
         Iterator<String> namesIterator = dependencyNames.iterator();
         String first = namesIterator.next();
@@ -115,10 +114,11 @@ class SourceFiles {
           compositeNameBuilder.append("And").append(
               CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        providerNames.put(frameworkKey, compositeNameBuilder.append(suffix).toString());
+        bindingFields.put(bindingKey, BindingField.create(
+            frameworkClass, bindingKey, compositeNameBuilder.toString()));
       }
     }
-    return providerNames.build();
+    return bindingFields.build();
   }
 
   static Snippet frameworkTypeUsageStatement(Snippet frameworkTypeMemberSelect,
