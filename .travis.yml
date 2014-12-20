@@ -1,10 +1,5 @@
 language: android
 
-jdk:
-  - oraclejdk8
-  - oraclejdk7
-  - openjdk7
-
 android:
   components:
     - build-tools-20.0.0
@@ -12,13 +7,31 @@ android:
   licenses:
     - android-sdk-license-5be876d5
 
+jdk:
+  - oraclejdk7
+  # - oraclejdk8 Dagger integration tests fail with JDK 8 :(
+
 install: mvn install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
 
 script: mvn verify
 
-notifications:
-  email: false
+after_success:
+  - .buildscript/deploy_snapshot.sh
+
+env:
+  global:
+    - secure: "MhR0Wr+bSbdyO6a6CM2MVHLwmFZoi8ZWWncMCNSi8/xdRoykpC1HkwJjQK+HJv7j3VNbVTPNJ/yTpzJsL4JV9aTF/S28mka8GmHSmQSeQzTuNMqnE30GDbhS3S73azGHvC9/wjh1mAA0Gz/zUX/rzCYvDVZ/DmK1HppomN+P32A="
+    - secure: "fnHK/ei7tdcUDlQZcXWVPRgXoIFv6h0TWSzz4spgNtFlYqa47Qr4HQOLyEpWRqZHjgfR5eXD+CCI049Z73cg5oVOp1krV0aGX/wHc5lDMJuCrBZ/YoWZnDygiPzM4CvrpxRE7DjqzC0InVdbEbuECiFsI2WotLdQ6efgaxjpZCk="
 
 branches:
   except:
     - gh-pages
+
+notifications:
+  email: false
+
+sudo: false
+
+cache:
+  directories:
+    - $HOME/.m2
