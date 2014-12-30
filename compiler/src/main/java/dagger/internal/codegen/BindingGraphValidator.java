@@ -329,7 +329,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       }
     }, null);
     StringBuilder errorMessage = new StringBuilder();
-    if(requiresProvidesMethod) {
+    if (requiresProvidesMethod) {
       errorMessage.append(String.format(REQUIRES_PROVIDER_FORMAT, typeName));
     } else {
       errorMessage.append(
@@ -345,7 +345,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             .transform(DependencyRequestFormatter.instance())
             .toList()
             .reverse();
-    for(String dependency :
+    for (String dependency :
         printableDependencyPath.subList(1, printableDependencyPath.size())) {
       errorMessage.append("\n").append(dependency);
     }
@@ -465,7 +465,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
   }
 
-  static abstract class Traverser {
+  abstract static class Traverser {
     abstract boolean visitResolvedBinding(
         Deque<DependencyRequest> requestPath, ResolvedBindings binding);
   }
