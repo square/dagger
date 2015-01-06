@@ -80,6 +80,7 @@ import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
 import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
@@ -253,23 +254,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       }
 
       ImmutableSet<? extends Binding> bindings = resolvedBindings.bindings();
-      ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
-      for (Binding binding : bindings) {
-        bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
-      }
-      ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
 
-      final String bindingPackage;
-      switch (bindingPackages.size()) {
-        case 0:
-          bindingPackage = componentName.packageName();
-          break;
-        case 1:
-          bindingPackage = bindingPackages.iterator().next();
-          break;
-        default:
-          throw new IllegalStateException();
-      }
+      String bindingPackage = bindingPackageFor(bindings).or(componentName.packageName());
 
       final Optional<String> proxySelector;
       final TypeWriter classWithFields;
@@ -295,8 +281,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           proxyWriter.addModifiers(PUBLIC, FINAL);
           // create the field for the proxy in the component
           FieldWriter proxyFieldWriter =
-              componentWriter.addField(proxyWriter.name(), bindingPackage.replace('.', '_')
-                  + "_Proxy");
+              componentWriter.addField(proxyWriter.name(),
+                  bindingPackage.replace('.', '_') + "_Proxy");
           proxyFieldWriter.addModifiers(PRIVATE, FINAL);
           proxyFieldWriter.setInitializer("new %s()", proxyWriter.name());
           proxyClassAndField = ProxyClassAndField.create(proxyWriter, proxyFieldWriter);

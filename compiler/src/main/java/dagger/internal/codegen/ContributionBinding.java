@@ -18,8 +18,10 @@ package dagger.internal.codegen;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import java.util.EnumSet;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -63,18 +65,15 @@ abstract class ContributionBinding extends Binding {
    */
   static BindingType bindingTypeFor(Iterable<? extends ContributionBinding> bindings) {
     checkNotNull(bindings);
-    switch (Iterables.size(bindings)) {
-      case 0:
-        throw new IllegalArgumentException("no bindings");
-      case 1:
-        return Iterables.getOnlyElement(bindings).bindingType();
-      default:
-        Set<BindingType> types = bindingTypesFor(bindings).keySet();
-        if (types.size() > 1) {
-          throw new IllegalArgumentException(
-              String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
-        }
-        return Iterables.getOnlyElement(types);
+    checkArgument(!Iterables.isEmpty(bindings), "no bindings");
+    Set<BindingType> types = EnumSet.noneOf(BindingType.class);
+    for (ContributionBinding binding : bindings) {
+      types.add(binding.bindingType());
     }
+    if (types.size() > 1) {
+      throw new IllegalArgumentException(
+          String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
+    }
+    return Iterables.getOnlyElement(types);
   }
 }
