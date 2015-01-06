@@ -23,6 +23,7 @@ import dagger.internal.codegen.ValidationReport.Builder;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Formatter;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 import javax.inject.Singleton;
@@ -79,9 +80,15 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
         requestPath.push(entryPoint);
         traversalHelper(subject, requestPath, new Traverser() {
+          final Set<ResolvedBindings> visitedBindings = new HashSet<>();
+
           @Override
           boolean visitResolvedBinding(
               Deque<DependencyRequest> requestPath, ResolvedBindings binding) {
+            if (!visitedBindings.add(binding)) {
+              return false;
+            }
+
             switch (binding.state()) {
               case COMPLETE:
               case INCOMPLETE:
