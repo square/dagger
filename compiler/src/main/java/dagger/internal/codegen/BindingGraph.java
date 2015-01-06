@@ -44,7 +44,6 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
@@ -82,29 +81,83 @@ abstract class BindingGraph {
     abstract State state();
     abstract ImmutableSet<? extends Binding> bindings();
 
-    static ResolvedBindings createForContributionBindings(
+    static ResolvedBindings create(
         BindingKey bindingKey,
         State state,
-        ImmutableSet<? extends ContributionBinding> bindings) {
-      checkArgument(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION));
-      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, state, bindings);
+        ImmutableSet<? extends Binding> bindings) {
+      Optional<State> overrideState = validate(bindingKey, bindings);
+      return new AutoValue_BindingGraph_ResolvedBindings(
+          bindingKey, overrideState.or(state), bindings);
     }
 
-    static ResolvedBindings createForMembersInjectionBindings(
-        BindingKey bindingKey,
-        State state,
-        ImmutableSet<? extends MembersInjectionBinding> bindings) {
-      checkArgument(bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
-      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, state, bindings);
+    /**
+     * Determines whether the given bindings are valid for a binding key.
+     *
+     * @return the appropriate error state if they are invalid; otherwise an absent optional.
+     */
+    private static Optional<State> validate(BindingKey bindingKey,
+        ImmutableSet<? extends Binding> bindings) {
+      if (bindings.isEmpty()) {
+        return Optional.of(State.MISSING);
+      }
+
+      // TODO(user): Perform this validation in the GraphValidator instead.
+      ImmutableSet.Builder<ContributionBinding> contributionBindingsBuilder =
+          ImmutableSet.builder();
+      ImmutableSet.Builder<MembersInjectionBinding> membersInjectionBindingsBuilder =
+          ImmutableSet.builder();
+      for (Binding binding : bindings) {
+        if (binding instanceof ContributionBinding) {
+          contributionBindingsBuilder.add((ContributionBinding) binding);
+        }
+        if (binding instanceof MembersInjectionBinding) {
+          membersInjectionBindingsBuilder.add((MembersInjectionBinding) binding);
+        }
+      }
+      ImmutableSet<ContributionBinding> contributionBindings =
+          contributionBindingsBuilder.build();
+      ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
+          membersInjectionBindingsBuilder.build();
+
+      switch (bindingKey.kind()) {
+        case CONTRIBUTION:
+          if (!membersInjectionBindings.isEmpty()) {
+            throw new IllegalArgumentException(
+                "contribution binding keys should never have members injection bindings");
+          }
+          if (contributionBindings.size() <= 1) {
+            return Optional.absent();
+          }
+          ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
+              ContributionBinding.bindingTypesFor(contributionBindings);
+          if (bindingsByType.keySet().size() > 1) {
+            return Optional.of(State.MULTIPLE_BINDING_TYPES);
+          } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
+            return Optional.of(State.DUPLICATE_BINDINGS);
+          }
+          break;
+        case MEMBERS_INJECTION:
+          if (!contributionBindings.isEmpty()) {
+            throw new IllegalArgumentException(
+                "members injection binding keys should never have contribution bindings");
+          }
+          if (membersInjectionBindings.size() > 1) {
+            return Optional.of(State.DUPLICATE_BINDINGS);
+          }
+          break;
+        default:
+          throw new AssertionError();
+      }
+      return Optional.absent();
     }
 
-    @SuppressWarnings("unchecked")  // checked by constructor
+    @SuppressWarnings("unchecked")  // checked by validator
     ImmutableSet<? extends ContributionBinding> contributionBindings() {
       checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
       return (ImmutableSet<? extends ContributionBinding>) bindings();
     }
 
-    @SuppressWarnings("unchecked")  // checked by constructor
+    @SuppressWarnings("unchecked")  // checked by validator
     ImmutableSet<? extends MembersInjectionBinding> membersInjectionBindings() {
       checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
       return (ImmutableSet<? extends MembersInjectionBinding>) bindings();
@@ -240,8 +293,53 @@ abstract class BindingGraph {
         this.resolvedBindings = Maps.newLinkedHashMap();
       }
 
+      ImmutableSet<? extends Binding> lookUpBindings(DependencyRequest request) {
+        BindingKey bindingKey = BindingKey.forDependencyRequest(request);
+        switch (bindingKey.kind()) {
+          case CONTRIBUTION:
+            // First, check for explicit keys (those from modules and components)
+            ImmutableSet<ProvisionBinding> explicitBindingsForKey =
+                explicitBindings.get(bindingKey.key());
+            if (explicitBindingsForKey.isEmpty()) {
+              // If the key is Map<K, V>, get its implicit binding key which is
+              // Map<K, Provider<V>>
+              Optional<Key> mapProviderKey =
+                  keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
+              if (mapProviderKey.isPresent()) {
+                DependencyRequest implicitRequest =
+                    dependencyRequestFactory.forImplicitMapBinding(request, mapProviderKey.get());
+                return ImmutableSet.of(provisionBindingFactory.forImplicitMapBinding(
+                    request, implicitRequest));
+              } else {
+                // no explicit binding, look it up.
+                Optional<ProvisionBinding> provisionBinding =
+                    injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
+                return ImmutableSet.copyOf(provisionBinding.asSet());
+              }
+            } else {
+              // If this is an explicit Map<K, V> request then add in any map binding provision
+              // methods which are implied by and must collide with explicit Map<K, V> bindings.
+              Optional<Key> underlyingMapKey =
+                  keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
+              if (underlyingMapKey.isPresent()) {
+                explicitBindingsForKey = ImmutableSet.<ProvisionBinding>builder()
+                    .addAll(explicitBindingsForKey)
+                    .addAll(explicitBindings.get(underlyingMapKey.get()))
+                    .build();
+              }
+              return explicitBindingsForKey;
+            }
+          case MEMBERS_INJECTION:
+            // no explicit deps for members injection, so just look it up
+            MembersInjectionBinding membersInjectionBinding =
+                injectBindingRegistry.getOrFindMembersInjectionBinding(bindingKey.key());
+            return ImmutableSet.of(membersInjectionBinding);
+          default:
+            throw new AssertionError();
+        }
+      }
+
       State resolve(DependencyRequest request) {
-        Key requestKey = request.key();
         BindingKey bindingKey = BindingKey.forDependencyRequest(request);
 
         ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(bindingKey);
@@ -257,112 +355,19 @@ abstract class BindingGraph {
 
         cycleStack.push(bindingKey);
         try {
-          switch (request.kind()) {
-            case INSTANCE:
-            case LAZY:
-            case PROVIDER:
-              // First, check for explicit keys (those from modules and components)
-              ImmutableSet<ProvisionBinding> explicitBindingsForKey =
-                  explicitBindings.get(requestKey);
-              if (explicitBindingsForKey.isEmpty()) {
-                // If the key is Map<K, V>, get its implicit binding key which is
-                // Map<K, Provider<V>>
-                Optional<Key> mapProviderKey = keyFactory.implicitMapProviderKeyFrom(request.key());
-                if (mapProviderKey.isPresent()) {
-                  DependencyRequest implicitRequest =
-                      dependencyRequestFactory.forImplicitMapBinding(request, mapProviderKey.get());
-                  ProvisionBinding implicitBinding =
-                      provisionBindingFactory.forImplicitMapBinding(request, implicitRequest);
-                  State implicitState = resolve(implicitRequest);
-                  resolvedBindings.put(bindingKey,
-                      ResolvedBindings.createForContributionBindings(
-                          bindingKey,
-                          implicitState.equals(State.COMPLETE) ? State.COMPLETE : State.INCOMPLETE,
-                          ImmutableSet.of(implicitBinding)));
-                  return State.COMPLETE;
-                } else {
-                  // no explicit binding, look it up.
-                  Optional<ProvisionBinding> provisionBinding =
-                      injectBindingRegistry.getOrFindProvisionBinding(requestKey);
-                  if (provisionBinding.isPresent()) {
-                    // found a binding, resolve its deps and then mark it resolved
-                    State bindingState =
-                        resolveDependencies(provisionBinding.get().implicitDependencies());
-                    resolvedBindings.put(bindingKey,
-                        ResolvedBindings.createForContributionBindings(
-                            bindingKey,
-                            bindingState,
-                            ImmutableSet.copyOf(provisionBinding.asSet())));
-                    return bindingState;
-                  } else {
-                    // no explicit binding, no inject binding.  it's missing
-                    resolvedBindings.put(bindingKey,
-                        ResolvedBindings.createForContributionBindings(
-                            bindingKey, State.MISSING, ImmutableSet.<ProvisionBinding>of()));
-                    return State.MISSING;
-                  }
-                }
-              } else {
-                // If this is an explicit Map<K, V> request then add in any map binding provision
-                // methods which are implied by and must collide with explicit Map<K, V> bindings.
-                Optional<Key> underlyingMapKey =
-                    keyFactory.implicitMapProviderKeyFrom(request.key());
-                if (underlyingMapKey.isPresent()) {
-                  explicitBindingsForKey = ImmutableSet.<ProvisionBinding>builder()
-                      .addAll(explicitBindingsForKey)
-                      .addAll(explicitBindings.get(underlyingMapKey.get()))
-                      .build();
-                }
-                ImmutableSet<DependencyRequest> allDeps =
-                    FluentIterable.from(explicitBindingsForKey)
-                        .transformAndConcat(
-                            new Function<ProvisionBinding, Set<DependencyRequest>>() {
-                              @Override
-                              public Set<DependencyRequest> apply(ProvisionBinding input) {
-                                return input.implicitDependencies();
-                              }
-                            })
-                        .toSet();
-                State bindingState = resolveDependencies(allDeps);
-                if (explicitBindingsForKey.size() > 1) {
-                  // Multiple Explicit bindings. Validate that they are multi-bindings.
-                  ImmutableListMultimap<BindingType, ProvisionBinding> bindingsByType =
-                      ProvisionBinding.bindingTypesFor(explicitBindingsForKey);
-                  if (bindingsByType.keySet().size() > 1) {
-                    resolvedBindings.put(bindingKey,
-                        ResolvedBindings.createForContributionBindings(
-                            bindingKey,
-                            State.MULTIPLE_BINDING_TYPES,
-                            explicitBindingsForKey));
-                    return State.MULTIPLE_BINDING_TYPES;
-                  } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
-                    resolvedBindings.put(bindingKey,
-                        ResolvedBindings.createForContributionBindings(
-                            bindingKey,
-                            State.DUPLICATE_BINDINGS,
-                            explicitBindingsForKey));
-                    return State.DUPLICATE_BINDINGS;
-                  }
-                }
-                resolvedBindings.put(bindingKey,
-                    ResolvedBindings.createForContributionBindings(
-                        bindingKey,
-                        bindingState,
-                        explicitBindingsForKey));
-                return bindingState;
-              }
-            case MEMBERS_INJECTOR:
-              // no explicit deps for members injection, so just look it up
-              MembersInjectionBinding membersInjectionBinding =
-                  injectBindingRegistry.getOrFindMembersInjectionBinding(requestKey);
-              State bindingState =
-                  resolveDependencies(membersInjectionBinding.implicitDependencies());
-              resolvedBindings.put(bindingKey, ResolvedBindings.createForMembersInjectionBindings(
-                  bindingKey, bindingState, ImmutableSet.of(membersInjectionBinding)));
-              return bindingState;
-            default:
-              throw new AssertionError();
-          }
+          ImmutableSet<? extends Binding> bindings = lookUpBindings(request);
+          State dependenciesState = resolveDependencies(FluentIterable.from(bindings)
+              .transformAndConcat(
+                  new Function<Binding, Set<DependencyRequest>>() {
+                    @Override
+                    public Set<DependencyRequest> apply(Binding input) {
+                      return input.implicitDependencies();
+                    }
+                  }));
+          ResolvedBindings resolved =
+              ResolvedBindings.create(bindingKey, dependenciesState, bindings);
+          resolvedBindings.put(bindingKey, resolved);
+          return resolved.state();
         } finally {
           cycleStack.pop();
         }
