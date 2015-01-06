@@ -92,7 +92,7 @@ abstract class ProvisionBinding extends ContributionBinding {
    */
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
 
-  /** If this provision requires members injeciton, this will be the corresonding request. */
+  /** If this provision requires members injection, this will be the corresponding request. */
   abstract Optional<DependencyRequest> memberInjectionRequest();
 
   @Override
