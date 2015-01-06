@@ -18,8 +18,8 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
+import dagger.internal.codegen.BasicAnnotationProcessor.ProcessingStep;
 import dagger.producers.ProductionComponent;
-import dagger.internal.codegen.ComponentDescriptor.Factory;
 import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.annotation.processing.Messager;
@@ -32,7 +32,7 @@ import javax.lang.model.element.TypeElement;
  *
  * @author Jesse Beder
  */
-final class ProductionComponentProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
+final class ProductionComponentProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ProductionComponentValidator componentValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
@@ -40,7 +40,7 @@ final class ProductionComponentProcessingStep implements BasicAnnotationProcesso
   ProductionComponentProcessingStep(
       Messager messager,
       ProductionComponentValidator componentValidator,
-      Factory componentDescriptorFactory) {
+      ComponentDescriptor.Factory componentDescriptorFactory) {
     this.messager = messager;
     this.componentValidator = componentValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;

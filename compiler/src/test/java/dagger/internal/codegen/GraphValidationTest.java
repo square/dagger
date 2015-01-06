@@ -25,7 +25,6 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static java.util.Arrays.asList;
 
 @RunWith(JUnit4.class)
 public class GraphValidationTest {

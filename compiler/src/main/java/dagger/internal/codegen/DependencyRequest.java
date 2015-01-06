@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreTypes.isTypeOf;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -38,8 +36,8 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -73,11 +71,9 @@ abstract class DependencyRequest {
   abstract Element requestElement();
 
   static final class Factory {
-    private final Types types;
     private final Key.Factory keyFactory;
 
-    Factory(Types types, Key.Factory keyFactory) {
-      this.types = types;
+    Factory(Key.Factory keyFactory) {
       this.keyFactory = keyFactory;
     }
 

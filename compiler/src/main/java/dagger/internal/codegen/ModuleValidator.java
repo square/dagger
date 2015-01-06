@@ -22,6 +22,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import dagger.Module;
+import dagger.producers.ProducerModule;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;

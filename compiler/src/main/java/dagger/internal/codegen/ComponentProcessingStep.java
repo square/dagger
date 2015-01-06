@@ -19,6 +19,7 @@ import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import dagger.Component;
+import dagger.internal.codegen.BasicAnnotationProcessor.ProcessingStep;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
 import java.lang.annotation.Annotation;
 import java.util.Set;
@@ -32,7 +33,7 @@ import javax.lang.model.element.TypeElement;
  *
  * @author Gregory Kick
  */
-final class ComponentProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
+final class ComponentProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ComponentValidator componentValidator;
   private final BindingGraphValidator bindingGraphValidator;

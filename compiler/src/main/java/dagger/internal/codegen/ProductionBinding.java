@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produces;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -76,15 +74,10 @@ abstract class ProductionBinding extends ContributionBinding {
   }
 
   static final class Factory {
-    private final Elements elements;
-    private final Types types;
     private final Key.Factory keyFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Elements elements, Types types, Key.Factory keyFactory,
-        DependencyRequest.Factory dependencyRequestFactory) {
-      this.elements = elements;
-      this.types = types;
+    Factory(Key.Factory keyFactory, DependencyRequest.Factory dependencyRequestFactory) {
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }

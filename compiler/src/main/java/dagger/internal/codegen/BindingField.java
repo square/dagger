@@ -16,12 +16,9 @@
 package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
-import dagger.MembersInjector;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
-import dagger.producers.Producer;
-import javax.inject.Provider;
 
 /**
  * A value object that represents a field for a binding in a generated source file.

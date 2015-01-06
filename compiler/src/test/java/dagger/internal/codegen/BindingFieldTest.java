@@ -77,7 +77,6 @@ public class BindingFieldTest {
 
   @Test public void nameSuffix() {
     Key key = keyFactory.forInjectConstructor(getXConstructor());
-    TypeName xClass = TypeNames.forTypeMirror(key.type());
     assertThat(BindingField.create(Provider.class,
             BindingKey.create(BindingKey.Kind.CONTRIBUTION, key), "foo").name())
         .isEqualTo("fooProvider");

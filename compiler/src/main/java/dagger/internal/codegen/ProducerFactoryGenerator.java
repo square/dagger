@@ -44,7 +44,6 @@ import dagger.producers.Producer;
 import dagger.producers.Produces;
 import dagger.producers.internal.Producers;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import javax.annotation.Generated;
