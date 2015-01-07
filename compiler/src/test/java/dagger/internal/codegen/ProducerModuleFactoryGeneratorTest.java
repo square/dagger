@@ -498,6 +498,62 @@ public class ProducerModuleFactoryGeneratorTest {
         .and().generatesSources(factoryFile);
   }
 
+  @Test public void singleProducesMethodNoArgsFutureSet() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = Produces.Type.SET)",
+        "  ListenableFuture<String> produceString() {",
+        "    return null;",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProduceStringFactory",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.Futures;",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.Producer;",
+        "import dagger.producers.internal.Producers;",
+        "import java.util.Set;",
+        "import java.util.concurrent.Callable;",
+        "import java.util.concurrent.Executor;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProduceStringFactory implements Producer<Set<String>> {",
+        "  private final TestModule module;",
+        "  private final Executor executor;",
+        "",
+        "  public TestModule$$ProduceStringFactory(TestModule module, Executor executor) {  ",
+        "    assert module != null;",
+        "    this.module = module;",
+        "    assert executor != null;",
+        "    this.executor = executor;",
+        "  }",
+        "",
+        "  @Override",
+        "  public ListenableFuture<Set<String>> get() {  ",
+        "    ListenableFuture<ListenableFuture<Set<String>>> future =",
+        "        Producers.submitToExecutor(new Callable<ListenableFuture<Set<String>>>() {",
+        "      @Override public ListenableFuture<Set<String>> call() {",
+        "        return Producers.createFutureSingletonSet(module.produceString());",
+        "      }",
+        "    }, executor);",
+        "    return Futures.dereference(future);",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
   @Test public void singleProducesMethodNoArgsNoFuture() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
@@ -540,6 +596,61 @@ public class ProducerModuleFactoryGeneratorTest {
         "          return module.produceString();",
         "        }",
         "      }, executor);",
+        "    return future;",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void singleProducesMethodNoArgsNoFutureSet() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces(type = Produces.Type.SET)",
+        "  String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProduceStringFactory",
+        "package test;",
+        "",
+        "import com.google.common.collect.ImmutableSet;",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.producers.Producer;",
+        "import dagger.producers.internal.Producers;",
+        "import java.util.Set;",
+        "import java.util.concurrent.Callable;",
+        "import java.util.concurrent.Executor;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProduceStringFactory implements Producer<Set<String>> {",
+        "  private final TestModule module;",
+        "  private final Executor executor;",
+        "",
+        "  public TestModule$$ProduceStringFactory(TestModule module, Executor executor) {  ",
+        "    assert module != null;",
+        "    this.module = module;",
+        "    assert executor != null;",
+        "    this.executor = executor;",
+        "  }",
+        "",
+        "  @Override",
+        "  public ListenableFuture<Set<String>> get() {  ",
+        "    ListenableFuture<Set<String>> future =",
+        "        Producers.submitToExecutor(new Callable<Set<String>>() {",
+        "      @Override public Set<String> call() {",
+        "        return ImmutableSet.of(module.produceString());",
+        "      }",
+        "    }, executor);",
         "    return future;",
         "  }",
         "}");
