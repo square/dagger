@@ -683,9 +683,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       new Formatter(builder).format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT,
           keyFormatter.format(path.peek().request().key()));
       ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
-          ContributionBinding.bindingTypesFor(resolvedBinding.contributionBindings());
-      for (BindingType type :
-          Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
+          ContributionBinding.<ContributionBinding>bindingTypesFor(
+              resolvedBinding.contributionBindings());
+      for (BindingType type : Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
         builder.append(INDENT);
         builder.append(formatBindingType(type));
         builder.append(" bindings:\n");

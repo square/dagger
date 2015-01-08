@@ -37,7 +37,7 @@ abstract class ResolvedBindings {
       BindingKey bindingKey,
       Set<? extends Binding> ownedBindings,
       Set<? extends Binding> inheritedBindings) {
-    ImmutableSet<Binding> immutableOwnedBindings = ImmutableSet.copyOf(ownedBindings);
+    ImmutableSet<Binding> immutableOwnedBindings = ImmutableSet.<Binding>copyOf(ownedBindings);
     return new AutoValue_ResolvedBindings(
         bindingKey,
         immutableOwnedBindings,

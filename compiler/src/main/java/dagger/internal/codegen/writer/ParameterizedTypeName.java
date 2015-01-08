@@ -31,7 +31,7 @@ public final class ParameterizedTypeName implements TypeName {
 
   ParameterizedTypeName(ClassName type, Iterable<? extends TypeName> parameters) {
     this.type = type;
-    this.parameters = ImmutableList.copyOf(parameters);
+    this.parameters = ImmutableList.<TypeName>copyOf(parameters);
   }
   
   public ClassName type() {
