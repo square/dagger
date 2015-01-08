@@ -171,16 +171,20 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             Snippet.format(fields.get(BindingKey.forDependencyRequest(dependency)).name()),
             dependency.kind()));
       }
-      Snippet invocationSnippet = getInvocationSnippet(binding, parameterSnippets.build());
+      final boolean wrapWithFuture = false;  // since submitToExecutor will create the future
+      Snippet invocationSnippet = getInvocationSnippet(wrapWithFuture, binding,
+          parameterSnippets.build());
       TypeName callableReturnType = returnsFuture ? futureTypeName : providedTypeName;
+      Snippet throwsClause = getThrowsClause(binding.thrownTypes());
       Snippet callableSnippet = Snippet.format(Joiner.on('\n').join(
           "new %1$s<%2$s>() {",
-          "  @Override public %2$s call() {",
-          "    return %3$s;",
+          "  @Override public %2$s call() %3$s{",
+          "    return %4$s;",
           "  }",
           "}"),
           ClassName.fromClass(Callable.class),
           callableReturnType,
+          throwsClause,
           invocationSnippet);
       getMethodWriter.body().addSnippet("%s future = %s.submitToExecutor(%s, executor);",
           ParameterizedTypeName.create(
@@ -212,18 +216,22 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 dependency.kind()));
           }
         }
-        Snippet invocationSnippet = getInvocationSnippet(binding, parameterSnippets.build());
+        boolean wrapWithFuture = !returnsFuture;  // only wrap if we don't already have a future
+        Snippet invocationSnippet = getInvocationSnippet(wrapWithFuture, binding,
+            parameterSnippets.build());
+        Snippet throwsClause = getThrowsClause(binding.thrownTypes());
         transformSnippet = Snippet.format(Joiner.on('\n').join(
             "new %1$s<%2$s, %3$s>() {",
-            "  @Override public %4$s apply(%2$s %5$s) {",
-            "    return %6$s;",
+            "  @Override public %4$s apply(%2$s %5$s) %6$s{",
+            "    return %7$s;",
             "  }",
             "}"),
-            ClassName.fromClass(returnsFuture ? AsyncFunction.class : Function.class),
+            ClassName.fromClass(AsyncFunction.class),
             asyncDependencyType(asyncDependency),
             providedTypeName,
-            returnsFuture ? futureTypeName : providedTypeName,
+            futureTypeName,
             argName,
+            throwsClause,
             invocationSnippet);
       } else {
         futureSnippet = Snippet.format("%s.<%s>allAsList(%s)",
@@ -238,20 +246,24 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                   }
                 })));
         ImmutableList<Snippet> parameterSnippets = getParameterSnippets(binding, fields, "args");
-        Snippet invocationSnippet = getInvocationSnippet(binding, parameterSnippets);
+        boolean wrapWithFuture = !returnsFuture;  // only wrap if we don't already have a future
+        Snippet invocationSnippet = getInvocationSnippet(wrapWithFuture, binding,
+            parameterSnippets);
         ParameterizedTypeName listOfObject = ParameterizedTypeName.create(
             ClassName.fromClass(List.class), ClassName.fromClass(Object.class));
+        Snippet throwsClause = getThrowsClause(binding.thrownTypes());
         transformSnippet = Snippet.format(Joiner.on('\n').join(
             "new %1$s<%2$s, %3$s>() {",
             "  @SuppressWarnings(\"unchecked\")  // safe by specification",
-            "  @Override public %4$s apply(%2$s args) {",
-            "    return %5$s;",
+            "  @Override public %4$s apply(%2$s args) %5$s{",
+            "    return %6$s;",
             "  }",
             "}"),
-            ClassName.fromClass(returnsFuture ? AsyncFunction.class : Function.class),
+            ClassName.fromClass(AsyncFunction.class),
             listOfObject,
             providedTypeName,
-            returnsFuture ? futureTypeName : providedTypeName,
+            futureTypeName,
+            throwsClause,
             invocationSnippet);
       }
       getMethodWriter.body().addSnippet("return %s.%s(%s, %s, executor);",
@@ -309,11 +321,24 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     return snippets.build();
   }
 
-  private Snippet getInvocationSnippet(
-      ProductionBinding binding, ImmutableList<Snippet> parameterSnippets) {
+  /**
+   * Creates a Snippet for the invocation of the producer method from the module.
+   *
+   * @param wrapWithFuture If true, wraps the result of the call to the producer method
+   *        in an immediate future.
+   * @param binding The binding to generate the invocation snippet for.
+   * @param parameterSnippets The snippets for all the parameters to the producer method.
+   */
+  private Snippet getInvocationSnippet(boolean wrapWithFuture, ProductionBinding binding,
+      ImmutableList<Snippet> parameterSnippets) {
     Snippet moduleSnippet = Snippet.format("module.%s(%s)",
         binding.bindingElement().getSimpleName(),
         makeParametersSnippet(parameterSnippets));
+    if (wrapWithFuture) {
+      moduleSnippet = Snippet.format("%s.immediateFuture(%s)",
+          ClassName.fromClass(Futures.class),
+          moduleSnippet);
+    }
     if (binding.productionType().equals(Produces.Type.SET)) {
       if (binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION)) {
         return Snippet.format("%s.createFutureSingletonSet(%s)",
@@ -327,5 +352,25 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     } else {
       return moduleSnippet;
     }
+  }
+
+  /**
+   * Creates a Snippet for the throws clause.
+   *
+   * @param thrownTypes the list of thrown types.
+   */
+  private Snippet getThrowsClause(List<? extends TypeMirror> thrownTypes) {
+    if (thrownTypes.isEmpty()) {
+      return Snippet.format("");
+    }
+    return Snippet.format("throws %s ",
+        Snippet.makeParametersSnippet(FluentIterable
+            .from(thrownTypes)
+            .transform(new Function<TypeMirror, Snippet>() {
+              @Override public Snippet apply(TypeMirror thrownType) {
+                return Snippet.format("%s", TypeNames.forTypeMirror(thrownType));
+              }
+            })
+            .toList()));
   }
 }

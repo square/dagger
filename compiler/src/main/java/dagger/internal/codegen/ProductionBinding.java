@@ -17,10 +17,12 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produces;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -37,9 +39,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
 abstract class ProductionBinding extends ContributionBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
-    return new ImmutableSet.Builder<DependencyRequest>()
-        .addAll(dependencies())
-        .build();
+    return dependencies();
   }
 
   enum Kind {
@@ -57,6 +57,9 @@ abstract class ProductionBinding extends ContributionBinding {
 
   /** Returns provision type that was used to bind the key. */
   abstract Produces.Type productionType();
+
+  /** Returns the list of types in the throws clause of the method. */
+  abstract ImmutableList<? extends TypeMirror> thrownTypes();
 
   @Override
   BindingType bindingType() {
@@ -99,7 +102,8 @@ abstract class ProductionBinding extends ContributionBinding {
           dependencies,
           findBindingPackage(key),
           kind,
-          producesAnnotation.type());
+          producesAnnotation.type(),
+          ImmutableList.copyOf(producesMethod.getThrownTypes()));
     }
   }
 }
