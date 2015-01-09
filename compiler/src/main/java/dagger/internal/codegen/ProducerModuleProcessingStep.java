@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.SuperficialValidation;
 import com.google.common.base.Function;
@@ -22,7 +23,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import dagger.internal.codegen.BasicAnnotationProcessor.ProcessingStep;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;

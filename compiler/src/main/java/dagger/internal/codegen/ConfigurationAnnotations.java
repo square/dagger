@@ -15,27 +15,35 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
+
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
+
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.AnnotationMirrors.getAttributeAsListOfTypes;
 /**
  * Utility methods related to dagger configuration annotations (e.g.: {@link Component}
  * and {@link Module}).
@@ -47,32 +55,44 @@ final class ConfigurationAnnotations {
 
   static ImmutableList<TypeMirror> getComponentModules(AnnotationMirror componentAnnotation) {
     checkNotNull(componentAnnotation);
-    return getAttributeAsListOfTypes(componentAnnotation, MODULES_ATTRIBUTE);
+    return convertClassArrayToListOfTypes(componentAnnotation, MODULES_ATTRIBUTE);
   }
 
   private static final String DEPENDENCIES_ATTRIBUTE = "dependencies";
 
   static ImmutableList<TypeMirror> getComponentDependencies(AnnotationMirror componentAnnotation) {
     checkNotNull(componentAnnotation);
-    return getAttributeAsListOfTypes(componentAnnotation, DEPENDENCIES_ATTRIBUTE);
+    return convertClassArrayToListOfTypes(componentAnnotation, DEPENDENCIES_ATTRIBUTE);
   }
 
   private static final String INCLUDES_ATTRIBUTE = "includes";
 
   static ImmutableList<TypeMirror> getModuleIncludes(AnnotationMirror moduleAnnotation) {
     checkNotNull(moduleAnnotation);
-    return getAttributeAsListOfTypes(moduleAnnotation, INCLUDES_ATTRIBUTE);
+    return convertClassArrayToListOfTypes(moduleAnnotation, INCLUDES_ATTRIBUTE);
   }
 
   private static final String INJECTS_ATTRIBUTE = "injects";
 
   static ImmutableList<TypeMirror> getModuleInjects(AnnotationMirror moduleAnnotation) {
     checkNotNull(moduleAnnotation);
-    return getAttributeAsListOfTypes(moduleAnnotation, INJECTS_ATTRIBUTE);
+    return convertClassArrayToListOfTypes(moduleAnnotation, INJECTS_ATTRIBUTE);
   }
 
   static ImmutableSet<? extends AnnotationMirror> getMapKeys(Element element) {
     return AnnotationMirrors.getAnnotatedAnnotations(element, MapKey.class);
+  }
+
+  static ImmutableList<TypeMirror> convertClassArrayToListOfTypes(
+      AnnotationMirror annotationMirror, final String elementName) {
+    @SuppressWarnings("unchecked") // that's the whole point of this method
+    List<? extends AnnotationValue> listValue = (List<? extends AnnotationValue>)
+        getAnnotationValue(annotationMirror, elementName).getValue();
+    return FluentIterable.from(listValue).transform(new Function<AnnotationValue, TypeMirror>() {
+      @Override public TypeMirror apply(AnnotationValue typeValue) {
+        return (TypeMirror) typeValue.getValue();
+      }
+    }).toList();
   }
 
   /**

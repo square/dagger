@@ -15,11 +15,11 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import dagger.Component;
-import dagger.internal.codegen.BasicAnnotationProcessor.ProcessingStep;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
 import java.lang.annotation.Annotation;
 import java.util.Set;

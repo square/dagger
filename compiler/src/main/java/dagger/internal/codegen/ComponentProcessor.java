@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.BasicAnnotationProcessor;
+import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
