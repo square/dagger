@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Utility methods for use in generated producer code.
@@ -56,23 +57,25 @@ public final class Producers {
               }
             };
           }
-        }), futureFallbackForProduced());
+        }), Producers.<T>futureFallbackForProduced());
+
   }
 
   private static final FutureFallback<Produced<Object>> FUTURE_FALLBACK_FOR_PRODUCED =
       new FutureFallback<Produced<Object>>() {
     @Override public ListenableFuture<Produced<Object>> create(final Throwable t) {
-      return Futures.immediateFuture(new Produced<Object>() {
+      Produced<Object> produced = new Produced<Object>() {
         @Override public Object get() throws ExecutionException {
           throw new ExecutionException(t);
         }
-      });
+      };
+      return Futures.immediateFuture(produced);
     }
   };
 
-  @SuppressWarnings("unchecked")  // bivariant implementation
+  @SuppressWarnings({"unchecked", "rawtypes"})  // bivariant implementation
   private static <T> FutureFallback<Produced<T>> futureFallbackForProduced() {
-    return (FutureFallback<Produced<T>>) (Object) FUTURE_FALLBACK_FOR_PRODUCED;
+    return (FutureFallback) FUTURE_FALLBACK_FOR_PRODUCED;
   }
 
   /**
