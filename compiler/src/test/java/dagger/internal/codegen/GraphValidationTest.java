@@ -22,7 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
@@ -52,7 +52,7 @@ public class GraphValidationTest {
         "import javax.inject.Inject;",
         "",
         "interface Bar {}");
-    assert_().about(javaSources()).that(Arrays.asList(component, injectable, nonInjectable))
+    assertAbout(javaSources()).that(Arrays.asList(component, injectable, nonInjectable))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("test.Bar cannot be provided without an @Provides-annotated method.")
@@ -75,7 +75,7 @@ public class GraphValidationTest {
         "}");
     String expectedError =
         "test.TestClass.A cannot be provided without an @Provides-annotated method.";
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(10);
@@ -102,7 +102,7 @@ public class GraphValidationTest {
         "}");
     String expectedError = "test.TestClass.A cannot be provided without an "
         + "@Inject constructor or from an @Provides-annotated method.";
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(15);
@@ -134,7 +134,7 @@ public class GraphValidationTest {
     String expectedError = "test.TestClass.B cannot be provided without an "
         + "@Inject constructor or from an @Provides-annotated method. "
         + "This type supports members injection but cannot be implicitly provided.";
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(19);
@@ -176,10 +176,58 @@ public class GraphValidationTest {
         + "      test.Outer.A.<init>(test.Outer.C cParam)\n"
         + "          [parameter: test.Outer.C cParam]";
 
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(23);
+  }
+
+  @Test public void cyclicDependencyNotIncludingEntryPoint() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "final class Outer {",
+        "  static class A {",
+        "    @Inject A(C cParam) {}",
+        "  }",
+        "",
+        "  static class B {",
+        "    @Inject B(A aParam) {}",
+        "  }",
+        "",
+        "  static class C {",
+        "    @Inject C(B bParam) {}",
+        "  }",
+
+        "  static class D {",
+        "    @Inject D(C cParam) {}",
+        "  }",
+        "",
+        "  @Component()",
+        "  interface DComponent {",
+        "    D getD();",
+        "  }",
+        "}");
+
+    String expectedError = "test.Outer.DComponent.getD() contains a dependency cycle:\n"
+        + "      test.Outer.D.<init>(test.Outer.C cParam)\n"
+        + "          [parameter: test.Outer.C cParam]\n"
+        + "      test.Outer.C.<init>(test.Outer.B bParam)\n"
+        + "          [parameter: test.Outer.B bParam]\n"
+        + "      test.Outer.B.<init>(test.Outer.A aParam)\n"
+        + "          [parameter: test.Outer.A aParam]\n"
+        + "      test.Outer.A.<init>(test.Outer.C cParam)\n"
+        + "          [parameter: test.Outer.C cParam]";
+
+    assertAbout(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError).in(component).onLine(26);
   }
 
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
@@ -221,7 +269,7 @@ public class GraphValidationTest {
         + "      test.Outer.A test.Outer.Parent.getA()\n"
         + "      @Provides test.Outer.A test.Outer.AModule.provideA(String)";
 
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(30);
@@ -260,7 +308,7 @@ public class GraphValidationTest {
         + "      @Provides test.Outer.A test.Outer.Module1.provideA1()\n"
         + "      @Provides test.Outer.A test.Outer.Module2.provideA2(String)";
 
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(24);
@@ -330,7 +378,7 @@ public class GraphValidationTest {
             + "      Unique bindings:\n"
             + "          @Provides Map<String,String> test.Outer.TestModule2.stringMap()";
 
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedSetError).in(component).onLine(43)
@@ -441,7 +489,7 @@ public class GraphValidationTest {
         + "      @Provides test.Outer.A test.Outer.Module10.provideA()\n"
         + "      and 2 others";
 
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(86);
@@ -501,7 +549,7 @@ public class GraphValidationTest {
         + "          [injected field of type: test.TestClass.B b]\n"
         + "      test.TestClass.B.<init>(test.TestClass.A a)\n"
         + "          [parameter: test.TestClass.A a]";
-    assert_().about(javaSource()).that(component)
+    assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(firstError).in(component).onLine(33)

@@ -17,22 +17,16 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import dagger.Provides;
-import dagger.internal.codegen.BindingGraph.ResolvedBindings.State;
-import dagger.internal.codegen.ContributionBinding.BindingType;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -45,7 +39,6 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
@@ -67,88 +60,12 @@ abstract class BindingGraph {
 
   @AutoValue
   abstract static class ResolvedBindings {
-    enum State {
-      COMPLETE,
-      INCOMPLETE,
-      MULTIPLE_BINDING_TYPES,
-      DUPLICATE_BINDINGS,
-      CYCLE,
-      MALFORMED,
-      MISSING,
-    }
-
     abstract BindingKey bindingKey();
-    abstract State state();
     abstract ImmutableSet<? extends Binding> bindings();
 
     static ResolvedBindings create(
-        BindingKey bindingKey,
-        State state,
-        ImmutableSet<? extends Binding> bindings) {
-      Optional<State> overrideState = validate(bindingKey, bindings);
-      return new AutoValue_BindingGraph_ResolvedBindings(
-          bindingKey, overrideState.or(state), bindings);
-    }
-
-    /**
-     * Determines whether the given bindings are valid for a binding key.
-     *
-     * @return the appropriate error state if they are invalid; otherwise an absent optional.
-     */
-    private static Optional<State> validate(BindingKey bindingKey,
-        ImmutableSet<? extends Binding> bindings) {
-      if (bindings.isEmpty()) {
-        return Optional.of(State.MISSING);
-      }
-
-      // TODO(user): Perform this validation in the GraphValidator instead.
-      ImmutableSet.Builder<ContributionBinding> contributionBindingsBuilder =
-          ImmutableSet.builder();
-      ImmutableSet.Builder<MembersInjectionBinding> membersInjectionBindingsBuilder =
-          ImmutableSet.builder();
-      for (Binding binding : bindings) {
-        if (binding instanceof ContributionBinding) {
-          contributionBindingsBuilder.add((ContributionBinding) binding);
-        }
-        if (binding instanceof MembersInjectionBinding) {
-          membersInjectionBindingsBuilder.add((MembersInjectionBinding) binding);
-        }
-      }
-      ImmutableSet<ContributionBinding> contributionBindings =
-          contributionBindingsBuilder.build();
-      ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
-          membersInjectionBindingsBuilder.build();
-
-      switch (bindingKey.kind()) {
-        case CONTRIBUTION:
-          if (!membersInjectionBindings.isEmpty()) {
-            throw new IllegalArgumentException(
-                "contribution binding keys should never have members injection bindings");
-          }
-          if (contributionBindings.size() <= 1) {
-            return Optional.absent();
-          }
-          ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
-              ContributionBinding.bindingTypesFor(contributionBindings);
-          if (bindingsByType.keySet().size() > 1) {
-            return Optional.of(State.MULTIPLE_BINDING_TYPES);
-          } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
-            return Optional.of(State.DUPLICATE_BINDINGS);
-          }
-          break;
-        case MEMBERS_INJECTION:
-          if (!contributionBindings.isEmpty()) {
-            throw new IllegalArgumentException(
-                "members injection binding keys should never have contribution bindings");
-          }
-          if (membersInjectionBindings.size() > 1) {
-            return Optional.of(State.DUPLICATE_BINDINGS);
-          }
-          break;
-        default:
-          throw new AssertionError();
-      }
-      return Optional.absent();
+        BindingKey bindingKey, ImmutableSet<? extends Binding> bindings) {
+      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, bindings);
     }
 
     @SuppressWarnings("unchecked")  // checked by validator
@@ -339,51 +256,36 @@ abstract class BindingGraph {
         }
       }
 
-      State resolve(DependencyRequest request) {
+      void resolve(DependencyRequest request) {
         BindingKey bindingKey = BindingKey.forDependencyRequest(request);
 
         ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(bindingKey);
         if (previouslyResolvedBinding != null) {
-          return previouslyResolvedBinding.state();
+          return;
         }
 
         if (cycleStack.contains(bindingKey)) {
-          // return malformed, but don't add a resolved binding.
-          // the original request will add it with all of the other resolved deps
-          return State.CYCLE;
+          // We found a cycle. Don't add a resolved binding, since the original request will add it
+          // with all of the other resolved deps
+          return;
         }
 
         cycleStack.push(bindingKey);
         try {
           ImmutableSet<? extends Binding> bindings = lookUpBindings(request);
-          State dependenciesState = resolveDependencies(FluentIterable.from(bindings)
-              .transformAndConcat(
-                  new Function<Binding, Set<DependencyRequest>>() {
-                    @Override
-                    public Set<DependencyRequest> apply(Binding input) {
-                      return input.implicitDependencies();
-                    }
-                  }));
-          ResolvedBindings resolved =
-              ResolvedBindings.create(bindingKey, dependenciesState, bindings);
-          resolvedBindings.put(bindingKey, resolved);
-          return resolved.state();
+          for (Binding binding : bindings) {
+            resolveDependencies(binding.implicitDependencies());
+          }
+          resolvedBindings.put(bindingKey, ResolvedBindings.create(bindingKey, bindings));
         } finally {
           cycleStack.pop();
         }
       }
 
-      private State resolveDependencies(Iterable<DependencyRequest> dependencies) {
-        State bindingState = State.COMPLETE;
+      private void resolveDependencies(Iterable<DependencyRequest> dependencies) {
         for (DependencyRequest dependency : dependencies) {
-          State dependencyState = resolve(dependency);
-          if (dependencyState.equals(State.CYCLE)) {
-            bindingState = State.CYCLE;
-          } else if (!bindingState.equals(State.CYCLE) && !dependencyState.equals(State.COMPLETE)) {
-            bindingState = State.INCOMPLETE;
-          }
+          resolve(dependency);
         }
-        return bindingState;
       }
     }
   }

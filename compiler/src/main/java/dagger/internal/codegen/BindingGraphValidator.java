@@ -18,7 +18,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
-import dagger.internal.codegen.BindingGraph.ResolvedBindings.State;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.ValidationReport.Builder;
 import java.util.ArrayDeque;
@@ -77,46 +76,96 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     for (DependencyRequest entryPoint : subject.entryPoints()) {
       ResolvedBindings resolvedBinding = resolvedBindings.get(
           BindingKey.forDependencyRequest(entryPoint));
-      if (!resolvedBinding.state().equals(State.COMPLETE)) {
-        LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
-        requestPath.push(entryPoint);
-        traversalHelper(subject, requestPath, new Traverser() {
-          final Set<ResolvedBindings> visitedBindings = new HashSet<>();
+      LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
+      requestPath.push(entryPoint);
+      traversalHelper(subject, requestPath, new Traverser() {
+        final Set<BindingKey> visitedBindings = new HashSet<>();
 
-          @Override
-          boolean visitResolvedBinding(
-              Deque<DependencyRequest> requestPath, ResolvedBindings binding) {
-            if (!visitedBindings.add(binding)) {
+        @Override
+        boolean visitResolvedBinding(
+            Deque<DependencyRequest> requestPath, ResolvedBindings binding) {
+          for (DependencyRequest request : Iterables.skip(requestPath, 1)) {
+            if (BindingKey.forDependencyRequest(request).equals(binding.bindingKey())) {
+              reportCycle(requestPath, subject, reportBuilder);
               return false;
             }
-
-            switch (binding.state()) {
-              case COMPLETE:
-              case INCOMPLETE:
-                return true;
-              case MISSING:
-                reportMissingBinding(requestPath, reportBuilder);
-                return false;
-              case DUPLICATE_BINDINGS:
-                reportDuplicateBindings(requestPath, binding, reportBuilder);
-                return false;
-              case MULTIPLE_BINDING_TYPES:
-                reportMultipleBindingTypes(requestPath, binding, reportBuilder);
-                return false;
-              case CYCLE:
-                reportCycle(requestPath, subject, reportBuilder);
-                return false;
-              case MALFORMED:
-                return false;
-              default:
-                throw new AssertionError();
-            }
           }
-        });
-      }
+
+          if (!visitedBindings.add(binding.bindingKey())) {
+            return false;
+          }
+
+          return validateResolvedBinding(requestPath, binding, reportBuilder);
+        }
+      });
     }
 
     return reportBuilder.build();
+  }
+
+  /**
+   * Validates that the set of bindings resolved is consistent with the type of the binding, and
+   * returns true if the bindings are valid.
+   */
+  private boolean validateResolvedBinding(
+      Deque<DependencyRequest> requestPath,
+      ResolvedBindings resolvedBinding,
+      Builder<BindingGraph> reportBuilder) {
+    if (resolvedBinding.bindings().isEmpty()) {
+      reportMissingBinding(requestPath, reportBuilder);
+      return false;
+    }
+
+    ImmutableSet.Builder<ContributionBinding> contributionBindingsBuilder =
+        ImmutableSet.builder();
+    ImmutableSet.Builder<MembersInjectionBinding> membersInjectionBindingsBuilder =
+        ImmutableSet.builder();
+    for (Binding binding : resolvedBinding.bindings()) {
+      if (binding instanceof ContributionBinding) {
+        contributionBindingsBuilder.add((ContributionBinding) binding);
+      }
+      if (binding instanceof MembersInjectionBinding) {
+        membersInjectionBindingsBuilder.add((MembersInjectionBinding) binding);
+      }
+    }
+    ImmutableSet<ContributionBinding> contributionBindings =
+        contributionBindingsBuilder.build();
+    ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
+        membersInjectionBindingsBuilder.build();
+
+    switch (resolvedBinding.bindingKey().kind()) {
+      case CONTRIBUTION:
+        if (!membersInjectionBindings.isEmpty()) {
+          throw new IllegalArgumentException(
+              "contribution binding keys should never have members injection bindings");
+        }
+        if (contributionBindings.size() <= 1) {
+          return true;
+        }
+        ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
+            ContributionBinding.bindingTypesFor(contributionBindings);
+        if (bindingsByType.keySet().size() > 1) {
+          reportMultipleBindingTypes(requestPath, resolvedBinding, reportBuilder);
+          return false;
+        } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
+          reportDuplicateBindings(requestPath, resolvedBinding, reportBuilder);
+          return false;
+        }
+        break;
+      case MEMBERS_INJECTION:
+        if (!contributionBindings.isEmpty()) {
+          throw new IllegalArgumentException(
+              "members injection binding keys should never have contribution bindings");
+        }
+        if (membersInjectionBindings.size() > 1) {
+          reportDuplicateBindings(requestPath, resolvedBinding, reportBuilder);
+          return false;
+        }
+        break;
+      default:
+        throw new AssertionError();
+    }
+    return true;
   }
 
   /**
@@ -421,32 +470,19 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
   private void reportCycle(Deque<DependencyRequest> requestPath,
       BindingGraph graph, final ValidationReport.Builder<BindingGraph> reportBuilder) {
-    final DependencyRequest startingRequest = requestPath.peek();
-    final Key cycleKey = startingRequest.key();
-    traversalHelper(graph, requestPath, new Traverser() {
-      @Override
-      boolean visitResolvedBinding(Deque<DependencyRequest> requestPath, ResolvedBindings binding) {
-        DependencyRequest request = requestPath.peek();
-        boolean endOfCycle = !startingRequest.equals(request) && cycleKey.equals(request.key());
-        if (endOfCycle) {
-          ImmutableList<String> printableDependencyPath = FluentIterable.from(requestPath)
-              .transform(DependencyRequestFormatter.instance()).toList().reverse();
-          DependencyRequest rootRequest = requestPath.getLast();
-          TypeElement componentType =
-              MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
-          // TODO(user): Restructure to provide a hint for the start and end of the cycle.
-          reportBuilder.addItem(
-              String.format(ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
-                  componentType.getQualifiedName(),
-                  rootRequest.requestElement().getSimpleName(),
-                  Joiner.on("\n")
-                      .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
-                  rootRequest.requestElement());
-        }
-        return !endOfCycle;
-      }
-    });
-
+    ImmutableList<String> printableDependencyPath = FluentIterable.from(requestPath)
+        .transform(DependencyRequestFormatter.instance()).toList().reverse();
+    DependencyRequest rootRequest = requestPath.getLast();
+    TypeElement componentType =
+        MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
+    // TODO(user): Restructure to provide a hint for the start and end of the cycle.
+    reportBuilder.addItem(
+        String.format(ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
+            componentType.getQualifiedName(),
+            rootRequest.requestElement().getSimpleName(),
+            Joiner.on("\n")
+            .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
+        rootRequest.requestElement());
   }
 
   private void traversalHelper(BindingGraph graph, Deque<DependencyRequest> requestPath,
