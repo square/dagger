@@ -24,6 +24,7 @@ import javax.lang.model.type.NoType;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
@@ -52,6 +53,11 @@ public final class TypeNames {
       @Override
       protected TypeName defaultAction(TypeMirror e, Void p) {
         throw new IllegalArgumentException(e.toString());
+      }
+      
+      @Override
+      public TypeName visitTypeVariable(TypeVariable t, Void p) {
+        return TypeVariableName.fromTypeVariable(t);
       }
 
       @Override

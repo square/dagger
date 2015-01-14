@@ -15,9 +15,13 @@
  */
 package dagger.internal.codegen.writer;
 
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PROTECTED;
+import static javax.lang.model.element.Modifier.PUBLIC;
+
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -27,24 +31,32 @@ import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
 
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PROTECTED;
-import static javax.lang.model.element.Modifier.PUBLIC;
-
 public final class ClassWriter extends TypeWriter {
   private final List<ConstructorWriter> constructorWriters;
-  private final List<TypeVariableName> typeVariables;
+  private final List<TypeVariableName> typeParameters;
 
   ClassWriter(ClassName className) {
     super(className);
     this.constructorWriters = Lists.newArrayList();
-    this.typeVariables = Lists.newArrayList();
+    this.typeParameters = Lists.newArrayList();
   }
 
   public ConstructorWriter addConstructor() {
     ConstructorWriter constructorWriter = new ConstructorWriter(name.simpleName());
     constructorWriters.add(constructorWriter);
     return constructorWriter;
+  }
+  
+  public void addTypeParameter(TypeVariableName typeVariableName) {
+    this.typeParameters.add(typeVariableName);
+  }
+  
+  public void addTypeParameters(Iterable<TypeVariableName> typeVariableNames) {
+    Iterables.addAll(typeParameters, typeVariableNames);
+  }
+  
+  public List<TypeVariableName> typeParameters() {
+    return ImmutableList.copyOf(typeParameters);
   }
 
   @Override
@@ -58,24 +70,12 @@ public final class ClassWriter extends TypeWriter {
         .toSet());
     writeAnnotations(appendable, context);
     writeModifiers(appendable).append("class ").append(name.simpleName());
-    if (!typeVariables.isEmpty()) {
-      appendable.append('<');
-      Joiner.on(", ").appendTo(appendable, typeVariables);
-      appendable.append('>');
-    }
+    Writables.join(", ", typeParameters, "<", ">", appendable, context);
     if (supertype.isPresent()) {
       appendable.append(" extends ");
       supertype.get().write(appendable, context);
     }
-    Iterator<TypeName> implementedTypesIterator = implementedTypes.iterator();
-    if (implementedTypesIterator.hasNext()) {
-      appendable.append(" implements ");
-      implementedTypesIterator.next().write(appendable, context);
-      while (implementedTypesIterator.hasNext()) {
-        appendable.append(", ");
-        implementedTypesIterator.next().write(appendable, context);
-      }
-    }
+    Writables.join(", ", implementedTypes, " implements ", "", appendable, context);
     appendable.append(" {");
     if (!fieldWriters.isEmpty()) {
       appendable.append('\n');
@@ -115,7 +115,7 @@ public final class ClassWriter extends TypeWriter {
     @SuppressWarnings("unchecked")
     Iterable<? extends HasClassReferences> concat =
         Iterables.concat(nestedTypeWriters, fieldWriters.values(), constructorWriters,
-            methodWriters, implementedTypes, supertype.asSet(), annotations);
+            methodWriters, implementedTypes, supertype.asSet(), annotations, typeParameters);
     return FluentIterable.from(concat)
         .transformAndConcat(new Function<HasClassReferences, Set<ClassName>>() {
           @Override
