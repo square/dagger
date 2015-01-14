@@ -82,14 +82,14 @@ class SourceFiles {
    *
    * @return Returns the mapping from {@link BindingKey} to field, sorted by the name of the field.
    */
-  static ImmutableMap<BindingKey, BindingField> generateBindingFieldsForDependencies(
+  static ImmutableMap<BindingKey, FrameworkField> generateBindingFieldsForDependencies(
       DependencyRequestMapper dependencyRequestMapper,
       Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap<BindingKey, DependencyRequest> dependenciesByKey =
         indexDependenciesByKey(dependencies);
     Map<BindingKey, Collection<DependencyRequest>> dependenciesByKeyMap =
         dependenciesByKey.asMap();
-    ImmutableMap.Builder<BindingKey, BindingField> bindingFields = ImmutableMap.builder();
+    ImmutableMap.Builder<BindingKey, FrameworkField> bindingFields = ImmutableMap.builder();
     for (Entry<BindingKey, Collection<DependencyRequest>> entry
         : dependenciesByKeyMap.entrySet()) {
       BindingKey bindingKey = entry.getKey();
@@ -103,7 +103,7 @@ class SourceFiles {
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        bindingFields.put(bindingKey, BindingField.create(frameworkClass, bindingKey, name));
+        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey, name));
       } else {
         // in the event that a field is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
@@ -114,7 +114,7 @@ class SourceFiles {
           compositeNameBuilder.append("And").append(
               CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        bindingFields.put(bindingKey, BindingField.create(
+        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(
             frameworkClass, bindingKey, compositeNameBuilder.toString()));
       }
     }
@@ -146,6 +146,8 @@ class SourceFiles {
       case PROVISION:
         return enclosingClassName.topLevelClassName().peerNamed(
             enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
+      case SYNTHETIC_PROVISON:
+        throw new IllegalArgumentException();
       default:
         throw new AssertionError();
     }

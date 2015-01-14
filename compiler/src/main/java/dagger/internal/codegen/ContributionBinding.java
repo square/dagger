@@ -39,6 +39,10 @@ abstract class ContributionBinding extends Binding {
     SET,
     /** Represents a valid non-collection binding. */
     UNIQUE;
+
+    boolean isMultibinding() {
+      return !this.equals(UNIQUE);
+    }
   }
 
   abstract BindingType bindingType();

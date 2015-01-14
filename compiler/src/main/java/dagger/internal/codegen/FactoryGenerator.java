@@ -138,12 +138,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.membersInjector = membersInjector;");
     }
 
-    ImmutableMap<BindingKey, BindingField> fields =
+    ImmutableMap<BindingKey, FrameworkField> fields =
         SourceFiles.generateBindingFieldsForDependencies(
             dependencyRequestMapper, binding.dependencies());
 
-    for (BindingField bindingField : fields.values()) {
-      ParameterizedTypeName fieldType = bindingField.frameworkType();
+    for (FrameworkField bindingField : fields.values()) {
+      TypeName fieldType = bindingField.frameworkType();
       FieldWriter field = factoryWriter.addField(fieldType, bindingField.name());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.get().addParameter(field.type(), field.name());

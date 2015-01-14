@@ -15,33 +15,47 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
+import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
+import javax.lang.model.type.TypeMirror;
 
 /**
- * A value object that represents a field for a binding in a generated source file.
+ * A value object that represents a field used by Dagger-generated code.
  *
- *  @author Jesse Beder
- *  @since 2.0
+ * @author Jesse Beder
+ * @since 2.0
  */
 @AutoValue
-abstract class BindingField {
-  static BindingField create(
+abstract class FrameworkField {
+  // TODO(gak): reexamine the this class and how consistently we're using it and its creation
+  // methods
+
+  static FrameworkField createWithTypeFromKey(
       Class<?> frameworkClass, BindingKey bindingKey, String name) {
     String suffix = frameworkClass.getSimpleName();
-    return new AutoValue_BindingField(frameworkClass, bindingKey,
+    ParameterizedTypeName frameworkType = ParameterizedTypeName.create(
+        ClassName.fromClass(frameworkClass),
+        TypeNames.forTypeMirror(bindingKey.key().type()));
+    return new AutoValue_FrameworkField(frameworkClass, frameworkType, bindingKey,
         name.endsWith(suffix) ? name : name + suffix);
   }
 
-  ParameterizedTypeName frameworkType() {
-    return ParameterizedTypeName.create(
-        ClassName.fromClass(frameworkClass()),
-        TypeNames.forTypeMirror(bindingKey().key().type()));
+  static FrameworkField createForMapBindingContribution(
+      Class<?> frameworkClass, BindingKey bindingKey, String name) {
+    TypeMirror mapValueType =
+        MoreTypes.asDeclared(bindingKey.key().type()).getTypeArguments().get(1);
+    return new AutoValue_FrameworkField(frameworkClass,
+        TypeNames.forTypeMirror(mapValueType),
+        bindingKey,
+        name);
   }
 
   abstract Class<?> frameworkClass();
+  abstract TypeName frameworkType();
   abstract BindingKey bindingKey();
   abstract String name();
 }

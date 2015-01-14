@@ -66,6 +66,11 @@ abstract class ProvisionBinding extends ContributionBinding {
     INJECTION,
     /** Represents a binding configured by {@link Provides}. */
     PROVISION,
+    /**
+     * Represents a binding that is not explicitly tied to code, but generated implicitly by the
+     * framework.
+     */
+    SYNTHETIC_PROVISON,
     /** Represents the implicit binding to the component. */
     COMPONENT,
     /** Represents a binding from a provision method on a component dependency. */
@@ -207,7 +212,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           implicitRequest.requestElement(),
           dependencies,
           findBindingPackage(explicitRequest.key()),
-          Kind.PROVISION,
+          Kind.SYNTHETIC_PROVISON,
           Provides.Type.MAP,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
           Optional.<DependencyRequest>absent());

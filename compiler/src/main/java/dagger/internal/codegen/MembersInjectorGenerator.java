@@ -34,6 +34,7 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.VoidName;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
@@ -132,16 +133,16 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       injectMembersWriter.body().addSnippet("supertypeInjector.injectMembers(instance);");
     }
 
-    ImmutableMap<BindingKey, BindingField> fields =
+    ImmutableMap<BindingKey, FrameworkField> fields =
         SourceFiles.generateBindingFieldsForDependencies(
             dependencyRequestMapper, ImmutableSet.copyOf(binding.dependencies()));
 
     ImmutableMap.Builder<BindingKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<BindingKey, BindingField> fieldEntry : fields.entrySet()) {
-      BindingField bindingField = fieldEntry.getValue();
-      ParameterizedTypeName fieldType = bindingField.frameworkType();
+    for (Entry<BindingKey, FrameworkField> fieldEntry : fields.entrySet()) {
+      FrameworkField bindingField = fieldEntry.getValue();
+      TypeName fieldType = bindingField.frameworkType();
       FieldWriter field = injectorWriter.addField(fieldType, bindingField.name());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
