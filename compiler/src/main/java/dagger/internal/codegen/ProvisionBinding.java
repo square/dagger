@@ -15,19 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
-import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
-import static javax.lang.model.element.ElementKind.FIELD;
-import static javax.lang.model.element.ElementKind.METHOD;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -49,6 +36,19 @@ import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
+import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
+import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
+import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
+import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.ElementKind.FIELD;
+import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances

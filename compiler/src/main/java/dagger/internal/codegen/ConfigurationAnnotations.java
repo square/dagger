@@ -15,10 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
@@ -29,21 +25,22 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
-
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
+
+import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Utility methods related to dagger configuration annotations (e.g.: {@link Component}
  * and {@link Module}).

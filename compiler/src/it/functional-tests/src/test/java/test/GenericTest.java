@@ -15,10 +15,6 @@
  */
 package test;
 
-import test.sub.PublicSubclass;
-import test.sub.Exposed;
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -26,6 +22,11 @@ import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import test.sub.Exposed;
+import test.sub.PublicSubclass;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 
 @RunWith(JUnit4.class)
 public class GenericTest {

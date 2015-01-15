@@ -15,25 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreTypes.asDeclared;
-import static com.google.common.base.CaseFormat.LOWER_CAMEL;
-import static dagger.internal.codegen.Binding.bindingPackageFor;
-import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
-import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.ProvisionBinding.Kind.SYNTHETIC_PROVISON;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
-import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
-import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.element.NestingKind.MEMBER;
-import static javax.lang.model.element.NestingKind.TOP_LEVEL;
-import static javax.lang.model.type.TypeKind.VOID;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -98,6 +79,25 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+
+import static com.google.auto.common.MoreTypes.asDeclared;
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static dagger.internal.codegen.Binding.bindingPackageFor;
+import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
+import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
+import static dagger.internal.codegen.ProvisionBinding.Kind.SYNTHETIC_PROVISON;
+import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.NestingKind.MEMBER;
+import static javax.lang.model.element.NestingKind.TOP_LEVEL;
+import static javax.lang.model.type.TypeKind.VOID;
 
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.

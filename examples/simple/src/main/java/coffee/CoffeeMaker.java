@@ -1,7 +1,6 @@
 package coffee;
 
 import dagger.Lazy;
-
 import javax.inject.Inject;
 
 class CoffeeMaker {

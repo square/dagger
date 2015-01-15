@@ -15,16 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.auto.common.MoreTypes.isTypeOf;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.ErrorMessages.INDENT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -59,6 +49,16 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
+
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ErrorMessages.INDENT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
 public class BindingGraphValidator implements Validator<BindingGraph> {
 

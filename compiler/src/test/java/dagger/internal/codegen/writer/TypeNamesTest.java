@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen.writer;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.testing.compile.CompilationRule;
 import java.nio.charset.Charset;
 import java.util.Set;
@@ -28,6 +26,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class TypeNamesTest {

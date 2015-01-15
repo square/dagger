@@ -16,7 +16,6 @@
 package dagger.producers;
 
 import dagger.Module;
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.Target;
 

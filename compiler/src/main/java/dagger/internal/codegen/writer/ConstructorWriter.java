@@ -15,18 +15,17 @@
  */
 package dagger.internal.codegen.writer;
 
-import com.google.common.collect.ImmutableMap;
-
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.TypeElement;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class ConstructorWriter extends Modifiable implements Writable, HasClassReferences {

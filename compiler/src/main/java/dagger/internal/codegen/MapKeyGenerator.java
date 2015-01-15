@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import dagger.internal.codegen.writer.TypeWriter;
-
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -25,6 +23,7 @@ import dagger.MapKey;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
+import dagger.internal.codegen.writer.TypeWriter;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Generated;
@@ -34,6 +33,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 

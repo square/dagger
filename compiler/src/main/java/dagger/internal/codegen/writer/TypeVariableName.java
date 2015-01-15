@@ -15,9 +15,8 @@
  */
 package dagger.internal.codegen.writer;
 
-import com.google.common.base.Objects;
-
 import com.google.auto.common.MoreTypes;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;

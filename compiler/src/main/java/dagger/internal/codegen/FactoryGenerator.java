@@ -15,18 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkState;
-import static dagger.Provides.Type.SET;
-import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
-import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.parameterizedFactoryNameForProvisionBinding;
-import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -59,6 +47,18 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
+
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.Provides.Type.SET;
+import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
+import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.parameterizedFactoryNameForProvisionBinding;
+import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for

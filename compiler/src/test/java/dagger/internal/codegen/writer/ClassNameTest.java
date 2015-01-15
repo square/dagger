@@ -15,10 +15,9 @@
  */
 package dagger.internal.codegen.writer;
 
-import dagger.internal.codegen.writer.ClassNameTest.OuterClass.InnerClass;
-
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.CompilationRule;
+import dagger.internal.codegen.writer.ClassNameTest.OuterClass.InnerClass;
 import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
@@ -26,6 +25,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
 import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 

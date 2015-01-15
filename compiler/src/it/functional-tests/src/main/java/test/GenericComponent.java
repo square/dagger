@@ -15,10 +15,9 @@
  */
 package test;
 
-import test.sub.PublicSubclass;
-
-import test.sub.Exposed;
 import dagger.Component;
+import test.sub.Exposed;
+import test.sub.PublicSubclass;
 
 @Component
 interface GenericComponent {

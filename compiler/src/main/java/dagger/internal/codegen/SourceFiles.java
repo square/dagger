@@ -13,9 +13,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
@@ -39,6 +36,9 @@ import java.util.Map.Entry;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Utilities for generating files.

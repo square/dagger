@@ -1,8 +1,8 @@
 package test.sub;
 
+import javax.inject.Inject;
 import test.Generic;
 import test.Generic2;
-import javax.inject.Inject;
 
 public class Exposed {
   

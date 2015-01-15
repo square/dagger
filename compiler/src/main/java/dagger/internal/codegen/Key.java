@@ -15,15 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
-import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.METHOD;
-import static javax.lang.model.type.TypeKind.DECLARED;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -52,6 +43,15 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
+import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
+import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
+import static javax.lang.model.element.ElementKind.METHOD;
+import static javax.lang.model.type.TypeKind.DECLARED;
 
 /**
  * Represents a unique combination of {@linkplain TypeMirror type} and
