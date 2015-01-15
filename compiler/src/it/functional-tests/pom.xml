@@ -50,6 +50,10 @@ limitations under the License.
       <artifactId>truth</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+    </dependency>
   </dependencies>
   <build>
     <plugins>

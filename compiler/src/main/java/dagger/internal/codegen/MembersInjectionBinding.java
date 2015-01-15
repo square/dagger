@@ -15,7 +15,12 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -31,15 +36,12 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.lang.model.type.TypeKind.NONE;
 
 /**
  * Represents the full members injection of a particular type. This does not pay attention to
@@ -49,7 +51,7 @@ import static javax.lang.model.type.TypeKind.NONE;
  * @since 2.0
  */
 @AutoValue
-abstract class MembersInjectionBinding extends Binding {
+abstract class MembersInjectionBinding extends Binding implements ResolvableBinding {
   @Override abstract TypeElement bindingElement();
 
   /** The set of individual sites where {@link Inject} is applied. */
@@ -106,25 +108,60 @@ abstract class MembersInjectionBinding extends Binding {
       this.dependencyRequestFactory = checkNotNull(dependencyRequestFactory);
     }
 
-    private InjectionSite injectionSiteForInjectMethod(ExecutableElement methodElement) {
+    private InjectionSite injectionSiteForInjectMethod(ExecutableElement methodElement,
+        DeclaredType containingType) {
       checkNotNull(methodElement);
       checkArgument(methodElement.getKind().equals(ElementKind.METHOD));
       checkArgument(isAnnotationPresent(methodElement, Inject.class));
+      ExecutableType resolved =
+          MoreTypes.asExecutable(types.asMemberOf(containingType, methodElement));
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.METHOD,
           methodElement,
-          dependencyRequestFactory.forRequiredVariables(methodElement.getParameters()));
+          dependencyRequestFactory.forRequiredResolvedVariables(
+              methodElement.getParameters(),
+              resolved.getParameterTypes()));
     }
 
-    private InjectionSite injectionSiteForInjectField(VariableElement fieldElement) {
+    private InjectionSite injectionSiteForInjectField(VariableElement fieldElement,
+        DeclaredType containingType) {
       checkNotNull(fieldElement);
       checkArgument(fieldElement.getKind().equals(ElementKind.FIELD));
       checkArgument(isAnnotationPresent(fieldElement, Inject.class));
+      TypeMirror resolved = types.asMemberOf(containingType, fieldElement);
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.FIELD,
           fieldElement,
-          ImmutableSet.of(dependencyRequestFactory.forRequiredVariable(fieldElement)));
+          ImmutableSet.of(
+              dependencyRequestFactory.forRequiredResolvedVariable(fieldElement, resolved)));
+    }
+    
+    
+    /** Returns an unresolved version of this binding. */
+    MembersInjectionBinding unresolve(MembersInjectionBinding binding) {
+      checkState(binding.isResolved());
+      DeclaredType unresolved = MoreTypes.asDeclared(binding.bindingElement().asType());
+      return forInjectedType(unresolved, Optional.<TypeMirror>absent());
     }
 
-    MembersInjectionBinding forInjectedType(TypeElement typeElement) {
+    /**
+     * Returns a MembersInjectionBinding for the given type. If {@code resolvedType} is present,
+     * this will return a {@link ResolvableBinding#isResolved() resolved} binding, with the key &
+     * type resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
+     */
+    MembersInjectionBinding forInjectedType(DeclaredType type, Optional<TypeMirror> resolvedType) {
+      boolean isResolved = false;
+      // If the class this is injecting has some type arguments, resolve everything.
+      if (!type.getTypeArguments().isEmpty() && resolvedType.isPresent()) {
+        DeclaredType resolved = MoreTypes.asDeclared(resolvedType.get());
+        // Validate that we're resolving from the correct type.
+        checkState(types.isSameType(types.erasure(resolved), types.erasure(type)),
+            "erased expected type: %s, erased actual type: %s",
+            types.erasure(resolved), types.erasure(type));
+        type = resolved;
+        isResolved = true;
+      }
+      
+      TypeElement typeElement = MoreElements.asType(type.asElement());
+      final DeclaredType resolved = type;
       ImmutableSortedSet.Builder<InjectionSite> injectionSitesBuilder =
           ImmutableSortedSet.orderedBy(INJECTION_ORDERING);
       for (Element enclosedElement : typeElement.getEnclosedElements()) {
@@ -135,14 +172,14 @@ abstract class MembersInjectionBinding extends Binding {
                   public Optional<InjectionSite> visitExecutableAsMethod(ExecutableElement e,
                       Void p) {
                     return isAnnotationPresent(e, Inject.class)
-                        ? Optional.of(injectionSiteForInjectMethod(e))
+                        ? Optional.of(injectionSiteForInjectMethod(e, resolved))
                         : Optional.<InjectionSite>absent();
                   }
 
                   @Override
                   public Optional<InjectionSite> visitVariableAsField(VariableElement e, Void p) {
                     return isAnnotationPresent(e, Inject.class)
-                        ? Optional.of(injectionSiteForInjectField(e))
+                        ? Optional.of(injectionSiteForInjectField(e, resolved))
                         : Optional.<InjectionSite>absent();
                   }
                 }, null).asSet());
@@ -157,15 +194,17 @@ abstract class MembersInjectionBinding extends Binding {
           })
           .toSet();
 
-      Optional<DependencyRequest> parentInjectorRequest = nonObjectSupertype(typeElement)
-          .transform(new Function<TypeElement, DependencyRequest>() {
-            @Override public DependencyRequest apply(TypeElement input) {
-              return dependencyRequestFactory.forMembersInjectedType(input);
-            }
-          });
+      Optional<DependencyRequest> parentInjectorRequest =
+          MoreTypes.nonObjectSuperclass(types, elements, type)
+              .transform(new Function<DeclaredType, DependencyRequest>() {
+                @Override public DependencyRequest apply(DeclaredType input) {
+                  return dependencyRequestFactory.forMembersInjectedType(input);
+                }
+              });
 
-      Key key = keyFactory.forMembersInjectedType(typeElement.asType());
+      Key key = keyFactory.forMembersInjectedType(type);
       return new AutoValue_MembersInjectionBinding(
+          isResolved,
           key,
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
@@ -176,16 +215,6 @@ abstract class MembersInjectionBinding extends Binding {
           typeElement,
           injectionSites,
           parentInjectorRequest);
-    }
-
-    private Optional<TypeElement> nonObjectSupertype(TypeElement type) {
-      TypeMirror superclass = type.getSuperclass();
-      boolean nonObjectSuperclass = !superclass.getKind().equals(NONE)
-          && !types.isSameType(
-              elements.getTypeElement(Object.class.getCanonicalName()).asType(), superclass);
-      return nonObjectSuperclass
-          ? Optional.of(MoreElements.asType(types.asElement(superclass)))
-          : Optional.<TypeElement>absent();
     }
   }
 }

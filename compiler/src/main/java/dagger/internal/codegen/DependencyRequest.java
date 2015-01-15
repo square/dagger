@@ -15,6 +15,11 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -32,14 +37,10 @@ import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-
-import static com.google.auto.common.MoreTypes.isTypeOf;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Represents a request for a key at an injection point. Parameters to {@link Inject} constructors
@@ -77,6 +78,16 @@ abstract class DependencyRequest {
       this.keyFactory = keyFactory;
     }
 
+    ImmutableSet<DependencyRequest> forRequiredResolvedVariables(
+        List<? extends VariableElement> variables, List<? extends TypeMirror> resolvedTypes) {
+      checkState(resolvedTypes.size() == variables.size());
+      ImmutableSet.Builder<DependencyRequest> builder = ImmutableSet.builder();
+      for (int i = 0; i < variables.size(); i++) {
+         builder.add(forRequiredResolvedVariable(variables.get(i), resolvedTypes.get(i)));
+      }
+      return builder.build();
+    }
+
     ImmutableSet<DependencyRequest> forRequiredVariables(
         List<? extends VariableElement> variables) {
       return FluentIterable.from(variables)
@@ -106,6 +117,14 @@ abstract class DependencyRequest {
       return newDependencyRequest(variableElement, type, qualifier);
     }
 
+    DependencyRequest forRequiredResolvedVariable(VariableElement variableElement,
+        TypeMirror resolvedType) {
+      checkNotNull(variableElement);
+      checkNotNull(resolvedType);
+      Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
+      return newDependencyRequest(variableElement, resolvedType, qualifier);
+    }
+
     DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod) {
       checkNotNull(provisionMethod);
       checkArgument(provisionMethod.getParameters().isEmpty(),
@@ -126,46 +145,57 @@ abstract class DependencyRequest {
           membersInjectionMethod);
     }
 
-    DependencyRequest forMembersInjectedType(TypeElement type) {
+    DependencyRequest forMembersInjectedType(DeclaredType type) {
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-          keyFactory.forMembersInjectedType(type.asType()),
-          type);
+          keyFactory.forMembersInjectedType(type),
+          type.asElement());
     }
 
     private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,
         Optional<AnnotationMirror> qualifier) {
-      if (isTypeOf(Provider.class, type)) {
-        return new AutoValue_DependencyRequest(Kind.PROVIDER,
-            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
-            requestElement);
-      } else if (isTypeOf(Lazy.class, type)) {
-        return new AutoValue_DependencyRequest(Kind.LAZY,
-            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
-            requestElement);
-      } else if (isTypeOf(MembersInjector.class, type)) {
+      KindAndType kindAndType = extractKindAndType(type);
+      if (kindAndType.kind() == Kind.MEMBERS_INJECTOR) {
         checkArgument(!qualifier.isPresent());
-        return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
-            requestElement);
-      } else if (isTypeOf(Producer.class, type)) {
-        return new AutoValue_DependencyRequest(Kind.PRODUCER,
-            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
-            requestElement);
-      } else if (isTypeOf(Produced.class, type)) {
-        return new AutoValue_DependencyRequest(Kind.PRODUCED,
-            qualifiedTypeForParameter(qualifier, (DeclaredType) type),
-            requestElement);
-      } else {
-        return new AutoValue_DependencyRequest(Kind.INSTANCE,
-            keyFactory.forQualifiedType(qualifier, type),
-            requestElement);
       }
+      return new AutoValue_DependencyRequest(kindAndType.kind(),
+            keyFactory.forQualifiedType(qualifier, kindAndType.type()),
+            requestElement);
     }
-
-    private Key qualifiedTypeForParameter(
-        Optional<AnnotationMirror> qualifier, DeclaredType type) {
-      return keyFactory.forQualifiedType(qualifier,
-          Iterables.getOnlyElement(type.getTypeArguments()));
+    
+    @AutoValue
+    static abstract class KindAndType {
+      abstract Kind kind();
+      abstract TypeMirror type();
+    }
+    
+    /**
+     * Extracts the correct requesting type & kind out a request type. For example, if a user
+     * requests Provider<Foo>, this will return Kind.PROVIDER with "Foo".
+     */
+    static KindAndType extractKindAndType(TypeMirror type) {
+      // We must check TYPEVAR explicitly before the below checks because calling
+      // isTypeOf(..) on a TYPEVAR throws an exception (because it can't be
+      // represented as a Class).
+      if (type.getKind().equals(TypeKind.TYPEVAR)) {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.INSTANCE, type);
+      } else if (isTypeOf(Provider.class, type)) {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.PROVIDER,
+            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+      } else if (isTypeOf(Lazy.class, type)) {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.LAZY,
+            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+      } else if (isTypeOf(MembersInjector.class, type)) {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.MEMBERS_INJECTOR,
+            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+      } else if (isTypeOf(Producer.class, type)) {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.PRODUCER,
+            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+      } else if (isTypeOf(Produced.class, type)) {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.PRODUCED,
+            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+      } else {
+        return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.INSTANCE, type);
+      }
     }
   }
 }

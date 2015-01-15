@@ -15,6 +15,10 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.truth.Truth.assertThat;
+import static dagger.Provides.Type.SET;
+import static dagger.Provides.Type.SET_VALUES;
+
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
@@ -42,10 +46,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assertThat;
-import static dagger.Provides.Type.SET;
-import static dagger.Provides.Type.SET_VALUES;
-
 /**
  * Tests {@link Key}.
  */
@@ -63,12 +63,13 @@ public class KeyTest {
     this.keyFactory = new Key.Factory(types, elements);
   }
 
-  @Test public void forInjectConstructor() {
+  @Test public void forInjectConstructorWithResolvedType() {
     TypeElement typeElement =
         compilationRule.getElements().getTypeElement(InjectedClass.class.getCanonicalName());
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
-    assertThat(keyFactory.forInjectConstructor(constructor))
+    assertThat(
+        keyFactory.forInjectConstructorWithResolvedType(constructor.getEnclosingElement().asType()))
         .isEqualTo(new AutoValue_Key(
             Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
             MoreTypes.equivalence().wrap(typeElement.asType())));

@@ -15,7 +15,15 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.parameterizedMembersInjectorNameForMembersInjectionBinding;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -24,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import dagger.MembersInjector;
 import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
 import dagger.internal.codegen.writer.ClassName;
@@ -35,21 +44,20 @@ import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
+import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.TypeVariableName;
 import dagger.internal.codegen.writer.VoidName;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Generates {@link MembersInjector} implementations from {@link MembersInjectionBinding} instances.
@@ -96,33 +104,42 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   }
 
   @Override
-  ImmutableSet<JavaWriter> write(ClassName injectorClassName, MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
+  ImmutableSet<JavaWriter> write(ClassName generatedTypeName, MembersInjectionBinding binding) {
+    // We don't want to write out resolved bindings -- we want to write out the generic version.
+    checkState(!binding.isResolved());
 
-    JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
+    TypeName injectedTypeName = TypeNames.forTypeMirror(binding.key().type());
+    JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
-    ClassWriter injectorWriter = writer.addClass(injectorClassName.simpleName());
+    ClassWriter injectorWriter = writer.addClass(generatedTypeName.simpleName());
+    List<TypeVariableName> typeParameters = Lists.newArrayList();
+    for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
+      typeParameters.add(TypeVariableName.fromTypeParameterElement(typeParameter));
+    }
+    injectorWriter.addTypeParameters(typeParameters);
     injectorWriter.annotate(Generated.class)
         .setValue(ComponentProcessor.class.getCanonicalName());
     injectorWriter.addModifiers(PUBLIC, FINAL);
-    injectorWriter.addImplementedType(
-        ParameterizedTypeName.create(MembersInjector.class, injectedClassName));
+    TypeName implementedType =
+        ParameterizedTypeName.create(MembersInjector.class, injectedTypeName);
+    injectorWriter.addImplementedType(implementedType);
 
     ConstructorWriter constructorWriter = injectorWriter.addConstructor();
     constructorWriter.addModifiers(PUBLIC);
     MethodWriter injectMembersWriter = injectorWriter.addMethod(VoidName.VOID, "injectMembers");
     injectMembersWriter.addModifiers(PUBLIC);
     injectMembersWriter.annotate(Override.class);
-    injectMembersWriter.addParameter(injectedClassName, "instance");
+    injectMembersWriter.addParameter(injectedTypeName, "instance");
     injectMembersWriter.body().addSnippet(Joiner.on('\n').join(
         "if (instance == null) {",
         "  throw new NullPointerException(\"Cannot inject members into a null reference\");",
         "}"));
 
-    Optional<TypeElement> supertype = supertype(binding.bindingElement());
+    Optional<DeclaredType> supertype =
+        MoreTypes.nonObjectSuperclass(types, elements, MoreTypes.asDeclared(binding.key().type()));
     if (supertype.isPresent()) {
       ParameterizedTypeName supertypeMemebersInjectorType = ParameterizedTypeName.create(
-          MembersInjector.class, ClassName.fromTypeElement(supertype.get()));
+          MembersInjector.class, TypeNames.forTypeMirror(supertype.get()));
       injectorWriter
           .addField(supertypeMemebersInjectorType, "supertypeInjector")
           .addModifiers(PRIVATE, FINAL);
@@ -150,6 +167,21 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       constructorWriter.body().addSnippet("this.%1$s = %1$s;", field.name());
       dependencyFieldsBuilder.put(fieldEntry.getKey(), field);
     }
+    
+    // We use a static create method so that generated components can avoid having
+    // to refer to the generic types of the factory.
+    // (Otherwise they may have visibility problems referring to the types.)
+    MethodWriter createMethodWriter = injectorWriter.addMethod(implementedType, "create");
+    createMethodWriter.addTypeParameters(typeParameters);
+    createMethodWriter.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+    Map<String, TypeName> params = constructorWriter.parameters();
+    for (Map.Entry<String, TypeName> param : params.entrySet()) {
+      createMethodWriter.addParameter(param.getValue(), param.getKey());      
+    }
+    createMethodWriter.body().addSnippet("  return new %s(%s);",
+        parameterizedMembersInjectorNameForMembersInjectionBinding(binding),
+        Joiner.on(", ").join(params.keySet()));
+    
     ImmutableMap<BindingKey, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
     for (InjectionSite injectionSite : binding.injectionSites()) {
       switch (injectionSite.kind()) {
@@ -180,14 +212,5 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       }
     }
     return ImmutableSet.of(writer);
-  }
-
-  private Optional<TypeElement> supertype(TypeElement type) {
-    TypeMirror superclass = type.getSuperclass();
-    boolean nonObjectSuperclass = !types.isSameType(
-        elements.getTypeElement(Object.class.getCanonicalName()).asType(), superclass);
-    return nonObjectSuperclass
-        ? Optional.of(MoreElements.asType(types.asElement(superclass)))
-        : Optional.<TypeElement>absent();
   }
 }

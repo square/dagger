@@ -16,7 +16,8 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor;
-import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.lang.annotation.Annotation;
@@ -25,8 +26,9 @@ import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
 /**
@@ -71,7 +73,7 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
     // TODO(gak): add some error handling for bad source files
     final ImmutableSet.Builder<ProvisionBinding> provisions = ImmutableSet.builder();
     // TODO(gak): instead, we should collect reports by type and check later
-    final ImmutableSet.Builder<TypeElement> membersInjectedTypes = ImmutableSet.builder();
+    final ImmutableSet.Builder<DeclaredType> membersInjectedTypes = ImmutableSet.builder();
 
     for (Element injectElement : elementsByAnnotation.get(Inject.class)) {
       injectElement.accept(
@@ -85,7 +87,8 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
               report.printMessagesTo(messager);
 
               if (report.isClean()) {
-                provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement));
+                provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement,
+                    Optional.<TypeMirror>absent()));
               }
 
               return null;
@@ -98,7 +101,8 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
               report.printMessagesTo(messager);
 
               if (report.isClean()) {
-                membersInjectedTypes.add(MoreElements.asType(fieldElement.getEnclosingElement()));
+                membersInjectedTypes.add(
+                    MoreTypes.asDeclared(fieldElement.getEnclosingElement().asType()));
               }
 
               return null;
@@ -113,7 +117,7 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
 
               if (report.isClean()) {
                 membersInjectedTypes.add(
-                    MoreElements.asType(methodElement.getEnclosingElement()));
+                    MoreTypes.asDeclared(methodElement.getEnclosingElement().asType()));
               }
 
               return null;
@@ -121,9 +125,9 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
           }, null);
     }
 
-    for (TypeElement injectedType : membersInjectedTypes.build()) {
-      injectBindingRegistry.registerBinding(
-          membersInjectionBindingFactory.forInjectedType(injectedType));
+    for (DeclaredType injectedType : membersInjectedTypes.build()) {
+      injectBindingRegistry.registerBinding(membersInjectionBindingFactory.forInjectedType(
+          injectedType, Optional.<TypeMirror>absent()));
     }
 
     for (ProvisionBinding binding : provisions.build()) {

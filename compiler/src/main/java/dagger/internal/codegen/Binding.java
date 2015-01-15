@@ -128,6 +128,10 @@ abstract class Binding {
           Name qualifiedName = elementPackage.getQualifiedName();
           p.add(qualifiedName.toString());
         }
+        // Also make sure enclosing types are visible, otherwise we're fooled by
+        // class Foo { public class Bar }
+        // (Note: we can't use t.getEnclosingType() because it doesn't work!)
+        typeElement.getEnclosingElement().asType().accept(this, p);
         return null;
       }
 

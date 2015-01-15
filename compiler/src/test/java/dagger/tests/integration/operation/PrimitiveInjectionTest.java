@@ -97,7 +97,7 @@ public final class PrimitiveInjectionTest {
       "  private void initialize() {",
       "    this.primitiveIntProvider = new PrimitiveModule$$PrimitiveIntFactory(primitiveModule);",
       "    this.primitiveInjectableProvider =",
-      "        new PrimitiveInjectable$$Factory(primitiveIntProvider);",
+      "        PrimitiveInjectable$$Factory.create(primitiveIntProvider);",
       "  }",
       "",
       "  @Override",

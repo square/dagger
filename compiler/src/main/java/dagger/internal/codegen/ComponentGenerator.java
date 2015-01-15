@@ -15,6 +15,25 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreTypes.asDeclared;
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static dagger.internal.codegen.Binding.bindingPackageFor;
+import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
+import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
+import static dagger.internal.codegen.ProvisionBinding.Kind.SYNTHETIC_PROVISON;
+import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.NestingKind.MEMBER;
+import static javax.lang.model.element.NestingKind.TOP_LEVEL;
+import static javax.lang.model.type.TypeKind.VOID;
+
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -50,8 +69,10 @@ import dagger.internal.codegen.writer.ConstructorWriter;
 import dagger.internal.codegen.writer.FieldWriter;
 import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
+import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.StringLiteral;
+import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.TypeWriter;
 import dagger.internal.codegen.writer.VoidName;
@@ -77,29 +98,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
-
-import static com.google.auto.common.MoreTypes.asDeclared;
-import static com.google.common.base.CaseFormat.LOWER_CAMEL;
-import static dagger.internal.codegen.Binding.bindingPackageFor;
-import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
-import static dagger.internal.codegen.DependencyRequest.Kind.MEMBERS_INJECTOR;
-import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT;
-import static dagger.internal.codegen.ProvisionBinding.Kind.COMPONENT_PROVISION;
-import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.ProvisionBinding.Kind.SYNTHETIC_PROVISON;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
-import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
-import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.element.NestingKind.MEMBER;
-import static javax.lang.model.element.NestingKind.TOP_LEVEL;
-import static javax.lang.model.type.TypeKind.VOID;
 
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
@@ -228,6 +226,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         ImmutableMap.builder();
     ImmutableMap.Builder<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder =
         ImmutableMap.builder();
+    ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder = ImmutableSet.builder();
 
     ImmutableSet.Builder<JavaWriter> proxyWriters = ImmutableSet.builder();
     Map<String, ProxyClassAndField> packageProxies = Maps.newHashMap();
@@ -243,8 +242,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
           if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
               && !provisionBinding.scope().isPresent()) {
+            enumBindingKeysBuilder.add(bindingKey);
             // skip keys whose factories are enum instances and aren't scoped
-            memberSelectSnippetsBuilder.put(bindingKey, Snippet.format("%s.INSTANCE",
+            memberSelectSnippetsBuilder.put(bindingKey, Snippet.format("%s.create()",
                     factoryNameForProvisionBinding(provisionBinding)));
             continue;
           }
@@ -344,6 +344,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     ImmutableMap<BindingKey, Snippet> memberSelectSnippets = memberSelectSnippetsBuilder.build();
     ImmutableMap<ContributionBinding, Snippet> multibindingContributionSnippets =
         multibindingContributionSnippetsBuilder.build();
+    ImmutableSet<BindingKey> enumBindingKeys = enumBindingKeysBuilder.build();
 
     List<List<BindingKey>> partitions = Lists.partition(
         input.resolvedBindings().keySet().asList(), 100);
@@ -442,21 +443,44 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             interfaceMethod.annotate(Override.class);
             interfaceMethod.addModifiers(PUBLIC);
             BindingKey bindingKey = BindingKey.forDependencyRequest(interfaceRequest);
-            if (interfaceRequest.kind().equals(MEMBERS_INJECTOR)) {
-              Snippet membersInjectorName = memberSelectSnippets.get(bindingKey);
-              VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
-              Name parameterName = parameter.getSimpleName();
-              interfaceMethod.addParameter(
-                  TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
-              interfaceMethod.body()
-                  .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
-              if (!requestElement.getReturnType().getKind().equals(VOID)) {
-                interfaceMethod.body().addSnippet("return %s;", parameterName);
-              }
-            } else {
-              interfaceMethod.body().addSnippet("return %s;",
-                  frameworkTypeUsageStatement(memberSelectSnippets.get(bindingKey),
-                      interfaceRequest.kind()));
+            switch(interfaceRequest.kind()) {
+              case MEMBERS_INJECTOR:
+                Snippet membersInjectorName = memberSelectSnippets.get(bindingKey);
+                VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
+                Name parameterName = parameter.getSimpleName();
+                interfaceMethod.addParameter(
+                    TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
+                interfaceMethod.body()
+                    .addSnippet("%s.injectMembers(%s);", membersInjectorName, parameterName);
+                if (!requestElement.getReturnType().getKind().equals(VOID)) {
+                  interfaceMethod.body().addSnippet("return %s;", parameterName);
+                }
+                break;
+              case INSTANCE:
+                if (enumBindingKeys.contains(bindingKey)
+                    && !MoreTypes.asDeclared(bindingKey.key().type())
+                            .getTypeArguments().isEmpty()) {
+                  // If using a parameterized enum type, then we need to store the factory
+                  // in a temporary variable, in order to help javac be able to infer
+                  // the generics of the Factory.create methods.
+                  TypeName factoryType = ParameterizedTypeName.create(Provider.class,
+                      TypeNames.forTypeMirror(requestElement.getReturnType()));
+                  interfaceMethod.body().addSnippet("%s factory = %s;", factoryType,
+                      memberSelectSnippets.get(bindingKey));
+                  interfaceMethod.body().addSnippet("return factory.get();");
+                  break;
+                }
+                // fall through in the else case.
+              case LAZY:
+              case PRODUCED:
+              case PRODUCER:
+              case PROVIDER:
+                interfaceMethod.body().addSnippet("return %s;",
+                    frameworkTypeUsageStatement(memberSelectSnippets.get(bindingKey),
+                        interfaceRequest.kind()));
+                break;
+              default:
+                throw new AssertionError();
             }
       }
     }
@@ -559,12 +583,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
       Map<TypeElement, FieldWriter> contributionFields,
       ImmutableMap<BindingKey, Snippet> memberSelectSnippets) {
-    if (binding.bindingKind().equals(COMPONENT)) {
-      return Snippet.format("%s.<%s>create(this)",
-          ClassName.fromClass(InstanceFactory.class),
-          TypeNames.forTypeMirror(binding.key().type()));
-    } else if (binding.bindingKind().equals(COMPONENT_PROVISION)) {
-      return Snippet.format(Joiner.on('\n').join(
+    switch(binding.bindingKind()) {
+      case COMPONENT:
+        return Snippet.format("%s.<%s>create(this)",
+            ClassName.fromClass(InstanceFactory.class),
+            TypeNames.forTypeMirror(binding.key().type()));
+      case COMPONENT_PROVISION:
+        return Snippet.format(Joiner.on('\n').join(
           "new %s<%2$s>() {",
           "  @Override public %2$s get() {",
           "    return %3$s.%4$s();",
@@ -574,33 +599,44 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           TypeNames.forTypeMirror(binding.key().type()),
           contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
           binding.bindingElement().getSimpleName().toString());
-    } else {
-      if (binding.bindingKind().equals(INJECTION) && binding.implicitDependencies().isEmpty()) {
-        return binding.scope().isPresent()
-            ? Snippet.format("%s.create(%s.INSTANCE)",
-                ClassName.fromClass(ScopedProvider.class),
-                factoryNameForProvisionBinding(binding))
-            : Snippet.format("%s.INSTANCE",
-                factoryNameForProvisionBinding(binding));
-      }
-      List<Snippet> parameters = Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-      if (binding.bindingKind().equals(PROVISION)) {
-        parameters.add(Snippet.format(contributionFields.get(binding.bindingTypeElement()).name()));
-      }
-      if (binding.memberInjectionRequest().isPresent()) {
-        parameters.add(memberSelectSnippets.get(BindingKey.forDependencyRequest(
-            binding.memberInjectionRequest().get())));
-      }
-      parameters.addAll(getDependencyParameters(binding.dependencies(), memberSelectSnippets));
+      case INJECTION:
+      case PROVISION:
+        List<Snippet> parameters =
+            Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
+        if (binding.bindingKind().equals(PROVISION)) {
+          parameters.add(
+              Snippet.format(contributionFields.get(binding.bindingTypeElement()).name()));
+        }
+        if (binding.memberInjectionRequest().isPresent()) {
+          parameters.add(memberSelectSnippets.get(
+              BindingKey.forDependencyRequest(binding.memberInjectionRequest().get())));
+        }
+        parameters.addAll(getDependencyParameters(binding.dependencies(), memberSelectSnippets));
 
-      return binding.scope().isPresent()
-          ? Snippet.format("%s.create(new %s(%s))",
-              ClassName.fromClass(ScopedProvider.class),
-              factoryNameForProvisionBinding(binding),
-              Snippet.makeParametersSnippet(parameters))
-          : Snippet.format("new %s(%s)",
-              factoryNameForProvisionBinding(binding),
-              Snippet.makeParametersSnippet(parameters));
+        if (binding.bindingKind().equals(PROVISION)) {
+          // Factories from @Provides methods don't have .create() methods.
+          return binding.scope().isPresent()
+              ? Snippet.format("%s.create(new %s(%s))",
+                  ClassName.fromClass(ScopedProvider.class),
+                  factoryNameForProvisionBinding(binding),
+                  Snippet.makeParametersSnippet(parameters))
+              : Snippet.format("new %s(%s)",
+                  factoryNameForProvisionBinding(binding),
+                  Snippet.makeParametersSnippet(parameters));
+        } else {
+          // Factories from @Inject classes have .create() methods.
+          return binding.scope().isPresent()
+              ? Snippet.format("%s.create(%s.create(%s))",
+                  ClassName.fromClass(ScopedProvider.class),
+                  factoryNameForProvisionBinding(binding),
+                  Snippet.makeParametersSnippet(parameters))
+              : Snippet.format("%s.create(%s)",
+                  factoryNameForProvisionBinding(binding),
+                  Snippet.makeParametersSnippet(parameters));
+        }
+
+      default:
+        throw new AssertionError();
     }
   }
 
@@ -621,7 +657,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       List<Snippet> parameters = getDependencyParameters(
           Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
           memberSelectSnippets);
-      return Snippet.format("new %s(%s)",
+      return Snippet.format("%s.create(%s)",
           membersInjectorNameForMembersInjectionBinding(binding),
           Snippet.makeParametersSnippet(parameters));
     }
@@ -631,8 +667,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       Iterable<DependencyRequest> dependencies,
       ImmutableMap<BindingKey, Snippet> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-    for (BindingKey dependencyKey : SourceFiles.indexDependenciesByKey(dependencies).keySet()) {
-      parameters.add(memberSelectSnippets.get(dependencyKey));
+    for (BindingKey keys : SourceFiles.indexDependenciesByUnresolvedKey(dependencies).values()) {
+      parameters.add(memberSelectSnippets.get(keys));
     }
     return parameters.build();
   }

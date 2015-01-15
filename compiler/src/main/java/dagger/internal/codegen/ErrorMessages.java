@@ -68,9 +68,6 @@ final class ErrorMessages {
       "Dagger does not support injection into private constructors";
   static final String INJECT_CONSTRUCTOR_ON_INNER_CLASS =
       "@Inject constructors are invalid on inner classes";
-  static final String INJECT_CONSTRUCTOR_ON_GENERIC_CLASS =
-      "Generic types may not use @Inject constructors. "
-          + "Use a @Provides method to bind the type parameters.";
   static final String INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS =
       "@Inject is nonsense on the constructor of an abstract class";
     static final String QUALIFIER_ON_INJECT_CONSTRUCTOR =

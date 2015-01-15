@@ -15,8 +15,9 @@
  */
 package dagger.internal.codegen;
 
+import static javax.tools.Diagnostic.Kind.ERROR;
+
 import com.google.auto.common.BasicAnnotationProcessor;
-import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -34,8 +35,6 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0

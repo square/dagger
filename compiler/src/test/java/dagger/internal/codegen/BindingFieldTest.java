@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
 import dagger.MembersInjector;
@@ -34,8 +36,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Test case for {@link FrameworkField}.
@@ -61,7 +61,8 @@ public class BindingFieldTest {
   }
 
   @Test public void frameworkType() {
-    Key key = keyFactory.forInjectConstructor(getXConstructor());
+    Key key = keyFactory.forInjectConstructorWithResolvedType(
+        getXConstructor().getEnclosingElement().asType());
     TypeName xClass = TypeNames.forTypeMirror(key.type());
     assertThat(FrameworkField.createWithTypeFromKey(Provider.class,
             BindingKey.create(BindingKey.Kind.CONTRIBUTION, key), "test")
@@ -76,7 +77,8 @@ public class BindingFieldTest {
   }
 
   @Test public void nameSuffix() {
-    Key key = keyFactory.forInjectConstructor(getXConstructor());
+    Key key = keyFactory.forInjectConstructorWithResolvedType(
+        getXConstructor().getEnclosingElement().asType());
     assertThat(FrameworkField.createWithTypeFromKey(Provider.class,
             BindingKey.create(BindingKey.Kind.CONTRIBUTION, key), "foo").name())
         .isEqualTo("fooProvider");

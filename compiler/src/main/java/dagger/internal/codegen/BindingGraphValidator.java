@@ -1,4 +1,29 @@
+/*
+ * Copyright (C) 2015 Google, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ErrorMessages.INDENT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
@@ -28,26 +53,12 @@ import java.util.LinkedList;
 import java.util.Set;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.auto.common.MoreTypes.isTypeOf;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.ErrorMessages.INDENT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
 public class BindingGraphValidator implements Validator<BindingGraph> {
 
@@ -74,8 +85,6 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     validateDependencyScopes(subject, reportBuilder);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
-      ResolvedBindings resolvedBinding = resolvedBindings.get(
-          BindingKey.forDependencyRequest(entryPoint));
       LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
       requestPath.push(entryPoint);
       traversalHelper(subject, requestPath, new Traverser() {
@@ -368,23 +377,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       Deque<DependencyRequest> requestPath, ValidationReport.Builder<BindingGraph> reportBuilder) {
     Key key = requestPath.peek().key();
     TypeMirror type = key.type();
+    // TODO(sameb): This excludes type variables from the error message right now.
     Name typeName = MoreElements.asType(types.asElement(type)).getQualifiedName();
-    boolean requiresProvidesMethod = type.accept(new SimpleTypeVisitor6<Boolean, Void>() {
-      @Override protected Boolean defaultAction(TypeMirror e, Void p) {
-        return true;
-      }
-
-      @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
-        // Note - this logic is also in InjectConstructorValidator but is woven into errors.
-        TypeElement typeElement = MoreElements.asType(type.asElement());
-        if (typeElement.getTypeParameters().isEmpty()
-            && typeElement.getKind().equals(ElementKind.CLASS)
-            && !typeElement.getModifiers().contains(Modifier.ABSTRACT)) {
-          return false;
-        }
-        return true;
-      }
-    }, null);
+    boolean requiresProvidesMethod = !key.isValidImplicitProvisionKey(types);
     StringBuilder errorMessage = new StringBuilder();
     if (requiresProvidesMethod) {
       errorMessage.append(String.format(REQUIRES_PROVIDER_FORMAT, typeName));
