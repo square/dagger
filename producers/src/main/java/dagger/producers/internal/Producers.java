@@ -22,11 +22,15 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import dagger.producers.Produced;
+import dagger.producers.Producer;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import javax.inject.Provider;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Utility methods for use in generated producer code.
@@ -101,6 +105,19 @@ public final class Producers {
     ListenableFutureTask<T> future = ListenableFutureTask.create(callable);
     executor.execute(future);
     return future;
+  }
+
+  /**
+   * Returns a producer that immediately executes the binding logic for the given provider every
+   * time it is called.
+   */
+  public static <T> Producer<T> producerFromProvider(final Provider<T> provider) {
+    checkNotNull(provider);
+    return new AbstractProducer<T>() {
+      @Override protected ListenableFuture<T> compute() {
+        return Futures.immediateFuture(provider.get());
+      }
+    };
   }
 
   private Producers() {}

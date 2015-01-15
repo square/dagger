@@ -42,6 +42,7 @@ import dagger.internal.codegen.writer.TypeNames;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Produces;
+import dagger.producers.internal.AbstractProducer;
 import dagger.producers.internal.Producers;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -56,6 +57,7 @@ import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PROTECTED;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
@@ -118,12 +120,12 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     factoryWriter.addModifiers(PUBLIC);
     factoryWriter.addModifiers(FINAL);
-    factoryWriter.addImplementedType(
-        ParameterizedTypeName.create(Producer.class, providedTypeName));
+    factoryWriter.setSuperType(
+        ParameterizedTypeName.create(AbstractProducer.class, providedTypeName));
 
-    MethodWriter getMethodWriter = factoryWriter.addMethod(futureTypeName, "get");
+    MethodWriter getMethodWriter = factoryWriter.addMethod(futureTypeName, "compute");
     getMethodWriter.annotate(Override.class);
-    getMethodWriter.addModifiers(PUBLIC);
+    getMethodWriter.addModifiers(PROTECTED);
 
     final ImmutableMap<BindingKey, FrameworkField> fields =
         SourceFiles.generateBindingFieldsForDependencies(

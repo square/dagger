@@ -20,10 +20,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import dagger.producers.Produced;
+import dagger.producers.Producer;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import javax.inject.Provider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -104,5 +106,18 @@ public class ProducersTest {
     }, MoreExecutors.directExecutor());
     assertThat(future.isDone()).isTrue();
     assertThat(future.get()).isEqualTo(42);
+  }
+
+  @Test public void producerFromProvider() throws Exception {
+    Producer<Integer> producer = Producers.producerFromProvider(new Provider<Integer>() {
+      int i = 0;
+
+      @Override public Integer get() {
+        return i++;
+      }
+    });
+    assertThat(producer.get().get()).isEqualTo(0);
+    assertThat(producer.get().get()).isEqualTo(0);
+    assertThat(producer.get().get()).isEqualTo(0);
   }
 }
