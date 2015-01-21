@@ -35,6 +35,7 @@ import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.ValidationReport.Builder;
+import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Formatter;
@@ -44,7 +45,6 @@ import java.util.Set;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
@@ -377,8 +377,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       Deque<DependencyRequest> requestPath, ValidationReport.Builder<BindingGraph> reportBuilder) {
     Key key = requestPath.peek().key();
     TypeMirror type = key.type();
-    // TODO(sameb): This excludes type variables from the error message right now.
-    Name typeName = MoreElements.asType(types.asElement(type)).getQualifiedName();
+    String typeName = TypeNames.forTypeMirror(type).toString();
     boolean requiresProvidesMethod = !key.isValidImplicitProvisionKey(types);
     StringBuilder errorMessage = new StringBuilder();
     if (requiresProvidesMethod) {

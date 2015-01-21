@@ -1549,7 +1549,8 @@ public class ComponentProcessorTest {
     assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining("test.B cannot be provided without an @Provides-annotated method");
+        .withErrorContaining(
+            "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
   
   @Test public void arrayGenericsRequiresAtProvides() {
@@ -1594,7 +1595,8 @@ public class ComponentProcessorTest {
     assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining("test.B cannot be provided without an @Provides-annotated method");
+        .withErrorContaining("test.B<java.lang.Object[]> cannot be provided without"
+            + " an @Provides-annotated method");
   }
   
   @Test public void rawTypeGenericsRequiresAtProvides() {
