@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import dagger.Module;
 import dagger.Provides;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -44,18 +45,18 @@ class BoundedGenericModule {
 
   @Provides
   LinkedList<String> provideLinkedListString() {
-    return Lists.newLinkedList("linkedListOfString");
+    return BoundedGenericModule.newLinkedList("linkedListOfString");
   }
 
   @Provides
   LinkedList<CharSequence> provideLinkedListCharSeq() {
-    return Lists.<CharSequence>newLinkedList("linkedListOfCharSeq");
+    return BoundedGenericModule.<CharSequence>newLinkedList("linkedListOfCharSeq");
   }
 
   @Provides
   @SuppressWarnings("unchecked")
   LinkedList<Comparable<String>> provideArrayListOfComparableString() {
-    return Lists.<Comparable<String>>newLinkedList("arrayListOfComparableOfString");
+    return BoundedGenericModule.<Comparable<String>>newLinkedList("arrayListOfComparableOfString");
   }
 
   @Provides
@@ -66,5 +67,11 @@ class BoundedGenericModule {
   @Provides
   Set<Double> provideSetOfDouble() {
     return Sets.newHashSet(4d);
+  }
+
+  private static <E> LinkedList<E> newLinkedList(E... elements) {
+    LinkedList<E> list = Lists.newLinkedList();
+    Collections.addAll(list, elements);
+    return list;
   }
 }
