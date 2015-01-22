@@ -30,13 +30,13 @@ import javax.lang.model.util.ElementFilter;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS;
-import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_GENERIC_CLASS;
 import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_INNER_CLASS;
 import static dagger.internal.codegen.ErrorMessages.INJECT_INTO_PRIVATE_CLASS;
 import static dagger.internal.codegen.ErrorMessages.INJECT_ON_PRIVATE_CONSTRUCTOR;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_INJECT_CONSTRUCTORS;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
+import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static dagger.internal.codegen.InjectionAnnotations.getScopes;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -58,6 +58,10 @@ final class InjectConstructorValidator implements Validator<ExecutableElement> {
       builder.addItem(INJECT_ON_PRIVATE_CONSTRUCTOR, constructorElement);
     }
 
+    for (AnnotationMirror qualifier : getQualifiers(constructorElement)) {
+      builder.addItem(QUALIFIER_ON_INJECT_CONSTRUCTOR, constructorElement, qualifier);
+    }
+
     for (VariableElement parameter : constructorElement.getParameters()) {
       ImmutableSet<? extends AnnotationMirror> qualifiers = getQualifiers(parameter);
       if (qualifiers.size() > 1) {
@@ -77,10 +81,6 @@ final class InjectConstructorValidator implements Validator<ExecutableElement> {
 
     if (typeModifiers.contains(ABSTRACT)) {
       builder.addItem(INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS, constructorElement);
-    }
-
-    if (!enclosingElement.getTypeParameters().isEmpty()) {
-      builder.addItem(INJECT_CONSTRUCTOR_ON_GENERIC_CLASS, constructorElement);
     }
 
     if (enclosingElement.getNestingKind().isNested()

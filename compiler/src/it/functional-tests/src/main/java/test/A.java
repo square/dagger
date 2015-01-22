@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Google, Inc.
+ * Copyright (C) 2015 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package test;
 
-import java.util.Set;
-import javax.annotation.processing.RoundEnvironment;
-import javax.lang.model.element.TypeElement;
+import javax.inject.Inject;
 
-/**
- * This represents work to be done in an annotation processor that must run with other steps due to
- * shared state between them or a particular execution order.
- *
- * @author Gregory Kick
- * @since 2.0
- */
-interface ProcessingStep {
-  boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv);
+class A {
+  @Inject A() {}
 }

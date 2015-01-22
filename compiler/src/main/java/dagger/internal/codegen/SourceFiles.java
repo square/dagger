@@ -20,19 +20,25 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import dagger.internal.DoubleCheckLazy;
+import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.TypeName;
+import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Utilities for generating files.
@@ -59,47 +65,97 @@ class SourceFiles {
     }
   };
 
-  static ImmutableSetMultimap<Key, DependencyRequest> indexDependenciesByKey(
+  /**
+   * A variant of {@link #indexDependenciesByKey} that maps from unresolved keys
+   * to resolved keys.  This is used when generating component's initialize()
+   * methods (and in members injectors) in order to instantiate dependent
+   * providers.  Consider a generic type of {@code Foo<T>} with a constructor
+   * of {@code Foo(T t, T t1, A a, A a1)}.  That will be collapsed to a factory
+   * taking a {@code Provider<T> tProvider, Provider<A> aProvider}. However,
+   * if it was referenced as {@code Foo<A>}, we need to make sure we still
+   * pass two providers.  Naively (if we just referenced by resolved BindingKey),
+   * we would have passed a single {@code aProvider}.
+   */
+  static ImmutableMap<BindingKey, BindingKey> indexDependenciesByUnresolvedKey(
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<Key, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<Key, DependencyRequest>().orderValuesBy(
+    // We expect some duplicates while building, so not using ImmutableMap
+    Map<BindingKey, BindingKey> map = Maps.newLinkedHashMap();
+    for (DependencyRequest dependency : dependencies) {
+      BindingKey resolved = BindingKey.forDependencyRequest(dependency);
+      // To get the proper unresolved type, we have to extract the proper type from the
+      // request type again (because we're looking at the actual element's type).
+      TypeMirror unresolvedType =
+          DependencyRequest.Factory.extractKindAndType(dependency.requestElement().asType()).type();
+      BindingKey unresolved =
+          BindingKey.create(resolved.kind(), resolved.key().withType(unresolvedType));
+      BindingKey existingEntry = map.get(unresolved);
+      if (existingEntry == null) {
+        map.put(unresolved, resolved);
+      } else {
+        // If the entry exists in the map, it *must* be with the same resolved
+        // value.  Otherwise we have an unresolved key mapping to two different
+        // resolved keys!
+        checkState(existingEntry.equals(resolved));
+      }
+    }
+    return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * Allows dependency requests to be grouped by the key they're requesting.
+   * This is used by factory generation in order to minimize the number of parameters
+   * required in the case where a given key is requested more than once.  This expects
+   * unresolved dependency requests, otherwise we may generate factories based on
+   * a particular usage of a class as opposed to the generic types of the class.
+   */
+  static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByKey(
+      Iterable<? extends DependencyRequest> dependencies) {
+    ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
             DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(dependency.key(), dependency);
+      dependenciesByKeyBuilder.put(
+          BindingKey.forDependencyRequest(dependency), dependency);
     }
     return dependenciesByKeyBuilder.build();
   }
 
   /**
-   * This method generates names for the {@link Provider} references necessary for all of the
+   * This method generates names and keys for the framework classes necessary for all of the
    * bindings. It is responsible for the following:
    * <ul>
-   * <li>Choosing a name that associates the provider with all of the dependency requests for this
+   * <li>Choosing a name that associates the binding with all of the dependency requests for this
    * type.
-   * <li>Choosing a name that is <i>probably</i> associated with the type being provided.
-   * <li>Ensuring that no two providers end up with the same name.
+   * <li>Choosing a name that is <i>probably</i> associated with the type being bound.
+   * <li>Ensuring that no two bindings end up with the same name.
    * </ul>
    *
-   * @return Returns the mapping from {@link Key} to provider name sorted by the name of the
-   *         provider.
+   * @return Returns the mapping from {@link BindingKey} to field, sorted by the name of the field.
    */
-  static ImmutableMap<Key, String> generateFrameworkReferenceNamesForDependencies(
+  static ImmutableMap<BindingKey, FrameworkField> generateBindingFieldsForDependencies(
+      DependencyRequestMapper dependencyRequestMapper,
       Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap<Key, DependencyRequest> dependenciesByKey =
+    ImmutableSetMultimap<BindingKey, DependencyRequest> dependenciesByKey =
         indexDependenciesByKey(dependencies);
-    Map<Key, Collection<DependencyRequest>> dependenciesByKeyMap = dependenciesByKey.asMap();
-    ImmutableMap.Builder<Key, String> providerNames = ImmutableMap.builder();
-    for (Entry<Key, Collection<DependencyRequest>> entry : dependenciesByKeyMap.entrySet()) {
+    Map<BindingKey, Collection<DependencyRequest>> dependenciesByKeyMap =
+        dependenciesByKey.asMap();
+    ImmutableMap.Builder<BindingKey, FrameworkField> bindingFields = ImmutableMap.builder();
+    for (Entry<BindingKey, Collection<DependencyRequest>> entry
+        : dependenciesByKeyMap.entrySet()) {
+      BindingKey bindingKey = entry.getKey();
+      Collection<DependencyRequest> requests = entry.getValue();
+      Class<?> frameworkClass =
+          dependencyRequestMapper.getFrameworkClass(requests.iterator().next());
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames =
-          FluentIterable.from(entry.getValue()).transform(new DependencyVariableNamer()).toSet();
+          FluentIterable.from(requests).transform(new DependencyVariableNamer()).toSet();
 
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        providerNames.put(entry.getKey(), name.endsWith("Provider") ? name : name + "Provider");
+        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey, name));
       } else {
-        // in the event that a provider is being used for a bunch of deps with different names,
+        // in the event that a field is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
         Iterator<String> namesIterator = dependencyNames.iterator();
         String first = namesIterator.next();
@@ -108,10 +164,11 @@ class SourceFiles {
           compositeNameBuilder.append("And").append(
               CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        providerNames.put(entry.getKey(), compositeNameBuilder.append("Provider").toString());
+        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(
+            frameworkClass, bindingKey, compositeNameBuilder.toString()));
       }
     }
-    return providerNames.build();
+    return bindingFields.build();
   }
 
   static Snippet frameworkTypeUsageStatement(Snippet frameworkTypeMemberSelect,
@@ -123,6 +180,7 @@ class SourceFiles {
       case INSTANCE:
         return Snippet.format("%s.get()", frameworkTypeMemberSelect);
       case PROVIDER:
+      case PRODUCER:
       case MEMBERS_INJECTOR:
         return Snippet.format("%s", frameworkTypeMemberSelect);
       default:
@@ -138,9 +196,59 @@ class SourceFiles {
       case PROVISION:
         return enclosingClassName.topLevelClassName().peerNamed(
             enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
+      case SYNTHETIC_PROVISON:
+        throw new IllegalArgumentException();
       default:
         throw new AssertionError();
     }
+  }
+
+  /**
+   * Returns the factory name parameterized with the ProvisionBinding's parameters (if necessary).
+   */
+  static TypeName parameterizedFactoryNameForProvisionBinding(
+      ProvisionBinding binding) {
+    ClassName factoryName = factoryNameForProvisionBinding(binding);
+    // Only parameterize injection unique bindings.
+    // Other kinds generate unique factories that have no type parameters.
+    if (binding.bindingType() == BindingType.UNIQUE
+        && binding.bindingKind() == ProvisionBinding.Kind.INJECTION) {
+      TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
+      // If the binding is parameterized, parameterize the factory.
+      if (bindingName instanceof ParameterizedTypeName) {
+        return ParameterizedTypeName.create(factoryName,
+            ((ParameterizedTypeName) bindingName).parameters());
+      }
+    }
+    return factoryName;
+  }
+
+  static ClassName factoryNameForProductionBinding(ProductionBinding binding) {
+    TypeElement enclosingTypeElement = binding.bindingTypeElement();
+    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
+    switch (binding.bindingKind()) {
+      case IMMEDIATE:
+      case FUTURE_PRODUCTION:
+        return enclosingClassName.topLevelClassName().peerNamed(
+            enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
+      default:
+        throw new AssertionError();
+    }
+  }
+  
+  /**
+   * Returns the members injector's name parameterized with the binding's parameters (if necessary).
+   */
+  static TypeName parameterizedMembersInjectorNameForMembersInjectionBinding(
+      MembersInjectionBinding binding) {
+    ClassName factoryName = membersInjectorNameForMembersInjectionBinding(binding);
+    TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
+    // If the binding is parameterized, parameterize the MembersInjector.
+    if (bindingName instanceof ParameterizedTypeName) {
+      return ParameterizedTypeName.create(factoryName,
+          ((ParameterizedTypeName) bindingName).parameters());
+    }
+    return factoryName;
   }
 
   static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
@@ -154,6 +262,17 @@ class SourceFiles {
       case INJECTION:
         return "";
       case PROVISION:
+        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
+            ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
+      default:
+        throw new IllegalArgumentException();
+    }
+  }
+
+  private static String factoryPrefix(ProductionBinding binding) {
+    switch (binding.bindingKind()) {
+      case IMMEDIATE:
+      case FUTURE_PRODUCTION:
         return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
             ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
       default:

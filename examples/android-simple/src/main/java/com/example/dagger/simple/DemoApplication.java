@@ -25,8 +25,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 public class DemoApplication extends Application {
+  
   @Singleton
-  @Component(modules = AndroidModule.class) interface ApplicationComponent {
+  @Component(modules = AndroidModule.class)
+  public interface ApplicationComponent {
     void inject(DemoApplication application);
     void inject(HomeActivity homeActivity);
     void inject(DemoActivity demoActivity);
@@ -38,7 +40,7 @@ public class DemoApplication extends Application {
 
   @Override public void onCreate() {
     super.onCreate();
-    component = Dagger_DemoApplication$ApplicationComponent.builder()
+    component = Dagger_DemoApplication_ApplicationComponent.builder()
         .androidModule(new AndroidModule(this))
         .build();
     component().inject(this); // As of now, LocationManager should be injected into this.

@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.AnnotationMirrors;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import javax.inject.Qualifier;
@@ -55,7 +56,7 @@ final class InjectionAnnotations {
         return Optional.<AnnotationMirror>of(qualifierAnnotations.iterator().next());
       default:
         throw new IllegalArgumentException(
-            e + " was annotated with more than one @Scope annotation");
+            e + " was annotated with more than one @Qualifier annotation");
     }
   }
 

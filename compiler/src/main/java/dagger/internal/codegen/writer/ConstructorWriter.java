@@ -18,10 +18,10 @@ package dagger.internal.codegen.writer;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.TypeElement;
@@ -56,6 +56,14 @@ public final class ConstructorWriter extends Modifiable implements Writable, Has
     parameterWriters.put(name, parameterWriter);
     return parameterWriter;
   }
+  
+  public Map<String, TypeName> parameters() {
+    ImmutableMap.Builder<String, TypeName> params = ImmutableMap.builder();
+    for (Map.Entry<String, VariableWriter> entry : parameterWriters.entrySet()) {
+      params.put(entry.getKey(), entry.getValue().type());
+    }
+    return params.build();
+  }
 
   public BlockWriter body() {
     return blockWriter;
@@ -84,14 +92,7 @@ public final class ConstructorWriter extends Modifiable implements Writable, Has
   @Override
   public Appendable write(Appendable appendable, Context context) throws IOException {
     writeModifiers(appendable).append(name).append('(');
-    Iterator<VariableWriter> parameterWritersIterator = parameterWriters.values().iterator();
-    if (parameterWritersIterator.hasNext()) {
-      parameterWritersIterator.next().write(appendable, context);
-    }
-    while (parameterWritersIterator.hasNext()) {
-      appendable.append(", ");
-      parameterWritersIterator.next().write(appendable, context);
-    }
+    Writables.join(", ", parameterWriters.values(), appendable, context);
     appendable.append(") {");
     blockWriter.write(new IndentingAppendable(appendable), context);
     return appendable.append("}\n");

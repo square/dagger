@@ -15,21 +15,26 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.AnnotationMirrors;
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.MapKey;
-import dagger.MembersInjector;
 import dagger.Provides;
+import dagger.producers.Produces;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
@@ -45,7 +50,6 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
 import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.METHOD;
 import static javax.lang.model.type.TypeKind.DECLARED;
 
@@ -57,29 +61,6 @@ import static javax.lang.model.type.TypeKind.DECLARED;
  */
 @AutoValue
 abstract class Key {
-  /**
-   * The aspect of the framework for which a {@link Key} is an identifier. Particularly, whether a
-   * key is for a {@link Provider} or a {@link MembersInjector}.
-   */
-  enum Kind {
-    PROVIDER(Provider.class),
-    MEMBERS_INJECTOR(MembersInjector.class),
-    ;
-
-    private final Class<?> frameworkClass;
-
-    Kind(Class<?> frameworkClass) {
-      this.frameworkClass = frameworkClass;
-    }
-
-    Class<?> frameworkClass() {
-      return frameworkClass;
-    }
-  }
-
-  /** Returns the particular kind of this key. */
-  abstract Kind kind();
-
   /**
    * A {@link javax.inject.Qualifier} annotation that provides a unique namespace prefix
    * for the type of this key.
@@ -106,21 +87,60 @@ abstract class Key {
     return wrappedType().get();
   }
 
+  Key withType(TypeMirror newType) {
+    return new AutoValue_Key(wrappedQualifier(), MoreTypes.equivalence().wrap(newType));
+  }
+
   boolean isValidMembersInjectionKey() {
-    return !qualifier().isPresent()
-        && type().accept(new SimpleTypeVisitor6<Boolean, Void>(false) {
-          @Override
-          public Boolean visitDeclared(DeclaredType t, Void p) {
-            return t.getTypeArguments().isEmpty();
+    return !qualifier().isPresent();
+  }
+
+  /**
+   * Returns true if the key is valid as an implicit key (that is, if it's valid for a just-in-time
+   * binding by discovering an {@code @Inject} constructor).
+   */
+  boolean isValidImplicitProvisionKey(final Types types) {
+    // Qualifiers disqualify implicit provisioning.
+    if (qualifier().isPresent()) {
+      return false;
+    }
+
+    return type().accept(new SimpleTypeVisitor6<Boolean, Void>() {
+      @Override protected Boolean defaultAction(TypeMirror e, Void p) {
+        return false; // Only declared types are allowed.
+      }
+
+      @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
+        // Non-classes or abstract classes aren't allowed.
+        TypeElement element = MoreElements.asType(type.asElement());
+        if (!element.getKind().equals(ElementKind.CLASS)
+            || element.getModifiers().contains(Modifier.ABSTRACT)) {
+          return false;
+        }
+
+        // If the key has type arguments, validate that each type argument is declared.
+        // Otherwise the type argument may be a wildcard (or other type), and we can't
+        // resolve that to actual types.
+        for (TypeMirror arg : type.getTypeArguments()) {
+          if (arg.getKind() != TypeKind.DECLARED) {
+            return false;
           }
-        }, null);
+        }
+
+        // Also validate that the key is not the erasure of a generic type.
+        // If it is, that means the user referred to Foo<T> as just 'Foo',
+        // which we don't allow.  (This is a judgement call -- we *could*
+        // allow it and instantiate the type bounds... but we don't.)
+        return MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
+            || !types.isSameType(types.erasure(element.asType()), type());
+      }
+    }, null);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(Key.class)
         .omitNullValues()
-        .addValue(kind())
         .add("qualifier", qualifier().orNull())
         .add("type", type())
         .toString();
@@ -156,7 +176,7 @@ abstract class Key {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
       TypeMirror returnType = normalize(componentMethod.getReturnType());
-      return new AutoValue_Key(Kind.PROVIDER,
+      return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(componentMethod)),
           MoreTypes.equivalence().wrap(returnType));
     }
@@ -169,12 +189,12 @@ abstract class Key {
       TypeMirror returnType = normalize(e.getReturnType());
       switch (providesAnnotation.type()) {
         case UNIQUE:
-          return new AutoValue_Key(Kind.PROVIDER,
+          return new AutoValue_Key(
               wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
               MoreTypes.equivalence().wrap(returnType));
         case SET:
           TypeMirror setType = types.getDeclaredType(getSetElement(), returnType);
-          return new AutoValue_Key(Kind.PROVIDER,
+          return new AutoValue_Key(
               wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
               MoreTypes.equivalence().wrap(setType));
         case MAP:
@@ -187,14 +207,14 @@ abstract class Key {
           TypeMirror valueType = types.getDeclaredType(getProviderElement(), returnType);
           TypeMirror mapType =
               types.getDeclaredType(getMapElement(), keyTypeElement.asType(), valueType);
-          return new AutoValue_Key(Kind.PROVIDER,
+          return new AutoValue_Key(
               wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
               MoreTypes.equivalence().wrap(mapType));
         case SET_VALUES:
           // TODO(gak): do we want to allow people to use "covariant return" here?
           checkArgument(returnType.getKind().equals(DECLARED));
           checkArgument(((DeclaredType) returnType).asElement().equals(getSetElement()));
-          return new AutoValue_Key(Kind.PROVIDER,
+          return new AutoValue_Key(
               wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
               MoreTypes.equivalence().wrap(returnType));
         default:
@@ -202,31 +222,73 @@ abstract class Key {
       }
     }
 
-    Key forInjectConstructor(ExecutableElement e) {
+    // TODO(user): Reconcile this method with forProvidesMethod when Provides.Type and
+    // Produces.Type are no longer different.
+    Key forProducesMethod(ExecutableElement e) {
       checkNotNull(e);
-      checkArgument(e.getKind().equals(CONSTRUCTOR));
-      checkArgument(!getQualifier(e).isPresent());
-      // Must use the enclosing element.  The return type is void for constructors(?!)
-      TypeMirror type = e.getEnclosingElement().asType();
-      return new AutoValue_Key(Kind.PROVIDER,
+      checkArgument(e.getKind().equals(METHOD));
+      Produces producesAnnotation = e.getAnnotation(Produces.class);
+      checkArgument(producesAnnotation != null);
+      TypeMirror returnType = normalize(e.getReturnType());
+      TypeMirror keyType = returnType;
+      if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
+        keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
+      }
+      switch (producesAnnotation.type()) {
+        case UNIQUE:
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(keyType));
+        case SET:
+          TypeMirror setType = types.getDeclaredType(getSetElement(), keyType);
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(setType));
+        case MAP:
+          AnnotationMirror mapKeyAnnotation = Iterables.getOnlyElement(getMapKeys(e));
+          MapKey mapKey =
+              mapKeyAnnotation.getAnnotationType().asElement().getAnnotation(MapKey.class);
+          TypeElement keyTypeElement =
+              mapKey.unwrapValue() ? Util.getKeyTypeElement(mapKeyAnnotation, elements)
+                  : (TypeElement) mapKeyAnnotation.getAnnotationType().asElement();
+          TypeMirror valueType = types.getDeclaredType(getProviderElement(), keyType);
+          TypeMirror mapType =
+              types.getDeclaredType(getMapElement(), keyTypeElement.asType(), valueType);
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(mapType));
+        case SET_VALUES:
+          // TODO(gak): do we want to allow people to use "covariant return" here?
+          checkArgument(keyType.getKind().equals(DECLARED));
+          checkArgument(((DeclaredType) keyType).asElement().equals(getSetElement()));
+          return new AutoValue_Key(
+              wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(e)),
+              MoreTypes.equivalence().wrap(keyType));
+        default:
+          throw new AssertionError();
+      }
+    }
+
+    Key forInjectConstructorWithResolvedType(TypeMirror type) {
+      return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
           MoreTypes.equivalence().wrap(type));
     }
 
     Key forComponent(TypeMirror type) {
-      return new AutoValue_Key(Kind.PROVIDER,
+      return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
           MoreTypes.equivalence().wrap(normalize(type)));
     }
 
     Key forMembersInjectedType(TypeMirror type) {
-      return new AutoValue_Key(Kind.MEMBERS_INJECTOR,
+      return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
           MoreTypes.equivalence().wrap(normalize(type)));
     }
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
-      return new AutoValue_Key(Kind.PROVIDER,
+      return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), qualifier),
           MoreTypes.equivalence().wrap(normalize(type)));
     }
@@ -244,7 +306,7 @@ abstract class Key {
           DeclaredType keyType = Util.getKeyTypeOfMap(declaredMapType);
           DeclaredType providerType = types.getDeclaredType(getProviderElement(), mapValueType);
           TypeMirror mapType = types.getDeclaredType(getMapElement(), keyType, providerType);
-          return Optional.<Key>of(new AutoValue_Key(Kind.PROVIDER,
+          return Optional.<Key>of(new AutoValue_Key(
               possibleMapKey.wrappedQualifier(),
               MoreTypes.equivalence().wrap(mapType)));
         }

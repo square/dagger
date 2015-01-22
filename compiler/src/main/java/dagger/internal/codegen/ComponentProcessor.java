@@ -15,25 +15,26 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import dagger.Component;
-import dagger.MapKey;
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.BindingGraphValidator.ScopeCycleValidation;
+import dagger.producers.ProducerModule;
+import dagger.producers.Produces;
+import java.util.Map;
 import java.util.Set;
-import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+
+import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
@@ -45,19 +46,8 @@ import javax.lang.model.util.Types;
  * @since 2.0
  */
 @AutoService(Processor.class)
-public final class ComponentProcessor extends AbstractProcessor {
-  private ImmutableList<ProcessingStep> processingSteps;
+public final class ComponentProcessor extends BasicAnnotationProcessor {
   private InjectBindingRegistry injectBindingRegistry;
-
-  @Override
-  public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(
-        Component.class.getName(),
-        Inject.class.getName(),
-        Module.class.getName(),
-        Provides.class.getName(),
-        MapKey.class.getName());
-  }
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -65,9 +55,12 @@ public final class ComponentProcessor extends AbstractProcessor {
   }
 
   @Override
-  public synchronized void init(ProcessingEnvironment processingEnv) {
-    super.init(processingEnv);
+  public Set<String> getSupportedOptions() {
+    return ImmutableSet.of(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY);
+  }
 
+  @Override
+  protected Iterable<ProcessingStep> initSteps() {
     Messager messager = processingEnv.getMessager();
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
@@ -76,22 +69,30 @@ public final class ComponentProcessor extends AbstractProcessor {
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
     InjectFieldValidator injectFieldValidator = new InjectFieldValidator();
     InjectMethodValidator injectMethodValidator = new InjectMethodValidator();
-    ModuleValidator moduleValidator = new ModuleValidator(types);
+    ModuleValidator moduleValidator = new ModuleValidator(types, Module.class, Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator = new ComponentValidator();
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
+    ModuleValidator producerModuleValidator = new ModuleValidator(
+        types, ProducerModule.class, Produces.class);
+    ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements);
+    ProductionComponentValidator productionComponentValidator = new ProductionComponentValidator();
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
-    FactoryGenerator factoryGenerator = new FactoryGenerator(filer);
+    FactoryGenerator factoryGenerator =
+        new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
     MembersInjectorGenerator membersInjectorGenerator =
-        new MembersInjectorGenerator(filer, elements, types);
+        new MembersInjectorGenerator(filer, elements, types, DependencyRequestMapper.FOR_PROVIDER);
     ComponentGenerator componentGenerator = new ComponentGenerator(filer);
+    ProducerFactoryGenerator producerFactoryGenerator =
+        new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
 
-    DependencyRequest.Factory dependencyRequestFactory =
-        new DependencyRequest.Factory(elements, types, keyFactory);
+    DependencyRequest.Factory dependencyRequestFactory = new DependencyRequest.Factory(keyFactory);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
+    ProductionBinding.Factory productionBindingFactory =
+        new ProductionBinding.Factory(keyFactory, dependencyRequestFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
@@ -101,18 +102,19 @@ public final class ComponentProcessor extends AbstractProcessor {
         membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, types, provisionBindingFactory);
+        new ComponentDescriptor.Factory(elements, types);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
-        elements, types, injectBindingRegistry, keyFactory, dependencyRequestFactory,
-        provisionBindingFactory);
+        elements, types, injectBindingRegistry, keyFactory,
+        dependencyRequestFactory, provisionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
+    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
+        types,
+        injectBindingRegistry,
+        disableInterComponentScopeValidation(processingEnv));
 
-    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(types,
-        injectBindingRegistry);
-
-    this.processingSteps = ImmutableList.<ProcessingStep>of(
+    return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
             messager,
             mapKeyValidator,
@@ -137,19 +139,45 @@ public final class ComponentProcessor extends AbstractProcessor {
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
-            componentGenerator));
+            componentGenerator),
+        new ProducerModuleProcessingStep(
+            messager,
+            producerModuleValidator,
+            producesMethodValidator,
+            productionBindingFactory,
+            producerFactoryGenerator),
+        new ProductionComponentProcessingStep(
+            messager,
+            productionComponentValidator,
+            componentDescriptorFactory));
   }
 
   @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    for (ProcessingStep processingStep : processingSteps) {
-      processingStep.process(annotations, roundEnv);
-    }
+  protected void postProcess() {
     try {
       injectBindingRegistry.generateSourcesForRequiredBindings();
     } catch (SourceFileGenerationException e) {
       e.printMessageTo(processingEnv.getMessager());
     }
-    return false;
+  }
+
+  private static final String DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY =
+      "dagger.disableInterComponentScopeValidation";
+
+  private static ScopeCycleValidation disableInterComponentScopeValidation(
+      ProcessingEnvironment processingEnv) {
+    Map<String, String> options = processingEnv.getOptions();
+    if (options.containsKey(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY)) {
+      try {
+        return ScopeCycleValidation.valueOf(
+            options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY).toUpperCase());
+      } catch (IllegalArgumentException e) {
+        processingEnv.getMessager().printMessage(ERROR, "Processor option -A"
+            + DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY
+            + " may only have the values ERROR, WARNING, or NONE (case insensitive) "
+            + " found: " + options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY));
+      }
+    }
+    return ScopeCycleValidation.ERROR;
   }
 }

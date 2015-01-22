@@ -45,6 +45,18 @@ final class DependencyVariableNamer implements Function<DependencyRequest, Strin
         return variableName.endsWith("Provider") && !variableName.equals("Provider")
             ? variableName.substring(0, variableName.length() - 8)
             : variableName;
+      case MEMBERS_INJECTOR:
+        return variableName.endsWith("MembersInjector") && !variableName.equals("MembersInjector")
+            ? variableName.substring(0, variableName.length() - 15)
+            : variableName;
+      case PRODUCED:
+        return variableName.startsWith("produced") && !variableName.equals("produced")
+            ? Ascii.toLowerCase(variableName.charAt(8)) + variableName.substring(9)
+            : variableName;
+      case PRODUCER:
+        return variableName.endsWith("Producer") && !variableName.equals("Producer")
+            ? variableName.substring(0, variableName.length() - 8)
+            : variableName;
       default:
         throw new AssertionError();
     }

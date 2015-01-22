@@ -31,7 +31,9 @@ import static com.google.common.base.CaseFormat.UPPER_CAMEL;
  * @author Gregory Kick
  * @since 2.0
  */
-final class KeyVariableNamer implements Function<Key, String> {
+enum KeyVariableNamer implements Function<Key, String> {
+  INSTANCE;
+
   @Override
   public String apply(Key key) {
     StringBuilder builder = new StringBuilder();

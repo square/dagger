@@ -15,30 +15,33 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
-import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
@@ -55,7 +58,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
  * @since 2.0
  */
 @AutoValue
-abstract class ProvisionBinding extends Binding {
+abstract class ProvisionBinding extends ContributionBinding implements ResolvableBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
@@ -69,6 +72,11 @@ abstract class ProvisionBinding extends Binding {
     INJECTION,
     /** Represents a binding configured by {@link Provides}. */
     PROVISION,
+    /**
+     * Represents a binding that is not explicitly tied to code, but generated implicitly by the
+     * framework.
+     */
+    SYNTHETIC_PROVISON,
     /** Represents the implicit binding to the component. */
     COMPONENT,
     /** Represents a binding from a provision method on a component dependency. */
@@ -96,18 +104,10 @@ abstract class ProvisionBinding extends Binding {
    */
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
 
-  /** If this provision requires members injeciton, this will be the corresonding request. */
+  /** If this provision requires members injection, this will be the corresponding request. */
   abstract Optional<DependencyRequest> memberInjectionRequest();
 
-  static enum BindingType {
-    /** Represents map bindings. */
-    MAP,
-    /** Represents set bindings. */
-    SET,
-    /** Represents a valid non-collection binding. */
-    UNIQUE;
-  }
-
+  @Override
   BindingType bindingType() {
     switch (provisionType()) {
       case SET:
@@ -122,52 +122,16 @@ abstract class ProvisionBinding extends Binding {
     }
   }
 
-  /**
-   * Returns the set of {@link BindingType} enum values implied by a given
-   * {@link ProvisionBinding} collection.
-   */
-  static ImmutableListMultimap<BindingType, ProvisionBinding> bindingTypesFor(
-      Iterable<ProvisionBinding> bindings) {
-    ImmutableListMultimap.Builder<BindingType, ProvisionBinding> builder =
-        ImmutableListMultimap.builder();
-    builder.orderKeysBy(Ordering.<BindingType>natural());
-    for (ProvisionBinding binding : bindings) {
-      builder.put(binding.bindingType(), binding);
-    }
-    return builder.build();
-  }
-
-  /**
-   * Returns a single {@code BindingsType} represented by a given collection of
-   * {@code ProvisionBindings} or throws an IllegalArgumentException if the given bindings
-   * are not all of one type.
-   */
-  static BindingType bindingTypeFor(Iterable<ProvisionBinding> bindings) {
-    checkNotNull(bindings);
-    switch (Iterables.size(bindings)) {
-      case 0:
-        throw new IllegalArgumentException("no bindings");
-      case 1:
-        return Iterables.getOnlyElement(bindings).bindingType();
-      default:
-        Set<BindingType> types = bindingTypesFor(bindings).keySet();
-        if (types.size() > 1) {
-          throw new IllegalArgumentException(
-              String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
-        }
-        return Iterables.getOnlyElement(types);
-    }
-  }
-
   enum FactoryCreationStrategy {
     ENUM_INSTANCE,
     CLASS_CONSTRUCTOR,
   }
 
   FactoryCreationStrategy factoryCreationStrategy() {
-    return (bindingKind().equals(INJECTION) && implicitDependencies().isEmpty())
-        ? FactoryCreationStrategy.ENUM_INSTANCE
-        : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+    return (bindingKind().equals(INJECTION)
+          && implicitDependencies().isEmpty())
+          ? FactoryCreationStrategy.ENUM_INSTANCE
+          : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
   }
 
   static final class Factory {
@@ -183,20 +147,55 @@ abstract class ProvisionBinding extends Binding {
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
+    
+    
+    /** Returns an unresolved version of this binding. */
+    ProvisionBinding unresolve(ProvisionBinding binding) {
+      checkState(binding.isResolved());
+      return forInjectConstructor((ExecutableElement) binding.bindingElement(),
+          Optional.<TypeMirror>absent());
+    }
 
-    ProvisionBinding forInjectConstructor(ExecutableElement constructorElement) {
+    /**
+     * Returns a ProvisionBinding for the given element. If {@code resolvedType} is present, this
+     * will return a {@link ResolvableBinding#isResolved() resolved} binding, with the key & type
+     * resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
+     */
+    ProvisionBinding forInjectConstructor(ExecutableElement constructorElement,
+        Optional<TypeMirror> resolvedType) {
       checkNotNull(constructorElement);
       checkArgument(constructorElement.getKind().equals(CONSTRUCTOR));
       checkArgument(isAnnotationPresent(constructorElement, Inject.class));
-      Key key = keyFactory.forInjectConstructor(constructorElement);
+      checkArgument(!getQualifier(constructorElement).isPresent());
+
+      boolean isResolved = false;
+      ExecutableType cxtorType = MoreTypes.asExecutable(constructorElement.asType());
+      DeclaredType enclosingCxtorType =
+          MoreTypes.asDeclared(constructorElement.getEnclosingElement().asType());
+      // If the class this is constructing has some type arguments, resolve everything.
+      if (!enclosingCxtorType.getTypeArguments().isEmpty() && resolvedType.isPresent()) {
+        DeclaredType resolved = MoreTypes.asDeclared(resolvedType.get());
+        // Validate that we're resolving from the correct type.
+        checkState(types.isSameType(types.erasure(resolved), types.erasure(enclosingCxtorType)),
+            "erased expected type: %s, erased actual type: %s",
+            types.erasure(resolved), types.erasure(enclosingCxtorType));
+        cxtorType = MoreTypes.asExecutable(types.asMemberOf(resolved, constructorElement));
+        enclosingCxtorType = resolved;
+        isResolved = true;
+      }
+
+      Key key = keyFactory.forInjectConstructorWithResolvedType(enclosingCxtorType);
       checkArgument(!key.qualifier().isPresent());
       ImmutableSet<DependencyRequest> dependencies =
-          dependencyRequestFactory.forRequiredVariables(constructorElement.getParameters());
-      Optional<DependencyRequest> membersInjectionRequest = membersInjectionRequest(
-          MoreElements.asType(constructorElement.getEnclosingElement()));
+          dependencyRequestFactory.forRequiredResolvedVariables(constructorElement.getParameters(),
+              cxtorType.getParameterTypes());
+      Optional<DependencyRequest> membersInjectionRequest =
+          membersInjectionRequest(enclosingCxtorType);
       Optional<AnnotationMirror> scope =
           getScopeAnnotation(constructorElement.getEnclosingElement());
+
       return new AutoValue_ProvisionBinding(
+          isResolved,
           key,
           constructorElement,
           dependencies,
@@ -210,12 +209,13 @@ abstract class ProvisionBinding extends Binding {
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
         Sets.immutableEnumSet(METHOD, FIELD);
 
-    private Optional<DependencyRequest> membersInjectionRequest(TypeElement type) {
+    private Optional<DependencyRequest> membersInjectionRequest(DeclaredType type) {
+      TypeElement typeElement = MoreElements.asType(type.asElement());
       if (!types.isSameType(elements.getTypeElement(Object.class.getCanonicalName()).asType(),
-          type.getSuperclass())) {
+          typeElement.getSuperclass())) {
         return Optional.of(dependencyRequestFactory.forMembersInjectedType(type));
       }
-      for (Element enclosedElement : type.getEnclosedElements()) {
+      for (Element enclosedElement : typeElement.getEnclosedElements()) {
         if (MEMBER_KINDS.contains(enclosedElement.getKind())
             && (isAnnotationPresent(enclosedElement, Inject.class))) {
           return Optional.of(dependencyRequestFactory.forMembersInjectedType(type));
@@ -234,6 +234,7 @@ abstract class ProvisionBinding extends Binding {
           dependencyRequestFactory.forRequiredVariables(providesMethod.getParameters());
       Optional<AnnotationMirror> scope = getScopeAnnotation(providesMethod);
       return new AutoValue_ProvisionBinding(
+          false /* not resolved */,
           key,
           providesMethod,
           dependencies,
@@ -251,11 +252,12 @@ abstract class ProvisionBinding extends Binding {
       ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
       Optional<AnnotationMirror> scope = getScopeAnnotation(implicitRequest.requestElement());
       return new AutoValue_ProvisionBinding(
+          false /* not resolved */,
           explicitRequest.key(),
           implicitRequest.requestElement(),
           dependencies,
           findBindingPackage(explicitRequest.key()),
-          Kind.PROVISION,
+          Kind.SYNTHETIC_PROVISON,
           Provides.Type.MAP,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
           Optional.<DependencyRequest>absent());
@@ -266,6 +268,7 @@ abstract class ProvisionBinding extends Binding {
       Component componentAnnotation = componentDefinitionType.getAnnotation(Component.class);
       checkArgument(componentAnnotation != null);
       return new AutoValue_ProvisionBinding(
+          false /* not resolved */,
           keyFactory.forComponent(componentDefinitionType.asType()),
           componentDefinitionType,
           ImmutableSet.<DependencyRequest>of(),
@@ -282,6 +285,7 @@ abstract class ProvisionBinding extends Binding {
       checkArgument(componentMethod.getParameters().isEmpty());
       Optional<AnnotationMirror> scope = getScopeAnnotation(componentMethod);
       return new AutoValue_ProvisionBinding(
+          false /* not resolved */,
           keyFactory.forComponentMethod(componentMethod),
           componentMethod,
           ImmutableSet.<DependencyRequest>of(),

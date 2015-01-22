@@ -26,7 +26,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
@@ -42,9 +41,23 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @author Gregory Kick
  * @since 2.0
  */
-// TODO(gak): make a decision about whether or not to bring MembersInjectionBinding under this
-// supertype or whether to just get rid of this.
 abstract class Binding {
+  static Optional<String> bindingPackageFor(Iterable<? extends Binding> bindings) {
+    ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
+    for (Binding binding : bindings) {
+      bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
+    }
+    ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
+    switch (bindingPackages.size()) {
+      case 0:
+        return Optional.absent();
+      case 1:
+        return Optional.of(bindingPackages.iterator().next());
+      default:
+        throw new IllegalArgumentException();
+    }
+  }
+
   /** The {@link Key} that is provided by this binding. */
   protected abstract Key key();
 
@@ -115,6 +128,10 @@ abstract class Binding {
           Name qualifiedName = elementPackage.getQualifiedName();
           p.add(qualifiedName.toString());
         }
+        // Also make sure enclosing types are visible, otherwise we're fooled by
+        // class Foo { public class Bar }
+        // (Note: we can't use t.getEnclosingType() because it doesn't work!)
+        typeElement.getEnclosingElement().asType().accept(this, p);
         return null;
       }
 

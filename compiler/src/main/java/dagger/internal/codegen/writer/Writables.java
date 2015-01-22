@@ -17,9 +17,36 @@ package dagger.internal.codegen.writer;
 
 import dagger.internal.codegen.writer.Writable.Context;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Set;
 
 final class Writables {
+
+  /**
+   * Joins the writables by the given delimiter, writing out the
+   * prefix & suffix if there's at least one element.
+   */
+  static void join(String delimiter, Iterable<? extends Writable> writables,
+      String prefix, String suffix,
+      Appendable appendable, Context context) throws IOException {
+    Iterator<? extends Writable> iter = writables.iterator();
+    if (iter.hasNext()) {
+      appendable.append(prefix);
+      iter.next().write(appendable, context);
+      while (iter.hasNext()) {
+        appendable.append(delimiter);
+        iter.next().write(appendable, context);
+      }
+      appendable.append(suffix);
+    }
+  }
+
+  /** Joins the writables by the given delimiter. */
+  static void join(String delimiter, Iterable<? extends Writable> writables,
+      Appendable appendable, Context context) throws IOException {
+    join(delimiter, writables, "", "", appendable, context);
+  }
+
   static Writable toStringWritable(final Object object) {
     return new Writable() {
       @Override

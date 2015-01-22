@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Formatter;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
 public final class Snippet implements HasClassReferences, Writable {
@@ -111,7 +110,7 @@ public final class Snippet implements HasClassReferences, Writable {
         selectors);
   }
 
-  public static Snippet makeParametersSnippet(List<Snippet> parameterSnippets) {
+  public static Snippet makeParametersSnippet(Iterable<Snippet> parameterSnippets) {
     Iterator<Snippet> iterator = parameterSnippets.iterator();
     StringBuilder stringBuilder = new StringBuilder();
     ImmutableSet.Builder<TypeName> typesBuilder = ImmutableSet.builder();

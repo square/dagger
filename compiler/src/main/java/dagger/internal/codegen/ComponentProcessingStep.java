@@ -15,13 +15,15 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.auto.common.MoreElements;
-import com.google.auto.common.SuperficialValidation;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import dagger.Component;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
+import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 
@@ -55,33 +57,34 @@ final class ComponentProcessingStep implements ProcessingStep {
   }
 
   @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    Set<? extends Element> componentElements = roundEnv.getElementsAnnotatedWith(Component.class);
+  public Set<Class<? extends Annotation>> annotations() {
+    return ImmutableSet.<Class<? extends Annotation>>of(Component.class);
+  }
+
+  @Override
+  public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+    Set<? extends Element> componentElements = elementsByAnnotation.get(Component.class);
 
     for (Element element : componentElements) {
-      if (SuperficialValidation.validateElement(element)) {
-        TypeElement componentTypeElement = MoreElements.asType(element);
-        ValidationReport<TypeElement> componentReport =
-            componentValidator.validate(componentTypeElement);
-        componentReport.printMessagesTo(messager);
-        if (componentReport.isClean()) {
-          ComponentDescriptor componentDescriptor =
-              componentDescriptorFactory.create(componentTypeElement);
-          BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-          ValidationReport<BindingGraph> graphReport =
-              bindingGraphValidator.validate(bindingGraph);
-          graphReport.printMessagesTo(messager);
-          if (graphReport.isClean()) {
-            try {
-              componentGenerator.generate(bindingGraph);
-            } catch (SourceFileGenerationException e) {
-              e.printMessageTo(messager);
-            }
+      TypeElement componentTypeElement = MoreElements.asType(element);
+      ValidationReport<TypeElement> componentReport =
+          componentValidator.validate(componentTypeElement);
+      componentReport.printMessagesTo(messager);
+      if (componentReport.isClean()) {
+        ComponentDescriptor componentDescriptor =
+            componentDescriptorFactory.forComponent(componentTypeElement);
+        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+        ValidationReport<BindingGraph> graphReport =
+            bindingGraphValidator.validate(bindingGraph);
+        graphReport.printMessagesTo(messager);
+        if (graphReport.isClean()) {
+          try {
+            componentGenerator.generate(bindingGraph);
+          } catch (SourceFileGenerationException e) {
+            e.printMessageTo(messager);
           }
         }
       }
     }
-
-    return false;
   }
 }

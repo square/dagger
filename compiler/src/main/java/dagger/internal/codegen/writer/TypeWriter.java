@@ -23,6 +23,8 @@ import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * Only named types. Doesn't cover anonymous inner classes.
  */
@@ -87,6 +89,15 @@ public abstract class TypeWriter /* ha ha */ extends Modifiable
 
   public void addImplementedType(TypeElement typeElement) {
     implementedTypes.add(ClassName.fromTypeElement(typeElement));
+  }
+
+  public void setSuperType(TypeName typeReference) {
+    checkState(!supertype.isPresent());
+    supertype = Optional.of(typeReference);
+  }
+
+  public void setSuperType(TypeElement typeElement) {
+    setSuperType(ClassName.fromTypeElement(typeElement));
   }
 
   public FieldWriter addField(Class<?> type, String name) {

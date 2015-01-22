@@ -15,7 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import dagger.MembersInjector;
 import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
 import dagger.internal.codegen.writer.ClassName;
@@ -34,20 +35,26 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.TypeVariableName;
 import dagger.internal.codegen.writer.VoidName;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
-import javax.inject.Provider;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.parameterizedMembersInjectorNameForMembersInjectionBinding;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -61,11 +68,17 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectionBinding> {
   private final Elements elements;
   private final Types types;
+  private final DependencyRequestMapper dependencyRequestMapper;
 
-  MembersInjectorGenerator(Filer filer, Elements elements, Types types) {
+  MembersInjectorGenerator(
+      Filer filer,
+      Elements elements,
+      Types types,
+      DependencyRequestMapper dependencyRequestMapper) {
     super(filer);
     this.elements = checkNotNull(elements);
     this.types = checkNotNull(types);
+    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -91,33 +104,42 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   }
 
   @Override
-  ImmutableSet<JavaWriter> write(ClassName injectorClassName, MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
+  ImmutableSet<JavaWriter> write(ClassName generatedTypeName, MembersInjectionBinding binding) {
+    // We don't want to write out resolved bindings -- we want to write out the generic version.
+    checkState(!binding.isResolved());
 
-    JavaWriter writer = JavaWriter.inPackage(injectedClassName.packageName());
+    TypeName injectedTypeName = TypeNames.forTypeMirror(binding.key().type());
+    JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
-    ClassWriter injectorWriter = writer.addClass(injectorClassName.simpleName());
+    ClassWriter injectorWriter = writer.addClass(generatedTypeName.simpleName());
+    List<TypeVariableName> typeParameters = Lists.newArrayList();
+    for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
+      typeParameters.add(TypeVariableName.fromTypeParameterElement(typeParameter));
+    }
+    injectorWriter.addTypeParameters(typeParameters);
     injectorWriter.annotate(Generated.class)
         .setValue(ComponentProcessor.class.getCanonicalName());
     injectorWriter.addModifiers(PUBLIC, FINAL);
-    injectorWriter.addImplementedType(
-        ParameterizedTypeName.create(MembersInjector.class, injectedClassName));
+    TypeName implementedType =
+        ParameterizedTypeName.create(MembersInjector.class, injectedTypeName);
+    injectorWriter.addImplementedType(implementedType);
 
     ConstructorWriter constructorWriter = injectorWriter.addConstructor();
     constructorWriter.addModifiers(PUBLIC);
     MethodWriter injectMembersWriter = injectorWriter.addMethod(VoidName.VOID, "injectMembers");
     injectMembersWriter.addModifiers(PUBLIC);
     injectMembersWriter.annotate(Override.class);
-    injectMembersWriter.addParameter(injectedClassName, "instance");
+    injectMembersWriter.addParameter(injectedTypeName, "instance");
     injectMembersWriter.body().addSnippet(Joiner.on('\n').join(
         "if (instance == null) {",
         "  throw new NullPointerException(\"Cannot inject members into a null reference\");",
         "}"));
 
-    Optional<TypeElement> supertype = supertype(binding.bindingElement());
+    Optional<DeclaredType> supertype =
+        MoreTypes.nonObjectSuperclass(types, elements, MoreTypes.asDeclared(binding.key().type()));
     if (supertype.isPresent()) {
       ParameterizedTypeName supertypeMemebersInjectorType = ParameterizedTypeName.create(
-          MembersInjector.class, ClassName.fromTypeElement(supertype.get()));
+          MembersInjector.class, TypeNames.forTypeMirror(supertype.get()));
       injectorWriter
           .addField(supertypeMemebersInjectorType, "supertypeInjector")
           .addModifiers(PRIVATE, FINAL);
@@ -128,44 +150,46 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       injectMembersWriter.body().addSnippet("supertypeInjector.injectMembers(instance);");
     }
 
-    ImmutableMap<Key, String> names =
-        SourceFiles.generateFrameworkReferenceNamesForDependencies(
-            ImmutableSet.copyOf(binding.dependencies()));
+    ImmutableMap<BindingKey, FrameworkField> fields =
+        SourceFiles.generateBindingFieldsForDependencies(
+            dependencyRequestMapper, ImmutableSet.copyOf(binding.dependencies()));
 
-    ImmutableMap.Builder<Key, FieldWriter> dependencyFieldsBuilder =
+    ImmutableMap.Builder<BindingKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();
 
-    for (Entry<Key, String> nameEntry : names.entrySet()) {
-      final FieldWriter field;
-      switch (nameEntry.getKey().kind()) {
-        case PROVIDER:
-          ParameterizedTypeName providerType = ParameterizedTypeName.create(
-              ClassName.fromClass(Provider.class),
-              TypeNames.forTypeMirror(nameEntry.getKey().type()));
-          field = injectorWriter.addField(providerType, nameEntry.getValue());
-          break;
-        case MEMBERS_INJECTOR:
-          ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
-              ClassName.fromClass(MembersInjector.class),
-              TypeNames.forTypeMirror(nameEntry.getKey().type()));
-          field = injectorWriter.addField(membersInjectorType, nameEntry.getValue());
-          break;
-        default:
-          throw new AssertionError();
-      }
+    for (Entry<BindingKey, FrameworkField> fieldEntry : fields.entrySet()) {
+      FrameworkField bindingField = fieldEntry.getValue();
+      TypeName fieldType = bindingField.frameworkType();
+      FieldWriter field = injectorWriter.addField(fieldType, bindingField.name());
       field.addModifiers(PRIVATE, FINAL);
       constructorWriter.addParameter(field.type(), field.name());
       constructorWriter.body().addSnippet("assert %s != null;", field.name());
       constructorWriter.body().addSnippet("this.%1$s = %1$s;", field.name());
-      dependencyFieldsBuilder.put(nameEntry.getKey(), field);
+      dependencyFieldsBuilder.put(fieldEntry.getKey(), field);
     }
-    ImmutableMap<Key, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
+    
+    // We use a static create method so that generated components can avoid having
+    // to refer to the generic types of the factory.
+    // (Otherwise they may have visibility problems referring to the types.)
+    MethodWriter createMethodWriter = injectorWriter.addMethod(implementedType, "create");
+    createMethodWriter.addTypeParameters(typeParameters);
+    createMethodWriter.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+    Map<String, TypeName> params = constructorWriter.parameters();
+    for (Map.Entry<String, TypeName> param : params.entrySet()) {
+      createMethodWriter.addParameter(param.getValue(), param.getKey());      
+    }
+    createMethodWriter.body().addSnippet("  return new %s(%s);",
+        parameterizedMembersInjectorNameForMembersInjectionBinding(binding),
+        Joiner.on(", ").join(params.keySet()));
+    
+    ImmutableMap<BindingKey, FieldWriter> depedencyFields = dependencyFieldsBuilder.build();
     for (InjectionSite injectionSite : binding.injectionSites()) {
       switch (injectionSite.kind()) {
         case FIELD:
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
-          FieldWriter singleField = depedencyFields.get(fieldDependency.key());
+          FieldWriter singleField = depedencyFields.get(
+              BindingKey.forDependencyRequest(fieldDependency));
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
               frameworkTypeUsageStatement(Snippet.format(singleField.name()),
@@ -174,8 +198,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         case METHOD:
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
           for (DependencyRequest methodDependency : injectionSite.dependencies()) {
-            FieldWriter field =
-            depedencyFields.get(methodDependency.key());
+            FieldWriter field = depedencyFields.get(
+                BindingKey.forDependencyRequest(methodDependency));
             parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
                 methodDependency.kind()));
           }
@@ -188,14 +212,5 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       }
     }
     return ImmutableSet.of(writer);
-  }
-
-  private Optional<TypeElement> supertype(TypeElement type) {
-    TypeMirror superclass = type.getSuperclass();
-    boolean nonObjectSuperclass = !types.isSameType(
-        elements.getTypeElement(Object.class.getCanonicalName()).asType(), superclass);
-    return nonObjectSuperclass
-        ? Optional.of(MoreElements.asType(types.asElement(superclass)))
-        : Optional.<TypeElement>absent();
   }
 }

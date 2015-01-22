@@ -19,6 +19,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
+import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import java.util.List;
@@ -99,8 +100,7 @@ final class Util {
   }
 
   /**
-   * Wraps an {@link Optional} of a type in an {@code Optional} of an {@link Equivalence.Wrapper}
-   * for that type.
+   * Wraps an {@link Optional} of a type in an {@code Optional} of a {@link Wrapper} for that type.
    */
   static <T> Optional<Equivalence.Wrapper<T>> wrapOptionalInEquivalence(
       Equivalence<T> equivalence, Optional<T> optional) {
@@ -110,8 +110,8 @@ final class Util {
   }
 
   /**
-   * Unwraps an {@link Optional} of an {@link Equivalence.Wrapper} into an {@code Optional} of
-   * the underlying type.
+   * Unwraps an {@link Optional} of a {@link Wrapper} into an {@code Optional} of the underlying
+   * type.
    */
   static <T> Optional<T> unwrapOptionalEquivalence(
       Optional<Equivalence.Wrapper<T>> wrappedOptional) {

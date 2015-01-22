@@ -34,18 +34,18 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_MUST_RETURN_A_VALUE;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_NOT_IN_MODULE;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_NOT_MAP_HAS_MAP_KEY;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_PRIVATE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_STATIC;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_NO_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RAW_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_STATIC;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_TYPE_PARAMETER;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_WITH_NO_MAP_KEY;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -80,37 +80,41 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
 
     Element enclosingElement = providesMethodElement.getEnclosingElement();
     if (!isAnnotationPresent(enclosingElement, Module.class)) {
-      builder.addItem(PROVIDES_METHOD_NOT_IN_MODULE,
+      builder.addItem(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE),
           providesMethodElement);
     }
     
     if (!providesMethodElement.getTypeParameters().isEmpty()) {
-      builder.addItem(PROVIDES_METHOD_TYPE_PARAMETER, providesMethodElement);
+      builder.addItem(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER),
+          providesMethodElement);
     }
 
     Set<Modifier> modifiers = providesMethodElement.getModifiers();
     if (modifiers.contains(PRIVATE)) {
-      builder.addItem(PROVIDES_METHOD_PRIVATE, providesMethodElement);
+      builder.addItem(formatErrorMessage(BINDING_METHOD_PRIVATE),
+          providesMethodElement);
     }
     if (modifiers.contains(STATIC)) {
       // TODO(gak): why not?
-      builder.addItem(PROVIDES_METHOD_STATIC, providesMethodElement);
+      builder.addItem(formatErrorMessage(BINDING_METHOD_STATIC), providesMethodElement);
     }
     if (modifiers.contains(ABSTRACT)) {
-      builder.addItem(PROVIDES_METHOD_ABSTRACT, providesMethodElement);
+      builder.addItem(formatErrorMessage(BINDING_METHOD_ABSTRACT), providesMethodElement);
     }
 
     TypeMirror returnType = providesMethodElement.getReturnType();
     TypeKind returnTypeKind = returnType.getKind();
     if (returnTypeKind.equals(VOID)) {
-      builder.addItem(PROVIDES_METHOD_MUST_RETURN_A_VALUE, providesMethodElement);
+      builder.addItem(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE),
+          providesMethodElement);
     }
   
     // check mapkey is right
     if (!providesAnnotation.type().equals(Provides.Type.MAP) 
         && (getMapKeys(providesMethodElement) != null
             && getMapKeys(providesMethodElement).size() > 0)) {
-      builder.addItem(PROVIDES_METHOD_NOT_MAP_HAS_MAP_KEY, providesMethodElement);
+      builder.addItem(formatErrorMessage(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY),
+          providesMethodElement);
     }
 
     switch (providesAnnotation.type()) {
@@ -124,12 +128,14 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
             getMapKeys(providesMethodElement);
         switch (annotationMirrors.size()) {
           case 0:
-            builder.addItem(PROVIDES_METHOD_WITH_NO_MAP_KEY, providesMethodElement);
+            builder.addItem(formatErrorMessage(BINDING_METHOD_WITH_NO_MAP_KEY),
+                providesMethodElement);
             break;
           case 1:
             break;
           default:
-            builder.addItem(PROVIDES_METHOD_WITH_MULTIPLE_MAP_KEY, providesMethodElement);
+            builder.addItem(formatErrorMessage(BINDING_METHOD_WITH_MULTIPLE_MAP_KEY),
+                providesMethodElement);
             break;
         }
         break;
@@ -142,7 +148,8 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
           if (!declaredReturnType.asElement().equals(getSetElement())) {
             builder.addItem(PROVIDES_METHOD_SET_VALUES_RETURN_SET, providesMethodElement);
           } else if (declaredReturnType.getTypeArguments().isEmpty()) {
-            builder.addItem(PROVIDES_METHOD_SET_VALUES_RAW_SET, providesMethodElement);
+            builder.addItem(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET),
+                providesMethodElement);
           } else {
             validateKeyType(builder,
                 Iterables.getOnlyElement(declaredReturnType.getTypeArguments()));
@@ -154,6 +161,14 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
     }
 
     return builder.build();
+  }
+
+  private String formatErrorMessage(String msg) {
+    return String.format(msg, Provides.class.getSimpleName());
+  }
+
+  private String formatModuleErrorMessage(String msg) {
+    return String.format(msg, Provides.class.getSimpleName(), Module.class.getSimpleName());
   }
 
   private void validateKeyType(ValidationReport.Builder<? extends Element> reportBuilder,

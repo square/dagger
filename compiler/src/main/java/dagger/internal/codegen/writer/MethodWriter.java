@@ -20,9 +20,10 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import java.io.IOException;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.TypeElement;
@@ -33,17 +34,27 @@ public final class MethodWriter extends Modifiable implements HasClassReferences
   private final TypeName returnType;
   private final String name;
   private final Map<String, VariableWriter> parameterWriters;
+  private final List<TypeVariableName> typeParameters;
   private Optional<BlockWriter> body;
 
   MethodWriter(TypeName returnType, String name) {
     this.returnType = returnType;
     this.name = name;
     this.parameterWriters = Maps.newLinkedHashMap();
+    this.typeParameters = Lists.newArrayList();
     this.body = Optional.absent();
   }
 
   public String name() {
     return name;
+  }
+  
+  public void addTypeParameter(TypeVariableName typeVariableName) {
+    this.typeParameters.add(typeVariableName);
+  }
+  
+  public void addTypeParameters(Iterable<TypeVariableName> typeVariableNames) {
+    Iterables.addAll(typeParameters, typeVariableNames);
   }
 
   public VariableWriter addParameter(Class<?> type, String name) {
@@ -79,16 +90,10 @@ public final class MethodWriter extends Modifiable implements HasClassReferences
   public Appendable write(Appendable appendable, Context context) throws IOException {
     writeAnnotations(appendable, context);
     writeModifiers(appendable);
+    Writables.join(", ", typeParameters, "<", "> ", appendable, context);
     returnType.write(appendable, context);
     appendable.append(' ').append(name).append('(');
-    Iterator<VariableWriter> parameterWritersIterator = parameterWriters.values().iterator();
-    if (parameterWritersIterator.hasNext()) {
-      parameterWritersIterator.next().write(appendable, context);
-    }
-    while (parameterWritersIterator.hasNext()) {
-      appendable.append(", ");
-      parameterWritersIterator.next().write(appendable, context);
-    }
+    Writables.join(", ", parameterWriters.values(), appendable, context);
     appendable.append(")");
     if (body.isPresent()) {
       appendable.append(" {");

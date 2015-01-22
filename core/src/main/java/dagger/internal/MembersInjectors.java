@@ -16,7 +16,6 @@
 package dagger.internal;
 
 import dagger.MembersInjector;
-
 import javax.inject.Inject;
 
 /**

@@ -28,7 +28,7 @@ public class HomeActivity extends Activity {
 
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    Dagger_HomeActivity$HomeComponent.builder()
+    Dagger_HomeActivity_HomeComponent.builder()
         .applicationComponent(((DemoApplication) getApplication()).component())
         .activityModule(new ActivityModule(this))
         .build()

@@ -27,11 +27,19 @@ import static com.google.common.base.Verify.verify;
 
 public final class ParameterizedTypeName implements TypeName {
   private final ClassName type;
-  private final ImmutableList<? extends TypeName> parameters;
+  private final ImmutableList<TypeName> parameters;
 
   ParameterizedTypeName(ClassName type, Iterable<? extends TypeName> parameters) {
     this.type = type;
     this.parameters = ImmutableList.copyOf(parameters);
+  }
+  
+  public ClassName type() {
+    return type;
+  }
+  
+  public ImmutableList<TypeName> parameters() {
+    return parameters;
   }
 
   @Override
@@ -82,6 +90,11 @@ public final class ParameterizedTypeName implements TypeName {
 
   public static ParameterizedTypeName create(ClassName className,
       TypeName... parameters) {
+    return new ParameterizedTypeName(className, ImmutableList.copyOf(parameters));
+  }
+
+  public static ParameterizedTypeName create(ClassName className,
+      Iterable<? extends TypeName> parameters) {
     return new ParameterizedTypeName(className, ImmutableList.copyOf(parameters));
   }
 

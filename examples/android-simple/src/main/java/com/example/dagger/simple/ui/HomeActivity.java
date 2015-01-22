@@ -17,7 +17,9 @@ package com.example.dagger.simple.ui;
 
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.util.Log;
 import com.example.dagger.simple.DemoActivity;
+import com.example.dagger.simple.DemoApplication;
 import javax.inject.Inject;
 
 public class HomeActivity extends DemoActivity {
@@ -25,8 +27,9 @@ public class HomeActivity extends DemoActivity {
 
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    // After the super.onCreate call returns we are guaranteed our injections are available.
+    ((DemoApplication) getApplication()).component().inject(this);
 
     // TODO do something with the injected dependencies here!
+    Log.d("HomeActivity", locationManager.toString());
   }
 }

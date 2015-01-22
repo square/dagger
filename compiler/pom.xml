@@ -37,6 +37,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>dagger-producers</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.auto</groupId>
       <artifactId>auto-common</artifactId>
     </dependency>
@@ -57,7 +62,6 @@
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
-      <version>1.0-SNAPSHOT</version>
       <optional>true</optional>
     </dependency>
 

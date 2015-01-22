@@ -15,17 +15,20 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.SuperficialValidation;
+import com.google.auto.common.BasicAnnotationProcessor;
+import com.google.auto.common.MoreTypes;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
+import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.RoundEnvironment;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
 /**
@@ -35,7 +38,7 @@ import javax.lang.model.util.ElementKindVisitor6;
  * @author Gregory Kick
  * @since 2.0
  */
-final class InjectProcessingStep implements ProcessingStep {
+final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
   private final Messager messager;
   private final InjectConstructorValidator constructorValidator;
   private final InjectFieldValidator fieldValidator;
@@ -61,71 +64,74 @@ final class InjectProcessingStep implements ProcessingStep {
   }
 
   @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+  public Set<Class<? extends Annotation>> annotations() {
+    return ImmutableSet.<Class<? extends Annotation>>of(Inject.class);
+  }
+
+  @Override
+  public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     // TODO(gak): add some error handling for bad source files
     final ImmutableSet.Builder<ProvisionBinding> provisions = ImmutableSet.builder();
     // TODO(gak): instead, we should collect reports by type and check later
-    final ImmutableSet.Builder<TypeElement> membersInjectedTypes = ImmutableSet.builder();
+    final ImmutableSet.Builder<DeclaredType> membersInjectedTypes = ImmutableSet.builder();
 
-    for (Element injectElement : roundEnv.getElementsAnnotatedWith(Inject.class)) {
-      if (SuperficialValidation.validateElement(injectElement)) {
-        injectElement.accept(
-            new ElementKindVisitor6<Void, Void>() {
-              @Override
-              public Void visitExecutableAsConstructor(
-                  ExecutableElement constructorElement, Void v) {
-                ValidationReport<ExecutableElement> report =
-                    constructorValidator.validate(constructorElement);
+    for (Element injectElement : elementsByAnnotation.get(Inject.class)) {
+      injectElement.accept(
+          new ElementKindVisitor6<Void, Void>() {
+            @Override
+            public Void visitExecutableAsConstructor(
+                ExecutableElement constructorElement, Void v) {
+              ValidationReport<ExecutableElement> report =
+                  constructorValidator.validate(constructorElement);
 
-                report.printMessagesTo(messager);
+              report.printMessagesTo(messager);
 
-                if (report.isClean()) {
-                  provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement));
-                }
-
-                return null;
+              if (report.isClean()) {
+                provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement,
+                    Optional.<TypeMirror>absent()));
               }
 
-              @Override
-              public Void visitVariableAsField(VariableElement fieldElement, Void p) {
-                ValidationReport<VariableElement> report = fieldValidator.validate(fieldElement);
+              return null;
+            }
 
-                report.printMessagesTo(messager);
+            @Override
+            public Void visitVariableAsField(VariableElement fieldElement, Void p) {
+              ValidationReport<VariableElement> report = fieldValidator.validate(fieldElement);
 
-                if (report.isClean()) {
-                  membersInjectedTypes.add(MoreElements.asType(fieldElement.getEnclosingElement()));
-                }
+              report.printMessagesTo(messager);
 
-                return null;
+              if (report.isClean()) {
+                membersInjectedTypes.add(
+                    MoreTypes.asDeclared(fieldElement.getEnclosingElement().asType()));
               }
 
-              @Override
-              public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
-                ValidationReport<ExecutableElement> report =
-                    methodValidator.validate(methodElement);
+              return null;
+            }
 
-                report.printMessagesTo(messager);
+            @Override
+            public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
+              ValidationReport<ExecutableElement> report =
+                  methodValidator.validate(methodElement);
 
-                if (report.isClean()) {
-                  membersInjectedTypes.add(
-                      MoreElements.asType(methodElement.getEnclosingElement()));
-                }
+              report.printMessagesTo(messager);
 
-                return null;
+              if (report.isClean()) {
+                membersInjectedTypes.add(
+                    MoreTypes.asDeclared(methodElement.getEnclosingElement().asType()));
               }
-            }, null);
-      }
+
+              return null;
+            }
+          }, null);
     }
 
-    for (TypeElement injectedType : membersInjectedTypes.build()) {
-      injectBindingRegistry.registerBinding(
-          membersInjectionBindingFactory.forInjectedType(injectedType));
+    for (DeclaredType injectedType : membersInjectedTypes.build()) {
+      injectBindingRegistry.registerBinding(membersInjectionBindingFactory.forInjectedType(
+          injectedType, Optional.<TypeMirror>absent()));
     }
 
     for (ProvisionBinding binding : provisions.build()) {
       injectBindingRegistry.registerBinding(binding);
     }
-
-    return false;
   }
 }
