@@ -34,6 +34,7 @@
   <modules>
     <module>compiler</module>
     <module>core</module>
+    <!-- examples are handled in a default profile (see below) -->
     <module>producers</module>
   </modules>
 
@@ -208,8 +209,10 @@
     </plugins>
   </build>
 
-  <!-- 
-    A profile which when switched off excludes example modules - used for javadoc publishing
+  <!--
+    A profile which when switched off excludes example modules.  By default the profile
+    is on and invokes examples.  However, when processing javadocs, it is switched off
+    omitting the example code from the javadoc.
   -->
   <profiles>
     <profile>
