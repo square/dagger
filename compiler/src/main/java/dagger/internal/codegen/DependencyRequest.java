@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -36,7 +38,6 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -70,6 +71,12 @@ abstract class DependencyRequest {
   abstract Kind kind();
   abstract Key key();
   abstract Element requestElement();
+  
+  /**
+   * Returns the possibly resolved type that contained the requesting element. For members injection
+   * requests, this is the type itself.
+   */
+  abstract DeclaredType enclosingType();
 
   static final class Factory {
     private final Key.Factory keyFactory;
@@ -78,12 +85,12 @@ abstract class DependencyRequest {
       this.keyFactory = keyFactory;
     }
 
-    ImmutableSet<DependencyRequest> forRequiredResolvedVariables(
+    ImmutableSet<DependencyRequest> forRequiredResolvedVariables(DeclaredType container,
         List<? extends VariableElement> variables, List<? extends TypeMirror> resolvedTypes) {
       checkState(resolvedTypes.size() == variables.size());
       ImmutableSet.Builder<DependencyRequest> builder = ImmutableSet.builder();
       for (int i = 0; i < variables.size(); i++) {
-         builder.add(forRequiredResolvedVariable(variables.get(i), resolvedTypes.get(i)));
+        builder.add(forRequiredResolvedVariable(container, variables.get(i), resolvedTypes.get(i)));
       }
       return builder.build();
     }
@@ -107,22 +114,25 @@ abstract class DependencyRequest {
     DependencyRequest forImplicitMapBinding(DependencyRequest delegatingRequest, Key delegateKey) {
       checkNotNull(delegatingRequest);
       return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
-          delegatingRequest.requestElement());
+          delegatingRequest.requestElement(), 
+          MoreTypes.asDeclared(delegatingRequest.requestElement().getEnclosingElement().asType()));
     }
 
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
-      return newDependencyRequest(variableElement, type, qualifier);
+      return newDependencyRequest(variableElement, type, qualifier, MoreTypes.asDeclared(
+          variableElement.getEnclosingElement().getEnclosingElement().asType()));
     }
 
-    DependencyRequest forRequiredResolvedVariable(VariableElement variableElement,
+    DependencyRequest forRequiredResolvedVariable(DeclaredType container,
+        VariableElement variableElement,
         TypeMirror resolvedType) {
       checkNotNull(variableElement);
       checkNotNull(resolvedType);
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
-      return newDependencyRequest(variableElement, resolvedType, qualifier);
+      return newDependencyRequest(variableElement, resolvedType, qualifier, container);
     }
 
     DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod) {
@@ -131,7 +141,8 @@ abstract class DependencyRequest {
           "Component provision methods must be empty: " + provisionMethod);
       TypeMirror type = provisionMethod.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
-      return newDependencyRequest(provisionMethod, type, qualifier);
+      return newDependencyRequest(provisionMethod, type, qualifier,
+          MoreTypes.asDeclared(provisionMethod.getEnclosingElement().asType()));
     }
 
     DependencyRequest forComponentMembersInjectionMethod(ExecutableElement membersInjectionMethod) {
@@ -142,24 +153,27 @@ abstract class DependencyRequest {
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
           keyFactory.forMembersInjectedType(
               Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
-          membersInjectionMethod);
+          membersInjectionMethod,
+          MoreTypes.asDeclared(membersInjectionMethod.getEnclosingElement().asType()));
     }
 
     DependencyRequest forMembersInjectedType(DeclaredType type) {
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
           keyFactory.forMembersInjectedType(type),
-          type.asElement());
+          type.asElement(),
+          type);
     }
 
-    private DependencyRequest newDependencyRequest(Element requestElement, TypeMirror type,
-        Optional<AnnotationMirror> qualifier) {
+    private DependencyRequest newDependencyRequest(Element requestElement,
+        TypeMirror type, Optional<AnnotationMirror> qualifier, DeclaredType container) {
       KindAndType kindAndType = extractKindAndType(type);
       if (kindAndType.kind() == Kind.MEMBERS_INJECTOR) {
         checkArgument(!qualifier.isPresent());
       }
       return new AutoValue_DependencyRequest(kindAndType.kind(),
             keyFactory.forQualifiedType(qualifier, kindAndType.type()),
-            requestElement);
+            requestElement,
+            container);
     }
     
     @AutoValue

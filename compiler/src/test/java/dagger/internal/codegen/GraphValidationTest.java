@@ -15,13 +15,15 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Joiner;
+
+import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
@@ -545,7 +547,7 @@ public class GraphValidationTest {
         + "      test.TestClass.B.<init>(test.TestClass.A a)\n"
         + "          [parameter: test.TestClass.A a]";
     String secondError = errorText
-        + "      test.TestClass.C.b()\n"
+        + "      test.TestClass.C.b\n"
         + "          [injected field of type: test.TestClass.B b]\n"
         + "      test.TestClass.B.<init>(test.TestClass.A a)\n"
         + "          [parameter: test.TestClass.A a]";
@@ -554,5 +556,106 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(firstError).in(component).onLine(33)
         .and().withErrorContaining(secondError).in(component).onLine(34);
+  }
+  
+  @Test public void resolvedParametersInDependencyTrace() {
+    JavaFileObject generic = JavaFileObjects.forSourceLines("test.Generic",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class Generic<T> {",
+        "  @Inject Generic(T t) {}",
+        "}");
+    JavaFileObject testClass = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import java.util.List;",
+        "",
+        "final class TestClass {",
+        "  @Inject TestClass(List list) {}",
+        "}");
+    JavaFileObject usesTest = JavaFileObjects.forSourceLines("test.UsesTest",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class UsesTest {",
+        "  @Inject UsesTest(Generic<TestClass> genericTestClass) {}",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component",
+        "interface TestComponent {",
+        "  UsesTest usesTest();",
+        "}");
+    String expectedMsg = Joiner.on("\n").join(
+        "java.util.List cannot be provided without an @Provides-annotated method.",
+        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)", 
+        "          [parameter: test.Generic<test.TestClass> genericTestClass]", 
+        "      test.Generic.<init>(test.TestClass t)", 
+        "          [parameter: test.TestClass t]", 
+        "      test.TestClass.<init>(java.util.List list)", 
+        "          [parameter: java.util.List list]");
+    assertAbout(javaSources()).that(ImmutableList.of(generic, testClass, usesTest, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedMsg);
+  }
+  
+  @Test public void resolvedVariablesInDependencyTrace() {
+    JavaFileObject generic = JavaFileObjects.forSourceLines("test.Generic",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class Generic<T> {",
+        "  @Inject T t;",
+        "  @Inject Generic() {}",
+        "}");
+    JavaFileObject testClass = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import java.util.List;",
+        "",
+        "final class TestClass {",
+        "  @Inject TestClass(List list) {}",
+        "}");
+    JavaFileObject usesTest = JavaFileObjects.forSourceLines("test.UsesTest",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class UsesTest {",
+        "  @Inject UsesTest(Generic<TestClass> genericTestClass) {}",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component",
+        "interface TestComponent {",
+        "  UsesTest usesTest();",
+        "}");
+    String expectedMsg = Joiner.on("\n").join(
+        "java.util.List cannot be provided without an @Provides-annotated method.",
+        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)", 
+        "          [parameter: test.Generic<test.TestClass> genericTestClass]", 
+        "      test.Generic.t",
+        "          [injected field of type: test.TestClass t]", 
+        "      test.TestClass.<init>(java.util.List list)", 
+        "          [parameter: java.util.List list]");
+    assertAbout(javaSources()).that(ImmutableList.of(generic, testClass, usesTest, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedMsg);
   }
 }

@@ -65,6 +65,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
     Filer filer = processingEnv.getFiler();
+    
+    DependencyRequestFormatter dependencyRequestFormatter = new DependencyRequestFormatter(types);
 
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
     InjectFieldValidator injectFieldValidator = new InjectFieldValidator();
@@ -112,7 +114,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
         types,
         injectBindingRegistry,
-        disableInterComponentScopeValidation(processingEnv));
+        disableInterComponentScopeValidation(processingEnv),
+        dependencyRequestFormatter);
 
     return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(

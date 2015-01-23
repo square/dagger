@@ -23,6 +23,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -65,14 +66,17 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
   private final ScopeCycleValidation disableInterComponentScopeCycles;
+  private final DependencyRequestFormatter dependencyRequestFormatter;
 
   BindingGraphValidator(
       Types types,
       InjectBindingRegistry injectBindingRegistry,
-      ScopeCycleValidation disableInterComponentScopeCycles) {
+      ScopeCycleValidation disableInterComponentScopeCycles,
+      DependencyRequestFormatter dependencyRequestFormatter) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
     this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
+    this.dependencyRequestFormatter = dependencyRequestFormatter;
   }
 
   @Override
@@ -393,7 +397,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
     ImmutableList<String> printableDependencyPath =
         FluentIterable.from(requestPath)
-            .transform(DependencyRequestFormatter.instance())
+            .transform(dependencyRequestFormatter)
+            .filter(Predicates.not(Predicates.equalTo("")))
             .toList()
             .reverse();
     for (String dependency :
@@ -465,7 +470,10 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private void reportCycle(Deque<DependencyRequest> requestPath,
       BindingGraph graph, final ValidationReport.Builder<BindingGraph> reportBuilder) {
     ImmutableList<String> printableDependencyPath = FluentIterable.from(requestPath)
-        .transform(DependencyRequestFormatter.instance()).toList().reverse();
+        .transform(dependencyRequestFormatter)
+        .filter(Predicates.not(Predicates.equalTo("")))
+        .toList()
+        .reverse();
     DependencyRequest rootRequest = requestPath.getLast();
     TypeElement componentType =
         MoreElements.asType(rootRequest.requestElement().getEnclosingElement());

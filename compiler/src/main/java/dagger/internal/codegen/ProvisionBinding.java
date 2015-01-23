@@ -187,7 +187,8 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
       Key key = keyFactory.forInjectConstructorWithResolvedType(enclosingCxtorType);
       checkArgument(!key.qualifier().isPresent());
       ImmutableSet<DependencyRequest> dependencies =
-          dependencyRequestFactory.forRequiredResolvedVariables(constructorElement.getParameters(),
+          dependencyRequestFactory.forRequiredResolvedVariables(enclosingCxtorType,
+              constructorElement.getParameters(),
               cxtorType.getParameterTypes());
       Optional<DependencyRequest> membersInjectionRequest =
           membersInjectionRequest(enclosingCxtorType);

@@ -119,6 +119,7 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.METHOD,
           methodElement,
           dependencyRequestFactory.forRequiredResolvedVariables(
+              containingType,
               methodElement.getParameters(),
               resolved.getParameterTypes()));
     }
@@ -130,9 +131,9 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
       checkArgument(isAnnotationPresent(fieldElement, Inject.class));
       TypeMirror resolved = types.asMemberOf(containingType, fieldElement);
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.FIELD,
-          fieldElement,
-          ImmutableSet.of(
-              dependencyRequestFactory.forRequiredResolvedVariable(fieldElement, resolved)));
+          fieldElement, 
+          ImmutableSet.of(dependencyRequestFactory.forRequiredResolvedVariable(
+              containingType, fieldElement, resolved)));
     }
     
     
