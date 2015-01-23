@@ -22,11 +22,6 @@ package dagger.internal.codegen;
  * @since 2.0
  */
 final class KeyFormatter extends Formatter<Key> {
-  private static final KeyFormatter INSTANCE = new KeyFormatter();
-
-  static KeyFormatter instance() {
-    return INSTANCE;
-  }
 
   @Override public String format(Key request) {
     StringBuilder builder = new StringBuilder();

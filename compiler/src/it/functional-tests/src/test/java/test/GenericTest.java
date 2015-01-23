@@ -138,4 +138,11 @@ public class GenericTest {
     
     assertThat(a).isNotSameAs(b);
   }
+  
+  @Test public void genericModules() {
+    GenericComponent component = Dagger_GenericComponent.create();
+    assertThat(component.iterableInt()).containsExactly(1, 2).inOrder();
+    assertThat(component.iterableDouble()).containsExactly(3d, 4d).inOrder();
+    
+  }
 }

@@ -605,7 +605,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
         if (binding.bindingKind().equals(PROVISION)) {
           parameters.add(
-              Snippet.format(contributionFields.get(binding.bindingTypeElement()).name()));
+              Snippet.format(contributionFields.get(binding.contributedBy().get()).name()));
         }
         if (binding.memberInjectionRequest().isPresent()) {
           parameters.add(memberSelectSnippets.get(
@@ -613,28 +613,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         }
         parameters.addAll(getDependencyParameters(binding.dependencies(), memberSelectSnippets));
 
-        if (binding.bindingKind().equals(PROVISION)) {
-          // Factories from @Provides methods don't have .create() methods.
-          return binding.scope().isPresent()
-              ? Snippet.format("%s.create(new %s(%s))",
-                  ClassName.fromClass(ScopedProvider.class),
-                  factoryNameForProvisionBinding(binding),
-                  Snippet.makeParametersSnippet(parameters))
-              : Snippet.format("new %s(%s)",
-                  factoryNameForProvisionBinding(binding),
-                  Snippet.makeParametersSnippet(parameters));
-        } else {
-          // Factories from @Inject classes have .create() methods.
-          return binding.scope().isPresent()
-              ? Snippet.format("%s.create(%s.create(%s))",
-                  ClassName.fromClass(ScopedProvider.class),
-                  factoryNameForProvisionBinding(binding),
-                  Snippet.makeParametersSnippet(parameters))
-              : Snippet.format("%s.create(%s)",
-                  factoryNameForProvisionBinding(binding),
-                  Snippet.makeParametersSnippet(parameters));
-        }
-
+        return binding.scope().isPresent()
+            ? Snippet.format("%s.create(%s.create(%s))",
+                ClassName.fromClass(ScopedProvider.class),
+                factoryNameForProvisionBinding(binding),
+                Snippet.makeParametersSnippet(parameters))
+            : Snippet.format("%s.create(%s)",
+                factoryNameForProvisionBinding(binding),
+                Snippet.makeParametersSnippet(parameters));
       default:
         throw new AssertionError();
     }

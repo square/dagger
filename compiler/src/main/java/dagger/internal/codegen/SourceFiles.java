@@ -16,6 +16,7 @@ package dagger.internal.codegen;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -31,6 +32,7 @@ import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.ExecutableElement;
@@ -209,18 +211,31 @@ class SourceFiles {
   static TypeName parameterizedFactoryNameForProvisionBinding(
       ProvisionBinding binding) {
     ClassName factoryName = factoryNameForProvisionBinding(binding);
-    // Only parameterize injection unique bindings.
-    // Other kinds generate unique factories that have no type parameters.
-    if (binding.bindingType() == BindingType.UNIQUE
-        && binding.bindingKind() == ProvisionBinding.Kind.INJECTION) {
-      TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
-      // If the binding is parameterized, parameterize the factory.
-      if (bindingName instanceof ParameterizedTypeName) {
-        return ParameterizedTypeName.create(factoryName,
-            ((ParameterizedTypeName) bindingName).parameters());
+    List<TypeName> parameters = ImmutableList.of();
+    if (binding.bindingType().equals(BindingType.UNIQUE)) {
+      switch(binding.bindingKind()) {
+        case INJECTION:
+          TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
+          // If the binding is parameterized, parameterize the factory.
+          if (bindingName instanceof ParameterizedTypeName) {
+            parameters = ((ParameterizedTypeName) bindingName).parameters();
+          }
+          break; 
+        case PROVISION:
+          // For provision bindings, we parameterize creation on the types of
+          // the module, not the types of the binding.
+          // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
+          // The binding is just parameterized on <B>, but we need all of <A, B, C>.
+          if (!binding.bindingTypeElement().getTypeParameters().isEmpty()) {
+            parameters = ((ParameterizedTypeName) TypeNames.forTypeMirror(
+                binding.bindingTypeElement().asType())).parameters();
+          }
+          break;
+        default: // fall through.
       }
     }
-    return factoryName;
+    return parameters.isEmpty() ? factoryName
+        : ParameterizedTypeName.create(factoryName, parameters);
   }
 
   static ClassName factoryNameForProductionBinding(ProductionBinding binding) {

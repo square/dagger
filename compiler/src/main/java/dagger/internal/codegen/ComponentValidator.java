@@ -15,18 +15,13 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableList;
 import dagger.Component;
-import dagger.Module;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleTypeVisitor6;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.ElementKind.INTERFACE;
@@ -38,6 +33,12 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  * @author Gregory Kick
  */
 final class ComponentValidator implements Validator<TypeElement> {
+  private final ModuleValidator moduleValidator;
+  
+  ComponentValidator(ModuleValidator moduleValidator) {
+    this.moduleValidator = moduleValidator;
+  }
+  
   @Override public ValidationReport<TypeElement> validate(final TypeElement subject) {
     final ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
 
@@ -48,29 +49,7 @@ final class ComponentValidator implements Validator<TypeElement> {
 
     AnnotationMirror componentMirror = getAnnotationMirror(subject, Component.class).get();
     ImmutableList<TypeMirror> moduleTypes = getComponentModules(componentMirror);
-
-    // TODO(gak): make unused modules an error
-    for (TypeMirror moduleType : moduleTypes) {
-      moduleType.accept(new SimpleTypeVisitor6<Void, Void>() {
-        @Override
-        protected Void defaultAction(TypeMirror mirror, Void p) {
-          builder.addItem(mirror + " is not a valid module type.", subject);
-          return null;
-        }
-
-        @Override
-        public Void visitDeclared(DeclaredType t, Void p) {
-          checkState(t.getTypeArguments().isEmpty());
-          TypeElement moduleElement = MoreElements.asType(t.asElement());
-          if (!getAnnotationMirror(moduleElement, Module.class).isPresent()) {
-            builder.addItem(moduleElement.getQualifiedName()
-                + " is listed as a module, but is not annotated with @Module", subject);
-          }
-          return null;
-        }
-      }, null);
-    }
-
+    moduleValidator.validateReferencedModules(subject, builder, moduleTypes);
     return builder.build();
   }
 }

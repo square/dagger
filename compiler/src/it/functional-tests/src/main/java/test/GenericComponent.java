@@ -19,7 +19,7 @@ import dagger.Component;
 import test.sub.Exposed;
 import test.sub.PublicSubclass;
 
-@Component
+@Component(modules = {ChildDoubleModule.class, ChildIntegerModule.class})
 interface GenericComponent {
   ReferencesGeneric referencesGeneric();
   GenericDoubleReferences<A> doubleGenericA();
@@ -33,4 +33,7 @@ interface GenericComponent {
 
   Exposed exposed();
   PublicSubclass publicSubclass();
+  
+  Iterable<Integer> iterableInt();
+  Iterable<Double> iterableDouble();
 }

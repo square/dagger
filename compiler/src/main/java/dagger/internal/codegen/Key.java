@@ -37,6 +37,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -181,12 +182,12 @@ abstract class Key {
           MoreTypes.equivalence().wrap(returnType));
     }
 
-    Key forProvidesMethod(ExecutableElement e) {
+    Key forProvidesMethod(ExecutableType executableType, ExecutableElement e) {
       checkNotNull(e);
       checkArgument(e.getKind().equals(METHOD));
       Provides providesAnnotation = e.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
-      TypeMirror returnType = normalize(e.getReturnType());
+      TypeMirror returnType = normalize(executableType.getReturnType());
       switch (providesAnnotation.type()) {
         case UNIQUE:
           return new AutoValue_Key(

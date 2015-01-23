@@ -50,7 +50,6 @@ import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.Provides.Type.SET;
-import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -128,9 +127,9 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         constructorWriter.get().addModifiers(PUBLIC);
         factoryWriter = classWriter;
         if (binding.bindingKind().equals(PROVISION)) {
-          factoryWriter.addField(binding.bindingTypeElement(), "module")
-              .addModifiers(PRIVATE, FINAL);
-          constructorWriter.get().addParameter(binding.bindingTypeElement(), "module");
+          TypeName enclosingType = TypeNames.forTypeMirror(binding.bindingTypeElement().asType());
+          factoryWriter.addField(enclosingType, "module").addModifiers(PRIVATE, FINAL);
+          constructorWriter.get().addParameter(enclosingType, "module");
           constructorWriter.get().body()
               .addSnippet("assert module != null;")
               .addSnippet("this.module = module;");
@@ -174,41 +173,45 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("this.%1$s = %1$s;", field.name());
     }
     
-    // If constructing a factory for @Inject bindings, we use a static create method
+    // If constructing a factory for @Inject or @Provides bindings, we use a static create method
     // so that generated components can avoid having to refer to the generic types
     // of the factory.  (Otherwise they may have visibility problems referring to the types.)
-    if (binding.bindingKind().equals(INJECTION)) {
-      // The return type is usually the same as the implementing type, except in the case
-      // of enums with type variables (where we cast).
-      TypeName returnType = ParameterizedTypeName.create(ClassName.fromClass(Factory.class),
-          TypeNames.forTypeMirror(keyType));
-      MethodWriter createMethodWriter = factoryWriter.addMethod(returnType, "create");
-      createMethodWriter.addTypeParameters(typeParameters);
-      createMethodWriter.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
-      Map<String, TypeName> params = constructorWriter.isPresent()
-          ? constructorWriter.get().parameters() : ImmutableMap.<String, TypeName>of();
-      for (Map.Entry<String, TypeName> param : params.entrySet()) {
-        createMethodWriter.addParameter(param.getValue(), param.getKey());      
-      }
-      switch (binding.factoryCreationStrategy()) {
-        case ENUM_INSTANCE:
-          if (typeParameters.isEmpty()) {
-            createMethodWriter.body().addSnippet(" return INSTANCE;");
-          } else {
-            // We use an unsafe cast here because the types are different.
-            // It's safe because the type is never referenced anywhere.
-            createMethodWriter.annotate(SuppressWarnings.class).setValue("unchecked");
-            createMethodWriter.body().addSnippet(" return (Factory) INSTANCE;");
-          }
-          break;
-        case CLASS_CONSTRUCTOR:
-          createMethodWriter.body().addSnippet(" return new %s(%s);",
-              parameterizedFactoryNameForProvisionBinding(binding),
-              Joiner.on(", ").join(params.keySet()));
-          break;
-        default:
-          throw new AssertionError();
-      }
+    switch(binding.bindingKind()) {
+      case INJECTION:
+      case PROVISION:
+        // The return type is usually the same as the implementing type, except in the case
+        // of enums with type variables (where we cast).
+        TypeName returnType = ParameterizedTypeName.create(ClassName.fromClass(Factory.class),
+            TypeNames.forTypeMirror(keyType));
+        MethodWriter createMethodWriter = factoryWriter.addMethod(returnType, "create");
+        createMethodWriter.addTypeParameters(typeParameters);
+        createMethodWriter.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+        Map<String, TypeName> params = constructorWriter.isPresent()
+            ? constructorWriter.get().parameters() : ImmutableMap.<String, TypeName>of();
+        for (Map.Entry<String, TypeName> param : params.entrySet()) {
+          createMethodWriter.addParameter(param.getValue(), param.getKey());      
+        }
+        switch (binding.factoryCreationStrategy()) {
+          case ENUM_INSTANCE:
+            if (typeParameters.isEmpty()) {
+              createMethodWriter.body().addSnippet("return INSTANCE;");
+            } else {
+              // We use an unsafe cast here because the types are different.
+              // It's safe because the type is never referenced anywhere.
+              createMethodWriter.annotate(SuppressWarnings.class).setValue("unchecked");
+              createMethodWriter.body().addSnippet("return (Factory) INSTANCE;");
+            }
+            break;
+          case CLASS_CONSTRUCTOR:
+            createMethodWriter.body().addSnippet("return new %s(%s);",
+                parameterizedFactoryNameForProvisionBinding(binding),
+                Joiner.on(", ").join(params.keySet()));
+            break;
+          default:
+            throw new AssertionError();
+        }
+        break;
+      default: // do nothing.
     }
 
     List<Snippet> parameters = Lists.newArrayList();

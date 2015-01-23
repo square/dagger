@@ -113,7 +113,8 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
               .transform(new Function<ExecutableElement, ProvisionBinding>() {
                 @Override
                 public ProvisionBinding apply(ExecutableElement providesMethod) {
-                  return provisionBindingFactory.forProvidesMethod(providesMethod);
+                  return provisionBindingFactory.forProvidesMethod(providesMethod,
+                      providesMethod.getEnclosingElement().asType());
                 }
               })
               .toSet();

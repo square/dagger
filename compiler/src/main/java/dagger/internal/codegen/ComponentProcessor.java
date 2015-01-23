@@ -66,17 +66,22 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Elements elements = processingEnv.getElementUtils();
     Filer filer = processingEnv.getFiler();
     
+    MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
+    ProvisionBindingFormatter provisionBindingFormatter =
+        new ProvisionBindingFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter = new DependencyRequestFormatter(types);
+    KeyFormatter keyFormatter = new KeyFormatter();
 
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
     InjectFieldValidator injectFieldValidator = new InjectFieldValidator();
     InjectMethodValidator injectMethodValidator = new InjectMethodValidator();
-    ModuleValidator moduleValidator = new ModuleValidator(types, Module.class, Provides.class);
+    ModuleValidator moduleValidator = new ModuleValidator(types, elements, methodSignatureFormatter,
+        Module.class, Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
-    ComponentValidator componentValidator = new ComponentValidator();
+    ComponentValidator componentValidator = new ComponentValidator(moduleValidator);
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
-    ModuleValidator producerModuleValidator = new ModuleValidator(
-        types, ProducerModule.class, Produces.class);
+    ModuleValidator producerModuleValidator = new ModuleValidator(types, elements,
+        methodSignatureFormatter, ProducerModule.class, Produces.class);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements);
     ProductionComponentValidator productionComponentValidator = new ProductionComponentValidator();
 
@@ -115,7 +120,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         types,
         injectBindingRegistry,
         disableInterComponentScopeValidation(processingEnv),
-        dependencyRequestFormatter);
+        provisionBindingFormatter,
+        methodSignatureFormatter,
+        dependencyRequestFormatter,
+        keyFormatter);
 
     return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(

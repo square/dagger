@@ -51,7 +51,7 @@ public class MethodSignatureFormatterTest {
     Elements elements = compilationRule.getElements();
     TypeElement inner = elements.getTypeElement(InnerClass.class.getCanonicalName());
     ExecutableElement method = Iterables.getOnlyElement(methodsIn(inner.getEnclosedElements()));
-    String formatted = MethodSignatureFormatter.instance().format(method);
+    String formatted = new MethodSignatureFormatter(compilationRule.getTypes()).format(method);
     // This is gross, but it turns out that annotation order is not guaranteed when getting
     // all the AnnotationMirrors from an Element, so I have to test this chopped-up to make it
     // less brittle.

@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.AnnotationMirrors;
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -35,7 +36,9 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
@@ -98,7 +101,8 @@ final class ConfigurationAnnotations {
    * is not annotated with {@link Module}, it is ignored.
    */
   static ImmutableMap<TypeElement, ImmutableSet<TypeElement>> getTransitiveModules(
-      Types types, ImmutableSet<TypeElement> seedModules) {
+      Types types, Elements elements, ImmutableSet<TypeElement> seedModules) {
+    TypeMirror objectType = elements.getTypeElement(Object.class.getCanonicalName()).asType();
     Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
     Map<TypeElement, ImmutableSet<TypeElement>> moduleElements = Maps.newLinkedHashMap();
     for (TypeElement moduleElement = moduleQueue.poll();
@@ -106,8 +110,14 @@ final class ConfigurationAnnotations {
         moduleElement = moduleQueue.poll()) {
       Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class);
       if (moduleMirror.isPresent()) {
-        ImmutableSet<TypeElement> moduleDependencies =
-            MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get()));
+        ImmutableSet.Builder<TypeElement> moduleDependenciesBuilder = ImmutableSet.builder();
+        moduleDependenciesBuilder.addAll(
+            MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get())));
+        // (note: we don't recurse on the parent class because we don't want the parent class as a
+        // root that the component depends on, and also because we want the dependencies rooted
+        // against this element, not the parent.)
+        addIncludesFromSuperclasses(types, moduleElement, moduleDependenciesBuilder, objectType);
+        ImmutableSet<TypeElement> moduleDependencies = moduleDependenciesBuilder.build();
         moduleElements.put(moduleElement, moduleDependencies);
         for (TypeElement dependencyType : moduleDependencies) {
           if (!moduleElements.containsKey(dependencyType)) {
@@ -117,6 +127,22 @@ final class ConfigurationAnnotations {
       }
     }
     return ImmutableMap.copyOf(moduleElements);
+  }
+  
+  /** Traverses includes from superclasses and adds them into the builder. */
+  private static void addIncludesFromSuperclasses(Types types, TypeElement element,
+      ImmutableSet.Builder<TypeElement> builder, TypeMirror objectType) {
+    // Also add the superclass to the queue, in case any @Module definitions were on that.
+    TypeMirror superclass = element.getSuperclass();
+    while(!types.isSameType(objectType, superclass)
+        && superclass.getKind().equals(TypeKind.DECLARED)) {
+      element = MoreElements.asType(types.asElement(superclass));
+      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(element, Module.class);
+      if (moduleMirror.isPresent()) {
+        builder.addAll(MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get())));
+      }
+      superclass = element.getSuperclass();
+    }
   }
 
   private ConfigurationAnnotations() {}

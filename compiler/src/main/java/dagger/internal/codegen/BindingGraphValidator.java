@@ -66,17 +66,26 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
   private final ScopeCycleValidation disableInterComponentScopeCycles;
+  private final ProvisionBindingFormatter provisionBindingFormatter;
+  private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
+  private final KeyFormatter keyFormatter;
 
   BindingGraphValidator(
       Types types,
       InjectBindingRegistry injectBindingRegistry,
       ScopeCycleValidation disableInterComponentScopeCycles,
-      DependencyRequestFormatter dependencyRequestFormatter) {
+      ProvisionBindingFormatter provisionBindingFormatter,
+      MethodSignatureFormatter methodSignatureFormatter,
+      DependencyRequestFormatter dependencyRequestFormatter,
+      KeyFormatter keyFormatter) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
     this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
+    this.provisionBindingFormatter = provisionBindingFormatter;
+    this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
+    this.keyFormatter = keyFormatter;
   }
 
   @Override
@@ -343,7 +352,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
                   ExecutableElement provisionMethod =
                       MoreElements.asExecutable(provisionBinding.bindingElement());
                   incompatiblyScopedMethodsBuilder.add(
-                      MethodSignatureFormatter.instance().format(provisionMethod));
+                      methodSignatureFormatter.format(provisionMethod));
                   break;
                 case INJECTION:
                   incompatiblyScopedMethodsBuilder.add(stripCommonTypePrefixes(
@@ -415,10 +424,10 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       ResolvedBindings resolvedBinding, ValidationReport.Builder<BindingGraph> reportBuilder) {
     StringBuilder builder = new StringBuilder();
     new Formatter(builder).format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT,
-        KeyFormatter.instance().format(requestPath.peek().key()));
+        keyFormatter.format(requestPath.peek().key()));
     for (Binding binding : Iterables.limit(resolvedBinding.bindings(), DUPLICATE_SIZE_LIMIT)) {
       builder.append('\n').append(INDENT);
-      builder.append(ProvisionBindingFormatter.instance().format((ProvisionBinding) binding));
+      builder.append(provisionBindingFormatter.format((ProvisionBinding) binding));
     }
     int numberOfOtherBindings = resolvedBinding.bindings().size() - DUPLICATE_SIZE_LIMIT;
     if (numberOfOtherBindings > 0) {
@@ -436,7 +445,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       ResolvedBindings resolvedBinding, ValidationReport.Builder<BindingGraph> reportBuilder) {
     StringBuilder builder = new StringBuilder();
     new Formatter(builder).format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT,
-        KeyFormatter.instance().format(requestPath.peek().key()));
+        keyFormatter.format(requestPath.peek().key()));
     @SuppressWarnings("unchecked")
     ImmutableListMultimap<BindingType, ProvisionBinding> bindingsByType =
         ProvisionBinding.bindingTypesFor((Iterable<ProvisionBinding>) resolvedBinding.bindings());
@@ -447,7 +456,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       builder.append(" bindings:\n");
       for (ProvisionBinding binding : bindingsByType.get(type)) {
         builder.append(INDENT).append(INDENT);
-        builder.append(ProvisionBindingFormatter.instance().format(binding));
+        builder.append(provisionBindingFormatter.format(binding));
         builder.append('\n');
       }
     }

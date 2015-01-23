@@ -132,17 +132,14 @@ abstract class BindingGraph {
           MoreTypes.asTypeElements(types, getComponentModules(componentAnnotation));
 
       ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules =
-          getTransitiveModules(types, moduleTypes);
+          getTransitiveModules(types, elements, moduleTypes);
       for (TypeElement module : transitiveModules.keySet()) {
         // traverse the modules, collect the bindings
         List<ExecutableElement> moduleMethods = methodsIn(elements.getAllMembers(module));
         for (ExecutableElement moduleMethod : moduleMethods) {
           if (isAnnotationPresent(moduleMethod, Provides.class)) {
-            try {
-              explicitBindingsBuilder.add(provisionBindingFactory.forProvidesMethod(moduleMethod));
-            } catch (IllegalArgumentException e) {
-              // just ignore it
-            }
+            explicitBindingsBuilder.add(
+                provisionBindingFactory.forProvidesMethod(moduleMethod, module.asType()));
           }
         }
       }
