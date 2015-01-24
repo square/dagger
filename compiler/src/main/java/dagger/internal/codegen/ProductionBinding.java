@@ -17,12 +17,18 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produces;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,6 +53,11 @@ abstract class ProductionBinding extends ContributionBinding {
     IMMEDIATE,
     /** Represents a binding configured by {@link Produces} that returns a future. */
     FUTURE_PRODUCTION,
+    /**
+     * Represents a binding from a production method on a component dependency that returns a
+     * future. Methods that return immediate values are considered provision bindings.
+     */
+    COMPONENT_PRODUCTION,
   }
 
   /**
@@ -77,33 +88,82 @@ abstract class ProductionBinding extends ContributionBinding {
   }
 
   static final class Factory {
+    private final Types types;
     private final Key.Factory keyFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Key.Factory keyFactory, DependencyRequest.Factory dependencyRequestFactory) {
+    Factory(Types types,
+        Key.Factory keyFactory,
+        DependencyRequest.Factory
+        dependencyRequestFactory) {
+      this.types = types;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
 
-    ProductionBinding forProducesMethod(ExecutableElement producesMethod) {
+    ProductionBinding forProducesMethod(
+        ExecutableElement producesMethod, TypeMirror contributedBy) {
       checkNotNull(producesMethod);
       checkArgument(producesMethod.getKind().equals(METHOD));
+      checkArgument(contributedBy.getKind().equals(TypeKind.DECLARED));
       Produces producesAnnotation = producesMethod.getAnnotation(Produces.class);
       checkArgument(producesAnnotation != null);
-      Key key = keyFactory.forProducesMethod(producesMethod);
+      DeclaredType declaredContainer = MoreTypes.asDeclared(contributedBy);
+      ExecutableType resolvedMethod =
+          MoreTypes.asExecutable(types.asMemberOf(declaredContainer, producesMethod));
+      Key key = keyFactory.forProducesMethod(resolvedMethod, producesMethod);
       ImmutableSet<DependencyRequest> dependencies =
-          dependencyRequestFactory.forRequiredVariables(producesMethod.getParameters());
+          dependencyRequestFactory.forRequiredResolvedVariables(
+              declaredContainer,
+              producesMethod.getParameters(),
+              resolvedMethod.getParameterTypes());
       Kind kind = MoreTypes.isTypeOf(ListenableFuture.class, producesMethod.getReturnType())
           ? Kind.FUTURE_PRODUCTION
           : Kind.IMMEDIATE;
       return new AutoValue_ProductionBinding(
+          false /* not resolved */,
           key,
           producesMethod,
           dependencies,
           findBindingPackage(key),
+          Optional.of(MoreTypes.asTypeElement(types, declaredContainer)),
           kind,
           producesAnnotation.type(),
           ImmutableList.copyOf(producesMethod.getThrownTypes()));
+    }
+
+    ProductionBinding forImplicitMapBinding(DependencyRequest explicitRequest,
+        DependencyRequest implicitRequest) {
+      checkNotNull(explicitRequest);
+      checkNotNull(implicitRequest);
+      ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
+      return new AutoValue_ProductionBinding(
+          false /* not resolved */,
+          explicitRequest.key(),
+          implicitRequest.requestElement(),
+          dependencies,
+          findBindingPackage(explicitRequest.key()),
+          Optional.<TypeElement>absent(),
+          Kind.FUTURE_PRODUCTION,
+          Produces.Type.MAP,
+          ImmutableList.of());
+    }
+
+    ProductionBinding forComponentMethod(ExecutableElement componentMethod) {
+      checkNotNull(componentMethod);
+      checkArgument(componentMethod.getKind().equals(METHOD));
+      checkArgument(componentMethod.getParameters().isEmpty());
+      checkArgument(MoreTypes.isTypeOf(ListenableFuture.class, componentMethod.getReturnType()));
+      return new AutoValue_ProductionBinding(
+          false /* not resolved */,
+          keyFactory.forProductionComponentMethod(componentMethod),
+          componentMethod,
+          ImmutableSet.<DependencyRequest>of(),
+          Optional.<String>absent(),
+          Optional.<TypeElement>absent(),
+          Kind.COMPONENT_PRODUCTION,
+          Produces.Type.UNIQUE,
+          ImmutableList.copyOf(componentMethod.getThrownTypes()));
     }
   }
 }

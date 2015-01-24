@@ -63,7 +63,7 @@ final class InjectBindingRegistry {
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
   private final MembersInjectorGenerator membersInjectorGenerator;
 
-  final class BindingsCollection<B extends Binding & ResolvableBinding> {
+  final class BindingsCollection<B extends Binding> {
     private final Map<Key, B> bindingsByKey = Maps.newLinkedHashMap();
     private final Deque<B> bindingsRequiringGeneration = Queues.newArrayDeque();
     private final Set<B> materializedBindings = Sets.newLinkedHashSet();

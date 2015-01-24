@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import dagger.Provides;
+import dagger.producers.Produces;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +40,9 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.ComponentDescriptor.isComponentProvisionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
@@ -88,41 +91,55 @@ abstract class BindingGraph {
     private final Key.Factory keyFactory;
     private final DependencyRequest.Factory dependencyRequestFactory;
     private final ProvisionBinding.Factory provisionBindingFactory;
+    private final ProductionBinding.Factory productionBindingFactory;
 
     Factory(Elements elements,
         Types types,
         InjectBindingRegistry injectBindingRegistry,
         Key.Factory keyFactory,
         DependencyRequest.Factory dependencyRequestFactory,
-        ProvisionBinding.Factory provisionBindingFactory) {
+        ProvisionBinding.Factory provisionBindingFactory,
+        ProductionBinding.Factory productionBindingFactory) {
       this.elements = elements;
       this.types = types;
       this.injectBindingRegistry = injectBindingRegistry;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
       this.provisionBindingFactory = provisionBindingFactory;
+      this.productionBindingFactory = productionBindingFactory;
     }
 
     BindingGraph create(ComponentDescriptor componentDescriptor) {
-      ImmutableSet.Builder<ProvisionBinding> explicitBindingsBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<ProvisionBinding> explicitProvisionBindingsBuilder =
+          ImmutableSet.builder();
+      ImmutableSet.Builder<ProductionBinding> explicitProductionBindingsBuilder =
+          ImmutableSet.builder();
       AnnotationMirror componentAnnotation = componentDescriptor.componentAnnotation();
 
       // binding for the component itself
       ProvisionBinding componentBinding =
           provisionBindingFactory.forComponent(componentDescriptor.componentDefinitionType());
-      explicitBindingsBuilder.add(componentBinding);
+      explicitProvisionBindingsBuilder.add(componentBinding);
 
       // Collect Component dependencies.
       ImmutableSet<TypeElement> componentDependencyTypes =
           MoreTypes.asTypeElements(types, getComponentDependencies(componentAnnotation));
       for (TypeElement componentDependency : componentDependencyTypes) {
-        explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDependency));
+        explicitProvisionBindingsBuilder.add(
+            provisionBindingFactory.forComponent(componentDependency));
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement method : dependencyMethods) {
-          if (isComponentProvisionMethod(elements, method)) {
-            // MembersInjection methods aren't "provided" explicitly, so ignore them.
-            explicitBindingsBuilder.add(provisionBindingFactory.forComponentMethod(method));
+          // MembersInjection methods aren't "provided" explicitly, so ignore them.
+          if (isComponentContributionMethod(elements, method)) {
+            if (componentDescriptor.kind().equals(PRODUCTION_COMPONENT)
+                && isComponentProductionMethod(elements, method)) {
+              explicitProductionBindingsBuilder.add(
+                  productionBindingFactory.forComponentMethod(method));
+            } else {
+              explicitProvisionBindingsBuilder.add(
+                  provisionBindingFactory.forComponentMethod(method));
+            }
           }
         }
       }
@@ -138,16 +155,21 @@ abstract class BindingGraph {
         List<ExecutableElement> moduleMethods = methodsIn(elements.getAllMembers(module));
         for (ExecutableElement moduleMethod : moduleMethods) {
           if (isAnnotationPresent(moduleMethod, Provides.class)) {
-            explicitBindingsBuilder.add(
+            explicitProvisionBindingsBuilder.add(
                 provisionBindingFactory.forProvidesMethod(moduleMethod, module.asType()));
           }
+          if (isAnnotationPresent(moduleMethod, Produces.class)) {
+            explicitProductionBindingsBuilder.add(
+                productionBindingFactory.forProducesMethod(moduleMethod, module.asType()));
+           }
         }
       }
 
-      RequestResolver requestResolver =
-          new RequestResolver(explicitBindingsByKey(explicitBindingsBuilder.build()));
-      ImmutableSet<DependencyRequest> componentMethodRequests =
-          componentMethodRequests(componentDescriptor.componentDefinitionType());
+      RequestResolver requestResolver = new RequestResolver(
+          explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
+          explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
+      ImmutableSet<DependencyRequest> componentMethodRequests = componentMethodRequests(
+          componentDescriptor.componentDefinitionType(), componentDescriptor.kind());
       for (DependencyRequest componentMethodRequest :
           componentMethodRequests) {
         requestResolver.resolve(componentMethodRequest);
@@ -160,23 +182,30 @@ abstract class BindingGraph {
           ImmutableMap.copyOf(requestResolver.resolvedBindings));
     }
 
-    private ImmutableSetMultimap<Key, ProvisionBinding> explicitBindingsByKey(
-        Iterable<ProvisionBinding> bindings) {
+    private <B extends ContributionBinding> ImmutableSetMultimap<Key, B> explicitBindingsByKey(
+        Iterable<? extends B> bindings) {
       // Multimaps.index() doesn't do ImmutableSetMultimaps.
-      ImmutableSetMultimap.Builder<Key, ProvisionBinding> builder = ImmutableSetMultimap.builder();
-      for (ProvisionBinding binding : bindings) {
+      ImmutableSetMultimap.Builder<Key, B> builder = ImmutableSetMultimap.builder();
+      for (B binding : bindings) {
         builder.put(binding.key(), binding);
       }
       return builder.build();
     }
 
-    private ImmutableSet<DependencyRequest> componentMethodRequests(TypeElement componentType) {
+    private ImmutableSet<DependencyRequest> componentMethodRequests(TypeElement componentType,
+        ComponentDescriptor.Kind componentKind) {
       ImmutableSet.Builder<DependencyRequest> interfaceRequestsBuilder = ImmutableSet.builder();
       for (ExecutableElement componentMethod : methodsIn(elements.getAllMembers(componentType))) {
         if (componentMethod.getModifiers().contains(Modifier.ABSTRACT)) { // Elide Object.*;
-          if (ComponentDescriptor.isComponentProvisionMethod(elements, componentMethod)) {
-            interfaceRequestsBuilder.add(
-                dependencyRequestFactory.forComponentProvisionMethod(componentMethod));
+          if (isComponentContributionMethod(elements, componentMethod)) {
+            if (componentKind.equals(PRODUCTION_COMPONENT)
+                && isComponentProductionMethod(elements, componentMethod)) {
+              interfaceRequestsBuilder.add(
+                  dependencyRequestFactory.forComponentProductionMethod(componentMethod));
+            } else {
+              interfaceRequestsBuilder.add(
+                  dependencyRequestFactory.forComponentProvisionMethod(componentMethod));
+            }
           } else if (isComponentMembersInjectionMethod(componentMethod)) {
             interfaceRequestsBuilder.add(
                 dependencyRequestFactory.forComponentMembersInjectionMethod(componentMethod));
@@ -197,13 +226,17 @@ abstract class BindingGraph {
     }
 
     private final class RequestResolver {
-      final ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings;
+      final ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings;
+      final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = Queues.newArrayDeque();
 
-      RequestResolver(ImmutableSetMultimap<Key, ProvisionBinding> explicitBindings) {
-        assert explicitBindings != null;
-        this.explicitBindings = explicitBindings;
+      RequestResolver(ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings,
+          ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings) {
+        assert explicitProvisionBindings != null;
+        this.explicitProvisionBindings = explicitProvisionBindings;
+        assert explicitProductionBindings != null;
+        this.explicitProductionBindings = explicitProductionBindings;
         this.resolvedBindings = Maps.newLinkedHashMap();
       }
 
@@ -212,14 +245,46 @@ abstract class BindingGraph {
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
             // First, check for explicit keys (those from modules and components)
-            ImmutableSet<ProvisionBinding> explicitBindingsForKey =
-                explicitBindings.get(bindingKey.key());
-            if (explicitBindingsForKey.isEmpty()) {
-              // If the key is Map<K, V>, get its implicit binding key which is
-              // Map<K, Provider<V>>
-              Optional<Key> mapProviderKey =
-                  keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
-              if (mapProviderKey.isPresent()) {
+            ImmutableSet<ProvisionBinding> explicitProvisionBindingsForKey =
+                explicitProvisionBindings.get(bindingKey.key());
+            ImmutableSet<ProductionBinding> explicitProductionBindingsForKey =
+                explicitProductionBindings.get(bindingKey.key());
+
+            // If the key is Map<K, V>, get its implicit binding keys, which are either
+            // Map<K, Provider<V>> or Map<K, Producer<V>>, and grab their explicit bindings.
+            Optional<Key> mapProviderKey = keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
+            ImmutableSet<ProvisionBinding> explicitMapProvisionBindings = ImmutableSet.of();
+            if (mapProviderKey.isPresent()) {
+              explicitMapProvisionBindings = explicitProvisionBindings.get(mapProviderKey.get());
+            }
+
+            Optional<Key> mapProducerKey = keyFactory.implicitMapProducerKeyFrom(bindingKey.key());
+            ImmutableSet<ProductionBinding> explicitMapProductionBindings = ImmutableSet.of();
+            if (mapProducerKey.isPresent()) {
+              explicitMapProductionBindings = explicitProductionBindings.get(mapProducerKey.get());
+            }
+
+            if (!explicitProvisionBindingsForKey.isEmpty()
+                || !explicitProductionBindingsForKey.isEmpty()) {
+              // we have some explicit binding for this key, so we collect all explicit implicit map
+              // bindings that might conflict with this and let the validator sort it out
+              return ImmutableSet.<ContributionBinding>builder()
+                  .addAll(explicitProvisionBindingsForKey)
+                  .addAll(explicitMapProvisionBindings)
+                  .addAll(explicitProductionBindingsForKey)
+                  .addAll(explicitMapProductionBindings)
+                  .build();
+            } else {
+              if (!explicitMapProductionBindings.isEmpty()) {
+                // if we have any explicit Map<K, Producer<V>> bindings, then this Map<K, V> binding
+                // must be considered an implicit ProductionBinding
+                DependencyRequest implicitRequest =
+                    dependencyRequestFactory.forImplicitMapBinding(request, mapProducerKey.get());
+                return ImmutableSet.of(productionBindingFactory.forImplicitMapBinding(
+                    request, implicitRequest));
+              } else if (!explicitMapProvisionBindings.isEmpty()) {
+                // if there are Map<K, Provider<V>> bindings, then it'll be an implicit
+                // ProvisionBinding
                 DependencyRequest implicitRequest =
                     dependencyRequestFactory.forImplicitMapBinding(request, mapProviderKey.get());
                 return ImmutableSet.of(provisionBindingFactory.forImplicitMapBinding(
@@ -230,18 +295,6 @@ abstract class BindingGraph {
                     injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
                 return ImmutableSet.copyOf(provisionBinding.asSet());
               }
-            } else {
-              // If this is an explicit Map<K, V> request then add in any map binding provision
-              // methods which are implied by and must collide with explicit Map<K, V> bindings.
-              Optional<Key> underlyingMapKey =
-                  keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
-              if (underlyingMapKey.isPresent()) {
-                explicitBindingsForKey = ImmutableSet.<ProvisionBinding>builder()
-                    .addAll(explicitBindingsForKey)
-                    .addAll(explicitBindings.get(underlyingMapKey.get()))
-                    .build();
-              }
-              return explicitBindingsForKey;
             }
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up

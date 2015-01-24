@@ -165,9 +165,9 @@ public class KeyTest {
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
       assertThat(
           keyFactory.forProvidesMethod((ExecutableType) providesMethod.asType(), providesMethod))
-          .isEqualTo(new AutoValue_Key(
-              Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-              MoreTypes.equivalence().wrap(setOfStringsType)));
+              .isEqualTo(new AutoValue_Key(
+                  Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+                  MoreTypes.equivalence().wrap(setOfStringsType)));
     }
   }
 
@@ -224,8 +224,9 @@ public class KeyTest {
         elements.getTypeElement(ProducesMethodsModule.class.getCanonicalName());
     for (ExecutableElement producesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
-      assertThat(keyFactory.forProducesMethod(producesMethod))
-          .isEqualTo(new AutoValue_Key(
+      assertThat(keyFactory.forProducesMethod(
+          (ExecutableType) producesMethod.asType(), producesMethod))
+              .isEqualTo(new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(stringType)));
     }
@@ -250,7 +251,8 @@ public class KeyTest {
         elements.getTypeElement(SetProducesMethodsModule.class.getCanonicalName());
     for (ExecutableElement producesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
-      assertThat(keyFactory.forProducesMethod(producesMethod))
+      assertThat(keyFactory.forProducesMethod(
+          (ExecutableType) producesMethod.asType(), producesMethod))
           .isEqualTo(new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(setOfStringsType)));

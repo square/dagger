@@ -169,11 +169,24 @@ final class ErrorMessages {
   static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
       "%s has incompatible bindings:\n";
 
+  static final String PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =
+      "%s is a provision entry-point, which cannot depend on a production.";
+
+  static final String PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =
+      "%s is a provision, which cannot depend on a production.";
+
   static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT =
       "%s cannot be provided without an @Inject constructor or from an @Provides-annotated method.";
 
   static final String REQUIRES_PROVIDER_FORMAT =
       "%s cannot be provided without an @Provides-annotated method.";
+
+  static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT =
+      "%s cannot be provided without an @Inject constructor or from an @Provides- or "
+      + "@Produces-annotated method.";
+
+  static final String REQUIRES_PROVIDER_OR_PRODUCER_FORMAT =
+      "%s cannot be provided without an @Provides- or @Produces-annotated method.";
 
   static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
       "This type supports members injection but cannot be implicitly provided.";

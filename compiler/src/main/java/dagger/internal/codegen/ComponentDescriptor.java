@@ -22,6 +22,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
@@ -131,7 +132,7 @@ abstract class ComponentDescriptor {
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement dependencyMethod : dependencyMethods) {
-          if (isComponentProvisionMethod(elements, dependencyMethod)) {
+          if (isComponentContributionMethod(elements, dependencyMethod)) {
             dependencyMethodIndex.put(dependencyMethod, componentDependency);
           }
         }
@@ -148,10 +149,15 @@ abstract class ComponentDescriptor {
     }
   }
 
-  static boolean isComponentProvisionMethod(Elements elements, ExecutableElement method) {
+  static boolean isComponentContributionMethod(Elements elements, ExecutableElement method) {
     return method.getParameters().isEmpty()
         && !method.getReturnType().getKind().equals(VOID)
         && !elements.getTypeElement(Object.class.getCanonicalName())
             .equals(method.getEnclosingElement());
+  }
+
+  static boolean isComponentProductionMethod(Elements elements, ExecutableElement method) {
+    return isComponentContributionMethod(elements, method)
+        && MoreTypes.isTypeOf(ListenableFuture.class, method.getReturnType());
   }
 }

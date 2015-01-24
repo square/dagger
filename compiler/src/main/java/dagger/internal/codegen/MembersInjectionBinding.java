@@ -52,7 +52,7 @@ import static com.google.common.base.Preconditions.checkState;
  * @since 2.0
  */
 @AutoValue
-abstract class MembersInjectionBinding extends Binding implements ResolvableBinding {
+abstract class MembersInjectionBinding extends Binding {
   @Override abstract TypeElement bindingElement();
 
   /** The set of individual sites where {@link Inject} is applied. */

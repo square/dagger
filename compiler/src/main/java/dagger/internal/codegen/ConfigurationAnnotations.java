@@ -29,6 +29,7 @@ import com.google.common.collect.Queues;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
+import dagger.producers.ProducerModule;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -44,6 +45,7 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Utility methods related to dagger configuration annotations (e.g.: {@link Component}
  * and {@link Module}).
@@ -108,7 +110,8 @@ final class ConfigurationAnnotations {
     for (TypeElement moduleElement = moduleQueue.poll();
         moduleElement != null;
         moduleElement = moduleQueue.poll()) {
-      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class);
+      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class)
+          .or(getAnnotationMirror(moduleElement, ProducerModule.class));
       if (moduleMirror.isPresent()) {
         ImmutableSet.Builder<TypeElement> moduleDependenciesBuilder = ImmutableSet.builder();
         moduleDependenciesBuilder.addAll(
@@ -137,7 +140,8 @@ final class ConfigurationAnnotations {
     while(!types.isSameType(objectType, superclass)
         && superclass.getKind().equals(TypeKind.DECLARED)) {
       element = MoreElements.asType(types.asElement(superclass));
-      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(element, Module.class);
+      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(element, Module.class)
+          .or(getAnnotationMirror(element, ProducerModule.class));
       if (moduleMirror.isPresent()) {
         builder.addAll(MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get())));
       }

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
+import dagger.producers.ProductionComponent;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -59,7 +60,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
  * @since 2.0
  */
 @AutoValue
-abstract class ProvisionBinding extends ContributionBinding implements ResolvableBinding {
+abstract class ProvisionBinding extends ContributionBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
@@ -107,13 +108,6 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
 
   /** If this provision requires members injection, this will be the corresponding request. */
   abstract Optional<DependencyRequest> memberInjectionRequest();
-  
-  /**
-   * If this is a provision request from an {@code @Provides} method, this will be the element that
-   * contributed it. In the case of subclassed modules, this may differ than the binding's enclosed
-   * element, as this will return the subclass whereas the enclosed element will be the superclass.
-   */
-  abstract Optional<TypeElement> contributedBy();
 
   @Override
   BindingType bindingType() {
@@ -209,11 +203,11 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
           constructorElement,
           dependencies,
           findBindingPackage(key),
+          Optional.<TypeElement>absent(),
           Kind.INJECTION,
           Provides.Type.UNIQUE,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
-          membersInjectionRequest,
-          Optional.<TypeElement>absent());
+          membersInjectionRequest);
     }
 
     private static final ImmutableSet<ElementKind> MEMBER_KINDS =
@@ -256,11 +250,11 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
           providesMethod,
           dependencies,
           findBindingPackage(key),
+          Optional.of(MoreTypes.asTypeElement(types, declaredContainer)),
           Kind.PROVISION,
           providesAnnotation.type(),
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
-          Optional.<DependencyRequest>absent(),
-          Optional.of(MoreTypes.asTypeElement(types, declaredContainer)));
+          Optional.<DependencyRequest>absent());
     }
 
     ProvisionBinding forImplicitMapBinding(DependencyRequest explicitRequest,
@@ -275,28 +269,28 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
           implicitRequest.requestElement(),
           dependencies,
           findBindingPackage(explicitRequest.key()),
+          Optional.<TypeElement>absent(),
           Kind.SYNTHETIC_PROVISON,
           Provides.Type.MAP,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
-          Optional.<DependencyRequest>absent(),
-          Optional.<TypeElement>absent());
+          Optional.<DependencyRequest>absent());
     }
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {
       checkNotNull(componentDefinitionType);
-      Component componentAnnotation = componentDefinitionType.getAnnotation(Component.class);
-      checkArgument(componentAnnotation != null);
+      checkArgument(isAnnotationPresent(componentDefinitionType, Component.class)
+          || isAnnotationPresent(componentDefinitionType, ProductionComponent.class));
       return new AutoValue_ProvisionBinding(
           false /* not resolved */,
           keyFactory.forComponent(componentDefinitionType.asType()),
           componentDefinitionType,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
+          Optional.<TypeElement>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          Optional.<DependencyRequest>absent(),
-          Optional.<TypeElement>absent());
+          Optional.<DependencyRequest>absent());
     }
 
     ProvisionBinding forComponentMethod(ExecutableElement componentMethod) {
@@ -310,11 +304,11 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
           componentMethod,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
+          Optional.<TypeElement>absent(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
-          Optional.<DependencyRequest>absent(),
-          Optional.<TypeElement>absent());
+          Optional.<DependencyRequest>absent());
     }
   }
 }

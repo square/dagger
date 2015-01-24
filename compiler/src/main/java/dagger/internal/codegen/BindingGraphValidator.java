@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -30,7 +31,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
@@ -41,7 +41,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Formatter;
 import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.Set;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
@@ -57,7 +57,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
@@ -67,6 +69,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private final InjectBindingRegistry injectBindingRegistry;
   private final ScopeCycleValidation disableInterComponentScopeCycles;
   private final ProvisionBindingFormatter provisionBindingFormatter;
+  private final ProductionBindingFormatter productionBindingFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
   private final KeyFormatter keyFormatter;
@@ -76,6 +79,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       InjectBindingRegistry injectBindingRegistry,
       ScopeCycleValidation disableInterComponentScopeCycles,
       ProvisionBindingFormatter provisionBindingFormatter,
+      ProductionBindingFormatter productionBindingFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
       KeyFormatter keyFormatter) {
@@ -83,6 +87,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     this.injectBindingRegistry = injectBindingRegistry;
     this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
     this.provisionBindingFormatter = provisionBindingFormatter;
+    this.productionBindingFormatter = productionBindingFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
     this.keyFormatter = keyFormatter;
@@ -98,17 +103,18 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     validateDependencyScopes(subject, reportBuilder);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
-      LinkedList<DependencyRequest> requestPath = Lists.newLinkedList();
-      requestPath.push(entryPoint);
-      traversalHelper(subject, requestPath, new Traverser() {
+      Deque<ResolvedRequest> path = new ArrayDeque<>();
+      path.push(ResolvedRequest.create(entryPoint, subject));
+      traversalHelper(subject, path, new Traverser() {
         final Set<BindingKey> visitedBindings = new HashSet<>();
 
         @Override
-        boolean visitResolvedBinding(
-            Deque<DependencyRequest> requestPath, ResolvedBindings binding) {
-          for (DependencyRequest request : Iterables.skip(requestPath, 1)) {
-            if (BindingKey.forDependencyRequest(request).equals(binding.bindingKey())) {
-              reportCycle(requestPath, subject, reportBuilder);
+        boolean visitResolvedRequest(Deque<ResolvedRequest> path) {
+          ResolvedBindings binding = path.peek().binding();
+          for (ResolvedRequest resolvedRequest : Iterables.skip(path, 1)) {
+            if (BindingKey.forDependencyRequest(resolvedRequest.request())
+                .equals(binding.bindingKey())) {
+              reportCycle(path, reportBuilder);
               return false;
             }
           }
@@ -117,7 +123,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             return false;
           }
 
-          return validateResolvedBinding(requestPath, binding, reportBuilder);
+          return validateResolvedBinding(path, binding, reportBuilder);
         }
       });
     }
@@ -130,28 +136,33 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
    * returns true if the bindings are valid.
    */
   private boolean validateResolvedBinding(
-      Deque<DependencyRequest> requestPath,
+      Deque<ResolvedRequest> path,
       ResolvedBindings resolvedBinding,
       Builder<BindingGraph> reportBuilder) {
     if (resolvedBinding.bindings().isEmpty()) {
-      reportMissingBinding(requestPath, reportBuilder);
+      reportMissingBinding(path, reportBuilder);
       return false;
     }
 
-    ImmutableSet.Builder<ContributionBinding> contributionBindingsBuilder =
+    ImmutableSet.Builder<ProvisionBinding> provisionBindingsBuilder =
+        ImmutableSet.builder();
+    ImmutableSet.Builder<ProductionBinding> productionBindingsBuilder =
         ImmutableSet.builder();
     ImmutableSet.Builder<MembersInjectionBinding> membersInjectionBindingsBuilder =
         ImmutableSet.builder();
     for (Binding binding : resolvedBinding.bindings()) {
-      if (binding instanceof ContributionBinding) {
-        contributionBindingsBuilder.add((ContributionBinding) binding);
+      if (binding instanceof ProvisionBinding) {
+        provisionBindingsBuilder.add((ProvisionBinding) binding);
+      }
+      if (binding instanceof ProductionBinding) {
+        productionBindingsBuilder.add((ProductionBinding) binding);
       }
       if (binding instanceof MembersInjectionBinding) {
         membersInjectionBindingsBuilder.add((MembersInjectionBinding) binding);
       }
     }
-    ImmutableSet<ContributionBinding> contributionBindings =
-        contributionBindingsBuilder.build();
+    ImmutableSet<ProvisionBinding> provisionBindings = provisionBindingsBuilder.build();
+    ImmutableSet<ProductionBinding> productionBindings = productionBindingsBuilder.build();
     ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
         membersInjectionBindingsBuilder.build();
 
@@ -161,26 +172,31 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           throw new IllegalArgumentException(
               "contribution binding keys should never have members injection bindings");
         }
-        if (contributionBindings.size() <= 1) {
+        if (!productionBindings.isEmpty() && doesPathRequireProvisionOnly(path)) {
+          reportProviderMayNotDependOnProducer(path, reportBuilder);
+          return false;
+        }
+        if ((provisionBindings.size() + productionBindings.size()) <= 1) {
           return true;
         }
         ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
-            ContributionBinding.bindingTypesFor(contributionBindings);
+            ContributionBinding.bindingTypesFor(
+                Iterables.<ContributionBinding>concat(provisionBindings, productionBindings));
         if (bindingsByType.keySet().size() > 1) {
-          reportMultipleBindingTypes(requestPath, resolvedBinding, reportBuilder);
+          reportMultipleBindingTypes(path, reportBuilder);
           return false;
         } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
-          reportDuplicateBindings(requestPath, resolvedBinding, reportBuilder);
+          reportDuplicateBindings(path, reportBuilder);
           return false;
         }
         break;
       case MEMBERS_INJECTION:
-        if (!contributionBindings.isEmpty()) {
+        if (!provisionBindings.isEmpty() || !productionBindings.isEmpty()) {
           throw new IllegalArgumentException(
               "members injection binding keys should never have contribution bindings");
         }
         if (membersInjectionBindings.size() > 1) {
-          reportDuplicateBindings(requestPath, resolvedBinding, reportBuilder);
+          reportDuplicateBindings(path, reportBuilder);
           return false;
         }
         break;
@@ -386,26 +402,51 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
   }
 
+  @SuppressWarnings("resource") // Appendable is a StringBuilder.
+  private void reportProviderMayNotDependOnProducer(
+      Deque<ResolvedRequest> path, ValidationReport.Builder<BindingGraph> reportBuilder) {
+    StringBuilder errorMessage = new StringBuilder();
+    if (path.size() == 1) {
+      new Formatter(errorMessage).format(
+          ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+          keyFormatter.format(path.peek().request().key()));
+    } else {
+      ImmutableSet<ProvisionBinding> dependentProvisions = provisionsDependingOnLatestRequest(path);
+      // TODO(user): Consider displaying all dependent provisions in the error message. If we do
+      // that, should we display all productions that depend on them also?
+      new Formatter(errorMessage).format(ErrorMessages.PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+          keyFormatter.format(dependentProvisions.iterator().next().key()));
+    }
+    reportBuilder.addItem(errorMessage.toString(), path.getLast().request().requestElement());
+  }
+
   private void reportMissingBinding(
-      Deque<DependencyRequest> requestPath, ValidationReport.Builder<BindingGraph> reportBuilder) {
-    Key key = requestPath.peek().key();
+      Deque<ResolvedRequest> path, ValidationReport.Builder<BindingGraph> reportBuilder) {
+    Key key = path.peek().request().key();
     TypeMirror type = key.type();
     String typeName = TypeNames.forTypeMirror(type).toString();
-    boolean requiresProvidesMethod = !key.isValidImplicitProvisionKey(types);
+    boolean requiresContributionMethod = !key.isValidImplicitProvisionKey(types);
+    boolean requiresProvision = doesPathRequireProvisionOnly(path);
     StringBuilder errorMessage = new StringBuilder();
-    if (requiresProvidesMethod) {
-      errorMessage.append(String.format(REQUIRES_PROVIDER_FORMAT, typeName));
+    final String requiresErrorMessageFormat;
+    if (requiresContributionMethod) {
+      requiresErrorMessageFormat = requiresProvision
+          ? REQUIRES_PROVIDER_FORMAT
+          : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
     } else {
-      errorMessage.append(
-          String.format(REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT, typeName));
+      requiresErrorMessageFormat = requiresProvision
+          ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
+          : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
     }
+    errorMessage.append(String.format(requiresErrorMessageFormat, typeName));
     if (key.isValidMembersInjectionKey()
         && !injectBindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites()
             .isEmpty()) {
       errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
     }
     ImmutableList<String> printableDependencyPath =
-        FluentIterable.from(requestPath)
+        FluentIterable.from(path)
+            .transform(REQUEST_FROM_RESOLVED_REQUEST)
             .transform(dependencyRequestFormatter)
             .filter(Predicates.not(Predicates.equalTo("")))
             .toList()
@@ -414,20 +455,74 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         printableDependencyPath.subList(1, printableDependencyPath.size())) {
       errorMessage.append("\n").append(dependency);
     }
-    reportBuilder.addItem(errorMessage.toString(), requestPath.getLast().requestElement());
+    reportBuilder.addItem(errorMessage.toString(), path.getLast().request().requestElement());
+  }
+
+  /**
+   * Returns whether the given dependency path would require the most recent request to be resolved
+   * by only provision bindings.
+   */
+  private boolean doesPathRequireProvisionOnly(Deque<ResolvedRequest> path) {
+    if (path.size() == 1) {
+      // if this is an entry-point, then we check the request
+      switch (path.peek().request().kind()) {
+        case INSTANCE:
+        case PROVIDER:
+        case LAZY:
+        case MEMBERS_INJECTOR:
+          return true;
+        case PRODUCER:
+        case PRODUCED:
+        case FUTURE:
+          return false;
+        default:
+          throw new AssertionError();
+      }
+    }
+    // otherwise, the second-most-recent bindings determine whether the most recent one must be a
+    // provision
+    ImmutableSet<ProvisionBinding> dependentProvisions = provisionsDependingOnLatestRequest(path);
+    return !dependentProvisions.isEmpty();
+  }
+
+  /**
+   * Returns any provision bindings resolved for the second-most-recent request in the given path;
+   * that is, returns those provision bindings that depend on the latest request in the path.
+   */
+  private ImmutableSet<ProvisionBinding> provisionsDependingOnLatestRequest(
+      Deque<ResolvedRequest> path) {
+    Iterator<ResolvedRequest> iterator = path.iterator();
+    final DependencyRequest request = iterator.next().request();
+    ResolvedRequest previousResolvedRequest = iterator.next();
+    @SuppressWarnings("unchecked")  // validated by instanceof below
+    ImmutableSet<ProvisionBinding> bindings = (ImmutableSet<ProvisionBinding>) FluentIterable
+        .from(previousResolvedRequest.binding().bindings())
+        .filter(new Predicate<Binding>() {
+            @Override public boolean apply(Binding binding) {
+              return binding instanceof ProvisionBinding
+                  && binding.implicitDependencies().contains(request);
+            }
+        }).toSet();
+    return bindings;
   }
 
   private static final int DUPLICATE_SIZE_LIMIT = 10;
 
   @SuppressWarnings("resource") // Appendable is a StringBuilder.
-  private void reportDuplicateBindings(Deque<DependencyRequest> requestPath,
-      ResolvedBindings resolvedBinding, ValidationReport.Builder<BindingGraph> reportBuilder) {
+  private void reportDuplicateBindings(
+      Deque<ResolvedRequest> path, ValidationReport.Builder<BindingGraph> reportBuilder) {
+    ResolvedBindings resolvedBinding = path.peek().binding();
     StringBuilder builder = new StringBuilder();
     new Formatter(builder).format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT,
-        keyFormatter.format(requestPath.peek().key()));
+        keyFormatter.format(path.peek().request().key()));
     for (Binding binding : Iterables.limit(resolvedBinding.bindings(), DUPLICATE_SIZE_LIMIT)) {
       builder.append('\n').append(INDENT);
-      builder.append(provisionBindingFormatter.format((ProvisionBinding) binding));
+      // TODO(user): Refactor the formatters so we don't need these instanceof checks.
+      if (binding instanceof ProvisionBinding) {
+        builder.append(provisionBindingFormatter.format((ProvisionBinding) binding));
+      } else if (binding instanceof ProductionBinding) {
+        builder.append(productionBindingFormatter.format((ProductionBinding) binding));
+      }
     }
     int numberOfOtherBindings = resolvedBinding.bindings().size() - DUPLICATE_SIZE_LIMIT;
     if (numberOfOtherBindings > 0) {
@@ -437,30 +532,34 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     if (numberOfOtherBindings > 1) {
       builder.append('s');
     }
-    reportBuilder.addItem(builder.toString(), requestPath.getLast().requestElement());
+    reportBuilder.addItem(builder.toString(), path.getLast().request().requestElement());
   }
 
   @SuppressWarnings("resource") // Appendable is a StringBuilder.
-  private void reportMultipleBindingTypes(Deque<DependencyRequest> requestPath,
-      ResolvedBindings resolvedBinding, ValidationReport.Builder<BindingGraph> reportBuilder) {
+  private void reportMultipleBindingTypes(
+      Deque<ResolvedRequest> path, ValidationReport.Builder<BindingGraph> reportBuilder) {
+    ResolvedBindings resolvedBinding = path.peek().binding();
     StringBuilder builder = new StringBuilder();
     new Formatter(builder).format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT,
-        keyFormatter.format(requestPath.peek().key()));
-    @SuppressWarnings("unchecked")
-    ImmutableListMultimap<BindingType, ProvisionBinding> bindingsByType =
-        ProvisionBinding.bindingTypesFor((Iterable<ProvisionBinding>) resolvedBinding.bindings());
+        keyFormatter.format(path.peek().request().key()));
+    ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
+        ContributionBinding.bindingTypesFor(resolvedBinding.contributionBindings());
     for (BindingType type :
         Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
       builder.append(INDENT);
       builder.append(formatBindingType(type));
       builder.append(" bindings:\n");
-      for (ProvisionBinding binding : bindingsByType.get(type)) {
+      for (ContributionBinding binding : bindingsByType.get(type)) {
         builder.append(INDENT).append(INDENT);
-        builder.append(provisionBindingFormatter.format(binding));
+        if (binding instanceof ProvisionBinding) {
+          builder.append(provisionBindingFormatter.format((ProvisionBinding) binding));
+        } else if (binding instanceof ProductionBinding) {
+          builder.append(productionBindingFormatter.format((ProductionBinding) binding));
+        }
         builder.append('\n');
       }
     }
-    reportBuilder.addItem(builder.toString(), requestPath.getLast().requestElement());
+    reportBuilder.addItem(builder.toString(), path.getLast().request().requestElement());
   }
 
   private String formatBindingType(BindingType type) {
@@ -476,14 +575,15 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
   }
 
-  private void reportCycle(Deque<DependencyRequest> requestPath,
-      BindingGraph graph, final ValidationReport.Builder<BindingGraph> reportBuilder) {
-    ImmutableList<String> printableDependencyPath = FluentIterable.from(requestPath)
+  private void reportCycle(Deque<ResolvedRequest> path,
+      final ValidationReport.Builder<BindingGraph> reportBuilder) {
+    ImmutableList<String> printableDependencyPath = FluentIterable.from(path)
+        .transform(REQUEST_FROM_RESOLVED_REQUEST)
         .transform(dependencyRequestFormatter)
         .filter(Predicates.not(Predicates.equalTo("")))
         .toList()
         .reverse();
-    DependencyRequest rootRequest = requestPath.getLast();
+    DependencyRequest rootRequest = path.getLast().request();
     TypeElement componentType =
         MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
     // TODO(user): Restructure to provide a hint for the start and end of the cycle.
@@ -496,12 +596,28 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         rootRequest.requestElement());
   }
 
-  private void traversalHelper(BindingGraph graph, Deque<DependencyRequest> requestPath,
+  @AutoValue
+  abstract static class ResolvedRequest {
+    abstract DependencyRequest request();
+    abstract ResolvedBindings binding();
+
+    static ResolvedRequest create(DependencyRequest request, BindingGraph graph) {
+      return new AutoValue_BindingGraphValidator_ResolvedRequest(
+          request, graph.resolvedBindings().get(BindingKey.forDependencyRequest(request)));
+    }
+  }
+
+  private static final Function<ResolvedRequest, DependencyRequest> REQUEST_FROM_RESOLVED_REQUEST =
+      new Function<ResolvedRequest, DependencyRequest>() {
+        @Override public DependencyRequest apply(ResolvedRequest resolvedRequest) {
+          return resolvedRequest.request();
+        }
+      };
+
+  private void traversalHelper(BindingGraph graph, Deque<ResolvedRequest> path,
       Traverser traverser) {
-    ResolvedBindings resolvedBinding = graph.resolvedBindings().get(
-        BindingKey.forDependencyRequest(requestPath.peek()));
     ImmutableSet<DependencyRequest> allDeps =
-        FluentIterable.from(resolvedBinding.bindings())
+        FluentIterable.from(path.peek().binding().bindings())
             .transformAndConcat(
                 new Function<Binding, Set<DependencyRequest>>() {
                   @Override
@@ -510,19 +626,18 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
                   }
                 })
             .toSet();
-    boolean descend = traverser.visitResolvedBinding(requestPath, resolvedBinding);
+    boolean descend = traverser.visitResolvedRequest(path);
     if (descend) {
       for (DependencyRequest dependency : allDeps) {
-        requestPath.push(dependency);
-        traversalHelper(graph, requestPath, traverser);
-        requestPath.pop();
+        path.push(ResolvedRequest.create(dependency, graph));
+        traversalHelper(graph, path, traverser);
+        path.pop();
       }
     }
   }
 
   abstract static class Traverser {
-    abstract boolean visitResolvedBinding(
-        Deque<DependencyRequest> requestPath, ResolvedBindings binding);
+    abstract boolean visitResolvedRequest(Deque<ResolvedRequest> path);
   }
 
   /**

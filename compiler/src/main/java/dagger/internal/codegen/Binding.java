@@ -58,6 +58,14 @@ abstract class Binding {
     }
   }
 
+  /**
+   * True if this represents a binding that refers to a type with parameters, and the
+   * parameters have been resolved based on a requesting key. For example, a ProvisionBinding for
+   * {@code List<T>} might be resolved to {@code List<Foo>} or {@code List<Bar>} depending on how
+   * it's requested.
+   */
+  abstract boolean isResolved();
+
   /** The {@link Key} that is provided by this binding. */
   protected abstract Key key();
 

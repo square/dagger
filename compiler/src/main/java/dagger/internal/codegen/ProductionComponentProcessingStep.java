@@ -35,15 +35,21 @@ import javax.lang.model.element.TypeElement;
 final class ProductionComponentProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ProductionComponentValidator componentValidator;
+  private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
+  private final BindingGraph.Factory bindingGraphFactory;
 
   ProductionComponentProcessingStep(
       Messager messager,
       ProductionComponentValidator componentValidator,
-      ComponentDescriptor.Factory componentDescriptorFactory) {
+      BindingGraphValidator bindingGraphValidator,
+      ComponentDescriptor.Factory componentDescriptorFactory,
+      BindingGraph.Factory bindingGraphFactory) {
     this.messager = messager;
     this.componentValidator = componentValidator;
+    this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
+    this.bindingGraphFactory = bindingGraphFactory;
   }
 
   @Override
@@ -61,7 +67,12 @@ final class ProductionComponentProcessingStep implements ProcessingStep {
           componentValidator.validate(componentTypeElement);
       componentReport.printMessagesTo(messager);
       if (componentReport.isClean()) {
-        componentDescriptorFactory.forProductionComponent(componentTypeElement);
+        ComponentDescriptor componentDescriptor =
+            componentDescriptorFactory.forProductionComponent(componentTypeElement);
+        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+        ValidationReport<BindingGraph> graphReport =
+            bindingGraphValidator.validate(bindingGraph);
+        graphReport.printMessagesTo(messager);
       }
     }
   }

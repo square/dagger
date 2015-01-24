@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Provides;
@@ -66,6 +67,11 @@ abstract class DependencyRequest {
     PRODUCER,
     /** A request for a {@link Produced}.  E.g.: {@code Produced<Blah>} */
     PRODUCED,
+    /**
+     * A request for a {@link ListenableFuture}.  E.g.: {@code ListenableFuture<Blah>}.
+     * These can only be requested by component interfaces.
+     */
+    FUTURE,
   }
 
   abstract Kind kind();
@@ -145,6 +151,28 @@ abstract class DependencyRequest {
           MoreTypes.asDeclared(provisionMethod.getEnclosingElement().asType()));
     }
 
+    DependencyRequest forComponentProductionMethod(ExecutableElement productionMethod) {
+      checkNotNull(productionMethod);
+      checkArgument(productionMethod.getParameters().isEmpty(),
+          "Component production methods must be empty: %s", productionMethod);
+      TypeMirror type = productionMethod.getReturnType();
+      Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(productionMethod);
+      DeclaredType container =
+          MoreTypes.asDeclared(productionMethod.getEnclosingElement().asType());
+      // Only a component production method can be a request for a ListenableFuture, so we
+      // special-case it here.
+      if (isTypeOf(ListenableFuture.class, type)) {
+        return new AutoValue_DependencyRequest(
+            Kind.FUTURE,
+            keyFactory.forQualifiedType(qualifier,
+                Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())),
+            productionMethod,
+            container);
+      } else {
+        return newDependencyRequest(productionMethod, type, qualifier, container);
+      }
+    }
+
     DependencyRequest forComponentMembersInjectionMethod(ExecutableElement membersInjectionMethod) {
       checkNotNull(membersInjectionMethod);
       Optional<AnnotationMirror> qualifier =
@@ -171,17 +199,17 @@ abstract class DependencyRequest {
         checkArgument(!qualifier.isPresent());
       }
       return new AutoValue_DependencyRequest(kindAndType.kind(),
-            keyFactory.forQualifiedType(qualifier, kindAndType.type()),
-            requestElement,
-            container);
+          keyFactory.forQualifiedType(qualifier, kindAndType.type()),
+          requestElement,
+          container);
     }
-    
+
     @AutoValue
     static abstract class KindAndType {
       abstract Kind kind();
       abstract TypeMirror type();
     }
-    
+
     /**
      * Extracts the correct requesting type & kind out a request type. For example, if a user
      * requests Provider<Foo>, this will return Kind.PROVIDER with "Foo".
@@ -194,19 +222,19 @@ abstract class DependencyRequest {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.INSTANCE, type);
       } else if (isTypeOf(Provider.class, type)) {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.PROVIDER,
-            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+            Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments()));
       } else if (isTypeOf(Lazy.class, type)) {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.LAZY,
-            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+            Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments()));
       } else if (isTypeOf(MembersInjector.class, type)) {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.MEMBERS_INJECTOR,
-            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+            Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments()));
       } else if (isTypeOf(Producer.class, type)) {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.PRODUCER,
-            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+            Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments()));
       } else if (isTypeOf(Produced.class, type)) {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.PRODUCED,
-            Iterables.getOnlyElement(((DeclaredType)type).getTypeArguments()));
+            Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments()));
       } else {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.INSTANCE, type);
       }

@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.MapKey;
 import dagger.Provides;
+import dagger.producers.Producer;
 import dagger.producers.Produces;
 import java.util.Map;
 import java.util.Set;
@@ -173,6 +174,14 @@ abstract class Key {
       return elements.getTypeElement(Provider.class.getCanonicalName());
     }
 
+    private TypeElement getProducerElement() {
+      return elements.getTypeElement(Producer.class.getCanonicalName());
+    }
+
+    private TypeElement getClassElement(Class<?> cls) {
+      return elements.getTypeElement(cls.getCanonicalName());
+    }
+
     Key forComponentMethod(ExecutableElement componentMethod) {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
@@ -180,6 +189,19 @@ abstract class Key {
       return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(componentMethod)),
           MoreTypes.equivalence().wrap(returnType));
+    }
+
+    Key forProductionComponentMethod(ExecutableElement componentMethod) {
+      checkNotNull(componentMethod);
+      checkArgument(componentMethod.getKind().equals(METHOD));
+      TypeMirror returnType = normalize(componentMethod.getReturnType());
+      TypeMirror keyType = returnType;
+      if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
+        keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
+      }
+      return new AutoValue_Key(
+          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(componentMethod)),
+          MoreTypes.equivalence().wrap(keyType));
     }
 
     Key forProvidesMethod(ExecutableType executableType, ExecutableElement e) {
@@ -225,12 +247,12 @@ abstract class Key {
 
     // TODO(user): Reconcile this method with forProvidesMethod when Provides.Type and
     // Produces.Type are no longer different.
-    Key forProducesMethod(ExecutableElement e) {
+    Key forProducesMethod(ExecutableType executableType, ExecutableElement e) {
       checkNotNull(e);
       checkArgument(e.getKind().equals(METHOD));
       Produces producesAnnotation = e.getAnnotation(Produces.class);
       checkArgument(producesAnnotation != null);
-      TypeMirror returnType = normalize(e.getReturnType());
+      TypeMirror returnType = normalize(executableType.getReturnType());
       TypeMirror keyType = returnType;
       if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
         keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
@@ -252,7 +274,7 @@ abstract class Key {
           TypeElement keyTypeElement =
               mapKey.unwrapValue() ? Util.getKeyTypeElement(mapKeyAnnotation, elements)
                   : (TypeElement) mapKeyAnnotation.getAnnotationType().asElement();
-          TypeMirror valueType = types.getDeclaredType(getProviderElement(), keyType);
+          TypeMirror valueType = types.getDeclaredType(getProducerElement(), keyType);
           TypeMirror mapType =
               types.getDeclaredType(getMapElement(), keyTypeElement.asType(), valueType);
           return new AutoValue_Key(
@@ -300,13 +322,31 @@ abstract class Key {
      * {@link Map}{@code <K, V>}, a key of {@code Map<K, Provider<V>>} will be returned.
      */
     Optional<Key> implicitMapProviderKeyFrom(Key possibleMapKey) {
+      return maybeWrapMapValue(possibleMapKey, Provider.class);
+    }
+
+    /**
+     * Optionally extract a {@link Key} for the underlying production binding(s) if such a
+     * valid key can be inferred from the given key.  Specifically, if the key represents a
+     * {@link Map}{@code <K, V>}, a key of {@code Map<K, Producer<V>>} will be returned.
+     */
+    Optional<Key> implicitMapProducerKeyFrom(Key possibleMapKey) {
+      return maybeWrapMapValue(possibleMapKey, Producer.class);
+    }
+
+    /**
+     * Returns a key of {@link Map}{@code <K, WrappingClass<V>>} if the input key represents a
+     * {@code Map<K, V>}.
+     */
+    private Optional<Key> maybeWrapMapValue(Key possibleMapKey, Class<?> wrappingClass) {
       if (MoreTypes.isTypeOf(Map.class, possibleMapKey.type())) {
         DeclaredType declaredMapType = MoreTypes.asDeclared(possibleMapKey.type());
         TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
-        if (!MoreTypes.isTypeOf(Provider.class, mapValueType)) {
+        if (!MoreTypes.isTypeOf(wrappingClass, mapValueType)) {
           DeclaredType keyType = Util.getKeyTypeOfMap(declaredMapType);
-          DeclaredType providerType = types.getDeclaredType(getProviderElement(), mapValueType);
-          TypeMirror mapType = types.getDeclaredType(getMapElement(), keyType, providerType);
+          DeclaredType wrappedType = types.getDeclaredType(
+              getClassElement(wrappingClass), mapValueType);
+          TypeMirror mapType = types.getDeclaredType(getMapElement(), keyType, wrappedType);
           return Optional.<Key>of(new AutoValue_Key(
               possibleMapKey.wrappedQualifier(),
               MoreTypes.equivalence().wrap(mapType)));

@@ -69,6 +69,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
     ProvisionBindingFormatter provisionBindingFormatter =
         new ProvisionBindingFormatter(methodSignatureFormatter);
+    ProductionBindingFormatter productionBindingFormatter =
+        new ProductionBindingFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter = new DependencyRequestFormatter(types);
     KeyFormatter keyFormatter = new KeyFormatter();
 
@@ -99,7 +101,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
     ProductionBinding.Factory productionBindingFactory =
-        new ProductionBinding.Factory(keyFactory, dependencyRequestFactory);
+        new ProductionBinding.Factory(types, keyFactory, dependencyRequestFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
@@ -113,7 +115,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
         elements, types, injectBindingRegistry, keyFactory,
-        dependencyRequestFactory, provisionBindingFactory);
+        dependencyRequestFactory, provisionBindingFactory, productionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
@@ -121,6 +123,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         injectBindingRegistry,
         disableInterComponentScopeValidation(processingEnv),
         provisionBindingFormatter,
+        productionBindingFormatter,
         methodSignatureFormatter,
         dependencyRequestFormatter,
         keyFormatter);
@@ -160,7 +163,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProductionComponentProcessingStep(
             messager,
             productionComponentValidator,
-            componentDescriptorFactory));
+            bindingGraphValidator,
+            componentDescriptorFactory,
+            bindingGraphFactory));
   }
 
   @Override

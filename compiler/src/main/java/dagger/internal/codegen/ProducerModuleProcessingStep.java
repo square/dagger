@@ -116,7 +116,8 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
                 .transform(new Function<ExecutableElement, ProductionBinding>() {
                   @Override
                   public ProductionBinding apply(ExecutableElement producesMethod) {
-                    return productionBindingFactory.forProducesMethod(producesMethod);
+                    return productionBindingFactory.forProducesMethod(producesMethod,
+                        producesMethod.getEnclosingElement().asType());
                   }
                 })
                 .toSet();
