@@ -344,8 +344,13 @@ abstract class Key {
         TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
         if (!MoreTypes.isTypeOf(wrappingClass, mapValueType)) {
           DeclaredType keyType = Util.getKeyTypeOfMap(declaredMapType);
-          DeclaredType wrappedType = types.getDeclaredType(
-              getClassElement(wrappingClass), mapValueType);
+          TypeElement wrappingElement = getClassElement(wrappingClass);
+          if (wrappingElement == null) {
+            // This target might not be compiled with Producers, so wrappingClass might not have an
+            // associated element.
+            return Optional.absent();
+          }
+          DeclaredType wrappedType = types.getDeclaredType(wrappingElement, mapValueType);
           TypeMirror mapType = types.getDeclaredType(getMapElement(), keyType, wrappedType);
           return Optional.<Key>of(new AutoValue_Key(
               possibleMapKey.wrappedQualifier(),
