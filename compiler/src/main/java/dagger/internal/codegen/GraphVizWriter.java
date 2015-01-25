@@ -15,7 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.squareup.javawriter.JavaWriter;
+import com.squareup.javapoet.CodeBlock;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Writer;
@@ -128,7 +128,11 @@ public final class GraphVizWriter implements Closeable {
   }
 
   private String literal(String raw) {
-    return raw.matches("\\w+") ? raw : JavaWriter.stringLiteral(raw);
+    if (raw.matches("\\w+")) return raw;
+    return CodeBlock.builder()
+        .add("$S", raw)
+        .build()
+        .toString();
   }
 
   private void indent() throws IOException {
