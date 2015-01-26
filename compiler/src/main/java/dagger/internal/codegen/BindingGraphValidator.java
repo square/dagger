@@ -327,7 +327,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             getAnnotationMirror(componentType, Component.class);
         if (componentAnnotation.isPresent()) {
           ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(
-              MoreTypes.asTypeElements(types, getComponentDependencies(componentAnnotation.get())));
+              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get())));
           if (scopedDependencies.size() == 1) {
             // empty can be ignored (base-case), and > 1 is a different error reported separately.
             scopeStack.push(wrappedScope);

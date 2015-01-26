@@ -65,7 +65,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
     Filer filer = processingEnv.getFiler();
-    
+
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
     ProvisionBindingFormatter provisionBindingFormatter =
         new ProvisionBindingFormatter(methodSignatureFormatter);
@@ -111,7 +111,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, types);
+        new ComponentDescriptor.Factory(elements);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
         elements, types, injectBindingRegistry, keyFactory,

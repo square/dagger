@@ -40,9 +40,9 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
@@ -123,7 +123,7 @@ abstract class BindingGraph {
 
       // Collect Component dependencies.
       ImmutableSet<TypeElement> componentDependencyTypes =
-          MoreTypes.asTypeElements(types, getComponentDependencies(componentAnnotation));
+          MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation));
       for (TypeElement componentDependency : componentDependencyTypes) {
         explicitProvisionBindingsBuilder.add(
             provisionBindingFactory.forComponent(componentDependency));
@@ -146,7 +146,7 @@ abstract class BindingGraph {
 
       // Collect transitive modules provisions.
       ImmutableSet<TypeElement> moduleTypes =
-          MoreTypes.asTypeElements(types, getComponentModules(componentAnnotation));
+          MoreTypes.asTypeElements(getComponentModules(componentAnnotation));
 
       ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules =
           getTransitiveModules(types, elements, moduleTypes);

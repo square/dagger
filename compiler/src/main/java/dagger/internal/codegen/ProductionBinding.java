@@ -126,7 +126,7 @@ abstract class ProductionBinding extends ContributionBinding {
           producesMethod,
           dependencies,
           findBindingPackage(key),
-          Optional.of(MoreTypes.asTypeElement(types, declaredContainer)),
+          Optional.of(MoreTypes.asTypeElement(declaredContainer)),
           kind,
           producesAnnotation.type(),
           ImmutableList.copyOf(producesMethod.getThrownTypes()));
@@ -146,7 +146,7 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           Kind.FUTURE_PRODUCTION,
           Produces.Type.MAP,
-          ImmutableList.of());
+          ImmutableList.<TypeMirror>of());
     }
 
     ProductionBinding forComponentMethod(ExecutableElement componentMethod) {

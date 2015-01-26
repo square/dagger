@@ -32,7 +32,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
@@ -104,11 +103,9 @@ abstract class ComponentDescriptor {
 
   static final class Factory {
     private final Elements elements;
-    private final Types types;
 
-    Factory(Elements elements, Types types) {
+    Factory(Elements elements) {
       this.elements = elements;
-      this.types = types;
     }
 
     ComponentDescriptor forComponent(TypeElement componentDefinitionType) {
@@ -123,7 +120,7 @@ abstract class ComponentDescriptor {
       AnnotationMirror componentMirror =
           getAnnotationMirror(componentDefinitionType, kind.annotationType()).get();
       ImmutableSet<TypeElement> componentDependencyTypes =
-          MoreTypes.asTypeElements(types, getComponentDependencies(componentMirror));
+          MoreTypes.asTypeElements(getComponentDependencies(componentMirror));
 
       ImmutableMap.Builder<ExecutableElement, TypeElement> dependencyMethodIndex =
           ImmutableMap.builder();

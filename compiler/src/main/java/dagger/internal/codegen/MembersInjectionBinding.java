@@ -131,12 +131,11 @@ abstract class MembersInjectionBinding extends Binding {
       checkArgument(isAnnotationPresent(fieldElement, Inject.class));
       TypeMirror resolved = types.asMemberOf(containingType, fieldElement);
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.FIELD,
-          fieldElement, 
+          fieldElement,
           ImmutableSet.of(dependencyRequestFactory.forRequiredResolvedVariable(
               containingType, fieldElement, resolved)));
     }
-    
-    
+
     /** Returns an unresolved version of this binding. */
     MembersInjectionBinding unresolve(MembersInjectionBinding binding) {
       checkState(binding.isResolved());
@@ -146,7 +145,7 @@ abstract class MembersInjectionBinding extends Binding {
 
     /**
      * Returns a MembersInjectionBinding for the given type. If {@code resolvedType} is present,
-     * this will return a {@link ResolvableBinding#isResolved() resolved} binding, with the key &
+     * this will return a {@link Binding#isResolved() resolved} binding, with the key &
      * type resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
      */
     MembersInjectionBinding forInjectedType(DeclaredType type, Optional<TypeMirror> resolvedType) {
@@ -161,7 +160,7 @@ abstract class MembersInjectionBinding extends Binding {
         type = resolved;
         isResolved = true;
       }
-      
+
       TypeElement typeElement = MoreElements.asType(type.asElement());
       final DeclaredType resolved = type;
       ImmutableSortedSet.Builder<InjectionSite> injectionSitesBuilder =

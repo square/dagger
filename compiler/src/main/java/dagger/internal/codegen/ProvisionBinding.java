@@ -149,8 +149,7 @@ abstract class ProvisionBinding extends ContributionBinding {
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
-    
-    
+
     /** Returns an unresolved version of this binding. */
     ProvisionBinding unresolve(ProvisionBinding binding) {
       checkState(binding.isResolved());
@@ -160,7 +159,7 @@ abstract class ProvisionBinding extends ContributionBinding {
 
     /**
      * Returns a ProvisionBinding for the given element. If {@code resolvedType} is present, this
-     * will return a {@link ResolvableBinding#isResolved() resolved} binding, with the key & type
+     * will return a {@link Binding#isResolved() resolved} binding, with the key & type
      * resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
      */
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement,
@@ -250,7 +249,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           providesMethod,
           dependencies,
           findBindingPackage(key),
-          Optional.of(MoreTypes.asTypeElement(types, declaredContainer)),
+          Optional.of(MoreTypes.asTypeElement(declaredContainer)),
           Kind.PROVISION,
           providesAnnotation.type(),
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),

@@ -115,7 +115,7 @@ final class ConfigurationAnnotations {
       if (moduleMirror.isPresent()) {
         ImmutableSet.Builder<TypeElement> moduleDependenciesBuilder = ImmutableSet.builder();
         moduleDependenciesBuilder.addAll(
-            MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get())));
+            MoreTypes.asTypeElements(getModuleIncludes(moduleMirror.get())));
         // (note: we don't recurse on the parent class because we don't want the parent class as a
         // root that the component depends on, and also because we want the dependencies rooted
         // against this element, not the parent.)
@@ -131,7 +131,7 @@ final class ConfigurationAnnotations {
     }
     return ImmutableMap.copyOf(moduleElements);
   }
-  
+
   /** Traverses includes from superclasses and adds them into the builder. */
   private static void addIncludesFromSuperclasses(Types types, TypeElement element,
       ImmutableSet.Builder<TypeElement> builder, TypeMirror objectType) {
@@ -143,7 +143,7 @@ final class ConfigurationAnnotations {
       Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(element, Module.class)
           .or(getAnnotationMirror(element, ProducerModule.class));
       if (moduleMirror.isPresent()) {
-        builder.addAll(MoreTypes.asTypeElements(types, getModuleIncludes(moduleMirror.get())));
+        builder.addAll(MoreTypes.asTypeElements(getModuleIncludes(moduleMirror.get())));
       }
       superclass = element.getSuperclass();
     }
