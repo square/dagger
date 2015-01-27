@@ -15,12 +15,10 @@
  */
 package test;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import dagger.Module;
 import dagger.Provides;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -40,38 +38,44 @@ class BoundedGenericModule {
 
   @Provides
   ArrayList<String> provideArrayListString() {
-    return Lists.newArrayList("arrayListOfString");
+    ArrayList<String> list = new ArrayList<>();
+    list.add("arrayListOfString");
+    return list;
   }
 
   @Provides
   LinkedList<String> provideLinkedListString() {
-    return BoundedGenericModule.newLinkedList("linkedListOfString");
+    LinkedList<String> list = new LinkedList<>();
+    list.add("linkedListOfString");
+    return list;
   }
 
   @Provides
   LinkedList<CharSequence> provideLinkedListCharSeq() {
-    return BoundedGenericModule.<CharSequence>newLinkedList("linkedListOfCharSeq");
+    LinkedList<CharSequence> list = new LinkedList<>();
+    list.add("linkedListOfCharSeq");
+    return list;
   }
 
   @Provides
   @SuppressWarnings("unchecked")
   LinkedList<Comparable<String>> provideArrayListOfComparableString() {
-    return BoundedGenericModule.<Comparable<String>>newLinkedList("arrayListOfComparableOfString");
+    LinkedList<Comparable<String>> list = new LinkedList<>();
+    list.add("arrayListOfComparableOfString");
+    return list;
   }
 
   @Provides
   List<Integer> provideListOfInteger() {
-    return Lists.newArrayList(3);
+    LinkedList<Integer> list = new LinkedList<>();
+    list.add(3);
+    return list;
   }
 
   @Provides
   Set<Double> provideSetOfDouble() {
-    return Sets.newHashSet(4d);
-  }
-
-  private static <E> LinkedList<E> newLinkedList(E... elements) {
-    LinkedList<E> list = Lists.newLinkedList();
-    Collections.addAll(list, elements);
-    return list;
+    Set<Double> set = new HashSet<>();
+    set.add(4d);
+    return set;
   }
 }
