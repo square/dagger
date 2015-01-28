@@ -47,7 +47,10 @@ import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
@@ -56,6 +59,7 @@ import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
+import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
@@ -199,11 +203,60 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           reportDuplicateBindings(path, reportBuilder);
           return false;
         }
+        if (membersInjectionBindings.size() == 1) {
+          MembersInjectionBinding binding = getOnlyElement(membersInjectionBindings);
+          if (!validateMembersInjectionBinding(binding, path, reportBuilder)) {
+            return false;
+          }
+        }
         break;
       default:
         throw new AssertionError();
     }
     return true;
+  }
+
+  /**
+   * Validates a members injection binding, returning false (and reporting the error) if it wasn't
+   * valid.
+   */
+  private boolean validateMembersInjectionBinding(MembersInjectionBinding binding,
+      final Deque<ResolvedRequest> path, final Builder<BindingGraph> reportBuilder) {
+    return binding.key().type().accept(new SimpleTypeVisitor6<Boolean, Void>() {
+      @Override protected Boolean defaultAction(TypeMirror e, Void p) {
+        reportBuilder.addItem("Invalid members injection request.",
+            path.peek().request().requestElement());
+        return false;
+      }
+
+      @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
+        // If the key has type arguments, validate that each type argument is declared.
+        // Otherwise the type argument may be a wildcard (or other type), and we can't
+        // resolve that to actual types.
+        for (TypeMirror arg : type.getTypeArguments()) {
+          if (arg.getKind() != TypeKind.DECLARED) {
+            reportBuilder.addItem(MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
+                path.peek().request().requestElement());
+            return false;
+          }
+        }
+
+        TypeElement element = MoreElements.asType(type.asElement());
+        // Also validate that the key is not the erasure of a generic type.
+        // If it is, that means the user referred to Foo<T> as just 'Foo',
+        // which we don't allow.  (This is a judgement call -- we *could*
+        // allow it and instantiate the type bounds... but we don't.)
+        if (!MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
+            && types.isSameType(types.erasure(element.asType()), type)) {
+          reportBuilder.addItem(
+              String.format(ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE, type.toString()),
+              path.peek().request().requestElement());
+          return false;
+        }
+
+        return true; // valid
+      }
+    }, null);
   }
 
   /**

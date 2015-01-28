@@ -92,7 +92,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProvisionBinding binding) {
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.isResolved());
+    checkState(!binding.hasNonDefaultTypeParameters());
 
     TypeMirror keyType = binding.provisionType().equals(Type.MAP)
         ? Util.getProvidedValueTypeOfMap(MoreTypes.asDeclared(binding.key().type()))

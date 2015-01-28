@@ -138,18 +138,17 @@ abstract class MembersInjectionBinding extends Binding {
 
     /** Returns an unresolved version of this binding. */
     MembersInjectionBinding unresolve(MembersInjectionBinding binding) {
-      checkState(binding.isResolved());
+      checkState(binding.hasNonDefaultTypeParameters());
       DeclaredType unresolved = MoreTypes.asDeclared(binding.bindingElement().asType());
       return forInjectedType(unresolved, Optional.<TypeMirror>absent());
     }
 
     /**
      * Returns a MembersInjectionBinding for the given type. If {@code resolvedType} is present,
-     * this will return a {@link Binding#isResolved() resolved} binding, with the key &
-     * type resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
+     * this will return a resolved binding, with the key & type resolved to the given type (using
+     * {@link Types#asMemberOf(DeclaredType, Element)}).
      */
     MembersInjectionBinding forInjectedType(DeclaredType type, Optional<TypeMirror> resolvedType) {
-      boolean isResolved = false;
       // If the class this is injecting has some type arguments, resolve everything.
       if (!type.getTypeArguments().isEmpty() && resolvedType.isPresent()) {
         DeclaredType resolved = MoreTypes.asDeclared(resolvedType.get());
@@ -158,7 +157,6 @@ abstract class MembersInjectionBinding extends Binding {
             "erased expected type: %s, erased actual type: %s",
             types.erasure(resolved), types.erasure(type));
         type = resolved;
-        isResolved = true;
       }
 
       TypeElement typeElement = MoreElements.asType(type.asElement());
@@ -205,7 +203,6 @@ abstract class MembersInjectionBinding extends Binding {
 
       Key key = keyFactory.forMembersInjectedType(type);
       return new AutoValue_MembersInjectionBinding(
-          isResolved,
           key,
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
@@ -213,6 +210,7 @@ abstract class MembersInjectionBinding extends Binding {
               .addAll(parentInjectorRequest.asSet())
               .build(),
           findBindingPackage(key),
+          hasNonDefaultTypeParameters(typeElement, key.type(), types),
           typeElement,
           injectionSites,
           parentInjectorRequest);

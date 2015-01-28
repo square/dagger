@@ -121,11 +121,11 @@ abstract class ProductionBinding extends ContributionBinding {
           ? Kind.FUTURE_PRODUCTION
           : Kind.IMMEDIATE;
       return new AutoValue_ProductionBinding(
-          false /* not resolved */,
           key,
           producesMethod,
           dependencies,
           findBindingPackage(key),
+          false,
           Optional.of(MoreTypes.asTypeElement(declaredContainer)),
           kind,
           producesAnnotation.type(),
@@ -138,11 +138,11 @@ abstract class ProductionBinding extends ContributionBinding {
       checkNotNull(implicitRequest);
       ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
       return new AutoValue_ProductionBinding(
-          false /* not resolved */,
           explicitRequest.key(),
           implicitRequest.requestElement(),
           dependencies,
           findBindingPackage(explicitRequest.key()),
+          false,
           Optional.<TypeElement>absent(),
           Kind.FUTURE_PRODUCTION,
           Produces.Type.MAP,
@@ -155,11 +155,11 @@ abstract class ProductionBinding extends ContributionBinding {
       checkArgument(componentMethod.getParameters().isEmpty());
       checkArgument(MoreTypes.isTypeOf(ListenableFuture.class, componentMethod.getReturnType()));
       return new AutoValue_ProductionBinding(
-          false /* not resolved */,
           keyFactory.forProductionComponentMethod(componentMethod),
           componentMethod,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
+          false,
           Optional.<TypeElement>absent(),
           Kind.COMPONENT_PRODUCTION,
           Produces.Type.UNIQUE,

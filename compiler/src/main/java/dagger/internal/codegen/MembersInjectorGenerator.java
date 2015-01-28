@@ -106,7 +106,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, MembersInjectionBinding binding) {
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.isResolved());
+    checkState(!binding.hasNonDefaultTypeParameters());
 
     TypeName injectedTypeName = TypeNames.forTypeMirror(binding.key().type());
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());

@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Joiner;
-
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
@@ -24,6 +23,7 @@ import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
@@ -657,5 +657,169 @@ public class GraphValidationTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedMsg);
+  }
+  
+  @Test public void arrayGenericsRequiresAtProvides() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A() {}",
+        "}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class B<T> {",
+        "  @Inject B(T t) {}",
+        "}");
+    JavaFileObject cFile = JavaFileObjects.forSourceLines("test.C",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class C {",
+        "  @Inject C(B<Object[]> b) {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent {",
+        "  C c();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("test.B<java.lang.Object[]> cannot be provided without"
+            + " an @Provides-annotated method");
+  }
+  
+  @Test public void rawTypeGenericsRequiresAtProvides() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A() {}",
+        "}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class B<T> {",
+        "  @Inject B(T t) {}",
+        "}");
+    JavaFileObject cFile = JavaFileObjects.forSourceLines("test.C",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class C {",
+        "  @Inject C(B b) {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent {",
+        "  C c();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("test.B cannot be provided without an @Provides-annotated method");
+  }
+  
+  @Test public void rawTypeMembersInjectFails() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A() {}",
+        "}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class B<T extends Number> {",
+        "  @Inject A a;",
+        "  B(T t) {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent {",
+        "  void inject(B b);",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            String.format(ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE, "test.B"));
+  }
+  
+  @Test public void unboundedMembersInjectionFails() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A() {}",
+        "}");
+    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class B<T extends Number> {",
+        "  @Inject A a;",
+        "  B(T t) {}",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import dagger.Lazy;",
+        "",
+        "import javax.inject.Provider;",
+        "",
+        "@Component",
+        "interface SimpleComponent {",
+        "  void inject(B<? extends Number> b);",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE);
   }
 }

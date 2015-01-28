@@ -72,7 +72,7 @@ final class InjectBindingRegistry {
       for (B binding = bindingsRequiringGeneration.poll();
           binding != null;
           binding = bindingsRequiringGeneration.poll()) {
-        checkState(!binding.isResolved());
+        checkState(!binding.hasNonDefaultTypeParameters());
         generator.generate(binding);
         materializedBindings.add(binding);
       }
@@ -116,7 +116,7 @@ final class InjectBindingRegistry {
     
     /** Returns true if the binding needs to be generated. */
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
-      return !binding.isResolved()
+      return !binding.hasNonDefaultTypeParameters()
           && elements.getTypeElement(factoryName.canonicalName()) == null
           && !materializedBindings.contains(binding)
           && !bindingsRequiringGeneration.contains(binding);
@@ -127,7 +127,7 @@ final class InjectBindingRegistry {
     private void tryToCacheBinding(B binding) {
       // We only cache resolved bindings or unresolved bindings w/o type arguments.
       // Unresolved bindings w/ type arguments aren't valid for the object graph.
-      if (binding.isResolved()          
+      if (binding.hasNonDefaultTypeParameters()          
           || binding.bindingTypeElement().getTypeParameters().isEmpty()) {        
         Key key = binding.key();
         Binding previousValue = bindingsByKey.put(key, binding);
@@ -183,7 +183,7 @@ final class InjectBindingRegistry {
   private ProvisionBinding registerBinding(ProvisionBinding binding, boolean explicit) {
     ClassName factoryName = SourceFiles.factoryNameForProvisionBinding(binding);
     provisionBindings.tryRegisterBinding(binding, factoryName, explicit);
-    if (binding.isResolved()) {
+    if (binding.hasNonDefaultTypeParameters()) {
       provisionBindings.tryToGenerateBinding(provisionBindingFactory.unresolve(binding),
           factoryName, explicit);
     }
@@ -202,13 +202,13 @@ final class InjectBindingRegistry {
       // empty members injection bindings are special and don't need source files.
       // so, we just pretend
       membersInjectionBindings.pretendBindingGenerated(binding, membersInjectorName);
-      if (binding.isResolved()) {
+      if (binding.hasNonDefaultTypeParameters()) {
         membersInjectionBindings.pretendBindingGenerated(
             membersInjectionBindingFactory.unresolve(binding), membersInjectorName);
       }
     } else {
       membersInjectionBindings.tryRegisterBinding(binding, membersInjectorName, explicit);
-      if (binding.isResolved()) {
+      if (binding.hasNonDefaultTypeParameters()) {
         membersInjectionBindings.tryToGenerateBinding(
             membersInjectionBindingFactory.unresolve(binding), membersInjectorName, explicit);
       }
