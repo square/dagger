@@ -278,8 +278,6 @@ abstract class ProvisionBinding extends ContributionBinding {
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {
       checkNotNull(componentDefinitionType);
-      checkArgument(isAnnotationPresent(componentDefinitionType, Component.class)
-          || isAnnotationPresent(componentDefinitionType, ProductionComponent.class));
       return new AutoValue_ProvisionBinding(
           keyFactory.forComponent(componentDefinitionType.asType()),
           componentDefinitionType,
