@@ -27,7 +27,7 @@ interface GenericComponent {
   ComplexGenerics complexGenerics();
   GenericNoDeps<A> noDepsA();
   GenericNoDeps<B> noDepsB();
-  
+
   void injectA(GenericChild<A> childA);
   void injectB(GenericChild<B> childB);
 

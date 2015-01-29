@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
+import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;

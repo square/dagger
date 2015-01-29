@@ -16,20 +16,29 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.AnnotationMirrors;
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
+import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
+import java.util.Iterator;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
@@ -38,6 +47,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDepen
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
 import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
+import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
@@ -101,6 +111,17 @@ abstract class ComponentDescriptor {
    */
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
 
+  abstract ImmutableMap<ExecutableElement, ComponentDescriptor> subcomponents();
+
+  abstract ImmutableSetMultimap<ComponentMethodType, ExecutableElement> componentMethods();
+
+  enum ComponentMethodType {
+    PROVISON,
+    PRODUCTION,
+    MEMBERS_INJECTION,
+    SUBCOMPONENT,
+  }
+
   static final class Factory {
     private final Elements elements;
 
@@ -118,9 +139,13 @@ abstract class ComponentDescriptor {
 
     private ComponentDescriptor create(TypeElement componentDefinitionType, Kind kind) {
       AnnotationMirror componentMirror =
-          getAnnotationMirror(componentDefinitionType, kind.annotationType()).get();
+          getAnnotationMirror(componentDefinitionType, kind.annotationType())
+              .or(getAnnotationMirror(componentDefinitionType, Subcomponent.class))
+              .get();
       ImmutableSet<TypeElement> componentDependencyTypes =
-          MoreTypes.asTypeElements(getComponentDependencies(componentMirror));
+          MoreElements.isAnnotationPresent(componentDefinitionType, Component.class)
+              ? MoreTypes.asTypeElements(getComponentDependencies(componentMirror))
+              : ImmutableSet.<TypeElement>of();
 
       ImmutableMap.Builder<ExecutableElement, TypeElement> dependencyMethodIndex =
           ImmutableMap.builder();
@@ -135,6 +160,25 @@ abstract class ComponentDescriptor {
         }
       }
 
+      ImmutableSet<ExecutableElement> unimplementedMethods =
+          getUnimplementedMethods(elements, componentDefinitionType);
+
+      ImmutableSetMultimap.Builder<ComponentMethodType, ExecutableElement> componentMethodsBuilder =
+          ImmutableSetMultimap.builder();
+
+      ImmutableMap.Builder<ExecutableElement, ComponentDescriptor> subcomponentDescriptors =
+          ImmutableMap.builder();
+      for (ExecutableElement componentMethod : unimplementedMethods) {
+        ComponentMethodType componentMethodType =
+            getComponentMethodType(kind, componentMethod);
+        componentMethodsBuilder.put(componentMethodType, componentMethod);
+        if (componentMethodType.equals(ComponentMethodType.SUBCOMPONENT)) {
+          subcomponentDescriptors.put(componentMethod,
+              create(MoreElements.asType(MoreTypes.asElement(componentMethod.getReturnType())),
+                  Kind.COMPONENT));
+        }
+      }
+
       Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
           kind,
@@ -142,8 +186,40 @@ abstract class ComponentDescriptor {
           componentDefinitionType,
           componentDependencyTypes,
           dependencyMethodIndex.build(),
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope));
+          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          subcomponentDescriptors.build(),
+          componentMethodsBuilder.build());
     }
+  }
+
+  private static ComponentMethodType getComponentMethodType(Kind componentKind,
+      ExecutableElement method) {
+    TypeMirror returnType = method.getReturnType();
+    if (returnType.getKind().equals(DECLARED) &&
+        getAnnotationMirror(MoreTypes.asElement(returnType), Subcomponent.class).isPresent()) {
+      return ComponentMethodType.SUBCOMPONENT;
+    }
+
+    if (method.getParameters().isEmpty()
+        && !method.getReturnType().getKind().equals(VOID)) {
+      switch (componentKind) {
+        case COMPONENT:
+          return ComponentMethodType.PROVISON;
+        case PRODUCTION_COMPONENT:
+          return ComponentMethodType.PRODUCTION;
+        default:
+          throw new AssertionError();
+      }
+    }
+
+    List<? extends VariableElement> parameters = method.getParameters();
+    if (parameters.size() == 1
+        && (returnType.getKind().equals(VOID)
+            || MoreTypes.equivalence().equivalent(returnType, parameters.get(0).asType()))) {
+      return ComponentMethodType.MEMBERS_INJECTION;
+    }
+
+    throw new IllegalArgumentException();
   }
 
   static boolean isComponentContributionMethod(Elements elements, ExecutableElement method) {
@@ -156,5 +232,58 @@ abstract class ComponentDescriptor {
   static boolean isComponentProductionMethod(Elements elements, ExecutableElement method) {
     return isComponentContributionMethod(elements, method)
         && MoreTypes.isTypeOf(ListenableFuture.class, method.getReturnType());
+  }
+
+  /*
+   * These two methods were borrowed from AutoValue and slightly modified.  TODO(gak): reconcile
+   * the two and put them in auto common
+   */
+  private static void findLocalAndInheritedMethods(Elements elements, TypeElement type,
+      List<ExecutableElement> methods) {
+    for (TypeMirror superInterface : type.getInterfaces()) {
+      findLocalAndInheritedMethods(
+          elements, MoreElements.asType(MoreTypes.asElement(superInterface)), methods);
+    }
+    if (type.getSuperclass().getKind() != TypeKind.NONE) {
+      // Visit the superclass after superinterfaces so we will always see the implementation of a
+      // method after any interfaces that declared it.
+      findLocalAndInheritedMethods(
+          elements, MoreElements.asType(MoreTypes.asElement(type.getSuperclass())), methods);
+    }
+    // Add each method of this class, and in so doing remove any inherited method it overrides.
+    // This algorithm is quadratic in the number of methods but it's hard to see how to improve
+    // that while still using Elements.overrides.
+    List<ExecutableElement> theseMethods = ElementFilter.methodsIn(type.getEnclosedElements());
+    for (ExecutableElement method : theseMethods) {
+      if (!method.getModifiers().contains(Modifier.PRIVATE)) {
+        boolean alreadySeen = false;
+        for (Iterator<ExecutableElement> methodIter = methods.iterator(); methodIter.hasNext();) {
+          ExecutableElement otherMethod = methodIter.next();
+          if (elements.overrides(method, otherMethod, type)) {
+            methodIter.remove();
+          } else if (method.getSimpleName().equals(otherMethod.getSimpleName())
+              && method.getParameters().equals(otherMethod.getParameters())) {
+            // If we inherit this method on more than one path, we don't want to add it twice.
+            alreadySeen = true;
+          }
+        }
+        if (!alreadySeen) {
+          methods.add(method);
+        }
+      }
+    }
+  }
+
+  private static ImmutableSet<ExecutableElement> getUnimplementedMethods(
+      Elements elements, TypeElement type) {
+    ImmutableSet.Builder<ExecutableElement> unimplementedMethods = ImmutableSet.builder();
+    List<ExecutableElement> methods = Lists.newArrayList();
+    findLocalAndInheritedMethods(elements, type, methods);
+    for (ExecutableElement method : methods) {
+      if (method.getModifiers().contains(Modifier.ABSTRACT)) {
+        unimplementedMethods.add(method);
+      }
+    }
+    return unimplementedMethods.build();
   }
 }

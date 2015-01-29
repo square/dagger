@@ -109,7 +109,7 @@ public class ComponentProcessorTest {
         .withErrorContaining(
             String.format(REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT, "test.TestModule"));
   }
-  
+
   @Test public void doubleBindingFromResolvedModules() {
     JavaFileObject parent = JavaFileObjects.forSourceLines("test.ParentModule",
         "package test;",
@@ -624,9 +624,9 @@ public class ComponentProcessorTest {
         "  public static final class Builder {",
         "    private TestModule testModule;",
         "    private DepModule depModule;",
-        "    private AlwaysIncluded alwaysIncluded;", 
-        "    private ParentTestIncluded parentTestIncluded;", 
-        "    private RefByDep refByDep;", 
+        "    private AlwaysIncluded alwaysIncluded;",
+        "    private ParentTestIncluded parentTestIncluded;",
+        "    private RefByDep refByDep;",
         "    private ParentDepIncluded parentDepIncluded;",
         "",
         "    private Builder() {",
@@ -639,17 +639,17 @@ public class ComponentProcessorTest {
         "      if (depModule == null) {",
         "        this.depModule = new DepModule();",
         "      }",
-        "      if (alwaysIncluded == null) {", 
-        "        this.alwaysIncluded = new AlwaysIncluded();", 
-        "      }", 
-        "      if (parentTestIncluded == null) {", 
-        "        this.parentTestIncluded = new ParentTestIncluded();", 
-        "      }", 
-        "      if (refByDep == null) {", 
-        "        this.refByDep = new RefByDep();", 
-        "      }", 
-        "      if (parentDepIncluded == null) {", 
-        "        this.parentDepIncluded = new ParentDepIncluded();", 
+        "      if (alwaysIncluded == null) {",
+        "        this.alwaysIncluded = new AlwaysIncluded();",
+        "      }",
+        "      if (parentTestIncluded == null) {",
+        "        this.parentTestIncluded = new ParentTestIncluded();",
+        "      }",
+        "      if (refByDep == null) {",
+        "        this.refByDep = new RefByDep();",
+        "      }",
+        "      if (parentDepIncluded == null) {",
+        "        this.parentDepIncluded = new ParentDepIncluded();",
         "      }",
         "      return new Dagger_TestComponent(this);",
         "    }",
@@ -1688,7 +1688,7 @@ public class ComponentProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
-  
+
   @Test public void wildcardGenericsRequiresAtProvides() {
     JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
         "package test;",

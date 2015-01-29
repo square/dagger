@@ -29,6 +29,7 @@ import com.google.common.collect.Queues;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
+import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
 import java.util.List;
 import java.util.Map;
@@ -37,9 +38,11 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
@@ -130,6 +133,23 @@ final class ConfigurationAnnotations {
       }
     }
     return ImmutableMap.copyOf(moduleElements);
+  }
+
+  static boolean isSubcomponentType(TypeMirror type) {
+    return type.accept(new SubcomponentDetector(), null).isPresent();
+  }
+
+  private static final class SubcomponentDetector
+      extends SimpleTypeVisitor6<Optional<AnnotationMirror>, Void> {
+    @Override
+    protected Optional<AnnotationMirror> defaultAction(TypeMirror e, Void p) {
+      return Optional.absent();
+    }
+
+    @Override
+    public Optional<AnnotationMirror> visitDeclared(DeclaredType t, Void p) {
+      return MoreElements.getAnnotationMirror(t.asElement(), Subcomponent.class);
+    }
   }
 
   /** Traverses includes from superclasses and adds them into the builder. */
