@@ -122,7 +122,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         // since we'll be implementing an erased version of it.
         if (!typeParameters.isEmpty()) {
           factoryWriter.annotate(SuppressWarnings.class).setValue("rawtypes");
-          providedTypeName = ((ParameterizedTypeName)providedTypeName).type();
+          providedTypeName = ((ParameterizedTypeName) providedTypeName).type();
         }
         break;
       case CLASS_CONSTRUCTOR:

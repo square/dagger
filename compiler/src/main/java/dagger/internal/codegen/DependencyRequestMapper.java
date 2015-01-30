@@ -15,9 +15,14 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
 import dagger.MembersInjector;
 import dagger.producers.Producer;
 import javax.inject.Provider;
+
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
  * A mapper for associating a {@link DependencyRequest} to a framework class, dependent on
@@ -28,6 +33,27 @@ import javax.inject.Provider;
  */
 abstract class DependencyRequestMapper {
   abstract Class<?> getFrameworkClass(DependencyRequest request);
+
+  /**
+   * Returns the framework class to use for a collection of requests of the same {@link BindingKey}.
+   * This allows factories to only take a single argument for multiple requests of the same key.
+   */
+  Class<?> getFrameworkClass(Iterable<DependencyRequest> requests) {
+    ImmutableSet<Class<?>> classes = FluentIterable.from(requests)
+        .transform(new Function<DependencyRequest, Class<?>>() {
+          @Override public Class<?> apply(DependencyRequest request) {
+            return getFrameworkClass(request);
+          }
+        })
+        .toSet();
+    if (classes.size() == 1) {
+      return getOnlyElement(classes);
+    } else if (classes.equals(ImmutableSet.of(Producer.class, Provider.class))) {
+      return Provider.class;
+    } else {
+      throw new IllegalStateException("Bad set of framework classes: " + classes);
+    }
+  }
 
   private static final class MapperForProvider extends DependencyRequestMapper {
     @Override public Class<?> getFrameworkClass(DependencyRequest request) {

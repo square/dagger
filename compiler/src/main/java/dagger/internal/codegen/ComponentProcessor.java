@@ -171,7 +171,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             productionComponentValidator,
             bindingGraphValidator,
             componentDescriptorFactory,
-            bindingGraphFactory));
+            bindingGraphFactory,
+            componentGenerator));
   }
 
   @Override

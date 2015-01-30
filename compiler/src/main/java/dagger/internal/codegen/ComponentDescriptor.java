@@ -32,6 +32,7 @@ import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Executor;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -98,6 +99,11 @@ abstract class ComponentDescriptor {
   abstract ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex();
 
   /**
+   * The element representing {@link Executor}, if it should be a dependency of this component.
+   */
+  abstract Optional<TypeElement> executorDependency();
+
+  /**
    * An optional annotation constraining the scope of this component.
    */
   Optional<AnnotationMirror> scope() {
@@ -160,6 +166,11 @@ abstract class ComponentDescriptor {
         }
       }
 
+      Optional<TypeElement> executorDependency =
+          kind.equals(Kind.PRODUCTION_COMPONENT)
+              ? Optional.of(elements.getTypeElement(Executor.class.getCanonicalName()))
+              : Optional.absent();
+
       ImmutableSet<ExecutableElement> unimplementedMethods =
           getUnimplementedMethods(elements, componentDefinitionType);
 
@@ -186,6 +197,7 @@ abstract class ComponentDescriptor {
           componentDefinitionType,
           componentDependencyTypes,
           dependencyMethodIndex.build(),
+          executorDependency,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
           subcomponentDescriptors.build(),
           componentMethodsBuilder.build());

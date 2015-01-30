@@ -169,7 +169,7 @@ final class ConfigurationAnnotations {
       ImmutableSet.Builder<TypeElement> builder, TypeMirror objectType) {
     // Also add the superclass to the queue, in case any @Module definitions were on that.
     TypeMirror superclass = element.getSuperclass();
-    while(!types.isSameType(objectType, superclass)
+    while (!types.isSameType(objectType, superclass)
         && superclass.getKind().equals(TypeKind.DECLARED)) {
       element = MoreElements.asType(types.asElement(superclass));
       Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(element, Module.class)

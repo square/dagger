@@ -38,18 +38,21 @@ final class ProductionComponentProcessingStep implements ProcessingStep {
   private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final BindingGraph.Factory bindingGraphFactory;
+  private final ComponentGenerator componentGenerator;
 
   ProductionComponentProcessingStep(
       Messager messager,
       ProductionComponentValidator componentValidator,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
-      BindingGraph.Factory bindingGraphFactory) {
+      BindingGraph.Factory bindingGraphFactory,
+      ComponentGenerator componentGenerator) {
     this.messager = messager;
     this.componentValidator = componentValidator;
     this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
     this.bindingGraphFactory = bindingGraphFactory;
+    this.componentGenerator = componentGenerator;
   }
 
   @Override
@@ -73,6 +76,13 @@ final class ProductionComponentProcessingStep implements ProcessingStep {
         ValidationReport<BindingGraph> graphReport =
             bindingGraphValidator.validate(bindingGraph);
         graphReport.printMessagesTo(messager);
+        if (graphReport.isClean()) {
+          try {
+            componentGenerator.generate(bindingGraph);
+          } catch (SourceFileGenerationException e) {
+            e.printMessageTo(messager);
+          }
+        }
       }
     }
   }
