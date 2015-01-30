@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
+import dagger.internal.codegen.writer.StringLiteral;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +40,14 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_R
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
+
+  private final JavaFileObject NULLABLE = JavaFileObjects.forSourceLines("test.Nullable",
+      "package test;",
+      "public @interface Nullable {}");
+  
+  private static final StringLiteral NPE_LITERAL =
+      StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
+
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject
 
@@ -390,6 +399,53 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public String get() {",
+        "    String provided = module.provideString();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
+        "  }",
+        "",
+        "  public static Factory<String> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringFactory(module);",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void singleProvidesMethodNoArgs_disableNullable() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String provideString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override public String get() {",
         "    return module.provideString();",
         "  }",
         "",
@@ -398,6 +454,50 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSource()).that(moduleFile)
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void nullableProvides() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides @Nullable String provideString() { return null; }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override",
+        "  @Nullable",
+        "  public String get() {",
+        "    return module.provideString();",
+        "  }",
+        "",
+        "  public static Factory<String> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringFactory(module);",
+        "  }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(moduleFile, NULLABLE))
+        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -485,7 +585,12 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public List<Object> get() {",
-        "    return module.provideObjects(aProvider.get(), bProvider.get(), xMembersInjector);",
+        "    List<Object> provided =",
+        "        module.provideObjects(aProvider.get(), bProvider.get(), xMembersInjector);",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
         "  }",
         "",
         "  public static Factory<List<Object>> create(",
@@ -499,6 +604,7 @@ public class ModuleFactoryGeneratorTest {
         "}");
     assertAbout(javaSources()).that(
             ImmutableList.of(classXFile, moduleFile, QUALIFIER_A, QUALIFIER_B))
+        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listFactoryFile);
@@ -551,7 +657,7 @@ public class ModuleFactoryGeneratorTest {
         .and().generatesSources(factoryFile);
   }
 
-  @Test public void proviesSetValues() {
+  @Test public void providesSetValues() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -584,7 +690,11 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public Set<String> get() {",
-        "    return module.provideStrings();",
+        "    Set<String> provided = module.provideStrings();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
         "  }",
         "",
         "  public static Factory<Set<String>> create(TestModule module) {",
@@ -592,6 +702,7 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSource()).that(moduleFile)
+        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -827,7 +938,11 @@ public class ModuleFactoryGeneratorTest {
         "", 
         "  @Override", 
         "  public List<B> get() {  ", 
-        "    return module.provideListB(bProvider.get());", 
+        "    List<B> provided = module.provideListB(bProvider.get());",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;", 
         "  }", 
         "", 
         "  public static <A extends CharSequence, B, C extends Number & Comparable<C>>",
@@ -853,7 +968,11 @@ public class ModuleFactoryGeneratorTest {
         "",
         "  @Override",
         "  public Number get() {  ",
-        "    return module.provideNumber();",
+        "    Number provided = module.provideNumber();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
         "  }",
         "",
         "  public static Factory<Number> create(ChildNumberModule module) {",
@@ -879,7 +998,11 @@ public class ModuleFactoryGeneratorTest {
         "",
         "  @Override",
         "  public Integer get() {  ",
-        "    return module.provideInteger();",
+        "    Integer provided = module.provideInteger();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
         "  }",
         "",
         "  public static Factory<Integer> create(ChildIntegerModule module) {",
@@ -887,6 +1010,7 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(parent, numberChild, integerChild, component))
+        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listBFactory, numberFactory, integerFactory);

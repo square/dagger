@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import javax.tools.Diagnostic;
+
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -32,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
 import dagger.internal.codegen.ContributionBinding.BindingType;
@@ -52,14 +55,13 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
-
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
+import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
@@ -71,7 +73,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
-  private final ScopeCycleValidation disableInterComponentScopeCycles;
+  private final ValidationType scopeCycleValidationType;
+  private final Diagnostic.Kind nullableValidationType;
   private final ProvisionBindingFormatter provisionBindingFormatter;
   private final ProductionBindingFormatter productionBindingFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
@@ -81,7 +84,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   BindingGraphValidator(
       Types types,
       InjectBindingRegistry injectBindingRegistry,
-      ScopeCycleValidation disableInterComponentScopeCycles,
+      ValidationType scopeCycleValidationType,
+      Diagnostic.Kind nullableValidationType,
       ProvisionBindingFormatter provisionBindingFormatter,
       ProductionBindingFormatter productionBindingFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
@@ -89,7 +93,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       KeyFormatter keyFormatter) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
-    this.disableInterComponentScopeCycles = disableInterComponentScopeCycles;
+    this.scopeCycleValidationType = scopeCycleValidationType;
+    this.nullableValidationType = nullableValidationType;
     this.provisionBindingFormatter = provisionBindingFormatter;
     this.productionBindingFormatter = productionBindingFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
@@ -176,6 +181,10 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           throw new IllegalArgumentException(
               "contribution binding keys should never have members injection bindings");
         }
+        Set<ContributionBinding> combined = Sets.union(provisionBindings, productionBindings);
+        if (!validateNullability(path, combined, reportBuilder)) {
+          return false;
+        }
         if (!productionBindings.isEmpty() && doesPathRequireProvisionOnly(path)) {
           reportProviderMayNotDependOnProducer(path, reportBuilder);
           return false;
@@ -214,6 +223,40 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         throw new AssertionError();
     }
     return true;
+  }
+
+  /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
+  private boolean validateNullability(Deque<ResolvedRequest> requestPath,
+      Set<ContributionBinding> bindings, Builder<BindingGraph> reportBuilder) {
+    boolean valid = true;
+    DependencyRequest request = requestPath.peek().request();
+    String typeName = TypeNames.forTypeMirror(request.key().type()).toString();
+    if (!request.isNullable()) {
+      for (ContributionBinding binding : bindings) {
+        if (binding.nullableType().isPresent()) {
+          String methodSignature;
+          if (binding instanceof ProvisionBinding) {
+            ProvisionBinding provisionBinding = (ProvisionBinding) binding;
+            methodSignature = provisionBindingFormatter.format(provisionBinding);
+          } else {
+            ProductionBinding productionBinding = (ProductionBinding) binding;
+            methodSignature = productionBindingFormatter.format(productionBinding);
+          }
+          // Note: the method signature will include the @Nullable in it!
+          // TODO(sameb): Sometimes javac doesn't include the Element in its output.
+          // (Maybe this happens if the code was already compiled before this point?)
+          // ... we manually print ouf the request in that case, otherwise the error
+          // message is kind of useless.
+          reportBuilder.addItem(
+              String.format(NULLABLE_TO_NON_NULLABLE, typeName, methodSignature)
+              + "\n at: " + dependencyRequestFormatter.format(request),
+              nullableValidationType,
+              request.requestElement());
+          valid = false;
+        }
+      }
+    }
+    return valid;
   }
 
   /**
@@ -271,7 +314,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
     if (scope.isPresent()) {
       // Dagger 1.x scope compatibility requires this be suppress-able.
-      if (disableInterComponentScopeCycles.diagnosticKind().isPresent()
+      if (scopeCycleValidationType.diagnosticKind().isPresent()
           && isTypeOf(Singleton.class, scope.get().getAnnotationType())) {
         // Singleton is a special-case representing the longest lifetime, and therefore
         // @Singleton components may not depend on scoped components
@@ -280,7 +323,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
               "This @Singleton component cannot depend on scoped components:\n");
           appendIndentedComponentsList(message, scopedDependencies);
           reportBuilder.addItem(message.toString(),
-              disableInterComponentScopeCycles.diagnosticKind().get(),
+              scopeCycleValidationType.diagnosticKind().get(),
               descriptor.componentDefinitionType(),
               descriptor.componentAnnotation());
         }
@@ -296,7 +339,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             descriptor.componentAnnotation());
       } else {
         // Dagger 1.x scope compatibility requires this be suppress-able.
-        if (!disableInterComponentScopeCycles.equals(ScopeCycleValidation.NONE)) {
+        if (!scopeCycleValidationType.equals(ValidationType.NONE)) {
           validateScopeHierarchy(descriptor.componentDefinitionType(),
               descriptor.componentDefinitionType(),
               reportBuilder,
@@ -369,9 +412,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         message.append(rootComponent.getQualifiedName());
         message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
         appendIndentedComponentsList(message, scopedDependencyStack);
-        if (disableInterComponentScopeCycles.diagnosticKind().isPresent()) {
+        if (scopeCycleValidationType.diagnosticKind().isPresent()) {
           reportBuilder.addItem(message.toString(),
-              disableInterComponentScopeCycles.diagnosticKind().get(),
+              scopeCycleValidationType.diagnosticKind().get(),
               rootComponent, getAnnotationMirror(rootComponent, Component.class).get());
         }
         scopedDependencyStack.pop();
@@ -691,31 +734,5 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
   abstract static class Traverser {
     abstract boolean visitResolvedRequest(Deque<ResolvedRequest> path);
-  }
-
-  /**
-   * {@code -Adagger.disableInterComponentScopeValidation=none} will suppress validation of
-   * scoping relationships between dagger {@code @Component} interfaces. This is a migration
-   * tool to permit easier migration from Dagger 1.x which used {@code @Singleton} for scoped
-   * graphs in any lifetime.
-   *
-   * <p>The value can be (case-insensitively) set to any of {@code ERROR}, {@code WARNING},
-   * or {@code NONE} and defaults to {@code ERROR}.
-   */
-  enum ScopeCycleValidation {
-    ERROR,
-    WARNING,
-    NONE;
-
-    Optional<Diagnostic.Kind> diagnosticKind() {
-      switch (this) {
-        case ERROR:
-          return Optional.of(Diagnostic.Kind.ERROR);
-        case WARNING:
-          return Optional.of(Diagnostic.Kind.WARNING);
-        default:
-          return Optional.absent();
-      }
-    }
   }
 }

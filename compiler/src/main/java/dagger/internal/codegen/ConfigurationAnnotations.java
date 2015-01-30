@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import javax.lang.model.type.DeclaredType;
+
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -44,7 +46,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -86,6 +87,17 @@ final class ConfigurationAnnotations {
 
   static ImmutableSet<? extends AnnotationMirror> getMapKeys(Element element) {
     return AnnotationMirrors.getAnnotatedAnnotations(element, MapKey.class);
+  }
+  
+  /** Returns the first type that specifies this' nullability, or absent if none. */
+  static Optional<DeclaredType> getNullableType(Element element) {
+    List<? extends AnnotationMirror> mirrors = element.getAnnotationMirrors();
+    for (AnnotationMirror mirror : mirrors) {
+      if (mirror.getAnnotationType().asElement().getSimpleName().toString().equals("Nullable")) {
+        return Optional.of(mirror.getAnnotationType());
+      }
+    }
+    return Optional.absent();
   }
 
   static ImmutableList<TypeMirror> convertClassArrayToListOfTypes(

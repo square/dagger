@@ -83,6 +83,9 @@ abstract class DependencyRequest {
    * requests, this is the type itself.
    */
   abstract DeclaredType enclosingType();
+  
+  /** Returns true if this request allows null objects. */
+  abstract boolean isNullable();
 
   static final class Factory {
     private final Key.Factory keyFactory;
@@ -120,8 +123,9 @@ abstract class DependencyRequest {
     DependencyRequest forImplicitMapBinding(DependencyRequest delegatingRequest, Key delegateKey) {
       checkNotNull(delegatingRequest);
       return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
-          delegatingRequest.requestElement(), 
-          MoreTypes.asDeclared(delegatingRequest.requestElement().getEnclosingElement().asType()));
+          delegatingRequest.requestElement(),
+          MoreTypes.asDeclared(delegatingRequest.requestElement().getEnclosingElement().asType()),
+          false /* doesn't allow null */);
     }
 
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
@@ -167,7 +171,8 @@ abstract class DependencyRequest {
             keyFactory.forQualifiedType(qualifier,
                 Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())),
             productionMethod,
-            container);
+            container,
+            false /* doesn't allow null */);
       } else {
         return newDependencyRequest(productionMethod, type, qualifier, container);
       }
@@ -182,26 +187,34 @@ abstract class DependencyRequest {
           keyFactory.forMembersInjectedType(
               Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
           membersInjectionMethod,
-          MoreTypes.asDeclared(membersInjectionMethod.getEnclosingElement().asType()));
+          MoreTypes.asDeclared(membersInjectionMethod.getEnclosingElement().asType()),
+          false /* doesn't allow null */);
     }
 
     DependencyRequest forMembersInjectedType(DeclaredType type) {
       return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
           keyFactory.forMembersInjectedType(type),
           type.asElement(),
-          type);
+          type,
+          false /* doesn't allow null */);
     }
 
     private DependencyRequest newDependencyRequest(Element requestElement,
         TypeMirror type, Optional<AnnotationMirror> qualifier, DeclaredType container) {
       KindAndType kindAndType = extractKindAndType(type);
-      if (kindAndType.kind() == Kind.MEMBERS_INJECTOR) {
+      if (kindAndType.kind().equals(Kind.MEMBERS_INJECTOR)) {
         checkArgument(!qualifier.isPresent());
       }
+      // Only instance types can be non-null -- all other requests are wrapped
+      // inside something (e.g, Provider, Lazy, etc..).
+      // TODO(sameb): should Produced/Producer always require non-nullable?
+      boolean allowsNull = !kindAndType.kind().equals(Kind.INSTANCE)
+          || ConfigurationAnnotations.getNullableType(requestElement).isPresent();
       return new AutoValue_DependencyRequest(kindAndType.kind(),
           keyFactory.forQualifiedType(qualifier, kindAndType.type()),
           requestElement,
-          container);
+          container,
+          allowsNull);
     }
 
     @AutoValue

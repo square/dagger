@@ -33,6 +33,7 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.TypeVariableName;
@@ -47,9 +48,11 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
 
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.Provides.Type.SET;
+import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -68,10 +71,13 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  */
 final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   private final DependencyRequestMapper dependencyRequestMapper;
+  private final Diagnostic.Kind nullableValidationType;
 
-  FactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper) {
+  FactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper,
+      Diagnostic.Kind nullableValidationType) {
     super(filer);
     this.dependencyRequestMapper = dependencyRequestMapper;
+    this.nullableValidationType = nullableValidationType;
   }
 
   @Override
@@ -228,10 +234,28 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
             ClassName.fromClass(Collections.class),
             binding.bindingElement().getSimpleName(),
             parametersSnippet);
-      } else {
+      } else if (binding.nullableType().isPresent()
+          || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
+        if (binding.nullableType().isPresent()) {
+          getMethodWriter.annotate(
+              (ClassName) TypeNames.forTypeMirror(binding.nullableType().get()));
+        }
         getMethodWriter.body().addSnippet("return module.%s(%s);",
             binding.bindingElement().getSimpleName(),
             parametersSnippet);
+      } else {
+        StringLiteral failMsg =
+            StringLiteral.forValue(CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
+        getMethodWriter.body().addSnippet(Snippet.format(Joiner.on('\n').join(
+            "%s provided = module.%s(%s);",
+            "if (provided == null) {",
+            "  throw new NullPointerException(%s);",
+            "}",
+            "return provided;"),
+            getMethodWriter.returnType(),
+            binding.bindingElement().getSimpleName(),
+            parametersSnippet,
+            failMsg));
       }
     } else if (binding.memberInjectionRequest().isPresent()) {
       getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",

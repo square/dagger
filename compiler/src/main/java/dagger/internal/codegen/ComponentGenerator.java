@@ -79,11 +79,13 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
+import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.SYNTHETIC_PROVISON;
@@ -106,8 +108,11 @@ import static javax.lang.model.type.TypeKind.VOID;
  * @since 2.0
  */
 final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
-  ComponentGenerator(Filer filer) {
+  private final Diagnostic.Kind nullableValidationType;
+
+  ComponentGenerator(Filer filer, Diagnostic.Kind nullableValidationType) {
     super(filer);
+    this.nullableValidationType = nullableValidationType;
   }
 
   @Override
@@ -751,16 +756,47 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             ClassName.fromClass(InstanceFactory.class),
             TypeNames.forTypeMirror(binding.key().type()));
       case COMPONENT_PROVISION:
-        return Snippet.format(Joiner.on('\n').join(
-          "new %s<%2$s>() {",
-          "  @Override public %2$s get() {",
-          "    return %3$s.%4$s();",
-          "  }",
-          "}"),
-          ClassName.fromClass(Factory.class),
-          TypeNames.forTypeMirror(binding.key().type()),
-          contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
-          binding.bindingElement().getSimpleName().toString());
+        if (binding.nullableType().isPresent()
+            || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
+          Snippet nullableSnippet = binding.nullableType().isPresent()
+              ? Snippet.format("@%s ", TypeNames.forTypeMirror(binding.nullableType().get()))
+              : Snippet.format("");
+          return Snippet.format(Joiner.on('\n').join(
+            "new %s<%2$s>() {",
+            "  %5$s@Override public %2$s get() {",
+            "    return %3$s.%4$s();",
+            "  }",
+            "}"),
+            ClassName.fromClass(Factory.class),
+            TypeNames.forTypeMirror(binding.key().type()),
+            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
+            binding.bindingElement().getSimpleName().toString(),
+            nullableSnippet);
+        } else {
+          // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
+          // help to figure out what the method or return type is.  If we include a string
+          // of the return type or method name in the error message, that can defeat obfuscation.
+          // We can easily include the raw type (no generics) + annotation type (no values),
+          // using .class & String.format -- but that wouldn't be the whole story.
+          // What should we do?
+          StringLiteral failMsg =
+              StringLiteral.forValue(CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
+          return Snippet.format(Joiner.on('\n').join(
+            "new %s<%2$s>() {",
+            "  @Override public %2$s get() {",
+            "    %2$s provided = %3$s.%4$s();",
+            "    if (provided == null) {",
+            "      throw new NullPointerException(%5$s);",
+            "    }",
+            "    return provided;",
+            "  }",
+            "}"),
+            ClassName.fromClass(Factory.class),
+            TypeNames.forTypeMirror(binding.key().type()),
+            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
+            binding.bindingElement().getSimpleName().toString(),
+            failMsg);
+        }
       case INJECTION:
       case PROVISION:
         List<Snippet> parameters =

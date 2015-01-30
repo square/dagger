@@ -42,10 +42,14 @@ public abstract class Modifiable {
     Iterables.addAll(this.modifiers, modifiers);
   }
 
-  public AnnotationWriter annotate(Class<? extends Annotation> annotation) {
-    AnnotationWriter annotationWriter = new AnnotationWriter(ClassName.fromClass(annotation));
+  public AnnotationWriter annotate(ClassName annotation) {
+    AnnotationWriter annotationWriter = new AnnotationWriter(annotation);
     this.annotations.add(annotationWriter);
     return annotationWriter;
+  }
+
+  public AnnotationWriter annotate(Class<? extends Annotation> annotation) {
+    return annotate(ClassName.fromClass(annotation));
   }
 
   Appendable writeModifiers(Appendable appendable) throws IOException {

@@ -49,6 +49,10 @@ public final class MethodWriter extends Modifiable implements HasClassReferences
     return name;
   }
   
+  public TypeName returnType() {
+    return returnType;
+  }
+  
   public void addTypeParameter(TypeVariableName typeVariableName) {
     this.typeParameters.add(typeVariableName);
   }

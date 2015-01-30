@@ -15,13 +15,16 @@
  */
 package dagger.internal.codegen;
 
+import java.util.EnumSet;
+
+import javax.tools.Diagnostic;
+import java.util.Arrays;
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.BindingGraphValidator.ScopeCycleValidation;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.util.Map;
@@ -33,7 +36,6 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
@@ -56,7 +58,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
   @Override
   public Set<String> getSupportedOptions() {
-    return ImmutableSet.of(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY);
+    return ImmutableSet.of(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY, NULLABLE_VALIDATION_KEY);
   }
 
   @Override
@@ -65,6 +67,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
     Filer filer = processingEnv.getFiler();
+
+    Diagnostic.Kind nullableDiagnosticType =
+        nullableValidationType(processingEnv).diagnosticKind().get();
 
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
     ProvisionBindingFormatter provisionBindingFormatter =
@@ -90,10 +95,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
     FactoryGenerator factoryGenerator =
-        new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
+        new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types, DependencyRequestMapper.FOR_PROVIDER);
-    ComponentGenerator componentGenerator = new ComponentGenerator(filer);
+    ComponentGenerator componentGenerator = new ComponentGenerator(filer, nullableDiagnosticType);
     ProducerFactoryGenerator producerFactoryGenerator =
         new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
 
@@ -121,7 +126,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
         types,
         injectBindingRegistry,
-        disableInterComponentScopeValidation(processingEnv),
+        scopeValidationType(processingEnv),
+        nullableDiagnosticType,
         provisionBindingFormatter,
         productionBindingFormatter,
         methodSignatureFormatter,
@@ -180,20 +186,39 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   private static final String DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY =
       "dagger.disableInterComponentScopeValidation";
 
-  private static ScopeCycleValidation disableInterComponentScopeValidation(
-      ProcessingEnvironment processingEnv) {
+  private static final String NULLABLE_VALIDATION_KEY =
+      "dagger.nullableValidation";
+
+  private static ValidationType scopeValidationType(ProcessingEnvironment processingEnv) {
+    return validationTypeFor(processingEnv,
+        DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
+        ValidationType.ERROR,
+        EnumSet.allOf(ValidationType.class));
+  }
+
+  private static ValidationType nullableValidationType(ProcessingEnvironment processingEnv) {
+    return validationTypeFor(processingEnv,
+        NULLABLE_VALIDATION_KEY,
+        ValidationType.WARNING, // TODO(sameb): Change the default to ERROR
+        EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
+  }
+
+  private static ValidationType validationTypeFor(ProcessingEnvironment processingEnv, String key,
+      ValidationType defaultValue, Set<ValidationType> validValues) {
     Map<String, String> options = processingEnv.getOptions();
-    if (options.containsKey(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY)) {
+    if (options.containsKey(key)) {
       try {
-        return ScopeCycleValidation.valueOf(
-            options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY).toUpperCase());
+        ValidationType type = ValidationType.valueOf(options.get(key).toUpperCase());
+        if (!validValues.contains(type)) {
+          throw new IllegalArgumentException(); // let handler below print out good msg.
+        }
+        return type;
       } catch (IllegalArgumentException e) {
         processingEnv.getMessager().printMessage(ERROR, "Processor option -A"
-            + DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY
-            + " may only have the values ERROR, WARNING, or NONE (case insensitive) "
-            + " found: " + options.get(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY));
+            + key + " may only have the values " + validValues
+            + " (case insensitive), found: " + options.get(key));
       }
     }
-    return ScopeCycleValidation.ERROR;
+    return defaultValue;
   }
 }

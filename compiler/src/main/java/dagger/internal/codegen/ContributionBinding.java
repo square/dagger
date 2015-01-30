@@ -22,6 +22,7 @@ import com.google.common.collect.Ordering;
 import java.util.EnumSet;
 import java.util.Set;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -48,6 +49,9 @@ abstract class ContributionBinding extends Binding {
   }
 
   abstract BindingType bindingType();
+  
+  /** Returns the type that specifies this' nullability, absent if not nullable. */
+  abstract Optional<DeclaredType> nullableType();
 
   /**
    * If this is a provision request from an {@code @Provides} or {@code @Produces} method, this will

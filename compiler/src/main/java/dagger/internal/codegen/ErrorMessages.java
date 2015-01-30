@@ -202,6 +202,15 @@ final class ErrorMessages {
   static final String MALFORMED_MODULE_METHOD_FORMAT =
       "Cannot generated a graph because method %s on module %s was malformed";
 
+  static final String NULLABLE_TO_NON_NULLABLE =
+      "%s is not nullable, but is being provided by %s";
+
+  static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD =
+      "Cannot return null from a non-@Nullable component method";
+
+  static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD =
+      "Cannot return null from a non-@Nullable @Provides method";
+
   /**
    * A regular expression to match a small list of specific packages deemed to
    * be unhelpful to display in fully qualified types in error messages.

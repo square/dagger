@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
+import dagger.internal.codegen.writer.StringLiteral;
 import javax.tools.JavaFileObject;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -30,6 +31,9 @@ import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULES_MUST_NOT_
 
 @RunWith(JUnit4.class)
 public class ComponentProcessorTest {
+  private static final StringLiteral NPE_LITERAL =
+      StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
+  
   @Test public void componentOnConcreteClass() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.NotAComponent",
         "package test;",
@@ -1232,7 +1236,11 @@ public class ComponentProcessorTest {
         "  private void initialize() {",
         "    this.aProvider = new Factory<A>() {",
         "      @Override public A get() {",
-        "        return aComponent.a();",
+        "        A provided = aComponent.a();",
+        "        if (provided == null) {",
+        "          throw new NullPointerException(" + NPE_LITERAL + ");",
+        "        }",
+        "        return provided;",
         "      }",
         "    };",
         "    this.bProvider = B$$Factory.create(aProvider);",
@@ -1267,6 +1275,7 @@ public class ComponentProcessorTest {
         "}");
     assertAbout(javaSources())
         .that(ImmutableList.of(aFile, bFile, aComponentFile, bComponentFile))
+        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
