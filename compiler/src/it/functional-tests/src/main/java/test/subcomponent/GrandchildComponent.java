@@ -15,27 +15,11 @@
  */
 package test.subcomponent;
 
-import dagger.Module;
-import dagger.Provides;
-import javax.inject.Singleton;
+import dagger.Subcomponent;
+import java.util.Set;
 
-import static dagger.Provides.Type.SET;
-
-@Module
-final class ParentModule {
-  @Provides(type = SET) Object provideUnscopedObject() {
-    return new Object() {
-      @Override public String toString() {
-        return "unscoped in parent";
-      }
-    };
-  }
-
-  @Provides(type = SET) @Singleton Object provideSingletonObject() {
-    return new Object() {
-      @Override public String toString() {
-        return "singleton";
-      }
-    };
-  }
+@Subcomponent(modules = GrandchildModule.class)
+interface GrandchildComponent {
+  RequiresSingleton requiresSingleton();
+  Set<Object> objectSet();
 }

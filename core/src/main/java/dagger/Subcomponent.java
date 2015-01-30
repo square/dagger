@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.TYPE;
 
 /**
- * A component that inherits the bindings from a parent {@link Component}.
+ * A component that inherits the bindings from a parent {@link Component} or {@link Subcomponent}.
  *
  * <p>Subcomponent implementations only exist in the context of a parent and are associated with
  * parents using factory methods on the component.  Simply add a method that returns the

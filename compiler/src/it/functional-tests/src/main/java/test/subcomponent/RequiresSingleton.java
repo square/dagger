@@ -15,27 +15,16 @@
  */
 package test.subcomponent;
 
-import dagger.Module;
-import dagger.Provides;
-import javax.inject.Singleton;
+import javax.inject.Inject;
 
-import static dagger.Provides.Type.SET;
+final class RequiresSingleton {
+  private final SingletonType singletonType;
 
-@Module
-final class ParentModule {
-  @Provides(type = SET) Object provideUnscopedObject() {
-    return new Object() {
-      @Override public String toString() {
-        return "unscoped in parent";
-      }
-    };
+  @Inject RequiresSingleton(SingletonType singletonType) {
+    this.singletonType = singletonType;
   }
 
-  @Provides(type = SET) @Singleton Object provideSingletonObject() {
-    return new Object() {
-      @Override public String toString() {
-        return "singleton";
-      }
-    };
+  SingletonType singletonType() {
+    return singletonType;
   }
 }
