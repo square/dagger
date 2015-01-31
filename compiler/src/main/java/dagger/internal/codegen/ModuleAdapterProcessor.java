@@ -15,11 +15,17 @@
  */
 package dagger.internal.codegen;
 
-import com.squareup.javawriter.JavaWriter;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
 import dagger.Lazy;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.Binding;
 import dagger.internal.BindingsGroup;
 import dagger.internal.Linker;
 import dagger.internal.ModuleAdapter;
@@ -27,11 +33,8 @@ import dagger.internal.ProvidesBinding;
 import dagger.internal.SetBinding;
 import dagger.internal.codegen.Util.CodeGenerationIncompleteException;
 import java.io.IOException;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -57,16 +60,13 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 
-import static dagger.Provides.Type.SET;
-import static dagger.Provides.Type.SET_VALUES;
 import static dagger.internal.codegen.AdapterJavadocs.bindingTypeDocs;
-import static dagger.internal.codegen.Util.adapterName;
+import static dagger.internal.codegen.Util.ARRAY_OF_CLASS;
+import static dagger.internal.codegen.Util.bindingOf;
 import static dagger.internal.codegen.Util.elementToString;
 import static dagger.internal.codegen.Util.getAnnotation;
 import static dagger.internal.codegen.Util.getNoArgsConstructor;
-import static dagger.internal.codegen.Util.getPackage;
 import static dagger.internal.codegen.Util.isCallableConstructor;
 import static dagger.internal.codegen.Util.isInterface;
 import static dagger.internal.codegen.Util.typeToString;
@@ -83,7 +83,6 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 @SupportedAnnotationTypes({ "*" })
 public final class ModuleAdapterProcessor extends AbstractProcessor {
-  private static final String BINDINGS_MAP = JavaWriter.type(BindingsGroup.class);
   private static final List<String> INVALID_RETURN_TYPES =
       Arrays.asList(Provider.class.getCanonicalName(), Lazy.class.getCanonicalName());
 
@@ -105,15 +104,12 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         // Attempt to get the annotation. If types are missing, this will throw
         // CodeGenerationIncompleteException.
         Map<String, Object> parsedAnnotation = getAnnotation(Module.class, type);
-
-        //TODO(cgruber): Figure out an initial sizing of the StringWriter.
-        StringWriter stringWriter = new StringWriter();
-        String adapterName = adapterName(type, MODULE_ADAPTER_SUFFIX);
-        generateModuleAdapter(stringWriter, adapterName, type, parsedAnnotation, providesTypes);
-        JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile(adapterName, type);
-        Writer sourceWriter = sourceFile.openWriter();
-        sourceWriter.append(stringWriter.getBuffer());
-        sourceWriter.close();
+        if (parsedAnnotation == null) {
+          error(type + " has @Provides methods but no @Module annotation", type);
+          continue;
+        }
+        JavaFile javaFile = generateModuleAdapter(type, parsedAnnotation, providesTypes);
+        javaFile.writeTo(processingEnv.getFiler());
       } catch (CodeGenerationIncompleteException e) {
         continue; // A dependent type was not defined, we'll try to catch it on another pass.
       } catch (IOException e) {
@@ -234,59 +230,136 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
    * Write a companion class for {@code type} that implements {@link
    * ModuleAdapter} to expose its provider methods.
    */
-  private void generateModuleAdapter(Writer ioWriter, String adapterName, TypeElement type,
-      Map<String, Object> module, List<ExecutableElement> providerMethods) throws IOException {
-    if (module == null) {
-      error(type + " has @Provides methods but no @Module annotation", type);
-      return;
-    }
-
+  private JavaFile generateModuleAdapter(TypeElement type,
+      Map<String, Object> module, List<ExecutableElement> providerMethods) {
     Object[] staticInjections = (Object[]) module.get("staticInjections");
     Object[] injects = (Object[]) module.get("injects");
     Object[] includes = (Object[]) module.get("includes");
-
     boolean overrides = (Boolean) module.get("overrides");
     boolean complete = (Boolean) module.get("complete");
     boolean library = (Boolean) module.get("library");
 
-    JavaWriter writer = new JavaWriter(ioWriter);
+    ClassName moduleClassName = ClassName.get(type);
+    ClassName adapterClassName = Util.adapterName(moduleClassName, MODULE_ADAPTER_SUFFIX);
 
-    boolean multibindings = checkForMultibindings(providerMethods);
-    boolean providerMethodDependencies = checkForDependencies(providerMethods);
+    TypeSpec.Builder adapterBuilder = TypeSpec.classBuilder(adapterClassName.simpleName())
+        .addOriginatingElement(type)
+        .addJavadoc(AdapterJavadocs.MODULE_TYPE, Provides.class)
+        .superclass(ParameterizedTypeName.get(ClassName.get(ModuleAdapter.class), moduleClassName))
+        .addModifiers(PUBLIC, FINAL);
 
-    writer.emitSingleLineComment(AdapterJavadocs.GENERATED_BY_DAGGER);
-    writer.emitPackage(getPackage(type).getQualifiedName().toString());
-    writer.emitImports(
-        findImports(multibindings, !providerMethods.isEmpty(), providerMethodDependencies));
+    adapterBuilder.addField(FieldSpec.builder(String[].class, "INJECTS")
+        .addModifiers(PRIVATE, STATIC, FINAL)
+        .initializer("$L", injectsInitializer(injects))
+        .build());
+    adapterBuilder.addField(FieldSpec.builder(ARRAY_OF_CLASS, "STATIC_INJECTIONS")
+        .addModifiers(PRIVATE, STATIC, FINAL)
+        .initializer("$L", staticInjectionsInitializer(staticInjections))
+        .build());
+    adapterBuilder.addField(FieldSpec.builder(ARRAY_OF_CLASS, "INCLUDES")
+        .addModifiers(PRIVATE, STATIC, FINAL)
+        .initializer("$L", includesInitializer(type, includes))
+        .build());
+    adapterBuilder.addMethod(MethodSpec.constructorBuilder()
+        .addModifiers(PUBLIC)
+        .addStatement("super($T.class, INJECTS, STATIC_INJECTIONS, $L /*overrides*/, "
+                + "INCLUDES, $L /*complete*/, $L /*library*/)",
+            type.asType(), overrides, complete, library)
+        .build());
 
-    String typeName = type.getQualifiedName().toString();
-    writer.emitEmptyLine();
-    writer.emitJavadoc(AdapterJavadocs.MODULE_TYPE);
-    writer.beginType(adapterName, "class", EnumSet.of(PUBLIC, FINAL),
-        JavaWriter.type(ModuleAdapter.class, typeName));
+    ExecutableElement noArgsConstructor = getNoArgsConstructor(type);
+    if (noArgsConstructor != null && isCallableConstructor(noArgsConstructor)) {
+      adapterBuilder.addMethod(MethodSpec.methodBuilder("newModule")
+          .addAnnotation(Override.class)
+          .addModifiers(PUBLIC)
+          .returns(moduleClassName)
+          .addStatement("return new $T()", type.asType())
+          .build());
+    }
 
-    StringBuilder injectsField = new StringBuilder().append("{ ");
+    // Caches.
+    Map<ExecutableElement, ClassName> methodToClassName
+        = new LinkedHashMap<ExecutableElement, ClassName>();
+    Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
+
+    if (!providerMethods.isEmpty()) {
+      MethodSpec.Builder getBindings = MethodSpec.methodBuilder("getBindings")
+          .addJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD)
+          .addAnnotation(Override.class)
+          .addModifiers(PUBLIC)
+          .addParameter(BindingsGroup.class, "bindings")
+          .addParameter(moduleClassName, "module");
+
+      for (ExecutableElement providerMethod : providerMethods) {
+        Provides provides = providerMethod.getAnnotation(Provides.class);
+        switch (provides.type()) {
+          case UNIQUE: {
+            getBindings.addStatement("bindings.contributeProvidesBinding($S, new $T(module))",
+                GeneratorKeys.get(providerMethod),
+                bindingClassName(adapterClassName, providerMethod, methodToClassName,
+                    methodNameToNextId));
+            break;
+          }
+          case SET: {
+            getBindings.addStatement("$T.add(bindings, $S, new $T(module))",
+                SetBinding.class,
+                GeneratorKeys.getSetKey(providerMethod),
+                bindingClassName(adapterClassName, providerMethod, methodToClassName,
+                    methodNameToNextId));
+            break;
+          }
+          case SET_VALUES: {
+            getBindings.addStatement("$T.add(bindings, $S, new $T(module))",
+                SetBinding.class,
+                GeneratorKeys.get(providerMethod),
+                bindingClassName(adapterClassName, providerMethod, methodToClassName,
+                    methodNameToNextId));
+            break;
+          }
+          default:
+            throw new AssertionError("Unknown @Provides type " + provides.type());
+        }
+      }
+      adapterBuilder.addMethod(getBindings.build());
+    }
+
+    for (ExecutableElement providerMethod : providerMethods) {
+      adapterBuilder.addType(generateProvidesAdapter(moduleClassName, adapterClassName,
+          providerMethod, methodToClassName, methodNameToNextId, library));
+    }
+
+    return JavaFile.builder(adapterClassName.packageName(), adapterBuilder.build())
+        .addFileComment(AdapterJavadocs.GENERATED_BY_DAGGER)
+        .build();
+  }
+
+  private CodeBlock injectsInitializer(Object[] injects) {
+    CodeBlock.Builder result = CodeBlock.builder()
+        .add("{ ");
     for (Object injectableType : injects) {
       TypeMirror typeMirror = (TypeMirror) injectableType;
       String key = isInterface(typeMirror)
           ? GeneratorKeys.get(typeMirror)
           : GeneratorKeys.rawMembersKey(typeMirror);
-      injectsField.append(JavaWriter.stringLiteral(key)).append(", ");
+      result.add("$S, ", key);
     }
-    injectsField.append("}");
-    writer.emitField("String[]", "INJECTS", EnumSet.of(PRIVATE, STATIC, FINAL),
-        injectsField.toString());
+    result.add("}");
+    return result.build();
+  }
 
-    StringBuilder staticInjectionsField = new StringBuilder().append("{ ");
+  private CodeBlock staticInjectionsInitializer(Object[] staticInjections) {
+    CodeBlock.Builder result = CodeBlock.builder()
+        .add("{ ");
     for (Object staticInjection : staticInjections) {
-      TypeMirror typeMirror = (TypeMirror) staticInjection;
-      staticInjectionsField.append(typeToString(typeMirror)).append(".class, ");
+      result.add("$T.class, ", staticInjection);
     }
-    staticInjectionsField.append("}");
-    writer.emitField("Class<?>[]", "STATIC_INJECTIONS", EnumSet.of(PRIVATE, STATIC, FINAL),
-        staticInjectionsField.toString());
+    result.add("}");
+    return result.build();
+  }
 
-    StringBuilder includesField = new StringBuilder().append("{ ");
+  private CodeBlock includesInitializer(TypeElement type, Object[] includes) {
+    CodeBlock.Builder result = CodeBlock.builder();
+    result.add("{ ");
     for (Object include : includes) {
       if (!(include instanceof TypeMirror)) {
         // TODO(tbroyer): pass annotation information
@@ -295,120 +368,16 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         continue;
       }
       TypeMirror typeMirror = (TypeMirror) include;
-      includesField.append(typeToString(typeMirror)).append(".class, ");
+      result.add("$T.class, ", typeMirror);
     }
-    includesField.append("}");
-    writer.emitField(
-        "Class<?>[]", "INCLUDES", EnumSet.of(PRIVATE, STATIC, FINAL), includesField.toString());
-
-    writer.emitEmptyLine();
-    writer.beginMethod(null, adapterName, EnumSet.of(PUBLIC));
-    writer.emitStatement("super(%s.class, INJECTS, STATIC_INJECTIONS, %s /*overrides*/, "
-        + "INCLUDES, %s /*complete*/, %s /*library*/)", typeName,  overrides, complete, library);
-    writer.endMethod();
-
-    ExecutableElement noArgsConstructor = getNoArgsConstructor(type);
-    if (noArgsConstructor != null && isCallableConstructor(noArgsConstructor)) {
-      writer.emitEmptyLine();
-      writer.emitAnnotation(Override.class);
-      writer.beginMethod(typeName, "newModule", EnumSet.of(PUBLIC));
-      writer.emitStatement("return new %s()", typeName);
-      writer.endMethod();
-    }
-    // caches
-    Map<ExecutableElement, String> methodToClassName
-        = new LinkedHashMap<ExecutableElement, String>();
-    Map<String, AtomicInteger> methodNameToNextId = new LinkedHashMap<String, AtomicInteger>();
-
-    if (!providerMethods.isEmpty()) {
-      writer.emitEmptyLine();
-      writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
-      writer.emitAnnotation(Override.class);
-      writer.beginMethod("void", "getBindings", EnumSet.of(PUBLIC), BINDINGS_MAP, "bindings",
-          typeName, "module");
-
-      for (ExecutableElement providerMethod : providerMethods) {
-        Provides provides = providerMethod.getAnnotation(Provides.class);
-        switch (provides.type()) {
-          case UNIQUE: {
-            String key = GeneratorKeys.get(providerMethod);
-            writer.emitStatement("bindings.contributeProvidesBinding(%s, new %s(module))",
-                JavaWriter.stringLiteral(key),
-                bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
-            break;
-          }
-          case SET: {
-            String key = GeneratorKeys.getSetKey(providerMethod);
-            writer.emitStatement("SetBinding.add(bindings, %s, new %s(module))",
-                JavaWriter.stringLiteral(key),
-                bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
-            break;
-          }
-          case SET_VALUES: {
-            String key = GeneratorKeys.get(providerMethod);
-            writer.emitStatement("SetBinding.add(bindings, %s, new %s(module))",
-                JavaWriter.stringLiteral(key),
-                bindingClassName(providerMethod, methodToClassName, methodNameToNextId));
-            break;
-          }
-          default:
-            throw new AssertionError("Unknown @Provides type " + provides.type());
-        }
-      }
-      writer.endMethod();
-    }
-
-    for (ExecutableElement providerMethod : providerMethods) {
-      generateProvidesAdapter(
-          writer, providerMethod, methodToClassName, methodNameToNextId, library);
-    }
-
-    writer.endType();
-    writer.close();
+    result.add("}");
+    return result.build();
   }
 
-  private Set<String> findImports(boolean multibindings, boolean providers, boolean dependencies) {
-    Set<String> imports = new LinkedHashSet<String>();
-    imports.add(ModuleAdapter.class.getCanonicalName());
-    if (providers) {
-      imports.add(BindingsGroup.class.getCanonicalName());
-      imports.add(Provider.class.getCanonicalName());
-      imports.add(ProvidesBinding.class.getCanonicalName());
-    }
-    if (dependencies) {
-      imports.add(Linker.class.getCanonicalName());
-      imports.add(Set.class.getCanonicalName());
-      imports.add(Binding.class.getCanonicalName());
-    }
-    if (multibindings) {
-      imports.add(SetBinding.class.getCanonicalName());
-    }
-    return imports;
-  }
-
-  private boolean checkForDependencies(List<ExecutableElement> providerMethods) {
-    for (ExecutableElement element : providerMethods) {
-      if (!element.getParameters().isEmpty()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private boolean checkForMultibindings(List<ExecutableElement> providerMethods) {
-    for (ExecutableElement element : providerMethods) {
-      Provides.Type providesType = element.getAnnotation(Provides.class).type();
-      if (providesType == SET || providesType == SET_VALUES) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private String bindingClassName(ExecutableElement providerMethod,
-      Map<ExecutableElement, String> methodToClassName,
+  private ClassName bindingClassName(ClassName adapterName, ExecutableElement providerMethod,
+      Map<ExecutableElement, ClassName> methodToClassName,
       Map<String, AtomicInteger> methodNameToNextId) {
-    String className = methodToClassName.get(providerMethod);
+    ClassName className = methodToClassName.get(providerMethod);
     if (className != null) return className;
 
     String methodName = providerMethod.getSimpleName().toString();
@@ -422,92 +391,93 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     }
     String uppercaseMethodName = Character.toUpperCase(methodName.charAt(0))
         + methodName.substring(1);
-    className = uppercaseMethodName + "ProvidesAdapter" + suffix;
+    className = adapterName.nestedClass(uppercaseMethodName + "ProvidesAdapter" + suffix);
     methodToClassName.put(providerMethod, className);
     return className;
   }
 
-  private void generateProvidesAdapter(JavaWriter writer, ExecutableElement providerMethod,
-      Map<ExecutableElement, String> methodToClassName,
-      Map<String, AtomicInteger> methodNameToNextId, boolean library)
-      throws IOException {
+  private TypeSpec generateProvidesAdapter(ClassName moduleClassName, ClassName adapterName,
+      ExecutableElement providerMethod, Map<ExecutableElement, ClassName> methodToClassName,
+      Map<String, AtomicInteger> methodNameToNextId, boolean library) {
     String methodName = providerMethod.getSimpleName().toString();
-    String moduleType = typeToString(providerMethod.getEnclosingElement().asType());
-    String className =
-        bindingClassName(providerMethod, methodToClassName, methodNameToNextId);
-    String returnType = typeToString(providerMethod.getReturnType());
+    TypeMirror moduleType = providerMethod.getEnclosingElement().asType();
+    ClassName className = bindingClassName(
+        adapterName, providerMethod, methodToClassName, methodNameToNextId);
+    TypeName returnType = Util.injectableType(providerMethod.getReturnType());
     List<? extends VariableElement> parameters = providerMethod.getParameters();
     boolean dependent = !parameters.isEmpty();
 
-    writer.emitEmptyLine();
-    writer.emitJavadoc(bindingTypeDocs(returnType, false, false, dependent));
-    writer.beginType(className, "class", EnumSet.of(PUBLIC, STATIC, FINAL),
-        JavaWriter.type(ProvidesBinding.class, returnType),
-        JavaWriter.type(Provider.class, returnType));
-    writer.emitField(moduleType, "module", EnumSet.of(PRIVATE, FINAL));
+    TypeSpec.Builder result = TypeSpec.classBuilder(className.simpleName())
+        .addJavadoc("$L", bindingTypeDocs(returnType, false, false, dependent))
+        .addModifiers(PUBLIC, STATIC, FINAL)
+        .superclass(ParameterizedTypeName.get(ClassName.get(ProvidesBinding.class), returnType))
+        .addSuperinterface(ParameterizedTypeName.get(ClassName.get(Provider.class), returnType));
+
+    result.addField(moduleClassName, "module", PRIVATE, FINAL);
     for (Element parameter : parameters) {
-      TypeMirror parameterType = parameter.asType();
-      writer.emitField(JavaWriter.type(Binding.class, typeToString(parameterType)),
-          parameterName(parameter), EnumSet.of(PRIVATE));
+      result.addField(bindingOf(parameter.asType()), parameterName(parameter), PRIVATE);
     }
 
-    writer.emitEmptyLine();
-    writer.beginMethod(null, className, EnumSet.of(PUBLIC), moduleType, "module");
     boolean singleton = providerMethod.getAnnotation(Singleton.class) != null;
-    String key = JavaWriter.stringLiteral(GeneratorKeys.get(providerMethod));
-    writer.emitStatement("super(%s, %s, %s, %s)",
-        key, (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"),
-        JavaWriter.stringLiteral(moduleType),
-        JavaWriter.stringLiteral(methodName));
-    writer.emitStatement("this.module = module");
-    writer.emitStatement("setLibrary(%s)", library);
-    writer.endMethod();
+    String key = GeneratorKeys.get(providerMethod);
+    result.addMethod(MethodSpec.constructorBuilder()
+        .addModifiers(PUBLIC)
+        .addParameter(moduleClassName, "module")
+        .addStatement("super($S, $L, $S, $S)",
+            key,
+            (singleton ? "IS_SINGLETON" : "NOT_SINGLETON"),
+            typeToString(moduleType),
+            methodName)
+        .addStatement("this.module = module")
+        .addStatement("setLibrary($L)", library)
+        .build());
 
     if (dependent) {
-      writer.emitEmptyLine();
-      writer.emitJavadoc(AdapterJavadocs.ATTACH_METHOD);
-      writer.emitAnnotation(Override.class);
-      writer.emitAnnotation(SuppressWarnings.class, JavaWriter.stringLiteral("unchecked"));
-      writer.beginMethod(
-          "void", "attach", EnumSet.of(PUBLIC), Linker.class.getCanonicalName(), "linker");
+      MethodSpec.Builder attachBuilder = MethodSpec.methodBuilder("attach")
+          .addJavadoc(AdapterJavadocs.ATTACH_METHOD)
+          .addAnnotation(Override.class)
+          .addAnnotation(Util.UNCHECKED)
+          .addModifiers(PUBLIC)
+          .addParameter(Linker.class, "linker");
       for (VariableElement parameter : parameters) {
         String parameterKey = GeneratorKeys.get(parameter);
-        writer.emitStatement(
-            "%s = (%s) linker.requestBinding(%s, %s.class, getClass().getClassLoader())",
+        attachBuilder.addStatement(
+            "$N = ($T) linker.requestBinding($S, $T.class, getClass().getClassLoader())",
             parameterName(parameter),
-            writer.compressType(JavaWriter.type(Binding.class, typeToString(parameter.asType()))),
-            JavaWriter.stringLiteral(parameterKey),
-            writer.compressType(moduleType));
+            bindingOf(parameter.asType()),
+            parameterKey,
+            moduleClassName);
       }
-      writer.endMethod();
+      result.addMethod(attachBuilder.build());
 
-      writer.emitEmptyLine();
-      writer.emitJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD);
-      writer.emitAnnotation(Override.class);
-      String setOfBindings = JavaWriter.type(Set.class, "Binding<?>");
-      writer.beginMethod("void", "getDependencies", EnumSet.of(PUBLIC), setOfBindings,
-          "getBindings", setOfBindings, "injectMembersBindings");
+      MethodSpec.Builder getDependenciesBuilder = MethodSpec.methodBuilder("getDependencies")
+          .addJavadoc(AdapterJavadocs.GET_DEPENDENCIES_METHOD)
+          .addAnnotation(Override.class)
+          .addModifiers(PUBLIC)
+          .addParameter(Util.SET_OF_BINDINGS, "getBindings")
+          .addParameter(Util.SET_OF_BINDINGS, "injectMembersBindings");
       for (Element parameter : parameters) {
-        writer.emitStatement("getBindings.add(%s)", parameterName(parameter));
+        getDependenciesBuilder.addStatement("getBindings.add($N)", parameterName(parameter));
       }
-      writer.endMethod();
+      result.addMethod(getDependenciesBuilder.build());
     }
 
-    writer.emitEmptyLine();
-    writer.emitJavadoc(AdapterJavadocs.GET_METHOD, returnType);
-    writer.emitAnnotation(Override.class);
-    writer.beginMethod(returnType, "get", EnumSet.of(PUBLIC));
-    StringBuilder args = new StringBuilder();
+    MethodSpec.Builder getBuilder = MethodSpec.methodBuilder("get")
+        .addJavadoc(AdapterJavadocs.GET_METHOD, returnType)
+        .addAnnotation(Override.class)
+        .addModifiers(PUBLIC)
+        .returns(returnType)
+        .addCode("return module.$N(", methodName);
     boolean first = true;
     for (Element parameter : parameters) {
-      if (!first) args.append(", ");
-      else first = false;
-      args.append(String.format("%s.get()", parameterName(parameter)));
+      if (!first) getBuilder.addCode(", ");
+      getBuilder.addCode("$N.get()", parameterName(parameter));
+      first = false;
     }
-    writer.emitStatement("return module.%s(%s)", methodName, args.toString());
-    writer.endMethod();
+    getBuilder.addCode(");\n");
+    result.addMethod(getBuilder.build());
 
-    writer.endType();
+    return result.build();
   }
 
   private String parameterName(Element parameter) {

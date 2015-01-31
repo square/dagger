@@ -42,6 +42,9 @@ public final class InjectAdapterGenerationTest {
     JavaFileObject expectedModuleAdapter =
         JavaFileObjects.forSourceString("Basic$AModule$$ModuleAdapter", Joiner.on("\n").join(
             "import dagger.internal.ModuleAdapter;",
+            "import java.lang.Class;",
+            "import java.lang.Override;",
+            "import java.lang.String;",
             "public final class Basic$AModule$$ModuleAdapter",
             "    extends ModuleAdapter<Basic.AModule> {",
             "  private static final String[] INJECTS = {\"members/Basic$A\"};",
@@ -59,6 +62,7 @@ public final class InjectAdapterGenerationTest {
     JavaFileObject expectedInjectAdapter =
         JavaFileObjects.forSourceString("Basic$A$$InjectAdapter", Joiner.on("\n").join(
             "import dagger.internal.Binding;",
+            "import java.lang.Override;",
             "import javax.inject.Provider;",
             "public final class Basic$A$$InjectAdapter",
             "    extends Binding<Basic.A> implements Provider<Basic.A> {",
