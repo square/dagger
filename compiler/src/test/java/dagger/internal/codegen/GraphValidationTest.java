@@ -693,19 +693,18 @@ public class GraphValidationTest {
         "  A a();",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
             "@test.Nullable @Provides String test.TestModule.provideString()"));
-    
+
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
         .withCompilerOptions("-Adagger.nullableValidation=WARNING")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
   }
-  
+
   @Test public void nullCheckForMembersInjectParam() {
     JavaFileObject a = JavaFileObjects.forSourceLines("test.A",
         "package test;",
@@ -736,19 +735,18 @@ public class GraphValidationTest {
         "  A a();",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
             "@test.Nullable @Provides String test.TestModule.provideString()"));
-    
+
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
         .withCompilerOptions("-Adagger.nullableValidation=WARNING")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
   }
-  
+
   @Test public void nullCheckForVariable() {
     JavaFileObject a = JavaFileObjects.forSourceLines("test.A",
         "package test;",
@@ -779,19 +777,18 @@ public class GraphValidationTest {
         "  A a();",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
             "@test.Nullable @Provides String test.TestModule.provideString()"));
-    
+
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
         .withCompilerOptions("-Adagger.nullableValidation=WARNING")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
   }
-  
+
   @Test public void nullCheckForComponentReturn() {
     JavaFileObject module = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
@@ -812,13 +809,12 @@ public class GraphValidationTest {
         "interface TestComponent {",
         "  String string();",
         "}");
-    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))    
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
             "@test.Nullable @Provides String test.TestModule.provideString()"));
-    
+
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))
         .withCompilerOptions("-Adagger.nullableValidation=WARNING")

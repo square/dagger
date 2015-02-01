@@ -411,7 +411,6 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSource()).that(moduleFile)
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -497,7 +496,6 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(moduleFile, NULLABLE))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -604,7 +602,6 @@ public class ModuleFactoryGeneratorTest {
         "}");
     assertAbout(javaSources()).that(
             ImmutableList.of(classXFile, moduleFile, QUALIFIER_A, QUALIFIER_B))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listFactoryFile);
@@ -702,7 +699,6 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSource()).that(moduleFile)
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -1010,7 +1006,6 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(parent, numberChild, integerChild, component))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listBFactory, numberFactory, integerFactory);

@@ -200,7 +200,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   private static ValidationType nullableValidationType(ProcessingEnvironment processingEnv) {
     return validationTypeFor(processingEnv,
         NULLABLE_VALIDATION_KEY,
-        ValidationType.WARNING, // TODO(sameb): Change the default to ERROR
+        ValidationType.ERROR,
         EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
   }
 

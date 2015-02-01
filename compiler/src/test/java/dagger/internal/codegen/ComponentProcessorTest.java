@@ -1275,7 +1275,6 @@ public class ComponentProcessorTest {
         "}");
     assertAbout(javaSources())
         .that(ImmutableList.of(aFile, bFile, aComponentFile, bComponentFile))
-        .withCompilerOptions("-Adagger.nullableValidation=ERROR")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
