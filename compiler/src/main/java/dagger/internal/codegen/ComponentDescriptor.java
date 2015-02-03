@@ -45,6 +45,7 @@ import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ConfigurationAnnotations.isComponent;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
 import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
@@ -149,7 +150,7 @@ abstract class ComponentDescriptor {
               .or(getAnnotationMirror(componentDefinitionType, Subcomponent.class))
               .get();
       ImmutableSet<TypeElement> componentDependencyTypes =
-          MoreElements.isAnnotationPresent(componentDefinitionType, Component.class)
+          isComponent(componentDefinitionType)
               ? MoreTypes.asTypeElements(getComponentDependencies(componentMirror))
               : ImmutableSet.<TypeElement>of();
 

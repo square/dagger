@@ -33,6 +33,7 @@ import dagger.MapKey;
 import dagger.Module;
 import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
+import dagger.producers.ProductionComponent;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -57,6 +58,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Gregory Kick
  */
 final class ConfigurationAnnotations {
+
+  static boolean isComponent(TypeElement componentDefinitionType) {
+    return MoreElements.isAnnotationPresent(componentDefinitionType, Component.class)
+        || MoreElements.isAnnotationPresent(componentDefinitionType, ProductionComponent.class);
+  }
+
   private static final String MODULES_ATTRIBUTE = "modules";
 
   static ImmutableList<TypeMirror> getComponentModules(AnnotationMirror componentAnnotation) {
