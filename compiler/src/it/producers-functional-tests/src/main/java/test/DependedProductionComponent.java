@@ -15,21 +15,11 @@
  */
 package test;
 
-import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.producers.ProducerModule;
-import dagger.producers.Produces;
+import dagger.producers.ProductionComponent;
 
-import java.util.List;
-
-@ProducerModule
-final class DependentProducerModule {
-  @Produces
-  ListenableFuture<List<String>> greetings(Integer numGreetings, String greeting) {
-    List<String> greetings = ImmutableList.of(
-        String.valueOf(numGreetings), greeting, Ascii.toUpperCase(greeting));
-    return Futures.immediateFuture(greetings);
-  }
+@ProductionComponent(modules = DependedProducerModule.class)
+interface DependedProductionComponent {
+  ListenableFuture<Integer> numGreetings();
 }
+

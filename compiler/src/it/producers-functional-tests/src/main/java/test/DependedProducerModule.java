@@ -25,11 +25,10 @@ import dagger.producers.Produces;
 import java.util.List;
 
 @ProducerModule
-final class DependentProducerModule {
+final class DependedProducerModule {
+
   @Produces
-  ListenableFuture<List<String>> greetings(Integer numGreetings, String greeting) {
-    List<String> greetings = ImmutableList.of(
-        String.valueOf(numGreetings), greeting, Ascii.toUpperCase(greeting));
-    return Futures.immediateFuture(greetings);
+  int produceNumberOfGreetings() {
+    return 2;
   }
 }

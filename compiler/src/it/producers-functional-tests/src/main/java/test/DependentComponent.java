@@ -18,12 +18,11 @@ package test;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.ProductionComponent;
 
-import java.lang.String;
 import java.util.List;
 
 @ProductionComponent(
     modules = DependentProducerModule.class,
-    dependencies = DependedComponent.class)
+    dependencies = {DependedComponent.class, DependedProductionComponent.class})
 interface DependentComponent {
   ListenableFuture<List<String>> greetings();
 }

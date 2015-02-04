@@ -27,11 +27,14 @@ public class DependentTest {
   @Test public void testDependentComponent() throws Exception {
     DependentComponent dependentComponent = Dagger_DependentComponent
         .builder()
+        .dependedProductionComponent(Dagger_DependedProductionComponent.builder()
+            .executor(MoreExecutors.directExecutor())
+            .build())
         .dependedComponent(Dagger_DependedComponent.create())
         .executor(MoreExecutors.directExecutor())
         .build();
     assertThat(dependentComponent).isNotNull();
     assertThat(dependentComponent.greetings().get()).containsExactly(
-        "Hello world!", "HELLO WORLD!");
+        "2", "Hello world!", "HELLO WORLD!");
   }
 }

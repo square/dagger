@@ -33,6 +33,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Factory;
 import dagger.MapKey;
@@ -916,12 +917,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       case COMPONENT_PRODUCTION:
         return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
-            "  @Override public %2$s get() {",
-            "    return %3$s.%4$s();",
+            "  @Override public %3$s<%2$s> get() {",
+            "    return %4$s.%5$s();",
             "  }",
             "}"),
             ClassName.fromClass(Producer.class),
             TypeNames.forTypeMirror(binding.key().type()),
+            ClassName.fromClass(ListenableFuture.class),
             contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
             binding.bindingElement().getSimpleName().toString());
       case IMMEDIATE:
