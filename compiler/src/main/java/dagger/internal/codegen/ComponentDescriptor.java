@@ -170,7 +170,7 @@ abstract class ComponentDescriptor {
       Optional<TypeElement> executorDependency =
           kind.equals(Kind.PRODUCTION_COMPONENT)
               ? Optional.of(elements.getTypeElement(Executor.class.getCanonicalName()))
-              : Optional.absent();
+              : Optional.<TypeElement>absent();
 
       ImmutableSet<ExecutableElement> unimplementedMethods =
           getUnimplementedMethods(elements, componentDefinitionType);
