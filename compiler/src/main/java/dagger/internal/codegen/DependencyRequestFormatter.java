@@ -16,17 +16,21 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
-import com.google.common.collect.Queues;
-import java.util.Deque;
+import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor6;
+import javax.lang.model.util.Types;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 
@@ -38,10 +42,10 @@ import static dagger.internal.codegen.ErrorMessages.INDENT;
  * @since 2.0
  */
 final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
-  private static final DependencyRequestFormatter INSTANCE = new DependencyRequestFormatter();
+  private final Types types;
 
-  static DependencyRequestFormatter instance() {
-    return INSTANCE;
+  DependencyRequestFormatter(Types types) {
+    this.types = types;
   }
 
   // TODO(user): Sweep this class for TypeMirror.toString() usage and do some preventive format.
@@ -58,7 +62,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
         if (method.getParameters().isEmpty()) {
           // some.package.name.MyComponent.myMethod()
           //     [component method with return type: @other.package.Qualifier some.package.name.Foo]
-          appendMember(method, builder).append("()\n")
+          appendEnclosingTypeAndMemberName(method, builder).append("()\n")
               .append(INDENT).append(INDENT).append("[component method with return type: ");
           if (qualifier.isPresent()) {
             // TODO(user) use chenying's annotation mirror stringifier
@@ -69,8 +73,8 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
           // some.package.name.MyComponent.myMethod(some.package.name.Foo foo)
           //     [component injection method for type: some.package.name.Foo]
           VariableElement componentMethodParameter = getOnlyElement(method.getParameters());
-          appendMember(method, builder).append("(");
-          appendParameter(componentMethodParameter, builder);
+          appendEnclosingTypeAndMemberName(method, builder).append("(");
+          appendParameter(componentMethodParameter, componentMethodParameter.asType(), builder);
           builder.append(")\n");
           builder.append(INDENT).append(INDENT).append("[component injection method for type: ")
               .append(componentMethodParameter.asType())
@@ -83,38 +87,47 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
       @Override public String visitVariable(
           VariableElement variable, Optional<AnnotationMirror> qualifier) {
         StringBuilder builder = new StringBuilder(INDENT);
+        TypeMirror resolvedVariableType =
+            MoreTypes.asMemberOf(types, request.enclosingType(), variable);
         if (variable.getKind().equals(ElementKind.PARAMETER)) {
           // some.package.name.MyClass.myMethod(some.package.name.Foo arg0, some.package.Bar arg1)
           //     [parameter: @other.package.Qualifier some.package.name.Foo arg0]
           ExecutableElement methodOrConstructor =
               MoreElements.asExecutable(variable.getEnclosingElement());
-          appendMember(methodOrConstructor, builder).append('(');
-          Deque<VariableElement> parameters =
-              Queues.newArrayDeque(methodOrConstructor.getParameters());
-          if (!parameters.isEmpty()) {
-            appendParameter(parameters.poll(), builder);
-          }
-          for(VariableElement current : parameters) {
-            appendParameter(current, builder.append(", "));
+          ExecutableType resolvedMethodOrConstructor = MoreTypes.asExecutable(
+              types.asMemberOf(request.enclosingType(), methodOrConstructor));
+          appendEnclosingTypeAndMemberName(methodOrConstructor, builder).append('(');
+          List<? extends VariableElement> parameters = methodOrConstructor.getParameters();
+          List<? extends TypeMirror> parameterTypes =
+              resolvedMethodOrConstructor.getParameterTypes();
+          checkState(parameters.size() == parameterTypes.size());
+          for (int i = 0; i < parameters.size(); i++) {
+            appendParameter(parameters.get(i), parameterTypes.get(i), builder);
+            if (i != parameters.size() - 1) {
+              builder.append(", ");
+            }
           }
           builder.append(")\n").append(INDENT).append(INDENT).append("[parameter: ");
         } else {
           // some.package.name.MyClass.myField
           //     [injected field of type: @other.package.Qualifier some.package.name.Foo myField]
-          appendMember(variable, builder).append("()\n")
+          appendEnclosingTypeAndMemberName(variable, builder).append("\n")
               .append(INDENT).append(INDENT).append("[injected field of type: ");
         }
         if (qualifier.isPresent()) {
           // TODO(user) use chenying's annotation mirror stringifier
           builder.append(qualifier.get()).append(' ');
         }
-        builder.append(variable.asType()).append(' ').append(variable.getSimpleName()).append(']');
+        builder.append(resolvedVariableType)
+            .append(' ')
+            .append(variable.getSimpleName())
+            .append(']');
         return builder.toString();
       }
 
       @Override
       public String visitType(TypeElement e, Optional<AnnotationMirror> p) {
-        return INDENT + e.getQualifiedName();
+        return ""; // types by themselves provide no useful information.
       }
 
       @Override protected String defaultAction(Element element, Optional<AnnotationMirror> ignore) {
@@ -124,11 +137,12 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
     }, qualifier);
   }
 
-  private StringBuilder appendParameter(VariableElement parameter, StringBuilder builder) {
-    return builder.append(parameter.asType()).append(' ').append(parameter.getSimpleName());
+  private StringBuilder appendParameter(VariableElement parameter, TypeMirror type,
+      StringBuilder builder) {
+    return builder.append(type).append(' ').append(parameter.getSimpleName());
   }
 
-  private StringBuilder appendMember(Element member, StringBuilder builder) {
+  private StringBuilder appendEnclosingTypeAndMemberName(Element member, StringBuilder builder) {
     TypeElement type = MoreElements.asType(member.getEnclosingElement());
     return builder.append(type.getQualifiedName())
         .append('.')

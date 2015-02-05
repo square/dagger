@@ -15,11 +15,14 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import java.util.EnumSet;
 import java.util.Set;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -46,13 +49,24 @@ abstract class ContributionBinding extends Binding {
   }
 
   abstract BindingType bindingType();
+  
+  /** Returns the type that specifies this' nullability, absent if not nullable. */
+  abstract Optional<DeclaredType> nullableType();
+
+  /**
+   * If this is a provision request from an {@code @Provides} or {@code @Produces} method, this will
+   * be the element that contributed it. In the case of subclassed modules, this may differ than the
+   * binding's enclosed element, as this will return the subclass whereas the enclosed element will
+   * be the superclass.
+   */
+  abstract Optional<TypeElement> contributedBy();
 
   /**
    * Returns the set of {@link BindingType} enum values implied by a given
    * {@link ContributionBinding} collection.
    */
   static <B extends ContributionBinding> ImmutableListMultimap<BindingType, B> bindingTypesFor(
-      Iterable<B> bindings) {
+      Iterable<? extends B> bindings) {
     ImmutableListMultimap.Builder<BindingType, B> builder =
         ImmutableListMultimap.builder();
     builder.orderKeysBy(Ordering.<BindingType>natural());

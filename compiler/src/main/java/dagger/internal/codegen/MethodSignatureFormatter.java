@@ -24,8 +24,12 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 
+import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 
 /**
@@ -35,15 +39,28 @@ import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
  * @since 2.0
  */
 final class MethodSignatureFormatter extends Formatter<ExecutableElement> {
-  private static final MethodSignatureFormatter INSTANCE = new MethodSignatureFormatter();
+  private final Types types;
 
-  static MethodSignatureFormatter instance() {
-    return INSTANCE;
+  MethodSignatureFormatter(Types types) {
+    this.types = types;
   }
 
   @Override public String format(ExecutableElement method) {
+    return format(method, Optional.<DeclaredType>absent());
+  }
+
+  /**
+   * Formats an ExecutableElement as if it were contained within the container, if the container is
+   * present.
+   */
+  public String format(ExecutableElement method, Optional<DeclaredType> container) {
     StringBuilder builder = new StringBuilder();
     TypeElement type = MoreElements.asType(method.getEnclosingElement());
+    ExecutableType executableType = MoreTypes.asExecutable(method.asType());
+    if (container.isPresent()) {
+      executableType = MoreTypes.asExecutable(types.asMemberOf(container.get(), method));
+      type = MoreElements.asType(container.get().asElement());
+    }
 
     // TODO(user): AnnotationMirror formatter.
     List<? extends AnnotationMirror> annotations = method.getAnnotationMirrors();
@@ -57,29 +74,32 @@ final class MethodSignatureFormatter extends Formatter<ExecutableElement> {
       }
       builder.append(' ');
     }
-    builder.append(nameOfType(method.getReturnType()));
+    builder.append(nameOfType(executableType.getReturnType()));
     builder.append(' ');
     builder.append(type.getQualifiedName());
     builder.append('.');
     builder.append(method.getSimpleName());
     builder.append('(');
+    checkState(method.getParameters().size() == executableType.getParameterTypes().size());
     Iterator<? extends VariableElement> parameters = method.getParameters().iterator();
+    Iterator<? extends TypeMirror> parameterTypes = executableType.getParameterTypes().iterator();
     for (int i = 0; parameters.hasNext(); i++) {
       if (i > 0) {
         builder.append(", ");
       }
-      appendParameter(builder, parameters.next());
+      appendParameter(builder, parameters.next(), parameterTypes.next());
     }
     builder.append(')');
     return builder.toString();
   }
 
-  private static void appendParameter(StringBuilder builder, VariableElement parameter) {
+  private static void appendParameter(StringBuilder builder, VariableElement parameter,
+      TypeMirror type) {
     Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(parameter);
     if (qualifier.isPresent()) {
       builder.append(ErrorMessages.format(qualifier.get())).append(' ');
     }
-    builder.append(nameOfType(parameter.asType()));
+    builder.append(nameOfType(type));
   }
 
   private static String nameOfType(TypeMirror type) {

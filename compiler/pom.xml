@@ -50,10 +50,12 @@
       <artifactId>auto-service</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- TODO(gak): Restore this presumably as javapoet when appropriate.
     <dependency>
       <groupId>com.squareup</groupId>
       <artifactId>javawriter</artifactId>
     </dependency>
+    -->
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
@@ -63,6 +65,7 @@
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
       <optional>true</optional>
+      <version>1.0</version>
     </dependency>
 
     <dependency>

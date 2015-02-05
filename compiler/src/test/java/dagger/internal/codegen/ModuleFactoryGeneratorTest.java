@@ -17,12 +17,13 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
+import dagger.internal.codegen.writer.StringLiteral;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
@@ -33,11 +34,20 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RA
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
+import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
+
+  private final JavaFileObject NULLABLE = JavaFileObjects.forSourceLines("test.Nullable",
+      "package test;",
+      "public @interface Nullable {}");
+  
+  private static final StringLiteral NPE_LITERAL =
+      StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
+
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject
 
@@ -60,7 +70,7 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE));
@@ -77,7 +87,7 @@ public class ModuleFactoryGeneratorTest {
         "abstract class TestModule {",
         "  @Provides abstract String provideString();",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_ABSTRACT));
@@ -96,7 +106,7 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_PRIVATE));
@@ -115,7 +125,7 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_STATIC));
@@ -132,7 +142,7 @@ public class ModuleFactoryGeneratorTest {
         "final class TestModule {",
         "  @Provides void provideNothing() {}",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
@@ -151,7 +161,7 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER));
@@ -174,7 +184,7 @@ public class ModuleFactoryGeneratorTest {
         "    return null;",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_RETURN_TYPE);
@@ -197,7 +207,7 @@ public class ModuleFactoryGeneratorTest {
         "    return null;",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET));
@@ -220,10 +230,144 @@ public class ModuleFactoryGeneratorTest {
         "    return null;",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RETURN_SET);
+  }
+
+  @Test public void modulesWithTypeParamsMustBeAbstract() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule<A> {}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT);
+  }
+
+  @Test public void provideOverriddenByNoProvide() {
+    JavaFileObject parent = JavaFileObjects.forSourceLines("test.Parent",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class Parent {",
+        "  @Provides String foo() { return null; }",
+        "}");
+    JavaFileObject child = JavaFileObjects.forSourceLines("test.Child",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "class Child extends Parent{",
+        "  String foo() { return null; }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(parent, child))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD,
+            "Provides", "@Provides String test.Parent.foo()"));
+  }
+
+  @Test public void provideOverriddenByProvide() {
+    JavaFileObject parent = JavaFileObjects.forSourceLines("test.Parent",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class Parent {",
+        "  @Provides String foo() { return null; }",
+        "}");
+    JavaFileObject child = JavaFileObjects.forSourceLines("test.Child",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class Child extends Parent{",
+        "  @Provides String foo() { return null; }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(parent, child))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER,
+            "Provides", "@Provides String test.Parent.foo()"));
+  }
+
+  @Test public void providesOverridesNonProvides() {
+    JavaFileObject parent = JavaFileObjects.forSourceLines("test.Parent",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "class Parent {",
+        "  String foo() { return null; }",
+        "}");
+    JavaFileObject child = JavaFileObjects.forSourceLines("test.Child",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class Child extends Parent{",
+        "  @Provides String foo() { return null; }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(parent, child))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER,
+            "Provides", "String test.Parent.foo()"));
+  }
+
+  @Test public void validatesIncludedModules() {
+    JavaFileObject module = JavaFileObjects.forSourceLines("test.Parent",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = Void.class)",
+        "class TestModule {}");
+    assertAbout(javaSources()).that(ImmutableList.of(module))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED,
+            "java.lang.Void", "Module"));
+  }
+
+  @Test public void referencedModulesMustNotBeAbstract() {
+    JavaFileObject module = JavaFileObjects.forSourceLines("test.Parent",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = AbstractModule.class)",
+        "class TestModule {}");
+    JavaFileObject abstractModule = JavaFileObjects.forSourceLines("test.AbstractModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "abstract class AbstractModule {}");
+    assertAbout(javaSources()).that(ImmutableList.of(module, abstractModule))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(ErrorMessages.REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT,
+            "test.AbstractModule"));
   }
 
   @Test public void singleProvidesMethodNoArgs() {
@@ -255,10 +399,103 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public String get() {",
-        "    return module.provideString();",
+        "    String provided = module.provideString();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
+        "  }",
+        "",
+        "  public static Factory<String> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringFactory(module);",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void singleProvidesMethodNoArgs_disableNullable() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String provideString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override public String get() {",
+        "    return module.provideString();",
+        "  }",
+        "",
+        "  public static Factory<String> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringFactory(module);",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void nullableProvides() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides @Nullable String provideString() { return null; }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines("TestModule$$ProvideStringFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule$$ProvideStringFactory implements Factory<String> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule$$ProvideStringFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override",
+        "  @Nullable",
+        "  public String get() {",
+        "    return module.provideString();",
+        "  }",
+        "",
+        "  public static Factory<String> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringFactory(module);",
+        "  }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(moduleFile, NULLABLE))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -346,10 +583,24 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public List<Object> get() {",
-        "    return module.provideObjects(aProvider.get(), bProvider.get(), xMembersInjector);",
+        "    List<Object> provided =",
+        "        module.provideObjects(aProvider.get(), bProvider.get(), xMembersInjector);",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
+        "  }",
+        "",
+        "  public static Factory<List<Object>> create(",
+        "      TestModule module,",
+        "      Provider<Object> aProvider,",
+        "      Provider<Object> bProvider,",
+        "      MembersInjector<X> xMembersInjector) {",
+        "    return new TestModule$$ProvideObjectsFactory(",
+        "        module, aProvider, bProvider, xMembersInjector);",
         "  }",
         "}");
-    assert_().about(javaSources()).that(
+    assertAbout(javaSources()).that(
             ImmutableList.of(classXFile, moduleFile, QUALIFIER_A, QUALIFIER_B))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
@@ -392,14 +643,18 @@ public class ModuleFactoryGeneratorTest {
         "  @Override public Set<String> get() {",
         "    return Collections.singleton(module.provideString());",
         "  }",
+        "",
+        "  public static Factory<Set<String>> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringFactory(module);",
+        "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
   }
 
-  @Test public void proviesSetValues() {
+  @Test public void providesSetValues() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
@@ -432,10 +687,18 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public Set<String> get() {",
-        "    return module.provideStrings();",
+        "    Set<String> provided = module.provideStrings();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
+        "  }",
+        "",
+        "  public static Factory<Set<String>> create(TestModule module) {",
+        "    return new TestModule$$ProvideStringsFactory(module);",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(factoryFile);
@@ -458,7 +721,7 @@ public class ModuleFactoryGeneratorTest {
         "    return \"\";",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
     .withErrorContaining(formatErrorMessage(BINDING_METHOD_WITH_SAME_NAME)).in(moduleFile).onLine(8)
@@ -502,7 +765,7 @@ public class ModuleFactoryGeneratorTest {
         "    return null;",
         "  }",
         "}");
-    assert_().about(javaSource()).that(moduleFile)
+    assertAbout(javaSource()).that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
   }
@@ -518,7 +781,7 @@ public class ModuleFactoryGeneratorTest {
         "  @Module private static final class PrivateModule {",
         "  }",
         "}");
-    assert_().about(javaSource())
+    assertAbout(javaSource())
         .that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
@@ -539,7 +802,7 @@ public class ModuleFactoryGeneratorTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSource())
+    assertAbout(javaSource())
         .that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
@@ -583,7 +846,7 @@ public class ModuleFactoryGeneratorTest {
         "@Module",
         "public final class OtherPublicModule {",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(
             publicModuleFile, nonPublicModule1File, nonPublicModule2File, otherPublicModuleFile))
         .processedWith(new ComponentProcessor())
@@ -593,5 +856,158 @@ public class ModuleFactoryGeneratorTest {
             + "Either reduce the visibility of this module or make "
             + "test.NonPublicModule1 and test.NonPublicModule2 public.")
         .in(publicModuleFile).onLine(8);
+  }
+  
+  @Test
+  public void genericSubclassedModule() {
+    JavaFileObject parent = JavaFileObjects.forSourceLines("test.ParentModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.util.List;",
+        "import java.util.ArrayList;",
+        "",
+        "@Module",
+        "abstract class ParentModule<A extends CharSequence,",
+        "                            B,",
+        "                            C extends Number & Comparable<C>> {",
+        "  @Provides List<B> provideListB(B b) {",
+        "    List<B> list = new ArrayList<B>();",
+        "    list.add(b);",
+        "    return list;",
+        "  }",
+        "}");
+    JavaFileObject numberChild = JavaFileObjects.forSourceLines("test.ChildNumberModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class ChildNumberModule extends ParentModule<String, Number, Double> {",
+        "  @Provides Number provideNumber() { return 1; }",
+        "}");
+    JavaFileObject integerChild = JavaFileObjects.forSourceLines("test.ChildIntegerModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class ChildIntegerModule extends ParentModule<StringBuilder, Integer, Float> {",
+        "  @Provides Integer provideInteger() { return 2; }",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.C",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import java.util.List;",
+        "",
+        "@Component(modules={ChildNumberModule.class, ChildIntegerModule.class})",
+        "interface C {",
+        "  List<Number> numberList();",
+        "  List<Integer> integerList();",
+        "}");
+    JavaFileObject listBFactory = JavaFileObjects.forSourceLines(
+        "test.ParentModule$$ProvidesListBFactory",
+        "package test;", 
+        "", 
+        "import dagger.Factory;", 
+        "import java.util.List;", 
+        "import javax.annotation.Generated;", 
+        "import javax.inject.Provider;", 
+        "", 
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")", 
+        "public final class ParentModule$$ProvideListBFactory<A extends CharSequence,",
+        "    B, C extends Number & Comparable<C>> implements Factory<List<B>> {", 
+        "  private final ParentModule<A, B, C> module;", 
+        "  private final Provider<B> bProvider;", 
+        "", 
+        "  public ParentModule$$ProvideListBFactory(",
+        "        ParentModule<A, B, C> module, Provider<B> bProvider) {", 
+        "    assert module != null;", 
+        "    this.module = module;", 
+        "    assert bProvider != null;", 
+        "    this.bProvider = bProvider;", 
+        "  }", 
+        "", 
+        "  @Override", 
+        "  public List<B> get() {  ", 
+        "    List<B> provided = module.provideListB(bProvider.get());",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;", 
+        "  }", 
+        "", 
+        "  public static <A extends CharSequence, B, C extends Number & Comparable<C>>",
+        "      Factory<List<B>> create(ParentModule<A, B, C> module, Provider<B> bProvider) {",
+        "    return new ParentModule$$ProvideListBFactory<A, B, C>(module, bProvider);", 
+        "  }", 
+        "}");
+    JavaFileObject numberFactory = JavaFileObjects.forSourceLines(
+        "test.ChildNumberModule$$ProvideNumberFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class ChildNumberModule$$ProvideNumberFactory implements Factory<Number> {",
+        "  private final ChildNumberModule module;",
+        "",
+        "  public ChildNumberModule$$ProvideNumberFactory(ChildNumberModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override",
+        "  public Number get() {  ",
+        "    Number provided = module.provideNumber();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
+        "  }",
+        "",
+        "  public static Factory<Number> create(ChildNumberModule module) {",
+        "    return new ChildNumberModule$$ProvideNumberFactory(module);",
+        "  }",
+        "}");
+    JavaFileObject integerFactory = JavaFileObjects.forSourceLines(
+        "test.ChildIntegerModule$$ProvideIntegerFactory",
+        "package test;",
+        "",
+        "import dagger.Factory;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class ChildIntegerModule$$ProvideIntegerFactory",
+        "    implements Factory<Integer> {",
+        "  private final ChildIntegerModule module;",
+        "",
+        "  public ChildIntegerModule$$ProvideIntegerFactory(ChildIntegerModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override",
+        "  public Integer get() {  ",
+        "    Integer provided = module.provideInteger();",
+        "    if (provided == null) {",
+        "      throw new NullPointerException(" + NPE_LITERAL + ");",
+        "    }",
+        "    return provided;",
+        "  }",
+        "",
+        "  public static Factory<Integer> create(ChildIntegerModule module) {",
+        "    return new ChildIntegerModule$$ProvideIntegerFactory(module);",
+        "  }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(parent, numberChild, integerChild, component))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(listBFactory, numberFactory, integerFactory);
   }
 }

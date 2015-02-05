@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
@@ -25,9 +27,14 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
 
 @RunWith(JUnit4.class)
 public class GraphValidationTest {
+  private final JavaFileObject NULLABLE = JavaFileObjects.forSourceLines("test.Nullable",
+      "package test;",
+      "public @interface Nullable {}");
+  
   @Test public void componentOnConcreteClass() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.MyComponent",
         "package test;",
@@ -545,7 +552,7 @@ public class GraphValidationTest {
         + "      test.TestClass.B.<init>(test.TestClass.A a)\n"
         + "          [parameter: test.TestClass.A a]";
     String secondError = errorText
-        + "      test.TestClass.C.b()\n"
+        + "      test.TestClass.C.b\n"
         + "          [injected field of type: test.TestClass.B b]\n"
         + "      test.TestClass.B.<init>(test.TestClass.A a)\n"
         + "          [parameter: test.TestClass.A a]";
@@ -554,5 +561,264 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(firstError).in(component).onLine(33)
         .and().withErrorContaining(secondError).in(component).onLine(34);
+  }
+  
+  @Test public void resolvedParametersInDependencyTrace() {
+    JavaFileObject generic = JavaFileObjects.forSourceLines("test.Generic",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class Generic<T> {",
+        "  @Inject Generic(T t) {}",
+        "}");
+    JavaFileObject testClass = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import java.util.List;",
+        "",
+        "final class TestClass {",
+        "  @Inject TestClass(List list) {}",
+        "}");
+    JavaFileObject usesTest = JavaFileObjects.forSourceLines("test.UsesTest",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class UsesTest {",
+        "  @Inject UsesTest(Generic<TestClass> genericTestClass) {}",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component",
+        "interface TestComponent {",
+        "  UsesTest usesTest();",
+        "}");
+    String expectedMsg = Joiner.on("\n").join(
+        "java.util.List cannot be provided without an @Provides-annotated method.",
+        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)", 
+        "          [parameter: test.Generic<test.TestClass> genericTestClass]", 
+        "      test.Generic.<init>(test.TestClass t)", 
+        "          [parameter: test.TestClass t]", 
+        "      test.TestClass.<init>(java.util.List list)", 
+        "          [parameter: java.util.List list]");
+    assertAbout(javaSources()).that(ImmutableList.of(generic, testClass, usesTest, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedMsg);
+  }
+  
+  @Test public void resolvedVariablesInDependencyTrace() {
+    JavaFileObject generic = JavaFileObjects.forSourceLines("test.Generic",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import javax.inject.Provider;",
+        "",
+        "final class Generic<T> {",
+        "  @Inject T t;",
+        "  @Inject Generic() {}",
+        "}");
+    JavaFileObject testClass = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "import java.util.List;",
+        "",
+        "final class TestClass {",
+        "  @Inject TestClass(List list) {}",
+        "}");
+    JavaFileObject usesTest = JavaFileObjects.forSourceLines("test.UsesTest",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class UsesTest {",
+        "  @Inject UsesTest(Generic<TestClass> genericTestClass) {}",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component",
+        "interface TestComponent {",
+        "  UsesTest usesTest();",
+        "}");
+    String expectedMsg = Joiner.on("\n").join(
+        "java.util.List cannot be provided without an @Provides-annotated method.",
+        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)", 
+        "          [parameter: test.Generic<test.TestClass> genericTestClass]", 
+        "      test.Generic.t",
+        "          [injected field of type: test.TestClass t]", 
+        "      test.TestClass.<init>(java.util.List list)", 
+        "          [parameter: java.util.List list]");
+    assertAbout(javaSources()).that(ImmutableList.of(generic, testClass, usesTest, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedMsg);
+  }
+  
+  @Test public void nullCheckForConstructorParameters() {
+    JavaFileObject a = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A(String string) {}",
+        "}");
+    JavaFileObject module = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "@dagger.Module",
+        "final class TestModule {",
+        "  @Nullable @Provides String provideString() { return null; }",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(modules = TestModule.class)",
+        "interface TestComponent {",
+        "  A a();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
+            "@test.Nullable @Provides String test.TestModule.provideString()"));
+
+    // but if we disable the validation, then it compiles fine.
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test public void nullCheckForMembersInjectParam() {
+    JavaFileObject a = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A() {}",
+        "  @Inject void register(String string) {}",
+        "}");
+    JavaFileObject module = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "@dagger.Module",
+        "final class TestModule {",
+        "  @Nullable @Provides String provideString() { return null; }",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(modules = TestModule.class)",
+        "interface TestComponent {",
+        "  A a();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
+            "@test.Nullable @Provides String test.TestModule.provideString()"));
+
+    // but if we disable the validation, then it compiles fine.
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test public void nullCheckForVariable() {
+    JavaFileObject a = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject String string;",
+        "  @Inject A() {}",
+        "}");
+    JavaFileObject module = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "@dagger.Module",
+        "final class TestModule {",
+        "  @Nullable @Provides String provideString() { return null; }",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(modules = TestModule.class)",
+        "interface TestComponent {",
+        "  A a();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
+            "@test.Nullable @Provides String test.TestModule.provideString()"));
+
+    // but if we disable the validation, then it compiles fine.
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test public void nullCheckForComponentReturn() {
+    JavaFileObject module = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "",
+        "@dagger.Module",
+        "final class TestModule {",
+        "  @Nullable @Provides String provideString() { return null; }",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(modules = TestModule.class)",
+        "interface TestComponent {",
+        "  String string();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
+            "@test.Nullable @Provides String test.TestModule.provideString()"));
+
+    // but if we disable the validation, then it compiles fine.
+    assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
   }
 }

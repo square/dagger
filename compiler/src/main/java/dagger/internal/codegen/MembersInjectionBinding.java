@@ -52,7 +52,7 @@ import static com.google.common.base.Preconditions.checkState;
  * @since 2.0
  */
 @AutoValue
-abstract class MembersInjectionBinding extends Binding implements ResolvableBinding {
+abstract class MembersInjectionBinding extends Binding {
   @Override abstract TypeElement bindingElement();
 
   /** The set of individual sites where {@link Inject} is applied. */
@@ -119,6 +119,7 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.METHOD,
           methodElement,
           dependencyRequestFactory.forRequiredResolvedVariables(
+              containingType,
               methodElement.getParameters(),
               resolved.getParameterTypes()));
     }
@@ -131,25 +132,23 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
       TypeMirror resolved = types.asMemberOf(containingType, fieldElement);
       return new AutoValue_MembersInjectionBinding_InjectionSite(InjectionSite.Kind.FIELD,
           fieldElement,
-          ImmutableSet.of(
-              dependencyRequestFactory.forRequiredResolvedVariable(fieldElement, resolved)));
+          ImmutableSet.of(dependencyRequestFactory.forRequiredResolvedVariable(
+              containingType, fieldElement, resolved)));
     }
-    
-    
+
     /** Returns an unresolved version of this binding. */
     MembersInjectionBinding unresolve(MembersInjectionBinding binding) {
-      checkState(binding.isResolved());
+      checkState(binding.hasNonDefaultTypeParameters());
       DeclaredType unresolved = MoreTypes.asDeclared(binding.bindingElement().asType());
       return forInjectedType(unresolved, Optional.<TypeMirror>absent());
     }
 
     /**
      * Returns a MembersInjectionBinding for the given type. If {@code resolvedType} is present,
-     * this will return a {@link ResolvableBinding#isResolved() resolved} binding, with the key &
-     * type resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
+     * this will return a resolved binding, with the key & type resolved to the given type (using
+     * {@link Types#asMemberOf(DeclaredType, Element)}).
      */
     MembersInjectionBinding forInjectedType(DeclaredType type, Optional<TypeMirror> resolvedType) {
-      boolean isResolved = false;
       // If the class this is injecting has some type arguments, resolve everything.
       if (!type.getTypeArguments().isEmpty() && resolvedType.isPresent()) {
         DeclaredType resolved = MoreTypes.asDeclared(resolvedType.get());
@@ -158,9 +157,8 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
             "erased expected type: %s, erased actual type: %s",
             types.erasure(resolved), types.erasure(type));
         type = resolved;
-        isResolved = true;
       }
-      
+
       TypeElement typeElement = MoreElements.asType(type.asElement());
       final DeclaredType resolved = type;
       ImmutableSortedSet.Builder<InjectionSite> injectionSitesBuilder =
@@ -205,7 +203,6 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
 
       Key key = keyFactory.forMembersInjectedType(type);
       return new AutoValue_MembersInjectionBinding(
-          isResolved,
           key,
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
@@ -213,6 +210,7 @@ abstract class MembersInjectionBinding extends Binding implements ResolvableBind
               .addAll(parentInjectorRequest.asSet())
               .build(),
           findBindingPackage(key),
+          hasNonDefaultTypeParameters(typeElement, key.type(), types),
           typeElement,
           injectionSites,
           parentInjectorRequest);

@@ -140,6 +140,24 @@ final class ErrorMessages {
   static final String BINDING_METHOD_WITH_SAME_NAME =
       "Cannot have more than one @%s method with the same name in a single module";
 
+  static final String MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT =
+      "Modules with type parameters must be abstract";
+
+  static final String REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT =
+      "%s is listed as a module, but is abstract";
+
+  static final String REFERENCED_MODULE_NOT_ANNOTATED =
+      "%s is listed as a module, but is not annotated with @%s";
+
+  static final String REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS =
+      "%s is listed as a module, but has type parameters";
+
+  static final String PROVIDES_METHOD_OVERRIDES_ANOTHER =
+      "@%s methods may not override another method. Overrides: %s";
+
+  static final String METHOD_OVERRIDES_PROVIDES_METHOD =
+      "@%s methods may not be overridden in modules. Overrides: %s";
+
   /*mapKey errors*/
   static final String MAPKEY_WITHOUT_FIELDS =
       "Map key annotation does not have fields";
@@ -151,19 +169,47 @@ final class ErrorMessages {
   static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
       "%s has incompatible bindings:\n";
 
+  static final String PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =
+      "%s is a provision entry-point, which cannot depend on a production.";
+
+  static final String PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =
+      "%s is a provision, which cannot depend on a production.";
+
   static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT =
       "%s cannot be provided without an @Inject constructor or from an @Provides-annotated method.";
 
   static final String REQUIRES_PROVIDER_FORMAT =
       "%s cannot be provided without an @Provides-annotated method.";
 
+  static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT =
+      "%s cannot be provided without an @Inject constructor or from an @Provides- or "
+      + "@Produces-annotated method.";
+
+  static final String REQUIRES_PROVIDER_OR_PRODUCER_FORMAT =
+      "%s cannot be provided without an @Provides- or @Produces-annotated method.";
+
   static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
       "This type supports members injection but cannot be implicitly provided.";
+
+  static final String MEMBERS_INJECTION_WITH_RAW_TYPE =
+      "%s has type parameters, cannot members inject the raw type.";
+
+  static final String MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE =
+      "Type parameters must be bounded for members injection.";
 
   static final String CONTAINS_DEPENDENCY_CYCLE_FORMAT = "%s.%s() contains a dependency cycle:\n%s";
 
   static final String MALFORMED_MODULE_METHOD_FORMAT =
       "Cannot generated a graph because method %s on module %s was malformed";
+
+  static final String NULLABLE_TO_NON_NULLABLE =
+      "%s is not nullable, but is being provided by %s";
+
+  static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD =
+      "Cannot return null from a non-@Nullable component method";
+
+  static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD =
+      "Cannot return null from a non-@Nullable @Provides method";
 
   /**
    * A regular expression to match a small list of specific packages deemed to

@@ -13,17 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
+package test;
 
-/**
- * A Binding that can be resolved at request time. For example, a ProvisionBinding for
- * {@code List<T>} might be resolved to {@code List<Foo>} or {@code List<Bar>}
- * depending on how it's requested.
- */
-interface ResolvableBinding {  
-  /**
-   * True if this represents a binding that refers to a type with parameters, and the
-   * parameters have been resolved based on a requesting key.
-   */
-  boolean isResolved();
+import javax.inject.Inject;
+
+final class Request {
+  private final String name;
+
+  @Inject
+  Request() {
+    this.name = "Request";
+  }
+
+  String name() {
+    return this.name;
+  }
 }

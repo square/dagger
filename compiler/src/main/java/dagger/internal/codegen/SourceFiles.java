@@ -16,11 +16,11 @@ package dagger.internal.codegen;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import dagger.internal.DoubleCheckLazy;
 import dagger.internal.codegen.ContributionBinding.BindingType;
@@ -31,6 +31,7 @@ import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.ExecutableElement;
@@ -38,7 +39,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Utilities for generating files.
@@ -67,7 +67,7 @@ class SourceFiles {
 
   /**
    * A variant of {@link #indexDependenciesByKey} that maps from unresolved keys
-   * to resolved keys.  This is used when generating component's initialize()
+   * to requests.  This is used when generating component's initialize()
    * methods (and in members injectors) in order to instantiate dependent
    * providers.  Consider a generic type of {@code Foo<T>} with a constructor
    * of {@code Foo(T t, T t1, A a, A a1)}.  That will be collapsed to a factory
@@ -76,10 +76,13 @@ class SourceFiles {
    * pass two providers.  Naively (if we just referenced by resolved BindingKey),
    * we would have passed a single {@code aProvider}.
    */
-  static ImmutableMap<BindingKey, BindingKey> indexDependenciesByUnresolvedKey(
+  // TODO(user): Refactor these indexing methods so that the binding itself knows what sort of
+  // binding keys and framework classes that it needs.
+  static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByUnresolvedKey(
       Iterable<? extends DependencyRequest> dependencies) {
-    // We expect some duplicates while building, so not using ImmutableMap
-    Map<BindingKey, BindingKey> map = Maps.newLinkedHashMap();
+    ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
+        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
+            DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
       BindingKey resolved = BindingKey.forDependencyRequest(dependency);
       // To get the proper unresolved type, we have to extract the proper type from the
@@ -88,17 +91,9 @@ class SourceFiles {
           DependencyRequest.Factory.extractKindAndType(dependency.requestElement().asType()).type();
       BindingKey unresolved =
           BindingKey.create(resolved.kind(), resolved.key().withType(unresolvedType));
-      BindingKey existingEntry = map.get(unresolved);
-      if (existingEntry == null) {
-        map.put(unresolved, resolved);
-      } else {
-        // If the entry exists in the map, it *must* be with the same resolved
-        // value.  Otherwise we have an unresolved key mapping to two different
-        // resolved keys!
-        checkState(existingEntry.equals(resolved));
-      }
+      dependenciesByKeyBuilder.put(unresolved, dependency);
     }
-    return ImmutableMap.copyOf(map);
+    return dependenciesByKeyBuilder.build();
   }
 
   /**
@@ -153,7 +148,8 @@ class SourceFiles {
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey, name));
+        bindingFields.put(bindingKey,
+            FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey, name));
       } else {
         // in the event that a field is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
@@ -178,6 +174,7 @@ class SourceFiles {
         return Snippet.format("%s.create(%s)", ClassName.fromClass(DoubleCheckLazy.class),
             frameworkTypeMemberSelect);
       case INSTANCE:
+      case FUTURE:
         return Snippet.format("%s.get()", frameworkTypeMemberSelect);
       case PROVIDER:
       case PRODUCER:
@@ -209,18 +206,31 @@ class SourceFiles {
   static TypeName parameterizedFactoryNameForProvisionBinding(
       ProvisionBinding binding) {
     ClassName factoryName = factoryNameForProvisionBinding(binding);
-    // Only parameterize injection unique bindings.
-    // Other kinds generate unique factories that have no type parameters.
-    if (binding.bindingType() == BindingType.UNIQUE
-        && binding.bindingKind() == ProvisionBinding.Kind.INJECTION) {
-      TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
-      // If the binding is parameterized, parameterize the factory.
-      if (bindingName instanceof ParameterizedTypeName) {
-        return ParameterizedTypeName.create(factoryName,
-            ((ParameterizedTypeName) bindingName).parameters());
+    List<TypeName> parameters = ImmutableList.of();
+    if (binding.bindingType().equals(BindingType.UNIQUE)) {
+      switch(binding.bindingKind()) {
+        case INJECTION:
+          TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
+          // If the binding is parameterized, parameterize the factory.
+          if (bindingName instanceof ParameterizedTypeName) {
+            parameters = ((ParameterizedTypeName) bindingName).parameters();
+          }
+          break;
+        case PROVISION:
+          // For provision bindings, we parameterize creation on the types of
+          // the module, not the types of the binding.
+          // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
+          // The binding is just parameterized on <B>, but we need all of <A, B, C>.
+          if (!binding.bindingTypeElement().getTypeParameters().isEmpty()) {
+            parameters = ((ParameterizedTypeName) TypeNames.forTypeMirror(
+                binding.bindingTypeElement().asType())).parameters();
+          }
+          break;
+        default: // fall through.
       }
     }
-    return factoryName;
+    return parameters.isEmpty() ? factoryName
+        : ParameterizedTypeName.create(factoryName, parameters);
   }
 
   static ClassName factoryNameForProductionBinding(ProductionBinding binding) {
@@ -235,7 +245,7 @@ class SourceFiles {
         throw new AssertionError();
     }
   }
-  
+
   /**
    * Returns the members injector's name parameterized with the binding's parameters (if necessary).
    */

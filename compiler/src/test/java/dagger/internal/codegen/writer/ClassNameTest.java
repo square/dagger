@@ -26,7 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
@@ -34,7 +34,7 @@ public class ClassNameTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
   @Test public void bestGuessForString_simpleClass() {
-    assert_().that(ClassName.bestGuessFromString(String.class.getName()))
+    assertThat(ClassName.bestGuessFromString(String.class.getName()))
         .isEqualTo(ClassName.create("java.lang", "String"));
   }
 
@@ -43,20 +43,20 @@ public class ClassNameTest {
   }
 
   @Test public void bestGuessForString_nestedClass() {
-    assert_().that(ClassName.bestGuessFromString(Map.Entry.class.getCanonicalName()))
+    assertThat(ClassName.bestGuessFromString(Map.Entry.class.getCanonicalName()))
         .isEqualTo(ClassName.create("java.util", ImmutableList.of("Map"), "Entry"));
-    assert_().that(ClassName.bestGuessFromString(OuterClass.InnerClass.class.getCanonicalName()))
+    assertThat(ClassName.bestGuessFromString(OuterClass.InnerClass.class.getCanonicalName()))
         .isEqualTo(
             ClassName.create("dagger.internal.codegen.writer",
                 ImmutableList.of("ClassNameTest", "OuterClass"), "InnerClass"));
   }
 
   @Test public void bestGuessForString_defaultPackage() {
-    assert_().that(ClassName.bestGuessFromString("SomeClass"))
+    assertThat(ClassName.bestGuessFromString("SomeClass"))
         .isEqualTo(ClassName.create("", "SomeClass"));
-    assert_().that(ClassName.bestGuessFromString("SomeClass.Nested"))
+    assertThat(ClassName.bestGuessFromString("SomeClass.Nested"))
         .isEqualTo(ClassName.create("", ImmutableList.of("SomeClass"), "Nested"));
-    assert_().that(ClassName.bestGuessFromString("SomeClass.Nested.EvenMore"))
+    assertThat(ClassName.bestGuessFromString("SomeClass.Nested.EvenMore"))
         .isEqualTo(ClassName.create("", ImmutableList.of("SomeClass", "Nested"), "EvenMore"));
   }
 
@@ -78,7 +78,7 @@ public class ClassNameTest {
   @Test public void classNameFromTypeElement() {
     Elements elements = compilationRule.getElements();
     TypeElement element = elements.getTypeElement(Object.class.getCanonicalName());
-    assert_().that(ClassName.fromTypeElement(element).canonicalName())
+    assertThat(ClassName.fromTypeElement(element).canonicalName())
         .isEqualTo("java.lang.Object");
   }
 
@@ -87,7 +87,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(ClassNameTest.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    assert_().that(peerName.canonicalName())
+    assertThat(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.writer.Foo");
   }
 
@@ -96,7 +96,7 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(OuterClass.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    assert_().that(peerName.canonicalName())
+    assertThat(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.writer.ClassNameTest.Foo");
   }
 
@@ -105,7 +105,19 @@ public class ClassNameTest {
     TypeElement element = elements.getTypeElement(InnerClass.class.getCanonicalName());
     ClassName className = ClassName.fromTypeElement(element);
     ClassName peerName = className.peerNamed("Foo");
-    assert_().that(peerName.canonicalName())
+    assertThat(peerName.canonicalName())
         .isEqualTo("dagger.internal.codegen.writer.ClassNameTest.OuterClass.Foo");
+  }
+
+  @Test public void fromClass_NonNestedClass() {
+    ClassName className = ClassName.fromClass(ClassNameTest.class);
+    assertThat(className.canonicalName()).isEqualTo(
+        "dagger.internal.codegen.writer.ClassNameTest");
+  }
+
+  @Test public void fromClass_NestedClass() {
+    ClassName className = ClassName.fromClass(InnerClass.class);
+    assertThat(className.canonicalName()).isEqualTo(
+        "dagger.internal.codegen.writer.ClassNameTest.OuterClass.InnerClass");
   }
 }

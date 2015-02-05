@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
+import dagger.Subcomponent;
+import dagger.producers.ProductionComponent;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -33,6 +35,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -58,7 +61,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
  * @since 2.0
  */
 @AutoValue
-abstract class ProvisionBinding extends ContributionBinding implements ResolvableBinding {
+abstract class ProvisionBinding extends ContributionBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
@@ -147,19 +150,18 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
-    
-    
+
     /** Returns an unresolved version of this binding. */
     ProvisionBinding unresolve(ProvisionBinding binding) {
-      checkState(binding.isResolved());
+      checkState(binding.hasNonDefaultTypeParameters());
       return forInjectConstructor((ExecutableElement) binding.bindingElement(),
           Optional.<TypeMirror>absent());
     }
 
     /**
      * Returns a ProvisionBinding for the given element. If {@code resolvedType} is present, this
-     * will return a {@link ResolvableBinding#isResolved() resolved} binding, with the key & type
-     * resolved to the given type (using {@link Types#asMemberOf(DeclaredType, Element)}).
+     * will return a resolved binding, with the key & type resolved to the given type (using
+     * {@link Types#asMemberOf(DeclaredType, Element)}).
      */
     ProvisionBinding forInjectConstructor(ExecutableElement constructorElement,
         Optional<TypeMirror> resolvedType) {
@@ -168,7 +170,6 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
       checkArgument(isAnnotationPresent(constructorElement, Inject.class));
       checkArgument(!getQualifier(constructorElement).isPresent());
 
-      boolean isResolved = false;
       ExecutableType cxtorType = MoreTypes.asExecutable(constructorElement.asType());
       DeclaredType enclosingCxtorType =
           MoreTypes.asDeclared(constructorElement.getEnclosingElement().asType());
@@ -181,25 +182,30 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
             types.erasure(resolved), types.erasure(enclosingCxtorType));
         cxtorType = MoreTypes.asExecutable(types.asMemberOf(resolved, constructorElement));
         enclosingCxtorType = resolved;
-        isResolved = true;
       }
 
       Key key = keyFactory.forInjectConstructorWithResolvedType(enclosingCxtorType);
       checkArgument(!key.qualifier().isPresent());
       ImmutableSet<DependencyRequest> dependencies =
-          dependencyRequestFactory.forRequiredResolvedVariables(constructorElement.getParameters(),
+          dependencyRequestFactory.forRequiredResolvedVariables(enclosingCxtorType,
+              constructorElement.getParameters(),
               cxtorType.getParameterTypes());
       Optional<DependencyRequest> membersInjectionRequest =
           membersInjectionRequest(enclosingCxtorType);
       Optional<AnnotationMirror> scope =
           getScopeAnnotation(constructorElement.getEnclosingElement());
+      
+      TypeElement bindingTypeElement =
+          MoreElements.asType(constructorElement.getEnclosingElement());
 
       return new AutoValue_ProvisionBinding(
-          isResolved,
           key,
           constructorElement,
           dependencies,
           findBindingPackage(key),
+          hasNonDefaultTypeParameters(bindingTypeElement, key.type(), types),
+          Optional.<DeclaredType>absent(),
+          Optional.<TypeElement>absent(),
           Kind.INJECTION,
           Provides.Type.UNIQUE,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
@@ -224,21 +230,30 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
       return Optional.absent();
     }
 
-    ProvisionBinding forProvidesMethod(ExecutableElement providesMethod) {
+    ProvisionBinding forProvidesMethod(ExecutableElement providesMethod, TypeMirror contributedBy) {
       checkNotNull(providesMethod);
       checkArgument(providesMethod.getKind().equals(METHOD));
+      checkArgument(contributedBy.getKind().equals(TypeKind.DECLARED));
       Provides providesAnnotation = providesMethod.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
-      Key key = keyFactory.forProvidesMethod(providesMethod);
+      DeclaredType declaredContainer = MoreTypes.asDeclared(contributedBy);
+      ExecutableType resolvedMethod =
+          MoreTypes.asExecutable(types.asMemberOf(declaredContainer, providesMethod));
+      Key key = keyFactory.forProvidesMethod(resolvedMethod, providesMethod);
       ImmutableSet<DependencyRequest> dependencies =
-          dependencyRequestFactory.forRequiredVariables(providesMethod.getParameters());
+          dependencyRequestFactory.forRequiredResolvedVariables(
+              declaredContainer,
+              providesMethod.getParameters(),
+              resolvedMethod.getParameterTypes());
       Optional<AnnotationMirror> scope = getScopeAnnotation(providesMethod);
       return new AutoValue_ProvisionBinding(
-          false /* not resolved */,
           key,
           providesMethod,
           dependencies,
           findBindingPackage(key),
+          false /* no non-default parameter types */,
+          ConfigurationAnnotations.getNullableType(providesMethod),
+          Optional.of(MoreTypes.asTypeElement(declaredContainer)),
           Kind.PROVISION,
           providesAnnotation.type(),
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
@@ -252,11 +267,13 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
       ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
       Optional<AnnotationMirror> scope = getScopeAnnotation(implicitRequest.requestElement());
       return new AutoValue_ProvisionBinding(
-          false /* not resolved */,
           explicitRequest.key(),
           implicitRequest.requestElement(),
           dependencies,
           findBindingPackage(explicitRequest.key()),
+          false /* no non-default parameter types */,
+          Optional.<DeclaredType>absent(),
+          Optional.<TypeElement>absent(),
           Kind.SYNTHETIC_PROVISON,
           Provides.Type.MAP,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
@@ -265,14 +282,14 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {
       checkNotNull(componentDefinitionType);
-      Component componentAnnotation = componentDefinitionType.getAnnotation(Component.class);
-      checkArgument(componentAnnotation != null);
       return new AutoValue_ProvisionBinding(
-          false /* not resolved */,
           keyFactory.forComponent(componentDefinitionType.asType()),
           componentDefinitionType,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
+          false /* no non-default parameter types */,
+          Optional.<DeclaredType>absent(),
+          Optional.<TypeElement>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
@@ -285,11 +302,13 @@ abstract class ProvisionBinding extends ContributionBinding implements Resolvabl
       checkArgument(componentMethod.getParameters().isEmpty());
       Optional<AnnotationMirror> scope = getScopeAnnotation(componentMethod);
       return new AutoValue_ProvisionBinding(
-          false /* not resolved */,
           keyFactory.forComponentMethod(componentMethod),
           componentMethod,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
+          false /* no non-default parameter types */,
+          ConfigurationAnnotations.getNullableType(componentMethod),
+          Optional.<TypeElement>absent(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),

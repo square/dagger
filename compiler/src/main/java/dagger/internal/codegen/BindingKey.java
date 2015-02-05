@@ -38,6 +38,7 @@ abstract class BindingKey {
       case PROVIDER:
       case PRODUCER:
       case PRODUCED:
+      case FUTURE:
         return BindingKey.create(Kind.CONTRIBUTION, request.key());
       case MEMBERS_INJECTOR:
         return BindingKey.create(Kind.MEMBERS_INJECTION, request.key());

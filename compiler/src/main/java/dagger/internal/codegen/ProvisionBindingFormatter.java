@@ -15,7 +15,10 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Optional;
+
 import static com.google.auto.common.MoreElements.asExecutable;
+import static com.google.auto.common.MoreTypes.asDeclared;
 
 /**
  * Formats a {@link ProvisionBinding} into a {@link String} suitable for use in error messages.
@@ -24,17 +27,19 @@ import static com.google.auto.common.MoreElements.asExecutable;
  * @since 2.0
  */
 final class ProvisionBindingFormatter extends Formatter<ProvisionBinding> {
-  private static final ProvisionBindingFormatter INSTANCE = new ProvisionBindingFormatter();
-
-  static ProvisionBindingFormatter instance() {
-    return INSTANCE;
+  private final MethodSignatureFormatter methodSignatureFormatter;
+  
+  ProvisionBindingFormatter(MethodSignatureFormatter methodSignatureFormatter) { 
+    this.methodSignatureFormatter = methodSignatureFormatter;
   }
 
   @Override public String format(ProvisionBinding binding) {
     switch (binding.bindingKind()) {
       case PROVISION:
+        return methodSignatureFormatter.format(asExecutable(binding.bindingElement()),
+            Optional.of(asDeclared(binding.contributedBy().get().asType())));
       case COMPONENT_PROVISION:
-        return MethodSignatureFormatter.instance().format(asExecutable(binding.bindingElement()));
+        return methodSignatureFormatter.format(asExecutable(binding.bindingElement()));
       default:
         throw new UnsupportedOperationException(
             "Not yet supporting " + binding.bindingKind() + " binding types.");

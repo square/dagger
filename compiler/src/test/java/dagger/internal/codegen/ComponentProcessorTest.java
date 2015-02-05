@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
+import dagger.internal.codegen.writer.StringLiteral;
 import javax.tools.JavaFileObject;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -26,9 +27,13 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT;
 
 @RunWith(JUnit4.class)
 public class ComponentProcessorTest {
+  private static final StringLiteral NPE_LITERAL =
+      StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
+  
   @Test public void componentOnConcreteClass() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.NotAComponent",
         "package test;",
@@ -85,6 +90,81 @@ public class ComponentProcessorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("is not annotated with @Module");
+  }
+
+  @Test public void cannotReferToAbstractModules() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module",
+        "abstract class TestModule {}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.BadComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(modules = TestModule.class)",
+        "interface BadComponent {}");
+    assertAbout(javaSources()).that(ImmutableList.of(moduleFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            String.format(REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT, "test.TestModule"));
+  }
+
+  @Test public void doubleBindingFromResolvedModules() {
+    JavaFileObject parent = JavaFileObjects.forSourceLines("test.ParentModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.util.List;",
+        "",
+        "@Module",
+        "abstract class ParentModule<A> {",
+        "  @Provides List<A> provideListB(A a) { return null; }",
+        "}");
+    JavaFileObject child = JavaFileObjects.forSourceLines("test.ChildModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module",
+        "class ChildNumberModule extends ParentModule<Integer> {",
+        "  @Provides Integer provideInteger() { return null; }",
+        "}");
+    JavaFileObject another = JavaFileObjects.forSourceLines("test.AnotherModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.util.List;",
+        "",
+        "@Module",
+        "class AnotherModule {",
+        "  @Provides List<Integer> provideListOfInteger() { return null; }",
+        "}");
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.BadComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import java.util.List;",
+        "",
+        "@Component(modules = {ChildNumberModule.class, AnotherModule.class})",
+        "interface BadComponent {",
+        "  List<Integer> listOfInteger();",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(parent, child, another, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile().withErrorContaining(
+            "java.util.List<java.lang.Integer> is bound multiple times")
+        .and().withErrorContaining(
+            "@Provides List<Integer> test.ChildNumberModule.provideListB(Integer)")
+        .and().withErrorContaining(
+            "@Provides List<Integer> test.AnotherModule.provideListOfInteger()");
   }
 
   @Test public void simpleComponent() {
@@ -404,7 +484,7 @@ public class ComponentProcessorTest {
         "  }",
         "",
         "  private void initialize() {",
-        "    this.bProvider = new TestModule$$BFactory(testModule, C$$Factory.create());",
+        "    this.bProvider = TestModule$$BFactory.create(testModule, C$$Factory.create());",
         "    this.aProvider = A$$Factory.create(bProvider);",
         "  }",
         "",
@@ -443,22 +523,62 @@ public class ComponentProcessorTest {
   }
 
   @Test public void transitiveModuleDeps() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "",
-        "@Module(includes = DepModule.class)",
-        "final class TestModule {",
-        "}");
-    JavaFileObject depModuleFile = JavaFileObjects.forSourceLines("test.TestModule",
+    JavaFileObject always = JavaFileObjects.forSourceLines("test.AlwaysIncluded",
         "package test;",
         "",
         "import dagger.Module;",
         "",
         "@Module",
-        "final class DepModule {",
-        "}");
+        "final class AlwaysIncluded {}");
+    JavaFileObject testModule = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = {DepModule.class, AlwaysIncluded.class})",
+        "final class TestModule extends ParentTestModule {}");
+    JavaFileObject parentTest = JavaFileObjects.forSourceLines("test.ParentTestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = {ParentTestIncluded.class, AlwaysIncluded.class})",
+        "class ParentTestModule {}");
+    JavaFileObject parentTestIncluded = JavaFileObjects.forSourceLines("test.ParentTestIncluded",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = AlwaysIncluded.class)",
+        "final class ParentTestIncluded {}");
+    JavaFileObject depModule = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = {RefByDep.class, AlwaysIncluded.class})",
+        "final class DepModule extends ParentDepModule {}");
+    JavaFileObject refByDep = JavaFileObjects.forSourceLines("test.RefByDep",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = AlwaysIncluded.class)",
+        "final class RefByDep extends ParentDepModule {}");
+    JavaFileObject parentDep = JavaFileObjects.forSourceLines("test.ParentDepModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = {ParentDepIncluded.class, AlwaysIncluded.class})",
+        "class ParentDepModule {}");
+    JavaFileObject parentDepIncluded = JavaFileObjects.forSourceLines("test.ParentDepIncluded",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "",
+        "@Module(includes = AlwaysIncluded.class)",
+        "final class ParentDepIncluded {}");
 
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.TestComponent",
         "package test;",
@@ -470,6 +590,8 @@ public class ComponentProcessorTest {
         "@Component(modules = TestModule.class)",
         "interface TestComponent {",
         "}");
+    // Generated code includes all includes, but excludes the parent modules.
+    // The "always" module should only be listed once.
     JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
         "test.Dagger_TestComponent",
         "package test;",
@@ -480,11 +602,19 @@ public class ComponentProcessorTest {
         "public final class Dagger_TestComponent implements TestComponent {",
         "  private final TestModule testModule;",
         "  private final DepModule depModule;",
+        "  private final AlwaysIncluded alwaysIncluded;",
+        "  private final ParentTestIncluded parentTestIncluded;",
+        "  private final RefByDep refByDep;",
+        "  private final ParentDepIncluded parentDepIncluded;",
         "",
         "  private Dagger_TestComponent(Builder builder) {",
         "    assert builder != null;",
         "    this.testModule = builder.testModule;",
         "    this.depModule = builder.depModule;",
+        "    this.alwaysIncluded = builder.alwaysIncluded;",
+        "    this.parentTestIncluded = builder.parentTestIncluded;",
+        "    this.refByDep = builder.refByDep;",
+        "    this.parentDepIncluded = builder.parentDepIncluded;",
         "  }",
         "",
         "  public static Builder builder() {",
@@ -498,6 +628,10 @@ public class ComponentProcessorTest {
         "  public static final class Builder {",
         "    private TestModule testModule;",
         "    private DepModule depModule;",
+        "    private AlwaysIncluded alwaysIncluded;",
+        "    private ParentTestIncluded parentTestIncluded;",
+        "    private RefByDep refByDep;",
+        "    private ParentDepIncluded parentDepIncluded;",
         "",
         "    private Builder() {",
         "    }",
@@ -508,6 +642,18 @@ public class ComponentProcessorTest {
         "      }",
         "      if (depModule == null) {",
         "        this.depModule = new DepModule();",
+        "      }",
+        "      if (alwaysIncluded == null) {",
+        "        this.alwaysIncluded = new AlwaysIncluded();",
+        "      }",
+        "      if (parentTestIncluded == null) {",
+        "        this.parentTestIncluded = new ParentTestIncluded();",
+        "      }",
+        "      if (refByDep == null) {",
+        "        this.refByDep = new RefByDep();",
+        "      }",
+        "      if (parentDepIncluded == null) {",
+        "        this.parentDepIncluded = new ParentDepIncluded();",
         "      }",
         "      return new Dagger_TestComponent(this);",
         "    }",
@@ -527,10 +673,50 @@ public class ComponentProcessorTest {
         "      this.depModule = depModule;",
         "      return this;",
         "    }",
+        "",
+        "    public Builder alwaysIncluded(AlwaysIncluded alwaysIncluded) {",
+        "      if (alwaysIncluded == null) {",
+        "        throw new NullPointerException(\"alwaysIncluded\");",
+        "      }",
+        "      this.alwaysIncluded = alwaysIncluded;",
+        "      return this;",
+        "    }",
+        "",
+        "    public Builder parentTestIncluded(ParentTestIncluded parentTestIncluded) {",
+        "      if (parentTestIncluded == null) {",
+        "        throw new NullPointerException(\"parentTestIncluded\");",
+        "      }",
+        "      this.parentTestIncluded = parentTestIncluded;",
+        "      return this;",
+        "    }",
+        "",
+        "    public Builder refByDep(RefByDep refByDep) {",
+        "      if (refByDep == null) {",
+        "        throw new NullPointerException(\"refByDep\");",
+        "      }",
+        "      this.refByDep = refByDep;",
+        "      return this;",
+        "    }",
+        "",
+        "    public Builder parentDepIncluded(ParentDepIncluded parentDepIncluded) {",
+        "      if (parentDepIncluded == null) {",
+        "        throw new NullPointerException(\"parentDepIncluded\");",
+        "      }",
+        "      this.parentDepIncluded = parentDepIncluded;",
+        "      return this;",
+        "    }",
         "  }",
         "}");
     assertAbout(javaSources())
-        .that(ImmutableList.of(moduleFile, depModuleFile, componentFile))
+        .that(ImmutableList.of(always,
+            testModule,
+            parentTest,
+            parentTestIncluded,
+            depModule,
+            refByDep,
+            parentDep,
+            parentDepIncluded,
+            componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
@@ -609,8 +795,8 @@ public class ComponentProcessorTest {
         "",
         "  private void initialize() {",
         "    this.setOfStringContribution1Provider =",
-        "        new EmptySetModule$$EmptySetFactory(emptySetModule);",
-        "    this.setOfStringContribution2Provider = new SetModule$$StringFactory(setModule);",
+        "        EmptySetModule$$EmptySetFactory.create(emptySetModule);",
+        "    this.setOfStringContribution2Provider = SetModule$$StringFactory.create(setModule);",
         "    this.setOfStringProvider = SetFactory.create(",
         "        setOfStringContribution1Provider, setOfStringContribution2Provider);",
         "  }",
@@ -1050,7 +1236,11 @@ public class ComponentProcessorTest {
         "  private void initialize() {",
         "    this.aProvider = new Factory<A>() {",
         "      @Override public A get() {",
-        "        return aComponent.a();",
+        "        A provided = aComponent.a();",
+        "        if (provided == null) {",
+        "          throw new NullPointerException(" + NPE_LITERAL + ");",
+        "        }",
+        "        return provided;",
         "      }",
         "    };",
         "    this.bProvider = B$$Factory.create(aProvider);",
@@ -1166,8 +1356,8 @@ public class ComponentProcessorTest {
         "  }",
         "",
         "  private void initialize() {",
-        "    this.aProvider = new test.TestModule$$AFactory(testModule);",
-        "    this.aProvider1 = new TestModule$$AFactory(testModule1);",
+        "    this.aProvider = test.TestModule$$AFactory.create(testModule);",
+        "    this.aProvider1 = TestModule$$AFactory.create(testModule1);",
         "  }",
         "",
         "  @Override",
@@ -1506,7 +1696,7 @@ public class ComponentProcessorTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
-  
+
   @Test public void wildcardGenericsRequiresAtProvides() {
     JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
         "package test;",
@@ -1552,100 +1742,10 @@ public class ComponentProcessorTest {
         .withErrorContaining(
             "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
-  
-  @Test public void arrayGenericsRequiresAtProvides() {
-    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
-        "package test;",
-        "",
-        "import javax.inject.Inject;",
-        "",
-        "final class A {",
-        "  @Inject A() {}",
-        "}");
-    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
-        "package test;",
-        "",
-        "import javax.inject.Inject;",
-        "import javax.inject.Provider;",
-        "",
-        "final class B<T> {",
-        "  @Inject B(T t) {}",
-        "}");
-    JavaFileObject cFile = JavaFileObjects.forSourceLines("test.C",
-        "package test;",
-        "",
-        "import javax.inject.Inject;",
-        "import javax.inject.Provider;",
-        "",
-        "final class C {",
-        "  @Inject C(B<Object[]> b) {}",
-        "}");
-    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "import dagger.Lazy;",
-        "",
-        "import javax.inject.Provider;",
-        "",
-        "@Component",
-        "interface SimpleComponent {",
-        "  C c();",
-        "}");
-    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("test.B<java.lang.Object[]> cannot be provided without"
-            + " an @Provides-annotated method");
-  }
-  
-  @Test public void rawTypeGenericsRequiresAtProvides() {
-    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
-        "package test;",
-        "",
-        "import javax.inject.Inject;",
-        "",
-        "final class A {",
-        "  @Inject A() {}",
-        "}");
-    JavaFileObject bFile = JavaFileObjects.forSourceLines("test.B",
-        "package test;",
-        "",
-        "import javax.inject.Inject;",
-        "import javax.inject.Provider;",
-        "",
-        "final class B<T> {",
-        "  @Inject B(T t) {}",
-        "}");
-    JavaFileObject cFile = JavaFileObjects.forSourceLines("test.C",
-        "package test;",
-        "",
-        "import javax.inject.Inject;",
-        "import javax.inject.Provider;",
-        "",
-        "final class C {",
-        "  @Inject C(B b) {}",
-        "}");
-    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "import dagger.Lazy;",
-        "",
-        "import javax.inject.Provider;",
-        "",
-        "@Component",
-        "interface SimpleComponent {",
-        "  C c();",
-        "}");
-    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("test.B cannot be provided without an @Provides-annotated method");
-  }
  
   @Test
   @Ignore // modify this test as necessary while debugging for your situation.
+  @SuppressWarnings("unused")
   public void genericTestToLetMeDebugInEclipse() {
     JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
         "package test;",
