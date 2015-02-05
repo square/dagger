@@ -131,23 +131,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-        </configuration>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-invoker-plugin</artifactId>
         <configuration>
           <addTestClassPath>true</addTestClassPath>
@@ -170,6 +153,33 @@
               <goal>install</goal>
               <goal>run</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.3</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <minimizeJar>true</minimizeJar>
+              <artifactSet>
+                <excludes>
+                  <!-- guava which has a consistent API and whose public types we vend in producers -->
+                  <exclude>com.google.guava</exclude>
+                  <!-- annotation processors dagger uses to be built, not to operate -->
+                  <exclude>com.google.auto.service</exclude>
+                  <exclude>com.google.auto.value</exclude>
+                  <!-- projects should depend on api projects directly -->
+                  <exclude>com.google.dagger:dagger</exclude>
+                  <exclude>com.google.dagger:dagger-producers</exclude>
+                  <exclude>javax.inject</exclude>
+                </excludes>
+              </artifactSet>
+            </configuration>
           </execution>
         </executions>
       </plugin>
