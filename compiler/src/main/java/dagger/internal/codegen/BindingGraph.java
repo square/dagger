@@ -45,9 +45,9 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
@@ -383,11 +383,28 @@ abstract class BindingGraph {
         return explicitBindingsForKey.build();
       }
 
+      private Optional<ResolvedBindings> getPreviouslyResolvedBindings(
+          final BindingKey bindingKey) {
+        Optional<ResolvedBindings> result = Optional.fromNullable(resolvedBindings.get(bindingKey));
+        if (result.isPresent()) {
+          return result;
+        } else if (parentResolver.isPresent()) {
+          return parentResolver.get().getPreviouslyResolvedBindings(bindingKey);
+        } else {
+          return Optional.absent();
+        }
+      }
+
       void resolve(DependencyRequest request) {
         BindingKey bindingKey = BindingKey.forDependencyRequest(request);
 
-        ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(bindingKey);
-        if (previouslyResolvedBinding != null) {
+        Optional<ResolvedBindings> previouslyResolvedBinding =
+            getPreviouslyResolvedBindings(bindingKey);
+        if (previouslyResolvedBinding.isPresent()
+            && !(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
+                && !previouslyResolvedBinding.get().contributionBindings().isEmpty()
+                && ContributionBinding.bindingTypeFor(
+                    previouslyResolvedBinding.get().contributionBindings()).isMultibinding())) {
           return;
         }
 
@@ -402,18 +419,14 @@ abstract class BindingGraph {
           Optional<? extends ImmutableSet<? extends Binding>> bindings = lookUpBindings(request);
           if (bindings.isPresent()) {
             for (Binding binding : bindings.get()) {
-              resolveDependencies(binding.implicitDependencies());
+              for (DependencyRequest dependency : binding.implicitDependencies()) {
+                resolve(dependency);
+              }
             }
             resolvedBindings.put(bindingKey, ResolvedBindings.create(bindingKey, bindings.get()));
           }
         } finally {
           cycleStack.pop();
-        }
-      }
-
-      private void resolveDependencies(Iterable<DependencyRequest> dependencies) {
-        for (DependencyRequest dependency : dependencies) {
-          resolve(dependency);
         }
       }
     }

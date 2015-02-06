@@ -15,15 +15,8 @@
  */
 package test.subcomponent;
 
-import dagger.Subcomponent;
-import java.util.Set;
-import javax.inject.Provider;
+import javax.inject.Inject;
 
-@Subcomponent(modules = GrandchildModule.class)
-interface GrandchildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
-
-  RequiresSingleton requiresSingleton();
-
-  Set<Object> objectSet();
+final class UnscopedType {
+  @Inject UnscopedType(@SuppressWarnings("unused") SingletonType singletonType) {}
 }

@@ -26,7 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class SubcomponentScopeTest {
   @Test
-  public void testSingletonPropagatesUpward() {
+  public void singletonPropagatesUpward() {
     ParentComponent parentComponent = Dagger_ParentComponent.create();
     SingletonType singletonType = parentComponent.getSingletonType();
     assertThat(parentComponent.newChildComponent().requiresSingleton().singletonType())
@@ -38,7 +38,7 @@ public class SubcomponentScopeTest {
   }
 
   @Test
-  public void testMultibindingContributions() {
+  public void multibindingContributions() {
     ParentComponent parentComponent = Dagger_ParentComponent.create();
     Set<Object> parentObjectSet = parentComponent.objectSet();
     assertThat(parentObjectSet).hasSize(2);
@@ -50,5 +50,16 @@ public class SubcomponentScopeTest {
     assertThat(intersection(parentObjectSet, childObjectSet)).hasSize(1);
     assertThat(intersection(parentObjectSet, grandchildObjectSet)).hasSize(1);
     assertThat(intersection(childObjectSet, grandchildObjectSet)).hasSize(1);
+  }
+
+  @Test
+  public void unscopedProviders() {
+    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    assertThat(parentComponent.getUnscopedTypeProvider())
+        .isSameAs(parentComponent.newChildComponent().getUnscopedTypeProvider());
+    assertThat(parentComponent.getUnscopedTypeProvider())
+        .isSameAs(parentComponent.newChildComponent()
+            .newGrandchildComponent()
+            .getUnscopedTypeProvider());
   }
 }

@@ -17,9 +17,12 @@ package test.subcomponent;
 
 import dagger.Subcomponent;
 import java.util.Set;
+import javax.inject.Provider;
 
 @Subcomponent(modules = ChildModule.class)
 interface ChildComponent {
+  Provider<UnscopedType> getUnscopedTypeProvider();
+
   RequiresSingleton requiresSingleton();
 
   Set<Object> objectSet();
