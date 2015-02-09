@@ -158,6 +158,9 @@ final class ErrorMessages {
   static final String METHOD_OVERRIDES_PROVIDES_METHOD =
       "@%s methods may not be overridden in modules. Overrides: %s";
 
+  static final String PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS =
+      "Cannot use more than one @Qualifier on a @Provides or @Produces method";
+
   /*mapKey errors*/
   static final String MAPKEY_WITHOUT_FIELDS =
       "Map key annotation does not have fields";

@@ -36,6 +36,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAM
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
 
 @RunWith(JUnit4.class)
 public class ProducerModuleFactoryGeneratorTest {
@@ -1154,4 +1155,37 @@ public class ProducerModuleFactoryGeneratorTest {
         .and().generatesSources(factoryFile);
   }
 
+  private static final JavaFileObject QUALIFIER_A =
+      JavaFileObjects.forSourceLines("test.QualifierA",
+          "package test;",
+          "",
+          "import javax.inject.Qualifier;",
+          "",
+          "@Qualifier @interface QualifierA {}");
+  private static final JavaFileObject QUALIFIER_B =
+      JavaFileObjects.forSourceLines("test.QualifierB",
+          "package test;",
+          "",
+          "import javax.inject.Qualifier;",
+          "",
+          "@Qualifier @interface QualifierB {}");
+
+  @Test public void producesMethodMultipleQualifiers() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces @QualifierA @QualifierB abstract String produceString() {",
+        "    return \"\";",
+        "  }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS);
+  }
 }

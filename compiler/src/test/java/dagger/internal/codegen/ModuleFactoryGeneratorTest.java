@@ -37,6 +37,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAM
 import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
@@ -1009,5 +1010,27 @@ public class ModuleFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(listBFactory, numberFactory, integerFactory);
+  }
+
+  @Test public void providesMethodMultipleQualifiers() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "import javax.annotation.Nullable;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides @QualifierA @QualifierB String provideString() {",
+        "    return \"foo\";",
+        "  }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(moduleFile, QUALIFIER_A, QUALIFIER_B))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS);
   }
 }
