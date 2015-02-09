@@ -521,7 +521,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             resolvedBindings.contributionBindings();
         if (ContributionBinding.bindingTypeFor(contributionBindings).isMultibinding()) {
           // note that here we rely on the order of the resolved bindings being from parent to child
-          // otherwise, the nubmering wouldn't work
+          // otherwise, the numbering wouldn't work
           int contributionNumber = 0;
           for (ContributionBinding contributionBinding : contributionBindings) {
             if (isSytheticProvisionBinding(contributionBinding)) {
