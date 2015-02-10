@@ -51,8 +51,8 @@ public class AbstractProducerTest {
         return Futures.immediateFuture(i++);
       }
     };
-    assertThat(producer.get().get()).is(0);
-    assertThat(producer.get().get()).is(0);
-    assertThat(producer.get().get()).is(0);
+    assertThat(producer.get().get()).isEqualTo(0);
+    assertThat(producer.get().get()).isEqualTo(0);
+    assertThat(producer.get().get()).isEqualTo(0);
   }
 }

@@ -58,12 +58,12 @@ public class DoubleCheckLazyTest {
 
     List<Future<Object>> futures = executor.invokeAll(tasks);
 
-    assert_().that(provider.provisions.get()).is(1);
+    assert_().that(provider.provisions.get()).isEqualTo(1);
     Set<Object> results = Sets.newIdentityHashSet();
     for (Future<Object> future : futures) {
       results.add(future.get());
     }
-    assert_().that(results.size()).is(1);
+    assert_().that(results.size()).isEqualTo(1);
   }
 
   // TODO(gak): reenable this test once we can ensure that factories are no longer providing null
