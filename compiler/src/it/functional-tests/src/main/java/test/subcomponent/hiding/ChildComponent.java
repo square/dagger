@@ -17,7 +17,7 @@ package test.subcomponent.hiding;
 
 import dagger.Subcomponent;
 
-@Subcomponent
+@Subcomponent(modules = test.subcomponent.hiding.b.CommonModuleName.class)
 interface ChildComponent {
   //ensure that t.s.h.a.CommonName gets bound in this component
   test.subcomponent.hiding.a.CommonName aCommonName();

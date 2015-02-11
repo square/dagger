@@ -18,7 +18,7 @@ package test.subcomponent.hiding;
 import dagger.Component;
 import javax.inject.Singleton;
 
-@Component(modules = ParentModule.class)
+@Component(modules = test.subcomponent.hiding.a.CommonModuleName.class)
 @Singleton
 interface ParentComponent {
   // ensure that t.s.h.a.CommonName gets bound in this component

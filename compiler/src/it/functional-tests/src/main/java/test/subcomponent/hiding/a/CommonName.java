@@ -18,5 +18,14 @@ package test.subcomponent.hiding.a;
 import javax.inject.Inject;
 
 public final class CommonName {
-  @Inject CommonName(@SuppressWarnings("unused") String s) {}
+  private final String s;
+
+  @Inject CommonName(String s) {
+    this.s = s;
+  }
+
+  @Override
+  public String toString() {
+    return s;
+  }
 }

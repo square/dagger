@@ -13,19 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent.hiding.b;
+package test.subcomponent.hiding.a;
 
-import javax.inject.Inject;
+import dagger.Module;
+import dagger.Provides;
 
-public final class CommonName {
-  private final int i;
-
-  @Inject CommonName(int i) {
-    this.i = i;
-  }
-
-  @Override
-  public String toString() {
-    return Integer.toString(i);
+@Module
+public class CommonModuleName {
+  @Provides String provideString() {
+    return "a";
   }
 }

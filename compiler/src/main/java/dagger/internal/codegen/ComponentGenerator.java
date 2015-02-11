@@ -232,7 +232,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
     boolean requiresBuilder = false;
 
-    Map<TypeElement, FieldWriter> componentContributionFields = Maps.newHashMap();
+    Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
 
     for (Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
       TypeElement contributionElement = entry.getKey();
@@ -240,7 +240,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       FieldWriter contributionField =
           componentWriter.addField(contributionElement, contributionName);
       contributionField.addModifiers(PRIVATE, FINAL);
-      componentContributionFields.put(contributionElement, contributionField);
+      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
+          componentWriter.name(), Snippet.format(contributionField.name())));
       FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
       builderField.addModifiers(PRIVATE);
       constructorWriter.body()
@@ -324,7 +325,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private void writeSubcomponents(BindingGraph input,
       ClassWriter componentWriter,
       Set<JavaWriter> proxyWriters,
-      Map<TypeElement, FieldWriter> componentContributionFields,
+      Map<TypeElement, MemberSelect> componentContributionFields,
       ImmutableMap<BindingKey, MemberSelect> parentMemberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> multibindingContributionSnippets) {
     for (Entry<ExecutableElement, BindingGraph> subgraphEntry : input.subgraphs().entrySet()) {
@@ -358,7 +359,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private ImmutableMap<BindingKey, MemberSelect> writeSubcomponent(
       BindingGraph input, ClassWriter componentWriter,
       Set<JavaWriter> proxyWriters,
-      ImmutableMap<TypeElement, FieldWriter> parentContributionFields,
+      ImmutableMap<TypeElement, MemberSelect> parentContributionFields,
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
       ImmutableMap<BindingKey, MemberSelect> parentMemberSelectSnippets) {
     // the full set of types that calling code uses to construct a component instance
@@ -376,7 +377,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     ConstructorWriter constructorWriter = componentWriter.addConstructor();
     constructorWriter.addModifiers(PRIVATE);
 
-    Map<TypeElement, FieldWriter> componentContributionFields =
+    Map<TypeElement, MemberSelect> componentContributionFields =
         Maps.newHashMap(parentContributionFields);
 
     for (Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
@@ -389,7 +390,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             ClassName.fromTypeElement(entry.getKey())));
       }
       contributionField.addModifiers(PRIVATE, FINAL);
-      componentContributionFields.put(contributionElement, contributionField);
+      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
+          componentWriter.name(), Snippet.format(contributionField.name())));
     }
 
     Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
@@ -628,7 +630,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private void initializeFrameworkTypes(BindingGraph input,
       ClassWriter componentWriter,
       ConstructorWriter constructorWriter,
-      Map<TypeElement, FieldWriter> componentContributionFields,
+      Map<TypeElement, MemberSelect> componentContributionFields,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
       ImmutableMap<ContributionBinding, Snippet> multibindingContributionSnippets)
@@ -868,7 +870,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private Snippet initializeFactoryForProvisionBinding(ProvisionBinding binding,
       ClassName componentName,
       ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
-      Map<TypeElement, FieldWriter> contributionFields,
+      Map<TypeElement, MemberSelect> contributionFields,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     switch(binding.bindingKind()) {
       case COMPONENT:
@@ -889,7 +891,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             "}"),
             ClassName.fromClass(Factory.class),
             TypeNames.forTypeMirror(binding.key().type()),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
+            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
+                .getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString(),
             nullableSnippet);
         } else {
@@ -913,7 +916,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             "}"),
             ClassName.fromClass(Factory.class),
             TypeNames.forTypeMirror(binding.key().type()),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
+            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
+                .getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString(),
             failMsg);
         }
@@ -922,8 +926,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         List<Snippet> parameters =
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
         if (binding.bindingKind().equals(PROVISION)) {
-          parameters.add(
-              Snippet.format(contributionFields.get(binding.contributedBy().get()).name()));
+          parameters.add(contributionFields.get(binding.contributedBy().get())
+              .getSnippetFor(componentName));
         }
         if (binding.memberInjectionRequest().isPresent()) {
           parameters.add(memberSelectSnippets.get(
@@ -950,7 +954,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       BindingGraph bindingGraph,
       ClassName componentName,
       ImmutableMap<ExecutableElement, TypeElement> dependencyMethodIndex,
-      Map<TypeElement, FieldWriter> contributionFields,
+      Map<TypeElement, MemberSelect> contributionFields,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     switch (binding.bindingKind()) {
       case COMPONENT_PRODUCTION:
@@ -963,15 +967,18 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             ClassName.fromClass(Producer.class),
             TypeNames.forTypeMirror(binding.key().type()),
             ClassName.fromClass(ListenableFuture.class),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement())).name(),
+            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
+                .getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString());
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         List<Snippet> parameters =
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 2);
-        parameters.add(Snippet.format(contributionFields.get(binding.bindingTypeElement()).name()));
-        parameters.add(Snippet.format(contributionFields.get(
-            bindingGraph.componentDescriptor().executorDependency().get()).name()));
+        parameters.add(contributionFields.get(binding.bindingTypeElement())
+            .getSnippetFor(componentName));
+        parameters.add(contributionFields.get(
+            bindingGraph.componentDescriptor().executorDependency().get())
+                .getSnippetFor(componentName));
         parameters.addAll(getProducerDependencyParameters(
             bindingGraph, componentName, binding.dependencies(), memberSelectSnippets));
 

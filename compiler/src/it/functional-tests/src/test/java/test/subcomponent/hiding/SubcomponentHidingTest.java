@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent.hiding.b;
+package test.subcomponent.hiding;
 
-import javax.inject.Inject;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public final class CommonName {
-  private final int i;
+import static com.google.common.truth.Truth.assertThat;
 
-  @Inject CommonName(int i) {
-    this.i = i;
-  }
-
-  @Override
-  public String toString() {
-    return Integer.toString(i);
+@RunWith(JUnit4.class)
+public class SubcomponentHidingTest {
+  @Test public void moduleNameHiding() {
+    ParentComponent parent = Dagger_ParentComponent.create();
+    assertThat(parent.aCommonName().toString()).isEqualTo("a");
+    assertThat(parent.newChildComponent().aCommonName().toString()).isEqualTo("a");
+    assertThat(parent.newChildComponent().bCommonName().toString()).isEqualTo("1");
   }
 }

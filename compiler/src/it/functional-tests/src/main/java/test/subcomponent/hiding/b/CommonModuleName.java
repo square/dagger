@@ -15,17 +15,12 @@
  */
 package test.subcomponent.hiding.b;
 
-import javax.inject.Inject;
+import dagger.Module;
+import dagger.Provides;
 
-public final class CommonName {
-  private final int i;
-
-  @Inject CommonName(int i) {
-    this.i = i;
-  }
-
-  @Override
-  public String toString() {
-    return Integer.toString(i);
+@Module
+public class CommonModuleName {
+  @Provides int provideString() {
+    return 1;
   }
 }
