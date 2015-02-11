@@ -15,8 +15,8 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -124,7 +124,7 @@ abstract class DependencyRequest {
       checkNotNull(delegatingRequest);
       return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
           delegatingRequest.requestElement(),
-          MoreTypes.asDeclared(delegatingRequest.requestElement().getEnclosingElement().asType()),
+          getEnclosingType(delegatingRequest.requestElement()),
           false /* doesn't allow null */);
     }
 
@@ -132,8 +132,8 @@ abstract class DependencyRequest {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
-      return newDependencyRequest(variableElement, type, qualifier, MoreTypes.asDeclared(
-          variableElement.getEnclosingElement().getEnclosingElement().asType()));
+      return newDependencyRequest(variableElement, type, qualifier,
+          getEnclosingType(variableElement));
     }
 
     DependencyRequest forRequiredResolvedVariable(DeclaredType container,
@@ -152,7 +152,7 @@ abstract class DependencyRequest {
       TypeMirror type = provisionMethod.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
       return newDependencyRequest(provisionMethod, type, qualifier,
-          MoreTypes.asDeclared(provisionMethod.getEnclosingElement().asType()));
+          getEnclosingType(provisionMethod));
     }
 
     DependencyRequest forComponentProductionMethod(ExecutableElement productionMethod) {
@@ -161,8 +161,7 @@ abstract class DependencyRequest {
           "Component production methods must be empty: %s", productionMethod);
       TypeMirror type = productionMethod.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(productionMethod);
-      DeclaredType container =
-          MoreTypes.asDeclared(productionMethod.getEnclosingElement().asType());
+      DeclaredType container = getEnclosingType(productionMethod);
       // Only a component production method can be a request for a ListenableFuture, so we
       // special-case it here.
       if (isTypeOf(ListenableFuture.class, type)) {
@@ -187,7 +186,7 @@ abstract class DependencyRequest {
           keyFactory.forMembersInjectedType(
               Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
           membersInjectionMethod,
-          MoreTypes.asDeclared(membersInjectionMethod.getEnclosingElement().asType()),
+          getEnclosingType(membersInjectionMethod),
           false /* doesn't allow null */);
     }
 
@@ -251,6 +250,13 @@ abstract class DependencyRequest {
       } else {
         return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.INSTANCE, type);
       }
+    }
+
+    static DeclaredType getEnclosingType(Element element) {
+      while (!MoreElements.isType(element)) {
+        element = element.getEnclosingElement();
+      }
+      return MoreTypes.asDeclared(element.asType());
     }
   }
 }
