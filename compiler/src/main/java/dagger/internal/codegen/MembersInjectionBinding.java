@@ -60,6 +60,18 @@ abstract class MembersInjectionBinding extends Binding {
 
   abstract Optional<DependencyRequest> parentInjectorRequest();
 
+  MembersInjectionBinding withoutParentInjectorRequest() {
+    return new AutoValue_MembersInjectionBinding(
+          key(),
+          dependencies(),
+          implicitDependencies(),
+          bindingPackage(),
+          hasNonDefaultTypeParameters(),
+          bindingElement(),
+          injectionSites(),
+          Optional.<DependencyRequest>absent());
+  }
+
   private static final Ordering<InjectionSite> INJECTION_ORDERING =
       new Ordering<InjectionSite>() {
         @Override

@@ -190,8 +190,7 @@ abstract class BindingGraph {
 
       ImmutableSet<DependencyRequest> componentMethodRequests =
           componentMethodRequests(componentMethods);
-      for (DependencyRequest componentMethodRequest :
-          componentMethodRequests) {
+      for (DependencyRequest componentMethodRequest : componentMethodRequests) {
         requestResolver.resolve(componentMethodRequest);
       }
 
@@ -336,12 +335,26 @@ abstract class BindingGraph {
             }
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
-            MembersInjectionBinding membersInjectionBinding =
-                injectBindingRegistry.getOrFindMembersInjectionBinding(bindingKey.key());
-            return Optional.of(ImmutableSet.of(membersInjectionBinding));
+            return Optional.of(ImmutableSet.of(rollUpMembersInjectionBindings(bindingKey.key())));
           default:
             throw new AssertionError();
         }
+      }
+
+      private MembersInjectionBinding rollUpMembersInjectionBindings(Key key) {
+        MembersInjectionBinding membersInjectionBinding =
+            injectBindingRegistry.getOrFindMembersInjectionBinding(key);
+
+        if (membersInjectionBinding.injectionSites().isEmpty()
+            && membersInjectionBinding.parentInjectorRequest().isPresent()) {
+          MembersInjectionBinding parentBinding = rollUpMembersInjectionBindings(
+              membersInjectionBinding.parentInjectorRequest().get().key());
+          if (parentBinding.injectionSites().isEmpty()) {
+            return membersInjectionBinding.withoutParentInjectorRequest();
+          }
+        }
+
+        return membersInjectionBinding;
       }
 
       private Optional<RequestResolver> getOwningResolver(ProvisionBinding provisionBinding) {

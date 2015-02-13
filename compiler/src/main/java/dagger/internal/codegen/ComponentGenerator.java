@@ -457,20 +457,34 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     for (ResolvedBindings resolvedBindings : input.resolvedBindings().values()) {
       BindingKey bindingKey = resolvedBindings.bindingKey();
 
-      if (resolvedBindings.bindings().size() == 1
-          && bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-        ContributionBinding contributionBinding =
-            Iterables.getOnlyElement(resolvedBindings.contributionBindings());
-        if (contributionBinding instanceof ProvisionBinding) {
-          ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
-          if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
-              && !provisionBinding.scope().isPresent()) {
+      if (resolvedBindings.bindings().size() == 1) {
+        if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
+          ContributionBinding contributionBinding =
+              Iterables.getOnlyElement(resolvedBindings.contributionBindings());
+          if (contributionBinding instanceof ProvisionBinding) {
+            ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
+            if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+                && !provisionBinding.scope().isPresent()) {
+              enumBindingKeysBuilder.add(bindingKey);
+              // skip keys whose factories are enum instances and aren't scoped
+              memberSelectSnippetsBuilder.put(bindingKey,
+                  MemberSelect.staticSelect(
+                      factoryNameForProvisionBinding(provisionBinding),
+                      Snippet.format("create()")));
+              continue;
+            }
+          }
+        } else if (bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION)) {
+          MembersInjectionBinding membersInjectionBinding =
+              Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
+          if (membersInjectionBinding.injectionSites().isEmpty()
+              && !membersInjectionBinding.parentInjectorRequest().isPresent()) {
+            // TODO(gak): refactory to use enumBindingKeys throughout the generator
             enumBindingKeysBuilder.add(bindingKey);
-            // skip keys whose factories are enum instances and aren't scoped
             memberSelectSnippetsBuilder.put(bindingKey,
                 MemberSelect.staticSelect(
-                    factoryNameForProvisionBinding(provisionBinding),
-                    Snippet.format("create()")));
+                    ClassName.fromClass(MembersInjectors.class),
+                    Snippet.format("noOp()")));
             continue;
           }
         }
@@ -751,10 +765,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           case MEMBERS_INJECTION:
             MembersInjectionBinding binding = Iterables.getOnlyElement(
                 input.resolvedBindings().get(bindingKey).membersInjectionBindings());
-            initializeMethod.body().addSnippet("this.%s = %s;",
-                memberSelectSnippet,
-                initializeMembersInjectorForBinding(
-                    componentWriter.name(), binding, memberSelectSnippets));
+            if (!binding.injectionSites().isEmpty()
+                || binding.parentInjectorRequest().isPresent()) {
+              initializeMethod.body().addSnippet("this.%s = %s;",
+                  memberSelectSnippet,
+                  initializeMembersInjectorForBinding(
+                      componentWriter.name(), binding, memberSelectSnippets));
+            }
             break;
           default:
             throw new AssertionError();
