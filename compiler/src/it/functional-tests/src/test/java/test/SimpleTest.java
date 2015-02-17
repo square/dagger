@@ -28,4 +28,9 @@ public class SimpleTest {
     assertThat(thingComponent).isNotNull();
     assertThat(thingComponent.thing()).isNotNull();
   }
+
+  @Test public void inheritedMembersInjection() {
+    ThingComponent thingComponent = Dagger_ThingComponent.create();
+    assertThat(thingComponent.typeWithInheritedMembersInjection().thing).isNotNull();
+  }
 }

@@ -91,6 +91,7 @@ import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.SYNTHETIC_PROVISON;
@@ -477,8 +478,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         } else if (bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION)) {
           MembersInjectionBinding membersInjectionBinding =
               Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
-          if (membersInjectionBinding.injectionSites().isEmpty()
-              && !membersInjectionBinding.parentInjectorRequest().isPresent()) {
+          if (membersInjectionBinding.injectionStrategy().equals(NO_OP)) {
             // TODO(gak): refactory to use enumBindingKeys throughout the generator
             enumBindingKeysBuilder.add(bindingKey);
             memberSelectSnippetsBuilder.put(bindingKey,
@@ -1011,25 +1011,26 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ClassName componentName,
       MembersInjectionBinding binding,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
-    if (binding.injectionSites().isEmpty()) {
-      if (binding.parentInjectorRequest().isPresent()) {
+    switch (binding.injectionStrategy()) {
+      case NO_OP:
+        return Snippet.format("%s.noOp()",
+            ClassName.fromClass(MembersInjectors.class));
+      case DELEGATE:
         DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
             memberSelectSnippets.get(BindingKey.forDependencyRequest(parentInjectorRequest))
                 .getSnippetFor(componentName));
-      } else {
-        return Snippet.format("%s.noOp()",
-            ClassName.fromClass(MembersInjectors.class));
-      }
-    } else {
-      List<Snippet> parameters = getDependencyParameters(
-          componentName,
-          Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
-          memberSelectSnippets);
-      return Snippet.format("%s.create(%s)",
-          membersInjectorNameForMembersInjectionBinding(binding),
-          Snippet.makeParametersSnippet(parameters));
+      case INJECT_MEMBERS:
+        List<Snippet> parameters = getDependencyParameters(
+            componentName,
+            Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
+            memberSelectSnippets);
+        return Snippet.format("%s.create(%s)",
+            membersInjectorNameForMembersInjectionBinding(binding),
+            Snippet.makeParametersSnippet(parameters));
+      default:
+        throw new AssertionError();
     }
   }
 

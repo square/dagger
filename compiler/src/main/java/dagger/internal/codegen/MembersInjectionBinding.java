@@ -60,6 +60,22 @@ abstract class MembersInjectionBinding extends Binding {
 
   abstract Optional<DependencyRequest> parentInjectorRequest();
 
+  enum Strategy {
+    NO_OP,
+    DELEGATE,
+    INJECT_MEMBERS,
+  }
+
+  Strategy injectionStrategy() {
+    if (injectionSites().isEmpty()) {
+      return parentInjectorRequest().isPresent()
+          ? Strategy.DELEGATE
+          : Strategy.NO_OP;
+    } else {
+      return Strategy.INJECT_MEMBERS;
+    }
+  }
+
   MembersInjectionBinding withoutParentInjectorRequest() {
     return new AutoValue_MembersInjectionBinding(
           key(),

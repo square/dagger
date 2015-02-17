@@ -51,6 +51,8 @@ import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPON
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.DELEGATE;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
@@ -345,11 +347,10 @@ abstract class BindingGraph {
         MembersInjectionBinding membersInjectionBinding =
             injectBindingRegistry.getOrFindMembersInjectionBinding(key);
 
-        if (membersInjectionBinding.injectionSites().isEmpty()
-            && membersInjectionBinding.parentInjectorRequest().isPresent()) {
+        if (membersInjectionBinding.injectionStrategy().equals(DELEGATE)) {
           MembersInjectionBinding parentBinding = rollUpMembersInjectionBindings(
               membersInjectionBinding.parentInjectorRequest().get().key());
-          if (parentBinding.injectionSites().isEmpty()) {
+          if (parentBinding.injectionStrategy().equals(NO_OP)) {
             return membersInjectionBinding.withoutParentInjectorRequest();
           }
         }

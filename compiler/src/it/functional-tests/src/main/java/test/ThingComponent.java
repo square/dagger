@@ -20,4 +20,5 @@ import dagger.Component;
 @Component
 interface ThingComponent {
   Thing thing();
+  TypeWithInheritedMembersInjection typeWithInheritedMembersInjection();
 }
