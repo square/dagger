@@ -153,13 +153,26 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
   @AutoValue static abstract class MemberSelect {
     static MemberSelect instanceSelect(ClassName owningClass, Snippet snippet) {
-      return new AutoValue_ComponentGenerator_MemberSelect(owningClass, false, snippet);
+      return new AutoValue_ComponentGenerator_MemberSelect(
+          Optional.<TypeName> absent(), owningClass, false, snippet);
     }
 
     static MemberSelect staticSelect(ClassName owningClass, Snippet snippet) {
-      return new AutoValue_ComponentGenerator_MemberSelect(owningClass, true, snippet);
+      return new AutoValue_ComponentGenerator_MemberSelect(
+          Optional.<TypeName> absent(), owningClass, true, snippet);
     }
 
+    static MemberSelect staticMethodInvocationWithCast(
+        ClassName owningClass, Snippet snippet, TypeName castType) {
+      return new AutoValue_ComponentGenerator_MemberSelect(
+          Optional.of(castType), owningClass, true, snippet);
+    }
+
+    /**
+     * This exists only to facilitate edge cases in which we need to select a member, but that
+     * member uses a type parameter that can't be inferred.
+     */
+    abstract Optional<TypeName> selectedCast();
     abstract ClassName owningClass();
     abstract boolean staticMember();
     abstract Snippet snippet();
@@ -168,6 +181,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       return Snippet.format(
           "%s" + (staticMember() ? "" : ".this") + ".%s",
           owningClass(), snippet());
+    }
+
+    Snippet getSnippetWithRawTypeCastFor(ClassName usingClass) {
+      Snippet snippet = getSnippetFor(usingClass);
+      return selectedCast().isPresent()
+          ? Snippet.format("(%s) %s", selectedCast().get(), snippet)
+          : snippet;
     }
 
     Snippet getSnippetFor(ClassName usingClass) {
@@ -479,12 +499,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           MembersInjectionBinding membersInjectionBinding =
               Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
           if (membersInjectionBinding.injectionStrategy().equals(NO_OP)) {
-            // TODO(gak): refactory to use enumBindingKeys throughout the generator
+            // TODO(gak): refactor to use enumBindingKeys throughout the generator
             enumBindingKeysBuilder.add(bindingKey);
+            // TODO(gak): suppress the warnings in a reasonable place
             memberSelectSnippetsBuilder.put(bindingKey,
-                MemberSelect.staticSelect(
+                MemberSelect.staticMethodInvocationWithCast(
                     ClassName.fromClass(MembersInjectors.class),
-                    Snippet.format("noOp()")));
+                    Snippet.format("noOp()"),
+                    ClassName.fromClass(MembersInjector.class)));
             continue;
           }
         }
@@ -604,7 +626,10 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
             interfaceMethod.body()
                 .addSnippet("%s.injectMembers(%s);",
-                    membersInjectorSelect.getSnippetFor(componentWriter.name()), parameterName);
+                    // in this case we know we won't need the cast because we're never going to pass
+                    // the reference to anything
+                    membersInjectorSelect.getSnippetFor(componentWriter.name()),
+                    parameterName);
             if (!requestElement.getReturnType().getKind().equals(VOID)) {
               interfaceMethod.body().addSnippet("return %s;", parameterName);
             }
@@ -765,8 +790,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           case MEMBERS_INJECTION:
             MembersInjectionBinding binding = Iterables.getOnlyElement(
                 input.resolvedBindings().get(bindingKey).membersInjectionBindings());
-            if (!binding.injectionSites().isEmpty()
-                || binding.parentInjectorRequest().isPresent()) {
+            if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
               initializeMethod.body().addSnippet("this.%s = %s;",
                   memberSelectSnippet,
                   initializeMembersInjectorForBinding(
@@ -946,22 +970,17 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           parameters.add(contributionFields.get(binding.contributedBy().get())
               .getSnippetFor(componentName));
         }
-        if (binding.memberInjectionRequest().isPresent()) {
-          parameters.add(memberSelectSnippets.get(
-              BindingKey.forDependencyRequest(binding.memberInjectionRequest().get()))
-                  .getSnippetFor(componentName));
-        }
-        parameters.addAll(getDependencyParameters(componentName, binding.dependencies(),
+        parameters.addAll(getDependencyParameters(componentName, binding.implicitDependencies(),
             memberSelectSnippets));
 
+        Snippet factorySnippet = Snippet.format("%s.create(%s)",
+            factoryNameForProvisionBinding(binding),
+            Snippet.makeParametersSnippet(parameters));
         return binding.scope().isPresent()
-            ? Snippet.format("%s.create(%s.create(%s))",
+            ? Snippet.format("%s.create(%s)",
                 ClassName.fromClass(ScopedProvider.class),
-                factoryNameForProvisionBinding(binding),
-                Snippet.makeParametersSnippet(parameters))
-            : Snippet.format("%s.create(%s)",
-                factoryNameForProvisionBinding(binding),
-                Snippet.makeParametersSnippet(parameters));
+                factorySnippet)
+            : factorySnippet;
       default:
         throw new AssertionError();
     }
@@ -1024,7 +1043,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       case INJECT_MEMBERS:
         List<Snippet> parameters = getDependencyParameters(
             componentName,
-            Sets.union(binding.parentInjectorRequest().asSet(), binding.dependencies()),
+            binding.implicitDependencies(),
             memberSelectSnippets);
         return Snippet.format("%s.create(%s)",
             membersInjectorNameForMembersInjectionBinding(binding),
@@ -1048,7 +1067,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             }
           })
           .toSet());
-      parameters.add(memberSelectSnippets.get(key).getSnippetFor(componentName));
+      parameters.add(memberSelectSnippets.get(key).getSnippetWithRawTypeCastFor(componentName));
     }
     return parameters.build();
   }

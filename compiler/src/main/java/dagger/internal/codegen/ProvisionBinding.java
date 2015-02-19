@@ -23,10 +23,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import dagger.Component;
 import dagger.Provides;
-import dagger.Subcomponent;
-import dagger.producers.ProductionComponent;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -65,8 +62,8 @@ abstract class ProvisionBinding extends ContributionBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
-        .addAll(dependencies())
         .addAll(memberInjectionRequest().asSet())
+        .addAll(dependencies())
         .build();
   }
 
@@ -194,7 +191,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           membersInjectionRequest(enclosingCxtorType);
       Optional<AnnotationMirror> scope =
           getScopeAnnotation(constructorElement.getEnclosingElement());
-      
+
       TypeElement bindingTypeElement =
           MoreElements.asType(constructorElement.getEnclosingElement());
 

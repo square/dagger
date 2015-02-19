@@ -234,8 +234,8 @@ abstract class MembersInjectionBinding extends Binding {
           key,
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
-              .addAll(dependencies)
               .addAll(parentInjectorRequest.asSet())
+              .addAll(dependencies)
               .build(),
           findBindingPackage(key),
           hasNonDefaultTypeParameters(typeElement, key.type(), types),
