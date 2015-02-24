@@ -28,8 +28,10 @@ import java.lang.annotation.Target;
 public @interface Module {
   /**
    * Returns classes that object graphs created with this module must be able to
-   * inject. This includes both classes passed to {@link ObjectGraph#get} and
-   * the types of instances passed {@link ObjectGraph#inject}.
+   * inject. This includes both classes passed to {@link ObjectGraph#get}, 
+   * the types of instances passed {@link ObjectGraph#inject} and 
+   * {@link javax.inject.Inject} annotated classes that need to be scoped to the 
+   * resulting object graphs.
    *
    * <p>It is an error to call {@link ObjectGraph#get} or {@link
    * ObjectGraph#inject} with a type that isn't listed in the {@code injects}
