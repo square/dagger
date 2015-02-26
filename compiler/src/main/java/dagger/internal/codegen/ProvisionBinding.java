@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Provides;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -120,6 +121,16 @@ abstract class ProvisionBinding extends ContributionBinding {
       default:
         throw new IllegalStateException("Unknown provision type: " + provisionType());
     }
+  }
+
+  @Override
+  boolean isSyntheticBinding() {
+    return bindingKind().equals(Kind.SYNTHETIC_PROVISON);
+  }
+
+  @Override
+  Class<?> frameworkClass() {
+    return Provider.class;
   }
 
   enum FactoryCreationStrategy {

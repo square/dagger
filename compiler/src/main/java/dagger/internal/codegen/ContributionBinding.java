@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import java.util.EnumSet;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 
@@ -49,7 +50,7 @@ abstract class ContributionBinding extends Binding {
   }
 
   abstract BindingType bindingType();
-  
+
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
 
@@ -60,6 +61,20 @@ abstract class ContributionBinding extends Binding {
    * be the superclass.
    */
   abstract Optional<TypeElement> contributedBy();
+
+  /**
+   * Returns whether this binding is synthetic, i.e., not explicitly tied to code, but generated
+   * implicitly by the framework.
+   */
+  // TODO(user): Remove the SYNTHETIC enums from ProvisionBinding and ProductionBinding and make
+  // this field the source of truth for synthetic bindings.
+  abstract boolean isSyntheticBinding();
+
+  /**
+   * Returns the framework class associated with this binding, e.g., {@link Provider} for a
+   * ProvisionBinding.
+   */
+  abstract Class<?> frameworkClass();
 
   /**
    * Returns the set of {@link BindingType} enum values implied by a given
