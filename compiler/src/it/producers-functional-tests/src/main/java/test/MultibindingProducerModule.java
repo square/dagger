@@ -36,7 +36,7 @@ final class MultibindingProducerModule {
   }
 
   @Produces(type = SET_VALUES) ListenableFuture<Set<String>> futureStrs() {
-    return Futures.immediateFuture(ImmutableSet.of("foo1", "foo2"));
+    return Futures.immediateFuture((Set<String>) ImmutableSet.of("foo1", "foo2"));
   }
 
   @Produces(type = SET_VALUES) Set<String> strs() {
