@@ -30,7 +30,7 @@ import static java.util.Arrays.asList;
 @RunWith(JUnit4.class)
 public final class PrimitiveInjectionTest {
 
-  // TODO(user): Use @test.ForTest to qualify primitives once qualifier equivalence is working.
+  // TODO(cgruber): Use @test.ForTest to qualify primitives once qualifier equivalence is working.
   /*
   JavaFileObject annotation = JavaFileObjects.forSourceLines("test.ForTest",
       "package test;",
@@ -40,7 +40,7 @@ public final class PrimitiveInjectionTest {
       "}");
   */
 
-  // TODO(user): Expand test to support more primitive types when b/15512877 is fixed.
+  // TODO(cgruber): Expand test to support more primitive types when b/15512877 is fixed.
   JavaFileObject primitiveInjectable = JavaFileObjects.forSourceLines("test.PrimitiveInjectable",
       "package test;",
       "import javax.inject.Inject;",

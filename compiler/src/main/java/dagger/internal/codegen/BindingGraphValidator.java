@@ -682,7 +682,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     DependencyRequest rootRequest = path.getLast().request();
     TypeElement componentType =
         MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
-    // TODO(user): Restructure to provide a hint for the start and end of the cycle.
+    // TODO(cgruber): Restructure to provide a hint for the start and end of the cycle.
     reportBuilder.addItem(
         String.format(ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
             componentType.getQualifiedName(),

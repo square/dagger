@@ -26,10 +26,10 @@ final class KeyFormatter extends Formatter<Key> {
   @Override public String format(Key request) {
     StringBuilder builder = new StringBuilder();
     if (request.qualifier().isPresent()) {
-      builder.append(request.qualifier()); // TODO(user): Use AnnotationMirrorFormatter.
+      builder.append(request.qualifier()); // TODO(cgruber): Use AnnotationMirrorFormatter.
       builder.append(' ');
     }
-    builder.append(request.type()); // TODO(user): Use TypeMirrorFormatter.
+    builder.append(request.type()); // TODO(cgruber): Use TypeMirrorFormatter.
     return builder.toString();
   }
 }

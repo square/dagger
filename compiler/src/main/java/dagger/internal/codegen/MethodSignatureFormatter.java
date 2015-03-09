@@ -62,7 +62,7 @@ final class MethodSignatureFormatter extends Formatter<ExecutableElement> {
       type = MoreElements.asType(container.get().asElement());
     }
 
-    // TODO(user): AnnotationMirror formatter.
+    // TODO(cgruber): AnnotationMirror formatter.
     List<? extends AnnotationMirror> annotations = method.getAnnotationMirrors();
     if (!annotations.isEmpty()) {
       Iterator<? extends AnnotationMirror> annotationIterator = annotations.iterator();

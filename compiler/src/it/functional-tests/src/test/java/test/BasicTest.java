@@ -63,6 +63,18 @@ public class BasicTest {
     assertThat(basicComponent.getBoxedDouble()).isEqualTo(new Double(BOUND_DOUBLE));
   }
 
+  @Test public void boxedPrimitiveProviders() {
+    BasicComponent basicComponent = Dagger_BasicComponent.create();
+    assertThat(basicComponent.getByteProvider().get()).isEqualTo(new Byte(BOUND_BYTE));
+    assertThat(basicComponent.getCharProvider().get()).isEqualTo(new Character(BOUND_CHAR));
+    assertThat(basicComponent.getShortProvider().get()).isEqualTo(new Short(BOUND_SHORT));
+    assertThat(basicComponent.getIntProvider().get()).isEqualTo(new Integer(BOUND_INT));
+    assertThat(basicComponent.getLongProvider().get()).isEqualTo(new Long(BOUND_LONG));
+    assertThat(basicComponent.getBooleanProvider().get()).isEqualTo(new Boolean(BOUND_BOOLEAN));
+    assertThat(basicComponent.getFloatProvider().get()).isEqualTo(new Float(BOUND_FLOAT));
+    assertThat(basicComponent.getDoubleProvider().get()).isEqualTo(new Double(BOUND_DOUBLE));
+  }
+
   @Test public void primitiveArrays() {
     BasicComponent basicComponent = Dagger_BasicComponent.create();
     assertThat(basicComponent.getByteArray()).isSameAs(BOUND_BYTE_ARRAY);
@@ -73,6 +85,18 @@ public class BasicTest {
     assertThat(basicComponent.getBooleanArray()).isSameAs(BOUND_BOOLEAN_ARRAY);
     assertThat(basicComponent.getFloatArray()).isSameAs(BOUND_FLOAT_ARRAY);
     assertThat(basicComponent.getDoubleArray()).isSameAs(BOUND_DOUBLE_ARRAY);
+  }
+
+  @Test public void primitiveArrayProviders() {
+    BasicComponent basicComponent = Dagger_BasicComponent.create();
+    assertThat(basicComponent.getByteArrayProvider().get()).isSameAs(BOUND_BYTE_ARRAY);
+    assertThat(basicComponent.getCharArrayProvider().get()).isSameAs(BOUND_CHAR_ARRAY);
+    assertThat(basicComponent.getShortArrayProvider().get()).isSameAs(BOUND_SHORT_ARRAY);
+    assertThat(basicComponent.getIntArrayProvider().get()).isSameAs(BOUND_INT_ARRAY);
+    assertThat(basicComponent.getLongArrayProvider().get()).isSameAs(BOUND_LONG_ARRAY);
+    assertThat(basicComponent.getBooleanArrayProvider().get()).isSameAs(BOUND_BOOLEAN_ARRAY);
+    assertThat(basicComponent.getFloatArrayProvider().get()).isSameAs(BOUND_FLOAT_ARRAY);
+    assertThat(basicComponent.getDoubleArrayProvider().get()).isSameAs(BOUND_DOUBLE_ARRAY);
   }
 
   @Test public void noOpMembersInjection() {

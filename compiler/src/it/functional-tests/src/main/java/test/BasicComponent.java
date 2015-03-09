@@ -16,6 +16,7 @@
 package test;
 
 import dagger.Component;
+import javax.inject.Provider;
 
 @Component(modules = PrimitivesModule.class)
 interface BasicComponent {
@@ -37,6 +38,15 @@ interface BasicComponent {
   Float getBoxedFloat();
   Double getBoxedDouble();
 
+  Provider<Byte> getByteProvider();
+  Provider<Character> getCharProvider();
+  Provider<Short> getShortProvider();
+  Provider<Integer> getIntProvider();
+  Provider<Long> getLongProvider();
+  Provider<Boolean> getBooleanProvider();
+  Provider<Float> getFloatProvider();
+  Provider<Double> getDoubleProvider();
+
   byte[] getByteArray();
   char[] getCharArray();
   short[] getShortArray();
@@ -45,6 +55,15 @@ interface BasicComponent {
   boolean[] getBooleanArray();
   float[] getFloatArray();
   double[] getDoubleArray();
+
+  Provider<byte[]> getByteArrayProvider();
+  Provider<char[]> getCharArrayProvider();
+  Provider<short[]> getShortArrayProvider();
+  Provider<int[]> getIntArrayProvider();
+  Provider<long[]> getLongArrayProvider();
+  Provider<boolean[]> getBooleanArrayProvider();
+  Provider<float[]> getFloatArrayProvider();
+  Provider<double[]> getDoubleArrayProvider();
 
   Object noOpMembersInjection(Object obviouslyDoesNotHaveMembersToInject);
 

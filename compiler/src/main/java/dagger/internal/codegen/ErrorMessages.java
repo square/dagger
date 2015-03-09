@@ -240,7 +240,7 @@ final class ErrorMessages {
    * (and possibly parameterized) type, and should NOT be used with
    * arbitrary text, especially prose error messages.
    *
-   * TODO(user): Tighten these to take type representations (mirrors
+   * TODO(cgruber): Tighten these to take type representations (mirrors
    *     and elements) to avoid accidental mis-use by running errors
    *     through this method.
    */
@@ -260,7 +260,7 @@ final class ErrorMessages {
     return result.toString();
   }
 
-  //TODO(user): Extract Formatter and do something less stringy.
+  //TODO(cgruber): Extract Formatter and do something less stringy.
   static String format(AnnotationMirror annotation) {
     return stripCommonTypePrefixes(annotation.toString());
   }

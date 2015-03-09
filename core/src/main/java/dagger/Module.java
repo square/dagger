@@ -93,6 +93,6 @@ public @interface Module {
    * this property and it is present for compatibility with Dagger 1.x during
    * migrations.
    */
-  // TODO(user): Deprecate this property.
+  // TODO(cgruber): Deprecate this property.
   boolean library() default true;
 }
