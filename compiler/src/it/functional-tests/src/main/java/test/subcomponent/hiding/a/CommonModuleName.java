@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.subcomponent.hiding.a;
 
-import dagger.Subcomponent;
-import java.util.Set;
-import javax.inject.Provider;
+import dagger.Module;
+import dagger.Provides;
 
-@Subcomponent(modules = GrandchildModule.class)
-interface GrandchildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
-
-  RequiresSingleton requiresSingleton();
-
-  Set<Object> objectSet();
+@Module
+public class CommonModuleName {
+  @Provides String provideString() {
+    return "a";
+  }
 }

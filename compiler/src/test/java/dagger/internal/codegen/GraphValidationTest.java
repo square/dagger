@@ -34,7 +34,7 @@ public class GraphValidationTest {
   private final JavaFileObject NULLABLE = JavaFileObjects.forSourceLines("test.Nullable",
       "package test;",
       "public @interface Nullable {}");
-  
+
   @Test public void componentOnConcreteClass() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.MyComponent",
         "package test;",
@@ -547,8 +547,8 @@ public class GraphValidationTest {
         + "          [parameter: test.TestClass.DImpl impl]\n"
         + "      test.TestClass.DImpl.<init>(test.TestClass.C c, test.TestClass.B b)\n"
         + "          [parameter: test.TestClass.C c]\n"
-        + "      test.TestClass.C.<init>(test.TestClass.B b)\n"
-        + "          [parameter: test.TestClass.B b]\n"
+        + "      test.TestClass.C.b\n"
+        + "          [injected field of type: test.TestClass.B b]\n"
         + "      test.TestClass.B.<init>(test.TestClass.A a)\n"
         + "          [parameter: test.TestClass.A a]";
     String secondError = errorText
@@ -562,7 +562,7 @@ public class GraphValidationTest {
         .withErrorContaining(firstError).in(component).onLine(33)
         .and().withErrorContaining(secondError).in(component).onLine(34);
   }
-  
+
   @Test public void resolvedParametersInDependencyTrace() {
     JavaFileObject generic = JavaFileObjects.forSourceLines("test.Generic",
         "package test;",
@@ -601,18 +601,18 @@ public class GraphValidationTest {
         "}");
     String expectedMsg = Joiner.on("\n").join(
         "java.util.List cannot be provided without an @Provides-annotated method.",
-        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)", 
-        "          [parameter: test.Generic<test.TestClass> genericTestClass]", 
-        "      test.Generic.<init>(test.TestClass t)", 
-        "          [parameter: test.TestClass t]", 
-        "      test.TestClass.<init>(java.util.List list)", 
+        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)",
+        "          [parameter: test.Generic<test.TestClass> genericTestClass]",
+        "      test.Generic.<init>(test.TestClass t)",
+        "          [parameter: test.TestClass t]",
+        "      test.TestClass.<init>(java.util.List list)",
         "          [parameter: java.util.List list]");
     assertAbout(javaSources()).that(ImmutableList.of(generic, testClass, usesTest, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedMsg);
   }
-  
+
   @Test public void resolvedVariablesInDependencyTrace() {
     JavaFileObject generic = JavaFileObjects.forSourceLines("test.Generic",
         "package test;",
@@ -652,18 +652,18 @@ public class GraphValidationTest {
         "}");
     String expectedMsg = Joiner.on("\n").join(
         "java.util.List cannot be provided without an @Provides-annotated method.",
-        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)", 
-        "          [parameter: test.Generic<test.TestClass> genericTestClass]", 
+        "      test.UsesTest.<init>(test.Generic<test.TestClass> genericTestClass)",
+        "          [parameter: test.Generic<test.TestClass> genericTestClass]",
         "      test.Generic.t",
-        "          [injected field of type: test.TestClass t]", 
-        "      test.TestClass.<init>(java.util.List list)", 
+        "          [injected field of type: test.TestClass t]",
+        "      test.TestClass.<init>(java.util.List list)",
         "          [parameter: java.util.List list]");
     assertAbout(javaSources()).that(ImmutableList.of(generic, testClass, usesTest, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(expectedMsg);
   }
-  
+
   @Test public void nullCheckForConstructorParameters() {
     JavaFileObject a = JavaFileObjects.forSourceLines("test.A",
         "package test;",

@@ -33,7 +33,7 @@ import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULES_MUST_NOT_
 public class ComponentProcessorTest {
   private static final StringLiteral NPE_LITERAL =
       StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
-  
+
   @Test public void componentOnConcreteClass() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.NotAComponent",
         "package test;",
@@ -1122,8 +1122,6 @@ public class ComponentProcessorTest {
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class Dagger_SimpleComponent implements SimpleComponent {",
-        "  private MembersInjector<AbstractGenericType<String>> abstractGenericTypeMembersInjector;",
-        "  private MembersInjector<SomeInjectableType> someInjectableTypeMembersInjector;",
         "  private Provider<SomeInjectableType> someInjectableTypeProvider;",
         "",
         "  private Dagger_SimpleComponent(Builder builder) {",
@@ -1140,11 +1138,8 @@ public class ComponentProcessorTest {
         "  }",
         "",
         "  private void initialize() {",
-        "    this.abstractGenericTypeMembersInjector = MembersInjectors.noOp();",
-        "    this.someInjectableTypeMembersInjector = MembersInjectors.delegatingTo(",
-        "        abstractGenericTypeMembersInjector);",
         "    this.someInjectableTypeProvider =",
-        "        SomeInjectableType$$Factory.create(someInjectableTypeMembersInjector);",
+        "        SomeInjectableType$$Factory.create((MembersInjector) MembersInjectors.noOp());",
         "  }",
         "",
         "  @Override",
@@ -1742,7 +1737,7 @@ public class ComponentProcessorTest {
         .withErrorContaining(
             "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
- 
+
   @Test
   @Ignore // modify this test as necessary while debugging for your situation.
   @SuppressWarnings("unused")

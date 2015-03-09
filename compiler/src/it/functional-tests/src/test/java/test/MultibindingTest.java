@@ -16,6 +16,7 @@
 package test;
 
 import java.util.Map;
+import javax.inject.Provider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,5 +31,12 @@ public class MultibindingTest {
     assertThat(map).hasSize(2);
     assertThat(map).containsEntry("foo", "foo value");
     assertThat(map).containsEntry("bar", "bar value");
+    Map<String, Provider<String>> mapOfProviders = multibindingComponent.mapOfProviders();
+    assertThat(mapOfProviders).hasSize(2);
+    assertThat(mapOfProviders.get("foo").get()).isEqualTo("foo value");
+    assertThat(mapOfProviders.get("bar").get()).isEqualTo("bar value");
+    assertThat(multibindingComponent.mapKeys()).containsExactly("foo", "bar");
+    assertThat(multibindingComponent.mapValues()).containsExactly("foo value", "bar value");
+    assertThat(multibindingComponent.set()).containsExactly(5, 6);
   }
 }

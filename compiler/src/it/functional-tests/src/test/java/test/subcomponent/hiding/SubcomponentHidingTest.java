@@ -13,17 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.subcomponent.hiding;
 
-import dagger.Subcomponent;
-import java.util.Set;
-import javax.inject.Provider;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-@Subcomponent(modules = GrandchildModule.class)
-interface GrandchildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
+import static com.google.common.truth.Truth.assertThat;
 
-  RequiresSingleton requiresSingleton();
-
-  Set<Object> objectSet();
+@RunWith(JUnit4.class)
+public class SubcomponentHidingTest {
+  @Test public void moduleNameHiding() {
+    ParentComponent parent = Dagger_ParentComponent.create();
+    assertThat(parent.aCommonName().toString()).isEqualTo("a");
+    assertThat(parent.newChildComponent().aCommonName().toString()).isEqualTo("a");
+    assertThat(parent.newChildComponent().bCommonName().toString()).isEqualTo("1");
+  }
 }

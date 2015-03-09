@@ -45,12 +45,14 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.DELEGATE;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
@@ -190,8 +192,7 @@ abstract class BindingGraph {
 
       ImmutableSet<DependencyRequest> componentMethodRequests =
           componentMethodRequests(componentMethods);
-      for (DependencyRequest componentMethodRequest :
-          componentMethodRequests) {
+      for (DependencyRequest componentMethodRequest : componentMethodRequests) {
         requestResolver.resolve(componentMethodRequest);
       }
 
@@ -336,12 +337,25 @@ abstract class BindingGraph {
             }
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
-            MembersInjectionBinding membersInjectionBinding =
-                injectBindingRegistry.getOrFindMembersInjectionBinding(bindingKey.key());
-            return Optional.of(ImmutableSet.of(membersInjectionBinding));
+            return Optional.of(ImmutableSet.of(rollUpMembersInjectionBindings(bindingKey.key())));
           default:
             throw new AssertionError();
         }
+      }
+
+      private MembersInjectionBinding rollUpMembersInjectionBindings(Key key) {
+        MembersInjectionBinding membersInjectionBinding =
+            injectBindingRegistry.getOrFindMembersInjectionBinding(key);
+
+        if (membersInjectionBinding.injectionStrategy().equals(DELEGATE)) {
+          MembersInjectionBinding parentBinding = rollUpMembersInjectionBindings(
+              membersInjectionBinding.parentInjectorRequest().get().key());
+          if (parentBinding.injectionStrategy().equals(NO_OP)) {
+            return membersInjectionBinding.withoutParentInjectorRequest();
+          }
+        }
+
+        return membersInjectionBinding;
       }
 
       private Optional<RequestResolver> getOwningResolver(ProvisionBinding provisionBinding) {
@@ -383,11 +397,28 @@ abstract class BindingGraph {
         return explicitBindingsForKey.build();
       }
 
+      private Optional<ResolvedBindings> getPreviouslyResolvedBindings(
+          final BindingKey bindingKey) {
+        Optional<ResolvedBindings> result = Optional.fromNullable(resolvedBindings.get(bindingKey));
+        if (result.isPresent()) {
+          return result;
+        } else if (parentResolver.isPresent()) {
+          return parentResolver.get().getPreviouslyResolvedBindings(bindingKey);
+        } else {
+          return Optional.absent();
+        }
+      }
+
       void resolve(DependencyRequest request) {
         BindingKey bindingKey = BindingKey.forDependencyRequest(request);
 
-        ResolvedBindings previouslyResolvedBinding = resolvedBindings.get(bindingKey);
-        if (previouslyResolvedBinding != null) {
+        Optional<ResolvedBindings> previouslyResolvedBinding =
+            getPreviouslyResolvedBindings(bindingKey);
+        if (previouslyResolvedBinding.isPresent()
+            && !(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
+                && !previouslyResolvedBinding.get().contributionBindings().isEmpty()
+                && ContributionBinding.bindingTypeFor(
+                    previouslyResolvedBinding.get().contributionBindings()).isMultibinding())) {
           return;
         }
 
@@ -402,18 +433,14 @@ abstract class BindingGraph {
           Optional<? extends ImmutableSet<? extends Binding>> bindings = lookUpBindings(request);
           if (bindings.isPresent()) {
             for (Binding binding : bindings.get()) {
-              resolveDependencies(binding.implicitDependencies());
+              for (DependencyRequest dependency : binding.implicitDependencies()) {
+                resolve(dependency);
+              }
             }
             resolvedBindings.put(bindingKey, ResolvedBindings.create(bindingKey, bindings.get()));
           }
         } finally {
           cycleStack.pop();
-        }
-      }
-
-      private void resolveDependencies(Iterable<DependencyRequest> dependencies) {
-        for (DependencyRequest dependency : dependencies) {
-          resolve(dependency);
         }
       }
     }

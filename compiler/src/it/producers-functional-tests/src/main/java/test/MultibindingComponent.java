@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test;
 
-import dagger.Subcomponent;
+import com.google.common.util.concurrent.ListenableFuture;
+import dagger.producers.ProductionComponent;
 import java.util.Set;
-import javax.inject.Provider;
 
-@Subcomponent(modules = GrandchildModule.class)
-interface GrandchildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
-
-  RequiresSingleton requiresSingleton();
-
-  Set<Object> objectSet();
+@ProductionComponent(modules = MultibindingProducerModule.class)
+interface MultibindingComponent {
+  ListenableFuture<Set<String>> strs();
+  ListenableFuture<Integer> strCount();
 }

@@ -120,6 +120,8 @@ final class ProducesMethodValidator implements Validator<ExecutableElement> {
           producesMethodElement);
     }
 
+    ProvidesMethodValidator.validateMethodQualifiers(builder, producesMethodElement);
+
     switch (producesAnnotation.type()) {
       case UNIQUE: // fall through
       case SET:

@@ -60,6 +60,34 @@ abstract class MembersInjectionBinding extends Binding {
 
   abstract Optional<DependencyRequest> parentInjectorRequest();
 
+  enum Strategy {
+    NO_OP,
+    DELEGATE,
+    INJECT_MEMBERS,
+  }
+
+  Strategy injectionStrategy() {
+    if (injectionSites().isEmpty()) {
+      return parentInjectorRequest().isPresent()
+          ? Strategy.DELEGATE
+          : Strategy.NO_OP;
+    } else {
+      return Strategy.INJECT_MEMBERS;
+    }
+  }
+
+  MembersInjectionBinding withoutParentInjectorRequest() {
+    return new AutoValue_MembersInjectionBinding(
+          key(),
+          dependencies(),
+          implicitDependencies(),
+          bindingPackage(),
+          hasNonDefaultTypeParameters(),
+          bindingElement(),
+          injectionSites(),
+          Optional.<DependencyRequest>absent());
+  }
+
   private static final Ordering<InjectionSite> INJECTION_ORDERING =
       new Ordering<InjectionSite>() {
         @Override
@@ -206,8 +234,8 @@ abstract class MembersInjectionBinding extends Binding {
           key,
           dependencies,
           new ImmutableSet.Builder<DependencyRequest>()
-              .addAll(dependencies)
               .addAll(parentInjectorRequest.asSet())
+              .addAll(dependencies)
               .build(),
           findBindingPackage(key),
           hasNonDefaultTypeParameters(typeElement, key.type(), types),

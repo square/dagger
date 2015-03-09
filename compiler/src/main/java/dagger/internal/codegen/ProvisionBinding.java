@@ -23,11 +23,9 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import dagger.Component;
 import dagger.Provides;
-import dagger.Subcomponent;
-import dagger.producers.ProductionComponent;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -65,8 +63,8 @@ abstract class ProvisionBinding extends ContributionBinding {
   @Override
   ImmutableSet<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
-        .addAll(dependencies())
         .addAll(memberInjectionRequest().asSet())
+        .addAll(dependencies())
         .build();
   }
 
@@ -123,6 +121,16 @@ abstract class ProvisionBinding extends ContributionBinding {
       default:
         throw new IllegalStateException("Unknown provision type: " + provisionType());
     }
+  }
+
+  @Override
+  boolean isSyntheticBinding() {
+    return bindingKind().equals(Kind.SYNTHETIC_PROVISON);
+  }
+
+  @Override
+  Class<?> frameworkClass() {
+    return Provider.class;
   }
 
   enum FactoryCreationStrategy {
@@ -194,7 +202,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           membersInjectionRequest(enclosingCxtorType);
       Optional<AnnotationMirror> scope =
           getScopeAnnotation(constructorElement.getEnclosingElement());
-      
+
       TypeElement bindingTypeElement =
           MoreElements.asType(constructorElement.getEnclosingElement());
 

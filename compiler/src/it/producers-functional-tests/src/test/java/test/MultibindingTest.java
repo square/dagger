@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Google, Inc.
+* Copyright (C) 2015 Google, Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 */
 package test;
 
+import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -22,10 +23,13 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
-public class SimpleTest {
-  @Test public void testAThing() {
-    ThingComponent thingComponent = Dagger_ThingComponent.create();
-    assertThat(thingComponent).isNotNull();
-    assertThat(thingComponent.thing()).isNotNull();
+public class MultibindingTest {
+  @Test public void multibinding() throws Exception {
+    MultibindingComponent multibindingComponent = Dagger_MultibindingComponent.builder()
+        .executor(MoreExecutors.directExecutor())
+        .build();
+    assertThat(multibindingComponent.strs().get())
+        .containsExactly("foo", "foo1", "foo2", "bar", "bar1", "bar2");
+    assertThat(multibindingComponent.strCount().get()).isEqualTo(6);
   }
 }

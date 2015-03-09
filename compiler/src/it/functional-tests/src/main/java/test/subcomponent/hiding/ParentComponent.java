@@ -13,17 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.subcomponent.hiding;
 
-import dagger.Subcomponent;
-import java.util.Set;
-import javax.inject.Provider;
+import dagger.Component;
+import javax.inject.Singleton;
 
-@Subcomponent(modules = GrandchildModule.class)
-interface GrandchildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
+@Component(modules = test.subcomponent.hiding.a.CommonModuleName.class)
+@Singleton
+interface ParentComponent {
+  // ensure that t.s.h.a.CommonName gets bound in this component
+  test.subcomponent.hiding.a.CommonName aCommonName();
 
-  RequiresSingleton requiresSingleton();
-
-  Set<Object> objectSet();
+  ChildComponent newChildComponent();
 }

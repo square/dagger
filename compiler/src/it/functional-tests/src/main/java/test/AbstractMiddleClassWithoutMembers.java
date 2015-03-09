@@ -13,17 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test;
 
-import dagger.Subcomponent;
-import java.util.Set;
-import javax.inject.Provider;
-
-@Subcomponent(modules = GrandchildModule.class)
-interface GrandchildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
-
-  RequiresSingleton requiresSingleton();
-
-  Set<Object> objectSet();
+abstract class AbstractMiddleClassWithoutMembers extends AbstractMembersInjectingBaseClass {
 }
+

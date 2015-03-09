@@ -16,9 +16,16 @@
 package test;
 
 import dagger.Component;
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
+import javax.inject.Provider;
 
 @Component(modules = MultibindingModule.class)
 interface MultibindingComponent {
   Map<String, String> map();
+  Map<String, Provider<String>> mapOfProviders();
+  Set<String> mapKeys();
+  Collection<String> mapValues();
+  Set<Integer> set();
 }
