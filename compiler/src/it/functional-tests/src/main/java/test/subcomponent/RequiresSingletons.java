@@ -17,14 +17,21 @@ package test.subcomponent;
 
 import javax.inject.Inject;
 
-final class RequiresSingleton {
+final class RequiresSingletons {
   private final SingletonType singletonType;
+  private final UnscopedType unscopedTypeBoundAsSingleton;
 
-  @Inject RequiresSingleton(SingletonType singletonType) {
+  @Inject RequiresSingletons(SingletonType singletonType,
+      @BoundAsSingleton UnscopedType unscopedTypeBoundAsSingleton) {
     this.singletonType = singletonType;
+    this.unscopedTypeBoundAsSingleton = unscopedTypeBoundAsSingleton;
   }
 
   SingletonType singletonType() {
     return singletonType;
+  }
+
+  UnscopedType unscopedTypeBoundAsSingleton() {
+    return unscopedTypeBoundAsSingleton;
   }
 }

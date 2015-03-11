@@ -38,4 +38,9 @@ final class ParentModule {
       }
     };
   }
+
+  @Provides @Singleton @BoundAsSingleton UnscopedType provideUnscopedTypeBoundAsSingleton(
+      UnscopedType unscopedType) {
+    return unscopedType;
+  }
 }

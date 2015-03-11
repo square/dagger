@@ -23,7 +23,7 @@ import javax.inject.Provider;
 interface GrandchildComponent {
   Provider<UnscopedType> getUnscopedTypeProvider();
 
-  RequiresSingleton requiresSingleton();
+  RequiresSingletons requiresSingleton();
 
   Set<Object> objectSet();
 }

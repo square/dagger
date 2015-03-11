@@ -474,129 +474,155 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       Map<ContributionBinding, Snippet> parentMultibindingContributionSnippetsBuilder,
       Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder,
       ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder,
-      Map<String, ProxyClassAndField> packageProxies) throws AssertionError {
+      Map<String, ProxyClassAndField> packageProxies) {
     for (ResolvedBindings resolvedBindings : input.resolvedBindings().values()) {
-      BindingKey bindingKey = resolvedBindings.bindingKey();
-
-      if (resolvedBindings.bindings().size() == 1) {
-        if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-          ContributionBinding contributionBinding =
-              Iterables.getOnlyElement(resolvedBindings.contributionBindings());
-          if (contributionBinding instanceof ProvisionBinding) {
-            ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
-            if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
-                && !provisionBinding.scope().isPresent()) {
-              enumBindingKeysBuilder.add(bindingKey);
-              // skip keys whose factories are enum instances and aren't scoped
-              memberSelectSnippetsBuilder.put(bindingKey,
-                  MemberSelect.staticSelect(
-                      factoryNameForProvisionBinding(provisionBinding),
-                      Snippet.format("create()")));
-              continue;
-            }
-          }
-        } else if (bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION)) {
-          MembersInjectionBinding membersInjectionBinding =
-              Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
-          if (membersInjectionBinding.injectionStrategy().equals(NO_OP)) {
-            // TODO(gak): refactor to use enumBindingKeys throughout the generator
-            enumBindingKeysBuilder.add(bindingKey);
-            // TODO(gak): suppress the warnings in a reasonable place
-            memberSelectSnippetsBuilder.put(bindingKey,
-                MemberSelect.staticMethodInvocationWithCast(
-                    ClassName.fromClass(MembersInjectors.class),
-                    Snippet.format("noOp()"),
-                    ClassName.fromClass(MembersInjector.class)));
-            continue;
-          }
-        }
-      }
-
-      String bindingPackage = bindingPackageFor(resolvedBindings.bindings())
-          .or(componentWriter.name().packageName());
-
-      final Optional<String> proxySelector;
-      final TypeWriter classWithFields;
-      final Set<Modifier> fieldModifiers;
-
-      if (bindingPackage.equals(componentWriter.name().packageName())) {
-        // no proxy
-        proxySelector = Optional.absent();
-        // component gets the fields
-        classWithFields = componentWriter;
-        // private fields
-        fieldModifiers = EnumSet.of(PRIVATE);
-      } else {
-        // get or create the proxy
-        ProxyClassAndField proxyClassAndField = packageProxies.get(bindingPackage);
-        if (proxyClassAndField == null) {
-          JavaWriter proxyJavaWriter = JavaWriter.inPackage(bindingPackage);
-          proxyWriters.add(proxyJavaWriter);
-          ClassWriter proxyWriter =
-              proxyJavaWriter.addClass(componentWriter.name().simpleName() + "__PackageProxy");
-          proxyWriter.annotate(Generated.class)
-              .setValue(ComponentProcessor.class.getCanonicalName());
-          proxyWriter.addModifiers(PUBLIC, FINAL);
-          // create the field for the proxy in the component
-          FieldWriter proxyFieldWriter =
-              componentWriter.addField(proxyWriter.name(),
-                  bindingPackage.replace('.', '_') + "_Proxy");
-          proxyFieldWriter.addModifiers(PRIVATE, FINAL);
-          proxyFieldWriter.setInitializer("new %s()", proxyWriter.name());
-          proxyClassAndField = ProxyClassAndField.create(proxyWriter, proxyFieldWriter);
-          packageProxies.put(bindingPackage, proxyClassAndField);
-        }
-        // add the field for the member select
-        proxySelector = Optional.of(proxyClassAndField.proxyFieldWriter().name());
-        // proxy gets the fields
-        classWithFields = proxyClassAndField.proxyWriter();
-        // public fields in the proxy
-        fieldModifiers = EnumSet.of(PUBLIC);
-      }
-
-      if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-        ImmutableSet<? extends ContributionBinding> contributionBindings =
-            resolvedBindings.contributionBindings();
-        if (ContributionBinding.bindingTypeFor(contributionBindings).isMultibinding()) {
-          // note that here we rely on the order of the resolved bindings being from parent to child
-          // otherwise, the numbering wouldn't work
-          int contributionNumber = 0;
-          for (ContributionBinding contributionBinding : contributionBindings) {
-            if (!contributionBinding.isSyntheticBinding()) {
-              contributionNumber++;
-              if (!parentMultibindingContributionSnippetsBuilder.containsKey(contributionBinding)) {
-                FrameworkField contributionBindingField =
-                    frameworkFieldForSyntheticContributionBinding(
-                          bindingKey, contributionNumber, contributionBinding);
-                FieldWriter contributionField = classWithFields.addField(
-                    contributionBindingField.frameworkType(), contributionBindingField.name());
-                contributionField.addModifiers(fieldModifiers);
-
-                ImmutableList<String> contributionSelectTokens = new ImmutableList.Builder<String>()
-                    .addAll(proxySelector.asSet())
-                    .add(contributionField.name())
-                    .build();
-                multibindingContributionSnippetsBuilder.put(contributionBinding,
-                    Snippet.memberSelectSnippet(contributionSelectTokens));
-              }
-            }
-          }
-        }
-      }
-
-      FrameworkField bindingField = frameworkFieldForResolvedBindings(resolvedBindings);
-      FieldWriter frameworkField =
-          classWithFields.addField(bindingField.frameworkType(), bindingField.name());
-      frameworkField.addModifiers(fieldModifiers);
-
-      ImmutableList<String> memberSelectTokens = new ImmutableList.Builder<String>()
-          .addAll(proxySelector.asSet())
-          .add(frameworkField.name())
-          .build();
-      memberSelectSnippetsBuilder.put(bindingKey, MemberSelect.instanceSelect(
-          componentWriter.name(),
-          Snippet.memberSelectSnippet(memberSelectTokens)));
+      writeField(
+          componentWriter,
+          proxyWriters,
+          memberSelectSnippetsBuilder,
+          parentMultibindingContributionSnippetsBuilder,
+          multibindingContributionSnippetsBuilder,
+          enumBindingKeysBuilder,
+          packageProxies,
+          resolvedBindings);
     }
+  }
+
+  private void writeField(
+      ClassWriter componentWriter,
+      Set<JavaWriter> proxyWriters,
+      Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder,
+      Map<ContributionBinding, Snippet> parentMultibindingContributionSnippetsBuilder,
+      Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder,
+      ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder,
+      Map<String, ProxyClassAndField> packageProxies, ResolvedBindings resolvedBindings) {
+    BindingKey bindingKey = resolvedBindings.bindingKey();
+
+    if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
+        && resolvedBindings.ownedContributionBindings().isEmpty()
+        && !ContributionBinding.bindingTypeFor(resolvedBindings.contributionBindings())
+            .isMultibinding()) {
+      return;
+    }
+
+    if (resolvedBindings.bindings().size() == 1) {
+      if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
+        ContributionBinding contributionBinding =
+            Iterables.getOnlyElement(resolvedBindings.contributionBindings());
+        if (contributionBinding instanceof ProvisionBinding) {
+          ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
+          if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+              && !provisionBinding.scope().isPresent()) {
+            enumBindingKeysBuilder.add(bindingKey);
+            // skip keys whose factories are enum instances and aren't scoped
+            memberSelectSnippetsBuilder.put(bindingKey,
+                MemberSelect.staticSelect(
+                    factoryNameForProvisionBinding(provisionBinding),
+                    Snippet.format("create()")));
+            return;
+          }
+        }
+      } else if (bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION)) {
+        MembersInjectionBinding membersInjectionBinding =
+            Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
+        if (membersInjectionBinding.injectionStrategy().equals(NO_OP)) {
+          // TODO(gak): refactor to use enumBindingKeys throughout the generator
+          enumBindingKeysBuilder.add(bindingKey);
+          // TODO(gak): suppress the warnings in a reasonable place
+          memberSelectSnippetsBuilder.put(bindingKey,
+              MemberSelect.staticMethodInvocationWithCast(
+                  ClassName.fromClass(MembersInjectors.class),
+                  Snippet.format("noOp()"),
+                  ClassName.fromClass(MembersInjector.class)));
+          return;
+        }
+      }
+    }
+
+    String bindingPackage = bindingPackageFor(resolvedBindings.bindings())
+        .or(componentWriter.name().packageName());
+
+    final Optional<String> proxySelector;
+    final TypeWriter classWithFields;
+    final Set<Modifier> fieldModifiers;
+
+    if (bindingPackage.equals(componentWriter.name().packageName())) {
+      // no proxy
+      proxySelector = Optional.absent();
+      // component gets the fields
+      classWithFields = componentWriter;
+      // private fields
+      fieldModifiers = EnumSet.of(PRIVATE);
+    } else {
+      // get or create the proxy
+      ProxyClassAndField proxyClassAndField = packageProxies.get(bindingPackage);
+      if (proxyClassAndField == null) {
+        JavaWriter proxyJavaWriter = JavaWriter.inPackage(bindingPackage);
+        proxyWriters.add(proxyJavaWriter);
+        ClassWriter proxyWriter =
+            proxyJavaWriter.addClass(componentWriter.name().simpleName() + "__PackageProxy");
+        proxyWriter.annotate(Generated.class)
+            .setValue(ComponentProcessor.class.getCanonicalName());
+        proxyWriter.addModifiers(PUBLIC, FINAL);
+        // create the field for the proxy in the component
+        FieldWriter proxyFieldWriter =
+            componentWriter.addField(proxyWriter.name(),
+                bindingPackage.replace('.', '_') + "_Proxy");
+        proxyFieldWriter.addModifiers(PRIVATE, FINAL);
+        proxyFieldWriter.setInitializer("new %s()", proxyWriter.name());
+        proxyClassAndField = ProxyClassAndField.create(proxyWriter, proxyFieldWriter);
+        packageProxies.put(bindingPackage, proxyClassAndField);
+      }
+      // add the field for the member select
+      proxySelector = Optional.of(proxyClassAndField.proxyFieldWriter().name());
+      // proxy gets the fields
+      classWithFields = proxyClassAndField.proxyWriter();
+      // public fields in the proxy
+      fieldModifiers = EnumSet.of(PUBLIC);
+    }
+
+    if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
+      ImmutableSet<? extends ContributionBinding> contributionBindings =
+          resolvedBindings.contributionBindings();
+      if (ContributionBinding.bindingTypeFor(contributionBindings).isMultibinding()) {
+        // note that here we rely on the order of the resolved bindings being from parent to child
+        // otherwise, the numbering wouldn't work
+        int contributionNumber = 0;
+        for (ContributionBinding contributionBinding : contributionBindings) {
+          if (!contributionBinding.isSyntheticBinding()) {
+            contributionNumber++;
+            if (!parentMultibindingContributionSnippetsBuilder.containsKey(contributionBinding)) {
+              FrameworkField contributionBindingField =
+                  frameworkFieldForSyntheticContributionBinding(
+                        bindingKey, contributionNumber, contributionBinding);
+              FieldWriter contributionField = classWithFields.addField(
+                  contributionBindingField.frameworkType(), contributionBindingField.name());
+              contributionField.addModifiers(fieldModifiers);
+
+              ImmutableList<String> contributionSelectTokens = new ImmutableList.Builder<String>()
+                  .addAll(proxySelector.asSet())
+                  .add(contributionField.name())
+                  .build();
+              multibindingContributionSnippetsBuilder.put(contributionBinding,
+                  Snippet.memberSelectSnippet(contributionSelectTokens));
+            }
+          }
+        }
+      }
+    }
+
+    FrameworkField bindingField = frameworkFieldForResolvedBindings(resolvedBindings);
+    FieldWriter frameworkField =
+        classWithFields.addField(bindingField.frameworkType(), bindingField.name());
+    frameworkField.addModifiers(fieldModifiers);
+
+    ImmutableList<String> memberSelectTokens = new ImmutableList.Builder<String>()
+        .addAll(proxySelector.asSet())
+        .add(frameworkField.name())
+        .build();
+    memberSelectSnippetsBuilder.put(bindingKey, MemberSelect.instanceSelect(
+        componentWriter.name(),
+        Snippet.memberSelectSnippet(memberSelectTokens)));
   }
 
   private void writeInterfaceMethods(BindingGraph input, ClassWriter componentWriter,
@@ -686,10 +712,11 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       for (BindingKey bindingKey : partitions.get(i)) {
         Snippet memberSelectSnippet =
             memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name());
+        ResolvedBindings resolvedBindings = input.resolvedBindings().get(bindingKey);
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
             ImmutableSet<? extends ContributionBinding> bindings =
-                input.resolvedBindings().get(bindingKey).contributionBindings();
+                resolvedBindings.contributionBindings();
 
             switch (ContributionBinding.bindingTypeFor(bindings)) {
               case SET:
@@ -751,29 +778,31 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 }
                 break;
               case UNIQUE:
-                ContributionBinding binding = Iterables.getOnlyElement(bindings);
-                if (binding instanceof ProvisionBinding) {
-                  ProvisionBinding provisionBinding = (ProvisionBinding) binding;
-                  if (!provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
-                      || provisionBinding.scope().isPresent()) {
+                if (!resolvedBindings.ownedContributionBindings().isEmpty()) {
+                  ContributionBinding binding = Iterables.getOnlyElement(bindings);
+                  if (binding instanceof ProvisionBinding) {
+                    ProvisionBinding provisionBinding = (ProvisionBinding) binding;
+                    if (!provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+                        || provisionBinding.scope().isPresent()) {
+                      initializeMethod.body().addSnippet("this.%s = %s;",
+                          memberSelectSnippet,
+                          initializeFactoryForProvisionBinding(provisionBinding,
+                              componentWriter.name(),
+                              input.componentDescriptor().dependencyMethodIndex(),
+                              componentContributionFields, memberSelectSnippets));
+                    }
+                  } else if (binding instanceof ProductionBinding) {
+                    ProductionBinding productionBinding = (ProductionBinding) binding;
                     initializeMethod.body().addSnippet("this.%s = %s;",
                         memberSelectSnippet,
-                        initializeFactoryForProvisionBinding(provisionBinding,
+                        initializeFactoryForProductionBinding(productionBinding,
+                            input,
                             componentWriter.name(),
                             input.componentDescriptor().dependencyMethodIndex(),
                             componentContributionFields, memberSelectSnippets));
+                  } else {
+                    throw new AssertionError();
                   }
-                } else if (binding instanceof ProductionBinding) {
-                  ProductionBinding productionBinding = (ProductionBinding) binding;
-                  initializeMethod.body().addSnippet("this.%s = %s;",
-                      memberSelectSnippet,
-                      initializeFactoryForProductionBinding(productionBinding,
-                          input,
-                          componentWriter.name(),
-                          input.componentDescriptor().dependencyMethodIndex(),
-                          componentContributionFields, memberSelectSnippets));
-                } else {
-                  throw new AssertionError();
                 }
                 break;
               default:
@@ -782,7 +811,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             break;
           case MEMBERS_INJECTION:
             MembersInjectionBinding binding = Iterables.getOnlyElement(
-                input.resolvedBindings().get(bindingKey).membersInjectionBindings());
+                resolvedBindings.membersInjectionBindings());
             if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
               initializeMethod.body().addSnippet("this.%s = %s;",
                   memberSelectSnippet,

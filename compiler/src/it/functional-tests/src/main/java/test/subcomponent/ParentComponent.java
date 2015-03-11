@@ -25,8 +25,6 @@ import javax.inject.Singleton;
 interface ParentComponent {
   Provider<UnscopedType> getUnscopedTypeProvider();
 
-  SingletonType getSingletonType();
-
   Set<Object> objectSet();
 
   ChildComponent newChildComponent();
