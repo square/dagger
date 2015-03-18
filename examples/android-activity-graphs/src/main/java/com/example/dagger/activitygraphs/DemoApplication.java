@@ -17,12 +17,13 @@ package com.example.dagger.activitygraphs;
 
 import android.app.Application;
 import android.location.LocationManager;
+import javax.inject.Singleton;
 import javax.inject.Inject;
 
 public class DemoApplication extends Application {
   private ApplicationComponent applicationComponent;
 
-  // TODO(user): Figure out a better example of something one might inject into the app.
+  // TODO(cgruber): Figure out a better example of something one might inject into the app.
   @Inject LocationManager locationManager; // to illustrate injecting somethign into the app.
 
   @Override public void onCreate() {

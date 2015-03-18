@@ -205,7 +205,7 @@ public class KeyTest {
     ExecutableElement integerMethod = Iterables.getOnlyElement(
         ElementFilter.methodsIn(boxedPrimitiveHolder.getEnclosedElements()));
 
-    // TODO(user): Truth subject for TypeMirror and TypeElement
+    // TODO(cgruber): Truth subject for TypeMirror and TypeElement
     TypeMirror intType = intMethod.getReturnType();
     assertThat(intType.getKind().isPrimitive()).isTrue();
     TypeMirror integerType = integerMethod.getReturnType();

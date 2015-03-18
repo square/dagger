@@ -26,15 +26,26 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class SubcomponentScopeTest {
   @Test
-  public void singletonPropagatesUpward() {
+  public void scopePropagatesUpward_class() {
     ParentComponent parentComponent = Dagger_ParentComponent.create();
-    SingletonType singletonType = parentComponent.getSingletonType();
     assertThat(parentComponent.newChildComponent().requiresSingleton().singletonType())
-        .isSameAs(singletonType);
+        .isSameAs(parentComponent.newChildComponent().requiresSingleton().singletonType());
+    assertThat(parentComponent.newChildComponent().requiresSingleton().singletonType())
+        .isSameAs(parentComponent.newChildComponent()
+            .newGrandchildComponent().requiresSingleton().singletonType());
+  }
+
+  @Test
+  public void scopePropagatesUpward_provides() {
+    ParentComponent parentComponent = Dagger_ParentComponent.create();
     assertThat(parentComponent.newChildComponent()
-        .newGrandchildComponent()
-        .requiresSingleton().singletonType())
-            .isSameAs(singletonType);
+        .requiresSingleton().unscopedTypeBoundAsSingleton())
+            .isSameAs(parentComponent.newChildComponent()
+                .requiresSingleton().unscopedTypeBoundAsSingleton());
+    assertThat(parentComponent.newChildComponent()
+        .requiresSingleton().unscopedTypeBoundAsSingleton())
+            .isSameAs(parentComponent.newChildComponent().newGrandchildComponent()
+                .requiresSingleton().unscopedTypeBoundAsSingleton());
   }
 
   @Test

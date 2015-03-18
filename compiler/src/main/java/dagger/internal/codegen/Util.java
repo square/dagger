@@ -50,7 +50,7 @@ final class Util {
     return MoreTypes.asDeclared(mapType.getTypeArguments().get(1)).getTypeArguments().get(0);
   }
 
-  // TODO(user): Consider an object that holds and exposes the various parts of a Map type.
+  // TODO(cgruber): Consider an object that holds and exposes the various parts of a Map type.
   /**
    * returns the value type for a {@link Map} type like Map<K, V>}.
    */

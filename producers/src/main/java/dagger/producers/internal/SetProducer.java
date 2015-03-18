@@ -62,7 +62,8 @@ public final class SetProducer<T> extends AbstractProducer<Set<T>> {
    */
   @Override
   public ListenableFuture<Set<T>> compute() {
-    List<ListenableFuture<Set<T>>> futureSets = new ArrayList<>(contributingProducers.size());
+    List<ListenableFuture<Set<T>>> futureSets =
+        new ArrayList<ListenableFuture<Set<T>>>(contributingProducers.size());
     for (Producer<Set<T>> producer : contributingProducers) {
       ListenableFuture<Set<T>> futureSet = producer.get();
       if (futureSet == null) {
@@ -72,7 +73,7 @@ public final class SetProducer<T> extends AbstractProducer<Set<T>> {
     }
     return Futures.transform(Futures.allAsList(futureSets), new Function<List<Set<T>>, Set<T>>() {
       @Override public Set<T> apply(List<Set<T>> sets) {
-        ImmutableSet.Builder<T> builder = new ImmutableSet.Builder<>();
+        ImmutableSet.Builder<T> builder = ImmutableSet.builder();
         for (Set<T> set : sets) {
           builder.addAll(set);
         }

@@ -15,17 +15,13 @@
  */
 package test.subcomponent;
 
-import dagger.Subcomponent;
-import java.util.Set;
-import javax.inject.Provider;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import javax.inject.Qualifier;
 
-@Subcomponent(modules = ChildModule.class)
-interface ChildComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-  RequiresSingletons requiresSingleton();
-
-  Set<Object> objectSet();
-
-  GrandchildComponent newGrandchildComponent();
-}
+@Documented
+@Retention(RUNTIME)
+@Qualifier
+@interface BoundAsSingleton {}

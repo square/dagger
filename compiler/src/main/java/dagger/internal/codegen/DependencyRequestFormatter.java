@@ -48,8 +48,8 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
     this.types = types;
   }
 
-  // TODO(user): Sweep this class for TypeMirror.toString() usage and do some preventive format.
-  // TODO(user): consider returning a small structure containing strings to be indented later.
+  // TODO(cgruber): Sweep this class for TypeMirror.toString() usage and do some preventive format.
+  // TODO(cgruber): consider returning a small structure containing strings to be indented later.
   @Override public String format(final DependencyRequest request) {
     Element requestElement = request.requestElement();
     Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(requestElement);
@@ -65,7 +65,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
           appendEnclosingTypeAndMemberName(method, builder).append("()\n")
               .append(INDENT).append(INDENT).append("[component method with return type: ");
           if (qualifier.isPresent()) {
-            // TODO(user) use chenying's annotation mirror stringifier
+            // TODO(cgruber) use chenying's annotation mirror stringifier
             builder.append(qualifier.get()).append(' ');
           }
           builder.append(method.getReturnType()).append(']');
@@ -115,7 +115,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
               .append(INDENT).append(INDENT).append("[injected field of type: ");
         }
         if (qualifier.isPresent()) {
-          // TODO(user) use chenying's annotation mirror stringifier
+          // TODO(cgruber) use chenying's annotation mirror stringifier
           builder.append(qualifier.get()).append(' ');
         }
         builder.append(resolvedVariableType)
