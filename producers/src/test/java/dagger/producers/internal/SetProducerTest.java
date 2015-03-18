@@ -36,15 +36,15 @@ import static org.junit.Assert.fail;
 public class SetProducerTest {
   @Test public void success() throws Exception {
     Producer<Set<Integer>> producer = SetProducer.create(
-        immediateProducer((Set<Integer>) ImmutableSet.of(1, 2)),
-        immediateProducer((Set<Integer>) ImmutableSet.of(5, 7)));
+        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(1, 2)),
+        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(5, 7)));
     assertThat(producer.get().get()).containsExactly(1, 2, 5, 7);
   }
 
   @Test public void delegateSetNpe() throws Exception {
     Producer<Set<Integer>> producer = SetProducer.create(
-        immediateProducer((Set<Integer>) ImmutableSet.of(1, 2)),
-        immediateProducer((Set<Integer>) null));
+        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(1, 2)),
+        new ImmediateProducer<Set<Integer>>(null));
     ListenableFuture<Set<Integer>> future = producer.get();
     try {
       future.get();
@@ -56,8 +56,9 @@ public class SetProducerTest {
 
   @Test public void delegateElementNpe() throws Exception {
     Producer<Set<Integer>> producer = SetProducer.create(
-        immediateProducer((Set<Integer>) ImmutableSet.of(1, 2)),
-        immediateProducer(Collections.singleton((Integer) null)));
+        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(1, 2)),
+        new ImmediateProducer<Set<Integer>>(
+            Collections.<Integer>singleton(null)));
     ListenableFuture<Set<Integer>> future = producer.get();
     try {
       future.get();
@@ -77,9 +78,5 @@ public class SetProducerTest {
     @Override public ListenableFuture<T> get() {
       return Futures.immediateFuture(value);
     }
-  }
-
-  private static <T> Producer<T> immediateProducer(T value) {
-    return new ImmediateProducer<T>(value);
   }
 }
