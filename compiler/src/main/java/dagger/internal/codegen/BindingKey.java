@@ -31,22 +31,6 @@ abstract class BindingKey {
     CONTRIBUTION, MEMBERS_INJECTION;
   }
 
-  static BindingKey forDependencyRequest(DependencyRequest request) {
-    switch (request.kind()) {
-      case INSTANCE:
-      case LAZY:
-      case PROVIDER:
-      case PRODUCER:
-      case PRODUCED:
-      case FUTURE:
-        return BindingKey.create(Kind.CONTRIBUTION, request.key());
-      case MEMBERS_INJECTOR:
-        return BindingKey.create(Kind.MEMBERS_INJECTION, request.key());
-      default:
-        throw new AssertionError();
-    }
-  }
-
   static BindingKey create(Kind kind, Key key) {
     return new AutoValue_BindingKey(kind, key);
   }

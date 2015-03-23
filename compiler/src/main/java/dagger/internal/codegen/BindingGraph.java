@@ -297,7 +297,7 @@ abstract class BindingGraph {
        *  component's resolver but will return an {@link Optional#absent} value.
        */
       ResolvedBindings lookUpBindings(DependencyRequest request) {
-        BindingKey bindingKey = BindingKey.forDependencyRequest(request);
+        BindingKey bindingKey = request.bindingKey();
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
             // First, check for explicit keys (those from modules and components)
@@ -451,7 +451,7 @@ abstract class BindingGraph {
       }
 
       void resolve(DependencyRequest request) {
-        BindingKey bindingKey = BindingKey.forDependencyRequest(request);
+        BindingKey bindingKey = request.bindingKey();
 
         Optional<ResolvedBindings> previouslyResolvedBinding =
             getPreviouslyResolvedBindings(bindingKey);

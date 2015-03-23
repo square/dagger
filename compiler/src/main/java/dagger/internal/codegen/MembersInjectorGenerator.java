@@ -189,7 +189,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           DependencyRequest fieldDependency =
               Iterables.getOnlyElement(injectionSite.dependencies());
           FieldWriter singleField = depedencyFields.get(
-              BindingKey.forDependencyRequest(fieldDependency));
+              fieldDependency.bindingKey());
           injectMembersWriter.body().addSnippet("instance.%s = %s;",
               injectionSite.element().getSimpleName(),
               frameworkTypeUsageStatement(Snippet.format(singleField.name()),
@@ -199,7 +199,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
           for (DependencyRequest methodDependency : injectionSite.dependencies()) {
             FieldWriter field = depedencyFields.get(
-                BindingKey.forDependencyRequest(methodDependency));
+                methodDependency.bindingKey());
             parameters.add(frameworkTypeUsageStatement(Snippet.format(field.name()),
                 methodDependency.kind()));
           }

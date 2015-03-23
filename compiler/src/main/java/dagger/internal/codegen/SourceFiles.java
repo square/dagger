@@ -84,7 +84,7 @@ class SourceFiles {
         new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
             DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
-      BindingKey resolved = BindingKey.forDependencyRequest(dependency);
+      BindingKey resolved = dependency.bindingKey();
       // To get the proper unresolved type, we have to extract the proper type from the
       // request type again (because we're looking at the actual element's type).
       TypeMirror unresolvedType =
@@ -109,8 +109,7 @@ class SourceFiles {
         new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
             DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(
-          BindingKey.forDependencyRequest(dependency), dependency);
+      dependenciesByKeyBuilder.put(dependency.bindingKey(), dependency);
     }
     return dependenciesByKeyBuilder.build();
   }

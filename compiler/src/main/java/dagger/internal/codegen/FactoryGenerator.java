@@ -110,7 +110,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     final Optional<ConstructorWriter> constructorWriter;
     List<TypeVariableName> typeParameters = Lists.newArrayList();
     for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
-     typeParameters.add(TypeVariableName.fromTypeParameterElement(typeParameter));          
+     typeParameters.add(TypeVariableName.fromTypeParameterElement(typeParameter));
     }
     switch (binding.factoryCreationStrategy()) {
       case ENUM_INSTANCE:
@@ -149,7 +149,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     factoryWriter.addModifiers(PUBLIC);
     factoryWriter.addImplementedType(
         ParameterizedTypeName.create(ClassName.fromClass(Factory.class), providedTypeName));
-    
 
     MethodWriter getMethodWriter = factoryWriter.addMethod(providedTypeName, "get");
     getMethodWriter.annotate(Override.class);
@@ -178,7 +177,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           .addSnippet("assert %s != null;", field.name())
           .addSnippet("this.%1$s = %1$s;", field.name());
     }
-    
+
     // If constructing a factory for @Inject or @Provides bindings, we use a static create method
     // so that generated components can avoid having to refer to the generic types
     // of the factory.  (Otherwise they may have visibility problems referring to the types.)
@@ -195,7 +194,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         Map<String, TypeName> params = constructorWriter.isPresent()
             ? constructorWriter.get().parameters() : ImmutableMap.<String, TypeName>of();
         for (Map.Entry<String, TypeName> param : params.entrySet()) {
-          createMethodWriter.addParameter(param.getValue(), param.getKey());      
+          createMethodWriter.addParameter(param.getValue(), param.getKey());
         }
         switch (binding.factoryCreationStrategy()) {
           case ENUM_INSTANCE:
@@ -223,8 +222,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     List<Snippet> parameters = Lists.newArrayList();
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(frameworkTypeUsageStatement(
-          Snippet.format(fields.get(BindingKey.forDependencyRequest(dependency)).name()),
-          dependency.kind()));
+          Snippet.format(fields.get(dependency.bindingKey()).name()), dependency.kind()));
     }
     Snippet parametersSnippet = makeParametersSnippet(parameters);
 

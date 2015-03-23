@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import javax.tools.Diagnostic;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -55,6 +53,8 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
+
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -121,8 +121,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         boolean visitResolvedRequest(Deque<ResolvedRequest> path) {
           ResolvedBindings binding = path.peek().binding();
           for (ResolvedRequest resolvedRequest : Iterables.skip(path, 1)) {
-            if (BindingKey.forDependencyRequest(resolvedRequest.request())
-                .equals(binding.bindingKey())) {
+            if (resolvedRequest.request().bindingKey().equals(binding.bindingKey())) {
               reportCycle(path, reportBuilder);
               return false;
             }
@@ -699,7 +698,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
     static ResolvedRequest create(DependencyRequest request, BindingGraph graph) {
       return new AutoValue_BindingGraphValidator_ResolvedRequest(
-          request, graph.resolvedBindings().get(BindingKey.forDependencyRequest(request)));
+          request, graph.resolvedBindings().get(request.bindingKey()));
     }
   }
 

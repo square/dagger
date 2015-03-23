@@ -39,6 +39,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -76,14 +77,31 @@ abstract class DependencyRequest {
 
   abstract Kind kind();
   abstract Key key();
+
+  BindingKey bindingKey() {
+    switch (kind()) {
+      case INSTANCE:
+      case LAZY:
+      case PROVIDER:
+      case PRODUCER:
+      case PRODUCED:
+      case FUTURE:
+        return BindingKey.create(BindingKey.Kind.CONTRIBUTION, key());
+      case MEMBERS_INJECTOR:
+        return BindingKey.create(BindingKey.Kind.MEMBERS_INJECTION, key());
+      default:
+        throw new AssertionError();
+    }
+  }
+
   abstract Element requestElement();
-  
+
   /**
    * Returns the possibly resolved type that contained the requesting element. For members injection
    * requests, this is the type itself.
    */
   abstract DeclaredType enclosingType();
-  
+
   /** Returns true if this request allows null objects. */
   abstract boolean isNullable();
 

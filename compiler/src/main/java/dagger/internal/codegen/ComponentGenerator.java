@@ -642,7 +642,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                     requestElement.getSimpleName().toString());
         interfaceMethod.annotate(Override.class);
         interfaceMethod.addModifiers(PUBLIC);
-        BindingKey bindingKey = BindingKey.forDependencyRequest(interfaceRequest);
+        BindingKey bindingKey = interfaceRequest.bindingKey();
         switch(interfaceRequest.kind()) {
           case MEMBERS_INJECTOR:
             MemberSelect membersInjectorSelect = memberSelectSnippets.get(bindingKey);
@@ -1074,7 +1074,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
-            memberSelectSnippets.get(BindingKey.forDependencyRequest(parentInjectorRequest))
+            memberSelectSnippets.get(parentInjectorRequest.bindingKey())
                 .getSnippetFor(componentName));
       case INJECT_MEMBERS:
         List<Snippet> parameters = getDependencyParameters(
@@ -1099,7 +1099,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(new Function<DependencyRequest, BindingKey>() {
             @Override public BindingKey apply(DependencyRequest request) {
-              return BindingKey.forDependencyRequest(request);
+              return request.bindingKey();
             }
           })
           .toSet());
@@ -1119,7 +1119,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(new Function<DependencyRequest, BindingKey>() {
             @Override public BindingKey apply(DependencyRequest request) {
-              return BindingKey.forDependencyRequest(request);
+              return request.bindingKey();
             }
           }));
       ResolvedBindings resolvedBindings = bindingGraph.resolvedBindings().get(key);
@@ -1149,8 +1149,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     if (isNonProviderMap(firstBinding)) {
       return Snippet.format("%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(BindingKey.forDependencyRequest(
-              Iterables.getOnlyElement(firstBinding.dependencies()))).getSnippetFor(componentName));
+          memberSelectSnippets.get(
+              Iterables.getOnlyElement(firstBinding.dependencies()).bindingKey())
+                  .getSnippetFor(componentName));
     } else {
       DeclaredType mapType = asDeclared(firstBinding.key().type());
       TypeMirror mapKeyType = Util.getKeyTypeOfMap(mapType);
