@@ -258,15 +258,10 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     for (Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
       TypeElement contributionElement = entry.getKey();
       String contributionName = entry.getValue();
-      FieldWriter contributionField =
-          componentWriter.addField(contributionElement, contributionName);
-      contributionField.addModifiers(PRIVATE, FINAL);
-      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
-          componentWriter.name(), Snippet.format(contributionField.name())));
       FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
       builderField.addModifiers(PRIVATE);
-      constructorWriter.body()
-          .addSnippet("this.%1$s = builder.%1$s;", contributionField.name());
+      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
+          componentWriter.name(), Snippet.format("builder.%s", builderField.name())));
       MethodWriter builderMethod = builderWriter.addMethod(builderWriter, contributionName);
       builderMethod.addModifiers(PUBLIC);
       builderMethod.addParameter(contributionElement, contributionName);
@@ -326,6 +321,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     initializeFrameworkTypes(input,
         componentWriter,
         constructorWriter,
+        Optional.of(builderWriter.name()),
         componentContributionFields,
         memberSelectSnippets,
         ImmutableMap.<ContributionBinding, Snippet>of(),
@@ -447,6 +443,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     initializeFrameworkTypes(input,
         componentWriter,
         constructorWriter,
+        Optional.<ClassName>absent(),
         componentContributionFields,
         memberSelectSnippets,
         parentMultibindingContributionSnippets,
@@ -695,6 +692,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private void initializeFrameworkTypes(BindingGraph input,
       ClassWriter componentWriter,
       ConstructorWriter constructorWriter,
+      Optional<ClassName> builderName,
       Map<TypeElement, MemberSelect> componentContributionFields,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
@@ -707,7 +705,12 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
       initializeMethod.body();
       initializeMethod.addModifiers(PRIVATE);
-      constructorWriter.body().addSnippet("%s();", initializeMethod.name());
+      if (builderName.isPresent()) {
+        initializeMethod.addParameter(builderName.get(), "builder").addModifiers(FINAL);
+        constructorWriter.body().addSnippet("%s(builder);", initializeMethod.name());
+      } else {
+        constructorWriter.body().addSnippet("%s();", initializeMethod.name());
+      }
 
       for (BindingKey bindingKey : partitions.get(i)) {
         Snippet memberSelectSnippet =
