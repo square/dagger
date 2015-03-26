@@ -18,7 +18,6 @@ package dagger.internal;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-import dagger.Factory;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;

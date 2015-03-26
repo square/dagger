@@ -1192,7 +1192,7 @@ public class ComponentProcessorTest {
         "test.Dagger_BComponent",
         "package test;",
         "",
-        "import dagger.Factory;",
+        "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
