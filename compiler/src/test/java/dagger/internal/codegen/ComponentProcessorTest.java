@@ -709,6 +709,36 @@ public class ComponentProcessorTest {
         .and().generatesSources(generatedComponent);
   }
 
+  @Test public void testDefaultPackage() {
+    JavaFileObject aClass = JavaFileObjects.forSourceLines("AClass", "class AClass {}");
+    JavaFileObject bClass = JavaFileObjects.forSourceLines("BClass",
+        "import javax.inject.Inject;",
+        "",
+        "class BClass {",
+        "  @Inject BClass(AClass a) {}",
+        "}");
+    JavaFileObject aModule = JavaFileObjects.forSourceLines("AModule",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "",
+        "@Module class AModule {",
+        "  @Provides AClass aClass() {",
+        "    return new AClass();",
+        "  }",
+        "}");
+    JavaFileObject component = JavaFileObjects.forSourceLines("SomeComponent",
+        "import dagger.Component;",
+        "",
+        "@Component(modules = AModule.class)",
+        "interface SomeComponent {",
+        "  BClass bClass();",
+        "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(aModule, aClass, bClass, component))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
   @Test public void setBindings() {
     JavaFileObject emptySetModuleFile = JavaFileObjects.forSourceLines("test.EmptySetModule",
         "package test;",

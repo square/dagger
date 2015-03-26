@@ -98,7 +98,9 @@ public final class JavaWriter {
   }
 
   public Appendable write(Appendable appendable) throws IOException {
-    appendable.append("package ").append(packageName).append(';').append("\n\n");
+    if (!packageName.isEmpty()) {
+      appendable.append("package ").append(packageName).append(";\n\n");
+    }
 
     // write imports
     ImmutableSet<ClassName> classNames = FluentIterable.from(typeWriters)
