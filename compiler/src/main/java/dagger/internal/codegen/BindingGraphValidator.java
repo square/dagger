@@ -48,8 +48,9 @@ import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
@@ -274,11 +275,55 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
         // If the key has type arguments, validate that each type argument is declared.
         // Otherwise the type argument may be a wildcard (or other type), and we can't
-        // resolve that to actual types.
+        // resolve that to actual types.  If the arg was an array, validate the type
+        // of the array.
         for (TypeMirror arg : type.getTypeArguments()) {
-          if (arg.getKind() != TypeKind.DECLARED) {
-            reportBuilder.addItem(MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
-                path.peek().request().requestElement());
+          boolean declared;
+          switch (arg.getKind()) {
+            case ARRAY:
+              declared = MoreTypes.asArray(arg).getComponentType().accept(
+                  new SimpleTypeVisitor6<Boolean, Void>() {
+                    @Override protected Boolean defaultAction(TypeMirror e, Void p) {
+                      return false;
+                    }
+
+                    @Override public Boolean visitDeclared(DeclaredType t, Void p) {
+                      for (TypeMirror arg : t.getTypeArguments()) {
+                        if (!arg.accept(this, null)) {
+                          return false;
+                        }
+                      }
+                      return true;
+                    }
+
+                    @Override public Boolean visitArray(ArrayType t, Void p) {
+                      return t.getComponentType().accept(this, null);
+                    }
+
+                    @Override public Boolean visitPrimitive(PrimitiveType t, Void p) {
+                      return true;
+                    }
+                  }, null);
+              break;
+            case DECLARED:
+              declared = true;
+              break;
+            default:
+              declared = false;
+          }
+          if (!declared) {
+            ImmutableList<String> printableDependencyPath = FluentIterable.from(path)
+                .transform(REQUEST_FROM_RESOLVED_REQUEST)
+                .transform(dependencyRequestFormatter)
+                .filter(Predicates.not(Predicates.equalTo("")))
+                .toList()
+                .reverse();
+            reportBuilder.addItem(
+                String.format(MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
+                    arg.toString(),
+                    type.toString(),
+                    Joiner.on('\n').join(printableDependencyPath)),
+                    path.peek().request().requestElement());
             return false;
           }
         }
@@ -290,8 +335,16 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         // allow it and instantiate the type bounds... but we don't.)
         if (!MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
             && types.isSameType(types.erasure(element.asType()), type)) {
+            ImmutableList<String> printableDependencyPath = FluentIterable.from(path)
+                .transform(REQUEST_FROM_RESOLVED_REQUEST)
+                .transform(dependencyRequestFormatter)
+                .filter(Predicates.not(Predicates.equalTo("")))
+                .toList()
+                .reverse();
           reportBuilder.addItem(
-              String.format(ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE, type.toString()),
+              String.format(ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE,
+                  type.toString(),
+                  Joiner.on('\n').join(printableDependencyPath)),
               path.peek().request().requestElement());
           return false;
         }
