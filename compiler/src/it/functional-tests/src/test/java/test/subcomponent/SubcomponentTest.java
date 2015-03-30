@@ -24,7 +24,7 @@ import static com.google.common.collect.Sets.intersection;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
-public class SubcomponentScopeTest {
+public class SubcomponentTest {
   @Test
   public void scopePropagatesUpward_class() {
     ParentComponent parentComponent = Dagger_ParentComponent.create();
@@ -72,5 +72,21 @@ public class SubcomponentScopeTest {
         .isSameAs(parentComponent.newChildComponent()
             .newGrandchildComponent()
             .getUnscopedTypeProvider());
+  }
+
+  @Test
+  public void passedModules() {
+    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    ChildModuleWithState childModuleWithState = new ChildModuleWithState();
+    ChildComponentRequiringModules childComponent1 =
+        parentComponent.newChildComponentRequiringModules(
+            new ChildModuleWithParameters(new Object()),
+            childModuleWithState);
+    ChildComponentRequiringModules childComponent2 =
+        parentComponent.newChildComponentRequiringModules(
+            new ChildModuleWithParameters(new Object()),
+            childModuleWithState);
+    assertThat(childComponent1.getInt()).isEqualTo(0);
+    assertThat(childComponent2.getInt()).isEqualTo(1);
   }
 }

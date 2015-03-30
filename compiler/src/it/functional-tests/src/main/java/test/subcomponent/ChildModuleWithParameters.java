@@ -15,21 +15,12 @@
  */
 package test.subcomponent;
 
-import dagger.Component;
-import java.util.Set;
-import javax.inject.Provider;
-import javax.inject.Singleton;
+import dagger.Module;
 
-@Component(modules = ParentModule.class)
-@Singleton
-interface ParentComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
-
-  Set<Object> objectSet();
-
-  ChildComponent newChildComponent();
-
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
+/**
+ * This is a module that can't be constructed with a default constructor.
+ */
+@Module
+final class ChildModuleWithParameters {
+  public ChildModuleWithParameters(@SuppressWarnings("unused") Object whatever) {}
 }

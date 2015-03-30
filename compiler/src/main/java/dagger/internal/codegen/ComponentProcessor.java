@@ -15,10 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import java.util.EnumSet;
-
-import javax.tools.Diagnostic;
-import java.util.Arrays;
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +23,7 @@ import dagger.Module;
 import dagger.Provides;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Filer;
@@ -36,6 +33,8 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
+
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
@@ -85,7 +84,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ModuleValidator moduleValidator = new ModuleValidator(types, elements, methodSignatureFormatter,
         Module.class, Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
-    ComponentValidator componentValidator = new ComponentValidator(moduleValidator);
+    ComponentValidator componentValidator =
+        new ComponentValidator(elements, types, moduleValidator);
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ModuleValidator producerModuleValidator = new ModuleValidator(types, elements,
         methodSignatureFormatter, ProducerModule.class, Produces.class);

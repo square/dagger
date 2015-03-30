@@ -43,6 +43,7 @@ import java.util.Deque;
 import java.util.Formatter;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
@@ -107,6 +108,11 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   public ValidationReport<BindingGraph> validate(final BindingGraph subject) {
     final ValidationReport.Builder<BindingGraph> reportBuilder =
         ValidationReport.Builder.about(subject);
+    return validate(subject, reportBuilder);
+  }
+
+  private ValidationReport<BindingGraph> validate(final BindingGraph subject,
+      final ValidationReport.Builder<BindingGraph> reportBuilder) {
     ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
 
     validateComponentScope(subject, reportBuilder, resolvedBindings);
@@ -137,7 +143,16 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       });
     }
 
+    validateSubcomponents(subject, reportBuilder);
+
     return reportBuilder.build();
+  }
+
+  private void validateSubcomponents(BindingGraph graph,
+      ValidationReport.Builder<BindingGraph> reportBuilder) {
+    for (Entry<ExecutableElement, BindingGraph> subgraphEntry : graph.subgraphs().entrySet()) {
+      validate(subgraphEntry.getValue(), reportBuilder);
+    }
   }
 
   /**
@@ -502,7 +517,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
     for (ResolvedBindings bindings : resolvedBindings.values()) {
       if (bindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-        for (ContributionBinding contributionBinding : bindings.contributionBindings()) {
+        for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
           if (contributionBinding instanceof ProvisionBinding) {
             ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
             if (provisionBinding.scope().isPresent()
@@ -576,16 +591,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     boolean requiresContributionMethod = !key.isValidImplicitProvisionKey(types);
     boolean requiresProvision = doesPathRequireProvisionOnly(path);
     StringBuilder errorMessage = new StringBuilder();
-    final String requiresErrorMessageFormat;
-    if (requiresContributionMethod) {
-      requiresErrorMessageFormat = requiresProvision
-          ? REQUIRES_PROVIDER_FORMAT
-          : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
-    } else {
-      requiresErrorMessageFormat = requiresProvision
-          ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
-          : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
-    }
+    String requiresErrorMessageFormat = requiresContributionMethod
+        ? requiresProvision
+            ? REQUIRES_PROVIDER_FORMAT
+            : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT
+        : requiresProvision
+            ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
+            : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
     errorMessage.append(String.format(requiresErrorMessageFormat, typeName));
     if (key.isValidMembersInjectionKey()
         && !injectBindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites()
@@ -750,8 +762,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     abstract ResolvedBindings binding();
 
     static ResolvedRequest create(DependencyRequest request, BindingGraph graph) {
-      return new AutoValue_BindingGraphValidator_ResolvedRequest(
-          request, graph.resolvedBindings().get(request.bindingKey()));
+      BindingKey bindingKey = request.bindingKey();
+      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
+      return new AutoValue_BindingGraphValidator_ResolvedRequest(request,
+          resolvedBindings == null
+              ? ResolvedBindings.create(bindingKey,
+                  ImmutableSet.<Binding>of(), ImmutableSet.<Binding>of())
+              : resolvedBindings);
     }
   }
 

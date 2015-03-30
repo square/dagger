@@ -55,6 +55,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModul
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.DELEGATE;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
+import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
@@ -64,9 +65,14 @@ import static javax.lang.model.util.ElementFilter.methodsIn;
  */
 @AutoValue
 abstract class BindingGraph {
+  enum ModuleStrategy {
+    PASSED,
+    CONSTRUCTED,
+  }
+
   abstract ComponentDescriptor componentDescriptor();
   abstract ImmutableSet<DependencyRequest> entryPoints();
-  abstract ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules();
+  abstract ImmutableMap<TypeElement, ModuleStrategy> transitiveModules();
   abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
   abstract ImmutableMap<ExecutableElement, BindingGraph> subgraphs();
 
@@ -191,9 +197,13 @@ abstract class BindingGraph {
       ImmutableSet<TypeElement> moduleTypes =
           MoreTypes.asTypeElements(getComponentModules(componentAnnotation));
 
-      ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules =
-          getTransitiveModules(types, elements, moduleTypes);
-      for (TypeElement module : transitiveModules.keySet()) {
+      ImmutableMap.Builder<TypeElement, ModuleStrategy> transitiveModules = ImmutableMap.builder();
+      for (TypeElement module : getTransitiveModules(types, elements, moduleTypes)) {
+        transitiveModules.put(module,
+            (componentCanMakeNewInstances(module) && module.getTypeParameters().isEmpty())
+                ? ModuleStrategy.CONSTRUCTED
+                : ModuleStrategy.PASSED);
+
         // traverse the modules, collect the bindings
         List<ExecutableElement> moduleMethods = methodsIn(elements.getAllMembers(module));
         for (ExecutableElement moduleMethod : moduleMethods) {
@@ -233,8 +243,8 @@ abstract class BindingGraph {
       return new AutoValue_BindingGraph(
           componentDescriptor,
           componentMethodRequests,
-          transitiveModules,
-          ImmutableMap.copyOf(requestResolver.resolvedBindings),
+          transitiveModules.build(),
+          requestResolver.getResolvedBindings(),
           subgraphsBuilder.build());
     }
 
@@ -482,6 +492,29 @@ abstract class BindingGraph {
         } finally {
           cycleStack.pop();
         }
+      }
+
+      ImmutableMap<BindingKey, ResolvedBindings> getResolvedBindings() {
+        ImmutableMap.Builder<BindingKey, ResolvedBindings> resolvedBindingsBuilder =
+            ImmutableMap.builder();
+        resolvedBindingsBuilder.putAll(resolvedBindings);
+        if (parentResolver.isPresent()) {
+          for (ResolvedBindings resolvedInParent :
+            parentResolver.get().getResolvedBindings().values()) {
+            BindingKey bindingKey = resolvedInParent.bindingKey();
+            if (!resolvedBindings.containsKey(bindingKey)) {
+              if (resolvedInParent.ownedBindings().isEmpty()) {
+                // reuse the instance if we can get away with it
+                resolvedBindingsBuilder.put(bindingKey, resolvedInParent);
+              } else {
+                resolvedBindingsBuilder.put(bindingKey,
+                    ResolvedBindings.create(
+                        bindingKey, ImmutableSet.<Binding>of(), resolvedInParent.bindings()));
+              }
+            }
+          }
+        }
+        return resolvedBindingsBuilder.build();
       }
     }
   }

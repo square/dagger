@@ -15,21 +15,18 @@
  */
 package test.subcomponent;
 
-import dagger.Component;
-import java.util.Set;
-import javax.inject.Provider;
-import javax.inject.Singleton;
+import dagger.Module;
+import dagger.Provides;
 
-@Component(modules = ParentModule.class)
-@Singleton
-interface ParentComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
+/**
+ * This is a module that can be constructed with a default constructor, but has state, so callers
+ * might want to pass a reference anyway.
+ */
+@Module
+final class ChildModuleWithState {
+  private int i = 0;
 
-  Set<Object> objectSet();
-
-  ChildComponent newChildComponent();
-
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
+  @Provides int provideInt() {
+    return i++;
+  }
 }
