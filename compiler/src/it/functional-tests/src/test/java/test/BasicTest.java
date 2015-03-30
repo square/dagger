@@ -15,9 +15,10 @@
 */
 package test;
 
-import org.junit.Test;
+import org.junit.experimental.theories.DataPoint;
+import org.junit.experimental.theories.Theories;
+import org.junit.experimental.theories.Theory;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static test.PrimitivesModule.BOUND_BOOLEAN;
@@ -37,10 +38,15 @@ import static test.PrimitivesModule.BOUND_LONG_ARRAY;
 import static test.PrimitivesModule.BOUND_SHORT;
 import static test.PrimitivesModule.BOUND_SHORT_ARRAY;
 
-@RunWith(JUnit4.class)
+@RunWith(Theories.class)
 public class BasicTest {
-  @Test public void primitives() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @DataPoint
+  public static final BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @DataPoint
+  public static final BasicComponent abstractClassBasicComponent =
+      Dagger_BasicAbstractClassComponent.create();
+
+  @Theory public void primitives(BasicComponent basicComponent) {
     assertThat(basicComponent.getByte()).isEqualTo(BOUND_BYTE);
     assertThat(basicComponent.getChar()).isEqualTo(BOUND_CHAR);
     assertThat(basicComponent.getShort()).isEqualTo(BOUND_SHORT);
@@ -51,8 +57,7 @@ public class BasicTest {
     assertThat(basicComponent.getDouble()).isEqualTo(BOUND_DOUBLE);
   }
 
-  @Test public void boxedPrimitives() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void boxedPrimitives(BasicComponent basicComponent) {
     assertThat(basicComponent.getBoxedByte()).isEqualTo(new Byte(BOUND_BYTE));
     assertThat(basicComponent.getBoxedChar()).isEqualTo(new Character(BOUND_CHAR));
     assertThat(basicComponent.getBoxedShort()).isEqualTo(new Short(BOUND_SHORT));
@@ -63,8 +68,7 @@ public class BasicTest {
     assertThat(basicComponent.getBoxedDouble()).isEqualTo(new Double(BOUND_DOUBLE));
   }
 
-  @Test public void boxedPrimitiveProviders() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void boxedPrimitiveProviders(BasicComponent basicComponent) {
     assertThat(basicComponent.getByteProvider().get()).isEqualTo(new Byte(BOUND_BYTE));
     assertThat(basicComponent.getCharProvider().get()).isEqualTo(new Character(BOUND_CHAR));
     assertThat(basicComponent.getShortProvider().get()).isEqualTo(new Short(BOUND_SHORT));
@@ -75,8 +79,7 @@ public class BasicTest {
     assertThat(basicComponent.getDoubleProvider().get()).isEqualTo(new Double(BOUND_DOUBLE));
   }
 
-  @Test public void primitiveArrays() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void primitiveArrays(BasicComponent basicComponent) {
     assertThat(basicComponent.getByteArray()).isSameAs(BOUND_BYTE_ARRAY);
     assertThat(basicComponent.getCharArray()).isSameAs(BOUND_CHAR_ARRAY);
     assertThat(basicComponent.getShortArray()).isSameAs(BOUND_SHORT_ARRAY);
@@ -87,8 +90,7 @@ public class BasicTest {
     assertThat(basicComponent.getDoubleArray()).isSameAs(BOUND_DOUBLE_ARRAY);
   }
 
-  @Test public void primitiveArrayProviders() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void primitiveArrayProviders(BasicComponent basicComponent) {
     assertThat(basicComponent.getByteArrayProvider().get()).isSameAs(BOUND_BYTE_ARRAY);
     assertThat(basicComponent.getCharArrayProvider().get()).isSameAs(BOUND_CHAR_ARRAY);
     assertThat(basicComponent.getShortArrayProvider().get()).isSameAs(BOUND_SHORT_ARRAY);
@@ -99,19 +101,16 @@ public class BasicTest {
     assertThat(basicComponent.getDoubleArrayProvider().get()).isSameAs(BOUND_DOUBLE_ARRAY);
   }
 
-  @Test public void noOpMembersInjection() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void noOpMembersInjection(BasicComponent basicComponent) {
     Object object = new Object();
     assertThat(basicComponent.noOpMembersInjection(object)).isSameAs(object);
   }
 
-  @Test public void basicObject_noDeps() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void basicObject_noDeps(BasicComponent basicComponent) {
     assertThat(basicComponent.thing()).isNotNull();
   }
 
-  @Test public void inheritedMembersInjection() {
-    BasicComponent basicComponent = Dagger_BasicComponent.create();
+  @Theory public void inheritedMembersInjection(BasicComponent basicComponent) {
     assertThat(basicComponent.typeWithInheritedMembersInjection().thing).isNotNull();
   }
 }

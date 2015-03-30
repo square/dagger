@@ -90,6 +90,7 @@ import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
@@ -102,6 +103,7 @@ import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -199,15 +201,26 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
   @Override
   ImmutableSet<JavaWriter> write(ClassName componentName, BindingGraph input) {
+    TypeElement componentDefinitionType = input.componentDescriptor().componentDefinitionType();
     ClassName componentDefinitionTypeName =
-        ClassName.fromTypeElement(input.componentDescriptor().componentDefinitionType());
+        ClassName.fromTypeElement(componentDefinitionType);
 
     JavaWriter writer = JavaWriter.inPackage(componentName.packageName());
 
     ClassWriter componentWriter = writer.addClass(componentName.simpleName());
     componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
     componentWriter.addModifiers(PUBLIC, FINAL);
-    componentWriter.addImplementedType(componentDefinitionTypeName);
+    switch (componentDefinitionType.getKind()) {
+      case CLASS:
+        checkState(componentDefinitionType.getModifiers().contains(ABSTRACT));
+        componentWriter.setSuperType(componentDefinitionTypeName);
+        break;
+      case INTERFACE:
+        componentWriter.addImplementedType(componentDefinitionTypeName);
+        break;
+      default:
+        throw new IllegalStateException();
+    }
 
     Set<JavaWriter> javaWriters = Sets.newHashSet();
     javaWriters.add(writer);
