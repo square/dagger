@@ -15,8 +15,6 @@
  */
 package dagger.internal;
 
-import dagger.Factory;
-
 /**
  * A {@link Factory} implementation that returns a single instance for all invocations of
  * {@link #get}.

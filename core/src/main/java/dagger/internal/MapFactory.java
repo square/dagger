@@ -15,7 +15,6 @@
  */
 package dagger.internal;
 
-import dagger.Factory;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.inject.Provider;

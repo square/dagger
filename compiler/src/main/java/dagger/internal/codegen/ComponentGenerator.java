@@ -35,9 +35,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
-import dagger.Factory;
 import dagger.MapKey;
 import dagger.MembersInjector;
+import dagger.internal.Factory;
 import dagger.internal.InstanceFactory;
 import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
@@ -258,15 +258,10 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     for (Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
       TypeElement contributionElement = entry.getKey();
       String contributionName = entry.getValue();
-      FieldWriter contributionField =
-          componentWriter.addField(contributionElement, contributionName);
-      contributionField.addModifiers(PRIVATE, FINAL);
-      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
-          componentWriter.name(), Snippet.format(contributionField.name())));
       FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
       builderField.addModifiers(PRIVATE);
-      constructorWriter.body()
-          .addSnippet("this.%1$s = builder.%1$s;", contributionField.name());
+      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
+          componentWriter.name(), Snippet.format("builder.%s", builderField.name())));
       MethodWriter builderMethod = builderWriter.addMethod(builderWriter, contributionName);
       builderMethod.addModifiers(PUBLIC);
       builderMethod.addParameter(contributionElement, contributionName);
@@ -326,6 +321,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     initializeFrameworkTypes(input,
         componentWriter,
         constructorWriter,
+        Optional.of(builderWriter.name()),
         componentContributionFields,
         memberSelectSnippets,
         ImmutableMap.<ContributionBinding, Snippet>of(),
@@ -447,6 +443,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     initializeFrameworkTypes(input,
         componentWriter,
         constructorWriter,
+        Optional.<ClassName>absent(),
         componentContributionFields,
         memberSelectSnippets,
         parentMultibindingContributionSnippets,
@@ -642,7 +639,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                     requestElement.getSimpleName().toString());
         interfaceMethod.annotate(Override.class);
         interfaceMethod.addModifiers(PUBLIC);
-        BindingKey bindingKey = BindingKey.forDependencyRequest(interfaceRequest);
+        BindingKey bindingKey = interfaceRequest.bindingKey();
         switch(interfaceRequest.kind()) {
           case MEMBERS_INJECTOR:
             MemberSelect membersInjectorSelect = memberSelectSnippets.get(bindingKey);
@@ -695,6 +692,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private void initializeFrameworkTypes(BindingGraph input,
       ClassWriter componentWriter,
       ConstructorWriter constructorWriter,
+      Optional<ClassName> builderName,
       Map<TypeElement, MemberSelect> componentContributionFields,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
@@ -707,7 +705,12 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
       initializeMethod.body();
       initializeMethod.addModifiers(PRIVATE);
-      constructorWriter.body().addSnippet("%s();", initializeMethod.name());
+      if (builderName.isPresent()) {
+        initializeMethod.addParameter(builderName.get(), "builder").addModifiers(FINAL);
+        constructorWriter.body().addSnippet("%s(builder);", initializeMethod.name());
+      } else {
+        constructorWriter.body().addSnippet("%s();", initializeMethod.name());
+      }
 
       for (BindingKey bindingKey : partitions.get(i)) {
         Snippet memberSelectSnippet =
@@ -1074,7 +1077,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
-            memberSelectSnippets.get(BindingKey.forDependencyRequest(parentInjectorRequest))
+            memberSelectSnippets.get(parentInjectorRequest.bindingKey())
                 .getSnippetFor(componentName));
       case INJECT_MEMBERS:
         List<Snippet> parameters = getDependencyParameters(
@@ -1099,7 +1102,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(new Function<DependencyRequest, BindingKey>() {
             @Override public BindingKey apply(DependencyRequest request) {
-              return BindingKey.forDependencyRequest(request);
+              return request.bindingKey();
             }
           })
           .toSet());
@@ -1119,7 +1122,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(new Function<DependencyRequest, BindingKey>() {
             @Override public BindingKey apply(DependencyRequest request) {
-              return BindingKey.forDependencyRequest(request);
+              return request.bindingKey();
             }
           }));
       ResolvedBindings resolvedBindings = bindingGraph.resolvedBindings().get(key);
@@ -1149,8 +1152,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     if (isNonProviderMap(firstBinding)) {
       return Snippet.format("%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(BindingKey.forDependencyRequest(
-              Iterables.getOnlyElement(firstBinding.dependencies()))).getSnippetFor(componentName));
+          memberSelectSnippets.get(
+              Iterables.getOnlyElement(firstBinding.dependencies()).bindingKey())
+                  .getSnippetFor(componentName));
     } else {
       DeclaredType mapType = asDeclared(firstBinding.key().type());
       TypeMirror mapKeyType = Util.getKeyTypeOfMap(mapType);

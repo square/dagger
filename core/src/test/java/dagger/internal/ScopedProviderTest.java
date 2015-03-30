@@ -15,7 +15,6 @@
  */
 package dagger.internal;
 
-import dagger.Factory;
 import javax.inject.Provider;
 import org.junit.Ignore;
 import org.junit.Test;
