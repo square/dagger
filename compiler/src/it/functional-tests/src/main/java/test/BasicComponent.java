@@ -68,5 +68,7 @@ interface BasicComponent {
   Object noOpMembersInjection(Object obviouslyDoesNotHaveMembersToInject);
 
   Thing thing();
+  InjectedThing injectedThing();
+
   TypeWithInheritedMembersInjection typeWithInheritedMembersInjection();
 }

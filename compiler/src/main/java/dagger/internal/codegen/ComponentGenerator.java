@@ -86,6 +86,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreTypes.asDeclared;
@@ -117,10 +118,12 @@ import static javax.lang.model.type.TypeKind.VOID;
  * @since 2.0
  */
 final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
+  private final Types types;
   private final Diagnostic.Kind nullableValidationType;
 
-  ComponentGenerator(Filer filer, Diagnostic.Kind nullableValidationType) {
+  ComponentGenerator(Filer filer, Types types, Diagnostic.Kind nullableValidationType) {
     super(filer);
+    this.types = types;
     this.nullableValidationType = nullableValidationType;
   }
 
@@ -1096,7 +1099,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     }
   }
 
-  private static Snippet initializeMembersInjectorForBinding(
+  private Snippet initializeMembersInjectorForBinding(
       ClassName componentName,
       MembersInjectionBinding binding,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
@@ -1123,13 +1126,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     }
   }
 
-  private static List<Snippet> getDependencyParameters(
+  private List<Snippet> getDependencyParameters(
       ClassName componentName,
       Iterable<DependencyRequest> dependencies,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (Collection<DependencyRequest> requestsForKey :
-         SourceFiles.indexDependenciesByUnresolvedKey(dependencies).asMap().values()) {
+         SourceFiles.indexDependenciesByUnresolvedKey(types, dependencies).asMap().values()) {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(new Function<DependencyRequest, BindingKey>() {
             @Override public BindingKey apply(DependencyRequest request) {
@@ -1142,14 +1145,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     return parameters.build();
   }
 
-  private static List<Snippet> getProducerDependencyParameters(
+  private List<Snippet> getProducerDependencyParameters(
       BindingGraph bindingGraph,
       ClassName componentName,
       Iterable<DependencyRequest> dependencies,
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (Collection<DependencyRequest> requestsForKey :
-         SourceFiles.indexDependenciesByUnresolvedKey(dependencies).asMap().values()) {
+         SourceFiles.indexDependenciesByUnresolvedKey(types, dependencies).asMap().values()) {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(new Function<DependencyRequest, BindingKey>() {
             @Override public BindingKey apply(DependencyRequest request) {

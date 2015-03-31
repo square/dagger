@@ -89,8 +89,14 @@ abstract class Key {
     return wrappedType().get();
   }
 
-  Key withType(TypeMirror newType) {
-    return new AutoValue_Key(wrappedQualifier(), MoreTypes.equivalence().wrap(newType));
+  private static TypeMirror normalize(Types types, TypeMirror type) {
+    TypeKind kind = type.getKind();
+    return kind.isPrimitive() ? types.boxedClass((PrimitiveType) type).asType() : type;
+  }
+
+  Key withType(Types types, TypeMirror newType) {
+    return new AutoValue_Key(wrappedQualifier(),
+        MoreTypes.equivalence().wrap(normalize(types, newType)));
   }
 
   boolean isValidMembersInjectionKey() {
@@ -157,11 +163,6 @@ abstract class Key {
       this.elements = checkNotNull(elements);
     }
 
-    private TypeMirror normalize(TypeMirror type) {
-      TypeKind kind = type.getKind();
-      return kind.isPrimitive() ? types.boxedClass((PrimitiveType) type).asType() : type;
-    }
-
     private TypeElement getSetElement() {
       return elements.getTypeElement(Set.class.getCanonicalName());
     }
@@ -185,7 +186,7 @@ abstract class Key {
     Key forComponentMethod(ExecutableElement componentMethod) {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
-      TypeMirror returnType = normalize(componentMethod.getReturnType());
+      TypeMirror returnType = normalize(types, componentMethod.getReturnType());
       return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(componentMethod)),
           MoreTypes.equivalence().wrap(returnType));
@@ -194,7 +195,7 @@ abstract class Key {
     Key forProductionComponentMethod(ExecutableElement componentMethod) {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
-      TypeMirror returnType = normalize(componentMethod.getReturnType());
+      TypeMirror returnType = normalize(types, componentMethod.getReturnType());
       TypeMirror keyType = returnType;
       if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
         keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
@@ -209,7 +210,7 @@ abstract class Key {
       checkArgument(e.getKind().equals(METHOD));
       Provides providesAnnotation = e.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
-      TypeMirror returnType = normalize(executableType.getReturnType());
+      TypeMirror returnType = normalize(types, executableType.getReturnType());
       switch (providesAnnotation.type()) {
         case UNIQUE:
           return new AutoValue_Key(
@@ -252,7 +253,7 @@ abstract class Key {
       checkArgument(e.getKind().equals(METHOD));
       Produces producesAnnotation = e.getAnnotation(Produces.class);
       checkArgument(producesAnnotation != null);
-      TypeMirror returnType = normalize(executableType.getReturnType());
+      TypeMirror returnType = normalize(types, executableType.getReturnType());
       TypeMirror keyType = returnType;
       if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
         keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
@@ -301,19 +302,19 @@ abstract class Key {
     Key forComponent(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(type)));
+          MoreTypes.equivalence().wrap(normalize(types, type)));
     }
 
     Key forMembersInjectedType(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(type)));
+          MoreTypes.equivalence().wrap(normalize(types, type)));
     }
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
       return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), qualifier),
-          MoreTypes.equivalence().wrap(normalize(type)));
+          MoreTypes.equivalence().wrap(normalize(types, type)));
     }
 
     /**

@@ -98,7 +98,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
     MembersInjectorGenerator membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types, DependencyRequestMapper.FOR_PROVIDER);
-    ComponentGenerator componentGenerator = new ComponentGenerator(filer, nullableDiagnosticType);
+    ComponentGenerator componentGenerator =
+        new ComponentGenerator(filer, types, nullableDiagnosticType);
     ProducerFactoryGenerator producerFactoryGenerator =
         new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
 
