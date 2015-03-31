@@ -41,7 +41,6 @@ import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Formatter;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -119,33 +118,37 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     validateDependencyScopes(subject, reportBuilder);
 
     for (DependencyRequest entryPoint : subject.entryPoints()) {
-      Deque<ResolvedRequest> path = new ArrayDeque<>();
-      path.push(ResolvedRequest.create(entryPoint, subject));
-      traversalHelper(subject, path, new Traverser() {
-        final Set<BindingKey> visitedBindings = new HashSet<>();
-
-        @Override
-        boolean visitResolvedRequest(Deque<ResolvedRequest> path) {
-          ResolvedBindings binding = path.peek().binding();
-          for (ResolvedRequest resolvedRequest : Iterables.skip(path, 1)) {
-            if (resolvedRequest.request().bindingKey().equals(binding.bindingKey())) {
-              reportCycle(path, reportBuilder);
-              return false;
-            }
-          }
-
-          if (!visitedBindings.add(binding.bindingKey())) {
-            return false;
-          }
-
-          return validateResolvedBinding(path, binding, reportBuilder);
-        }
-      });
+      traverseRequest(entryPoint, new ArrayDeque<ResolvedRequest>(), subject, reportBuilder);
     }
 
     validateSubcomponents(subject, reportBuilder);
 
     return reportBuilder.build();
+  }
+
+  private void traverseRequest(
+      DependencyRequest request,
+      Deque<ResolvedRequest> bindingPath,
+      BindingGraph graph,
+      ValidationReport.Builder<BindingGraph> reportBuilder) {
+    BindingKey requestKey = request.bindingKey();
+    for (ResolvedRequest pathElement : bindingPath) {
+      if (pathElement.request().bindingKey().equals(requestKey)) {
+        reportCycle(request, bindingPath, reportBuilder);
+        return;
+      }
+    }
+
+    ResolvedRequest resolvedRequest = ResolvedRequest.create(request, graph);
+    bindingPath.push(resolvedRequest);
+    validateResolvedBinding(bindingPath, resolvedRequest.binding(), reportBuilder);
+
+    for (Binding binding : resolvedRequest.binding().bindings()) {
+      for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+        traverseRequest(nextRequest, bindingPath, graph, reportBuilder);
+      }
+    }
+    bindingPath.poll();
   }
 
   private void validateSubcomponents(BindingGraph graph,
@@ -197,7 +200,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
               "contribution binding keys should never have members injection bindings");
         }
         Set<ContributionBinding> combined = Sets.union(provisionBindings, productionBindings);
-        if (!validateNullability(path, combined, reportBuilder)) {
+        if (!validateNullability(path.peek().request(), combined, reportBuilder)) {
           return false;
         }
         if (!productionBindings.isEmpty() && doesPathRequireProvisionOnly(path)) {
@@ -241,10 +244,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   }
 
   /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
-  private boolean validateNullability(Deque<ResolvedRequest> requestPath,
+  private boolean validateNullability(DependencyRequest request,
       Set<ContributionBinding> bindings, Builder<BindingGraph> reportBuilder) {
     boolean valid = true;
-    DependencyRequest request = requestPath.peek().request();
     String typeName = TypeNames.forTypeMirror(request.key().type()).toString();
     if (!request.isNullable()) {
       for (ContributionBinding binding : bindings) {
@@ -735,10 +737,10 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     }
   }
 
-  private void reportCycle(Deque<ResolvedRequest> path,
+  private void reportCycle(DependencyRequest request, Deque<ResolvedRequest> path,
       final ValidationReport.Builder<BindingGraph> reportBuilder) {
-    ImmutableList<String> printableDependencyPath = FluentIterable.from(path)
-        .transform(REQUEST_FROM_RESOLVED_REQUEST)
+    ImmutableList<String> printableDependencyPath = FluentIterable.of(request)
+        .append(Iterables.transform(path, REQUEST_FROM_RESOLVED_REQUEST))
         .transform(dependencyRequestFormatter)
         .filter(Predicates.not(Predicates.equalTo("")))
         .toList()
@@ -752,7 +754,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             componentType.getQualifiedName(),
             rootRequest.requestElement().getSimpleName(),
             Joiner.on("\n")
-            .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
+                .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
         rootRequest.requestElement());
   }
 
@@ -778,28 +780,6 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           return resolvedRequest.request();
         }
       };
-
-  private void traversalHelper(BindingGraph graph, Deque<ResolvedRequest> path,
-      Traverser traverser) {
-    ImmutableSet<DependencyRequest> allDeps =
-        FluentIterable.from(path.peek().binding().bindings())
-            .transformAndConcat(
-                new Function<Binding, Set<DependencyRequest>>() {
-                  @Override
-                  public Set<DependencyRequest> apply(Binding input) {
-                    return input.implicitDependencies();
-                  }
-                })
-            .toSet();
-    boolean descend = traverser.visitResolvedRequest(path);
-    if (descend) {
-      for (DependencyRequest dependency : allDeps) {
-        path.push(ResolvedRequest.create(dependency, graph));
-        traversalHelper(graph, path, traverser);
-        path.pop();
-      }
-    }
-  }
 
   abstract static class Traverser {
     abstract boolean visitResolvedRequest(Deque<ResolvedRequest> path);
