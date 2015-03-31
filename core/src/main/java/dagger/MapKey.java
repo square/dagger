@@ -54,5 +54,5 @@ public @interface MapKey {
    * annotation will be the key type for injected map and the value instances will be the keys.
    * Currently only support {@code unwrapValue} to be true.
    */
-  boolean unwrapValue();
+  boolean unwrapValue() default true;
 }
