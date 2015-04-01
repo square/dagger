@@ -179,6 +179,12 @@
                   <exclude>javax.inject</exclude>
                 </excludes>
               </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.auto.common</pattern>
+                  <shadedPattern>dagger.shaded.auto.common</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
