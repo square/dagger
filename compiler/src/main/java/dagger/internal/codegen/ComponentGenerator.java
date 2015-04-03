@@ -84,6 +84,7 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
@@ -662,12 +663,17 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
         ExecutableElement requestElement =
             MoreElements.asExecutable(interfaceRequest.requestElement());
-        MethodSignature signature = MethodSignature.fromExecutableElement(requestElement);
+        ExecutableType requestType = MoreTypes.asExecutable(types.asMemberOf(
+            MoreTypes.asDeclared(input.componentDescriptor().componentDefinitionType().asType()),
+            requestElement));
+        MethodSignature signature = MethodSignature.fromExecutableType(
+            requestElement.getSimpleName().toString(),
+            requestType);
         if (!interfaceMethods.contains(signature)) {
           interfaceMethods.add(signature);
-          MethodWriter interfaceMethod = requestElement.getReturnType().getKind().equals(VOID)
+          MethodWriter interfaceMethod = requestType.getReturnType().getKind().equals(VOID)
               ? componentWriter.addMethod(VoidName.VOID, requestElement.getSimpleName().toString())
-                  : componentWriter.addMethod(requestElement.getReturnType(),
+                  : componentWriter.addMethod(requestType.getReturnType(),
                       requestElement.getSimpleName().toString());
           interfaceMethod.annotate(Override.class);
           interfaceMethod.addModifiers(PUBLIC);
@@ -684,14 +690,15 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 VariableElement parameter = Iterables.getOnlyElement(parameters);
                 Name parameterName = parameter.getSimpleName();
                 interfaceMethod.addParameter(
-                    TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
-                interfaceMethod.body()
-                .addSnippet("%s.injectMembers(%s);",
+                    TypeNames.forTypeMirror(
+                        Iterables.getOnlyElement(requestType.getParameterTypes())),
+                    parameterName.toString());
+                interfaceMethod.body().addSnippet("%s.injectMembers(%s);",
                     // in this case we know we won't need the cast because we're never going to pass
                     // the reference to anything
                     membersInjectorSelect.getSnippetFor(componentWriter.name()),
                     parameterName);
-                if (!requestElement.getReturnType().getKind().equals(VOID)) {
+                if (!requestType.getReturnType().getKind().equals(VOID)) {
                   interfaceMethod.body().addSnippet("return %s;", parameterName);
                 }
               }
@@ -704,7 +711,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 // in a temporary variable, in order to help javac be able to infer
                 // the generics of the Factory.create methods.
                 TypeName factoryType = ParameterizedTypeName.create(Provider.class,
-                    TypeNames.forTypeMirror(requestElement.getReturnType()));
+                    TypeNames.forTypeMirror(requestType.getReturnType()));
                 interfaceMethod.body().addSnippet("%s factory = %s;", factoryType,
                     memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()));
                 interfaceMethod.body().addSnippet("return factory.get();");

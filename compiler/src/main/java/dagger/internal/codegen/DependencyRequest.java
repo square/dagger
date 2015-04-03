@@ -37,6 +37,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
@@ -164,21 +165,24 @@ abstract class DependencyRequest {
       return newDependencyRequest(variableElement, resolvedType, qualifier, container);
     }
 
-    DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod) {
+    DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod,
+        ExecutableType provisionMethodType) {
       checkNotNull(provisionMethod);
+      checkNotNull(provisionMethodType);
       checkArgument(provisionMethod.getParameters().isEmpty(),
           "Component provision methods must be empty: " + provisionMethod);
-      TypeMirror type = provisionMethod.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
-      return newDependencyRequest(provisionMethod, type, qualifier,
+      return newDependencyRequest(provisionMethod, provisionMethodType.getReturnType(), qualifier,
           getEnclosingType(provisionMethod));
     }
 
-    DependencyRequest forComponentProductionMethod(ExecutableElement productionMethod) {
+    DependencyRequest forComponentProductionMethod(ExecutableElement productionMethod,
+        ExecutableType productionMethodType) {
       checkNotNull(productionMethod);
+      checkNotNull(productionMethodType);
       checkArgument(productionMethod.getParameters().isEmpty(),
           "Component production methods must be empty: %s", productionMethod);
-      TypeMirror type = productionMethod.getReturnType();
+      TypeMirror type = productionMethodType.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(productionMethod);
       DeclaredType container = getEnclosingType(productionMethod);
       // Only a component production method can be a request for a ListenableFuture, so we
@@ -196,12 +200,14 @@ abstract class DependencyRequest {
       }
     }
 
-    DependencyRequest forComponentMembersInjectionMethod(ExecutableElement membersInjectionMethod) {
+    DependencyRequest forComponentMembersInjectionMethod(ExecutableElement membersInjectionMethod,
+        ExecutableType membersInjectionMethodType) {
       checkNotNull(membersInjectionMethod);
+      checkNotNull(membersInjectionMethodType);
       Optional<AnnotationMirror> qualifier =
           InjectionAnnotations.getQualifier(membersInjectionMethod);
       checkArgument(!qualifier.isPresent());
-      TypeMirror returnType = membersInjectionMethod.getReturnType();
+      TypeMirror returnType = membersInjectionMethodType.getReturnType();
       if (returnType.getKind().equals(DECLARED)
           && MoreTypes.isTypeOf(MembersInjector.class, returnType)) {
         return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
@@ -213,7 +219,7 @@ abstract class DependencyRequest {
       } else {
         return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
             keyFactory.forMembersInjectedType(
-                Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
+                Iterables.getOnlyElement(membersInjectionMethodType.getParameterTypes())),
                 membersInjectionMethod,
                 getEnclosingType(membersInjectionMethod),
                 false /* doesn't allow null */);

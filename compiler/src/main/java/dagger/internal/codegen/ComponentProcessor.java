@@ -117,7 +117,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         membersInjectionBindingFactory, membersInjectorGenerator);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, dependencyRequestFactory);
+        new ComponentDescriptor.Factory(elements, types, dependencyRequestFactory);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
         elements, types, injectBindingRegistry, keyFactory,

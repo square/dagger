@@ -39,11 +39,12 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
@@ -140,10 +141,12 @@ abstract class ComponentDescriptor {
 
   static final class Factory {
     private final Elements elements;
+    private final Types types;
     private final DependencyRequest.Factory dependencyRequestFactory;
 
-    Factory(Elements elements, DependencyRequest.Factory dependencyRequestFactory) {
+    Factory(Elements elements, Types types, DependencyRequest.Factory dependencyRequestFactory) {
       this.elements = elements;
+      this.types = types;
       this.dependencyRequestFactory = dependencyRequestFactory;
     }
 
@@ -193,7 +196,7 @@ abstract class ComponentDescriptor {
           ImmutableMap.builder();
       for (ExecutableElement componentMethod : unimplementedMethods) {
         ComponentMethodDescriptor componentMethodDescriptor =
-            getDescriptorForComponentMethod(kind, componentMethod);
+            getDescriptorForComponentMethod(componentDefinitionType, kind, componentMethod);
         componentMethodsBuilder.add(componentMethodDescriptor);
         if (componentMethodDescriptor.kind().equals(ComponentMethodKind.SUBCOMPONENT)) {
           subcomponentDescriptors.put(componentMethod,
@@ -215,21 +218,26 @@ abstract class ComponentDescriptor {
           componentMethodsBuilder.build());
     }
 
-    private ComponentMethodDescriptor getDescriptorForComponentMethod(Kind componentKind,
+    private ComponentMethodDescriptor getDescriptorForComponentMethod(TypeElement componentElement,
+        Kind componentKind,
         ExecutableElement componentMethod) {
-      TypeMirror returnType = componentMethod.getReturnType();
+      ExecutableType resolvedComponentMethod = MoreTypes.asExecutable(types.asMemberOf(
+          MoreTypes.asDeclared(componentElement.asType()), componentMethod));
+      TypeMirror returnType = resolvedComponentMethod.getReturnType();
       if (returnType.getKind().equals(DECLARED)) {
         if (MoreTypes.isTypeOf(Provider.class, returnType)
             || MoreTypes.isTypeOf(Lazy.class, returnType)) {
           return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
               ComponentMethodKind.PROVISON,
-              Optional.of(dependencyRequestFactory.forComponentProvisionMethod(componentMethod)),
+              Optional.of(dependencyRequestFactory.forComponentProvisionMethod(componentMethod,
+                  resolvedComponentMethod)),
               componentMethod);
         } else if (MoreTypes.isTypeOf(MembersInjector.class, returnType)) {
           return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
               ComponentMethodKind.MEMBERS_INJECTION,
               Optional.of(dependencyRequestFactory.forComponentMembersInjectionMethod(
-                  componentMethod)),
+                  componentMethod,
+                  resolvedComponentMethod)),
               componentMethod);
         } else if (getAnnotationMirror(MoreTypes.asElement(returnType), Subcomponent.class)
             .isPresent()) {
@@ -247,26 +255,29 @@ abstract class ComponentDescriptor {
           case COMPONENT:
             return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
                 ComponentMethodKind.PROVISON,
-                Optional.of(dependencyRequestFactory.forComponentProvisionMethod(componentMethod)),
+                Optional.of(dependencyRequestFactory.forComponentProvisionMethod(componentMethod,
+                    resolvedComponentMethod)),
                 componentMethod);
           case PRODUCTION_COMPONENT:
             return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
                 ComponentMethodKind.PRODUCTION,
-                Optional.of(dependencyRequestFactory.forComponentProductionMethod(componentMethod)),
+                Optional.of(dependencyRequestFactory.forComponentProductionMethod(componentMethod,
+                    resolvedComponentMethod)),
                 componentMethod);
           default:
             throw new AssertionError();
         }
       }
 
-      List<? extends VariableElement> parameters = componentMethod.getParameters();
-      if (parameters.size() == 1
+      List<? extends TypeMirror> parameterTypes = resolvedComponentMethod.getParameterTypes();
+      if (parameterTypes.size() == 1
           && (returnType.getKind().equals(VOID)
-              || MoreTypes.equivalence().equivalent(returnType, parameters.get(0).asType()))) {
+              || MoreTypes.equivalence().equivalent(returnType, parameterTypes.get(0)))) {
         return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
             ComponentMethodKind.MEMBERS_INJECTION,
             Optional.of(dependencyRequestFactory.forComponentMembersInjectionMethod(
-                componentMethod)),
+                componentMethod,
+                resolvedComponentMethod)),
             componentMethod);
       }
 

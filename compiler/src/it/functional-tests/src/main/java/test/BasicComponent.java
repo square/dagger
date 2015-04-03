@@ -21,7 +21,7 @@ import dagger.MembersInjector;
 import javax.inject.Provider;
 
 @Component(modules = PrimitivesModule.class)
-interface BasicComponent {
+interface BasicComponent extends Injector<Thing> {
   byte getByte();
   char getChar();
   short getShort();
