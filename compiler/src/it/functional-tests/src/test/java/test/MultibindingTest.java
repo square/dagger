@@ -26,7 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class MultibindingTest {
   @Test public void testMultibindings() {
-    MultibindingComponent multibindingComponent = Dagger_MultibindingComponent.create();
+    MultibindingComponent multibindingComponent = DaggerMultibindingComponent.create();
     Map<String, String> map = multibindingComponent.map();
     assertThat(map).hasSize(2);
     assertThat(map).containsEntry("foo", "foo value");

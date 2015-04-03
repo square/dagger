@@ -132,7 +132,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     ClassName componentDefinitionClassName =
         ClassName.fromTypeElement(input.componentDescriptor().componentDefinitionType());
     String componentName =
-        "Dagger_" + componentDefinitionClassName.classFileName().replace('$', '_');
+        "Dagger" + componentDefinitionClassName.classFileName().replace('$', '_');
     return componentDefinitionClassName.topLevelClassName().peerNamed(componentName);
   }
 

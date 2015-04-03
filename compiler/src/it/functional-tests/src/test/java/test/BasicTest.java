@@ -41,10 +41,10 @@ import static test.PrimitivesModule.BOUND_SHORT_ARRAY;
 @RunWith(Theories.class)
 public class BasicTest {
   @DataPoint
-  public static final BasicComponent basicComponent = Dagger_BasicComponent.create();
+  public static final BasicComponent basicComponent = DaggerBasicComponent.create();
   @DataPoint
   public static final BasicComponent abstractClassBasicComponent =
-      Dagger_BasicAbstractClassComponent.create();
+      DaggerBasicAbstractClassComponent.create();
 
   @Theory public void primitives(BasicComponent basicComponent) {
     assertThat(basicComponent.getByte()).isEqualTo(BOUND_BYTE);

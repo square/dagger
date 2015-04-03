@@ -25,7 +25,7 @@ import static com.google.common.truth.Truth.assertThat;
 public class NonComponentDependencyTest {
   @Test public void testThing() {
     NonComponentDependencyComponent component =
-        Dagger_NonComponentDependencyComponent.builder()
+        DaggerNonComponentDependencyComponent.builder()
             .thingComponent(new NonComponentDependencyComponent.ThingComponentImpl())
             .build();
     assertThat(component).isNotNull();

@@ -22,14 +22,14 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class MembersInjectTest {
   @Test public void testMembersInject_arrays() {
-    MembersInjectComponent component = Dagger_MembersInjectComponent.builder().build();
+    MembersInjectComponent component = DaggerMembersInjectComponent.builder().build();
     
     ChildOfStringArray childOfStringArray = new ChildOfStringArray();
     component.inject(childOfStringArray);
   }
 
   @Test public void testMembersInject_nestedArrays() {
-    MembersInjectComponent component = Dagger_MembersInjectComponent.builder().build();
+    MembersInjectComponent component = DaggerMembersInjectComponent.builder().build();
     
     ChildOfArrayOfParentOfStringArray childOfArrayOfParentOfStringArray =
         new ChildOfArrayOfParentOfStringArray();
@@ -37,7 +37,7 @@ public class MembersInjectTest {
   }
 
   @Test public void testMembersInject_primitives() {
-    MembersInjectComponent component = Dagger_MembersInjectComponent.builder().build();
+    MembersInjectComponent component = DaggerMembersInjectComponent.builder().build();
     
     ChildOfPrimitiveIntArray childOfPrimitiveIntArray = new ChildOfPrimitiveIntArray();
     component.inject(childOfPrimitiveIntArray);

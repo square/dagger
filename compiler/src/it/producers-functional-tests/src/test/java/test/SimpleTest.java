@@ -25,7 +25,7 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class SimpleTest {
   @Test public void testSimpleComponent() throws Exception {
-    SimpleComponent simpleComponent = Dagger_SimpleComponent
+    SimpleComponent simpleComponent = DaggerSimpleComponent
         .builder()
         .executor(MoreExecutors.directExecutor())
         .build();

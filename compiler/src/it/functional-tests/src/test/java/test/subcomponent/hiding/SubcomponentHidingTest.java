@@ -24,7 +24,7 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class SubcomponentHidingTest {
   @Test public void moduleNameHiding() {
-    ParentComponent parent = Dagger_ParentComponent.create();
+    ParentComponent parent = DaggerParentComponent.create();
     assertThat(parent.aCommonName().toString()).isEqualTo("a");
     assertThat(parent.newChildComponent().aCommonName().toString()).isEqualTo("a");
     assertThat(parent.newChildComponent().bCommonName().toString()).isEqualTo("1");

@@ -32,17 +32,17 @@ import static org.junit.Assert.assertEquals;
 public class GenericTest {
 
   @Test public void testGenericComponentCreate() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     assertThat(component).isNotNull();
   }
   
   @Test public void testGenericSimpleReferences() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     assertThat(component.referencesGeneric().genericA.t).isNotNull();    
   }
   
   @Test public void testGenericDoubleReferences() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     GenericDoubleReferences<A> doubleA = component.doubleGenericA();
     assertThat(doubleA.a).isNotNull();
     assertThat(doubleA.a2).isNotNull();
@@ -57,13 +57,13 @@ public class GenericTest {
   }
   
   @Test public void complexGenerics() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     // validate these can be called w/o exceptions.
     component.complexGenerics();
   }
   
   @Test public void noDepsGenerics() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     // validate these can be called w/o exceptions.
     component.noDepsA();
     component.noDepsB();
@@ -71,7 +71,7 @@ public class GenericTest {
   
   @Test public void boundedGenerics() {
     BoundedGenericModule expected = new BoundedGenericModule();
-    BoundedGenericComponent component = Dagger_BoundedGenericComponent.create();
+    BoundedGenericComponent component = DaggerBoundedGenericComponent.create();
     BoundedGenerics<Integer, ArrayList<String>, LinkedList<CharSequence>, Integer, List<Integer>>
         b1 = component.bounds1();
     assertEquals(expected.provideInteger(), b1.a);
@@ -90,7 +90,7 @@ public class GenericTest {
   }
   
   @Test public void membersInjections() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     GenericChild<A> childA = new GenericChild<A>();
     component.injectA(childA);
     assertThat(childA.a).isNotNull();
@@ -113,7 +113,7 @@ public class GenericTest {
   }
   
   @Test public void packagePrivateTypeParameterDependencies() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     Exposed exposed = component.exposed();
     assertThat(exposed.gpp.t).isNotNull();
     assertThat(exposed.gpp2).isNotNull();
@@ -121,13 +121,13 @@ public class GenericTest {
   
   @SuppressWarnings("rawtypes")
   @Test public void publicSubclassWithPackagePrivateTypeParameterOfSuperclass() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     PublicSubclass publicSubclass = component.publicSubclass();
     assertThat(((Generic)publicSubclass).t).isNotNull();
   }
   
   @Test public void singletonScopesAppliesToEachResolvedType() {
-    SingletonGenericComponent component = Dagger_SingletonGenericComponent.create();
+    SingletonGenericComponent component = DaggerSingletonGenericComponent.create();
     ScopedGeneric<A> a = component.scopedGenericA();
     assertThat(a).isSameAs(component.scopedGenericA());
     assertThat(a.t).isNotNull();
@@ -140,7 +140,7 @@ public class GenericTest {
   }
   
   @Test public void genericModules() {
-    GenericComponent component = Dagger_GenericComponent.create();
+    GenericComponent component = DaggerGenericComponent.create();
     assertThat(component.iterableInt()).containsExactly(1, 2).inOrder();
     assertThat(component.iterableDouble()).containsExactly(3d, 4d).inOrder();
     

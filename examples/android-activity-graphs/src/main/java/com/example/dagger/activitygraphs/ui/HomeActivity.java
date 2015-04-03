@@ -28,7 +28,7 @@ public class HomeActivity extends FragmentActivity {
 
   HomeComponent component() {
     if (component == null) {
-      component = Dagger_HomeComponent.builder()
+      component = DaggerHomeComponent.builder()
           .applicationComponent(((DemoApplication) getApplication()).component())
           .activityModule(new ActivityModule(this))
           .build();

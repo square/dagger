@@ -29,8 +29,8 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * Annotates an interface or abstract class for which a fully-formed, dependency-injected
  * implementation is to be generated from a set of {@linkplain #modules}. The generated class will
  * have the name of the type annotated with {@code @Component} prepended with
- * {@code Dagger_}.  For example, {@code @Component interface MyComponent {...}} will
- * produce an implementation named {@code Dagger_MyComponent}.
+ * {@code Dagger}.  For example, {@code @Component interface MyComponent {...}} will
+ * produce an implementation named {@code DaggerMyComponent}.
  *
  * <h2>Component methods</h2>
  *

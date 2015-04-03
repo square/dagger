@@ -27,7 +27,7 @@ import static com.google.common.truth.Truth.assertThat;
 public class SubcomponentTest {
   @Test
   public void scopePropagatesUpward_class() {
-    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    ParentComponent parentComponent = DaggerParentComponent.create();
     assertThat(parentComponent.newChildComponent().requiresSingleton().singletonType())
         .isSameAs(parentComponent.newChildComponent().requiresSingleton().singletonType());
     assertThat(parentComponent.newChildComponent().requiresSingleton().singletonType())
@@ -37,7 +37,7 @@ public class SubcomponentTest {
 
   @Test
   public void scopePropagatesUpward_provides() {
-    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    ParentComponent parentComponent = DaggerParentComponent.create();
     assertThat(parentComponent.newChildComponent()
         .requiresSingleton().unscopedTypeBoundAsSingleton())
             .isSameAs(parentComponent.newChildComponent()
@@ -50,7 +50,7 @@ public class SubcomponentTest {
 
   @Test
   public void multibindingContributions() {
-    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    ParentComponent parentComponent = DaggerParentComponent.create();
     Set<Object> parentObjectSet = parentComponent.objectSet();
     assertThat(parentObjectSet).hasSize(2);
     Set<Object> childObjectSet = parentComponent.newChildComponent().objectSet();
@@ -65,7 +65,7 @@ public class SubcomponentTest {
 
   @Test
   public void unscopedProviders() {
-    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    ParentComponent parentComponent = DaggerParentComponent.create();
     assertThat(parentComponent.getUnscopedTypeProvider())
         .isSameAs(parentComponent.newChildComponent().getUnscopedTypeProvider());
     assertThat(parentComponent.getUnscopedTypeProvider())
@@ -76,7 +76,7 @@ public class SubcomponentTest {
 
   @Test
   public void passedModules() {
-    ParentComponent parentComponent = Dagger_ParentComponent.create();
+    ParentComponent parentComponent = DaggerParentComponent.create();
     ChildModuleWithState childModuleWithState = new ChildModuleWithState();
     ChildComponentRequiringModules childComponent1 =
         parentComponent.newChildComponentRequiringModules(

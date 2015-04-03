@@ -54,7 +54,7 @@ public class MembersInjectionTest {
         "  Child child();",
         "}");
     JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
-        "test.Dagger_TestComponent",
+        "test.DaggerTestComponent",
         "package test;",
         "",
         "import dagger.MembersInjector;",
@@ -63,10 +63,10 @@ public class MembersInjectionTest {
         "import javax.inject.Provider;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
-        "public final class Dagger_TestComponent implements TestComponent {",
+        "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Child> childProvider;",
         "",
-        "  private Dagger_TestComponent(Builder builder) {",
+        "  private DaggerTestComponent(Builder builder) {",
         "    assert builder != null;",
         "    initialize(builder);",
         "  }",
@@ -94,7 +94,7 @@ public class MembersInjectionTest {
         "    }",
         "",
         "    public TestComponent build() {",
-        "      return new Dagger_TestComponent(this);",
+        "      return new DaggerTestComponent(this);",
         "    }",
         "  }",
         "}");
@@ -142,7 +142,7 @@ public class MembersInjectionTest {
         "  Child child();",
         "}");
     JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
-        "test.Dagger_TestComponent",
+        "test.DaggerTestComponent",
         "package test;",
         "",
         "import dagger.MembersInjector;",
@@ -151,12 +151,12 @@ public class MembersInjectionTest {
         "import javax.inject.Provider;",
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
-        "public final class Dagger_TestComponent implements TestComponent {",
+        "public final class DaggerTestComponent implements TestComponent {",
         "  private MembersInjector<Parent> parentMembersInjector;",
         "  private MembersInjector<Child> childMembersInjector;",
         "  private Provider<Child> childProvider;",
         "",
-        "  private Dagger_TestComponent(Builder builder) {",
+        "  private DaggerTestComponent(Builder builder) {",
         "    assert builder != null;",
         "    initialize(builder);",
         "  }",
@@ -185,7 +185,7 @@ public class MembersInjectionTest {
         "    }",
         "",
         "    public TestComponent build() {",
-        "      return new Dagger_TestComponent(this);",
+        "      return new DaggerTestComponent(this);",
         "    }",
         "  }",
         "}");

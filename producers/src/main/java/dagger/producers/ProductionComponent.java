@@ -29,8 +29,8 @@ import static java.lang.annotation.ElementType.TYPE;
  * Annotates an interface or abstract class for which a fully-formed, dependency-injected
  * implementation is to be generated from a set of {@linkplain #modules}. The generated class will
  * have the name of the type annotated with {@code @ProductionComponent} prepended with
- * {@code Dagger_}.  For example, {@code @ProductionComponent interface MyComponent {...}} will
- * produce an implementation named {@code Dagger_MyComponent}.
+ * {@code Dagger}.  For example, {@code @ProductionComponent interface MyComponent {...}} will
+ * produce an implementation named {@code DaggerMyComponent}.
  *
  * <p>Each {@link Produces} method that contributes to the component will be called at most once per
  * component instance, no matter how many times that binding is used as a dependency.

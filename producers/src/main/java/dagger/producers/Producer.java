@@ -65,7 +65,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  * Suppose we instantiate the generated implementation of this component and call
  * {@code delayedC()}: <pre>   {@code
  *
- *   MyComponent component = Dagger_MyComponent
+ *   MyComponent component = DaggerMyComponent
  *       .builder()
  *       .executor(MoreExecutors.directExecutor())
  *       .build();
