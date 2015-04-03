@@ -29,7 +29,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
-import dagger.internal.codegen.ComponentDescriptor.ComponentMethodType;
+import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
 import java.util.Deque;
@@ -71,7 +71,6 @@ abstract class BindingGraph {
   }
 
   abstract ComponentDescriptor componentDescriptor();
-  abstract ImmutableSet<DependencyRequest> entryPoints();
   abstract ImmutableMap<TypeElement, ModuleStrategy> transitiveModules();
   abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
   abstract ImmutableMap<ExecutableElement, BindingGraph> subgraphs();
@@ -223,13 +222,11 @@ abstract class BindingGraph {
           componentDescriptor.wrappedScope(),
           explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
           explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
-      ImmutableSetMultimap<ComponentMethodType, ExecutableElement> componentMethods =
-          componentDescriptor.componentMethods();
-
-      ImmutableSet<DependencyRequest> componentMethodRequests =
-          componentMethodRequests(componentMethods);
-      for (DependencyRequest componentMethodRequest : componentMethodRequests) {
-        requestResolver.resolve(componentMethodRequest);
+      for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
+        Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
+        if (componentMethodRequest.isPresent()) {
+          requestResolver.resolve(componentMethodRequest.get());
+        }
       }
 
       ImmutableMap.Builder<ExecutableElement, BindingGraph> subgraphsBuilder =
@@ -242,7 +239,6 @@ abstract class BindingGraph {
 
       return new AutoValue_BindingGraph(
           componentDescriptor,
-          componentMethodRequests,
           transitiveModules.build(),
           requestResolver.getResolvedBindings(),
           subgraphsBuilder.build());
@@ -256,26 +252,6 @@ abstract class BindingGraph {
         builder.put(binding.key(), binding);
       }
       return builder.build();
-    }
-
-    private ImmutableSet<DependencyRequest> componentMethodRequests(
-        ImmutableSetMultimap<ComponentMethodType, ExecutableElement> componentMethods) {
-      ImmutableSet.Builder<DependencyRequest> interfaceRequestsBuilder = ImmutableSet.builder();
-      for (ExecutableElement provisionMethod : componentMethods.get(ComponentMethodType.PROVISON)) {
-        interfaceRequestsBuilder.add(
-            dependencyRequestFactory.forComponentProvisionMethod(provisionMethod));
-      }
-      for (ExecutableElement productionMethod :
-          componentMethods.get(ComponentMethodType.PRODUCTION)) {
-        interfaceRequestsBuilder.add(
-            dependencyRequestFactory.forComponentProductionMethod(productionMethod));
-      }
-      for (ExecutableElement membersInjectionMethod :
-          componentMethods.get(ComponentMethodType.MEMBERS_INJECTION)) {
-        interfaceRequestsBuilder.add(
-            dependencyRequestFactory.forComponentMembersInjectionMethod(membersInjectionMethod));
-      }
-      return interfaceRequestsBuilder.build();
     }
 
     private final class RequestResolver {

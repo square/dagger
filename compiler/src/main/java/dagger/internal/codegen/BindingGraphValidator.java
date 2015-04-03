@@ -35,6 +35,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
+import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.ValidationReport.Builder;
 import dagger.internal.codegen.writer.TypeNames;
@@ -117,8 +118,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     validateComponentScope(subject, reportBuilder, resolvedBindings);
     validateDependencyScopes(subject, reportBuilder);
 
-    for (DependencyRequest entryPoint : subject.entryPoints()) {
-      traverseRequest(entryPoint, new ArrayDeque<ResolvedRequest>(), subject, reportBuilder);
+    for (ComponentMethodDescriptor componentMethod :
+        subject.componentDescriptor().componentMethods()) {
+      Optional<DependencyRequest> entryPoint = componentMethod.dependencyRequest();
+      if (entryPoint.isPresent()) {
+        traverseRequest(entryPoint.get(), new ArrayDeque<ResolvedRequest>(), subject,
+            reportBuilder);
+      }
     }
 
     validateSubcomponents(subject, reportBuilder);

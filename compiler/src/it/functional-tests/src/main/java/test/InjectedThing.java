@@ -16,6 +16,7 @@
 package test;
 
 import dagger.Lazy;
+import dagger.MembersInjector;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
@@ -87,6 +88,7 @@ final class InjectedThing {
   @Inject Thing thing;
   @Inject Provider<Thing> thingProvider;
   @Inject Lazy<Thing> lazyThing;
+  @Inject MembersInjector<Thing> thingMembersInjector;
 
   @Inject InjectedThing(
       byte primitiveByte,
@@ -154,7 +156,8 @@ final class InjectedThing {
 
       Thing thing,
       Provider<Thing> thingProvider,
-      Lazy<Thing> lazyThing) {}
+      Lazy<Thing> lazyThing,
+      MembersInjector<Thing> thingMembersInjector) {}
 
   @Inject void primitiveByte(byte primitiveByte) {}
   @Inject void primitiveChar(char primitiveChar) {}
@@ -222,4 +225,5 @@ final class InjectedThing {
   @Inject void thing(Thing thing) {}
   @Inject void thingProvider(Provider<Thing> thingProvider) {}
   @Inject void lazyThing(Lazy<Thing> lazyThing) {}
+  @Inject void thingMembersInjector(MembersInjector<Thing> thingMembersInjector) {}
 }

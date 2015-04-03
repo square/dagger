@@ -44,6 +44,7 @@ import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static javax.lang.model.type.TypeKind.DECLARED;
 
 /**
  * Represents a request for a key at an injection point. Parameters to {@link Inject} constructors
@@ -200,12 +201,23 @@ abstract class DependencyRequest {
       Optional<AnnotationMirror> qualifier =
           InjectionAnnotations.getQualifier(membersInjectionMethod);
       checkArgument(!qualifier.isPresent());
-      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
-          keyFactory.forMembersInjectedType(
-              Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
-          membersInjectionMethod,
-          getEnclosingType(membersInjectionMethod),
-          false /* doesn't allow null */);
+      TypeMirror returnType = membersInjectionMethod.getReturnType();
+      if (returnType.getKind().equals(DECLARED)
+          && MoreTypes.isTypeOf(MembersInjector.class, returnType)) {
+        return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+            keyFactory.forMembersInjectedType(
+                Iterables.getOnlyElement(((DeclaredType) returnType).getTypeArguments())),
+                membersInjectionMethod,
+                getEnclosingType(membersInjectionMethod),
+                false /* doesn't allow null */);
+      } else {
+        return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+            keyFactory.forMembersInjectedType(
+                Iterables.getOnlyElement(membersInjectionMethod.getParameters()).asType()),
+                membersInjectionMethod,
+                getEnclosingType(membersInjectionMethod),
+                false /* doesn't allow null */);
+      }
     }
 
     DependencyRequest forMembersInjectedType(DeclaredType type) {

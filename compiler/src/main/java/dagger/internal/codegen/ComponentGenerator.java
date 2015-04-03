@@ -46,6 +46,7 @@ import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
+import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
@@ -655,63 +656,74 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableSet<BindingKey> enumBindingKeys) throws AssertionError {
     Set<MethodSignature> interfaceMethods = Sets.newHashSet();
 
-    for (DependencyRequest interfaceRequest : input.entryPoints()) {
-      ExecutableElement requestElement =
-          MoreElements.asExecutable(interfaceRequest.requestElement());
-      MethodSignature signature = MethodSignature.fromExecutableElement(requestElement);
-      if (!interfaceMethods.contains(signature)) {
-        interfaceMethods.add(signature);
-        MethodWriter interfaceMethod = requestElement.getReturnType().getKind().equals(VOID)
-            ? componentWriter.addMethod(VoidName.VOID, requestElement.getSimpleName().toString())
-                : componentWriter.addMethod(requestElement.getReturnType(),
-                    requestElement.getSimpleName().toString());
-        interfaceMethod.annotate(Override.class);
-        interfaceMethod.addModifiers(PUBLIC);
-        BindingKey bindingKey = interfaceRequest.bindingKey();
-        switch(interfaceRequest.kind()) {
-          case MEMBERS_INJECTOR:
-            MemberSelect membersInjectorSelect = memberSelectSnippets.get(bindingKey);
-            VariableElement parameter = Iterables.getOnlyElement(requestElement.getParameters());
-            Name parameterName = parameter.getSimpleName();
-            interfaceMethod.addParameter(
-                TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
-            interfaceMethod.body()
+    for (ComponentMethodDescriptor componentMethod :
+        input.componentDescriptor().componentMethods()) {
+      if (componentMethod.dependencyRequest().isPresent()) {
+        DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
+        ExecutableElement requestElement =
+            MoreElements.asExecutable(interfaceRequest.requestElement());
+        MethodSignature signature = MethodSignature.fromExecutableElement(requestElement);
+        if (!interfaceMethods.contains(signature)) {
+          interfaceMethods.add(signature);
+          MethodWriter interfaceMethod = requestElement.getReturnType().getKind().equals(VOID)
+              ? componentWriter.addMethod(VoidName.VOID, requestElement.getSimpleName().toString())
+                  : componentWriter.addMethod(requestElement.getReturnType(),
+                      requestElement.getSimpleName().toString());
+          interfaceMethod.annotate(Override.class);
+          interfaceMethod.addModifiers(PUBLIC);
+          BindingKey bindingKey = interfaceRequest.bindingKey();
+          switch(interfaceRequest.kind()) {
+            case MEMBERS_INJECTOR:
+              MemberSelect membersInjectorSelect = memberSelectSnippets.get(bindingKey);
+              List<? extends VariableElement> parameters = requestElement.getParameters();
+              if (parameters.isEmpty()) {
+                // we're returning the framework type
+                interfaceMethod.body().addSnippet("return %s;",
+                    membersInjectorSelect.getSnippetFor(componentWriter.name()));
+              } else {
+                VariableElement parameter = Iterables.getOnlyElement(parameters);
+                Name parameterName = parameter.getSimpleName();
+                interfaceMethod.addParameter(
+                    TypeNames.forTypeMirror(parameter.asType()), parameterName.toString());
+                interfaceMethod.body()
                 .addSnippet("%s.injectMembers(%s);",
                     // in this case we know we won't need the cast because we're never going to pass
                     // the reference to anything
                     membersInjectorSelect.getSnippetFor(componentWriter.name()),
                     parameterName);
-            if (!requestElement.getReturnType().getKind().equals(VOID)) {
-              interfaceMethod.body().addSnippet("return %s;", parameterName);
-            }
-            break;
-          case INSTANCE:
-            if (enumBindingKeys.contains(bindingKey)
-                && !MoreTypes.asDeclared(bindingKey.key().type())
-                        .getTypeArguments().isEmpty()) {
-              // If using a parameterized enum type, then we need to store the factory
-              // in a temporary variable, in order to help javac be able to infer
-              // the generics of the Factory.create methods.
-              TypeName factoryType = ParameterizedTypeName.create(Provider.class,
-                  TypeNames.forTypeMirror(requestElement.getReturnType()));
-              interfaceMethod.body().addSnippet("%s factory = %s;", factoryType,
-                  memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()));
-              interfaceMethod.body().addSnippet("return factory.get();");
+                if (!requestElement.getReturnType().getKind().equals(VOID)) {
+                  interfaceMethod.body().addSnippet("return %s;", parameterName);
+                }
+              }
               break;
-            }
-            // fall through in the else case.
-          case LAZY:
-          case PRODUCED:
-          case PRODUCER:
-          case PROVIDER:
-          case FUTURE:
-            interfaceMethod.body().addSnippet("return %s;",
-                frameworkTypeUsageStatement(
-                    memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()),
-                    interfaceRequest.kind()));
-            break;
-          default:
-            throw new AssertionError();
+            case INSTANCE:
+              if (enumBindingKeys.contains(bindingKey)
+                  && !MoreTypes.asDeclared(bindingKey.key().type())
+                          .getTypeArguments().isEmpty()) {
+                // If using a parameterized enum type, then we need to store the factory
+                // in a temporary variable, in order to help javac be able to infer
+                // the generics of the Factory.create methods.
+                TypeName factoryType = ParameterizedTypeName.create(Provider.class,
+                    TypeNames.forTypeMirror(requestElement.getReturnType()));
+                interfaceMethod.body().addSnippet("%s factory = %s;", factoryType,
+                    memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()));
+                interfaceMethod.body().addSnippet("return factory.get();");
+                break;
+              }
+              // fall through in the else case.
+            case LAZY:
+            case PRODUCED:
+            case PRODUCER:
+            case PROVIDER:
+            case FUTURE:
+              interfaceMethod.body().addSnippet("return %s;",
+                  frameworkTypeUsageStatement(
+                      memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()),
+                      interfaceRequest.kind()));
+              break;
+            default:
+              throw new AssertionError();
+          }
         }
       }
     }
