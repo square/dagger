@@ -31,19 +31,9 @@
 
   <modules>
     <module>simple</module>
+    <module>android-simple</module>
+    <module>android-activity-graphs</module>
   </modules>
-
-  <!-- Travis CI currently has a problem building Android so we disable this profile -->
-  <profiles>
-    <profile>
-      <id>android</id>
-      <modules>
-        <module>simple</module>
-        <module>android-simple</module>
-        <module>android-activity-graphs</module>
-      </modules>
-    </profile>
-  </profiles>
 
   <!-- Example-only dependencies. -->
   <dependencyManagement>
