@@ -16,6 +16,7 @@
  */
 package dagger;
 
+import dagger.internal.Beta;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -61,6 +62,7 @@ public @interface Provides {
      * is contributed to the map as a key/value pair. The {@code Map<K, Provider<V>>} produced from
      * the accumulation of values will be immutable.
      */
+    @Beta
     MAP;
   }
 

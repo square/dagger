@@ -16,6 +16,7 @@
 package dagger.producers;
 
 import dagger.Module;
+import dagger.internal.Beta;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Target;
 
@@ -26,7 +27,9 @@ import static java.lang.annotation.ElementType.TYPE;
  *
  * @author Jesse Beder
  */
-@Documented @Target(TYPE)
+@Documented
+@Target(TYPE)
+@Beta
 public @interface ProducerModule {
   /**
    * Additional {@code @ProducerModule}- or {@link Module}-annotated classes from which this module

@@ -15,6 +15,7 @@
  */
 package dagger.producers;
 
+import dagger.internal.Beta;
 import com.google.common.util.concurrent.ListenableFuture;
 
 /**
@@ -86,6 +87,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  *
  * @author Jesse Beder
  */
+@Beta
 public interface Producer<T> {
   /**
    * Returns a future representing a running task that produces a value. Calling this method will
