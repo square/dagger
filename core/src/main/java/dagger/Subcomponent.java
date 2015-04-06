@@ -21,24 +21,21 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.TYPE;
 
 /**
- * A component that inherits the bindings from a parent {@link Component} or {@link Subcomponent}.
- *
- * <p>Subcomponent implementations only exist in the context of a parent and are associated with
- * parents using factory methods on the component.  Simply add a method that returns the
- * subcomponent on the parent.
+ * A subcomponent that inherits the bindings from a parent {@link Component} or
+ * {@link Subcomponent}. The details of how to associate a subcomponent with a parent are described
+ * in the documentation for {@link Component}.
  *
  * @author Gregory Kick
  * @since 2.0
  */
-// TODO(gak): add missing spec for @Scope, validation, etc.
 @Target(TYPE)
 @Documented
 public @interface Subcomponent {
   /**
    * A list of classes annotated with {@link Module} whose bindings are used to generate the
-   * component implementation.
-   *
-   * <p>At the moment, only modules without arguments are supported.
+   * subcomponent implementation.  Note that through the use of {@link Module#includes} the full set
+   * of modules used to implement the subcomponent may include more modules that just those listed
+   * here.
    */
   Class<?>[] modules() default {};
 }
