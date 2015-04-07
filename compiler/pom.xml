@@ -106,27 +106,27 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-         <executions>
-           <execution>
-             <id>default-compile</id>
-             <goals><goal>compile</goal></goals>
-             <configuration>
-               <annotationProcessors>
-                 <annotationProcessor>com.google.auto.value.processor.AutoValueProcessor</annotationProcessor>
-                 <annotationProcessor>com.google.auto.service.processor.AutoServiceProcessor</annotationProcessor>
-               </annotationProcessors>
-             </configuration>
-           </execution>
-           <execution>
-             <id>default-test-compile</id>
-             <goals><goal>testCompile</goal></goals>
-             <configuration>
-               <annotationProcessors>
-                 <annotationProcessor>dagger.internal.codegen.ComponentProcessor</annotationProcessor>
-               </annotationProcessors>
-             </configuration>
-           </execution>
-         </executions>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <goals><goal>compile</goal></goals>
+            <configuration>
+              <annotationProcessors>
+                <annotationProcessor>com.google.auto.value.processor.AutoValueProcessor</annotationProcessor>
+                <annotationProcessor>com.google.auto.service.processor.AutoServiceProcessor</annotationProcessor>
+              </annotationProcessors>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-test-compile</id>
+            <goals><goal>testCompile</goal></goals>
+            <configuration>
+              <annotationProcessors>
+                <annotationProcessor>dagger.internal.codegen.ComponentProcessor</annotationProcessor>
+              </annotationProcessors>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-invoker-plugin</artifactId>
