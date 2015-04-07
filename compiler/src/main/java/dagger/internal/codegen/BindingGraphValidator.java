@@ -745,8 +745,11 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
   private void reportCycle(DependencyRequest request, Deque<ResolvedRequest> path,
       final ValidationReport.Builder<BindingGraph> reportBuilder) {
-    ImmutableList<String> printableDependencyPath = FluentIterable.of(request)
-        .append(Iterables.transform(path, REQUEST_FROM_RESOLVED_REQUEST))
+    ImmutableList<DependencyRequest> pathElements = ImmutableList.<DependencyRequest>builder()
+        .add(request)
+        .addAll(Iterables.transform(path, REQUEST_FROM_RESOLVED_REQUEST))
+        .build();
+    ImmutableList<String> printableDependencyPath = FluentIterable.from(pathElements)
         .transform(dependencyRequestFormatter)
         .filter(Predicates.not(Predicates.equalTo("")))
         .toList()
