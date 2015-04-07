@@ -30,7 +30,7 @@ public class ProducerFactoryTest {
   @Test public void noArgMethod() throws Exception {
     SimpleProducerModule module = new SimpleProducerModule();
     Producer<String> producer =
-        new SimpleProducerModule$$StrFactory(module, MoreExecutors.directExecutor());
+        new SimpleProducerModule_StrFactory(module, MoreExecutors.directExecutor());
     assertThat(producer.get().get()).isEqualTo("Hello, World!");
   }
 
@@ -39,7 +39,7 @@ public class ProducerFactoryTest {
     SettableFuture<String> strFuture = SettableFuture.create();
     Producer<String> strProducer = producerOfFuture(strFuture);
     Producer<Integer> producer =
-        new SimpleProducerModule$$LenFactory(module, MoreExecutors.directExecutor(), strProducer);
+        new SimpleProducerModule_LenFactory(module, MoreExecutors.directExecutor(), strProducer);
     assertThat(producer.get().isDone()).isFalse();
     strFuture.set("abcdef");
     assertThat(producer.get().get()).isEqualTo(6);
