@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent.hiding;
+package test.subcomponent;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import dagger.Module;
+import dagger.Provides;
 
-import static com.google.common.truth.Truth.assertThat;
+/**
+ * This is a module that can be constructed with a default constructor, but has state, so callers
+ * might want to pass a reference anyway.
+ */
+@Module
+final class ChildModuleWithState {
+  private int i = 0;
 
-@RunWith(JUnit4.class)
-public class SubcomponentHidingTest {
-  @Test public void moduleNameHiding() {
-    ParentComponent parent = DaggerParentComponent.create();
-    assertThat(parent.aCommonName().toString()).isEqualTo("a");
-    assertThat(parent.newChildComponent().aCommonName().toString()).isEqualTo("a");
-    assertThat(parent.newChildComponent().bCommonName().toString()).isEqualTo("1");
+  @Provides int provideInt() {
+    return i++;
   }
 }

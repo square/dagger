@@ -24,7 +24,7 @@ interface NonComponentDependencyComponent {
 
   static class ThingTwo {
     @Inject
-    ThingTwo(Thing thing) {}
+    ThingTwo(@SuppressWarnings("unused") Thing thing) {}
   }
 
   // A non-component interface which this interface depends upon.

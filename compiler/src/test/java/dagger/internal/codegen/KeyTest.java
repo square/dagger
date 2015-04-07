@@ -94,7 +94,7 @@ public class KeyTest {
             MoreTypes.equivalence().wrap(stringType)));
   }
 
-  @Module(library = true)
+  @Module
   static final class ProvidesMethodModule {
     @Provides String provideString() {
       return null;
@@ -135,7 +135,7 @@ public class KeyTest {
     assertThat(provisionKey).isEqualTo(injectionKey);
   }
 
-  @Module(library = true)
+  @Module
   static final class QualifiedProvidesMethodModule {
     @Provides
     @TestQualifier(@InnerAnnotation)
@@ -171,7 +171,7 @@ public class KeyTest {
     }
   }
 
-  @Module(library = true)
+  @Module
   static final class SetProvidesMethodsModule {
     @Provides(type = SET) String provideString() {
       return null;
@@ -182,14 +182,14 @@ public class KeyTest {
     }
   }
 
-  @Module(library = true)
+  @Module
   static final class PrimitiveTypes {
     @Provides int foo() {
       return 0;
     }
   }
 
-  @Module(library = true)
+  @Module
   static final class BoxedPrimitiveTypes {
     @Provides Integer foo() {
       return 0;

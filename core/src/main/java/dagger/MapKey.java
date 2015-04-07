@@ -15,6 +15,7 @@
  */
 package dagger;
 
+import dagger.internal.Beta;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -47,6 +48,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Documented
 @Target(ANNOTATION_TYPE)
 @Retention(RUNTIME)
+@Beta
 public @interface MapKey {
   /**
    * if {@code unwrapValue} is false, then the whole annotation will be the type and annotation
@@ -54,5 +56,5 @@ public @interface MapKey {
    * annotation will be the key type for injected map and the value instances will be the keys.
    * Currently only support {@code unwrapValue} to be true.
    */
-  boolean unwrapValue();
+  boolean unwrapValue() default true;
 }

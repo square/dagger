@@ -26,7 +26,7 @@ import static org.junit.Assert.fail;
 public class NullabilityTest {
   @Test public void testNullability_provides() {
     NullModule module = new NullModule();
-    NullComponent component = Dagger_NullComponent.builder().nullModule(module).build();
+    NullComponent component = DaggerNullComponent.builder().nullModule(module).build();
 
     // Can't construct NullFoo because it depends on Number, and Number was null.
     try {
@@ -80,7 +80,7 @@ public class NullabilityTest {
       }
     };
     NullComponentWithDependency component =
-        Dagger_NullComponentWithDependency.builder().nullComponent(nullComponent).build();
+        DaggerNullComponentWithDependency.builder().nullComponent(nullComponent).build();
     validate(false, component.string(), component.stringProvider(), component.numberProvider());
     
     // Also validate that the component's number() method fails

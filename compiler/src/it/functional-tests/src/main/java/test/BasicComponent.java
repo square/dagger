@@ -16,10 +16,12 @@
 package test;
 
 import dagger.Component;
+import dagger.Lazy;
+import dagger.MembersInjector;
 import javax.inject.Provider;
 
 @Component(modules = PrimitivesModule.class)
-interface BasicComponent {
+interface BasicComponent extends Injector<Thing> {
   byte getByte();
   char getChar();
   short getShort();
@@ -68,5 +70,12 @@ interface BasicComponent {
   Object noOpMembersInjection(Object obviouslyDoesNotHaveMembersToInject);
 
   Thing thing();
+  InjectedThing injectedThing();
+  Provider<InjectedThing> injectedThingProvider();
+  Lazy<InjectedThing> lazyInjectedThing();
+  MembersInjector<InjectedThing> injectedThingMembersInjector();
+
   TypeWithInheritedMembersInjection typeWithInheritedMembersInjection();
+  MembersInjector<TypeWithInheritedMembersInjection>
+      typeWithInheritedMembersInjectionMembersInjector();
 }

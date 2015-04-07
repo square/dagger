@@ -15,8 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import javax.lang.model.type.DeclaredType;
-
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -24,10 +22,9 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
+import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Module;
@@ -35,8 +32,8 @@ import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
 import dagger.producers.ProductionComponent;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
@@ -47,6 +44,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
+
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -95,7 +93,7 @@ final class ConfigurationAnnotations {
   static ImmutableSet<? extends AnnotationMirror> getMapKeys(Element element) {
     return AnnotationMirrors.getAnnotatedAnnotations(element, MapKey.class);
   }
-  
+
   /** Returns the first type that specifies this' nullability, or absent if none. */
   static Optional<DeclaredType> getNullableType(Element element) {
     List<? extends AnnotationMirror> mirrors = element.getAnnotationMirrors();
@@ -124,11 +122,11 @@ final class ConfigurationAnnotations {
    * given seed modules.  If a module is malformed and a type listed in {@link Module#includes}
    * is not annotated with {@link Module}, it is ignored.
    */
-  static ImmutableMap<TypeElement, ImmutableSet<TypeElement>> getTransitiveModules(
-      Types types, Elements elements, ImmutableSet<TypeElement> seedModules) {
+  static ImmutableSet<TypeElement> getTransitiveModules(
+      Types types, Elements elements, Iterable<TypeElement> seedModules) {
     TypeMirror objectType = elements.getTypeElement(Object.class.getCanonicalName()).asType();
     Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
-    Map<TypeElement, ImmutableSet<TypeElement>> moduleElements = Maps.newLinkedHashMap();
+    Set<TypeElement> moduleElements = Sets.newLinkedHashSet();
     for (TypeElement moduleElement = moduleQueue.poll();
         moduleElement != null;
         moduleElement = moduleQueue.poll()) {
@@ -143,15 +141,15 @@ final class ConfigurationAnnotations {
         // against this element, not the parent.)
         addIncludesFromSuperclasses(types, moduleElement, moduleDependenciesBuilder, objectType);
         ImmutableSet<TypeElement> moduleDependencies = moduleDependenciesBuilder.build();
-        moduleElements.put(moduleElement, moduleDependencies);
+        moduleElements.add(moduleElement);
         for (TypeElement dependencyType : moduleDependencies) {
-          if (!moduleElements.containsKey(dependencyType)) {
+          if (!moduleElements.contains(dependencyType)) {
             moduleQueue.add(dependencyType);
           }
         }
       }
     }
-    return ImmutableMap.copyOf(moduleElements);
+    return ImmutableSet.copyOf(moduleElements);
   }
 
   static boolean isSubcomponentType(TypeMirror type) {

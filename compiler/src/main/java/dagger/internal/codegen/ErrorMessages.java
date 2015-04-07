@@ -161,7 +161,7 @@ final class ErrorMessages {
   static final String PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS =
       "Cannot use more than one @Qualifier on a @Provides or @Produces method";
 
-  /*mapKey errors*/
+  /* mapKey errors*/
   static final String MAPKEY_WITHOUT_FIELDS =
       "Map key annotation does not have fields";
 
@@ -195,10 +195,10 @@ final class ErrorMessages {
       "This type supports members injection but cannot be implicitly provided.";
 
   static final String MEMBERS_INJECTION_WITH_RAW_TYPE =
-      "%s has type parameters, cannot members inject the raw type.";
+      "%s has type parameters, cannot members inject the raw type. via:\n%s";
 
   static final String MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE =
-      "Type parameters must be bounded for members injection.";
+      "Type parameters must be bounded for members injection. (%s required by %s, via:\n%s";
 
   static final String CONTAINS_DEPENDENCY_CYCLE_FORMAT = "%s.%s() contains a dependency cycle:\n%s";
 

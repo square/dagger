@@ -15,6 +15,7 @@
  */
 package dagger.producers;
 
+import dagger.internal.Beta;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -36,6 +37,7 @@ import java.util.concurrent.ExecutionException;
  *
  * @author Jesse Beder
  */
+@Beta
 public interface Produced<T> {
   /**
    * Returns the result of a production.

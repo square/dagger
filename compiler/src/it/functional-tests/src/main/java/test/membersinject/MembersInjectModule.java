@@ -13,20 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent.hiding;
+package test.membersinject;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import dagger.Module;
+import dagger.Provides;
 
-import static com.google.common.truth.Truth.assertThat;
+@Module
+class MembersInjectModule {
+  
+  @Provides String[] provideStringArray() { return new String[10]; }
+  
+  @Provides int[] provideIntArray() { return new int[10]; }
+  
+  @SuppressWarnings("unchecked")
+  @Provides MembersInjectGenericParent<String[]>[] provideFooArrayOfStringArray() { return new MembersInjectGenericParent[10]; }
 
-@RunWith(JUnit4.class)
-public class SubcomponentHidingTest {
-  @Test public void moduleNameHiding() {
-    ParentComponent parent = DaggerParentComponent.create();
-    assertThat(parent.aCommonName().toString()).isEqualTo("a");
-    assertThat(parent.newChildComponent().aCommonName().toString()).isEqualTo("a");
-    assertThat(parent.newChildComponent().bCommonName().toString()).isEqualTo("1");
-  }
 }

@@ -46,7 +46,7 @@
     <javax.inject.version>1</javax.inject.version>
     <javawriter.version>2.5.0</javawriter.version>
     <auto.common.version>1.0-SNAPSHOT</auto.common.version>
-    <auto.service.version>1.0-rc1</auto.service.version>
+    <auto.service.version>1.0-rc2</auto.service.version>
     <auto.value.version>1.0</auto.value.version>
     <guava.version>18.0</guava.version>
 
@@ -161,7 +161,6 @@
 
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <source>${java.version}</source>
@@ -173,7 +172,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-release-plugin</artifactId>
         <version>2.3.2</version><!--$NO-MVN-MAN-VER$-->
         <configuration>
@@ -189,7 +187,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>2.10</version>
         <configuration>

@@ -15,6 +15,7 @@
  */
 package dagger.producers;
 
+import dagger.internal.Beta;
 import com.google.common.util.concurrent.ListenableFuture;
 
 /**
@@ -65,7 +66,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  * Suppose we instantiate the generated implementation of this component and call
  * {@code delayedC()}: <pre>   {@code
  *
- *   MyComponent component = Dagger_MyComponent
+ *   MyComponent component = DaggerMyComponent
  *       .builder()
  *       .executor(MoreExecutors.directExecutor())
  *       .build();
@@ -86,6 +87,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  *
  * @author Jesse Beder
  */
+@Beta
 public interface Producer<T> {
   /**
    * Returns a future representing a running task that produces a value. Calling this method will

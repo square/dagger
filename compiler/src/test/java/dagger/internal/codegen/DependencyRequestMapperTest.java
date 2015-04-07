@@ -128,7 +128,7 @@ public class DependencyRequestMapperTest {
         .isEqualTo(Producer.class);
   }
 
-  @Module(library = true)
+  @Module
   static final class ProvidesMethodModule {
     @Provides String provideString(
         Integer a, Lazy<Integer> b, Provider<Integer> c, MembersInjector<Integer> d) {

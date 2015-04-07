@@ -37,6 +37,7 @@ import java.util.Map.Entry;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 
@@ -79,10 +80,10 @@ class SourceFiles {
   // TODO(user): Refactor these indexing methods so that the binding itself knows what sort of
   // binding keys and framework classes that it needs.
   static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByUnresolvedKey(
-      Iterable<? extends DependencyRequest> dependencies) {
+      Types types, Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
-            DEPENDENCY_ORDERING);
+        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>()
+            .orderValuesBy(DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
       BindingKey resolved = dependency.bindingKey();
       // To get the proper unresolved type, we have to extract the proper type from the
@@ -90,7 +91,7 @@ class SourceFiles {
       TypeMirror unresolvedType =
           DependencyRequest.Factory.extractKindAndType(dependency.requestElement().asType()).type();
       BindingKey unresolved =
-          BindingKey.create(resolved.kind(), resolved.key().withType(unresolvedType));
+          BindingKey.create(resolved.kind(), resolved.key().withType(types, unresolvedType));
       dependenciesByKeyBuilder.put(unresolved, dependency);
     }
     return dependenciesByKeyBuilder.build();
@@ -106,8 +107,8 @@ class SourceFiles {
   static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByKey(
       Iterable<? extends DependencyRequest> dependencies) {
     ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>().orderValuesBy(
-            DEPENDENCY_ORDERING);
+        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>()
+            .orderValuesBy(DEPENDENCY_ORDERING);
     for (DependencyRequest dependency : dependencies) {
       dependenciesByKeyBuilder.put(dependency.bindingKey(), dependency);
     }

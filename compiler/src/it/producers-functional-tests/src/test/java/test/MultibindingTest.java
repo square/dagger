@@ -25,7 +25,7 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class MultibindingTest {
   @Test public void multibinding() throws Exception {
-    MultibindingComponent multibindingComponent = Dagger_MultibindingComponent.builder()
+    MultibindingComponent multibindingComponent = DaggerMultibindingComponent.builder()
         .executor(MoreExecutors.directExecutor())
         .build();
     assertThat(multibindingComponent.strs().get())

@@ -27,6 +27,7 @@ import java.util.Map;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -36,6 +37,9 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 
 import static com.google.common.base.Preconditions.checkState;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Utilities for handling types in annotation processors
@@ -118,6 +122,57 @@ final class Util {
     return wrappedOptional.isPresent()
         ? Optional.of(wrappedOptional.get().get())
         : Optional.<T>absent();
+  }
+
+  private static boolean requiresEnclosingInstance(TypeElement typeElement) {
+    switch (typeElement.getNestingKind()) {
+      case TOP_LEVEL:
+        return false;
+      case MEMBER:
+        return !typeElement.getModifiers().contains(STATIC);
+      case ANONYMOUS:
+      case LOCAL:
+        return true;
+      default:
+        throw new AssertionError("TypeElement cannot have nesting kind: "
+            + typeElement.getNestingKind());
+    }
+  }
+
+  /**
+   * Returns true if and only if a component can instantiate new instances (typically of a module)
+   * rather than requiring that they be passed.
+   */
+  static boolean componentCanMakeNewInstances(TypeElement typeElement) {
+    switch (typeElement.getKind()) {
+      case CLASS:
+        break;
+      case ENUM:
+      case ANNOTATION_TYPE:
+      case INTERFACE:
+        return false;
+      default:
+        throw new AssertionError("TypeElement cannot have kind: " + typeElement.getKind());
+    }
+
+    if (typeElement.getModifiers().contains(ABSTRACT)) {
+      return false;
+    }
+
+    if (requiresEnclosingInstance(typeElement)) {
+      return false;
+    }
+
+    for (Element enclosed : typeElement.getEnclosedElements()) {
+      if (enclosed.getKind().equals(CONSTRUCTOR)
+          && ((ExecutableElement) enclosed).getParameters().isEmpty()) {
+        return true;
+      }
+    }
+
+    // TODO(gak): still need checks for visibility
+
+    return false;
   }
 
   private Util() {}

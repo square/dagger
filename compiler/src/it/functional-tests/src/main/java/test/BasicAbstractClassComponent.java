@@ -15,20 +15,15 @@
 */
 package test;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import dagger.Component;
 
-import static com.google.common.truth.Truth.assertThat;
-
-@RunWith(JUnit4.class)
-public class NonComponentDependencyTest {
-  @Test public void testThing() {
-    NonComponentDependencyComponent component =
-        DaggerNonComponentDependencyComponent.builder()
-            .thingComponent(new NonComponentDependencyComponent.ThingComponentImpl())
-            .build();
-    assertThat(component).isNotNull();
-    assertThat(component.thingTwo()).isNotNull();
+/**
+ * This component tests behavior equivalent to {@link BasicComponent}, but as an abstract class
+ * rather than an interface.
+ */
+@Component(modules = PrimitivesModule.class)
+abstract class BasicAbstractClassComponent implements BasicComponent {
+  void throwAParty() {
+    throw new RuntimeException("Paaarrrrrtaaaaaaaay!");
   }
 }

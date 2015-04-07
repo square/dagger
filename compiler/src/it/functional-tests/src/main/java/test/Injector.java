@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2014 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test;
 
-import dagger.Component;
-import java.util.Set;
+import dagger.Lazy;
+import dagger.MembersInjector;
 import javax.inject.Provider;
-import javax.inject.Singleton;
 
-@Component(modules = ParentModule.class)
-@Singleton
-interface ParentComponent {
-  Provider<UnscopedType> getUnscopedTypeProvider();
-
-  Set<Object> objectSet();
-
-  ChildComponent newChildComponent();
-
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
+/**
+ * A simple interface that exercises all forms of injection for a given type.
+ */
+interface Injector<T> {
+  T instance();
+  Provider<T> provider();
+  Lazy<T> lazy();
+  MembersInjector<T> membersInjector();
+  void injectMembers(T t);
+  T injectMembersAndReturn(T t);
 }

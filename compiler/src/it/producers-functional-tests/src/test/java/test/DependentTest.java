@@ -25,12 +25,12 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class DependentTest {
   @Test public void testDependentComponent() throws Exception {
-    DependentComponent dependentComponent = Dagger_DependentComponent
+    DependentComponent dependentComponent = DaggerDependentComponent
         .builder()
-        .dependedProductionComponent(Dagger_DependedProductionComponent.builder()
+        .dependedProductionComponent(DaggerDependedProductionComponent.builder()
             .executor(MoreExecutors.directExecutor())
             .build())
-        .dependedComponent(Dagger_DependedComponent.create())
+        .dependedComponent(DaggerDependedComponent.create())
         .executor(MoreExecutors.directExecutor())
         .build();
     assertThat(dependentComponent).isNotNull();

@@ -29,7 +29,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
-import dagger.internal.codegen.ComponentDescriptor.ComponentMethodType;
+import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
 import java.util.Deque;
@@ -55,6 +55,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModul
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.DELEGATE;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
+import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
@@ -64,9 +65,13 @@ import static javax.lang.model.util.ElementFilter.methodsIn;
  */
 @AutoValue
 abstract class BindingGraph {
+  enum ModuleStrategy {
+    PASSED,
+    CONSTRUCTED,
+  }
+
   abstract ComponentDescriptor componentDescriptor();
-  abstract ImmutableSet<DependencyRequest> entryPoints();
-  abstract ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules();
+  abstract ImmutableMap<TypeElement, ModuleStrategy> transitiveModules();
   abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
   abstract ImmutableMap<ExecutableElement, BindingGraph> subgraphs();
 
@@ -191,9 +196,13 @@ abstract class BindingGraph {
       ImmutableSet<TypeElement> moduleTypes =
           MoreTypes.asTypeElements(getComponentModules(componentAnnotation));
 
-      ImmutableMap<TypeElement, ImmutableSet<TypeElement>> transitiveModules =
-          getTransitiveModules(types, elements, moduleTypes);
-      for (TypeElement module : transitiveModules.keySet()) {
+      ImmutableMap.Builder<TypeElement, ModuleStrategy> transitiveModules = ImmutableMap.builder();
+      for (TypeElement module : getTransitiveModules(types, elements, moduleTypes)) {
+        transitiveModules.put(module,
+            (componentCanMakeNewInstances(module) && module.getTypeParameters().isEmpty())
+                ? ModuleStrategy.CONSTRUCTED
+                : ModuleStrategy.PASSED);
+
         // traverse the modules, collect the bindings
         List<ExecutableElement> moduleMethods = methodsIn(elements.getAllMembers(module));
         for (ExecutableElement moduleMethod : moduleMethods) {
@@ -213,13 +222,11 @@ abstract class BindingGraph {
           componentDescriptor.wrappedScope(),
           explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
           explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
-      ImmutableSetMultimap<ComponentMethodType, ExecutableElement> componentMethods =
-          componentDescriptor.componentMethods();
-
-      ImmutableSet<DependencyRequest> componentMethodRequests =
-          componentMethodRequests(componentMethods);
-      for (DependencyRequest componentMethodRequest : componentMethodRequests) {
-        requestResolver.resolve(componentMethodRequest);
+      for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
+        Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
+        if (componentMethodRequest.isPresent()) {
+          requestResolver.resolve(componentMethodRequest.get());
+        }
       }
 
       ImmutableMap.Builder<ExecutableElement, BindingGraph> subgraphsBuilder =
@@ -232,9 +239,8 @@ abstract class BindingGraph {
 
       return new AutoValue_BindingGraph(
           componentDescriptor,
-          componentMethodRequests,
-          transitiveModules,
-          ImmutableMap.copyOf(requestResolver.resolvedBindings),
+          transitiveModules.build(),
+          requestResolver.getResolvedBindings(),
           subgraphsBuilder.build());
     }
 
@@ -246,26 +252,6 @@ abstract class BindingGraph {
         builder.put(binding.key(), binding);
       }
       return builder.build();
-    }
-
-    private ImmutableSet<DependencyRequest> componentMethodRequests(
-        ImmutableSetMultimap<ComponentMethodType, ExecutableElement> componentMethods) {
-      ImmutableSet.Builder<DependencyRequest> interfaceRequestsBuilder = ImmutableSet.builder();
-      for (ExecutableElement provisionMethod : componentMethods.get(ComponentMethodType.PROVISON)) {
-        interfaceRequestsBuilder.add(
-            dependencyRequestFactory.forComponentProvisionMethod(provisionMethod));
-      }
-      for (ExecutableElement productionMethod :
-          componentMethods.get(ComponentMethodType.PRODUCTION)) {
-        interfaceRequestsBuilder.add(
-            dependencyRequestFactory.forComponentProductionMethod(productionMethod));
-      }
-      for (ExecutableElement membersInjectionMethod :
-          componentMethods.get(ComponentMethodType.MEMBERS_INJECTION)) {
-        interfaceRequestsBuilder.add(
-            dependencyRequestFactory.forComponentMembersInjectionMethod(membersInjectionMethod));
-      }
-      return interfaceRequestsBuilder.build();
     }
 
     private final class RequestResolver {
@@ -482,6 +468,29 @@ abstract class BindingGraph {
         } finally {
           cycleStack.pop();
         }
+      }
+
+      ImmutableMap<BindingKey, ResolvedBindings> getResolvedBindings() {
+        ImmutableMap.Builder<BindingKey, ResolvedBindings> resolvedBindingsBuilder =
+            ImmutableMap.builder();
+        resolvedBindingsBuilder.putAll(resolvedBindings);
+        if (parentResolver.isPresent()) {
+          for (ResolvedBindings resolvedInParent :
+            parentResolver.get().getResolvedBindings().values()) {
+            BindingKey bindingKey = resolvedInParent.bindingKey();
+            if (!resolvedBindings.containsKey(bindingKey)) {
+              if (resolvedInParent.ownedBindings().isEmpty()) {
+                // reuse the instance if we can get away with it
+                resolvedBindingsBuilder.put(bindingKey, resolvedInParent);
+              } else {
+                resolvedBindingsBuilder.put(bindingKey,
+                    ResolvedBindings.create(
+                        bindingKey, ImmutableSet.<Binding>of(), resolvedInParent.bindings()));
+              }
+            }
+          }
+        }
+        return resolvedBindingsBuilder.build();
       }
     }
   }
