@@ -134,6 +134,9 @@
           <addTestClassPath>true</addTestClassPath>
           <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
           <cloneClean>true</cloneClean>
+          <profiles>
+            <profile>!sonatype-oss-release</profile>
+          </profiles>
           <pomIncludes>
             <pomInclude>*/pom.xml</pomInclude>
           </pomIncludes>
