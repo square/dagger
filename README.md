@@ -20,37 +20,34 @@ Both versions have benefitted from strong involvement from Square, Google, and o
 Status
 ------
 
-  - ***Release Version:* N/A**
-  - ***Pre-Release Version:* N/A**
-  - ***Snapshot Version:* 2.0-SNAPSHOT**
+  - ***Release Version:* 2.0**
+  - ***Snapshot Version:* 2.1-SNAPSHOT**
 
 Dagger is currently in active development, primarily internally at Google, with regular pushes
 to the open-source community.  Snapshot releases are auto-deployed to sonatype's central maven
-repository on a clean build with the version tag `2.0-SNAPSHOT`.
-
-Dagger 2.0 is pre-alpha and should be used with caution, though it is usable.  Stable 
-pre-releases will be made as stable points in 2.0's development occur.
+repository on a clean build with the version `2.1-SNAPSHOT`.
 
 Documentation
 -------------
 
-The Dagger project will undergo a documentation re-vamp in preparation for 2.0.  In the mean-time,
-you can get an initial picture of Dagger 2.0's direction from [the original proposal][proposal],
-[this talk by Greg Kick][gaktalk], and discussions on the dagger-discuss@googlegroups.com 
-mailing list.
+You can [find the dagger documentation here][website] which has extended usage
+instructions and other useful information.  Substantial usage information can be
+found in the [API documentation][20api].
 
-Also, Javadocs are updated on every merge and are [available here][latestapi]
+You can also learn more from [the original proposal][proposal], 
+[this talk by Greg Kick][gaktalk], and on discussions on the dagger-discuss@googlegroups.com
+mailing list. 
 
 Installation
 --------
 
-You will need to include the `dagger-${dagger.version}.jar` in your
-application's runtime.  In order to activate code generation you will need to
-include `dagger-compiler-${dagger.version}.jar` in your build at compile time.
+You will need to include the `dagger-2.0.jar` in your application's runtime.
+In order to activate code generation and generate implementations to manage
+your graph you will need to include `dagger-compiler-2.0.jar` in your build
+at compile time.
 
-In a Maven project, one would include the runtime in the dependencies section
-of your `pom.xml` (replacing `${dagger.version}` with the appropriate current
-release), and the `dagger-compiler` artifact as an "optional" or "provided"
+In a Maven project, one would include the `dagger` artifact in the dependencies section
+of your `pom.xml` and the `dagger-compiler` artifact as either  an `optional` or `provided`
 dependency:
 
 ```xml
@@ -58,22 +55,37 @@ dependency:
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger</artifactId>
-    <version>${dagger.version}</version>
+    <version>2.0</version>
   </dependency>
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
-    <version>${dagger.version}</version>
+    <version>2.0</version>
     <optional>true</optional>
   </dependency>
 </dependencies>
 ```
 
+If you use the beta `dagger-producers` extension (which supplies parallelizable execution graphs),
+then you should add this to your maven configuration:
+
+```xml
+<dependencies>
+  <dependency>
+    <groupId>com.google.dagger</groupId>
+    <artifactId>dagger-producers</artifactId>
+    <version>2.0-beta</version>
+  </dependency>
+</dependencies>
+```
+
+
 ### Download 
 
   * 2.0 (google/dagger)
     * [Dagger 2.0 Documentation][website]
-    * [Dagger 2.0 Javadocs][latestapi]
+    * [Dagger 2.0 Javadocs][20api]
+    * [Dagger development Javadocs][latestapi] (from the `master` branch on GitHub)
     * [Google's Dagger project site on GitHub][project]
     * <a href="https://plus.google.com/118328287768685565185" rel="publisher">Google+ Dagger Project Page</a>
     * [Google+ Dagger Users Community][community]
@@ -82,10 +94,11 @@ dependency:
     * [Square Open Source Community][squarecommunity]
 
 
-Upon release, downloadable .jars will appear via search on Maven Central. You'll need
-[Dagger][dl-dagger], [dagger-compiler][dl-dagger-compiler] and [javax.inject][dl-inject].
+If you do not use maven, gradle, ivy, or other build systems that consume maven-style binary
+artifacts, they can be downloaded directly via the [Maven Central Repository][mavensearch].
 
-Pre-release directly downloadable jars of the snapshots are available for [dagger][dagger-snap] and [dagger-compiler][dagger-compiler-snap] from sonatype's snapshot repository, and are built on a clean build at head.
+Developer snapshots are available from [Sonatype's snapshot repository][dagger-snap], and
+are built on a clean build of the GitHub project's master branch.
 
 License
 -------
@@ -107,15 +120,11 @@ License
 
 
 
- [1]: http://google.github.com/dagger/
- [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger%22
- [dl-dagger-compiler]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22%20a%3A%22dagger-compiler%22
- [dl-javawriter]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javawriter%22
- [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22
- [dagger-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger/2.0-SNAPSHOT/
- [dagger-compiler-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/dagger-compiler/2.0-SNAPSHOT/
+ [mavensearch]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22
+ [dagger-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/
  [website]: http://google.github.io/dagger
  [latestapi]: http://google.github.io/dagger/api/latest/
+ [20api]: http://google.github.io/dagger/api/2.0/
  [gaktalk]: https://www.youtube.com/watch?v=oK_XtfXPkqw
  [proposal]: https://github.com/square/dagger/issues/366
  [project]: http://github.com/google/dagger/
