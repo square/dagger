@@ -198,7 +198,7 @@ final class ErrorMessages {
       "%s has type parameters, cannot members inject the raw type. via:\n%s";
 
   static final String MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE =
-      "Type parameters must be bounded for members injection. (%s required by %s, via:\n%s";
+      "Type parameters must be bounded for members injection. %s required by %s, via:\n%s";
 
   static final String CONTAINS_DEPENDENCY_CYCLE_FORMAT = "%s.%s() contains a dependency cycle:\n%s";
 

@@ -192,7 +192,7 @@ class SourceFiles {
       case INJECTION:
       case PROVISION:
         return enclosingClassName.topLevelClassName().peerNamed(
-            enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
+            enclosingClassName.classFileName() + "_" + factoryPrefix(binding) + "Factory");
       case SYNTHETIC_PROVISON:
         throw new IllegalArgumentException();
       default:
@@ -240,7 +240,7 @@ class SourceFiles {
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         return enclosingClassName.topLevelClassName().peerNamed(
-            enclosingClassName.classFileName() + "$$" + factoryPrefix(binding) + "Factory");
+            enclosingClassName.classFileName() + "_" + factoryPrefix(binding) + "Factory");
       default:
         throw new AssertionError();
     }
@@ -264,7 +264,7 @@ class SourceFiles {
   static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
     ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
     return injectedClassName.topLevelClassName().peerNamed(
-        injectedClassName.classFileName() + "$$MembersInjector");
+        injectedClassName.classFileName() + "_MembersInjector");
   }
 
   private static String factoryPrefix(ProvisionBinding binding) {
