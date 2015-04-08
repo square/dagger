@@ -20,10 +20,11 @@
   <parent>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>2.0-SNAPSHOT</version>
+    <version>2.0</version>
   </parent>
 
   <artifactId>dagger-producers</artifactId>
+  <version>${parent.version}-beta</version>
   <name>Dagger Production Graphs</name>
   <description>
     An asynchronous dependency injection system that extends JSR-330.
@@ -33,7 +34,7 @@
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>dagger</artifactId>
-      <version>${project.version}</version>
+      <version>${parent.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
