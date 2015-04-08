@@ -144,7 +144,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * example: <pre><code>
  *   {@literal @}Singleton {@literal @}Component
  *   interface MyApplicationComponent {
- *     // this component can only inject types using unscoped or @Singleton bindings
+ *     // this component can only inject types using unscoped or {@literal @}Singleton bindings
  *   }
  * </code></pre>
  *
