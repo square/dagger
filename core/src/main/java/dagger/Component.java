@@ -90,15 +90,15 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * {@code b} will be injected into an instance of {@code Child} when it is passed to the
  * members-injection method {@code injectSelf(Self instance)}: <pre><code>
  *   class Parent {
- *     {@literal @Inject} A a;
+ *     @Inject A a;
  *   }
  *
  *   class Self extends Parent {
- *     {@literal @Inject} B b;
+ *     @Inject B b;
  *   }
  *
  *   class Child extends Self {
- *     {@literal @Inject} C c;
+ *     @Inject C c;
  *   }
  * </code></pre>
  *
@@ -142,14 +142,14 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * provision of each scoped binding per instance of the component. If the component declares a
  * scope, it may only contain unscoped bindings or bindings of that scope anywhere in the graph. For
  * example: <pre><code>
- *   {@literal @Singleton} @Component
+ *   @Singleton @Component
  *   interface MyApplicationComponent {
  *     // this component can only inject types using unscoped or @Singleton bindings
  *   }
  * </code></pre>
  *
  * <p>In order to get the proper behavior associated with a scope annotation, it is the caller's
- * responsibility to instantiate new component instances when appropriate. A {@link Singleton}
+ * responsibility to instaniate new component instances when appropriate. A {@link Singleton}
  * component, for instance, should only be instantiated once per application, while a
  * {@code RequestScoped} component should be instantiated once per request. Because components are
  * self-contained implementations, exiting a scope is as simple as dropping all references to the
@@ -173,12 +173,12 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * inherit the <em>entire</em> binding graph from its parent when it is declared. For that reason,
  * a subcomponent isn't evaluated for completeness until it is associated with a parent.
  *
- * <p>Subcomponents are declared via a factory method on a parent component or subcomponent. The
+ * <p>Subcomponents are delared via a factory method on a parent component or subcomponent. The
  * method may have any name, but must return the subcomponent. The factory method's parameters may
- * be any number of the subcomponent's modules, but must at least include those without visible
- * no-arg constructors. The following is an example of a factory method that creates a
- * request-scoped subcomponent from a singleton-scoped parent: <pre><code>
- *   {@literal @Singleton} @Component
+ * be any number of the subcomponents's modules, but must at least include those without visible
+ * no-arg constructors. The follwing is an example of a factory method that creates a request-scoped
+ * subcomponent from a singleton-scoped parent: <pre><code>
+ *   @Singleton @Component
  *   interface ApplicationComponent {
  *     // component methods...
  *
