@@ -90,15 +90,15 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * {@code b} will be injected into an instance of {@code Child} when it is passed to the
  * members-injection method {@code injectSelf(Self instance)}: <pre><code>
  *   class Parent {
- *     @Inject A a;
+ *     {@literal @}Inject A a;
  *   }
  *
  *   class Self extends Parent {
- *     @Inject B b;
+ *     {@literal @}Inject B b;
  *   }
  *
  *   class Child extends Self {
- *     @Inject C c;
+ *     {@literal @}Inject C c;
  *   }
  * </code></pre>
  *
@@ -142,7 +142,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * provision of each scoped binding per instance of the component. If the component declares a
  * scope, it may only contain unscoped bindings or bindings of that scope anywhere in the graph. For
  * example: <pre><code>
- *   @Singleton @Component
+ *   {@literal @}Singleton {@literal @}Component
  *   interface MyApplicationComponent {
  *     // this component can only inject types using unscoped or @Singleton bindings
  *   }
@@ -178,7 +178,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * be any number of the subcomponents's modules, but must at least include those without visible
  * no-arg constructors. The follwing is an example of a factory method that creates a request-scoped
  * subcomponent from a singleton-scoped parent: <pre><code>
- *   @Singleton @Component
+ *   {@literal @}Singleton {@literal @}Component
  *   interface ApplicationComponent {
  *     // component methods...
  *
