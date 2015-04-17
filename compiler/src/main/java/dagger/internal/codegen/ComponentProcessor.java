@@ -49,6 +49,8 @@ import static javax.tools.Diagnostic.Kind.ERROR;
 @AutoService(Processor.class)
 public final class ComponentProcessor extends BasicAnnotationProcessor {
   private InjectBindingRegistry injectBindingRegistry;
+  private FactoryGenerator factoryGenerator;
+  private MembersInjectorGenerator membersInjectorGenerator;
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -94,9 +96,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
-    FactoryGenerator factoryGenerator =
+    this.factoryGenerator =
         new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
-    MembersInjectorGenerator membersInjectorGenerator =
+    this.membersInjectorGenerator =
         new MembersInjectorGenerator(filer, elements, types, DependencyRequestMapper.FOR_PROVIDER);
     ComponentGenerator componentGenerator =
         new ComponentGenerator(filer, types, nullableDiagnosticType);
@@ -113,8 +115,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
     this.injectBindingRegistry = new InjectBindingRegistry(
-        elements, types, messager, provisionBindingFactory, factoryGenerator,
-        membersInjectionBindingFactory, membersInjectorGenerator);
+        elements, types, messager, provisionBindingFactory, membersInjectionBindingFactory);
 
     ComponentDescriptor.Factory componentDescriptorFactory =
         new ComponentDescriptor.Factory(elements, types, dependencyRequestFactory);
@@ -179,7 +180,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   @Override
   protected void postProcess() {
     try {
-      injectBindingRegistry.generateSourcesForRequiredBindings();
+      injectBindingRegistry.generateSourcesForRequiredBindings(
+          factoryGenerator, membersInjectorGenerator);
     } catch (SourceFileGenerationException e) {
       e.printMessageTo(processingEnv.getMessager());
     }

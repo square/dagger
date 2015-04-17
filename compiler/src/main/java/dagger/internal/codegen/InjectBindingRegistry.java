@@ -59,9 +59,7 @@ final class InjectBindingRegistry {
   private final Types types;
   private final Messager messager;
   private final ProvisionBinding.Factory provisionBindingFactory;
-  private final FactoryGenerator factoryGenerator;
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
-  private final MembersInjectorGenerator membersInjectorGenerator;
 
   final class BindingsCollection<B extends Binding> {
     private final Map<Key, B> bindingsByKey = Maps.newLinkedHashMap();
@@ -146,16 +144,12 @@ final class InjectBindingRegistry {
       Types types,
       Messager messager,
       ProvisionBinding.Factory provisionBindingFactory,
-      FactoryGenerator factoryGenerator,
-      MembersInjectionBinding.Factory membersInjectionBindingFactory,
-      MembersInjectorGenerator membersInjectorGenerator) {
+      MembersInjectionBinding.Factory membersInjectionBindingFactory) {
     this.elements = elements;
     this.types = types;
     this.messager = messager;
     this.provisionBindingFactory = provisionBindingFactory;
-    this.factoryGenerator = factoryGenerator;
     this.membersInjectionBindingFactory = membersInjectionBindingFactory;
-    this.membersInjectorGenerator = membersInjectorGenerator;
   }
 
   /**
@@ -163,7 +157,8 @@ final class InjectBindingRegistry {
    * {@linkplain #registerBinding explicitly} or implicitly via
    * {@link #getOrFindMembersInjectionBinding} or {@link #getOrFindProvisionBinding}) are generated.
    */
-  void generateSourcesForRequiredBindings() throws SourceFileGenerationException {
+  void generateSourcesForRequiredBindings(FactoryGenerator factoryGenerator,
+      MembersInjectorGenerator membersInjectorGenerator) throws SourceFileGenerationException {
     provisionBindings.generateBindings(factoryGenerator);
     membersInjectionBindings.generateBindings(membersInjectorGenerator);
   }
