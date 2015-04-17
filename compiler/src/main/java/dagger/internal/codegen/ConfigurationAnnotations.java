@@ -41,6 +41,8 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVisitor;
+import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
@@ -150,6 +152,17 @@ final class ConfigurationAnnotations {
       }
     }
     return ImmutableSet.copyOf(moduleElements);
+  }
+  
+  /** Returns the enclosed elements annotated with {@link dagger.Component.Builder}. */
+  static ImmutableList<DeclaredType> enclosedBuilders(TypeElement typeElement) {
+    final ImmutableList.Builder<DeclaredType> builders = ImmutableList.builder();
+    for (TypeElement element : ElementFilter.typesIn(typeElement.getEnclosedElements())) {
+      if (MoreElements.isAnnotationPresent(element, Component.Builder.class)) {
+        builders.add(MoreTypes.asDeclared(element.asType()));
+      }
+    }
+    return builders.build();
   }
 
   static boolean isSubcomponentType(TypeMirror type) {

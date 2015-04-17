@@ -46,6 +46,7 @@ import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
+import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
@@ -85,6 +86,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
@@ -238,10 +240,31 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       BindingGraph input, ClassName componentDefinitionTypeName, ClassWriter componentWriter,
       Set<JavaWriter> proxyWriters) {
     ClassWriter builderWriter = componentWriter.addNestedClass("Builder");
-    builderWriter.addModifiers(PUBLIC, STATIC, FINAL);
+    builderWriter.addModifiers(STATIC, FINAL);
     builderWriter.addConstructor().addModifiers(PRIVATE);
+    Optional<BuilderSpec> builderSpec = input.componentDescriptor().builderSpec();
+    if (builderSpec.isPresent()) {
+      builderWriter.addModifiers(PRIVATE);
+      TypeElement builderType = builderSpec.get().builderDefinitionType();
+      switch (builderType.getKind()) {
+        case CLASS:
+          builderWriter.setSuperType(builderType);
+          break;
+        case INTERFACE:
+          builderWriter.addImplementedType(builderType);
+          break;
+        default:
+          throw new IllegalStateException("not a class or interface: " + builderType);
+      }
+    } else {
+      builderWriter.addModifiers(PUBLIC);
+    }
 
-    MethodWriter builderFactoryMethod = componentWriter.addMethod(builderWriter, "builder");
+    MethodWriter builderFactoryMethod;
+    // If the user gave us a builder API, the factory method should return that (not our subclass).
+    builderFactoryMethod = builderSpec.isPresent()
+        ? componentWriter.addMethod(builderSpec.get().builderDefinitionType().asType(), "builder")
+        : componentWriter.addMethod(builderWriter, "builder");
     builderFactoryMethod.addModifiers(PUBLIC, STATIC);
     builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
 
@@ -266,7 +289,18 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     constructorWriter.addParameter(builderWriter, "builder");
     constructorWriter.body().addSnippet("assert builder != null;");
 
-    MethodWriter buildMethod = builderWriter.addMethod(componentDefinitionTypeName, "build");
+    MethodWriter buildMethod;
+    if (builderSpec.isPresent()) {
+      ExecutableElement specBuildMethod = builderSpec.get().buildMethod();
+      // Note: we don't use the specBuildMethod.getReturnType() as the return type
+      // because it might be a type variable.  We make use of covariant returns to allow
+      // us to return the component type, which will always be valid.
+      buildMethod = builderWriter.addMethod(componentDefinitionTypeName,
+          specBuildMethod.getSimpleName().toString());
+      buildMethod.annotate(Override.class);
+    } else {
+      buildMethod = builderWriter.addMethod(componentDefinitionTypeName, "build");
+    }
     buildMethod.addModifiers(PUBLIC);
 
     boolean requiresBuilder = false;
@@ -280,16 +314,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       builderField.addModifiers(PRIVATE);
       componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
           componentWriter.name(), Snippet.format("builder.%s", builderField.name())));
-      MethodWriter builderMethod = builderWriter.addMethod(builderWriter, contributionName);
-      builderMethod.addModifiers(PUBLIC);
-      builderMethod.addParameter(contributionElement, contributionName);
-      builderMethod.body()
-          .addSnippet("if (%s == null) {", contributionName)
-          .addSnippet("  throw new NullPointerException(%s);",
-              StringLiteral.forValue(contributionName))
-          .addSnippet("}")
-          .addSnippet("this.%s = %s;", builderField.name(), contributionName)
-          .addSnippet("return this;");
       if (componentCanMakeNewInstances(contributionElement)) {
         buildMethod.body()
             .addSnippet("if (%s == null) {", builderField.name())
@@ -304,13 +328,50 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 builderField.name())
             .addSnippet("}");
       }
+      MethodWriter builderMethod;
+      boolean returnsVoid = false;
+      if (builderSpec.isPresent()) {
+        ExecutableElement method = builderSpec.get().methodMap().get(contributionElement);
+        if (method == null) { // no method in the API, nothing to write out.
+          continue;
+        }
+        // If the return type is void, we add a method with the void return type.
+        // Otherwise we use the builderWriter and take advantage of covariant returns
+        // (so that we don't have to worry about setter methods that return type variables).
+        if (method.getReturnType().getKind().equals(TypeKind.VOID)) {
+          returnsVoid = true;
+          builderMethod =
+              builderWriter.addMethod(method.getReturnType(), method.getSimpleName().toString());
+        } else {
+          builderMethod = builderWriter.addMethod(builderWriter, method.getSimpleName().toString());
+        }
+        builderMethod.annotate(Override.class);
+      } else {
+        builderMethod = builderWriter.addMethod(builderWriter, contributionName);
+      }
+      // TODO(gak): Mirror the API's visibility.
+      // (Makes no difference to the user since this class is private,
+      //  but makes generated code prettier.)
+      builderMethod.addModifiers(PUBLIC);
+      builderMethod.addParameter(contributionElement, contributionName);
+      builderMethod.body()
+          .addSnippet("if (%s == null) {", contributionName)
+          .addSnippet("  throw new NullPointerException(%s);",
+              StringLiteral.forValue(contributionName))
+          .addSnippet("}")
+          .addSnippet("this.%s = %s;", builderField.name(), contributionName);
+      if (!returnsVoid) {
+        builderMethod.body().addSnippet("return this;");
+      }
     }
 
     if (!requiresBuilder) {
       MethodWriter factoryMethod = componentWriter.addMethod(componentDefinitionTypeName, "create");
       factoryMethod.addModifiers(PUBLIC, STATIC);
       // TODO(gak): replace this with something that doesn't allocate a builder
-      factoryMethod.body().addSnippet("return builder().build();");
+      factoryMethod.body().addSnippet("return builder().%s();",
+          builderSpec.isPresent()
+              ? builderSpec.get().buildMethod().getSimpleName() : "build");
     }
 
     Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();

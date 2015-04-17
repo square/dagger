@@ -44,8 +44,10 @@ import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
+import static dagger.internal.codegen.ErrorMessages.BUILDER_MORE_THAN_ONE;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.ElementKind.INTERFACE;
@@ -74,6 +76,11 @@ final class ComponentValidator implements Validator<TypeElement> {
     if (!subject.getKind().equals(INTERFACE)
         && !(subject.getKind().equals(CLASS) && subject.getModifiers().contains(ABSTRACT))) {
       builder.addItem("@Component may only be applied to an interface or abstract class", subject);
+    }
+    
+    ImmutableList<DeclaredType> builders = enclosedBuilders(subject);
+    if (builders.size() > 1) {
+      builder.addItem(String.format(BUILDER_MORE_THAN_ONE, builders), subject);
     }
 
     List<? extends Element> members = elements.getAllMembers(subject);

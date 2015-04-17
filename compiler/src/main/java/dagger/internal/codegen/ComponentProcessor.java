@@ -88,6 +88,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     ComponentValidator componentValidator =
         new ComponentValidator(elements, types, moduleValidator);
+    BuilderValidator builderValidator = new BuilderValidator(elements, types);
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ModuleValidator producerModuleValidator = new ModuleValidator(types, elements,
         methodSignatureFormatter, ProducerModule.class, Produces.class);
@@ -158,6 +159,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ComponentProcessingStep(
             messager,
             componentValidator,
+            builderValidator,
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,

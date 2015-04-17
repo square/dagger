@@ -21,9 +21,9 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Lazy;
@@ -31,22 +31,24 @@ import dagger.MembersInjector;
 import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.isComponent;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
@@ -125,6 +127,10 @@ abstract class ComponentDescriptor {
 
   abstract ImmutableSet<ComponentMethodDescriptor> componentMethods();
 
+  // TODO(gak): Consider making this non-optional and revising the
+  // interaction between the spec & generation
+  abstract Optional<BuilderSpec> builderSpec();
+
   @AutoValue
   static abstract class ComponentMethodDescriptor {
     abstract ComponentMethodKind kind();
@@ -137,6 +143,13 @@ abstract class ComponentDescriptor {
     PRODUCTION,
     MEMBERS_INJECTION,
     SUBCOMPONENT,
+  }
+  
+  @AutoValue
+  static abstract class BuilderSpec {    
+    abstract TypeElement builderDefinitionType();
+    abstract Map<TypeElement, ExecutableElement> methodMap();
+    abstract ExecutableElement buildMethod();
   }
 
   static final class Factory {
@@ -187,7 +200,7 @@ abstract class ComponentDescriptor {
               : Optional.<TypeElement>absent();
 
       ImmutableSet<ExecutableElement> unimplementedMethods =
-          getUnimplementedMethods(elements, componentDefinitionType);
+          Util.getUnimplementedMethods(elements, componentDefinitionType);
 
       ImmutableSet.Builder<ComponentMethodDescriptor> componentMethodsBuilder =
           ImmutableSet.builder();
@@ -204,6 +217,9 @@ abstract class ComponentDescriptor {
                   Kind.COMPONENT));
         }
       }
+      
+      Optional<DeclaredType> builderType = Optional.fromNullable(
+          getOnlyElement(enclosedBuilders(componentDefinitionType), null));
 
       Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
@@ -215,7 +231,8 @@ abstract class ComponentDescriptor {
           executorDependency,
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
           subcomponentDescriptors.build(),
-          componentMethodsBuilder.build());
+          componentMethodsBuilder.build(),
+          createBuilderSpec(builderType));
     }
 
     private ComponentMethodDescriptor getDescriptorForComponentMethod(TypeElement componentElement,
@@ -283,6 +300,28 @@ abstract class ComponentDescriptor {
 
       throw new IllegalArgumentException("not a valid component method: " + componentMethod);
     }
+
+    private Optional<BuilderSpec> createBuilderSpec(Optional<DeclaredType> builderType) {
+      if (!builderType.isPresent()) {
+        return Optional.absent();
+      }
+      TypeElement element = MoreTypes.asTypeElement(builderType.get());
+      ImmutableSet<ExecutableElement> methods = Util.getUnimplementedMethods(elements, element);
+      ImmutableMap.Builder<TypeElement, ExecutableElement> map = ImmutableMap.builder();
+      ExecutableElement buildMethod = null;
+      for (ExecutableElement method : methods) {
+        if (method.getParameters().isEmpty()) {
+          buildMethod = method;
+        } else {
+          ExecutableType resolved =
+              MoreTypes.asExecutable(types.asMemberOf(builderType.get(), method));
+          map.put(MoreTypes.asTypeElement(getOnlyElement(resolved.getParameterTypes())), method);
+        }
+      }
+      verify(buildMethod != null); // validation should have ensured this.
+      return Optional.<BuilderSpec>of(
+          new AutoValue_ComponentDescriptor_BuilderSpec(element, map.build(), buildMethod));
+    }
   }
 
   static boolean isComponentContributionMethod(Elements elements, ExecutableElement method) {
@@ -295,58 +334,5 @@ abstract class ComponentDescriptor {
   static boolean isComponentProductionMethod(Elements elements, ExecutableElement method) {
     return isComponentContributionMethod(elements, method)
         && MoreTypes.isTypeOf(ListenableFuture.class, method.getReturnType());
-  }
-
-  /*
-   * These two methods were borrowed from AutoValue and slightly modified.  TODO(gak): reconcile
-   * the two and put them in auto common
-   */
-  private static void findLocalAndInheritedMethods(Elements elements, TypeElement type,
-      List<ExecutableElement> methods) {
-    for (TypeMirror superInterface : type.getInterfaces()) {
-      findLocalAndInheritedMethods(
-          elements, MoreElements.asType(MoreTypes.asElement(superInterface)), methods);
-    }
-    if (type.getSuperclass().getKind() != TypeKind.NONE) {
-      // Visit the superclass after superinterfaces so we will always see the implementation of a
-      // method after any interfaces that declared it.
-      findLocalAndInheritedMethods(
-          elements, MoreElements.asType(MoreTypes.asElement(type.getSuperclass())), methods);
-    }
-    // Add each method of this class, and in so doing remove any inherited method it overrides.
-    // This algorithm is quadratic in the number of methods but it's hard to see how to improve
-    // that while still using Elements.overrides.
-    List<ExecutableElement> theseMethods = ElementFilter.methodsIn(type.getEnclosedElements());
-    for (ExecutableElement method : theseMethods) {
-      if (!method.getModifiers().contains(Modifier.PRIVATE)) {
-        boolean alreadySeen = false;
-        for (Iterator<ExecutableElement> methodIter = methods.iterator(); methodIter.hasNext();) {
-          ExecutableElement otherMethod = methodIter.next();
-          if (elements.overrides(method, otherMethod, type)) {
-            methodIter.remove();
-          } else if (method.getSimpleName().equals(otherMethod.getSimpleName())
-              && method.getParameters().equals(otherMethod.getParameters())) {
-            // If we inherit this method on more than one path, we don't want to add it twice.
-            alreadySeen = true;
-          }
-        }
-        if (!alreadySeen) {
-          methods.add(method);
-        }
-      }
-    }
-  }
-
-  private static ImmutableSet<ExecutableElement> getUnimplementedMethods(
-      Elements elements, TypeElement type) {
-    ImmutableSet.Builder<ExecutableElement> unimplementedMethods = ImmutableSet.builder();
-    List<ExecutableElement> methods = Lists.newArrayList();
-    findLocalAndInheritedMethods(elements, type, methods);
-    for (ExecutableElement method : methods) {
-      if (method.getModifiers().contains(Modifier.ABSTRACT)) {
-        unimplementedMethods.add(method);
-      }
-    }
-    return unimplementedMethods.build();
   }
 }

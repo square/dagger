@@ -18,10 +18,12 @@ package dagger.internal.codegen;
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import dagger.Component;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
 import java.lang.annotation.Annotation;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
@@ -36,6 +38,7 @@ import javax.lang.model.element.TypeElement;
 final class ComponentProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ComponentValidator componentValidator;
+  private final BuilderValidator builderValidator;
   private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final BindingGraph.Factory bindingGraphFactory;
@@ -44,6 +47,7 @@ final class ComponentProcessingStep implements ProcessingStep {
   ComponentProcessingStep(
       Messager messager,
       ComponentValidator componentValidator,
+      BuilderValidator builderValidator,
       BindingGraphValidator bindingGraphValidator,
       Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
@@ -51,6 +55,7 @@ final class ComponentProcessingStep implements ProcessingStep {
     this.messager = messager;
     this.componentValidator = componentValidator;
     this.bindingGraphValidator = bindingGraphValidator;
+    this.builderValidator = builderValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
     this.bindingGraphFactory = bindingGraphFactory;
     this.componentGenerator = componentGenerator;
@@ -58,19 +63,28 @@ final class ComponentProcessingStep implements ProcessingStep {
 
   @Override
   public Set<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.<Class<? extends Annotation>>of(Component.class);
+    return ImmutableSet.<Class<? extends Annotation>>of(Component.class, Component.Builder.class);
   }
 
   @Override
   public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+    Set<? extends Element> builderElements = elementsByAnnotation.get(Component.Builder.class);
+    Map<Element, ValidationReport<TypeElement>> builderReportsByComponent = Maps.newHashMap();
+    for (Element element : builderElements) {
+      ValidationReport<TypeElement> builderReport =
+          builderValidator.validate(MoreElements.asType(element));
+      builderReport.printMessagesTo(messager);
+      builderReportsByComponent.put(element.getEnclosingElement(), builderReport);
+    }
+    
     Set<? extends Element> componentElements = elementsByAnnotation.get(Component.class);
-
     for (Element element : componentElements) {
       TypeElement componentTypeElement = MoreElements.asType(element);
       ValidationReport<TypeElement> componentReport =
           componentValidator.validate(componentTypeElement);
       componentReport.printMessagesTo(messager);
-      if (componentReport.isClean()) {
+      ValidationReport<TypeElement> builderReport = builderReportsByComponent.get(element);
+      if (componentReport.isClean() && (builderReport == null || builderReport.isClean())) {
         ComponentDescriptor componentDescriptor =
             componentDescriptorFactory.forComponent(componentTypeElement);
         BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);

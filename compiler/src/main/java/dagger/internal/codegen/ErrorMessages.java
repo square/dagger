@@ -213,6 +213,77 @@ final class ErrorMessages {
 
   static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD =
       "Cannot return null from a non-@Nullable @Provides method";
+  
+  /** Errors for component builders. */
+  static final String BUILDER_MORE_THAN_ONE = "@Component has more than one @Component.Builder: %s";
+  
+  static final String BUILDER_CXTOR_ONLY_ONE_AND_NO_ARGS =
+      "@Component.Builder classes must have exactly one constructor,"
+      + " and it must not have any parameters";
+  
+  static final String BUILDER_GENERICS =
+      "@Component.Builder types must not have any generic types";
+  
+  static final String BUILDER_MUST_BE_IN_COMPONENT =
+      "@Component.Builder types must be nested within a @Component";
+  
+  static final String BUILDER_MUST_BE_CLASS_OR_INTERFACE =
+      "@Component.Builder types must be abstract classes or interfaces";
+  
+  static final String BUILDER_PRIVATE = "@Component.Builder types must not be private";
+  
+  static final String BUILDER_MUST_BE_STATIC = "@Component.Builder types must be static";
+  
+  static final String BUILDER_MUST_BE_ABSTRACT = "@Component.Builder types must be abstract";
+  
+  static final String BUILDER_MISSING_BUILD_METHOD =
+      "@Component.Builder types must have exactly one no-args method that returns the"
+      + " @Component type.";
+  
+  static final String BUILDER_MANY_METHODS_FOR_TYPE =
+      "@Component.Builder types must not have more than one setter method per type, but %s"
+      + " is set by %s";
+  
+  static final String BUILDER_EXTRA_SETTERS =
+      "@Component.Builder has setters for modules or components that aren't required: %s";
+  
+  static final String BUILDER_MISSING_SETTERS =
+      "@Component.Builder is missing setters for required modules or components: %s";
+  
+  static final String BUILDER_TWO_BUILD_METHODS =
+      "@Component.Builder types must have exactly one zero-arg method, and that"
+      + " method must return the @Component type. Already found: %s";
+  
+  static final String BUILDER_INHERITED_TWO_BUILD_METHODS =
+      "@Component.Builder types must have exactly one zero-arg method, and that"
+      + " method must return the @Component type. Found %s and %s";
+  
+  static final String BUILDER_BUILD_MUST_RETURN_COMPONENT_TYPE =
+      "@Component.Builder methods that have no arguments must return the @Component type";
+      
+  static final String BUILDER_INHERITED_BUILD_MUST_RETURN_COMPONENT_TYPE =
+      "@Component.Builder methods that have no arguments must return the @Component type"
+      + " Inherited method: %s";
+  
+  static final String BUILDER_METHOD_MUST_TAKE_ONE_ARG =
+      "@Component.Builder methods must not have more than one argument.";
+  
+  static final String BUILDER_INHERITED_METHOD_MUST_TAKE_ONE_ARG =
+      "@Component.Builder methods must not have more than one argument. Inherited method: %s";
+  
+  static final String BUILDER_METHODS_MUST_RETURN_VOID_OR_BUILDER =
+      "@Component.Builder setter methods must return void, the builder,"
+      + " or a supertype of the builder";
+  
+  static final String BUILDER_INHERITED_METHODS_MUST_RETURN_VOID_OR_BUILDER =
+      "@Component.Builder setter methods must return void, the builder,"
+      + "or a supertype of the builder. Inherited method: %s";
+  
+  static final String BUILDER_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS =
+      "@Component.Builder methods must not have type parameters";
+  
+  static final String BUILDER_INHERITED_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS =
+      "@Component.Builder methods must not have type parameters. Inherited method: %s";
 
   /**
    * A regular expression to match a small list of specific packages deemed to
