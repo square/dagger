@@ -428,17 +428,27 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
       ExecutableElement subcomponentFactoryMethod,
       BindingGraph subgraph) {
-    TypeName subcomponentType =
-        TypeNames.forTypeMirror(subcomponentFactoryMethod.getReturnType());
+    TypeMirror subcomponentType = subcomponentFactoryMethod.getReturnType();
+    TypeName subcomponentTypeName = TypeNames.forTypeMirror(subcomponentType);
 
     ClassWriter subcomponentWriter = componentWriter.addNestedClass(
-        subgraph.componentDescriptor().componentDefinitionType().getSimpleName()
-            + "Impl");
+        subgraph.componentDescriptor().componentDefinitionType().getSimpleName() + "Impl");
 
     subcomponentWriter.addModifiers(PRIVATE, FINAL);
-    subcomponentWriter.addImplementedType(subcomponentType);
+    Element subcomponentElement = MoreTypes.asElement(subcomponentType);
+    switch (subcomponentElement.getKind()) {
+      case CLASS:
+        checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
+        subcomponentWriter.setSuperType(subcomponentTypeName);
+        break;
+      case INTERFACE:
+        subcomponentWriter.addImplementedType(subcomponentTypeName);
+        break;
+      default:
+        throw new IllegalStateException();
+    }
 
-    MethodWriter componentMethod = componentWriter.addMethod(subcomponentType,
+    MethodWriter componentMethod = componentWriter.addMethod(subcomponentTypeName,
         subcomponentFactoryMethod.getSimpleName().toString());
     componentMethod.addModifiers(PUBLIC);
     componentMethod.annotate(Override.class);

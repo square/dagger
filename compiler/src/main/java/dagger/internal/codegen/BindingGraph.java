@@ -388,9 +388,9 @@ abstract class BindingGraph {
       private Optional<RequestResolver> getOwningResolver(ProvisionBinding provisionBinding) {
         Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
             provisionBinding.wrappedScope();
-        for (RequestResolver requestResolver : getResolverLineage()) {
-          if (bindingScope.equals(requestResolver.targetScope)
-              || requestResolver.explicitProvisionBindings.containsValue(provisionBinding)) {
+        for (RequestResolver requestResolver : getResolverLineage().reverse()) {
+          if (requestResolver.explicitProvisionBindings.containsValue(provisionBinding)
+              || (bindingScope.isPresent() && bindingScope.equals(requestResolver.targetScope))) {
             return Optional.of(requestResolver);
           }
         }

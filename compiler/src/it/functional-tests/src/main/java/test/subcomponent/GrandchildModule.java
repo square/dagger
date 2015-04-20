@@ -29,4 +29,12 @@ final class GrandchildModule {
       }
     };
   }
+
+  @Provides AnInterface provideAnInterface(ImplementsAnInterface implementsAnInterface) {
+    return implementsAnInterface;
+  }
+
+  @Provides NeedsAnInterface provideNeedsAnInterface(AnInterface anInterface) {
+    return new NeedsAnInterface(anInterface);
+  }
 }
