@@ -206,4 +206,42 @@ public final class SubcomponentValidationTest {
         .failsToCompile()
         .withErrorContaining("interface");
   }
+
+  @Test public void scopeMismatch() {
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.ParentComponent",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Component",
+        "@Singleton",
+        "interface ParentComponent {",
+        "  ChildComponent childComponent();",
+        "}");
+    JavaFileObject subcomponentFile = JavaFileObjects.forSourceLines("test.ChildComponent",
+        "package test;",
+        "",
+        "import dagger.Subcomponent;",
+        "",
+        "@Subcomponent(modules = ChildModule.class)",
+        "interface ChildComponent {",
+        "  Object getObject();",
+        "}");
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.ChildModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Singleton;",
+        "",
+        "@Module",
+        "final class ChildModule {",
+        "  @Provides @Singleton Object provideObject() { return null; }",
+        "}");
+    assertAbout(javaSources()).that(ImmutableList.of(componentFile, subcomponentFile, moduleFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Singleton");
+  }
 }
