@@ -21,7 +21,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
-import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,6 +46,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
@@ -68,17 +69,24 @@ abstract class ComponentDescriptor {
   ComponentDescriptor() {}
 
   enum Kind {
-    COMPONENT(Component.class),
-    PRODUCTION_COMPONENT(ProductionComponent.class);
+    COMPONENT(Component.class, Component.Builder.class),
+    SUBCOMPONENT(Subcomponent.class, Subcomponent.Builder.class),
+    PRODUCTION_COMPONENT(ProductionComponent.class, null);
 
     private final Class<? extends Annotation> annotationType;
+    private final Class<? extends Annotation> builderType;
 
-    Kind(Class<? extends Annotation> annotationType) {
+    Kind(Class<? extends Annotation> annotationType, Class<? extends Annotation> builderType) {
       this.annotationType = annotationType;
+      this.builderType = builderType;
     }
 
     Class<? extends Annotation> annotationType() {
       return annotationType;
+    }
+    
+    Class<? extends Annotation> builderAnnotationType() {
+      return builderType;
     }
   }
 
@@ -143,6 +151,7 @@ abstract class ComponentDescriptor {
     PRODUCTION,
     MEMBERS_INJECTION,
     SUBCOMPONENT,
+    SUBCOMPONENT_BUILDER,
   }
   
   @AutoValue
@@ -150,6 +159,7 @@ abstract class ComponentDescriptor {
     abstract TypeElement builderDefinitionType();
     abstract Map<TypeElement, ExecutableElement> methodMap();
     abstract ExecutableElement buildMethod();
+    abstract TypeMirror componentType();
   }
 
   static final class Factory {
@@ -172,6 +182,7 @@ abstract class ComponentDescriptor {
     }
 
     private ComponentDescriptor create(TypeElement componentDefinitionType, Kind kind) {
+      DeclaredType declaredComponentType = MoreTypes.asDeclared(componentDefinitionType.asType());
       AnnotationMirror componentMirror =
           getAnnotationMirror(componentDefinitionType, kind.annotationType())
               .or(getAnnotationMirror(componentDefinitionType, Subcomponent.class))
@@ -208,18 +219,32 @@ abstract class ComponentDescriptor {
       ImmutableMap.Builder<ExecutableElement, ComponentDescriptor> subcomponentDescriptors =
           ImmutableMap.builder();
       for (ExecutableElement componentMethod : unimplementedMethods) {
+        ExecutableType resolvedMethod =
+            MoreTypes.asExecutable(types.asMemberOf(declaredComponentType, componentMethod));
         ComponentMethodDescriptor componentMethodDescriptor =
             getDescriptorForComponentMethod(componentDefinitionType, kind, componentMethod);
         componentMethodsBuilder.add(componentMethodDescriptor);
-        if (componentMethodDescriptor.kind().equals(ComponentMethodKind.SUBCOMPONENT)) {
-          subcomponentDescriptors.put(componentMethod,
-              create(MoreElements.asType(MoreTypes.asElement(componentMethod.getReturnType())),
-                  Kind.COMPONENT));
+        switch (componentMethodDescriptor.kind()) {
+          case SUBCOMPONENT:
+            subcomponentDescriptors.put(componentMethod,
+                create(MoreElements.asType(MoreTypes.asElement(resolvedMethod.getReturnType())),
+                    Kind.SUBCOMPONENT));
+            break;
+          case SUBCOMPONENT_BUILDER:
+            subcomponentDescriptors.put(componentMethod, create(MoreElements.asType(
+                MoreTypes.asElement(resolvedMethod.getReturnType()).getEnclosingElement()),
+                    Kind.SUBCOMPONENT));
+            break;
+          default: // nothing special to do for other methods.
         }
+        
       }
       
-      Optional<DeclaredType> builderType = Optional.fromNullable(
-          getOnlyElement(enclosedBuilders(componentDefinitionType), null));
+      ImmutableList<DeclaredType> enclosedBuilders = kind.builderAnnotationType() == null
+          ? ImmutableList.<DeclaredType>of()
+          : enclosedBuilders(componentDefinitionType, kind.builderAnnotationType());
+      Optional<DeclaredType> builderType =
+          Optional.fromNullable(getOnlyElement(enclosedBuilders, null));        
 
       Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
@@ -256,10 +281,15 @@ abstract class ComponentDescriptor {
                   componentMethod,
                   resolvedComponentMethod)),
               componentMethod);
-        } else if (getAnnotationMirror(MoreTypes.asElement(returnType), Subcomponent.class)
-            .isPresent()) {
+        } else if (isAnnotationPresent(MoreTypes.asElement(returnType), Subcomponent.class)) {
           return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
               ComponentMethodKind.SUBCOMPONENT,
+              Optional.<DependencyRequest>absent(),
+              componentMethod);
+        } else if (isAnnotationPresent(MoreTypes.asElement(returnType),
+            Subcomponent.Builder.class)) {
+          return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
+              ComponentMethodKind.SUBCOMPONENT_BUILDER,
               Optional.<DependencyRequest>absent(),
               componentMethod);
         }
@@ -270,6 +300,7 @@ abstract class ComponentDescriptor {
           && !componentMethod.getReturnType().getKind().equals(VOID)) {
         switch (componentKind) {
           case COMPONENT:
+          case SUBCOMPONENT:
             return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor(
                 ComponentMethodKind.PROVISON,
                 Optional.of(dependencyRequestFactory.forComponentProvisionMethod(componentMethod,
@@ -319,8 +350,8 @@ abstract class ComponentDescriptor {
         }
       }
       verify(buildMethod != null); // validation should have ensured this.
-      return Optional.<BuilderSpec>of(
-          new AutoValue_ComponentDescriptor_BuilderSpec(element, map.build(), buildMethod));
+      return Optional.<BuilderSpec>of(new AutoValue_ComponentDescriptor_BuilderSpec(element,
+          map.build(), buildMethod, element.getEnclosingElement().asType()));
     }
   }
 

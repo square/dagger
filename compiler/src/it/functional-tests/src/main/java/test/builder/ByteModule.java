@@ -13,19 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.builder;
 
-import dagger.Component;
-import javax.inject.Singleton;
+import dagger.Module;
+import dagger.Provides;
 
-@Component(modules = ParentModule.class)
-@Singleton
-interface ParentComponent extends ParentGetters {
-  ChildComponent newChildComponent();
+@Module
+class ByteModule {
+  final byte b;
 
-  ChildAbstractClassComponent newChildAbstractClassComponent();
-
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
+  ByteModule(byte b) {
+    this.b = b;
+  }
+  
+  @Provides byte b() { return b; }
 }

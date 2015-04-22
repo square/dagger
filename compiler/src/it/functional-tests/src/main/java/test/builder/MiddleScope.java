@@ -13,19 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.builder;
 
-import dagger.Component;
-import javax.inject.Singleton;
+import java.lang.annotation.Retention;
+import javax.inject.Scope;
 
-@Component(modules = ParentModule.class)
-@Singleton
-interface ParentComponent extends ParentGetters {
-  ChildComponent newChildComponent();
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-  ChildAbstractClassComponent newChildAbstractClassComponent();
+@Scope
+@Retention(RUNTIME)
+@interface MiddleScope {
 
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
 }

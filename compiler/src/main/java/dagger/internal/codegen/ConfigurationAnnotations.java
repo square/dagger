@@ -31,6 +31,7 @@ import dagger.Module;
 import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
 import dagger.producers.ProductionComponent;
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -41,7 +42,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVisitor;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
@@ -154,11 +154,12 @@ final class ConfigurationAnnotations {
     return ImmutableSet.copyOf(moduleElements);
   }
   
-  /** Returns the enclosed elements annotated with {@link dagger.Component.Builder}. */
-  static ImmutableList<DeclaredType> enclosedBuilders(TypeElement typeElement) {
+  /** Returns the enclosed elements annotated with the given annotation type. */
+  static ImmutableList<DeclaredType> enclosedBuilders(TypeElement typeElement,
+      final Class<? extends Annotation> annotation) {
     final ImmutableList.Builder<DeclaredType> builders = ImmutableList.builder();
     for (TypeElement element : ElementFilter.typesIn(typeElement.getEnclosedElements())) {
-      if (MoreElements.isAnnotationPresent(element, Component.Builder.class)) {
+      if (MoreElements.isAnnotationPresent(element, annotation)) {
         builders.add(MoreTypes.asDeclared(element.asType()));
       }
     }

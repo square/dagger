@@ -25,13 +25,13 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_BUILD_MUST_RETURN_COMPONENT_TYPE;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_METHODS_MUST_RETURN_VOID_OR_BUILDER;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_METHOD_MUST_TAKE_ONE_ARG;
 
 /** Tests for {@link dagger.Component.Builder} */
 @RunWith(JUnit4.class)
 public class ComponentBuilderTest {
+  
+  private static final ErrorMessages.ComponentBuilderMessages MSGS =
+      ErrorMessages.ComponentBuilderMessages.INSTANCE;
   
   @Test
   public void testEmptyBuilder() {
@@ -328,7 +328,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(ErrorMessages.BUILDER_MORE_THAN_ONE,
+        .withErrorContaining(String.format(MSGS.moreThanOne(),
             "[test.SimpleComponent.Builder, test.SimpleComponent.Builder2]"))
         .in(componentFile);
   }
@@ -352,7 +352,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_GENERICS)
+        .withErrorContaining(MSGS.generics())
         .in(componentFile);
   }
   
@@ -368,7 +368,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(builder)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_MUST_BE_IN_COMPONENT)
+        .withErrorContaining(MSGS.mustBeInComponent())
         .in(builder);
   }
   
@@ -389,7 +389,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_MISSING_BUILD_METHOD)
+        .withErrorContaining(MSGS.missingBuildMethod())
         .in(componentFile);
   }
   
@@ -410,7 +410,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_PRIVATE)
+        .withErrorContaining(MSGS.isPrivate())
         .in(componentFile);
   }
   
@@ -431,7 +431,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_MUST_BE_STATIC)
+        .withErrorContaining(MSGS.mustBeStatic())
         .in(componentFile);
   }
   
@@ -452,7 +452,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_MUST_BE_ABSTRACT);
+        .withErrorContaining(MSGS.mustBeAbstract());
   }
   
   @Test
@@ -474,7 +474,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_CXTOR_ONLY_ONE_AND_NO_ARGS)
+        .withErrorContaining(MSGS.cxtorOnlyOneAndNoArgs())
         .in(componentFile);
   }
   
@@ -498,7 +498,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_CXTOR_ONLY_ONE_AND_NO_ARGS)
+        .withErrorContaining(MSGS.cxtorOnlyOneAndNoArgs())
         .in(componentFile);
   }
   
@@ -519,7 +519,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_MUST_BE_CLASS_OR_INTERFACE)
+        .withErrorContaining(MSGS.mustBeClassOrInterface())
         .in(componentFile);
   }
   
@@ -542,7 +542,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_BUILD_MUST_RETURN_COMPONENT_TYPE)
+        .withErrorContaining(MSGS.buildMustReturnComponentType())
             .in(componentFile).onLine(11);
   }
   
@@ -568,7 +568,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(BUILDER_INHERITED_BUILD_MUST_RETURN_COMPONENT_TYPE, "build"))
+            String.format(MSGS.inheritedBuildMustReturnComponentType(), "build"))
             .in(componentFile).onLine(14);
   }
   
@@ -592,7 +592,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(ErrorMessages.BUILDER_TWO_BUILD_METHODS, "build()"))
+        .withErrorContaining(String.format(MSGS.twoBuildMethods(), "build()"))
             .in(componentFile).onLine(12);
   }
   
@@ -619,7 +619,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(ErrorMessages.BUILDER_INHERITED_TWO_BUILD_METHODS, "create()", "build()"))
+            String.format(MSGS.inheritedTwoBuildMethods(), "create()", "build()"))
             .in(componentFile).onLine(15);
   }
   
@@ -644,9 +644,9 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_METHOD_MUST_TAKE_ONE_ARG)
+        .withErrorContaining(MSGS.methodsMustTakeOneArg())
             .in(componentFile).onLine(12)
-        .and().withErrorContaining(ErrorMessages.BUILDER_METHOD_MUST_TAKE_ONE_ARG)
+        .and().withErrorContaining(MSGS.methodsMustTakeOneArg())
             .in(componentFile).onLine(13);
   }
   
@@ -673,7 +673,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(BUILDER_INHERITED_METHOD_MUST_TAKE_ONE_ARG,
+            String.format(MSGS.inheritedMethodsMustTakeOneArg(),
                 "set1(java.lang.String,java.lang.Integer)"))
             .in(componentFile).onLine(15);
   }
@@ -698,7 +698,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_METHODS_MUST_RETURN_VOID_OR_BUILDER)
+        .withErrorContaining(MSGS.methodsMustReturnVoidOrBuilder())
             .in(componentFile).onLine(12);
   }
   
@@ -725,7 +725,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(BUILDER_INHERITED_METHODS_MUST_RETURN_VOID_OR_BUILDER,
+            String.format(MSGS.inheritedMethodsMustReturnVoidOrBuilder(),
                 "set(java.lang.Integer)"))
             .in(componentFile).onLine(15);    
   }
@@ -750,7 +750,7 @@ public class ComponentBuilderTest {
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(ErrorMessages.BUILDER_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS)
+        .withErrorContaining(MSGS.methodsMayNotHaveTypeParameters())
             .in(componentFile).onLine(12);
   }
   
@@ -777,8 +777,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(ErrorMessages.BUILDER_INHERITED_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS,
-                "<T>set(T)"))
+            String.format(MSGS.inheritedMethodsMayNotHaveTypeParameters(), "<T>set(T)"))
             .in(componentFile).onLine(15);    
   }
   
@@ -804,7 +803,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(ErrorMessages.BUILDER_MANY_METHODS_FOR_TYPE,
+            String.format(MSGS.manyMethodsForType(),
                   "java.lang.String", "[set1(java.lang.String), set2(java.lang.String)]"))
             .in(componentFile).onLine(10);
   }
@@ -834,7 +833,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(ErrorMessages.BUILDER_MANY_METHODS_FOR_TYPE,
+            String.format(MSGS.manyMethodsForType(),
                   "java.lang.String", "[set1(T), set2(java.lang.String)]"))
             .in(componentFile).onLine(14);
   }
@@ -861,7 +860,7 @@ public class ComponentBuilderTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            String.format(ErrorMessages.BUILDER_EXTRA_SETTERS,
+            String.format(MSGS.extraSetters(),
                   "[void test.SimpleComponent.Builder.set1(String),"
                   + " void test.SimpleComponent.Builder.set2(Integer)]"))
             .in(componentFile).onLine(10);
@@ -932,7 +931,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(
             // Ignores Test2Module because we can construct it ourselves.
             // TODO(sameb): Ignore Test3Module because it's not used within transitive dependencies.
-            String.format(ErrorMessages.BUILDER_MISSING_SETTERS,
+            String.format(MSGS.missingSetters(),
                 "[test.TestModule, test.Test3Module, test.OtherComponent]"))
             .in(componentFile).onLine(12);
   }

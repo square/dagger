@@ -15,36 +15,50 @@
  */
 package test.subcomponent;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.junit.experimental.theories.DataPoint;
-import org.junit.experimental.theories.Theories;
-import org.junit.experimental.theories.Theory;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.truth.Truth.assertThat;
 
-@RunWith(Theories.class)
+@RunWith(Parameterized.class)
 public class SubcomponentTest {
   private static final ParentComponent parentComponent = DaggerParentComponent.create();
-  @DataPoint
-  public static final ChildComponent childComponent = parentComponent.newChildComponent();;
-  @DataPoint
-  public static final ChildComponent childAbstractClassComponent =
-      parentComponent.newChildAbstractClassComponent();
+  private static final ParentOfGenericComponent parentOfGenericComponent =
+      DaggerParentOfGenericComponent.create();
+  
+  @Parameters
+  public static Collection<Object[]> parameters() {
+    return Arrays.asList(new Object[][] {
+        { parentComponent, parentComponent.newChildComponent() },
+        { parentComponent, parentComponent.newChildAbstractClassComponent() },
+        { parentOfGenericComponent, parentOfGenericComponent.subcomponent() }});
+  }        
+  
+  private final ParentGetters parentGetters;
+  private final ChildComponent childComponent;
+  
+  public SubcomponentTest(ParentGetters parentGetters, ChildComponent childComponent) {
+    this.parentGetters = parentGetters;
+    this.childComponent = childComponent;
+  }
+  
 
-  @Theory
-  public void scopePropagatesUpward_class(ChildComponent childComponent) {
+  @Test
+  public void scopePropagatesUpward_class() {
     assertThat(childComponent.requiresSingleton().singletonType())
         .isSameAs(childComponent.requiresSingleton().singletonType());
     assertThat(childComponent.requiresSingleton().singletonType())
         .isSameAs(childComponent.newGrandchildComponent().requiresSingleton().singletonType());
   }
 
-  @Theory
-  public void scopePropagatesUpward_provides(ChildComponent childComponent) {
+  @Test
+  public void scopePropagatesUpward_provides() {
     assertThat(childComponent
         .requiresSingleton().unscopedTypeBoundAsSingleton())
             .isSameAs(childComponent
@@ -55,9 +69,9 @@ public class SubcomponentTest {
                 .requiresSingleton().unscopedTypeBoundAsSingleton());
   }
 
-  @Theory
-  public void multibindingContributions(ChildComponent childComponent) {
-    Set<Object> parentObjectSet = parentComponent.objectSet();
+  @Test
+  public void multibindingContributions() {
+    Set<Object> parentObjectSet = parentGetters.objectSet();
     assertThat(parentObjectSet).hasSize(2);
     Set<Object> childObjectSet = childComponent.objectSet();
     assertThat(childObjectSet).hasSize(3);
@@ -69,18 +83,18 @@ public class SubcomponentTest {
     assertThat(intersection(childObjectSet, grandchildObjectSet)).hasSize(1);
   }
 
-  @Theory
-  public void unscopedProviders(ChildComponent childComponent) {
-    assertThat(parentComponent.getUnscopedTypeProvider())
+  @Test
+  public void unscopedProviders() {
+    assertThat(parentGetters.getUnscopedTypeProvider())
         .isSameAs(childComponent.getUnscopedTypeProvider());
-    assertThat(parentComponent.getUnscopedTypeProvider())
+    assertThat(parentGetters.getUnscopedTypeProvider())
         .isSameAs(childComponent
             .newGrandchildComponent()
             .getUnscopedTypeProvider());
   }
 
-  @Theory
-  public void passedModules(ChildComponent childComponent) {
+  @Test
+  public void passedModules() {
     ChildModuleWithState childModuleWithState = new ChildModuleWithState();
     ChildComponentRequiringModules childComponent1 =
         parentComponent.newChildComponentRequiringModules(
@@ -94,8 +108,8 @@ public class SubcomponentTest {
     assertThat(childComponent2.getInt()).isEqualTo(1);
   }
 
-  @Theory
-  public void dependenceisInASubcomponent(ChildComponent childComponent) {
+  @Test
+  public void dependenceisInASubcomponent() {
     assertThat(childComponent.newGrandchildComponent().needsAnInterface()).isNotNull();
-  }
+  }  
 }

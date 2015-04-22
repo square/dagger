@@ -86,9 +86,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ModuleValidator moduleValidator = new ModuleValidator(types, elements, methodSignatureFormatter,
         Module.class, Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
-    ComponentValidator componentValidator =
-        new ComponentValidator(elements, types, moduleValidator);
-    BuilderValidator builderValidator = new BuilderValidator(elements, types);
+    BuilderValidator componentBuilderValidator =
+        new BuilderValidator(elements, types, ComponentDescriptor.Kind.COMPONENT);
+    BuilderValidator subcomponentBuilderValidator =
+        new BuilderValidator(elements, types, ComponentDescriptor.Kind.SUBCOMPONENT);
+    ComponentValidator subcomponentValidator = ComponentValidator.createForSubcomponent(elements,
+        types, moduleValidator, subcomponentBuilderValidator);
+    ComponentValidator componentValidator = ComponentValidator.createForComponent(elements, types,
+        moduleValidator, subcomponentValidator, subcomponentBuilderValidator);
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ModuleValidator producerModuleValidator = new ModuleValidator(types, elements,
         methodSignatureFormatter, ProducerModule.class, Produces.class);
@@ -159,7 +164,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ComponentProcessingStep(
             messager,
             componentValidator,
-            builderValidator,
+            subcomponentValidator,
+            componentBuilderValidator,
+            subcomponentBuilderValidator,
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,

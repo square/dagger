@@ -65,8 +65,6 @@ import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_EXTRA_SETTERS;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_MISSING_SETTERS;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
 import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
@@ -465,6 +463,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     final BuilderSpec spec = componentDesc.builderSpec().get();
     Map<TypeElement, ExecutableElement> allSetters = spec.methodMap();
 
+    ErrorMessages.ComponentBuilderMessages msgs =
+        ErrorMessages.builderMsgsFor(subject.componentDescriptor().kind());
     Set<TypeElement> extraSetters = Sets.difference(allSetters.keySet(), allDependents);
     if (!extraSetters.isEmpty()) {
       Collection<ExecutableElement> excessMethods =
@@ -475,12 +475,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
               return methodSignatureFormatter.format(input,
                   Optional.of(MoreTypes.asDeclared(spec.builderDefinitionType().asType())));
             }});
-      reportBuilder.addItem(String.format(BUILDER_EXTRA_SETTERS, formatted), spec.builderDefinitionType());
+      reportBuilder.addItem(String.format(msgs.extraSetters(), formatted),
+          spec.builderDefinitionType());
     }
 
     Set<TypeElement> missingSetters = Sets.difference(requiredDependents, allSetters.keySet());
     if (!missingSetters.isEmpty()) {
-      reportBuilder.addItem(String.format(BUILDER_MISSING_SETTERS, missingSetters),
+      reportBuilder.addItem(String.format(msgs.missingSetters(), missingSetters),
           spec.builderDefinitionType());
     }
   }

@@ -20,7 +20,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
-import dagger.Component;
+import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -39,24 +39,6 @@ import javax.lang.model.util.Types;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_BUILD_MUST_RETURN_COMPONENT_TYPE;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_CXTOR_ONLY_ONE_AND_NO_ARGS;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_GENERICS;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_BUILD_MUST_RETURN_COMPONENT_TYPE;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_METHODS_MUST_RETURN_VOID_OR_BUILDER;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_METHOD_MUST_TAKE_ONE_ARG;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_INHERITED_TWO_BUILD_METHODS;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_METHODS_MUST_RETURN_VOID_OR_BUILDER;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_METHOD_MUST_TAKE_ONE_ARG;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_MISSING_BUILD_METHOD;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_MUST_BE_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_MUST_BE_CLASS_OR_INTERFACE;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_MUST_BE_IN_COMPONENT;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_MUST_BE_STATIC;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_PRIVATE;
-import static dagger.internal.codegen.ErrorMessages.BUILDER_TWO_BUILD_METHODS;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -69,20 +51,25 @@ import static javax.lang.model.element.Modifier.STATIC;
 class BuilderValidator implements Validator<TypeElement> {
   private final Elements elements;
   private final Types types;
-
-  BuilderValidator(Elements elements, Types types) {
+  private final ComponentDescriptor.Kind componentType;
+  
+  BuilderValidator(Elements elements, Types types, ComponentDescriptor.Kind componentType) {
     this.elements = elements;
     this.types = types;
+    this.componentType = componentType;
   }
 
   @Override public ValidationReport<TypeElement> validate(TypeElement subject) {
     ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
-    Component.Builder builderAnnotation = subject.getAnnotation(Component.Builder.class);
-    checkArgument(builderAnnotation != null);
 
     Element componentElement = subject.getEnclosingElement();
-    if (!isAnnotationPresent(componentElement, Component.class)) {
-      builder.addItem(BUILDER_MUST_BE_IN_COMPONENT, subject);
+    ErrorMessages.ComponentBuilderMessages msgs = ErrorMessages.builderMsgsFor(componentType);
+    Class<? extends Annotation> componentAnnotation = componentType.annotationType();
+    Class<? extends Annotation> builderAnnotation = componentType.builderAnnotationType();
+    checkArgument(subject.getAnnotation(builderAnnotation) != null);
+    
+    if (!isAnnotationPresent(componentElement, componentAnnotation)) {
+      builder.addItem(msgs.mustBeInComponent(), subject);
     }
 
     switch (subject.getKind()) {
@@ -90,32 +77,32 @@ class BuilderValidator implements Validator<TypeElement> {
         List<? extends Element> allElements = subject.getEnclosedElements();
         List<ExecutableElement> cxtors = ElementFilter.constructorsIn(allElements);
         if (cxtors.size() != 1 || getOnlyElement(cxtors).getParameters().size() != 0) {
-          builder.addItem(BUILDER_CXTOR_ONLY_ONE_AND_NO_ARGS, subject);
+          builder.addItem(msgs.cxtorOnlyOneAndNoArgs(), subject);
         }
         break;
       case INTERFACE:
         break;
       default:
         // If not the correct type, exit early since the rest of the messages will be bogus.
-        builder.addItem(BUILDER_MUST_BE_CLASS_OR_INTERFACE, subject);
+        builder.addItem(msgs.mustBeClassOrInterface(), subject);
         return builder.build(); 
     }    
 
     
     if (!subject.getTypeParameters().isEmpty()) {
-      builder.addItem(BUILDER_GENERICS, subject);
+      builder.addItem(msgs.generics(), subject);
     }
 
     Set<Modifier> modifiers = subject.getModifiers();
     if (modifiers.contains(PRIVATE)) {
-      builder.addItem(BUILDER_PRIVATE, subject);
+      builder.addItem(msgs.isPrivate(), subject);
     }
     if (!modifiers.contains(STATIC)) {
-      builder.addItem(BUILDER_MUST_BE_STATIC, subject);
+      builder.addItem(msgs.mustBeStatic(), subject);
     }
     // Note: Must be abstract, so no need to check for final.
     if (!modifiers.contains(ABSTRACT)) {
-      builder.addItem(BUILDER_MUST_BE_ABSTRACT, subject);
+      builder.addItem(msgs.mustBeAbstract(), subject);
     }
     
     ExecutableElement buildMethod = null;
@@ -124,30 +111,29 @@ class BuilderValidator implements Validator<TypeElement> {
     for (ExecutableElement method : Util.getUnimplementedMethods(elements, subject)) {
       ExecutableType resolvedMethodType =
           MoreTypes.asExecutable(types.asMemberOf(MoreTypes.asDeclared(subject.asType()), method));
-      TypeMirror returnType = resolvedMethodType.getReturnType();      
+      TypeMirror returnType = resolvedMethodType.getReturnType();
       if (method.getParameters().size() == 0) {
         // If this is potentially a build() method, validate it returns the correct type.
         if (types.isSameType(returnType, componentElement.asType())) {
           if (buildMethod != null) {
             // If we found more than one build-like method, fail.
-            error(builder, method, BUILDER_TWO_BUILD_METHODS, BUILDER_INHERITED_TWO_BUILD_METHODS,
+            error(builder, method, msgs.twoBuildMethods(), msgs.inheritedTwoBuildMethods(),
                 buildMethod);
           }
         } else {
-          error(builder, method, BUILDER_BUILD_MUST_RETURN_COMPONENT_TYPE,
-              BUILDER_INHERITED_BUILD_MUST_RETURN_COMPONENT_TYPE);
+          error(builder, method, msgs.buildMustReturnComponentType(),
+              msgs.inheritedBuildMustReturnComponentType());
         }
         // We set the buildMethod regardless of the return type to reduce error spam.
         buildMethod = method;
       } else if (method.getParameters().size() > 1) {
         // If this is a setter, make sure it has one arg.
-        error(builder, method, BUILDER_METHOD_MUST_TAKE_ONE_ARG,
-            BUILDER_INHERITED_METHOD_MUST_TAKE_ONE_ARG);
+        error(builder, method, msgs.methodsMustTakeOneArg(), msgs.inheritedMethodsMustTakeOneArg());
       } else if (returnType.getKind() != TypeKind.VOID
           && !types.isSubtype(subject.asType(), returnType)) {
         // If this correctly had one arg, make sure the return types are valid.
-        error(builder, method, BUILDER_METHODS_MUST_RETURN_VOID_OR_BUILDER,
-            BUILDER_INHERITED_METHODS_MUST_RETURN_VOID_OR_BUILDER);
+        error(builder, method, msgs.methodsMustReturnVoidOrBuilder(),
+            msgs.inheritedMethodsMustReturnVoidOrBuilder());
       } else {
         // If the return types are valid, record the method.
         methodsPerParam.put(
@@ -157,13 +143,13 @@ class BuilderValidator implements Validator<TypeElement> {
       }
       
       if (!method.getTypeParameters().isEmpty()) {
-        error(builder, method, BUILDER_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS,
-            BUILDER_INHERITED_METHODS_MAY_NOT_HAVE_TYPE_PARAMETERS);
+        error(builder, method, msgs.methodsMayNotHaveTypeParameters(),
+            msgs.inheritedMethodsMayNotHaveTypeParameters());
       }
     }
     
     if (buildMethod == null) {
-      builder.addItem(BUILDER_MISSING_BUILD_METHOD, subject);
+      builder.addItem(msgs.missingBuildMethod(), subject);
     }
     
     // Go back through each recorded method per param type.  If we had more than one method
@@ -172,9 +158,7 @@ class BuilderValidator implements Validator<TypeElement> {
         methodsPerParam.asMap().entrySet()) {
       if (entry.getValue().size() > 1) {
         TypeMirror type = entry.getKey().get();
-        builder.addItem(
-            String.format(ErrorMessages.BUILDER_MANY_METHODS_FOR_TYPE, type, entry.getValue()),
-            subject);
+        builder.addItem(String.format(msgs.manyMethodsForType(), type, entry.getValue()), subject);
       }
     }
     

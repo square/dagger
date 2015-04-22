@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.builder;
 
 import dagger.Component;
 import javax.inject.Singleton;
 
-@Component(modules = ParentModule.class)
 @Singleton
-interface ParentComponent extends ParentGetters {
-  ChildComponent newChildComponent();
-
-  ChildAbstractClassComponent newChildAbstractClassComponent();
-
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
+@Component
+interface ParentComponent {  
+  TestChildComponentWithBuilderAbstractClass.Builder childAbstractClassBuilder();
+  TestChildComponentWithBuilderInterface.Builder childInterfaceBuilder();
+  
+  MiddleChild.Builder middleBuilder();
+  OtherMiddleChild.Builder otherBuilder();
 }

@@ -20,12 +20,5 @@ import javax.inject.Singleton;
 
 @Component(modules = ParentModule.class)
 @Singleton
-interface ParentComponent extends ParentGetters {
-  ChildComponent newChildComponent();
-
-  ChildAbstractClassComponent newChildAbstractClassComponent();
-
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
+interface ParentOfGenericComponent extends GenericParentComponent<ChildComponent>, ParentGetters {
 }

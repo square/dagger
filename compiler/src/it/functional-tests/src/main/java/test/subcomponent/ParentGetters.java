@@ -15,17 +15,12 @@
  */
 package test.subcomponent;
 
-import dagger.Component;
-import javax.inject.Singleton;
+import java.util.Set;
+import javax.inject.Provider;
 
-@Component(modules = ParentModule.class)
-@Singleton
-interface ParentComponent extends ParentGetters {
-  ChildComponent newChildComponent();
+interface ParentGetters {
+  Provider<UnscopedType> getUnscopedTypeProvider();
 
-  ChildAbstractClassComponent newChildAbstractClassComponent();
+  Set<Object> objectSet();
 
-  ChildComponentRequiringModules newChildComponentRequiringModules(
-      ChildModuleWithParameters cmwp,
-      ChildModuleWithState childModuleWithState);
 }
