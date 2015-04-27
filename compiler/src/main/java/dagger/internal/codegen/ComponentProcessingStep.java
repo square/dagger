@@ -77,8 +77,22 @@ final class ComponentProcessingStep implements ProcessingStep {
 
   @Override
   public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    Set<? extends Element> componentBuilderElements =
-        elementsByAnnotation.get(Component.Builder.class);
+    Map<Element, ValidationReport<TypeElement>> builderReportsByComponent =
+        processComponentBuilders(elementsByAnnotation.get(Component.Builder.class));
+    Set<? extends Element> subcomponentBuilderElements =
+        elementsByAnnotation.get(Subcomponent.Builder.class);
+    Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent =
+        processSubcomponentBuilders(subcomponentBuilderElements);
+    Set<? extends Element> subcomponentElements = elementsByAnnotation.get(Subcomponent.class);
+    Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent =
+        processSubcomponents(subcomponentElements, subcomponentBuilderElements);
+    Set<? extends Element> componentElements = elementsByAnnotation.get(Component.class);
+    processComponents(componentElements, builderReportsByComponent, subcomponentElements,
+        reportsBySubcomponent, subcomponentBuilderElements, builderReportsBySubcomponent);
+  }
+
+  private Map<Element, ValidationReport<TypeElement>> processComponentBuilders(
+      Set<? extends Element> componentBuilderElements) {
     Map<Element, ValidationReport<TypeElement>> builderReportsByComponent = Maps.newHashMap();
     for (Element element : componentBuilderElements) {
       ValidationReport<TypeElement> report =
@@ -86,9 +100,11 @@ final class ComponentProcessingStep implements ProcessingStep {
       report.printMessagesTo(messager);
       builderReportsByComponent.put(element.getEnclosingElement(), report);
     }
-    
-    Set<? extends Element> subcomponentBuilderElements =
-        elementsByAnnotation.get(Subcomponent.Builder.class);
+    return builderReportsByComponent;
+  }
+
+  private Map<Element, ValidationReport<TypeElement>> processSubcomponentBuilders(
+      Set<? extends Element> subcomponentBuilderElements) {
     Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent = Maps.newHashMap();
     for (Element element : subcomponentBuilderElements) {
       ValidationReport<TypeElement> report =
@@ -96,9 +112,12 @@ final class ComponentProcessingStep implements ProcessingStep {
       report.printMessagesTo(messager);
       builderReportsBySubcomponent.put(element, report);
     }
-    
-    Set<? extends Element> subcomponentElements =
-        elementsByAnnotation.get(Subcomponent.class);
+    return builderReportsBySubcomponent;
+  }
+
+  private Map<Element, ValidationReport<TypeElement>> processSubcomponents(
+      Set<? extends Element> subcomponentElements,
+      Set<? extends Element> subcomponentBuilderElements) {
     Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent = Maps.newHashMap();
     for (Element element : subcomponentElements) {
       ComponentValidationReport report = subcomponentValidator.validate(
@@ -106,8 +125,16 @@ final class ComponentProcessingStep implements ProcessingStep {
       report.report().printMessagesTo(messager);
       reportsBySubcomponent.put(element, report.report());
     }
-    
-    Set<? extends Element> componentElements = elementsByAnnotation.get(Component.class);
+    return reportsBySubcomponent;
+  }
+
+  private void processComponents(
+      Set<? extends Element> componentElements,
+      Map<Element, ValidationReport<TypeElement>> builderReportsByComponent,
+      Set<? extends Element> subcomponentElements,
+      Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent,
+      Set<? extends Element> subcomponentBuilderElements,
+      Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent) {
     for (Element element : componentElements) {
       TypeElement componentTypeElement = MoreElements.asType(element);
       ComponentValidationReport report = componentValidator.validate(
@@ -159,6 +186,6 @@ final class ComponentProcessingStep implements ProcessingStep {
         return false;
       }
     }
-    return true;    
+    return true;
   }
 }
