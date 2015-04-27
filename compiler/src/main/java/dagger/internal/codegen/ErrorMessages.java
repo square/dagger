@@ -118,8 +118,6 @@ final class ErrorMessages {
 
   static final String BINDING_METHOD_ABSTRACT = "@%s methods cannot be abstract";
 
-  static final String BINDING_METHOD_STATIC = "@%s methods cannot be static";
-
   static final String BINDING_METHOD_PRIVATE = "@%s methods cannot be private";
 
   static final String BINDING_METHOD_TYPE_PARAMETER =

@@ -38,7 +38,7 @@ final class ArrayTypeName implements TypeName {
   @Override
   public boolean equals(Object obj) {
     return (obj instanceof ArrayTypeName)
-        & this.componentType.equals(((ArrayTypeName) obj).componentType);
+        && this.componentType.equals(((ArrayTypeName) obj).componentType);
   }
 
   @Override

@@ -61,6 +61,7 @@ import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Generates {@link Factory} implementations from {@link ProvisionBinding} instances for
@@ -132,7 +133,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         constructorWriter = Optional.of(classWriter.addConstructor());
         constructorWriter.get().addModifiers(PUBLIC);
         factoryWriter = classWriter;
-        if (binding.bindingKind().equals(PROVISION)) {
+        if (binding.bindingKind().equals(PROVISION)
+            && !binding.bindingElement().getModifiers().contains(STATIC)) {
           TypeName enclosingType = TypeNames.forTypeMirror(binding.bindingTypeElement().asType());
           factoryWriter.addField(enclosingType, "module").addModifiers(PRIVATE, FINAL);
           constructorWriter.get().addParameter(enclosingType, "module");
@@ -227,32 +229,34 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     Snippet parametersSnippet = makeParametersSnippet(parameters);
 
     if (binding.bindingKind().equals(PROVISION)) {
+      Snippet providesMethodInvocation = Snippet.format("%s.%s(%s)",
+          binding.bindingElement().getModifiers().contains(STATIC)
+              ? ClassName.fromTypeElement(binding.bindingTypeElement())
+              : "module",
+          binding.bindingElement().getSimpleName(),
+          parametersSnippet);
+
       if (binding.provisionType().equals(SET)) {
-        getMethodWriter.body().addSnippet("return %s.singleton(module.%s(%s));",
-            ClassName.fromClass(Collections.class),
-            binding.bindingElement().getSimpleName(),
-            parametersSnippet);
+        getMethodWriter.body().addSnippet("return %s.singleton(%s);",
+            ClassName.fromClass(Collections.class), providesMethodInvocation);
       } else if (binding.nullableType().isPresent()
           || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
         if (binding.nullableType().isPresent()) {
           getMethodWriter.annotate(
               (ClassName) TypeNames.forTypeMirror(binding.nullableType().get()));
         }
-        getMethodWriter.body().addSnippet("return module.%s(%s);",
-            binding.bindingElement().getSimpleName(),
-            parametersSnippet);
+        getMethodWriter.body().addSnippet("return %s;", providesMethodInvocation);
       } else {
         StringLiteral failMsg =
             StringLiteral.forValue(CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
         getMethodWriter.body().addSnippet(Snippet.format(Joiner.on('\n').join(
-            "%s provided = module.%s(%s);",
+            "%s provided = %s;",
             "if (provided == null) {",
             "  throw new NullPointerException(%s);",
             "}",
             "return provided;"),
             getMethodWriter.returnType(),
-            binding.bindingElement().getSimpleName(),
-            parametersSnippet,
+            providesMethodInvocation,
             failMsg));
       }
     } else if (binding.memberInjectionRequest().isPresent()) {

@@ -114,6 +114,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
@@ -862,8 +863,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
               break;
             case INSTANCE:
               if (enumBindingKeys.contains(bindingKey)
-                  && !MoreTypes.asDeclared(bindingKey.key().type())
-                          .getTypeArguments().isEmpty()) {
+                  && (bindingKey.key().type().getKind().equals(DECLARED)
+                      && !((DeclaredType) bindingKey.key().type()).getTypeArguments().isEmpty())) {
                 // If using a parameterized enum type, then we need to store the factory
                 // in a temporary variable, in order to help javac be able to infer
                 // the generics of the Factory.create methods.
@@ -1215,7 +1216,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       case PROVISION:
         List<Snippet> parameters =
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-        if (binding.bindingKind().equals(PROVISION)) {
+        if (binding.bindingKind().equals(PROVISION)
+            && !binding.bindingElement().getModifiers().contains(STATIC)) {
           parameters.add(contributionFields.get(binding.contributedBy().get())
               .getSnippetFor(componentName));
         }

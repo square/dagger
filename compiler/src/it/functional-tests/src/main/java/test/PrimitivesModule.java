@@ -27,67 +27,67 @@ final class PrimitivesModule {
   static final float[] BOUND_FLOAT_ARRAY = {(float) 0.1, (float) 0.01, (float) 0.001};
   static final double[] BOUND_DOUBLE_ARRAY = {0.2, 0.02, 0.002};
 
-  @Provides byte provideByte() {
+  @Provides static byte provideByte() {
     return BOUND_BYTE;
   }
 
-  @Provides char provideChar() {
+  @Provides static char provideChar() {
     return BOUND_CHAR;
   }
 
-  @Provides short provideShort() {
+  @Provides static short provideShort() {
     return BOUND_SHORT;
   }
 
-  @Provides int provideInt() {
+  @Provides static int provideInt() {
     return BOUND_INT;
   }
 
-  @Provides long provideLong() {
+  @Provides static long provideLong() {
     return BOUND_LONG;
   }
 
-  @Provides boolean provideBoolean() {
+  @Provides static boolean provideBoolean() {
     return BOUND_BOOLEAN;
   }
 
-  @Provides float provideFloat() {
+  @Provides static float provideFloat() {
     return BOUND_FLOAT;
   }
 
-  @Provides double boundDouble() {
+  @Provides static double boundDouble() {
     return BOUND_DOUBLE;
   }
 
-  @Provides byte[] provideByteArray() {
+  @Provides static byte[] provideByteArray() {
     return BOUND_BYTE_ARRAY;
   }
 
-  @Provides char[] provideCharArray() {
+  @Provides static char[] provideCharArray() {
     return BOUND_CHAR_ARRAY;
   }
 
-  @Provides short[] provideShortArray() {
+  @Provides static short[] provideShortArray() {
     return BOUND_SHORT_ARRAY;
   }
 
-  @Provides int[] provideIntArray() {
+  @Provides static int[] provideIntArray() {
     return BOUND_INT_ARRAY;
   }
 
-  @Provides long[] provideLongArray() {
+  @Provides static long[] provideLongArray() {
     return BOUND_LONG_ARRAY;
   }
 
-  @Provides boolean[] provideBooleanArray() {
+  @Provides static boolean[] provideBooleanArray() {
     return BOUND_BOOLEAN_ARRAY;
   }
 
-  @Provides float[] provideFloatArray() {
+  @Provides static float[] provideFloatArray() {
     return BOUND_FLOAT_ARRAY;
   }
 
-  @Provides double[] boundDoubleArray() {
+  @Provides static double[] boundDoubleArray() {
     return BOUND_DOUBLE_ARRAY;
   }
 }
