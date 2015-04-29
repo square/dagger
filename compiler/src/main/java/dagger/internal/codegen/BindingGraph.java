@@ -476,7 +476,7 @@ abstract class BindingGraph {
         resolvedBindingsBuilder.putAll(resolvedBindings);
         if (parentResolver.isPresent()) {
           for (ResolvedBindings resolvedInParent :
-            parentResolver.get().getResolvedBindings().values()) {
+              parentResolver.get().getResolvedBindings().values()) {
             BindingKey bindingKey = resolvedInParent.bindingKey();
             if (!resolvedBindings.containsKey(bindingKey)) {
               if (resolvedInParent.ownedBindings().isEmpty()) {
