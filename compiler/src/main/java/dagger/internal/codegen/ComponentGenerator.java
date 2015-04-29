@@ -694,7 +694,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
         ContributionBinding contributionBinding =
             Iterables.getOnlyElement(resolvedBindings.contributionBindings());
-        if (contributionBinding instanceof ProvisionBinding) {
+        if (!contributionBinding.bindingType().isMultibinding()
+            && (contributionBinding instanceof ProvisionBinding)) {
           ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
           if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
               && !provisionBinding.scope().isPresent()) {
@@ -945,7 +946,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                   } else if (parentMultibindingContributionSnippets.containsKey(binding)) {
                     parameterSnippets.add(parentMultibindingContributionSnippets.get(binding));
                   } else {
-                    throw new IllegalStateException();
+                    throw new IllegalStateException(binding + " was not found in");
                   }
                 }
                 Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",

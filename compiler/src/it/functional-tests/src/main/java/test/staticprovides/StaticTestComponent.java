@@ -16,7 +16,6 @@
 package test.staticprovides;
 
 import dagger.Component;
-
 import java.util.Set;
 
 /**
@@ -25,4 +24,5 @@ import java.util.Set;
 @Component(modules = {AllStaticModule.class, SomeStaticModule.class})
 interface StaticTestComponent {
   Set<String> getMultiboundStrings();
+  Set<Integer> getMultiboundIntegers();
 }
