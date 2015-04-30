@@ -1170,6 +1170,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             ClassName.fromClass(InstanceFactory.class),
             TypeNames.forTypeMirror(binding.key().type()));
       case COMPONENT_PROVISION:
+        TypeElement bindingTypeElement = dependencyMethodIndex.get(binding.bindingElement());
+        String sourceFieldName =
+            CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, bindingTypeElement.getSimpleName().toString());
         if (binding.nullableType().isPresent()
             || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
           Snippet nullableSnippet = binding.nullableType().isPresent()
@@ -1177,16 +1180,18 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
               : Snippet.format("");
           return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
+            "  private final %6$s %7$s = %3$s;",
             "  %5$s@Override public %2$s get() {",
-            "    return %3$s.%4$s();",
+            "    return %7$s.%4$s();",
             "  }",
             "}"),
             ClassName.fromClass(Factory.class),
             TypeNames.forTypeMirror(binding.key().type()),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
-                .getSnippetFor(componentName),
+            contributionFields.get(bindingTypeElement).getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString(),
-            nullableSnippet);
+            nullableSnippet,
+            TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            sourceFieldName);
         } else {
           // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
           // help to figure out what the method or return type is.  If we include a string
@@ -1198,8 +1203,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
               StringLiteral.forValue(CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
           return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
+            "  private final %6$s %7$s = %3$s;",
             "  @Override public %2$s get() {",
-            "    %2$s provided = %3$s.%4$s();",
+            "    %2$s provided = %7$s.%4$s();",
             "    if (provided == null) {",
             "      throw new NullPointerException(%5$s);",
             "    }",
@@ -1208,10 +1214,11 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             "}"),
             ClassName.fromClass(Factory.class),
             TypeNames.forTypeMirror(binding.key().type()),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
-                .getSnippetFor(componentName),
+            contributionFields.get(bindingTypeElement).getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString(),
-            failMsg);
+            failMsg,
+            TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            sourceFieldName);
         }
       case INJECTION:
       case PROVISION:
