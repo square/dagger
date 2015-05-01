@@ -36,7 +36,7 @@ dependency:
 ```
 
 You can also find downloadable .jars on Maven Central. You'll need
-[Dagger][dl-dagger], [JavaWriter][dl-javawriter], and [javax.inject][dl-inject].
+[Dagger][dl-dagger], [JavaPoet][dl-javapoet], and [javax.inject][dl-inject].
 
 Snapshots of the development version are available in [Sonatype's `snapshots` repository][snap].
 
@@ -63,6 +63,6 @@ License
 
  [1]: http://square.github.com/dagger/
  [dl-dagger]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup.dagger%22%20a%3A%22dagger%22
- [dl-javawriter]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javawriter%22
+ [dl-javapoet]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.squareup%22%20a%3A%22javapoet%22
  [dl-inject]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22javax.inject%22%20a%3A%22javax.inject%22
  [snap]: https://oss.sonatype.org/content/repositories/snapshots/
