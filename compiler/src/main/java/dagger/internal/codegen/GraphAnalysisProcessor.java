@@ -311,7 +311,7 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
     Types types = processingEnv.getTypeUtils();
     List<Object> seedModules = new ArrayList<Object>();
     seedModules.addAll(Arrays.asList((Object[]) annotation.get("includes")));
-    if (!annotation.get("addsTo").equals(Void.class)) seedModules.add(annotation.get("addsTo"));
+    seedModules.addAll(Arrays.asList((Object[]) annotation.get("addsTo")));
     for (Object include : seedModules) {
       if (!(include instanceof TypeMirror)) {
         // TODO(tbroyer): pass annotation information

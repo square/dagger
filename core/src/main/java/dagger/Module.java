@@ -73,7 +73,7 @@ public @interface Module {
    * An optional {@code @Module}-annotated class upon which this module can be
    * {@link ObjectGraph#plus added} to form a complete graph.
    */
-  Class<?> addsTo() default Void.class;
+  Class<?>[] addsTo() default { };
 
   /**
    * True if all of the bindings required by this module can also be satisfied

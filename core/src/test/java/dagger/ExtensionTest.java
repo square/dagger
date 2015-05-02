@@ -55,9 +55,20 @@ public final class ExtensionTest {
   @Module(addsTo = RootModule.class, injects = { C.class, D.class })
   static class ExtensionModule { }
 
+  @Module(injects = A.class) static class JustAModule { }
+  @Module(injects = B.class) static class JustBModule { }
+
+  @Module(addsTo = { JustAModule.class, JustBModule.class}, injects = C.class)
+  static class DoubleExtensionModule { }
+
   @Test public void basicExtension() {
     assertNotNull(ObjectGraph.createWith(new TestingLoader(), new RootModule())
         .plus(new ExtensionModule()));
+  }
+
+  @Test public void multipleExtension() {
+    assertNotNull(ObjectGraph.createWith(new TestingLoader(), new JustAModule(), new JustBModule())
+        .plus(new DoubleExtensionModule()));
   }
 
   @Test public void basicInjection() {
