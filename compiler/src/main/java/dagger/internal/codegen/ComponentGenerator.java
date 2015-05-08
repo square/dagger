@@ -457,7 +457,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       writeSubcomponent(componentWriter,
           MoreTypes.asDeclared(input.componentDescriptor().componentDefinitionType().asType()),
           proxyWriters,
-          componentContributionFields,
           memberSelectSnippets,
           multibindingContributionSnippets,
           subgraphEntry.getKey(),
@@ -470,7 +469,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private void writeSubcomponent(ClassWriter componentWriter,
       DeclaredType containingComponent,
       Set<JavaWriter> proxyWriters,
-      Map<TypeElement, MemberSelect> parentContributionFields,
       ImmutableMap<BindingKey, MemberSelect> parentMemberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
       ExecutableElement subcomponentFactoryMethod,
@@ -485,8 +483,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     constructorWriter.addModifiers(PRIVATE);
     constructorWriter.body();
 
-    Map<TypeElement, MemberSelect> componentContributionFields =
-        Maps.newHashMap(parentContributionFields);
+    Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
     ImmutableList.Builder<Snippet> subcomponentConstructorParameters = ImmutableList.builder();
 
     TypeMirror subcomponentType;
@@ -581,7 +578,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       writeSubcomponent(subcomponentWriter,
           MoreTypes.asDeclared(subgraph.componentDescriptor().componentDefinitionType().asType()),
           proxyWriters,
-          componentContributionFields,
           memberSelectSnippets,
           new ImmutableMap.Builder<ContributionBinding, Snippet>()
               .putAll(parentMultibindingContributionSnippets)
