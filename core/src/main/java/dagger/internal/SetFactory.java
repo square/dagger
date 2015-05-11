@@ -72,7 +72,7 @@ public final class SetFactory<T> implements Factory<Set<T>> {
    * Returns true if at least one pair of items in (@code original) are equals.
    */
   private static boolean hasDuplicates(List<? extends Object> original) {
-    Set<Object> asSet = new HashSet<>(original);
+    Set<Object> asSet = new HashSet<Object>(original);
     return original.size() != asSet.size();
   }
 
