@@ -54,7 +54,7 @@
     <compile-testing.version>0.7</compile-testing.version>
     <junit.version>4.11</junit.version>
     <mockito.version>1.9.5</mockito.version>
-    <truth.version>0.25</truth.version>
+    <truth.version>0.26</truth.version>
   </properties>
 
   <scm>
