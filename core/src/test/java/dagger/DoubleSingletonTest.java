@@ -21,7 +21,7 @@ public class DoubleSingletonTest {
 
   @Module(
       library = true, //
-      addsTo = UnauthenticatedModule.class, //
+      includes = UnauthenticatedModule.class, //
       injects = {
           MockModeApi.class, //
       }, //
@@ -48,8 +48,8 @@ public class DoubleSingletonTest {
   }
 
   @Module(
-      addsTo = AuthenticatedModule.class, //
-      includes = DebugUnauthenticatedModule.class, //
+      addsTo = DebugUnauthenticatedModule.class, //
+      includes = AuthenticatedModule.class, //
       overrides = true, //
       library = true, //
       complete = true //
