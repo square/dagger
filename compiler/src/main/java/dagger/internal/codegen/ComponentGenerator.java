@@ -1249,18 +1249,23 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     switch (binding.bindingKind()) {
       case COMPONENT_PRODUCTION:
+        TypeElement bindingTypeElement = dependencyMethodIndex.get(binding.bindingElement());
+        String sourceFieldName =
+            CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, bindingTypeElement.getSimpleName().toString());
         return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
+            "  private final %6$s %7$s = %4$s;",
             "  @Override public %3$s<%2$s> get() {",
-            "    return %4$s.%5$s();",
+            "    return %7$s.%5$s();",
             "  }",
             "}"),
             ClassName.fromClass(Producer.class),
             TypeNames.forTypeMirror(binding.key().type()),
             ClassName.fromClass(ListenableFuture.class),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
-                .getSnippetFor(componentName),
-            binding.bindingElement().getSimpleName().toString());
+            contributionFields.get(bindingTypeElement).getSnippetFor(componentName),
+            binding.bindingElement().getSimpleName().toString(),
+            TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            sourceFieldName);
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         List<Snippet> parameters =
