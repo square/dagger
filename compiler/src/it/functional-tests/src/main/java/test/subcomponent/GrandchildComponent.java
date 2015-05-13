@@ -26,4 +26,6 @@ interface GrandchildComponent {
   RequiresSingletons requiresSingleton();
 
   Set<Object> objectSet();
+
+  NeedsAnInterface needsAnInterface();
 }

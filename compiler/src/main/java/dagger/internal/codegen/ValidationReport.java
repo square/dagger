@@ -89,6 +89,11 @@ abstract class ValidationReport<T> {
     T getSubject() {
       return subject;
     }
+    
+    Builder<T> addItems(Iterable<Item> newItems) {
+      items.addAll(newItems);
+      return this;
+    }
 
     Builder<T> addItem(String message, Element element) {
       addItem(message, ERROR, element, Optional.<AnnotationMirror>absent());

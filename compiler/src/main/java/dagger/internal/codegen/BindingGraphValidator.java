@@ -31,18 +31,22 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
+import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.ValidationReport.Builder;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import javax.inject.Singleton;
@@ -117,6 +121,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
     validateComponentScope(subject, reportBuilder, resolvedBindings);
     validateDependencyScopes(subject, reportBuilder);
+    validateBuilders(subject, reportBuilder);
 
     for (ComponentMethodDescriptor componentMethod :
         subject.componentDescriptor().componentMethods()) {
@@ -433,6 +438,51 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             descriptor.componentDefinitionType(),
             descriptor.componentAnnotation());
       }
+    }
+  }
+
+  private void validateBuilders(BindingGraph subject, Builder<BindingGraph> reportBuilder) {
+    ComponentDescriptor componentDesc = subject.componentDescriptor();
+    if (!componentDesc.builderSpec().isPresent()) {
+      // If no builder, nothing to validate.
+      return;
+    }
+
+    Set<TypeElement> allDependents =
+        Sets.union(
+            Sets.union(
+                subject.transitiveModules().keySet(),
+                componentDesc.dependencies()),
+            componentDesc.executorDependency().asSet());
+    Set<TypeElement> requiredDependents =
+        Sets.filter(allDependents, new Predicate<TypeElement>() {
+          @Override public boolean apply(TypeElement input) {
+            return !Util.componentCanMakeNewInstances(input);
+          }
+        });
+    final BuilderSpec spec = componentDesc.builderSpec().get();
+    Map<TypeElement, ExecutableElement> allSetters = spec.methodMap();
+
+    ErrorMessages.ComponentBuilderMessages msgs =
+        ErrorMessages.builderMsgsFor(subject.componentDescriptor().kind());
+    Set<TypeElement> extraSetters = Sets.difference(allSetters.keySet(), allDependents);
+    if (!extraSetters.isEmpty()) {
+      Collection<ExecutableElement> excessMethods =
+          Maps.filterKeys(allSetters, Predicates.in(extraSetters)).values();
+      Iterable<String> formatted = FluentIterable.from(excessMethods).transform(
+          new Function<ExecutableElement, String>() {
+            @Override public String apply(ExecutableElement input) {
+              return methodSignatureFormatter.format(input,
+                  Optional.of(MoreTypes.asDeclared(spec.builderDefinitionType().asType())));
+            }});
+      reportBuilder.addItem(String.format(msgs.extraSetters(), formatted),
+          spec.builderDefinitionType());
+    }
+
+    Set<TypeElement> missingSetters = Sets.difference(requiredDependents, allSetters.keySet());
+    if (!missingSetters.isEmpty()) {
+      reportBuilder.addItem(String.format(msgs.missingSetters(), missingSetters),
+          spec.builderDefinitionType());
     }
   }
 

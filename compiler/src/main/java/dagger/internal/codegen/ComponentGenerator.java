@@ -24,6 +24,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +47,7 @@ import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.BindingGraph.ResolvedBindings;
+import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
@@ -85,6 +87,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
@@ -111,6 +114,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
@@ -234,16 +238,61 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     return ImmutableSet.copyOf(javaWriters);
   }
 
-  private ImmutableMap<BindingKey, MemberSelect> writeComponent(
-      BindingGraph input, ClassName componentDefinitionTypeName, ClassWriter componentWriter,
-      Set<JavaWriter> proxyWriters) {
-    ClassWriter builderWriter = componentWriter.addNestedClass("Builder");
-    builderWriter.addModifiers(PUBLIC, STATIC, FINAL);
-    builderWriter.addConstructor().addModifiers(PRIVATE);
+  /**
+   * Writes out a builder for a component or subcomponent.
+   *
+   * @param input the component or subcomponent
+   * @param componentApiName the API name of the component we're building (not our impl)
+   * @param componentImplName the implementation name of the component we're building
+   * @param componentWriter the class we're adding this builder to
+   * @param componentContributionFields a map of member selects so we can later use the fields
+   */
+  private ClassWriter writeBuilder(BindingGraph input, ClassName componentApiName,
+      ClassName componentImplName, ClassWriter componentWriter,
+      Map<TypeElement, MemberSelect> componentContributionFields) {
+    ClassWriter builderWriter;
+    Optional<BuilderSpec> builderSpec = input.componentDescriptor().builderSpec();
+    switch (input.componentDescriptor().kind()) {
+      case COMPONENT:
+      case PRODUCTION_COMPONENT:
+        builderWriter = componentWriter.addNestedClass("Builder");
+        builderWriter.addModifiers(STATIC);
 
-    MethodWriter builderFactoryMethod = componentWriter.addMethod(builderWriter, "builder");
-    builderFactoryMethod.addModifiers(PUBLIC, STATIC);
-    builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
+        // Only top-level components have the factory builder() method.
+        // Mirror the user's builder API type if they had one.
+        MethodWriter builderFactoryMethod = builderSpec.isPresent()
+            ? componentWriter.addMethod(
+                builderSpec.get().builderDefinitionType().asType(), "builder")
+            : componentWriter.addMethod(builderWriter, "builder");
+        builderFactoryMethod.addModifiers(PUBLIC, STATIC);
+        builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
+        break;
+      case SUBCOMPONENT:
+        verify(builderSpec.isPresent()); // we only write subcomponent builders if there was a spec
+        builderWriter =
+            componentWriter.addNestedClass(componentApiName.simpleName() + "Builder");
+        break;
+      default:
+        throw new IllegalStateException();
+    }
+    builderWriter.addModifiers(FINAL);
+    builderWriter.addConstructor().addModifiers(PRIVATE);
+    if (builderSpec.isPresent()) {
+      builderWriter.addModifiers(PRIVATE);
+      TypeElement builderType = builderSpec.get().builderDefinitionType();
+      switch (builderType.getKind()) {
+        case CLASS:
+          builderWriter.setSuperType(builderType);
+          break;
+        case INTERFACE:
+          builderWriter.addImplementedType(builderType);
+          break;
+        default:
+          throw new IllegalStateException("not a class or interface: " + builderType);
+      }
+    } else {
+      builderWriter.addModifiers(PUBLIC);
+    }
 
     // the full set of types that calling code uses to construct a component instance
     ImmutableMap<TypeElement, String> componentContributionNames =
@@ -261,17 +310,19 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                   }
                 })));
 
-    ConstructorWriter constructorWriter = componentWriter.addConstructor();
-    constructorWriter.addModifiers(PRIVATE);
-    constructorWriter.addParameter(builderWriter, "builder");
-    constructorWriter.body().addSnippet("assert builder != null;");
-
-    MethodWriter buildMethod = builderWriter.addMethod(componentDefinitionTypeName, "build");
+    MethodWriter buildMethod;
+    if (builderSpec.isPresent()) {
+      ExecutableElement specBuildMethod = builderSpec.get().buildMethod();
+      // Note: we don't use the specBuildMethod.getReturnType() as the return type
+      // because it might be a type variable.  We make use of covariant returns to allow
+      // us to return the component type, which will always be valid.
+      buildMethod = builderWriter.addMethod(componentApiName,
+          specBuildMethod.getSimpleName().toString());
+      buildMethod.annotate(Override.class);
+    } else {
+      buildMethod = builderWriter.addMethod(componentApiName, "build");
+    }
     buildMethod.addModifiers(PUBLIC);
-
-    boolean requiresBuilder = false;
-
-    Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
 
     for (Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
       TypeElement contributionElement = entry.getKey();
@@ -279,17 +330,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
       builderField.addModifiers(PRIVATE);
       componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
-          componentWriter.name(), Snippet.format("builder.%s", builderField.name())));
-      MethodWriter builderMethod = builderWriter.addMethod(builderWriter, contributionName);
-      builderMethod.addModifiers(PUBLIC);
-      builderMethod.addParameter(contributionElement, contributionName);
-      builderMethod.body()
-          .addSnippet("if (%s == null) {", contributionName)
-          .addSnippet("  throw new NullPointerException(%s);",
-              StringLiteral.forValue(contributionName))
-          .addSnippet("}")
-          .addSnippet("this.%s = %s;", builderField.name(), contributionName)
-          .addSnippet("return this;");
+          componentImplName, Snippet.format("builder.%s", builderField.name())));
       if (componentCanMakeNewInstances(contributionElement)) {
         buildMethod.body()
             .addSnippet("if (%s == null) {", builderField.name())
@@ -297,20 +338,83 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                 builderField.name(), ClassName.fromTypeElement(contributionElement))
             .addSnippet("}");
       } else {
-        requiresBuilder = true;
         buildMethod.body()
             .addSnippet("if (%s == null) {", builderField.name())
             .addSnippet("  throw new IllegalStateException(\"%s must be set\");",
                 builderField.name())
             .addSnippet("}");
       }
+      MethodWriter builderMethod;
+      boolean returnsVoid = false;
+      if (builderSpec.isPresent()) {
+        ExecutableElement method = builderSpec.get().methodMap().get(contributionElement);
+        if (method == null) { // no method in the API, nothing to write out.
+          continue;
+        }
+        // If the return type is void, we add a method with the void return type.
+        // Otherwise we use the builderWriter and take advantage of covariant returns
+        // (so that we don't have to worry about setter methods that return type variables).
+        if (method.getReturnType().getKind().equals(TypeKind.VOID)) {
+          returnsVoid = true;
+          builderMethod =
+              builderWriter.addMethod(method.getReturnType(), method.getSimpleName().toString());
+        } else {
+          builderMethod = builderWriter.addMethod(builderWriter, method.getSimpleName().toString());
+        }
+        builderMethod.annotate(Override.class);
+      } else {
+        builderMethod = builderWriter.addMethod(builderWriter, contributionName);
+      }
+      // TODO(gak): Mirror the API's visibility.
+      // (Makes no difference to the user since this class is private,
+      //  but makes generated code prettier.)
+      builderMethod.addModifiers(PUBLIC);
+      builderMethod.addParameter(contributionElement, contributionName);
+      builderMethod.body()
+          .addSnippet("if (%s == null) {", contributionName)
+          .addSnippet("  throw new NullPointerException(%s);",
+              StringLiteral.forValue(contributionName))
+          .addSnippet("}")
+          .addSnippet("this.%s = %s;", builderField.name(), contributionName);
+      if (!returnsVoid) {
+        builderMethod.body().addSnippet("return this;");
+      }
     }
+    buildMethod.body().addSnippet("return new %s(this);", componentImplName);
+    return builderWriter;
+  }
 
-    if (!requiresBuilder) {
+  /** Returns true if the graph has any dependents that can't be automatically constructed. */
+  private boolean requiresUserSuppliedDependents(BindingGraph input) {
+    Set<TypeElement> allDependents =
+        Sets.union(
+            Sets.union(
+                input.transitiveModules().keySet(),
+                input.componentDescriptor().dependencies()),
+            input.componentDescriptor().executorDependency().asSet());
+    Set<TypeElement> userRequiredDependents =
+        Sets.filter(allDependents, new Predicate<TypeElement>() {
+          @Override public boolean apply(TypeElement input) {
+            return !Util.componentCanMakeNewInstances(input);
+          }
+        });
+    return !userRequiredDependents.isEmpty();
+  }
+
+  private ImmutableMap<BindingKey, MemberSelect> writeComponent(
+      BindingGraph input, ClassName componentDefinitionTypeName, ClassWriter componentWriter,
+      Set<JavaWriter> proxyWriters) {
+    Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
+    ClassWriter builderWriter = writeBuilder(input, componentDefinitionTypeName,
+        componentWriter.name(), componentWriter, componentContributionFields);
+    if (!requiresUserSuppliedDependents(input)) {
       MethodWriter factoryMethod = componentWriter.addMethod(componentDefinitionTypeName, "create");
       factoryMethod.addModifiers(PUBLIC, STATIC);
       // TODO(gak): replace this with something that doesn't allocate a builder
-      factoryMethod.body().addSnippet("return builder().build();");
+      factoryMethod.body().addSnippet("return builder().%s();",
+          input.componentDescriptor().builderSpec().isPresent()
+              ? input.componentDescriptor().builderSpec().get().buildMethod().getSimpleName()
+              : "build");
     }
 
     Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
@@ -328,14 +432,16 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         enumBindingKeysBuilder,
         packageProxies);
 
-    buildMethod.body().addSnippet("return new %s(this);", componentWriter.name());
-
     ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets =
         ImmutableMap.copyOf(memberSelectSnippetsBuilder);
     ImmutableMap<ContributionBinding, Snippet> multibindingContributionSnippets =
         ImmutableMap.copyOf(multibindingContributionSnippetsBuilder);
     ImmutableSet<BindingKey> enumBindingKeys = enumBindingKeysBuilder.build();
 
+    ConstructorWriter constructorWriter = componentWriter.addConstructor();
+    constructorWriter.addModifiers(PRIVATE);
+    constructorWriter.addParameter(builderWriter, "builder");
+    constructorWriter.body().addSnippet("assert builder != null;");
     initializeFrameworkTypes(input,
         componentWriter,
         constructorWriter,
@@ -349,8 +455,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
     for (Entry<ExecutableElement, BindingGraph> subgraphEntry : input.subgraphs().entrySet()) {
       writeSubcomponent(componentWriter,
+          MoreTypes.asDeclared(input.componentDescriptor().componentDefinitionType().asType()),
           proxyWriters,
-          componentContributionFields,
           memberSelectSnippets,
           multibindingContributionSnippets,
           subgraphEntry.getKey(),
@@ -361,84 +467,72 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   }
 
   private void writeSubcomponent(ClassWriter componentWriter,
+      DeclaredType containingComponent,
       Set<JavaWriter> proxyWriters,
-      Map<TypeElement, MemberSelect> parentContributionFields,
       ImmutableMap<BindingKey, MemberSelect> parentMemberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> parentMultibindingContributionSnippets,
       ExecutableElement subcomponentFactoryMethod,
       BindingGraph subgraph) {
-    TypeName subcomponentType =
-        TypeNames.forTypeMirror(subcomponentFactoryMethod.getReturnType());
-
-    ClassWriter subcomponentWriter = componentWriter.addNestedClass(
-        subgraph.componentDescriptor().componentDefinitionType().getSimpleName()
-            + "Impl");
-
+    ClassName subcomponentApiName =
+        ClassName.fromTypeElement(subgraph.componentDescriptor().componentDefinitionType());
+    ClassWriter subcomponentWriter =
+        componentWriter.addNestedClass(subcomponentApiName.simpleName() + "Impl");
     subcomponentWriter.addModifiers(PRIVATE, FINAL);
-    subcomponentWriter.addImplementedType(subcomponentType);
-
-    MethodWriter componentMethod = componentWriter.addMethod(subcomponentType,
-        subcomponentFactoryMethod.getSimpleName().toString());
-    componentMethod.addModifiers(PUBLIC);
-    componentMethod.annotate(Override.class);
 
     ConstructorWriter constructorWriter = subcomponentWriter.addConstructor();
     constructorWriter.addModifiers(PRIVATE);
     constructorWriter.body();
 
-    Map<TypeElement, MemberSelect> componentContributionFields =
-        Maps.newHashMap(parentContributionFields);
+    Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
     ImmutableList.Builder<Snippet> subcomponentConstructorParameters = ImmutableList.builder();
 
-    for (VariableElement moduleVariable : subcomponentFactoryMethod.getParameters()) {
-      // safe because this passed validation
-      TypeElement moduleType = MoreTypes.asTypeElement(moduleVariable.asType());
-      verify(subgraph.transitiveModules().containsKey(moduleType));
-      componentMethod.addParameter(
-          TypeNames.forTypeMirror(moduleVariable.asType()),
-          moduleVariable.getSimpleName().toString());
-      if (!componentContributionFields.containsKey(moduleType)) {
-        String preferredModuleName = CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL,
-            moduleType.getSimpleName().toString());
-        FieldWriter contributionField =
-            subcomponentWriter.addField(moduleType, preferredModuleName);
-        contributionField.addModifiers(PRIVATE, FINAL);
-        String actualModuleName = contributionField.name();
-        constructorWriter.addParameter(
-            TypeNames.forTypeMirror(moduleVariable.asType()), actualModuleName);
-        constructorWriter.body().addSnippet(Snippet.format(Joiner.on('\n').join(
-            "if (%s == null) {",
-            "  throw new NullPointerException();",
-            "}"), actualModuleName));
-        constructorWriter.body().addSnippet(
-            Snippet.format("this.%1$s = %1$s;", actualModuleName));
-        MemberSelect moduleSelect = MemberSelect.instanceSelect(
-            subcomponentWriter.name(), Snippet.format(actualModuleName));
-        componentContributionFields.put(moduleType, moduleSelect);
-        subcomponentConstructorParameters.add(Snippet.format("%s", moduleVariable.getSimpleName()));
-      }
+    TypeMirror subcomponentType;
+    MethodWriter componentMethod;
+    Optional<ClassName> builderName;
+    if (subgraph.componentDescriptor().builderSpec().isPresent()) {
+      BuilderSpec spec = subgraph.componentDescriptor().builderSpec().get();
+      subcomponentType = spec.componentType();
+      componentMethod = componentWriter.addMethod(
+          ClassName.fromTypeElement(spec.builderDefinitionType()),
+          subcomponentFactoryMethod.getSimpleName().toString());
+      ClassWriter builderWriter = writeBuilder(subgraph, subcomponentApiName,
+          subcomponentWriter.name(), componentWriter, componentContributionFields);
+      builderName = Optional.of(builderWriter.name());
+      constructorWriter.addParameter(builderWriter, "builder");
+      constructorWriter.body().addSnippet("assert builder != null;");
+      componentMethod.body().addSnippet("return new %s();", builderWriter.name());
+    } else {
+      builderName = Optional.absent();
+      ExecutableType resolvedMethod =
+          MoreTypes.asExecutable(types.asMemberOf(containingComponent, subcomponentFactoryMethod));
+      subcomponentType = resolvedMethod.getReturnType();
+      componentMethod = componentWriter.addMethod(subcomponentType,
+          subcomponentFactoryMethod.getSimpleName().toString());
+      writeSubcomponentWithoutBuilder(subcomponentFactoryMethod,
+          subgraph,
+          subcomponentWriter,
+          constructorWriter,
+          componentContributionFields,
+          subcomponentConstructorParameters,
+          componentMethod,
+          resolvedMethod);
     }
+    componentMethod.addModifiers(PUBLIC);
+    componentMethod.annotate(Override.class);
 
-    SetView<TypeElement> uninitializedModules = Sets.difference(
-        subgraph.transitiveModules().keySet(), componentContributionFields.keySet());
-    for (TypeElement moduleType : uninitializedModules) {
-      String preferredModuleName = CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL,
-          moduleType.getSimpleName().toString());
-      FieldWriter contributionField =
-          subcomponentWriter.addField(moduleType, preferredModuleName);
-      contributionField.addModifiers(PRIVATE, FINAL);
-      String actualModuleName = contributionField.name();
-      constructorWriter.body().addSnippet(
-          Snippet.format("this.%s = new %s();", actualModuleName,
-              ClassName.fromTypeElement(moduleType)));
-      MemberSelect moduleSelect = MemberSelect.instanceSelect(
-          subcomponentWriter.name(), Snippet.format(actualModuleName));
-      componentContributionFields.put(moduleType, moduleSelect);
+    TypeName subcomponentTypeName = TypeNames.forTypeMirror(subcomponentType);
+    Element subcomponentElement = MoreTypes.asElement(subcomponentType);
+    switch (subcomponentElement.getKind()) {
+      case CLASS:
+        checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
+        subcomponentWriter.setSuperType(subcomponentTypeName);
+        break;
+      case INTERFACE:
+        subcomponentWriter.addImplementedType(subcomponentTypeName);
+        break;
+      default:
+        throw new IllegalStateException();
     }
-
-    componentMethod.body().addSnippet("return new %s(%s);",
-        subcomponentWriter.name(),
-        Snippet.makeParametersSnippet(subcomponentConstructorParameters.build()));
 
     Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
 
@@ -472,7 +566,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     initializeFrameworkTypes(subgraph,
         subcomponentWriter,
         constructorWriter,
-        Optional.<ClassName>absent(),
+        builderName,
         componentContributionFields,
         memberSelectSnippets,
         parentMultibindingContributionSnippets,
@@ -482,8 +576,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
     for (Entry<ExecutableElement, BindingGraph> subgraphEntry : subgraph.subgraphs().entrySet()) {
       writeSubcomponent(subcomponentWriter,
+          MoreTypes.asDeclared(subgraph.componentDescriptor().componentDefinitionType().asType()),
           proxyWriters,
-          componentContributionFields,
           memberSelectSnippets,
           new ImmutableMap.Builder<ContributionBinding, Snippet>()
               .putAll(parentMultibindingContributionSnippets)
@@ -492,6 +586,66 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           subgraphEntry.getKey(),
           subgraphEntry.getValue());
     }
+  }
+
+  private void writeSubcomponentWithoutBuilder(ExecutableElement subcomponentFactoryMethod,
+      BindingGraph subgraph,
+      ClassWriter subcomponentWriter,
+      ConstructorWriter constructorWriter,
+      Map<TypeElement, MemberSelect> componentContributionFields,
+      ImmutableList.Builder<Snippet> subcomponentConstructorParameters,
+      MethodWriter componentMethod,
+      ExecutableType resolvedMethod) {
+    List<? extends VariableElement> params = subcomponentFactoryMethod.getParameters();
+    List<? extends TypeMirror> paramTypes = resolvedMethod.getParameterTypes();
+    for (int i = 0; i < params.size(); i++) {
+      VariableElement moduleVariable = params.get(i);
+      TypeElement moduleTypeElement = MoreTypes.asTypeElement(paramTypes.get(i));
+      TypeName moduleType = TypeNames.forTypeMirror(paramTypes.get(i));
+      verify(subgraph.transitiveModules().containsKey(moduleTypeElement));
+      componentMethod.addParameter(moduleType, moduleVariable.getSimpleName().toString());
+      if (!componentContributionFields.containsKey(moduleTypeElement)) {
+        String preferredModuleName = CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL,
+            moduleTypeElement.getSimpleName().toString());
+        FieldWriter contributionField =
+            subcomponentWriter.addField(moduleTypeElement, preferredModuleName);
+        contributionField.addModifiers(PRIVATE, FINAL);
+        String actualModuleName = contributionField.name();
+        constructorWriter.addParameter(moduleType, actualModuleName);
+        constructorWriter.body().addSnippet(Snippet.format(Joiner.on('\n').join(
+            "if (%s == null) {",
+            "  throw new NullPointerException();",
+            "}"), actualModuleName));
+        constructorWriter.body().addSnippet(
+            Snippet.format("this.%1$s = %1$s;", actualModuleName));
+        MemberSelect moduleSelect = MemberSelect.instanceSelect(
+            subcomponentWriter.name(), Snippet.format(actualModuleName));
+        componentContributionFields.put(moduleTypeElement, moduleSelect);
+        subcomponentConstructorParameters.add(
+            Snippet.format("%s", moduleVariable.getSimpleName()));
+      }
+    }
+
+    SetView<TypeElement> uninitializedModules = Sets.difference(
+        subgraph.transitiveModules().keySet(), componentContributionFields.keySet());
+    for (TypeElement moduleType : uninitializedModules) {
+      String preferredModuleName = CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL,
+          moduleType.getSimpleName().toString());
+      FieldWriter contributionField =
+          subcomponentWriter.addField(moduleType, preferredModuleName);
+      contributionField.addModifiers(PRIVATE, FINAL);
+      String actualModuleName = contributionField.name();
+      constructorWriter.body().addSnippet(
+          Snippet.format("this.%s = new %s();", actualModuleName,
+              ClassName.fromTypeElement(moduleType)));
+      MemberSelect moduleSelect = MemberSelect.instanceSelect(
+          subcomponentWriter.name(), Snippet.format(actualModuleName));
+      componentContributionFields.put(moduleType, moduleSelect);
+    }
+
+    componentMethod.body().addSnippet("return new %s(%s);",
+        subcomponentWriter.name(),
+        Snippet.makeParametersSnippet(subcomponentConstructorParameters.build()));
   }
 
   private void writeFields(BindingGraph input,
@@ -536,7 +690,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
         ContributionBinding contributionBinding =
             Iterables.getOnlyElement(resolvedBindings.contributionBindings());
-        if (contributionBinding instanceof ProvisionBinding) {
+        if (!contributionBinding.bindingType().isMultibinding()
+            && (contributionBinding instanceof ProvisionBinding)) {
           ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
           if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
               && !provisionBinding.scope().isPresent()) {
@@ -705,8 +860,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
               break;
             case INSTANCE:
               if (enumBindingKeys.contains(bindingKey)
-                  && !MoreTypes.asDeclared(bindingKey.key().type())
-                          .getTypeArguments().isEmpty()) {
+                  && (bindingKey.key().type().getKind().equals(DECLARED)
+                      && !((DeclaredType) bindingKey.key().type()).getTypeArguments().isEmpty())) {
                 // If using a parameterized enum type, then we need to store the factory
                 // in a temporary variable, in order to help javac be able to infer
                 // the generics of the Factory.create methods.
@@ -787,7 +942,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                   } else if (parentMultibindingContributionSnippets.containsKey(binding)) {
                     parameterSnippets.add(parentMultibindingContributionSnippets.get(binding));
                   } else {
-                    throw new IllegalStateException();
+                    throw new IllegalStateException(binding + " was not found in");
                   }
                 }
                 Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
@@ -1011,6 +1166,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             ClassName.fromClass(InstanceFactory.class),
             TypeNames.forTypeMirror(binding.key().type()));
       case COMPONENT_PROVISION:
+        TypeElement bindingTypeElement = dependencyMethodIndex.get(binding.bindingElement());
+        String sourceFieldName =
+            CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, bindingTypeElement.getSimpleName().toString());
         if (binding.nullableType().isPresent()
             || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
           Snippet nullableSnippet = binding.nullableType().isPresent()
@@ -1018,16 +1176,18 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
               : Snippet.format("");
           return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
+            "  private final %6$s %7$s = %3$s;",
             "  %5$s@Override public %2$s get() {",
-            "    return %3$s.%4$s();",
+            "    return %7$s.%4$s();",
             "  }",
             "}"),
             ClassName.fromClass(Factory.class),
             TypeNames.forTypeMirror(binding.key().type()),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
-                .getSnippetFor(componentName),
+            contributionFields.get(bindingTypeElement).getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString(),
-            nullableSnippet);
+            nullableSnippet,
+            TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            sourceFieldName);
         } else {
           // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
           // help to figure out what the method or return type is.  If we include a string
@@ -1039,8 +1199,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
               StringLiteral.forValue(CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
           return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
+            "  private final %6$s %7$s = %3$s;",
             "  @Override public %2$s get() {",
-            "    %2$s provided = %3$s.%4$s();",
+            "    %2$s provided = %7$s.%4$s();",
             "    if (provided == null) {",
             "      throw new NullPointerException(%5$s);",
             "    }",
@@ -1049,16 +1210,18 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
             "}"),
             ClassName.fromClass(Factory.class),
             TypeNames.forTypeMirror(binding.key().type()),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
-                .getSnippetFor(componentName),
+            contributionFields.get(bindingTypeElement).getSnippetFor(componentName),
             binding.bindingElement().getSimpleName().toString(),
-            failMsg);
+            failMsg,
+            TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            sourceFieldName);
         }
       case INJECTION:
       case PROVISION:
         List<Snippet> parameters =
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-        if (binding.bindingKind().equals(PROVISION)) {
+        if (binding.bindingKind().equals(PROVISION)
+            && !binding.bindingElement().getModifiers().contains(STATIC)) {
           parameters.add(contributionFields.get(binding.contributedBy().get())
               .getSnippetFor(componentName));
         }

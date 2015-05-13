@@ -37,30 +37,19 @@ public class SetFactoryTest {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Test
-  public void nullFirstProvider() {
-    thrown.expect(NullPointerException.class);
-    SetFactory.create(null);
-  }
-
-  @Test
-  public void nullRest() {
-    thrown.expect(NullPointerException.class);
-    SetFactory.create(incrementingIntegerProvider(1),
-        (Provider<Set<Integer>>[]) null);
-  }
-
-  @Test
-  public void nullProviderInRest() {
-    thrown.expect(NullPointerException.class);
-    SetFactory.create(
-        incrementingIntegerProvider(1),
-        incrementingIntegerProvider(2),
-        null,
-        incrementingIntegerProvider(3));
-  }
-
-  @Test
   public void providerReturnsNullSet() {
+    Factory<Set<Integer>> factory = SetFactory.create(new Provider<Set<Integer>>() {
+      @Override
+      public Set<Integer> get() {
+        return null;
+      }
+    }, incrementingIntegerProvider(0));
+    thrown.expect(NullPointerException.class);
+    factory.get();
+  }
+
+  @Test
+  public void providerReturnsNullSet_single() {
     Factory<Set<Integer>> factory = SetFactory.create(new Provider<Set<Integer>>() {
       @Override
       public Set<Integer> get() {
@@ -83,6 +72,22 @@ public class SetFactoryTest {
         return result;
       }
     });
+    thrown.expect(NullPointerException.class);
+    factory.get();
+  }
+
+  @Test
+  public void providerReturnsSetWithNullElement_single() {
+    Factory<Set<Integer>> factory = SetFactory.create(new Provider<Set<Integer>>() {
+      @Override
+      public Set<Integer> get() {
+        LinkedHashSet<Integer> result = new LinkedHashSet<Integer>();
+        result.add(1);
+        result.add(null);
+        result.add(3);
+        return result;
+      }
+    }, incrementingIntegerProvider(0));
     thrown.expect(NullPointerException.class);
     factory.get();
   }

@@ -45,11 +45,11 @@ import static java.lang.annotation.ElementType.TYPE;
  * Production methods have no arguments and return either a {@link ListenableFuture} or
  * {@link Producer} of a type that is {@link Inject injected}, {@link Provides provided}, or
  * {@link Produces produced}. Each may have a {@link Qualifier} annotation as well. The following
- * are all valid production method declarations: <pre>   {@code
- *
+ * are all valid production method declarations: <pre><code>
  *   ListenableFuture<SomeType> getSomeType();
- *   Producer<Set<SomeType>> getSomeTypes();
- *   @Response ListenableFuture<Html> getResponse();}</pre>
+ *   {@literal Producer<Set<SomeType>>} getSomeTypes();
+ *   {@literal @Response ListenableFuture<Html>} getResponse();
+ * </code></pre>
  *
  * <h2>Exceptions</h2>
  *

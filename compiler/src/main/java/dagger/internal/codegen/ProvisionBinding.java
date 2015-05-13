@@ -45,11 +45,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
+import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
 import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -139,10 +141,15 @@ abstract class ProvisionBinding extends ContributionBinding {
   }
 
   FactoryCreationStrategy factoryCreationStrategy() {
-    return (bindingKind().equals(INJECTION)
-          && implicitDependencies().isEmpty())
-          ? FactoryCreationStrategy.ENUM_INSTANCE
-          : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+    if (bindingKind().equals(INJECTION) && implicitDependencies().isEmpty()) {
+      return FactoryCreationStrategy.ENUM_INSTANCE;
+    }
+    if (bindingKind().equals(PROVISION)
+        && implicitDependencies().isEmpty()
+        && bindingElement().getModifiers().contains(STATIC)) {
+      return FactoryCreationStrategy.ENUM_INSTANCE;
+    }
+    return FactoryCreationStrategy.CLASS_CONSTRUCTOR;
   }
 
   static final class Factory {

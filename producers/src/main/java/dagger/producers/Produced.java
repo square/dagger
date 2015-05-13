@@ -24,16 +24,17 @@ import java.util.concurrent.ExecutionException;
  * injected, you can also inject {@code Produced<T>}, which enables handling of any exceptions that
  * were thrown during the production of {@code T}.
  *
- * <p>For example: <pre>   {@code
- *
- *   @Produces Html getResponse(UserInfo criticalInfo, Produced<ExtraInfo> noncriticalInfo) {
+ * <p>For example: <pre><code>
+ *   {@literal @}Produces Html getResponse(
+ *       UserInfo criticalInfo, {@literal Produced<ExtraInfo>} noncriticalInfo) {
  *     try {
  *       return new Html(criticalInfo, noncriticalInfo.get());
  *     } catch (ExecutionException e) {
  *       logger.warning(e, "Noncritical info");
  *       return new Html(criticalInfo);
  *     }
- *   }}</pre>
+ *   }
+ * </code></pre>
  *
  * @author Jesse Beder
  */

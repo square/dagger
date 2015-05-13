@@ -30,7 +30,6 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
@@ -99,25 +98,6 @@ public class ProducerModuleFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_PRIVATE));
-  }
-
-  @Test public void producesMethodStatic() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.producers.ProducerModule;",
-        "import dagger.producers.Produces;",
-        "",
-        "@ProducerModule",
-        "final class TestModule {",
-        "  @Produces static String produceString() {",
-        "    return \"\";",
-        "  }",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_STATIC));
   }
 
   @Test public void producesMethodReturnVoid() {

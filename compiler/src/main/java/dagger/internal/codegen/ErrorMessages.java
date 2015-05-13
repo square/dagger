@@ -118,8 +118,6 @@ final class ErrorMessages {
 
   static final String BINDING_METHOD_ABSTRACT = "@%s methods cannot be abstract";
 
-  static final String BINDING_METHOD_STATIC = "@%s methods cannot be static";
-
   static final String BINDING_METHOD_PRIVATE = "@%s methods cannot be private";
 
   static final String BINDING_METHOD_TYPE_PARAMETER =
@@ -213,6 +211,143 @@ final class ErrorMessages {
 
   static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD =
       "Cannot return null from a non-@Nullable @Provides method";
+  
+  static ComponentBuilderMessages builderMsgsFor(ComponentDescriptor.Kind kind) {
+    switch(kind) {
+      case COMPONENT:
+        return ComponentBuilderMessages.INSTANCE;
+      case SUBCOMPONENT:
+        return SubcomponentBuilderMessages.INSTANCE;
+      default:
+        throw new IllegalStateException(kind.toString());
+    }
+  }
+
+  static class ComponentBuilderMessages {
+    static final ComponentBuilderMessages INSTANCE = new ComponentBuilderMessages();
+
+    protected String process(String s) { return s; }
+    
+    /** Errors for component builders. */
+    final String moreThanOne() {
+      return process("@Component has more than one @Component.Builder: %s");
+    }
+    
+    final String cxtorOnlyOneAndNoArgs() {
+      return process("@Component.Builder classes must have exactly one constructor,"
+          + " and it must not have any parameters");
+    }
+    
+    final String generics() {
+      return process("@Component.Builder types must not have any generic types");
+    }
+    
+    final String mustBeInComponent() {
+      return process("@Component.Builder types must be nested within a @Component");
+    }
+    
+    final String mustBeClassOrInterface() {
+      return process("@Component.Builder types must be abstract classes or interfaces");
+    }
+    
+    final String isPrivate() {
+      return process("@Component.Builder types must not be private");
+    }
+    
+    final String mustBeStatic() {
+      return process("@Component.Builder types must be static");
+    }
+    
+    final String mustBeAbstract() {
+      return process("@Component.Builder types must be abstract");
+    }
+    
+    final String missingBuildMethod() {
+      return process("@Component.Builder types must have exactly one no-args method that "
+          + " returns the @Component type");
+    }
+    
+    final String manyMethodsForType() {
+      return process("@Component.Builder types must not have more than one setter method per type,"
+          + " but %s is set by %s");
+    }
+    
+    final String extraSetters() {
+      return process(
+          "@Component.Builder has setters for modules or components that aren't required: %s");
+    }
+    
+    final String missingSetters() {
+      return process(
+          "@Component.Builder is missing setters for required modules or components: %s");
+    }
+    
+    final String twoBuildMethods() {
+      return process("@Component.Builder types must have exactly one zero-arg method, and that"
+          + " method must return the @Component type. Already found: %s");
+    }
+    
+    final String inheritedTwoBuildMethods() {
+      return process("@Component.Builder types must have exactly one zero-arg method, and that"
+          + " method must return the @Component type. Found %s and %s");
+    }
+    
+    final String buildMustReturnComponentType() {
+      return process(
+          "@Component.Builder methods that have no arguments must return the @Component type");
+    }
+    
+    final String inheritedBuildMustReturnComponentType() {
+      return process(
+          "@Component.Builder methods that have no arguments must return the @Component type"
+          + " Inherited method: %s");
+    }
+    
+    final String methodsMustTakeOneArg() {
+      return process("@Component.Builder methods must not have more than one argument");
+    }
+    
+    final String inheritedMethodsMustTakeOneArg() {
+      return process(
+          "@Component.Builder methods must not have more than one argument. Inherited method: %s");
+    }
+    
+    final String methodsMustReturnVoidOrBuilder() {
+      return process("@Component.Builder setter methods must return void, the builder,"
+          + " or a supertype of the builder");
+    }
+    
+    final String inheritedMethodsMustReturnVoidOrBuilder() {
+      return process("@Component.Builder setter methods must return void, the builder,"
+          + "or a supertype of the builder. Inherited method: %s");
+    }
+    
+    final String methodsMayNotHaveTypeParameters() {
+      return process("@Component.Builder methods must not have type parameters");
+    }
+
+    final String inheritedMethodsMayNotHaveTypeParameters() {
+      return process(
+          "@Component.Builder methods must not have type parameters. Inherited method: %s");
+    }
+  }
+
+  static final class SubcomponentBuilderMessages extends ComponentBuilderMessages {
+    @SuppressWarnings("hiding")
+    static final SubcomponentBuilderMessages INSTANCE = new SubcomponentBuilderMessages();
+    
+    @Override protected String process(String s) {
+      return s.replaceAll("component", "subcomponent").replaceAll("Component", "Subcomponent");
+    }
+
+    String builderMethodRequiresNoArgs() {
+      return "Methods returning a @Subcomponent.Builder must have no arguments";
+    }
+    
+    String moreThanOneRefToSubcomponent() {
+      return "Only one method can create a given subcomponent. %s is created by: %s";
+    }
+  }
 
   /**
    * A regular expression to match a small list of specific packages deemed to

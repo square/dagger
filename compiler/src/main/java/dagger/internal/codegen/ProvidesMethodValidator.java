@@ -40,7 +40,6 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_STATIC;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_NO_MAP_KEY;
@@ -95,10 +94,6 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
     if (modifiers.contains(PRIVATE)) {
       builder.addItem(formatErrorMessage(BINDING_METHOD_PRIVATE),
           providesMethodElement);
-    }
-    if (modifiers.contains(STATIC)) {
-      // TODO(gak): why not?
-      builder.addItem(formatErrorMessage(BINDING_METHOD_STATIC), providesMethodElement);
     }
     if (modifiers.contains(ABSTRACT)) {
       builder.addItem(formatErrorMessage(BINDING_METHOD_ABSTRACT), providesMethodElement);

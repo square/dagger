@@ -388,15 +388,22 @@ abstract class BindingGraph {
       private Optional<RequestResolver> getOwningResolver(ProvisionBinding provisionBinding) {
         Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
             provisionBinding.wrappedScope();
-        for (RequestResolver requestResolver : getResolverLineage()) {
-          if (bindingScope.equals(requestResolver.targetScope)
-              || requestResolver.explicitProvisionBindings.containsValue(provisionBinding)) {
+        for (RequestResolver requestResolver : getResolverLineage().reverse()) {
+          if (requestResolver.explicitProvisionBindings.containsValue(provisionBinding)) {
+             return Optional.of(requestResolver);
+          }
+        }
+        // look for scope separately.  we do this for the case where @Singleton can appear twice
+        // in the † compatibility mode
+        for (RequestResolver requestResolver : getResolverLineage().reverse()) {
+          if (bindingScope.isPresent() && bindingScope.equals(requestResolver.targetScope)) {
             return Optional.of(requestResolver);
           }
         }
         return Optional.absent();
       }
 
+      /** Returns the resolver lineage from parent to child. */
       private ImmutableList<RequestResolver> getResolverLineage() {
         List<RequestResolver> resolverList = Lists.newArrayList();
         for (Optional<RequestResolver> currentResolver = Optional.of(this);
@@ -476,7 +483,7 @@ abstract class BindingGraph {
         resolvedBindingsBuilder.putAll(resolvedBindings);
         if (parentResolver.isPresent()) {
           for (ResolvedBindings resolvedInParent :
-            parentResolver.get().getResolvedBindings().values()) {
+              parentResolver.get().getResolvedBindings().values()) {
             BindingKey bindingKey = resolvedInParent.bindingKey();
             if (!resolvedBindings.containsKey(bindingKey)) {
               if (resolvedInParent.ownedBindings().isEmpty()) {
