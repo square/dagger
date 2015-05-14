@@ -1469,7 +1469,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
           @Override
           public Snippet visitType(TypeMirror t, Void p) {
-            return Snippet.format("%s", TypeNames.forTypeMirror(t));
+            return Snippet.format("%s.class", TypeNames.forTypeMirror(t));
           }
 
           @Override
