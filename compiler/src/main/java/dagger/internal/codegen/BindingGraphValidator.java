@@ -63,6 +63,7 @@ import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
@@ -127,39 +128,41 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         subject.componentDescriptor().componentMethods()) {
       Optional<DependencyRequest> entryPoint = componentMethod.dependencyRequest();
       if (entryPoint.isPresent()) {
-        traverseRequest(entryPoint.get(), new ArrayDeque<ResolvedRequest>(), subject,
-            reportBuilder);
+        traverseRequest(entryPoint.get(), new ArrayDeque<ResolvedRequest>(),
+            Sets.<BindingKey>newHashSet(), subject, reportBuilder);
       }
     }
 
     validateSubcomponents(subject, reportBuilder);
-
     return reportBuilder.build();
   }
 
   private void traverseRequest(
       DependencyRequest request,
       Deque<ResolvedRequest> bindingPath,
+      Set<BindingKey> keysInPath,
       BindingGraph graph,
       ValidationReport.Builder<BindingGraph> reportBuilder) {
+    verify(bindingPath.size() == keysInPath.size(),
+        "mismatched path vs keys -- (%s vs %s)", bindingPath, keysInPath);
     BindingKey requestKey = request.bindingKey();
-    for (ResolvedRequest pathElement : bindingPath) {
-      if (pathElement.request().bindingKey().equals(requestKey)) {
-        reportCycle(request, bindingPath, reportBuilder);
-        return;
-      }
+    if (keysInPath.contains(requestKey)) {
+      reportCycle(request, bindingPath, reportBuilder);
+      return;
     }
 
     ResolvedRequest resolvedRequest = ResolvedRequest.create(request, graph);
     bindingPath.push(resolvedRequest);
+    keysInPath.add(requestKey);
     validateResolvedBinding(bindingPath, resolvedRequest.binding(), reportBuilder);
 
     for (Binding binding : resolvedRequest.binding().bindings()) {
       for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-        traverseRequest(nextRequest, bindingPath, graph, reportBuilder);
+        traverseRequest(nextRequest, bindingPath, keysInPath, graph, reportBuilder);
       }
     }
     bindingPath.poll();
+    keysInPath.remove(requestKey);
   }
 
   private void validateSubcomponents(BindingGraph graph,

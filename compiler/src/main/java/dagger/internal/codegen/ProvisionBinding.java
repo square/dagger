@@ -24,6 +24,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Provides;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -63,11 +64,14 @@ import static javax.lang.model.element.Modifier.STATIC;
 @AutoValue
 abstract class ProvisionBinding extends ContributionBinding {
   @Override
-  ImmutableSet<DependencyRequest> implicitDependencies() {
-    return new ImmutableSet.Builder<DependencyRequest>()
-        .addAll(memberInjectionRequest().asSet())
-        .addAll(dependencies())
-        .build();
+  Set<DependencyRequest> implicitDependencies() {
+    // Optimization: If we don't need the memberInjectionRequest, don't create more objects.
+    if (!memberInjectionRequest().isPresent()) {
+      return dependencies();
+    } else {
+      // Optimization: Avoid creating an ImmutableSet+Builder just to union two things together.
+      return Sets.union(memberInjectionRequest().asSet(), dependencies());
+    }
   }
 
   enum Kind {
