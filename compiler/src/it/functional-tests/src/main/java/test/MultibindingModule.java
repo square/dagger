@@ -50,4 +50,12 @@ class MultibindingModule {
   @Provides Collection<String> provideMapValues(Map<String, String> map) {
     return map.values();
   }
+
+  @Provides(type = MAP) @TestKey.NestedWrappedKey(Integer.class) String valueForInteger() {
+    return "integer";
+  }
+
+  @Provides(type = MAP) @TestKey.NestedWrappedKey(Long.class) String valueForLong() {
+    return "long";
+  }
 }

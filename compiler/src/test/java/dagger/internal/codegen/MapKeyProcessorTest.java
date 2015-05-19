@@ -72,6 +72,53 @@ public class MapKeyProcessorTest {
   }
 
   @Test
+  public void nestedMapKeyCreatorFile() {
+    JavaFileObject enumKeyFile = JavaFileObjects.forSourceLines("test.Container",
+        "package test;",
+        "import dagger.MapKey;",
+        "import java.lang.annotation.Retention;",
+        "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+        "",
+        "public interface Container {",
+        "@MapKey(unwrapValue = false)",
+        "@Retention(RUNTIME)",
+        "public @interface PathKey {",
+        "  PathEnum value();",
+        "  String relativePath() default \"Defaultpath\";",
+        "}",
+        "}");
+    JavaFileObject pathEnumFile = JavaFileObjects.forSourceLines("test.PathEnum",
+        "package test;",
+        "",
+        "public enum PathEnum {",
+        "    ADMIN,",
+        "    LOGIN;",
+        "}");
+    JavaFileObject generatedKeyCreator =
+        JavaFileObjects.forSourceLines("test.Container$PathKeyCreator",
+            "package test;",
+            "",
+            "import javax.annotation.Generated;",
+            "import test.Container.PathKey",
+            "",
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            "public class Container$PathKeyCreator {",
+            "  @com.google.auto.value.AutoAnnotation",
+            "  public static PathKey create(PathEnum value, String relativePath) {",
+            "    return new AutoAnnotation_Container$PathKeyCreator_create(value, relativePath);",
+            "  }",
+            "}");
+    assert_().about(javaSources())
+    .that(ImmutableList.of(
+        enumKeyFile,
+        pathEnumFile))
+    .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
+    .compilesWithoutError()
+    .and()
+    .generatesSources(generatedKeyCreator);
+  }
+
+  @Test
   public void mapKeyComponentFileWithDisorderedKeyField() {
     JavaFileObject mapModuleOneFile = JavaFileObjects.forSourceLines("test.MapModuleOne",
         "package test;",

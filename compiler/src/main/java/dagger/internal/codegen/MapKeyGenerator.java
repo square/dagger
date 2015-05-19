@@ -38,7 +38,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
- * Generates implementations to create{@link MapKey} instances
+ * Generates implementations to create {@link MapKey} instances
  *
  * @author Chenying Hou
  * @since 2.0
@@ -50,9 +50,7 @@ final class MapKeyGenerator extends SourceFileGenerator<Element> {
 
   @Override
   ClassName nameGeneratedType(Element e) {
-    ClassName enclosingClassName = ClassName.fromTypeElement((TypeElement)e);
-    return enclosingClassName.topLevelClassName().peerNamed(
-        enclosingClassName.classFileName() + "Creator");
+    return Util.getMapKeyCreatorClassName((TypeElement) e);
   }
 
   @Override

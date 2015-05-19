@@ -28,4 +28,5 @@ interface MultibindingComponent {
   Set<String> mapKeys();
   Collection<String> mapValues();
   Set<Integer> set();
+  Map<TestKey.NestedWrappedKey, String> nestedKeyMap();
 }

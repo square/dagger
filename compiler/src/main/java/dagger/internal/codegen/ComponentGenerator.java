@@ -1426,8 +1426,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       for (Snippet snippet : annotationValueNames) {
         snippets.add(snippet);
       }
-      argsBuilder.add(Snippet.format("%sCreator.create(%s)",
-          TypeNames.forTypeMirror(mapKeyAnnotationMirror.getAnnotationType()),
+      argsBuilder.add(Snippet.format("%s.create(%s)",
+          Util.getMapKeyCreatorClassName(
+              MoreTypes.asTypeElement(mapKeyAnnotationMirror.getAnnotationType())),
           Snippet.makeParametersSnippet(snippets.build())));
       argsBuilder.add(factory);
     } else { // unwrapped key case
