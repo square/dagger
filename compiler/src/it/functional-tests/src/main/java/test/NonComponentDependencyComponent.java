@@ -23,8 +23,12 @@ interface NonComponentDependencyComponent {
   ThingTwo thingTwo();
 
   static class ThingTwo {
+    @SuppressWarnings("unused")
     @Inject
-    ThingTwo(@SuppressWarnings("unused") Thing thing) {}
+    ThingTwo(
+        Thing thing,
+        NonComponentDependencyComponent nonComponentDependencyComponent,
+        NonComponentDependencyComponent.ThingComponent thingComponent) {}
   }
 
   // A non-component interface which this interface depends upon.

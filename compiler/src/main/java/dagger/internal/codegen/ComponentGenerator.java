@@ -1162,9 +1162,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     switch(binding.bindingKind()) {
       case COMPONENT:
-        return Snippet.format("%s.<%s>create(this)",
+        MemberSelect componentContributionSelect =
+            contributionFields.get(MoreTypes.asTypeElement(binding.key().type()));
+        return Snippet.format("%s.<%s>create(%s)",
             ClassName.fromClass(InstanceFactory.class),
-            TypeNames.forTypeMirror(binding.key().type()));
+            TypeNames.forTypeMirror(binding.key().type()),
+            componentContributionSelect != null
+                ? componentContributionSelect.getSnippetFor(componentName) : "this");
       case COMPONENT_PROVISION:
         TypeElement bindingTypeElement = dependencyMethodIndex.get(binding.bindingElement());
         String sourceFieldName =
