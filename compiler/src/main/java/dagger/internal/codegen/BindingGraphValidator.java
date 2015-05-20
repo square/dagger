@@ -129,7 +129,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       Optional<DependencyRequest> entryPoint = componentMethod.dependencyRequest();
       if (entryPoint.isPresent()) {
         traverseRequest(entryPoint.get(), new ArrayDeque<ResolvedRequest>(),
-            Sets.<BindingKey>newHashSet(), subject, reportBuilder);
+            Sets.<BindingKey>newHashSet(), subject, reportBuilder,
+            Sets.<DependencyRequest>newHashSet());
       }
     }
 
@@ -142,7 +143,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       Deque<ResolvedRequest> bindingPath,
       Set<BindingKey> keysInPath,
       BindingGraph graph,
-      ValidationReport.Builder<BindingGraph> reportBuilder) {
+      ValidationReport.Builder<BindingGraph> reportBuilder,
+      Set<DependencyRequest> resolvedRequests) {
     verify(bindingPath.size() == keysInPath.size(),
         "mismatched path vs keys -- (%s vs %s)", bindingPath, keysInPath);
     BindingKey requestKey = request.bindingKey();
@@ -151,18 +153,22 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       return;
     }
 
-    ResolvedRequest resolvedRequest = ResolvedRequest.create(request, graph);
-    bindingPath.push(resolvedRequest);
-    keysInPath.add(requestKey);
-    validateResolvedBinding(bindingPath, resolvedRequest.binding(), reportBuilder);
+     // If request has already been resolved, avoid re-traversing the binding path.
+    if (resolvedRequests.add(request)) {
+      ResolvedRequest resolvedRequest = ResolvedRequest.create(request, graph);
+      bindingPath.push(resolvedRequest);
+      keysInPath.add(requestKey);
+      validateResolvedBinding(bindingPath, resolvedRequest.binding(), reportBuilder);
 
-    for (Binding binding : resolvedRequest.binding().bindings()) {
-      for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-        traverseRequest(nextRequest, bindingPath, keysInPath, graph, reportBuilder);
+      for (Binding binding : resolvedRequest.binding().bindings()) {
+        for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+          traverseRequest(nextRequest, bindingPath, keysInPath, graph, reportBuilder,
+              resolvedRequests);
+        }
       }
+      bindingPath.poll();
+      keysInPath.remove(requestKey);
     }
-    bindingPath.poll();
-    keysInPath.remove(requestKey);
   }
 
   private void validateSubcomponents(BindingGraph graph,
@@ -261,8 +267,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   private boolean validateNullability(DependencyRequest request,
       Set<ContributionBinding> bindings, Builder<BindingGraph> reportBuilder) {
     boolean valid = true;
-    String typeName = TypeNames.forTypeMirror(request.key().type()).toString();
     if (!request.isNullable()) {
+      String typeName = null;
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
           String methodSignature;
@@ -278,6 +284,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           // (Maybe this happens if the code was already compiled before this point?)
           // ... we manually print ouf the request in that case, otherwise the error
           // message is kind of useless.
+          if (typeName == null) {
+            typeName = TypeNames.forTypeMirror(request.key().type()).toString();
+          }
           reportBuilder.addItem(
               String.format(NULLABLE_TO_NON_NULLABLE, typeName, methodSignature)
               + "\n at: " + dependencyRequestFormatter.format(request),
