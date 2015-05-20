@@ -32,6 +32,7 @@ import dagger.Provides;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
+
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -79,28 +80,27 @@ abstract class BindingGraph {
   abstract static class ResolvedBindings {
     abstract BindingKey bindingKey();
     abstract ImmutableSet<? extends Binding> ownedBindings();
-    abstract ImmutableSet<? extends Binding> inheritedBindings();
-
-    ImmutableSet<? extends Binding> bindings() {
-      return new ImmutableSet.Builder<Binding>()
-          .addAll(inheritedBindings())
-          .addAll(ownedBindings())
-          .build();
-    }
+    abstract ImmutableSet<? extends Binding> bindings();
 
     static ResolvedBindings create(
         BindingKey bindingKey,
         Set<? extends Binding> ownedBindings,
         Set<? extends Binding> inheritedBindings) {
+      ImmutableSet<Binding> immutableOwnedBindings = ImmutableSet.copyOf(ownedBindings);
       return new AutoValue_BindingGraph_ResolvedBindings(
-          bindingKey, ImmutableSet.copyOf(ownedBindings), ImmutableSet.copyOf(inheritedBindings));
+          bindingKey,
+          immutableOwnedBindings,
+          ImmutableSet.<Binding>builder()
+              .addAll(inheritedBindings)
+              .addAll(immutableOwnedBindings)
+              .build());
     }
 
     static ResolvedBindings create(
         BindingKey bindingKey,
         Binding... ownedBindings) {
-      return new AutoValue_BindingGraph_ResolvedBindings(
-          bindingKey, ImmutableSet.copyOf(ownedBindings), ImmutableSet.<Binding>of());
+      ImmutableSet<Binding> bindings = ImmutableSet.copyOf(ownedBindings);
+      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, bindings, bindings);
     }
 
     @SuppressWarnings("unchecked")  // checked by validator
