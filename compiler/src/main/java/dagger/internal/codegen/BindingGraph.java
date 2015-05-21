@@ -37,7 +37,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -47,7 +46,6 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
@@ -75,52 +73,6 @@ abstract class BindingGraph {
   abstract ImmutableMap<TypeElement, ModuleStrategy> transitiveModules();
   abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
   abstract ImmutableMap<ExecutableElement, BindingGraph> subgraphs();
-
-  @AutoValue
-  abstract static class ResolvedBindings {
-    abstract BindingKey bindingKey();
-    abstract ImmutableSet<? extends Binding> ownedBindings();
-    abstract ImmutableSet<? extends Binding> bindings();
-
-    static ResolvedBindings create(
-        BindingKey bindingKey,
-        Set<? extends Binding> ownedBindings,
-        Set<? extends Binding> inheritedBindings) {
-      ImmutableSet<Binding> immutableOwnedBindings = ImmutableSet.copyOf(ownedBindings);
-      return new AutoValue_BindingGraph_ResolvedBindings(
-          bindingKey,
-          immutableOwnedBindings,
-          ImmutableSet.<Binding>builder()
-              .addAll(inheritedBindings)
-              .addAll(immutableOwnedBindings)
-              .build());
-    }
-
-    static ResolvedBindings create(
-        BindingKey bindingKey,
-        Binding... ownedBindings) {
-      ImmutableSet<Binding> bindings = ImmutableSet.copyOf(ownedBindings);
-      return new AutoValue_BindingGraph_ResolvedBindings(bindingKey, bindings, bindings);
-    }
-
-    @SuppressWarnings("unchecked")  // checked by validator
-    ImmutableSet<? extends ContributionBinding> ownedContributionBindings() {
-      checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
-      return (ImmutableSet<? extends ContributionBinding>) ownedBindings();
-    }
-
-    @SuppressWarnings("unchecked")  // checked by validator
-    ImmutableSet<? extends ContributionBinding> contributionBindings() {
-      checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
-      return (ImmutableSet<? extends ContributionBinding>) bindings();
-    }
-
-    @SuppressWarnings("unchecked")  // checked by validator
-    ImmutableSet<? extends MembersInjectionBinding> membersInjectionBindings() {
-      checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
-      return (ImmutableSet<? extends MembersInjectionBinding>) bindings();
-    }
-  }
 
   static final class Factory {
     private final Elements elements;
