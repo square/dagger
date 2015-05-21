@@ -622,11 +622,63 @@ public class ModuleFactoryGeneratorTest {
         "  }",
         "",
         "  @Override public Set<String> get() {",
-        "    return Collections.singleton(module.provideString());",
+        "    return Collections.<String>singleton(module.provideString());",
         "  }",
         "",
         "  public static Factory<Set<String>> create(TestModule module) {",
         "    return new TestModule_ProvideStringFactory(module);",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(factoryFile);
+  }
+
+  @Test public void providesSetElementWildcard() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import static dagger.Provides.Type.SET;",
+        "",
+        "import java.util.logging.Logger;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import java.util.ArrayList;",
+        "import java.util.List;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides(type = SET) List<List<?>> provideWildcardList() {",
+        "    return new ArrayList<>();",
+        "  }",
+        "}");
+    JavaFileObject factoryFile = JavaFileObjects.forSourceLines(
+        "TestModule_ProvideWildcardListFactory",
+        "package test;",
+        "",
+        "import dagger.internal.Factory;",
+        "import java.util.Collections;",
+        "import java.util.List;",
+        "import java.util.Set;",
+        "import javax.annotation.Generated;",
+        "",
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        "public final class TestModule_ProvideWildcardListFactory implements "
+            + "Factory<Set<List<List<?>>>> {",
+        "  private final TestModule module;",
+        "",
+        "  public TestModule_ProvideWildcardListFactory(TestModule module) {",
+        "    assert module != null;",
+        "    this.module = module;",
+        "  }",
+        "",
+        "  @Override public Set<List<List<?>>> get() {",
+        "    return Collections.<List<List<?>>>singleton(module.provideWildcardList());",
+        "  }",
+        "",
+        "  public static Factory<Set<List<List<?>>>> create(TestModule module) {",
+        "    return new TestModule_ProvideWildcardListFactory(module);",
         "  }",
         "}");
     assertAbout(javaSource()).that(moduleFile)

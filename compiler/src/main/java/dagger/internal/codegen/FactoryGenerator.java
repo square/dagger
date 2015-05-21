@@ -237,8 +237,11 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
           parametersSnippet);
 
       if (binding.provisionType().equals(SET)) {
-        getMethodWriter.body().addSnippet("return %s.singleton(%s);",
-            ClassName.fromClass(Collections.class), providesMethodInvocation);
+        TypeName paramTypeName = TypeNames.forTypeMirror(
+            MoreTypes.asDeclared(keyType).getTypeArguments().get(0));
+        // TODO(cgruber): only be explicit with the parameter if paramType contains wildcards.
+        getMethodWriter.body().addSnippet("return %s.<%s>singleton(%s);",
+            ClassName.fromClass(Collections.class), paramTypeName, providesMethodInvocation);
       } else if (binding.nullableType().isPresent()
           || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
         if (binding.nullableType().isPresent()) {
