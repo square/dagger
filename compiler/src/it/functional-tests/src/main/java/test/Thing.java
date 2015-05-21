@@ -16,7 +16,8 @@
 package test;
 
 import javax.inject.Inject;
+import test.sub.OtherThing;
 
 final class Thing {
-  @Inject Thing() {}
+  @Inject Thing(@SuppressWarnings("unused") OtherThing unused) {}
 }

@@ -17,6 +17,7 @@ package test;
 
 import dagger.Component;
 import javax.inject.Inject;
+import test.sub.OtherThing;
 
 @Component(dependencies = {NonComponentDependencyComponent.ThingComponent.class})
 interface NonComponentDependencyComponent {
@@ -40,7 +41,7 @@ interface NonComponentDependencyComponent {
   static class ThingComponentImpl implements ThingComponent {
     @Override
     public Thing thing() {
-      return new Thing();
+      return new Thing(new OtherThing(1));
     }
   }
 }
