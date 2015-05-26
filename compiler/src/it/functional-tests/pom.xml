@@ -39,6 +39,13 @@ limitations under the License.
       <version>${project.version}</version>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <!-- For map-bindings -->
+      <groupId>com.google.auto.value</groupId>
+      <artifactId>auto-value</artifactId>
+      <version>${auto.value.version}</version>
+      <optional>true</optional>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>
@@ -59,9 +66,6 @@ limitations under the License.
         <configuration>
           <source>1.7</source>
           <target>1.7</target>
-          <annotationProcessors>
-            <annotationProcessor>dagger.internal.codegen.ComponentProcessor</annotationProcessor>
-          </annotationProcessors>
         </configuration>
       </plugin>
       <plugin>

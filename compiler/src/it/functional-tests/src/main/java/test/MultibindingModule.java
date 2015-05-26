@@ -27,7 +27,7 @@ import static dagger.Provides.Type.SET;
 
 @Module
 class MultibindingModule {
-  @Provides(type = MAP) @TestKey("foo") String provideFooKey() {
+  @Provides(type = MAP) @TestKey("foo") String provideFooKey(double doubleDependency) {
     return "foo value";
   }
 
@@ -49,5 +49,13 @@ class MultibindingModule {
 
   @Provides Collection<String> provideMapValues(Map<String, String> map) {
     return map.values();
+  }
+
+  @Provides(type = MAP) @TestKey.NestedWrappedKey(Integer.class) String valueForInteger() {
+    return "integer";
+  }
+
+  @Provides(type = MAP) @TestKey.NestedWrappedKey(Long.class) String valueForLong() {
+    return "long";
   }
 }

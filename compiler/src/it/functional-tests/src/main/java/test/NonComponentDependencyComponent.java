@@ -17,14 +17,19 @@ package test;
 
 import dagger.Component;
 import javax.inject.Inject;
+import test.sub.OtherThing;
 
 @Component(dependencies = {NonComponentDependencyComponent.ThingComponent.class})
 interface NonComponentDependencyComponent {
   ThingTwo thingTwo();
 
   static class ThingTwo {
+    @SuppressWarnings("unused")
     @Inject
-    ThingTwo(@SuppressWarnings("unused") Thing thing) {}
+    ThingTwo(
+        Thing thing,
+        NonComponentDependencyComponent nonComponentDependencyComponent,
+        NonComponentDependencyComponent.ThingComponent thingComponent) {}
   }
 
   // A non-component interface which this interface depends upon.
@@ -36,7 +41,7 @@ interface NonComponentDependencyComponent {
   static class ThingComponentImpl implements ThingComponent {
     @Override
     public Thing thing() {
-      return new Thing();
+      return new Thing(new OtherThing(1));
     }
   }
 }

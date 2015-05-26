@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import dagger.internal.codegen.writer.ClassName;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -109,6 +110,16 @@ final class Util {
     TypeElement keyTypeElement =
         Iterables.getOnlyElement(map.entrySet()).getValue().accept(mapKeyVisitor, null);
     return keyTypeElement;
+  }
+
+  /**
+   * Returns the name of the generated class that contains the static {@code create} method for a
+   * {@code @MapKey} annotation type.
+   */
+  public static ClassName getMapKeyCreatorClassName(TypeElement mapKeyType) {
+    ClassName enclosingClassName = ClassName.fromTypeElement(mapKeyType);
+    return enclosingClassName.topLevelClassName().peerNamed(
+        enclosingClassName.classFileName() + "Creator");
   }
 
   /**

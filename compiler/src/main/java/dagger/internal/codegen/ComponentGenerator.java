@@ -46,7 +46,6 @@ import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
-import dagger.internal.codegen.BindingGraph.ResolvedBindings;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
@@ -1162,9 +1161,13 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     switch(binding.bindingKind()) {
       case COMPONENT:
-        return Snippet.format("%s.<%s>create(this)",
+        MemberSelect componentContributionSelect =
+            contributionFields.get(MoreTypes.asTypeElement(binding.key().type()));
+        return Snippet.format("%s.<%s>create(%s)",
             ClassName.fromClass(InstanceFactory.class),
-            TypeNames.forTypeMirror(binding.key().type()));
+            TypeNames.forTypeMirror(binding.key().type()),
+            componentContributionSelect != null
+                ? componentContributionSelect.getSnippetFor(componentName) : "this");
       case COMPONENT_PROVISION:
         TypeElement bindingTypeElement = dependencyMethodIndex.get(binding.bindingElement());
         String sourceFieldName =
@@ -1249,18 +1252,23 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets) {
     switch (binding.bindingKind()) {
       case COMPONENT_PRODUCTION:
+        TypeElement bindingTypeElement = dependencyMethodIndex.get(binding.bindingElement());
+        String sourceFieldName =
+            CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, bindingTypeElement.getSimpleName().toString());
         return Snippet.format(Joiner.on('\n').join(
             "new %s<%2$s>() {",
+            "  private final %6$s %7$s = %4$s;",
             "  @Override public %3$s<%2$s> get() {",
-            "    return %4$s.%5$s();",
+            "    return %7$s.%5$s();",
             "  }",
             "}"),
             ClassName.fromClass(Producer.class),
             TypeNames.forTypeMirror(binding.key().type()),
             ClassName.fromClass(ListenableFuture.class),
-            contributionFields.get(dependencyMethodIndex.get(binding.bindingElement()))
-                .getSnippetFor(componentName),
-            binding.bindingElement().getSimpleName().toString());
+            contributionFields.get(bindingTypeElement).getSnippetFor(componentName),
+            binding.bindingElement().getSimpleName().toString(),
+            TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            sourceFieldName);
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         List<Snippet> parameters =
@@ -1421,8 +1429,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       for (Snippet snippet : annotationValueNames) {
         snippets.add(snippet);
       }
-      argsBuilder.add(Snippet.format("%sCreator.create(%s)",
-          TypeNames.forTypeMirror(mapKeyAnnotationMirror.getAnnotationType()),
+      argsBuilder.add(Snippet.format("%s.create(%s)",
+          Util.getMapKeyCreatorClassName(
+              MoreTypes.asTypeElement(mapKeyAnnotationMirror.getAnnotationType())),
           Snippet.makeParametersSnippet(snippets.build())));
       argsBuilder.add(factory);
     } else { // unwrapped key case
@@ -1464,7 +1473,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
           @Override
           public Snippet visitType(TypeMirror t, Void p) {
-            return Snippet.format("%s", TypeNames.forTypeMirror(t));
+            return Snippet.format("%s.class", TypeNames.forTypeMirror(t));
           }
 
           @Override

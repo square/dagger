@@ -20,12 +20,20 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
+import test.sub.ContributionsModule;
 
-@Component(modules = MultibindingModule.class)
+@Component(
+  modules = {
+    MultibindingModule.class,
+    ContributionsModule.class
+  },
+  dependencies = MultibindingDependency.class
+)
 interface MultibindingComponent {
   Map<String, String> map();
   Map<String, Provider<String>> mapOfProviders();
   Set<String> mapKeys();
   Collection<String> mapValues();
   Set<Integer> set();
+  Map<TestKey.NestedWrappedKey, String> nestedKeyMap();
 }

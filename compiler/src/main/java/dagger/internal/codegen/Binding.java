@@ -91,9 +91,9 @@ abstract class Binding {
 
   /**
    * The set of {@link DependencyRequest dependencies} required to satisfy this binding. This is a
-   * superset of {@link #dependencies()}.
+   * superset of {@link #dependencies()}.  This returns an unmodifiable set.
    */
-  abstract ImmutableSet<DependencyRequest> implicitDependencies();
+  abstract Set<DependencyRequest> implicitDependencies();
 
   /**
    * Returns the name of the package in which this binding must be managed. E.g.: a binding

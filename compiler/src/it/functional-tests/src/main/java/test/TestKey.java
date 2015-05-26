@@ -20,4 +20,9 @@ import dagger.MapKey;
 @MapKey(unwrapValue = true)
 @interface TestKey {
   String value();
+
+  @MapKey(unwrapValue = false)
+  @interface NestedWrappedKey {
+    Class<?> value();
+  }
 }
