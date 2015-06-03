@@ -59,7 +59,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
   @Override
   public Set<String> getSupportedOptions() {
-    return ImmutableSet.of(DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY, NULLABLE_VALIDATION_KEY);
+    return ImmutableSet.of(
+        DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
+        NULLABLE_VALIDATION_KEY
+    );
   }
 
   @Override
@@ -170,7 +173,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
-            componentGenerator),
+            componentGenerator
+        ),
         new ProducerModuleProcessingStep(
             messager,
             producerModuleValidator,
@@ -183,7 +187,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
-            componentGenerator));
+            componentGenerator
+        ));
   }
 
   @Override
@@ -199,29 +204,28 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   private static final String DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY =
       "dagger.disableInterComponentScopeValidation";
 
-  private static final String NULLABLE_VALIDATION_KEY =
-      "dagger.nullableValidation";
+  private static final String NULLABLE_VALIDATION_KEY = "dagger.nullableValidation";
 
   private static ValidationType scopeValidationType(ProcessingEnvironment processingEnv) {
-    return validationTypeFor(processingEnv,
+    return valueOf(processingEnv,
         DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
         ValidationType.ERROR,
         EnumSet.allOf(ValidationType.class));
   }
 
   private static ValidationType nullableValidationType(ProcessingEnvironment processingEnv) {
-    return validationTypeFor(processingEnv,
+    return valueOf(processingEnv,
         NULLABLE_VALIDATION_KEY,
         ValidationType.ERROR,
         EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
   }
 
-  private static ValidationType validationTypeFor(ProcessingEnvironment processingEnv, String key,
-      ValidationType defaultValue, Set<ValidationType> validValues) {
+  private static <T extends Enum<T>> T valueOf(ProcessingEnvironment processingEnv, String key,
+      T defaultValue, Set<T> validValues) {
     Map<String, String> options = processingEnv.getOptions();
     if (options.containsKey(key)) {
       try {
-        ValidationType type = ValidationType.valueOf(options.get(key).toUpperCase());
+        T type = Enum.valueOf(defaultValue.getDeclaringClass(), options.get(key).toUpperCase());
         if (!validValues.contains(type)) {
           throw new IllegalArgumentException(); // let handler below print out good msg.
         }

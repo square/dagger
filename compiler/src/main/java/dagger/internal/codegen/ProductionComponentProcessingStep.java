@@ -46,7 +46,8 @@ final class ProductionComponentProcessingStep implements ProcessingStep {
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
-      ComponentGenerator componentGenerator) {
+      ComponentGenerator componentGenerator
+  ) {
     this.messager = messager;
     this.componentValidator = componentValidator;
     this.bindingGraphValidator = bindingGraphValidator;
