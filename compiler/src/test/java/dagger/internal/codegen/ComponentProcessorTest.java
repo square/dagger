@@ -92,14 +92,14 @@ public class ComponentProcessorTest {
         .withErrorContaining("is not annotated with @Module");
   }
 
-  @Test public void cannotReferToAbstractModules() {
+  private void checkCannotReferToModuleOfType(String moduleType) {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
         "",
         "import dagger.Module;",
         "",
         "@Module",
-        "abstract class TestModule {}");
+        moduleType + " TestModule {}");
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.BadComponent",
         "package test;",
         "",
@@ -112,6 +112,14 @@ public class ComponentProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             String.format(REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT, "test.TestModule"));
+  }
+
+  @Test public void cannotReferToAbstractClassModules() {
+    checkCannotReferToModuleOfType("abstract class");
+  }
+
+  @Test public void cannotReferToInterfaceModules() {
+    checkCannotReferToModuleOfType("interface");
   }
 
   @Test public void doubleBindingFromResolvedModules() {
