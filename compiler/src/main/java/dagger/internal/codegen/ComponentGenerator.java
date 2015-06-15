@@ -426,7 +426,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         componentWriter,
         proxyWriters,
         memberSelectSnippetsBuilder,
-        ImmutableMap.<ContributionBinding, Snippet>of(),
         multibindingContributionSnippetsBuilder,
         enumBindingKeysBuilder,
         packageProxies);
@@ -544,7 +543,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         subcomponentWriter,
         proxyWriters,
         memberSelectSnippetsBuilder,
-        parentMultibindingContributionSnippets,
         multibindingContributionSnippetsBuilder,
         enumBindingKeysBuilder,
         packageProxies);
@@ -651,7 +649,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ClassWriter componentWriter,
       Set<JavaWriter> proxyWriters,
       Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder,
-      Map<ContributionBinding, Snippet> parentMultibindingContributionSnippetsBuilder,
       Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder,
       ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder,
       Map<String, ProxyClassAndField> packageProxies) {
@@ -660,7 +657,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
           componentWriter,
           proxyWriters,
           memberSelectSnippetsBuilder,
-          parentMultibindingContributionSnippetsBuilder,
           multibindingContributionSnippetsBuilder,
           enumBindingKeysBuilder,
           packageProxies,
@@ -672,7 +668,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ClassWriter componentWriter,
       Set<JavaWriter> proxyWriters,
       Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder,
-      Map<ContributionBinding, Snippet> parentMultibindingContributionSnippetsBuilder,
       Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder,
       ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder,
       Map<String, ProxyClassAndField> packageProxies, ResolvedBindings resolvedBindings) {
@@ -772,7 +767,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
         for (ContributionBinding contributionBinding : contributionBindings) {
           if (!contributionBinding.isSyntheticBinding()) {
             contributionNumber++;
-            if (!parentMultibindingContributionSnippetsBuilder.containsKey(contributionBinding)) {
+            if (resolvedBindings.ownedBindings().contains(contributionBinding)) {
               FrameworkField contributionBindingField =
                   frameworkFieldForSyntheticContributionBinding(
                         bindingKey, contributionNumber, contributionBinding);
