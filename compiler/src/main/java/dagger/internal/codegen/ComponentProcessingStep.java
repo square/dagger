@@ -37,16 +37,13 @@ import javax.lang.model.element.TypeElement;
  *
  * @author Gregory Kick
  */
-final class ComponentProcessingStep implements ProcessingStep {
+final class ComponentProcessingStep extends AbstractComponentProcessingStep {
   private final Messager messager;
   private final ComponentValidator componentValidator;
   private final ComponentValidator subcomponentValidator;
   private final BuilderValidator componentBuilderValidator;
   private final BuilderValidator subcomponentBuilderValidator;
-  private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
-  private final BindingGraph.Factory bindingGraphFactory;
-  private final ComponentGenerator componentGenerator;
 
   ComponentProcessingStep(
       Messager messager,
@@ -57,17 +54,18 @@ final class ComponentProcessingStep implements ProcessingStep {
       BindingGraphValidator bindingGraphValidator,
       Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
-      ComponentGenerator componentGenerator
-  ) {
+      ComponentGenerator componentGenerator) {
+    super(
+        messager,
+        bindingGraphValidator,
+        bindingGraphFactory,
+        componentGenerator);
     this.messager = messager;
     this.componentValidator = componentValidator;
     this.subcomponentValidator = subcomponentValidator;
     this.componentBuilderValidator = componentBuilderValidator;
     this.subcomponentBuilderValidator = subcomponentBuilderValidator;
-    this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
-    this.bindingGraphFactory = bindingGraphFactory;
-    this.componentGenerator = componentGenerator;
   }
 
   @Override
@@ -77,19 +75,25 @@ final class ComponentProcessingStep implements ProcessingStep {
   }
 
   @Override
-  public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+  protected ImmutableSet<ComponentDescriptor> componentDescriptors(
+      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     Map<Element, ValidationReport<TypeElement>> builderReportsByComponent =
         processComponentBuilders(elementsByAnnotation.get(Component.Builder.class));
-    Set<? extends Element> subcomponentBuilderElements =
-        elementsByAnnotation.get(Subcomponent.Builder.class);
+    Set<Element> subcomponentBuilderElements = elementsByAnnotation.get(Subcomponent.Builder.class);
     Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent =
         processSubcomponentBuilders(subcomponentBuilderElements);
-    Set<? extends Element> subcomponentElements = elementsByAnnotation.get(Subcomponent.class);
+    Set<Element> subcomponentElements = elementsByAnnotation.get(Subcomponent.class);
     Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent =
         processSubcomponents(subcomponentElements, subcomponentBuilderElements);
-    Set<? extends Element> componentElements = elementsByAnnotation.get(Component.class);
-    processComponents(componentElements, builderReportsByComponent, subcomponentElements,
-        reportsBySubcomponent, subcomponentBuilderElements, builderReportsBySubcomponent);
+    Set<Element> componentElements = elementsByAnnotation.get(Component.class);
+
+    return componentDescriptors(
+        componentElements,
+        builderReportsByComponent,
+        subcomponentElements,
+        reportsBySubcomponent,
+        subcomponentBuilderElements,
+        builderReportsBySubcomponent);
   }
 
   private Map<Element, ValidationReport<TypeElement>> processComponentBuilders(
@@ -129,35 +133,26 @@ final class ComponentProcessingStep implements ProcessingStep {
     return reportsBySubcomponent;
   }
 
-  private void processComponents(
-      Set<? extends Element> componentElements,
+  private ImmutableSet<ComponentDescriptor> componentDescriptors(
+      Set<Element> componentElements,
       Map<Element, ValidationReport<TypeElement>> builderReportsByComponent,
-      Set<? extends Element> subcomponentElements,
+      Set<Element> subcomponentElements,
       Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent,
-      Set<? extends Element> subcomponentBuilderElements,
+      Set<Element> subcomponentBuilderElements,
       Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent) {
+    ImmutableSet.Builder<ComponentDescriptor> componentDescriptors = ImmutableSet.builder();
     for (Element element : componentElements) {
       TypeElement componentTypeElement = MoreElements.asType(element);
-      ComponentValidationReport report = componentValidator.validate(
-          componentTypeElement, subcomponentElements, subcomponentBuilderElements);
+      ComponentValidationReport report =
+          componentValidator.validate(
+              componentTypeElement, subcomponentElements, subcomponentBuilderElements);
       report.report().printMessagesTo(messager);
-      if (isClean(report, builderReportsByComponent, reportsBySubcomponent,
-          builderReportsBySubcomponent)) {
-        ComponentDescriptor componentDescriptor =
-            componentDescriptorFactory.forComponent(componentTypeElement);
-        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-        ValidationReport<BindingGraph> graphReport =
-            bindingGraphValidator.validate(bindingGraph);
-        graphReport.printMessagesTo(messager);
-        if (graphReport.isClean()) {
-          try {
-            componentGenerator.generate(bindingGraph);
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
-          }
-        }
+      if (isClean(
+          report, builderReportsByComponent, reportsBySubcomponent, builderReportsBySubcomponent)) {
+        componentDescriptors.add(componentDescriptorFactory.forComponent(componentTypeElement));
       }
     }
+    return componentDescriptors.build();
   }
 
   /**

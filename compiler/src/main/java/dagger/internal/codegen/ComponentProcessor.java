@@ -173,8 +173,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
-            componentGenerator
-        ),
+            componentGenerator),
         new ProducerModuleProcessingStep(
             messager,
             producerModuleValidator,
@@ -187,8 +186,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
-            componentGenerator
-        ));
+            componentGenerator));
   }
 
   @Override
