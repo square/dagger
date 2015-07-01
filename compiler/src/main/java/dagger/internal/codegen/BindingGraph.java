@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Provides;
@@ -33,6 +32,7 @@ import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
 
+import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -212,7 +212,7 @@ abstract class BindingGraph {
       final ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings;
       final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
-      final Deque<BindingKey> cycleStack = Queues.newArrayDeque();
+      final Deque<BindingKey> cycleStack = new ArrayDeque<>();
 
       RequestResolver(Optional<RequestResolver> parentResolver,
           Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope,

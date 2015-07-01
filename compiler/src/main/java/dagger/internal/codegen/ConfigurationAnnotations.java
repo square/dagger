@@ -23,7 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Queues;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.MapKey;
@@ -32,6 +32,7 @@ import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -127,7 +128,8 @@ final class ConfigurationAnnotations {
   static ImmutableSet<TypeElement> getTransitiveModules(
       Types types, Elements elements, Iterable<TypeElement> seedModules) {
     TypeMirror objectType = elements.getTypeElement(Object.class.getCanonicalName()).asType();
-    Queue<TypeElement> moduleQueue = Queues.newArrayDeque(seedModules);
+    Queue<TypeElement> moduleQueue = new ArrayDeque<>();
+    Iterables.addAll(moduleQueue, seedModules);
     Set<TypeElement> moduleElements = Sets.newLinkedHashSet();
     for (TypeElement moduleElement = moduleQueue.poll();
         moduleElement != null;
@@ -153,7 +155,7 @@ final class ConfigurationAnnotations {
     }
     return ImmutableSet.copyOf(moduleElements);
   }
-  
+
   /** Returns the enclosed elements annotated with the given annotation type. */
   static ImmutableList<DeclaredType> enclosedBuilders(TypeElement typeElement,
       final Class<? extends Annotation> annotation) {
