@@ -15,7 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
@@ -77,26 +76,30 @@ import javax.annotation.processing.Filer;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
+import static com.google.auto.common.AnnotationMirrors.getAnnotationValuesWithDefaults;
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.transform;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
@@ -108,6 +111,7 @@ import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -1404,93 +1408,19 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   // add one map entry for map Provider in Constructor
   private void writeEntry(List<Object> argsBuilder, Binding binding,
       Snippet factory) {
-    AnnotationMirror mapKeyAnnotationMirror =
+    AnnotationMirror mapKeyAnnotation =
         Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
-    Map<? extends ExecutableElement, ? extends AnnotationValue> map =
-        mapKeyAnnotationMirror.getElementValues();
-    MapKey mapKey =
-        mapKeyAnnotationMirror.getAnnotationType().asElement().getAnnotation(MapKey.class);
-    if (!mapKey.unwrapValue()) {// wrapped key case
-      FluentIterable<AnnotationValue> originIterable = FluentIterable.from(
-          AnnotationMirrors.getAnnotationValuesWithDefaults(mapKeyAnnotationMirror).values());
-      FluentIterable<Snippet> annotationValueNames =
-          originIterable.transform(new Function<AnnotationValue, Snippet>() {
-            @Override
-            public Snippet apply(AnnotationValue value) {
-              return getValueSnippet(value);
-            }
-          });
-      ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
-      for (Snippet snippet : annotationValueNames) {
-        snippets.add(snippet);
-      }
-      argsBuilder.add(Snippet.format("%s.create(%s)",
-          Util.getMapKeyCreatorClassName(
-              MoreTypes.asTypeElement(mapKeyAnnotationMirror.getAnnotationType())),
-          Snippet.makeParametersSnippet(snippets.build())));
-      argsBuilder.add(factory);
-    } else { // unwrapped key case
-      argsBuilder.add(Iterables.getOnlyElement(map.entrySet()).getValue());
-      argsBuilder.add(factory);
+    TypeElement mapKeyAnnotationElement =
+        MoreTypes.asTypeElement(mapKeyAnnotation.getAnnotationType());
+    ClassName mapKeyCreator = Util.getMapKeyCreatorClassName(mapKeyAnnotationElement);
+    if (mapKeyAnnotationElement.getAnnotation(MapKey.class).unwrapValue()) {
+      AnnotationValue unwrapMember = getOnlyElement(mapKeyAnnotation.getElementValues().values());
+      argsBuilder.add(
+          new UnwrappedMapKeyValueVisitor(mapKeyCreator).visit(unwrapMember, unwrapMember));
+    } else {
+      argsBuilder.add(annotationSnippet(mapKeyAnnotation, new MapKeyValueVisitor(mapKeyCreator)));
     }
-  }
-
-  // Get the Snippet representation of a Annotation Value
-  // TODO(user) write corresponding test to verify the AnnotationValueVisitor is right
-  private Snippet getValueSnippet(AnnotationValue value) {
-    AnnotationValueVisitor<Snippet, Void> mapKeyVisitor =
-        new SimpleAnnotationValueVisitor6<Snippet, Void>() {
-          @Override
-          public Snippet visitEnumConstant(VariableElement c, Void p) {
-            return Snippet.format("%s.%s",
-                TypeNames.forTypeMirror(c.getEnclosingElement().asType()), c.getSimpleName());
-          }
-
-          @Override
-          public Snippet visitAnnotation(AnnotationMirror a, Void p) {
-            if (a.getElementValues().isEmpty()) {
-              return Snippet.format("@%s", TypeNames.forTypeMirror(a.getAnnotationType()));
-            } else {
-              Map<ExecutableElement, AnnotationValue> map =
-                  AnnotationMirrors.getAnnotationValuesWithDefaults(a);
-              // build "@Annotation(a = , b = , c = ))
-              ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
-              for (Entry<ExecutableElement, AnnotationValue> entry : map.entrySet()) {
-                snippets.add(Snippet.format("%s = %s",
-                    TypeNames.forTypeMirror(entry.getKey().asType()),
-                    getValueSnippet(entry.getValue())));
-
-              }
-              return Snippet.format("@%s(%s)", TypeNames.forTypeMirror(a.getAnnotationType()),
-                  Snippet.makeParametersSnippet(snippets.build()));
-            }
-          }
-
-          @Override
-          public Snippet visitType(TypeMirror t, Void p) {
-            return Snippet.format("%s.class", TypeNames.forTypeMirror(t));
-          }
-
-          @Override
-          public Snippet visitString(String s, Void p) {
-            return Snippet.format("\"%s\"", s);
-          }
-
-          @Override
-          protected Snippet defaultAction(Object o, Void v) {
-            return Snippet.format("%s", o);
-          }
-
-          @Override
-          public Snippet visitArray(List<? extends AnnotationValue> values, Void v) {
-            ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
-            for (int i = 0; i < values.size(); i++) {
-              snippets.add(values.get(i).accept(this, null));
-            }
-            return Snippet.format("[%s]", Snippet.makeParametersSnippet(snippets.build()));
-          }
-        };
-    return value.accept(mapKeyVisitor, null);
+    argsBuilder.add(factory);
   }
 
   private boolean isNonProviderMap(Binding binding) {
@@ -1498,4 +1428,172 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     return MoreTypes.isTypeOf(Map.class, bindingType) // Implicitly guarantees a declared type.
         && !MoreTypes.isTypeOf(Provider.class, asDeclared(bindingType).getTypeArguments().get(1));
   }
+
+  // TODO(dpb): Extract all this map-key support into a separate file.
+
+  /**
+   * Returns a snippet that calls a static method on {@code mapKeyCreator} to create an annotation
+   * from {@code annotationMirror}.
+   */
+  private static Snippet annotationSnippet(
+      AnnotationMirror annotationMirror, final MapKeyValueVisitor mapKeyValueVisitor) {
+    return Snippet.format(
+        "%s.create%s(%s)",
+        mapKeyValueVisitor.mapKeyCreator,
+        annotationMirror.getAnnotationType().asElement().getSimpleName(),
+        makeParametersSnippet(
+            transform(
+                getAnnotationValuesWithDefaults(annotationMirror).entrySet(),
+                new Function<Map.Entry<ExecutableElement, AnnotationValue>, Snippet>() {
+                  @Override
+                  public Snippet apply(Map.Entry<ExecutableElement, AnnotationValue> entry) {
+                    return ARRAY_LITERAL_PREFIX.visit(
+                        entry.getKey().getReturnType(),
+                        mapKeyValueVisitor.visit(entry.getValue(), entry.getValue()));
+                  }
+                })));
+  }
+
+  /**
+   * Returns a snippet to create the visited value in code. Expects its parameter to be a class with
+   * static creation methods for all nested annotation types.
+   *
+   * <p>Note that {@link AnnotationValue#toString()} is the source-code representation of the value
+   * <em>when used in an annotation</em>, which is not always the same as the representation needed
+   * when creating the value in a method body.
+   *
+   * <p>For example, inside an annotation, a nested array of {@code int}s is simply
+   * <code>{1, 2, 3}</code>, but in code it would have to be <code> new int[] {1, 2, 3}</code>.
+   */
+  static class MapKeyValueVisitor extends SimpleAnnotationValueVisitor6<Snippet, AnnotationValue> {
+
+    final ClassName mapKeyCreator;
+
+    MapKeyValueVisitor(ClassName mapKeyCreator) {
+      this.mapKeyCreator = mapKeyCreator;
+    }
+
+    @Override
+    public Snippet visitEnumConstant(VariableElement c, AnnotationValue p) {
+      return Snippet.format(
+          "%s.%s", TypeNames.forTypeMirror(c.getEnclosingElement().asType()), c.getSimpleName());
+    }
+
+    @Override
+    public Snippet visitAnnotation(AnnotationMirror a, AnnotationValue p) {
+      return annotationSnippet(a, this);
+    }
+
+    @Override
+    public Snippet visitType(TypeMirror t, AnnotationValue p) {
+      return Snippet.format("%s.class", TypeNames.forTypeMirror(t));
+    }
+
+    @Override
+    public Snippet visitString(String s, AnnotationValue p) {
+      return Snippet.format("%s", p);
+    }
+
+    @Override
+    public Snippet visitByte(byte b, AnnotationValue p) {
+      return Snippet.format("(byte) %s", b);
+    }
+
+    @Override
+    public Snippet visitChar(char c, AnnotationValue p) {
+      return Snippet.format("%s", p);
+    }
+
+    @Override
+    public Snippet visitDouble(double d, AnnotationValue p) {
+      return Snippet.format("%sD", d);
+    }
+
+    @Override
+    public Snippet visitFloat(float f, AnnotationValue p) {
+      return Snippet.format("%sF", f);
+    }
+
+    @Override
+    public Snippet visitInt(int i, AnnotationValue p) {
+      return Snippet.format("(int) %s", i);
+    }
+
+    @Override
+    public Snippet visitLong(long i, AnnotationValue p) {
+      return Snippet.format("%sL", i);
+    }
+
+    @Override
+    public Snippet visitShort(short s, AnnotationValue p) {
+      return Snippet.format("(short) %s", s);
+    }
+
+    @Override
+    protected Snippet defaultAction(Object o, AnnotationValue p) {
+      return Snippet.format("%s", o);
+    }
+
+    @Override
+    public Snippet visitArray(List<? extends AnnotationValue> values, AnnotationValue p) {
+      ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
+      for (int i = 0; i < values.size(); i++) {
+        snippets.add(this.visit(values.get(i), p));
+      }
+      return Snippet.format("{%s}", makeParametersSnippet(snippets.build()));
+    }
+  }
+
+  /**
+   * Returns a snippet for the visited value. Expects its parameter to be a class with static
+   * creation methods for all nested annotation types.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the visited value is an array.
+   */
+  private static class UnwrappedMapKeyValueVisitor extends MapKeyValueVisitor {
+
+    UnwrappedMapKeyValueVisitor(ClassName mapKeyCreator) {
+      super(mapKeyCreator);
+    }
+
+    @Override
+    public Snippet visitArray(List<? extends AnnotationValue> values, AnnotationValue p) {
+      throw new IllegalArgumentException("Cannot unwrap arrays");
+    }
+  }
+
+  /**
+   * If the visited type is an array, prefixes the parameter snippet with {@code new T[]}, where
+   * {@code T} is the raw array component type.
+   */
+  private static final SimpleTypeVisitor6<Snippet, Snippet> ARRAY_LITERAL_PREFIX =
+      new SimpleTypeVisitor6<Snippet, Snippet>() {
+
+        @Override
+        public Snippet visitArray(ArrayType t, Snippet p) {
+          return Snippet.format("new %s[] %s", RAW_TYPE_NAME.visit(t.getComponentType()), p);
+        }
+
+        @Override
+        protected Snippet defaultAction(TypeMirror e, Snippet p) {
+          return p;
+        }
+      };
+
+  /**
+   * If the visited type is an array, returns the name of its raw component type; otherwise returns
+   * the name of the type itself.
+   */
+  private static final SimpleTypeVisitor6<TypeName, Void> RAW_TYPE_NAME =
+      new SimpleTypeVisitor6<TypeName, Void>() {
+        @Override
+        public TypeName visitDeclared(DeclaredType t, Void p) {
+          return ClassName.fromTypeElement(MoreTypes.asTypeElement(t));
+        }
+
+        @Override
+        protected TypeName defaultAction(TypeMirror e, Void p) {
+          return TypeNames.forTypeMirror(e);
+        }
+      };
 }

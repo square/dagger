@@ -148,6 +148,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(
             messager,
+            types,
             mapKeyValidator,
             mapKeyGenerator),
         new InjectProcessingStep(

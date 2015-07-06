@@ -23,32 +23,35 @@ import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import dagger.MapKey;
 import dagger.internal.codegen.writer.ClassName;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.AnnotationValueVisitor;
+import java.util.NoSuchElementException;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+import javax.lang.model.util.SimpleTypeVisitor6;
+import javax.lang.model.util.Types;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
  * Utilities for handling types in annotation processors
@@ -83,38 +86,48 @@ final class Util {
   }
 
   /**
-   * Returns the unwrapped key's {@link TypeElement} for a {@link Map} given the
-   * {@link AnnotationMirror} of the key.
+   * Returns the map key type for an unwrapped {@link MapKey} annotation type. If the single member
+   * type is primitive, returns the boxed type.
+   *
+   * @throws IllegalArgumentException if {@code mapKeyAnnotationType} is not an annotation type or
+   *     has more than one member, or if its single member is an array
+   * @throws NoSuchElementException if the annotation has no members
    */
-  public static TypeElement getKeyTypeElement(AnnotationMirror mapKey, final Elements elements) {
-    Map<? extends ExecutableElement, ? extends AnnotationValue> map = mapKey.getElementValues();
-    // TODO(user) Support literals other than String and Enum
-    AnnotationValueVisitor<TypeElement, Void> mapKeyVisitor =
-        new SimpleAnnotationValueVisitor6<TypeElement, Void>() {
+  public static DeclaredType getUnwrappedMapKeyType(
+      final DeclaredType mapKeyAnnotationType, final Types types) {
+    checkArgument(
+        MoreTypes.asTypeElement(mapKeyAnnotationType).getKind() == ElementKind.ANNOTATION_TYPE,
+        "%s is not an annotation type",
+        mapKeyAnnotationType);
+
+    final ExecutableElement onlyElement =
+        getOnlyElement(methodsIn(mapKeyAnnotationType.asElement().getEnclosedElements()));
+
+    SimpleTypeVisitor6<DeclaredType, Void> keyTypeElementVisitor =
+        new SimpleTypeVisitor6<DeclaredType, Void>() {
+
           @Override
-          public TypeElement visitEnumConstant(VariableElement c, Void p) {
-            return MoreElements.asType(c.getEnclosingElement()) ;
+          public DeclaredType visitArray(ArrayType t, Void p) {
+            throw new IllegalArgumentException(
+                mapKeyAnnotationType + "." + onlyElement.getSimpleName() + " cannot be an array");
           }
 
           @Override
-          public TypeElement visitString(String s, Void p) {
-            return elements.getTypeElement(String.class.getCanonicalName());
+          public DeclaredType visitPrimitive(PrimitiveType t, Void p) {
+            return MoreTypes.asDeclared(types.boxedClass(t).asType());
           }
 
           @Override
-          protected TypeElement defaultAction(Object o, Void v) {
-            throw new IllegalStateException(
-                "Non-supported key type for map binding " + o.getClass().getCanonicalName());
+          public DeclaredType visitDeclared(DeclaredType t, Void p) {
+            return t;
           }
         };
-    TypeElement keyTypeElement =
-        Iterables.getOnlyElement(map.entrySet()).getValue().accept(mapKeyVisitor, null);
-    return keyTypeElement;
+    return keyTypeElementVisitor.visit(onlyElement.getReturnType());
   }
 
   /**
-   * Returns the name of the generated class that contains the static {@code create} method for a
-   * {@code @MapKey} annotation type.
+   * Returns the name of the generated class that contains the static {@code create} methods for a
+   * {@link MapKey} annotation type.
    */
   public static ClassName getMapKeyCreatorClassName(TypeElement mapKeyType) {
     ClassName enclosingClassName = ClassName.fromTypeElement(mapKeyType);
@@ -205,8 +218,11 @@ final class Util {
     return ImmutableList.copyOf(methods);
   }
 
-  private static void findLocalAndInheritedMethodsRecursive(TypeElement objectType,
-      Elements elements, TypeElement type, List<ExecutableElement> methods) {
+  private static void findLocalAndInheritedMethodsRecursive(
+      TypeElement objectType,
+      Elements elements,
+      TypeElement type,
+      List<ExecutableElement> methods) {
     if (objectType.equals(type)) {
       return;
     }
