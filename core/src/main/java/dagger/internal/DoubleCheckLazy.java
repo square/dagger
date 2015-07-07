@@ -57,6 +57,16 @@ public final class DoubleCheckLazy<T> implements Lazy<T> {
     if (provider == null) {
       throw new NullPointerException();
     }
+    if (provider instanceof Lazy) {
+      @SuppressWarnings("unchecked")
+      final Lazy<T> lazy = (Lazy<T>) provider;
+      // Avoids memoizing a value that is already memoized.
+      // NOTE: There is a pathological case where Provider<P> may implement Lazy<L>, but P and L
+      // are different types using covariant return on get(). Right now this is used with
+      // ScopedProvider<T> exclusively, which is implemented such that P and L are always the same
+      // so it will be fine for that case.
+      return lazy;
+    }
     return new DoubleCheckLazy<T>(provider);
   }
 }
