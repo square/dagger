@@ -38,7 +38,6 @@ import dagger.Component;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
-import dagger.internal.codegen.ValidationReport.Builder;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -121,7 +120,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       return reportBuilder.build();
     }
 
-    void validate(BindingGraph subject) {
+    void validateSubgraph(BindingGraph subject) {
       validateComponentScope(subject);
       validateDependencyScopes(subject);
       validateBuilders(subject);
@@ -136,7 +135,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         }
       }
 
-      validateSubcomponents(subject);
+      for (BindingGraph subgraph : subject.subgraphs().values()) {
+        validateSubgraph(subgraph);
+      }
     }
 
     private void traverseRequest(
@@ -167,12 +168,6 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         }
         bindingPath.poll();
         keysInPath.remove(requestKey);
-      }
-    }
-
-    private void validateSubcomponents(BindingGraph graph) {
-      for (Entry<ExecutableElement, BindingGraph> subgraphEntry : graph.subgraphs().entrySet()) {
-        validate(subgraphEntry.getValue());
       }
     }
 
@@ -737,7 +732,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
   @Override
   public ValidationReport<BindingGraph> validate(final BindingGraph subject) {
     Validation validation = new Validation(subject);
-    validation.validate(subject);
+    validation.validateSubgraph(subject);
     return validation.buildReport();
   }
 
