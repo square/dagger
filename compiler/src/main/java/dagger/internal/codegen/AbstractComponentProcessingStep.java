@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.lang.annotation.Annotation;
 import java.util.Set;
@@ -45,7 +46,7 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   }
 
   @Override
-  public final void process(
+  public final Set<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     for (ComponentDescriptor componentDescriptor : componentDescriptors(elementsByAnnotation)) {
       BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
@@ -59,6 +60,7 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
         }
       }
     }
+    return ImmutableSet.of();
   }
 
   /**

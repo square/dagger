@@ -64,7 +64,8 @@ public class MapKeyProcessingStep implements BasicAnnotationProcessor.Processing
   }
 
   @Override
-  public void process(SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+  public Set<Element> process(
+      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     for (Element element : elementsByAnnotation.get(MapKey.class)) {
       ValidationReport<Element> mapKeyReport = mapKeyValidator.validate(element);
       mapKeyReport.printMessagesTo(messager);
@@ -84,6 +85,7 @@ public class MapKeyProcessingStep implements BasicAnnotationProcessor.Processing
         }
       }
     }
+    return ImmutableSet.of();
   }
 
   private void writeCreatorClass(MapKeyCreatorSpecification mapKeyCreatorType) {
