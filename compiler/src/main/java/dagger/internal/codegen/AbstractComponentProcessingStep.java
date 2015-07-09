@@ -46,21 +46,26 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   }
 
   @Override
-  public final Set<Element> process(
+  public final ImmutableSet<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+    ImmutableSet.Builder<Element> rejectedElements = ImmutableSet.builder();
     for (ComponentDescriptor componentDescriptor : componentDescriptors(elementsByAnnotation)) {
-      BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-      ValidationReport<BindingGraph> graphReport = bindingGraphValidator.validate(bindingGraph);
-      graphReport.printMessagesTo(messager);
-      if (graphReport.isClean()) {
-        try {
-          componentGenerator.generate(bindingGraph);
-        } catch (SourceFileGenerationException e) {
-          e.printMessageTo(messager);
+      try {
+        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+        ValidationReport<BindingGraph> graphReport = bindingGraphValidator.validate(bindingGraph);
+        graphReport.printMessagesTo(messager);
+        if (graphReport.isClean()) {
+          try {
+            componentGenerator.generate(bindingGraph);
+          } catch (SourceFileGenerationException e) {
+            e.printMessageTo(messager);
+          }
         }
+      } catch (TypeNotPresentException e) {
+        rejectedElements.add(componentDescriptor.componentDefinitionType());
       }
     }
-    return ImmutableSet.of();
+    return rejectedElements.build();
   }
 
   /**

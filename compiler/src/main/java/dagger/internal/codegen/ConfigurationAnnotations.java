@@ -38,6 +38,7 @@ import java.util.Queue;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
@@ -45,6 +46,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
@@ -108,17 +110,53 @@ final class ConfigurationAnnotations {
     return Optional.absent();
   }
 
+  /**
+   * Extracts the list of types that is the value of the annotation member {@code elementName} of
+   * {@code annotationMirror}.
+   *
+   * @throws IllegalArgumentException if no such member exists on {@code annotationMirror}, or it
+   *     exists but is not an array
+   * @throws TypeNotPresentException if any of the values cannot be converted to a type
+   */
   static ImmutableList<TypeMirror> convertClassArrayToListOfTypes(
-      AnnotationMirror annotationMirror, final String elementName) {
-    @SuppressWarnings("unchecked") // that's the whole point of this method
-    List<? extends AnnotationValue> listValue = (List<? extends AnnotationValue>)
-        getAnnotationValue(annotationMirror, elementName).getValue();
-    return FluentIterable.from(listValue).transform(new Function<AnnotationValue, TypeMirror>() {
-      @Override public TypeMirror apply(AnnotationValue typeValue) {
-        return (TypeMirror) typeValue.getValue();
-      }
-    }).toList();
+      AnnotationMirror annotationMirror, String elementName) {
+    return TO_LIST_OF_TYPES.visit(getAnnotationValue(annotationMirror, elementName), elementName);
   }
+
+  private static final AnnotationValueVisitor<ImmutableList<TypeMirror>, String> TO_LIST_OF_TYPES =
+      new SimpleAnnotationValueVisitor6<ImmutableList<TypeMirror>, String>() {
+        @Override
+        public ImmutableList<TypeMirror> visitArray(
+            List<? extends AnnotationValue> vals, String elementName) {
+          return FluentIterable.from(vals)
+              .transform(
+                  new Function<AnnotationValue, TypeMirror>() {
+                    @Override
+                    public TypeMirror apply(AnnotationValue typeValue) {
+                      return TO_TYPE.visit(typeValue);
+                    }
+                  })
+              .toList();
+        }
+
+        @Override
+        protected ImmutableList<TypeMirror> defaultAction(Object o, String elementName) {
+          throw new IllegalArgumentException(elementName + " is not an array: " + o);
+        }
+      };
+
+  private static final AnnotationValueVisitor<TypeMirror, Void> TO_TYPE =
+      new SimpleAnnotationValueVisitor6<TypeMirror, Void>() {
+        @Override
+        public TypeMirror visitType(TypeMirror t, Void p) {
+          return t;
+        }
+
+        @Override
+        protected TypeMirror defaultAction(Object o, Void p) {
+          throw new TypeNotPresentException(o.toString(), null);
+        }
+      };
 
   /**
    * Returns the full set of modules transitively {@linkplain Module#includes included} from the
