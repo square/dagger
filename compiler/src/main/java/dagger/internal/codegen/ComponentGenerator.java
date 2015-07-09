@@ -222,17 +222,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     ClassWriter componentWriter = writer.addClass(componentName.simpleName());
     componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
     componentWriter.addModifiers(PUBLIC, FINAL);
-    switch (componentDefinitionType.getKind()) {
-      case CLASS:
-        checkState(componentDefinitionType.getModifiers().contains(ABSTRACT));
-        componentWriter.setSuperType(componentDefinitionTypeName);
-        break;
-      case INTERFACE:
-        componentWriter.addImplementedType(componentDefinitionTypeName);
-        break;
-      default:
-        throw new IllegalStateException();
-    }
+    checkState(componentDefinitionType.getModifiers().contains(ABSTRACT));
+    componentWriter.setSupertype(componentDefinitionType);
 
     Set<JavaWriter> javaWriters = Sets.newHashSet();
     javaWriters.add(writer);
@@ -282,17 +273,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     builderWriter.addConstructor().addModifiers(PRIVATE);
     if (builderSpec.isPresent()) {
       builderWriter.addModifiers(PRIVATE);
-      TypeElement builderType = builderSpec.get().builderDefinitionType();
-      switch (builderType.getKind()) {
-        case CLASS:
-          builderWriter.setSuperType(builderType);
-          break;
-        case INTERFACE:
-          builderWriter.addImplementedType(builderType);
-          break;
-        default:
-          throw new IllegalStateException("not a class or interface: " + builderType);
-      }
+      builderWriter.setSupertype(builderSpec.get().builderDefinitionType());
     } else {
       builderWriter.addModifiers(PUBLIC);
     }
@@ -523,18 +504,9 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     componentMethod.annotate(Override.class);
 
     TypeName subcomponentTypeName = TypeNames.forTypeMirror(subcomponentType);
-    Element subcomponentElement = MoreTypes.asElement(subcomponentType);
-    switch (subcomponentElement.getKind()) {
-      case CLASS:
-        checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
-        subcomponentWriter.setSuperType(subcomponentTypeName);
-        break;
-      case INTERFACE:
-        subcomponentWriter.addImplementedType(subcomponentTypeName);
-        break;
-      default:
-        throw new IllegalStateException();
-    }
+    TypeElement subcomponentElement = MoreTypes.asTypeElement(subcomponentType);
+    checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
+    subcomponentWriter.setSupertype(subcomponentElement);
 
     Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
 
