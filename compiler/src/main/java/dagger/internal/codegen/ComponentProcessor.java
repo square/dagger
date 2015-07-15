@@ -126,12 +126,19 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     this.injectBindingRegistry = new InjectBindingRegistry(
         elements, types, messager, provisionBindingFactory, membersInjectionBindingFactory);
 
-    ComponentDescriptor.Factory componentDescriptorFactory =
-        new ComponentDescriptor.Factory(elements, types, dependencyRequestFactory);
+    ModuleDescriptor.Factory moduleDescriptorFactory = new ModuleDescriptor.Factory(
+        elements, provisionBindingFactory, productionBindingFactory);
+
+    ComponentDescriptor.Factory componentDescriptorFactory = new ComponentDescriptor.Factory(
+        elements, types, dependencyRequestFactory, moduleDescriptorFactory);
 
     BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
-        elements, types, injectBindingRegistry, keyFactory,
-        dependencyRequestFactory, provisionBindingFactory, productionBindingFactory);
+        elements,
+        injectBindingRegistry,
+        keyFactory,
+        dependencyRequestFactory,
+        provisionBindingFactory,
+        productionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
     BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(

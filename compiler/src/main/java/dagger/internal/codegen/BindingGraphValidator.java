@@ -45,7 +45,6 @@ import java.util.Deque;
 import java.util.Formatter;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
@@ -392,7 +391,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
      */
     private void validateDependencyScopes(BindingGraph subject) {
       ComponentDescriptor descriptor = subject.componentDescriptor();
-      Optional<AnnotationMirror> scope = subject.componentDescriptor().scope();
+      Optional<AnnotationMirror> scope = descriptor.scope();
       ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
       if (scope.isPresent()) {
         // Dagger 1.x scope compatibility requires this be suppress-able.
@@ -449,18 +448,13 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         return;
       }
 
-      Set<TypeElement> allDependents =
-          Sets.union(
-              Sets.union(
-                  subject.transitiveModules().keySet(),
-                  componentDesc.dependencies()),
-              componentDesc.executorDependency().asSet());
+      Set<TypeElement> allDependents = subject.componentRequirements();
       Set<TypeElement> requiredDependents =
           Sets.filter(allDependents, new Predicate<TypeElement>() {
             @Override public boolean apply(TypeElement input) {
               return !Util.componentCanMakeNewInstances(input);
             }
-          });    
+          });
       final BuilderSpec spec = componentDesc.builderSpec().get();
       Map<TypeElement, ExecutableElement> allSetters = spec.methodMap();
 
@@ -480,7 +474,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
             spec.builderDefinitionType());
       }
 
-      Set<TypeElement> missingSetters = Sets.difference(requiredDependents, allSetters.keySet());    
+      Set<TypeElement> missingSetters = Sets.difference(requiredDependents, allSetters.keySet());
       if (!missingSetters.isEmpty()) {
         reportBuilder.addItem(String.format(msgs.missingSetters(), missingSetters),
             spec.builderDefinitionType());
