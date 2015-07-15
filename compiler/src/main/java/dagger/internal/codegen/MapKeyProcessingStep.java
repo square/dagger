@@ -32,7 +32,7 @@ import javax.lang.model.util.Types;
 
 import static dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification.unwrappedMapKeyWithAnnotationValue;
 import static dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification.wrappedMapKey;
-import static dagger.internal.codegen.Util.getUnwrappedMapKeyType;
+import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
 
 /**
  * The annotation processor responsible for validating the mapKey annotation and auto-generate

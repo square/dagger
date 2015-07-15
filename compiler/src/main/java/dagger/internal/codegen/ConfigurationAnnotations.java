@@ -15,7 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
@@ -26,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import dagger.Component;
-import dagger.MapKey;
 import dagger.Module;
 import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
@@ -93,10 +91,6 @@ final class ConfigurationAnnotations {
   static ImmutableList<TypeMirror> getModuleInjects(AnnotationMirror moduleAnnotation) {
     checkNotNull(moduleAnnotation);
     return convertClassArrayToListOfTypes(moduleAnnotation, INJECTS_ATTRIBUTE);
-  }
-
-  static ImmutableSet<? extends AnnotationMirror> getMapKeys(Element element) {
-    return AnnotationMirrors.getAnnotatedAnnotations(element, MapKey.class);
   }
 
   /** Returns the first type that specifies this' nullability, or absent if none. */

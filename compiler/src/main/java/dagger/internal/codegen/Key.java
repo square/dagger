@@ -48,9 +48,9 @@ import javax.lang.model.util.Types;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.Util.getUnwrappedMapKeyType;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
 import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
 import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -272,7 +272,7 @@ abstract class Key {
     }
 
     private TypeMirror mapKeyType(ExecutableElement method) {
-      AnnotationMirror mapKeyAnnotation = Iterables.getOnlyElement(getMapKeys(method));
+      AnnotationMirror mapKeyAnnotation = getMapKey(method).get();
       MapKey mapKey = mapKeyAnnotation.getAnnotationType().asElement().getAnnotation(MapKey.class);
       return mapKey.unwrapValue()
           ? getUnwrappedMapKeyType(mapKeyAnnotation.getAnnotationType(), types)

@@ -36,7 +36,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
-import dagger.MapKey;
 import dagger.MembersInjector;
 import dagger.internal.Factory;
 import dagger.internal.InstanceFactory;
@@ -66,7 +65,6 @@ import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetProducer;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -74,35 +72,28 @@ import java.util.Set;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Provider;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
-import javax.lang.model.util.SimpleAnnotationValueVisitor6;
-import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
-import static com.google.auto.common.AnnotationMirrors.getAnnotationValuesWithDefaults;
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
-import static dagger.internal.codegen.ConfigurationAnnotations.getMapKeys;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
+import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
@@ -111,7 +102,8 @@ import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
-import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
+import static dagger.internal.codegen.Util.getKeyTypeOfMap;
+import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -503,7 +495,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     componentMethod.addModifiers(PUBLIC);
     componentMethod.annotate(Override.class);
 
-    TypeName subcomponentTypeName = TypeNames.forTypeMirror(subcomponentType);
     TypeElement subcomponentElement = MoreTypes.asTypeElement(subcomponentType);
     checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
     subcomponentWriter.setSupertype(subcomponentElement);
@@ -930,7 +921,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
                   ImmutableSet<ProvisionBinding> provisionBindings =
                       (ImmutableSet<ProvisionBinding>) bindings;
                   for (ProvisionBinding provisionBinding : provisionBindings) {
-                    if (!isNonProviderMap(provisionBinding)
+                    if (!isNonProviderMap(provisionBinding.key().type())
                         && multibindingContributionSnippets.containsKey(provisionBinding)) {
                       Snippet snippet = multibindingContributionSnippets.get(provisionBinding);
                       initializeMethod.body().addSnippet("this.%s = %s;",
@@ -1341,231 +1332,44 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets,
       ImmutableMap<ContributionBinding, Snippet> multibindingContributionSnippets,
       Set<ProvisionBinding> bindings) {
-    Iterator<ProvisionBinding> iterator = bindings.iterator();
-    // get type information from first binding in iterator
-    ProvisionBinding firstBinding = iterator.next();
-    if (isNonProviderMap(firstBinding)) {
-      return Snippet.format("%s.create(%s)",
-          ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(
-              Iterables.getOnlyElement(firstBinding.dependencies()).bindingKey())
-                  .getSnippetFor(componentName));
-    } else {
-      DeclaredType mapType = asDeclared(firstBinding.key().type());
-      TypeMirror mapKeyType = Util.getKeyTypeOfMap(mapType);
-      TypeMirror mapValueType = Util.getProvidedValueTypeOfMap(mapType); // V of Map<K, Provider<V>>
-      StringBuilder snippetFormatBuilder = new StringBuilder("%s.<%s, %s>builder(%d)");
-      for (int i = 0; i < bindings.size(); i++) {
-        snippetFormatBuilder.append("\n    .put(%s, %s)");
-      }
-      snippetFormatBuilder.append("\n    .build()");
+    // Get type information from the first binding.
+    ProvisionBinding firstBinding = bindings.iterator().next();
+    DeclaredType mapType = asDeclared(firstBinding.key().type());
 
-      List<Object> argsBuilder = Lists.newArrayList();
-      argsBuilder.add(ClassName.fromClass(MapProviderFactory.class));
-      argsBuilder.add(TypeNames.forTypeMirror(mapKeyType));
-      argsBuilder.add(TypeNames.forTypeMirror(mapValueType));
-      argsBuilder.add(bindings.size());
-
-      writeEntry(argsBuilder, firstBinding, multibindingContributionSnippets.get(firstBinding));
-      while (iterator.hasNext()) {
-        ProvisionBinding binding = iterator.next();
-        writeEntry(argsBuilder, binding, multibindingContributionSnippets.get(binding));
-      }
-
-      return Snippet.format(snippetFormatBuilder.toString(),
-          argsBuilder.toArray(new Object[0]));
-    }
-  }
-
-  // add one map entry for map Provider in Constructor
-  private void writeEntry(List<Object> argsBuilder, Binding binding,
-      Snippet factory) {
-    AnnotationMirror mapKeyAnnotation =
-        Iterables.getOnlyElement(getMapKeys(binding.bindingElement()));
-    TypeElement mapKeyAnnotationElement =
-        MoreTypes.asTypeElement(mapKeyAnnotation.getAnnotationType());
-    ClassName mapKeyCreator = Util.getMapKeyCreatorClassName(mapKeyAnnotationElement);
-    if (mapKeyAnnotationElement.getAnnotation(MapKey.class).unwrapValue()) {
-      AnnotationValue unwrapMember = getOnlyElement(mapKeyAnnotation.getElementValues().values());
-      argsBuilder.add(
-          new UnwrappedMapKeyValueVisitor(mapKeyCreator).visit(unwrapMember, unwrapMember));
-    } else {
-      argsBuilder.add(annotationSnippet(mapKeyAnnotation, new MapKeyValueVisitor(mapKeyCreator)));
-    }
-    argsBuilder.add(factory);
-  }
-
-  private boolean isNonProviderMap(Binding binding) {
-    TypeMirror bindingType = binding.key().type();
-    return MoreTypes.isTypeOf(Map.class, bindingType) // Implicitly guarantees a declared type.
-        && !MoreTypes.isTypeOf(Provider.class, asDeclared(bindingType).getTypeArguments().get(1));
-  }
-
-  // TODO(dpb): Extract all this map-key support into a separate file.
-
-  /**
-   * Returns a snippet that calls a static method on {@code mapKeyCreator} to create an annotation
-   * from {@code annotationMirror}.
-   */
-  private static Snippet annotationSnippet(
-      AnnotationMirror annotationMirror, final MapKeyValueVisitor mapKeyValueVisitor) {
-    return Snippet.format(
-        "%s.create%s(%s)",
-        mapKeyValueVisitor.mapKeyCreator,
-        annotationMirror.getAnnotationType().asElement().getSimpleName(),
-        makeParametersSnippet(
-            transform(
-                getAnnotationValuesWithDefaults(annotationMirror).entrySet(),
-                new Function<Map.Entry<ExecutableElement, AnnotationValue>, Snippet>() {
-                  @Override
-                  public Snippet apply(Map.Entry<ExecutableElement, AnnotationValue> entry) {
-                    return ARRAY_LITERAL_PREFIX.visit(
-                        entry.getKey().getReturnType(),
-                        mapKeyValueVisitor.visit(entry.getValue(), entry.getValue()));
-                  }
-                })));
-  }
-
-  /**
-   * Returns a snippet to create the visited value in code. Expects its parameter to be a class with
-   * static creation methods for all nested annotation types.
-   *
-   * <p>Note that {@link AnnotationValue#toString()} is the source-code representation of the value
-   * <em>when used in an annotation</em>, which is not always the same as the representation needed
-   * when creating the value in a method body.
-   *
-   * <p>For example, inside an annotation, a nested array of {@code int}s is simply
-   * <code>{1, 2, 3}</code>, but in code it would have to be <code> new int[] {1, 2, 3}</code>.
-   */
-  static class MapKeyValueVisitor extends SimpleAnnotationValueVisitor6<Snippet, AnnotationValue> {
-
-    final ClassName mapKeyCreator;
-
-    MapKeyValueVisitor(ClassName mapKeyCreator) {
-      this.mapKeyCreator = mapKeyCreator;
-    }
-
-    @Override
-    public Snippet visitEnumConstant(VariableElement c, AnnotationValue p) {
+    if (isNonProviderMap(mapType)) {
       return Snippet.format(
-          "%s.%s", TypeNames.forTypeMirror(c.getEnclosingElement().asType()), c.getSimpleName());
+          "%s.create(%s)",
+          ClassName.fromClass(MapFactory.class),
+          memberSelectSnippets
+              .get(getOnlyElement(firstBinding.dependencies()).bindingKey())
+              .getSnippetFor(componentName));
     }
 
-    @Override
-    public Snippet visitAnnotation(AnnotationMirror a, AnnotationValue p) {
-      return annotationSnippet(a, this);
+    ImmutableList.Builder<dagger.internal.codegen.writer.Snippet> snippets =
+        ImmutableList.builder();
+    snippets.add(
+        Snippet.format(
+            "%s.<%s, %s>builder(%d)",
+            ClassName.fromClass(MapProviderFactory.class),
+            TypeNames.forTypeMirror(getKeyTypeOfMap(mapType)),
+            TypeNames.forTypeMirror(getProvidedValueTypeOfMap(mapType)), // V of Map<K, Provider<V>>
+            bindings.size()));
+
+    for (ProvisionBinding binding : bindings) {
+      snippets.add(
+          Snippet.format(
+              "    .put(%s, %s)",
+              getMapKeySnippet(binding.bindingElement()),
+              multibindingContributionSnippets.get(binding)));
     }
 
-    @Override
-    public Snippet visitType(TypeMirror t, AnnotationValue p) {
-      return Snippet.format("%s.class", TypeNames.forTypeMirror(t));
-    }
+    snippets.add(Snippet.format("    .build()"));
 
-    @Override
-    public Snippet visitString(String s, AnnotationValue p) {
-      return Snippet.format("%s", p);
-    }
-
-    @Override
-    public Snippet visitByte(byte b, AnnotationValue p) {
-      return Snippet.format("(byte) %s", b);
-    }
-
-    @Override
-    public Snippet visitChar(char c, AnnotationValue p) {
-      return Snippet.format("%s", p);
-    }
-
-    @Override
-    public Snippet visitDouble(double d, AnnotationValue p) {
-      return Snippet.format("%sD", d);
-    }
-
-    @Override
-    public Snippet visitFloat(float f, AnnotationValue p) {
-      return Snippet.format("%sF", f);
-    }
-
-    @Override
-    public Snippet visitInt(int i, AnnotationValue p) {
-      return Snippet.format("(int) %s", i);
-    }
-
-    @Override
-    public Snippet visitLong(long i, AnnotationValue p) {
-      return Snippet.format("%sL", i);
-    }
-
-    @Override
-    public Snippet visitShort(short s, AnnotationValue p) {
-      return Snippet.format("(short) %s", s);
-    }
-
-    @Override
-    protected Snippet defaultAction(Object o, AnnotationValue p) {
-      return Snippet.format("%s", o);
-    }
-
-    @Override
-    public Snippet visitArray(List<? extends AnnotationValue> values, AnnotationValue p) {
-      ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
-      for (int i = 0; i < values.size(); i++) {
-        snippets.add(this.visit(values.get(i), p));
-      }
-      return Snippet.format("{%s}", makeParametersSnippet(snippets.build()));
-    }
+    return Snippet.join(Joiner.on('\n'), snippets.build());
   }
 
-  /**
-   * Returns a snippet for the visited value. Expects its parameter to be a class with static
-   * creation methods for all nested annotation types.
-   *
-   * <p>Throws {@link IllegalArgumentException} if the visited value is an array.
-   */
-  private static class UnwrappedMapKeyValueVisitor extends MapKeyValueVisitor {
-
-    UnwrappedMapKeyValueVisitor(ClassName mapKeyCreator) {
-      super(mapKeyCreator);
-    }
-
-    @Override
-    public Snippet visitArray(List<? extends AnnotationValue> values, AnnotationValue p) {
-      throw new IllegalArgumentException("Cannot unwrap arrays");
-    }
+  private boolean isNonProviderMap(TypeMirror type) {
+    return MoreTypes.isTypeOf(Map.class, type) // Implicitly guarantees a declared type.
+        && !MoreTypes.isTypeOf(Provider.class, asDeclared(type).getTypeArguments().get(1));
   }
-
-  /**
-   * If the visited type is an array, prefixes the parameter snippet with {@code new T[]}, where
-   * {@code T} is the raw array component type.
-   */
-  private static final SimpleTypeVisitor6<Snippet, Snippet> ARRAY_LITERAL_PREFIX =
-      new SimpleTypeVisitor6<Snippet, Snippet>() {
-
-        @Override
-        public Snippet visitArray(ArrayType t, Snippet p) {
-          return Snippet.format("new %s[] %s", RAW_TYPE_NAME.visit(t.getComponentType()), p);
-        }
-
-        @Override
-        protected Snippet defaultAction(TypeMirror e, Snippet p) {
-          return p;
-        }
-      };
-
-  /**
-   * If the visited type is an array, returns the name of its raw component type; otherwise returns
-   * the name of the type itself.
-   */
-  private static final SimpleTypeVisitor6<TypeName, Void> RAW_TYPE_NAME =
-      new SimpleTypeVisitor6<TypeName, Void>() {
-        @Override
-        public TypeName visitDeclared(DeclaredType t, Void p) {
-          return ClassName.fromTypeElement(MoreTypes.asTypeElement(t));
-        }
-
-        @Override
-        protected TypeName defaultAction(TypeMirror e, Void p) {
-          return TypeNames.forTypeMirror(e);
-        }
-      };
 }

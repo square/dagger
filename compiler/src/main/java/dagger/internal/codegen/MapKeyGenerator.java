@@ -41,6 +41,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
+import static dagger.internal.codegen.MapKeys.getMapKeyCreatorClassName;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -95,7 +96,7 @@ final class MapKeyGenerator extends SourceFileGenerator<MapKeyCreatorSpecificati
 
   @Override
   ClassName nameGeneratedType(MapKeyCreatorSpecification mapKeyCreatorType) {
-    return Util.getMapKeyCreatorClassName(mapKeyCreatorType.mapKeyElement());
+    return getMapKeyCreatorClassName(mapKeyCreatorType.mapKeyElement());
   }
 
   @Override
