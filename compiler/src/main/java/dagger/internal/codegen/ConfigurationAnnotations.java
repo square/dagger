@@ -156,10 +156,7 @@ final class ConfigurationAnnotations {
    * Returns the full set of modules transitively {@linkplain Module#includes included} from the
    * given seed modules.  If a module is malformed and a type listed in {@link Module#includes}
    * is not annotated with {@link Module}, it is ignored.
-   *
-   * @deprecated Use {@link ComponentDescriptor#transitiveModules}.
    */
-  @Deprecated
   static ImmutableSet<TypeElement> getTransitiveModules(
       Types types, Elements elements, Iterable<TypeElement> seedModules) {
     TypeMirror objectType = elements.getTypeElement(Object.class.getCanonicalName()).asType();

@@ -23,8 +23,6 @@ import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.util.Iterator;
 import java.util.List;
@@ -42,7 +40,6 @@ import javax.lang.model.util.Elements;
 import static com.google.common.base.Preconditions.checkState;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
@@ -139,8 +136,7 @@ final class Util {
 
     for (Element enclosed : typeElement.getEnclosedElements()) {
       if (enclosed.getKind().equals(CONSTRUCTOR)
-          && ((ExecutableElement) enclosed).getParameters().isEmpty()
-          && !enclosed.getModifiers().contains(PRIVATE)) {
+          && ((ExecutableElement) enclosed).getParameters().isEmpty()) {
         return true;
       }
     }

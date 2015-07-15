@@ -33,6 +33,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.MembersInjector;
@@ -272,7 +273,11 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     // the full set of types that calling code uses to construct a component instance
     ImmutableMap<TypeElement, String> componentContributionNames =
         ImmutableMap.copyOf(Maps.asMap(
-            input.componentRequirements(),
+            Sets.union(
+                Sets.union(
+                    input.transitiveModules().keySet(),
+                    input.componentDescriptor().dependencies()),
+                input.componentDescriptor().executorDependency().asSet()),
             Functions.compose(
                 CaseFormat.UPPER_CAMEL.converterTo(LOWER_CAMEL),
                 new Function<TypeElement, String>() {
@@ -357,8 +362,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
   /** Returns true if the graph has any dependents that can't be automatically constructed. */
   private boolean requiresUserSuppliedDependents(BindingGraph input) {
+    Set<TypeElement> allDependents =
+        Sets.union(
+            Sets.union(
+                input.transitiveModules().keySet(),
+                input.componentDescriptor().dependencies()),
+            input.componentDescriptor().executorDependency().asSet());
     Set<TypeElement> userRequiredDependents =
-        Sets.filter(input.componentRequirements(), new Predicate<TypeElement>() {
+        Sets.filter(allDependents, new Predicate<TypeElement>() {
           @Override public boolean apply(TypeElement input) {
             return !Util.componentCanMakeNewInstances(input);
           }
@@ -555,6 +566,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       VariableElement moduleVariable = params.get(i);
       TypeElement moduleTypeElement = MoreTypes.asTypeElement(paramTypes.get(i));
       TypeName moduleType = TypeNames.forTypeMirror(paramTypes.get(i));
+      verify(subgraph.transitiveModules().containsKey(moduleTypeElement));
       componentMethod.addParameter(moduleType, moduleVariable.getSimpleName().toString());
       if (!componentContributionFields.containsKey(moduleTypeElement)) {
         String preferredModuleName = CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL,
@@ -578,12 +590,8 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       }
     }
 
-    ImmutableSet<TypeElement> uninitializedModules =
-        FluentIterable.from(subgraph.componentDescriptor().transitiveModules())
-            .transform(ModuleDescriptor.getModuleElement())
-            .filter(Predicates.not(Predicates.in(componentContributionFields.keySet())))
-            .toSet();
-
+    SetView<TypeElement> uninitializedModules = Sets.difference(
+        subgraph.transitiveModules().keySet(), componentContributionFields.keySet());
     for (TypeElement moduleType : uninitializedModules) {
       String preferredModuleName = CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL,
           moduleType.getSimpleName().toString());
