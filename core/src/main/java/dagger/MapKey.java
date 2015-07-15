@@ -94,6 +94,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * <p>(Note that there must be a class {@code MyMapKeyImpl} that implements {@code MyMapKey} in
  * order to call {@link Map#get(Object)} on the provided map.)
+ *
+ * <!-- MOE:begin_strip -->
+ * @see <a href=go/dagger/multibindings#map-multibindings>Map multibindings</a>
+ * <!-- MOE:end_strip -->
  */
 @Documented
 @Target(ANNOTATION_TYPE)
