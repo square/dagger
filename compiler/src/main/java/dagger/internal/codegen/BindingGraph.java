@@ -210,6 +210,7 @@ abstract class BindingGraph {
       final Optional<RequestResolver> parentResolver;
       final Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope;
       final ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings;
+      final ImmutableSet<ProvisionBinding> explicitProvisionBindingsSet;
       final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
@@ -224,6 +225,7 @@ abstract class BindingGraph {
         this.targetScope = targetScope;
         assert explicitProvisionBindings != null;
         this.explicitProvisionBindings = explicitProvisionBindings;
+        this.explicitProvisionBindingsSet = ImmutableSet.copyOf(explicitProvisionBindings.values());
         assert explicitProductionBindings != null;
         this.explicitProductionBindings = explicitProductionBindings;
         this.resolvedBindings = Maps.newLinkedHashMap();
@@ -341,8 +343,8 @@ abstract class BindingGraph {
         Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
             provisionBinding.wrappedScope();
         for (RequestResolver requestResolver : getResolverLineage().reverse()) {
-          if (requestResolver.explicitProvisionBindings.containsValue(provisionBinding)) {
-             return Optional.of(requestResolver);
+          if (requestResolver.explicitProvisionBindingsSet.contains(provisionBinding)) {
+            return Optional.of(requestResolver);
           }
         }
         // look for scope separately.  we do this for the case where @Singleton can appear twice
