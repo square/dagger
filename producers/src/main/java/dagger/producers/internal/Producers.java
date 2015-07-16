@@ -25,7 +25,6 @@ import dagger.producers.Produced;
 import dagger.producers.Producer;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import javax.inject.Provider;
@@ -55,11 +54,7 @@ public final class Producers {
     return Futures.withFallback(
         Futures.transform(future, new Function<T, Produced<T>>() {
           @Override public Produced<T> apply(final T value) {
-            return new Produced<T>() {
-              @Override public T get() {
-                return value;
-              }
-            };
+            return Produced.successful(value);
           }
         }), Producers.<T>futureFallbackForProduced());
 
@@ -68,11 +63,7 @@ public final class Producers {
   private static final FutureFallback<Produced<Object>> FUTURE_FALLBACK_FOR_PRODUCED =
       new FutureFallback<Produced<Object>>() {
     @Override public ListenableFuture<Produced<Object>> create(final Throwable t) {
-      Produced<Object> produced = new Produced<Object>() {
-        @Override public Object get() throws ExecutionException {
-          throw new ExecutionException(t);
-        }
-      };
+      Produced<Object> produced = Produced.failed(t);
       return Futures.immediateFuture(produced);
     }
   };

@@ -15,8 +15,12 @@
  */
 package dagger.producers;
 
+import com.google.common.base.Objects;
 import dagger.internal.Beta;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * An interface that represents the result of a {@linkplain Producer production} of type {@code T},
@@ -39,11 +43,91 @@ import java.util.concurrent.ExecutionException;
  * @author Jesse Beder
  */
 @Beta
-public interface Produced<T> {
+public abstract class Produced<T> {
   /**
    * Returns the result of a production.
    *
    * @throws ExecutionException if the production threw an exception
    */
-  T get() throws ExecutionException;
+  public abstract T get() throws ExecutionException;
+
+  /**
+   * Two {@code Produced} objects compare equal if both are successful with equal values, or both
+   * are failed with equal exceptions.
+   */
+  @Override
+  public abstract boolean equals(Object o);
+
+  /** Returns an appropriate hash code to match {@link #equals). */
+  @Override
+  public abstract int hashCode();
+
+  /** Returns a successful {@code Produced}, whose {@link #get} will return the given value. */
+  public static <T> Produced<T> successful(@Nullable T value) {
+    return new Successful(value);
+  }
+
+  /**
+   * Returns a failed {@code Produced}, whose {@link #get} will throw an
+   * {@code ExecutionException} with the given cause.
+   */
+  public static <T> Produced<T> failed(Throwable throwable) {
+    return new Failed(checkNotNull(throwable));
+  }
+
+  private static final class Successful<T> extends Produced<T> {
+    @Nullable private final T value;
+
+    private Successful(@Nullable T value) {
+      this.value = value;
+    }
+
+    @Override public T get() {
+      return value;
+    }
+
+    @Override public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      } else if (o instanceof Successful) {
+        Successful that = (Successful) o;
+        return Objects.equal(this.value, that.value);
+      } else {
+        return false;
+      }
+    }
+
+    @Override public int hashCode() {
+      return value == null ? 0 : value.hashCode();
+    }
+  }
+
+  private static final class Failed<T> extends Produced<T> {
+    private final Throwable throwable;
+
+    private Failed(Throwable throwable) {
+      this.throwable = checkNotNull(throwable);
+    }
+
+    @Override public T get() throws ExecutionException {
+      throw new ExecutionException(throwable);
+    }
+
+    @Override public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      } else if (o instanceof Failed) {
+        Failed that = (Failed) o;
+        return this.throwable.equals(that.throwable);
+      } else {
+        return false;
+      }
+    }
+
+    @Override public int hashCode() {
+      return throwable.hashCode();
+    }
+  }
+
+  private Produced() {}
 }
