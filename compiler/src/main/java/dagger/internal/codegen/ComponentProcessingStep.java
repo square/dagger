@@ -87,13 +87,22 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
         processSubcomponents(subcomponentElements, subcomponentBuilderElements);
     Set<Element> componentElements = elementsByAnnotation.get(Component.class);
 
-    return componentDescriptors(
-        componentElements,
-        builderReportsByComponent,
-        subcomponentElements,
-        reportsBySubcomponent,
-        subcomponentBuilderElements,
-        builderReportsBySubcomponent);
+    ImmutableSet.Builder<ComponentDescriptor> builder = ImmutableSet.builder();
+    for (Element element : componentElements) {
+      TypeElement componentTypeElement = MoreElements.asType(element);
+      ComponentValidationReport report = componentValidator.validate(
+          componentTypeElement, subcomponentElements, subcomponentBuilderElements);
+      report.report().printMessagesTo(messager);
+      if (isClean(
+          report, builderReportsByComponent, reportsBySubcomponent, builderReportsBySubcomponent)) {
+        try {
+          builder.add(componentDescriptorFactory.forComponent(componentTypeElement));
+        } catch (TypeNotPresentException e) {
+          // just skip it and get it later
+        }
+      }
+    }
+    return builder.build();
   }
 
   private Map<Element, ValidationReport<TypeElement>> processComponentBuilders(
@@ -131,28 +140,6 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
       reportsBySubcomponent.put(element, report.report());
     }
     return reportsBySubcomponent;
-  }
-
-  private ImmutableSet<ComponentDescriptor> componentDescriptors(
-      Set<Element> componentElements,
-      Map<Element, ValidationReport<TypeElement>> builderReportsByComponent,
-      Set<Element> subcomponentElements,
-      Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent,
-      Set<Element> subcomponentBuilderElements,
-      Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent) {
-    ImmutableSet.Builder<ComponentDescriptor> componentDescriptors = ImmutableSet.builder();
-    for (Element element : componentElements) {
-      TypeElement componentTypeElement = MoreElements.asType(element);
-      ComponentValidationReport report =
-          componentValidator.validate(
-              componentTypeElement, subcomponentElements, subcomponentBuilderElements);
-      report.report().printMessagesTo(messager);
-      if (isClean(
-          report, builderReportsByComponent, reportsBySubcomponent, builderReportsBySubcomponent)) {
-        componentDescriptors.add(componentDescriptorFactory.forComponent(componentTypeElement));
-      }
-    }
-    return componentDescriptors.build();
   }
 
   /**
