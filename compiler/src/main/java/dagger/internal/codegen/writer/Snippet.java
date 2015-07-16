@@ -143,15 +143,17 @@ public final class Snippet implements HasClassReferences, Writable {
   public static Snippet join(Joiner joiner, Iterable<Snippet> snippets) {
     FluentIterable<Snippet> fluentSnippets = FluentIterable.from(snippets);
     return new Snippet(
-        fluentSnippets
-            .transform(
-                new Function<Snippet, String>() {
-                  @Override
-                  public String apply(Snippet snippet) {
-                    return snippet.format;
-                  }
-                })
-            .join(joiner),
+        joiner
+            .appendTo(
+                new StringBuilder(),
+                fluentSnippets.transform(
+                    new Function<Snippet, String>() {
+                      @Override
+                      public String apply(Snippet snippet) {
+                        return snippet.format;
+                      }
+                    }))
+            .toString(),
         fluentSnippets
             .transformAndConcat(
                 new Function<Snippet, ImmutableSet<TypeName>>() {
