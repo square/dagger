@@ -17,7 +17,7 @@ package dagger.producers.internal;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.FutureFallback;
+import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produced;
@@ -47,8 +47,7 @@ public final class Producers {
   // TODO(user): Document what happens with an InterruptedException after you figure out how to
   // trigger one in a test.
   public static <T> ListenableFuture<Produced<T>> createFutureProduced(ListenableFuture<T> future) {
-    // TODO(dpb): Switch to Futures.catchAsync once guava_jdk5 gets to v19.
-    return Futures.withFallback(
+    return Futures.catchingAsync(
         Futures.transform(
             future,
             new Function<T, Produced<T>>() {
@@ -57,21 +56,23 @@ public final class Producers {
                 return Produced.successful(value);
               }
             }),
+        Throwable.class,
         Producers.<T>futureFallbackForProduced());
 
   }
 
-  private static final FutureFallback<Produced<Object>> FUTURE_FALLBACK_FOR_PRODUCED =
-      new FutureFallback<Produced<Object>>() {
-    @Override public ListenableFuture<Produced<Object>> create(final Throwable t) {
-      Produced<Object> produced = Produced.failed(t);
-      return Futures.immediateFuture(produced);
-    }
-  };
+  private static final AsyncFunction<Throwable, Produced<Object>> FUTURE_FALLBACK_FOR_PRODUCED =
+      new AsyncFunction<Throwable, Produced<Object>>() {
+        @Override
+        public ListenableFuture<Produced<Object>> apply(Throwable t) throws Exception {
+          Produced<Object> produced = Produced.failed(t);
+          return Futures.immediateFuture(produced);
+        }
+      };
 
-  @SuppressWarnings({"unchecked", "rawtypes"})  // bivariant implementation
-  private static <T> FutureFallback<Produced<T>> futureFallbackForProduced() {
-    return (FutureFallback) FUTURE_FALLBACK_FOR_PRODUCED;
+  @SuppressWarnings({"unchecked", "rawtypes"}) // bivariant implementation
+  private static <T> AsyncFunction<Throwable, Produced<T>> futureFallbackForProduced() {
+    return (AsyncFunction) FUTURE_FALLBACK_FOR_PRODUCED;
   }
 
   /**
