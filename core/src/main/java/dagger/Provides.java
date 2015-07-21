@@ -47,9 +47,6 @@ public @interface Provides {
      * method as parameters. The {@code Set<T>} produced from the accumulation of values will be
      * immutable.
      *
-     * <!-- MOE:begin_strip -->
-     * @see <a href=go/dagger/multibindings#set-multibindings>Set multibinding</a>
-     * <!-- MOE:end_strip -->
      */
     SET,
 
@@ -58,9 +55,6 @@ public @interface Provides {
      * contributed to the set. An example use is to provide a default empty set binding, which is
      * otherwise not possible using {@link #SET}.
      *
-     * <!-- MOE:begin_strip -->
-     * @see <a href=go/dagger/multibindings#set-multibindings>Set multibinding</a>
-     * <!-- MOE:end_strip -->
      */
     SET_VALUES,
 
@@ -70,9 +64,6 @@ public @interface Provides {
      * is contributed to the map as a key/value pair. The {@code Map<K, Provider<V>>} produced from
      * the accumulation of values will be immutable.
      *
-     * <!-- MOE:begin_strip -->
-     * @see <a href=go/dagger/multibindings#map-multibindings>Map multibinding</a>
-     * <!-- MOE:end_strip -->
      */
     @Beta
     MAP;
