@@ -23,7 +23,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentGenerator.MemberSelect;
 import dagger.internal.codegen.writer.ClassName;
@@ -75,6 +74,12 @@ class SubcomponentWriter extends ComponentWriter {
 
   private static String subcomponentSimpleName(BindingGraph subgraph) {
     return subgraph.componentDescriptor().componentDefinitionType().getSimpleName() + "Impl";
+  }
+
+  @Override
+  protected MemberSelect getMemberSelectSnippet(BindingKey key) {
+    MemberSelect memberSelectSnippet = super.getMemberSelectSnippet(key);
+    return memberSelectSnippet == null ? parent.getMemberSelectSnippet(key) : memberSelectSnippet;
   }
 
   @Override
@@ -134,26 +139,7 @@ class SubcomponentWriter extends ComponentWriter {
     checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
     componentWriter.setSupertype(subcomponentElement);
 
-    Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
-
-    Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder = Maps.newHashMap();
-    ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder = ImmutableSet.builder();
-
-    writeFields(
-        memberSelectSnippetsBuilder,
-        multibindingContributionSnippetsBuilder,
-        enumBindingKeysBuilder);
-
-    for (Map.Entry<BindingKey, MemberSelect> parentBindingEntry :
-        parent.memberSelectSnippets.entrySet()) {
-      if (!memberSelectSnippetsBuilder.containsKey(parentBindingEntry.getKey())) {
-        memberSelectSnippetsBuilder.put(parentBindingEntry.getKey(), parentBindingEntry.getValue());
-      }
-    }
-
-    memberSelectSnippets = ImmutableMap.copyOf(memberSelectSnippetsBuilder);
-    multibindingContributionSnippets = ImmutableMap.copyOf(multibindingContributionSnippetsBuilder);
-    enumBindingKeys = enumBindingKeysBuilder.build();
+    writeFields();
 
     initializeFrameworkTypes(builderName);
     writeInterfaceMethods();

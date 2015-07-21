@@ -147,6 +147,19 @@ class ComponentWriter {
     return ClassName.fromTypeElement(componentDefinitionType());
   }
 
+  protected MemberSelect getMemberSelectSnippet(BindingKey key) {
+    return memberSelectSnippets.get(key);
+  }
+
+  protected ImmutableMap<ContributionBinding, Snippet> allMultibindingContributionSnippets() {
+    return multibindingContributionSnippets;
+  }
+
+  protected ImmutableMap<ContributionBinding, Snippet>
+      inheritedMultibindingContributionSnippets() {
+    return ImmutableMap.of();
+  }
+
   ImmutableSet<JavaWriter> write() {
     if (javaWriters.isEmpty()) {
       writeComponent();
@@ -178,19 +191,7 @@ class ComponentWriter {
               : "build");
     }
 
-    Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
-    Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder = Maps.newHashMap();
-    ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder = ImmutableSet.builder();
-
-    writeFields(
-        memberSelectSnippetsBuilder,
-        multibindingContributionSnippetsBuilder,
-        enumBindingKeysBuilder);
-
-    memberSelectSnippets = ImmutableMap.copyOf(memberSelectSnippetsBuilder);
-    multibindingContributionSnippets =
-        ImmutableMap.copyOf(multibindingContributionSnippetsBuilder);
-    enumBindingKeys = enumBindingKeysBuilder.build();
+    writeFields();
 
     constructorWriter = componentWriter.addConstructor();
     constructorWriter.addModifiers(PRIVATE);
@@ -345,10 +346,11 @@ class ComponentWriter {
     return !userRequiredDependents.isEmpty();
   }
 
-  protected void writeFields(
-      Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder,
-      Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder,
-      ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder) {
+  protected void writeFields() {
+    Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
+    Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder = Maps.newHashMap();
+    ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder = ImmutableSet.builder();
+
     for (ResolvedBindings resolvedBindings : graph.resolvedBindings().values()) {
       writeField(
           memberSelectSnippetsBuilder,
@@ -356,6 +358,11 @@ class ComponentWriter {
           enumBindingKeysBuilder,
           resolvedBindings);
     }
+
+    memberSelectSnippets = ImmutableMap.copyOf(memberSelectSnippetsBuilder);
+    multibindingContributionSnippets =
+        ImmutableMap.copyOf(multibindingContributionSnippetsBuilder);
+    enumBindingKeys = enumBindingKeysBuilder.build();
   }
 
   private void writeField(
@@ -519,7 +526,7 @@ class ComponentWriter {
           BindingKey bindingKey = interfaceRequest.bindingKey();
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
-              MemberSelect membersInjectorSelect = memberSelectSnippets.get(bindingKey);
+              MemberSelect membersInjectorSelect = getMemberSelectSnippet(bindingKey);
               List<? extends VariableElement> parameters = requestElement.getParameters();
               if (parameters.isEmpty()) {
                 // we're returning the framework type
@@ -552,7 +559,7 @@ class ComponentWriter {
                 TypeName factoryType = ParameterizedTypeName.create(Provider.class,
                     TypeNames.forTypeMirror(requestType.getReturnType()));
                 interfaceMethod.body().addSnippet("%s factory = %s;", factoryType,
-                    memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()));
+                    getMemberSelectSnippet(bindingKey).getSnippetFor(componentWriter.name()));
                 interfaceMethod.body().addSnippet("return factory.get();");
                 break;
               }
@@ -564,7 +571,7 @@ class ComponentWriter {
             case FUTURE:
               interfaceMethod.body().addSnippet("return %s;",
                   frameworkTypeUsageStatement(
-                      memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name()),
+                      getMemberSelectSnippet(bindingKey).getSnippetFor(componentWriter.name()),
                       interfaceRequest.kind()));
               break;
             default:
@@ -592,7 +599,7 @@ class ComponentWriter {
 
       for (BindingKey bindingKey : partitions.get(i)) {
         Snippet memberSelectSnippet =
-            memberSelectSnippets.get(bindingKey).getSnippetFor(componentWriter.name());
+            getMemberSelectSnippet(bindingKey).getSnippetFor(componentWriter.name());
         ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
@@ -687,15 +694,6 @@ class ComponentWriter {
         }
       }
     }
-  }
-
-  protected ImmutableMap<ContributionBinding, Snippet> allMultibindingContributionSnippets() {
-    return multibindingContributionSnippets;
-  }
-
-  protected ImmutableMap<ContributionBinding, Snippet>
-      inheritedMultibindingContributionSnippets() {
-    return ImmutableMap.of();
   }
 
   private Snippet initializeFactoryForContributionBinding(ContributionBinding binding) {
@@ -846,7 +844,7 @@ class ComponentWriter {
         DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
         return Snippet.format("%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
-            memberSelectSnippets.get(parentInjectorRequest.bindingKey()).getSnippetFor(name));
+            getMemberSelectSnippet(parentInjectorRequest.bindingKey()).getSnippetFor(name));
       case INJECT_MEMBERS:
         List<Snippet> parameters = getDependencyParameters(binding.implicitDependencies());
         return Snippet.format("%s.create(%s)",
@@ -868,7 +866,7 @@ class ComponentWriter {
             }
           })
           .toSet());
-      parameters.add(memberSelectSnippets.get(key).getSnippetWithRawTypeCastFor(name));
+      parameters.add(getMemberSelectSnippet(key).getSnippetWithRawTypeCastFor(name));
     }
     return parameters.build();
   }
@@ -892,9 +890,9 @@ class ComponentWriter {
           && frameworkClass.equals(Producer.class)) {
         parameters.add(Snippet.format("%s.producerFromProvider(%s)",
             ClassName.fromClass(Producers.class),
-            memberSelectSnippets.get(key).getSnippetFor(name)));
+            getMemberSelectSnippet(key).getSnippetFor(name)));
       } else {
-        parameters.add(memberSelectSnippets.get(key).getSnippetFor(name));
+        parameters.add(getMemberSelectSnippet(key).getSnippetFor(name));
       }
     }
     return parameters.build();
@@ -908,7 +906,7 @@ class ComponentWriter {
     if (isMapWithNonProvidedValues(mapType)) {
       return Snippet.format("%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          memberSelectSnippets.get(getOnlyElement(firstBinding.dependencies()).bindingKey())
+          getMemberSelectSnippet(getOnlyElement(firstBinding.dependencies()).bindingKey())
               .getSnippetFor(name));
     }
 
