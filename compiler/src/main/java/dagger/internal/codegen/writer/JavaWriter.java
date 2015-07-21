@@ -26,9 +26,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.common.io.Closer;
+import com.google.common.io.CharSink;
+import com.google.common.io.CharSource;
+import com.google.googlejavaformat.java.Formatter;
+import com.google.googlejavaformat.java.FormatterException;
 import dagger.internal.codegen.writer.Writable.Context;
 import java.io.IOException;
+import java.io.Writer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -97,7 +101,7 @@ public final class JavaWriter {
     return writer;
   }
 
-  public Appendable write(Appendable appendable) throws IOException {
+  public <A extends Appendable> A write(A appendable) throws IOException {
     if (!packageName.isEmpty()) {
       appendable.append("package ").append(packageName).append(";\n\n");
     }
@@ -173,20 +177,19 @@ public final class JavaWriter {
 
   public void file(Filer filer, CharSequence name,  Iterable<? extends Element> originatingElements)
       throws IOException {
-    JavaFileObject sourceFile = filer.createSourceFile(name,
+    final JavaFileObject sourceFile = filer.createSourceFile(name,
         Iterables.toArray(originatingElements, Element.class));
-    Closer closer = Closer.create();
     try {
-      write(closer.register(sourceFile.openWriter()));
-    } catch (Exception e) {
-      try {
-        sourceFile.delete();
-      } catch (Exception e2) {
-        // couldn't delete the file
-      }
-      throw closer.rethrow(e);
-    } finally {
-      closer.close();
+      new Formatter().formatSource(
+          CharSource.wrap(write(new StringBuilder())),
+          new CharSink() {
+            @Override public Writer openStream() throws IOException {
+              return sourceFile.openWriter();
+            }
+          });
+    } catch (FormatterException e) {
+      throw new IllegalStateException(
+          "The writer produced code that could not be parsed by the formatter", e);
     }
   }
 
