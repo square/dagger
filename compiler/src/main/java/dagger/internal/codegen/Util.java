@@ -23,12 +23,11 @@ import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -39,6 +38,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
+import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Preconditions.checkState;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -75,6 +75,15 @@ final class Util {
     checkState(MoreTypes.isTypeOf(Map.class, mapType), "%s is not a Map.", mapType);
     List<? extends TypeMirror> mapArgs = mapType.getTypeArguments();
     return MoreTypes.asDeclared(mapArgs.get(0));
+  }
+
+  /**
+   * Returns true if {@code type} is a {@link Map} whose value type is not a {@link Provider}.
+   */
+  public static boolean isMapWithNonProvidedValues(TypeMirror type) {
+    return MoreTypes.isType(type)
+        && MoreTypes.isTypeOf(Map.class, type)
+        && !MoreTypes.isTypeOf(Provider.class, asDeclared(type).getTypeArguments().get(1));
   }
 
   /**
