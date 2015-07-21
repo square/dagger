@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentGenerator.MemberSelect;
@@ -54,9 +53,6 @@ class SubcomponentWriter extends ComponentWriter {
 
   private ComponentWriter parent;
   private ExecutableElement subcomponentFactoryMethod;
-  private final ImmutableMap<ContributionBinding, Snippet>
-      inheritedMultibindingContributionSnippets;
-  private ImmutableMap<ContributionBinding, Snippet> allMultibindingContributionSnippets;
 
   public SubcomponentWriter(
       ComponentWriter parent,
@@ -69,7 +65,6 @@ class SubcomponentWriter extends ComponentWriter {
         subgraph);
     this.parent = parent;
     this.subcomponentFactoryMethod = subcomponentFactoryMethod;
-    this.inheritedMultibindingContributionSnippets = parent.allMultibindingContributionSnippets();
   }
 
   private static String subcomponentSimpleName(BindingGraph subgraph) {
@@ -78,25 +73,14 @@ class SubcomponentWriter extends ComponentWriter {
 
   @Override
   protected MemberSelect getMemberSelectSnippet(BindingKey key) {
-    MemberSelect memberSelectSnippet = super.getMemberSelectSnippet(key);
-    return memberSelectSnippet == null ? parent.getMemberSelectSnippet(key) : memberSelectSnippet;
+    MemberSelect snippet = super.getMemberSelectSnippet(key);
+    return snippet == null ? parent.getMemberSelectSnippet(key) : snippet;
   }
 
   @Override
-  protected ImmutableMap<ContributionBinding, Snippet> allMultibindingContributionSnippets() {
-    if (allMultibindingContributionSnippets == null) {
-      allMultibindingContributionSnippets =
-          new ImmutableMap.Builder<ContributionBinding, Snippet>()
-              .putAll(inheritedMultibindingContributionSnippets)
-              .putAll(multibindingContributionSnippets)
-              .build();
-    }
-    return allMultibindingContributionSnippets;
-  }
-
-  @Override
-  protected ImmutableMap<ContributionBinding, Snippet> inheritedMultibindingContributionSnippets() {
-    return inheritedMultibindingContributionSnippets;
+  protected Optional<MemberSelect> getMultibindingContributionSnippet(ContributionBinding binding) {
+    return super.getMultibindingContributionSnippet(binding)
+        .or(parent.getMultibindingContributionSnippet(binding));
   }
 
   @Override

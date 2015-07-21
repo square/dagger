@@ -100,6 +100,7 @@ import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
+import static dagger.internal.codegen.writer.Snippet.memberSelectSnippet;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -123,7 +124,7 @@ class ComponentWriter {
   protected ClassWriter componentWriter;
   private final Map<String, ProxyClassAndField> packageProxies = Maps.newHashMap();
   protected ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets;
-  protected ImmutableMap<ContributionBinding, Snippet> multibindingContributionSnippets;
+  protected ImmutableMap<ContributionBinding, MemberSelect> multibindingContributionSnippets;
   protected ImmutableSet<BindingKey> enumBindingKeys;
   protected ConstructorWriter constructorWriter;
   protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
@@ -151,13 +152,8 @@ class ComponentWriter {
     return memberSelectSnippets.get(key);
   }
 
-  protected ImmutableMap<ContributionBinding, Snippet> allMultibindingContributionSnippets() {
-    return multibindingContributionSnippets;
-  }
-
-  protected ImmutableMap<ContributionBinding, Snippet>
-      inheritedMultibindingContributionSnippets() {
-    return ImmutableMap.of();
+  protected Optional<MemberSelect> getMultibindingContributionSnippet(ContributionBinding binding) {
+    return Optional.fromNullable(multibindingContributionSnippets.get(binding));
   }
 
   ImmutableSet<JavaWriter> write() {
@@ -348,7 +344,8 @@ class ComponentWriter {
 
   protected void writeFields() {
     Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
-    Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder = Maps.newHashMap();
+    Map<ContributionBinding, MemberSelect> multibindingContributionSnippetsBuilder =
+        Maps.newHashMap();
     ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder = ImmutableSet.builder();
 
     for (ResolvedBindings resolvedBindings : graph.resolvedBindings().values()) {
@@ -367,7 +364,7 @@ class ComponentWriter {
 
   private void writeField(
       Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder,
-      Map<ContributionBinding, Snippet> multibindingContributionSnippetsBuilder,
+      Map<ContributionBinding, MemberSelect> multibindingContributionSnippetsBuilder,
       ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder,
       ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
@@ -480,8 +477,9 @@ class ComponentWriter {
                       .addAll(proxySelector.asSet())
                       .add(contributionField.name())
                       .build();
-              multibindingContributionSnippetsBuilder.put(contributionBinding,
-                  Snippet.memberSelectSnippet(contributionSelectTokens));
+              multibindingContributionSnippetsBuilder.put(
+                  contributionBinding,
+                  MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
             }
           }
         }
@@ -612,17 +610,16 @@ class ComponentWriter {
                     Iterables.all(bindings, Predicates.instanceOf(ProvisionBinding.class));
                 ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
                 for (ContributionBinding binding : bindings) {
-                  if (multibindingContributionSnippets.containsKey(binding)) {
+                  Optional<MemberSelect> multibindingContributionSnippet =
+                      getMultibindingContributionSnippet(binding);
+                  checkState(
+                      multibindingContributionSnippet.isPresent(), "%s was not found", binding);
+                  Snippet snippet = multibindingContributionSnippet.get().getSnippetFor(name);
+                  if (multibindingContributionSnippet.get().owningClass().equals(name)) {
                     Snippet initializeSnippet = initializeFactoryForContributionBinding(binding);
-                    Snippet snippet = multibindingContributionSnippets.get(binding);
                     initializeMethod.body().addSnippet("this.%s = %s;", snippet, initializeSnippet);
-                    parameterSnippets.add(snippet);
-                  } else if (inheritedMultibindingContributionSnippets().containsKey(binding)) {
-                    parameterSnippets.add(
-                        inheritedMultibindingContributionSnippets().get(binding));
-                  } else {
-                    throw new IllegalStateException(binding + " was not found in");
                   }
+                  parameterSnippets.add(snippet);
                 }
                 Snippet initializeSetSnippet = Snippet.format("%s.create(%s)",
                     hasOnlyProvisions
@@ -639,11 +636,13 @@ class ComponentWriter {
                   ImmutableSet<ProvisionBinding> provisionBindings =
                       (ImmutableSet<ProvisionBinding>) bindings;
                   for (ProvisionBinding provisionBinding : provisionBindings) {
+                    Optional<MemberSelect> multibindingContributionSnippet =
+                        getMultibindingContributionSnippet(provisionBinding);
                     if (!isMapWithNonProvidedValues(provisionBinding.key().type())
-                        && multibindingContributionSnippets.containsKey(provisionBinding)) {
-                      Snippet snippet = multibindingContributionSnippets.get(provisionBinding);
+                        && multibindingContributionSnippet.isPresent()
+                        && multibindingContributionSnippet.get().owningClass().equals(name)) {
                       initializeMethod.body().addSnippet("this.%s = %s;",
-                          snippet,
+                          multibindingContributionSnippet.get().getSnippetFor(name),
                           initializeFactoryForProvisionBinding(provisionBinding));
                     }
                   }
@@ -919,9 +918,11 @@ class ComponentWriter {
         bindings.size()));
 
     for (ProvisionBinding binding : bindings) {
-      snippets.add(Snippet.format("    .put(%s, %s)",
-          getMapKeySnippet(binding.bindingElement()),
-          allMultibindingContributionSnippets().get(binding)));
+      snippets.add(
+          Snippet.format(
+              "    .put(%s, %s)",
+              getMapKeySnippet(binding.bindingElement()),
+              getMultibindingContributionSnippet(binding).get().getSnippetFor(name)));
     }
 
     snippets.add(Snippet.format("    .build()"));
