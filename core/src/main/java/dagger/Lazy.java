@@ -30,12 +30,11 @@ package dagger;
  * injection</strong> and <strong>lazy injection</strong> are best demonstrated
  * with an example. Start with a module that computes a different integer for
  * each use:<pre><code>
- *   &#64;Module
- *   public class CounterModule {
- *
+ *   {@literal @Module}
+ *   final class CounterModule {
  *     int next = 100;
  *
- *     &#64;Provides Integer provideInteger() {
+ *     {@literal @Provides} Integer provideInteger() {
  *       System.out.println("computing...");
  *       return next++;
  *     }
@@ -44,11 +43,10 @@ package dagger;
  *
  * <h3>Direct Injection</h3>
  * This class injects that integer and prints it 3 times:<pre><code>
- *   public class DirectCounter {
+ *   final class DirectCounter {
+ *     {@literal @Inject} Integer value;
  *
- *     &#64Inject Integer value;
- *
- *     public void print() {
+ *     void print() {
  *       System.out.println("printing...");
  *       System.out.println(value);
  *       System.out.println(value);
@@ -69,11 +67,10 @@ package dagger;
  * This class injects a {@linkplain javax.inject.Provider provider} for the
  * integer. It calls {@code Provider.get()} 3 times and prints each result:
  * <pre><code>
- *   public class ProviderCounter {
+ *   final class ProviderCounter {
+ *     {@literal @Inject Provider<Integer> provider;}
  *
- *     &#64;Inject Provider<Integer> provider;
- *
- *     public void print() {
+ *     void print() {
  *       System.out.println("printing...");
  *       System.out.println(provider.get());
  *       System.out.println(provider.get());
@@ -95,11 +92,10 @@ package dagger;
  * <h3>Lazy Injection</h3>
  * This class injects a {@code Lazy} for the integer. Like the provider above,
  * it calls {@code Lazy.get()} 3 times and prints each result:<pre><code>
- *   public static class LazyCounter {
+ *   final class LazyCounter {
+ *     {@literal @Inject Lazy<Integer> lazy;}
  *
- *     &#64;Inject Lazy<Integer> lazy;
- *
- *     public void print() {
+ *     void print() {
  *       System.out.println("printing...");
  *       System.out.println(lazy.get());
  *       System.out.println(lazy.get());
@@ -122,17 +118,17 @@ package dagger;
  * in isolation of other {@code Lazy} instances. In this example, two {@code
  * LazyCounter} objects are created and {@code print()} is called on each:
  * <pre><code>
- *     public void run() {
- *       ObjectGraph graph = ObjectGraph.create(new CounterModule());
+ *   final class LazyCounters {
+ *     {@literal @Inject} LazyCounter counter1;
+ *     {@literal @Inject} LazyCounter counter2;
  *
- *       LazyCounter counter1 = graph.get(LazyCounter.class);
+ *     void print() {
  *       counter1.print();
- *
- *       LazyCounter counter2 = graph.get(LazyCounter.class);
  *       counter2.print();
  *     }
+ *   }
  * </code></pre>
- * The program's output demonstrates that each {@code Lazy} works independently:
+ * The output demonstrates that each {@code Lazy} works independently:
  * <pre><code>
  *   printing...
  *   computing...
@@ -145,8 +141,8 @@ package dagger;
  *   101
  *   101
  * </code></pre>
- * Use {@linkplain javax.inject.Singleton @Singleton} to share one instance
- * among all clients, and {@code Lazy} for lazy computation in a single client.
+ * Use {@link javax.inject.Singleton @Singleton} to share one instance among all
+ * clients, and {@code Lazy} for lazy computation in a single client.
  */
 public interface Lazy<T> {
   /**
