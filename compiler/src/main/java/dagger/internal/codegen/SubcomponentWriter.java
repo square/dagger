@@ -72,9 +72,9 @@ class SubcomponentWriter extends ComponentWriter {
   }
 
   @Override
-  protected MemberSelect getMemberSelectSnippet(BindingKey key) {
-    MemberSelect snippet = super.getMemberSelectSnippet(key);
-    return snippet == null ? parent.getMemberSelectSnippet(key) : snippet;
+  protected MemberSelect getMemberSelect(BindingKey key) {
+    MemberSelect memberSelect = super.getMemberSelect(key);
+    return memberSelect == null ? parent.getMemberSelect(key) : memberSelect;
   }
 
   @Override

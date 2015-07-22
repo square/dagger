@@ -148,7 +148,11 @@ class ComponentWriter {
     return ClassName.fromTypeElement(componentDefinitionType());
   }
 
-  protected MemberSelect getMemberSelectSnippet(BindingKey key) {
+  protected Snippet getMemberSelectSnippet(BindingKey key) {
+    return getMemberSelect(key).getSnippetFor(name);
+  }
+
+  protected MemberSelect getMemberSelect(BindingKey key) {
     return memberSelectSnippets.get(key);
   }
 
@@ -495,9 +499,9 @@ class ComponentWriter {
         .addAll(proxySelector.asSet())
         .add(frameworkField.name())
         .build();
-    memberSelectSnippetsBuilder.put(bindingKey, MemberSelect.instanceSelect(
-        componentWriter.name(),
-        Snippet.memberSelectSnippet(memberSelectTokens)));
+    memberSelectSnippetsBuilder.put(
+        bindingKey,
+        MemberSelect.instanceSelect(name, Snippet.memberSelectSnippet(memberSelectTokens)));
   }
 
   protected void writeInterfaceMethods() {
@@ -524,12 +528,11 @@ class ComponentWriter {
           BindingKey bindingKey = interfaceRequest.bindingKey();
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
-              MemberSelect membersInjectorSelect = getMemberSelectSnippet(bindingKey);
+              Snippet membersInjectorSelect = getMemberSelectSnippet(bindingKey);
               List<? extends VariableElement> parameters = requestElement.getParameters();
               if (parameters.isEmpty()) {
                 // we're returning the framework type
-                interfaceMethod.body().addSnippet("return %s;",
-                    membersInjectorSelect.getSnippetFor(componentWriter.name()));
+                interfaceMethod.body().addSnippet("return %s;", membersInjectorSelect);
               } else {
                 VariableElement parameter = Iterables.getOnlyElement(parameters);
                 Name parameterName = parameter.getSimpleName();
@@ -537,11 +540,14 @@ class ComponentWriter {
                     TypeNames.forTypeMirror(
                         Iterables.getOnlyElement(requestType.getParameterTypes())),
                     parameterName.toString());
-                interfaceMethod.body().addSnippet("%s.injectMembers(%s);",
-                    // in this case we know we won't need the cast because we're never going to pass
-                    // the reference to anything
-                    membersInjectorSelect.getSnippetFor(componentWriter.name()),
-                    parameterName);
+                interfaceMethod
+                    .body()
+                    .addSnippet(
+                        "%s.injectMembers(%s);",
+                        // In this casem we know we won't need the cast because we're never going to
+                        // pass the reference to anything.
+                        membersInjectorSelect,
+                        parameterName);
                 if (!requestType.getReturnType().getKind().equals(VOID)) {
                   interfaceMethod.body().addSnippet("return %s;", parameterName);
                 }
@@ -556,8 +562,10 @@ class ComponentWriter {
                 // the generics of the Factory.create methods.
                 TypeName factoryType = ParameterizedTypeName.create(Provider.class,
                     TypeNames.forTypeMirror(requestType.getReturnType()));
-                interfaceMethod.body().addSnippet("%s factory = %s;", factoryType,
-                    getMemberSelectSnippet(bindingKey).getSnippetFor(componentWriter.name()));
+                interfaceMethod
+                    .body()
+                    .addSnippet(
+                        "%s factory = %s;", factoryType, getMemberSelectSnippet(bindingKey));
                 interfaceMethod.body().addSnippet("return factory.get();");
                 break;
               }
@@ -567,10 +575,12 @@ class ComponentWriter {
             case PRODUCER:
             case PROVIDER:
             case FUTURE:
-              interfaceMethod.body().addSnippet("return %s;",
-                  frameworkTypeUsageStatement(
-                      getMemberSelectSnippet(bindingKey).getSnippetFor(componentWriter.name()),
-                      interfaceRequest.kind()));
+              interfaceMethod
+                  .body()
+                  .addSnippet(
+                      "return %s;",
+                      frameworkTypeUsageStatement(
+                          getMemberSelectSnippet(bindingKey), interfaceRequest.kind()));
               break;
             default:
               throw new AssertionError();
@@ -596,8 +606,7 @@ class ComponentWriter {
       }
 
       for (BindingKey bindingKey : partitions.get(i)) {
-        Snippet memberSelectSnippet =
-            getMemberSelectSnippet(bindingKey).getSnippetFor(componentWriter.name());
+        Snippet memberSelectSnippet = getMemberSelectSnippet(bindingKey);
         ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
@@ -841,12 +850,14 @@ class ComponentWriter {
         return Snippet.format("%s.noOp()", ClassName.fromClass(MembersInjectors.class));
       case DELEGATE:
         DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
-        return Snippet.format("%s.delegatingTo(%s)",
+        return Snippet.format(
+            "%s.delegatingTo(%s)",
             ClassName.fromClass(MembersInjectors.class),
-            getMemberSelectSnippet(parentInjectorRequest.bindingKey()).getSnippetFor(name));
+            getMemberSelectSnippet(parentInjectorRequest.bindingKey()));
       case INJECT_MEMBERS:
         List<Snippet> parameters = getDependencyParameters(binding.implicitDependencies());
-        return Snippet.format("%s.create(%s)",
+        return Snippet.format(
+            "%s.create(%s)",
             membersInjectorNameForMembersInjectionBinding(binding),
             Snippet.makeParametersSnippet(parameters));
       default:
@@ -865,7 +876,7 @@ class ComponentWriter {
             }
           })
           .toSet());
-      parameters.add(getMemberSelectSnippet(key).getSnippetWithRawTypeCastFor(name));
+      parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
     }
     return parameters.build();
   }
@@ -887,11 +898,13 @@ class ComponentWriter {
       if (FrameworkField.frameworkClassForResolvedBindings(resolvedBindings)
               .equals(Provider.class)
           && frameworkClass.equals(Producer.class)) {
-        parameters.add(Snippet.format("%s.producerFromProvider(%s)",
-            ClassName.fromClass(Producers.class),
-            getMemberSelectSnippet(key).getSnippetFor(name)));
+        parameters.add(
+            Snippet.format(
+                "%s.producerFromProvider(%s)",
+                ClassName.fromClass(Producers.class),
+                getMemberSelectSnippet(key)));
       } else {
-        parameters.add(getMemberSelectSnippet(key).getSnippetFor(name));
+        parameters.add(getMemberSelectSnippet(key));
       }
     }
     return parameters.build();
@@ -903,10 +916,10 @@ class ComponentWriter {
     DeclaredType mapType = asDeclared(firstBinding.key().type());
 
     if (isMapWithNonProvidedValues(mapType)) {
-      return Snippet.format("%s.create(%s)",
+      return Snippet.format(
+          "%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
-          getMemberSelectSnippet(getOnlyElement(firstBinding.dependencies()).bindingKey())
-              .getSnippetFor(name));
+          getMemberSelectSnippet(getOnlyElement(firstBinding.dependencies()).bindingKey()));
     }
 
     ImmutableList.Builder<dagger.internal.codegen.writer.Snippet> snippets =
