@@ -173,17 +173,19 @@ abstract class Binding {
     }
     
     List<TypeMirror> actualTypes =
-        type.accept(new SimpleTypeVisitor6<List<TypeMirror>, Void>() {
-          @Override
-          protected List<TypeMirror> defaultAction(TypeMirror e, Void p) {
-            return ImmutableList.of();
-          }
+        type.accept(
+            new SimpleTypeVisitor6<List<TypeMirror>, Void>() {
+              @Override
+              protected List<TypeMirror> defaultAction(TypeMirror e, Void p) {
+                return ImmutableList.of();
+              }
 
-          @Override
-          public List<TypeMirror> visitDeclared(DeclaredType t, Void p) {
-            return ImmutableList.copyOf(t.getTypeArguments());
-          }
-        }, null);
+              @Override
+              public List<TypeMirror> visitDeclared(DeclaredType t, Void p) {
+                return ImmutableList.<TypeMirror>copyOf(t.getTypeArguments());
+              }
+            },
+            null);
     
     // The actual type parameter size can be different if the user is using a raw type.
     if (defaultTypes.size() != actualTypes.size()) {
