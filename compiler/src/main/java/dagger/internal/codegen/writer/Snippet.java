@@ -27,28 +27,9 @@ import java.util.Formatter;
 import java.util.Iterator;
 import java.util.Set;
 
-public final class Snippet implements HasClassReferences, Writable {
-  private final String format;
-  private final ImmutableSet<TypeName> types;
-  private final ImmutableList<Object> args;
+public abstract class Snippet implements HasClassReferences, Writable {
 
-  private Snippet(String format, ImmutableSet<TypeName> types, ImmutableList<Object> args) {
-    this.format = format;
-    this.types = types;
-    this.args = args;
-  }
-
-  public String format() {
-    return format;
-  }
-
-  public ImmutableList<Object> args() {
-    return args;
-  }
-
-  public ImmutableSet<TypeName> types() {
-    return types;
-  }
+  abstract ImmutableSet<TypeName> types();
 
   @Override
   public String toString() {
@@ -56,40 +37,96 @@ public final class Snippet implements HasClassReferences, Writable {
   }
 
   @Override
-  public Set<ClassName> referencedClasses() {
-    return FluentIterable.from(types)
-        .transformAndConcat(new Function<TypeName, Set<ClassName>>() {
-          @Override
-          public Set<ClassName> apply(TypeName input) {
-            return input.referencedClasses();
-          }
-        })
+  public final Set<ClassName> referencedClasses() {
+    return FluentIterable.from(types())
+        .transformAndConcat(
+            new Function<TypeName, Set<ClassName>>() {
+              @Override
+              public Set<ClassName> apply(TypeName input) {
+                return input.referencedClasses();
+              }
+            })
         .toSet();
   }
 
-  @Override
-  public Appendable write(Appendable appendable, Context context) throws IOException {
-    ImmutableList.Builder<Object> formattedArgsBuilder = ImmutableList.builder();
-    for (Object arg : args) {
-      if (arg instanceof Writable) {
-        formattedArgsBuilder.add(((Writable) arg).write(new StringBuilder(), context).toString());
-      } else {
-        formattedArgsBuilder.add(arg);
-      }
+  private static final class BasicSnippet extends Snippet {
+    final String format;
+    final ImmutableSet<TypeName> types;
+    final ImmutableList<Object> args;
+
+    BasicSnippet(String format, ImmutableSet<TypeName> types, ImmutableList<Object> args) {
+      this.format = format;
+      this.types = types;
+      this.args = args;
     }
 
-    @SuppressWarnings("resource") // intentionally don't close the formatter
-    Formatter formatter = new Formatter(appendable);
-    formatter.format(format, formattedArgsBuilder.build().toArray(new Object[0]));
+    @Override
+    ImmutableSet<TypeName> types() {
+      return types;
+    }
 
-    return appendable;
+    @Override
+    public Appendable write(Appendable appendable, Context context) throws IOException {
+      ImmutableList.Builder<Object> formattedArgsBuilder = ImmutableList.builder();
+      for (Object arg : args) {
+        if (arg instanceof Writable) {
+          formattedArgsBuilder.add(((Writable) arg).write(new StringBuilder(), context).toString());
+        } else {
+          formattedArgsBuilder.add(arg);
+        }
+      }
+
+      @SuppressWarnings("resource") // intentionally don't close the formatter
+      Formatter formatter = new Formatter(appendable);
+      formatter.format(format, Iterables.toArray(formattedArgsBuilder.build(), Object.class));
+
+      return appendable;
+    }
+  }
+
+  private static final class CompoundSnippet extends Snippet {
+    final String joinToken;
+    final ImmutableList<Snippet> snippets;
+
+    CompoundSnippet(String joinToken, ImmutableList<Snippet> snippets) {
+      this.joinToken = joinToken;
+      this.snippets = snippets;
+    }
+
+    @Override
+    ImmutableSet<TypeName> types() {
+      return FluentIterable.from(snippets)
+          .transformAndConcat(
+              new Function<Snippet, Iterable<TypeName>>() {
+                @Override
+                public Iterable<TypeName> apply(Snippet input) {
+                  return input.types();
+                }
+              })
+          .toSet();
+    }
+
+    @Override
+    public Appendable write(Appendable appendable, Context context) throws IOException {
+      Iterator<Snippet> snippetIterator = snippets.iterator();
+      if (snippetIterator.hasNext()) {
+        Snippet firstSnippet = snippetIterator.next();
+        firstSnippet.write(appendable, context);
+        while (snippetIterator.hasNext()) {
+          Snippet nextSnippet = snippetIterator.next();
+          appendable.append(joinToken);
+          nextSnippet.write(appendable, context);
+        }
+      }
+      return appendable;
+    }
   }
 
   public static Snippet format(String format, Object... args) {
     ImmutableSet.Builder<TypeName> types = ImmutableSet.builder();
     for (Object arg : args) {
       if (arg instanceof Snippet) {
-        types.addAll(((Snippet) arg).types);
+        types.addAll(((Snippet) arg).types());
       }
       if (arg instanceof TypeName) {
         types.add((TypeName) arg);
@@ -98,7 +135,7 @@ public final class Snippet implements HasClassReferences, Writable {
         types.add(((HasTypeName) arg).name());
       }
     }
-    return new Snippet(format, types.build(), ImmutableList.copyOf(args));
+    return new BasicSnippet(format, types.build(), ImmutableList.copyOf(args));
   }
 
   public static Snippet format(String format, Iterable<? extends Object> args) {
@@ -121,66 +158,20 @@ public final class Snippet implements HasClassReferences, Writable {
   }
 
   public static Snippet makeParametersSnippet(Iterable<Snippet> parameterSnippets) {
-    Iterator<Snippet> iterator = parameterSnippets.iterator();
-    StringBuilder stringBuilder = new StringBuilder();
-    ImmutableSet.Builder<TypeName> typesBuilder = ImmutableSet.builder();
-    ImmutableList.Builder<Object> argsBuilder = ImmutableList.builder();
-    if (iterator.hasNext()) {
-      Snippet firstSnippet = iterator.next();
-      stringBuilder.append(firstSnippet.format());
-      typesBuilder.addAll(firstSnippet.types());
-      argsBuilder.addAll(firstSnippet.args());
-    }
-    while (iterator.hasNext()) {
-      Snippet nextSnippet = iterator.next();
-      stringBuilder.append(", ").append(nextSnippet.format());
-      typesBuilder.addAll(nextSnippet.types());
-      argsBuilder.addAll(nextSnippet.args());
-    }
-    return new Snippet(stringBuilder.toString(), typesBuilder.build(), argsBuilder.build());
+    return join(", ", parameterSnippets);
   }
 
   /**
-   * A snippet that concatenates its arguments.
+   * A snippet that concatenates its arguments with each snippet separated by a new line.
    */
   public static Snippet concat(Iterable<Snippet> snippets) {
-    return join(Joiner.on(""), snippets);
+    return join("\n", snippets);
   }
 
   /**
    * A snippet that joins its arguments with {@code joiner}.
    */
-  public static Snippet join(Joiner joiner, Iterable<Snippet> snippets) {
-    FluentIterable<Snippet> fluentSnippets = FluentIterable.from(snippets);
-    return new Snippet(
-        joiner
-            .appendTo(
-                new StringBuilder(),
-                fluentSnippets.transform(
-                    new Function<Snippet, String>() {
-                      @Override
-                      public String apply(Snippet snippet) {
-                        return snippet.format;
-                      }
-                    }))
-            .toString(),
-        fluentSnippets
-            .transformAndConcat(
-                new Function<Snippet, ImmutableSet<TypeName>>() {
-                  @Override
-                  public ImmutableSet<TypeName> apply(Snippet snippet) {
-                    return snippet.types;
-                  }
-                })
-            .toSet(),
-        fluentSnippets
-            .transformAndConcat(
-                new Function<Snippet, ImmutableList<Object>>() {
-                  @Override
-                  public ImmutableList<Object> apply(Snippet snippet) {
-                    return snippet.args;
-                  }
-                })
-            .toList());
+  public static Snippet join(String joinToken, Iterable<Snippet> snippets) {
+    return new CompoundSnippet(joinToken, ImmutableList.copyOf(snippets));
   }
 }

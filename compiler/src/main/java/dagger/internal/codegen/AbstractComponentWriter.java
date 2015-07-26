@@ -709,13 +709,22 @@ abstract class AbstractComponentWriter {
     }
   }
 
+  private static final int SNIPPETS_PER_INITIALIZATION_METHOD = 100;
+
   private void initializeFrameworkTypes() {
-    List<List<BindingKey>> partitions =
-        Lists.partition(graph.resolvedBindings().keySet().asList(), 100);
+    ImmutableList.Builder<Snippet> snippetsBuilder = ImmutableList.builder();
+    for (BindingKey bindingKey : graph.resolvedBindings().keySet()) {
+      snippetsBuilder.add(initializeFrameworkType(bindingKey));
+    }
+    ImmutableList<Snippet> snippets = snippetsBuilder.build();
+
+    List<List<Snippet>> partitions = Lists.partition(snippets, SNIPPETS_PER_INITIALIZATION_METHOD);
     for (int i = 0; i < partitions.size(); i++) {
       MethodWriter initializeMethod =
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
-      initializeMethod.body();
+      for (Snippet snippet : partitions.get(i)) {
+        initializeMethod.body().addSnippet(snippet);
+      }
       initializeMethod.addModifiers(PRIVATE);
       if (builderName.isPresent()) {
         initializeMethod.addParameter(builderName.get(), "builder").addModifiers(FINAL);
@@ -723,38 +732,43 @@ abstract class AbstractComponentWriter {
       } else {
         constructorWriter.body().addSnippet("%s();", initializeMethod.name());
       }
-      for (BindingKey bindingKey : partitions.get(i)) {
-        ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-        switch (bindingKey.kind()) {
-          case CONTRIBUTION:
-            switch (contributionTypeFor(resolvedBindings.contributionBindings())) {
-              case SET:
-                initializeSetMultibindings(initializeMethod, resolvedBindings);
-                break;
-              case MAP:
-                initializeMapMultibindings(initializeMethod, resolvedBindings);
-                break;
-              case UNIQUE:
-                initializeUniqueContributionBinding(initializeMethod, resolvedBindings);
-                break;
-              default:
-                throw new AssertionError();
-            }
-            break;
 
-          case MEMBERS_INJECTION:
-            initializeMembersInjectionBinding(initializeMethod, resolvedBindings);
-            break;
-
-          default:
-            throw new AssertionError();
-        }
-      }
     }
   }
 
-  private void initializeSetMultibindings(
-      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+  /**
+   * Returns a single snippet representing the initialization of the framework type.
+   *
+   * <p>Note that this must be a single snippet because initialization snippets can be invoked from
+   * any place in any order.  By requiring a single snippet (often of concatenated snippets) we
+   * ensure that things like local variables always behave as expected by the initialization logic.
+   */
+  private Snippet initializeFrameworkType(BindingKey bindingKey) {
+    ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
+    switch (bindingKey.kind()) {
+      case CONTRIBUTION:
+        switch (contributionTypeFor(resolvedBindings.contributionBindings())) {
+          case SET:
+            return initializeSetMultibindings(resolvedBindings);
+          case MAP:
+            return initializeMapMultibindings(resolvedBindings);
+          case UNIQUE:
+            return initializeUniqueContributionBinding(resolvedBindings);
+          default:
+            throw new AssertionError();
+        }
+
+      case MEMBERS_INJECTION:
+        return initializeMembersInjectionBinding(resolvedBindings);
+
+      default:
+        throw new AssertionError();
+    }
+  }
+
+  private Snippet initializeSetMultibindings(ResolvedBindings resolvedBindings) {
+    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
+
     ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
     for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
       Optional<MemberSelect> multibindingContributionSnippet =
@@ -767,7 +781,7 @@ abstract class AbstractComponentWriter {
           && getContributionInitializationState(binding)
               .equals(InitializationState.UNINITIALIZED)) {
         Snippet initializeSnippet = initializeFactoryForContributionBinding(binding);
-        initializeMethod.body().addSnippet("this.%s = %s;", snippet, initializeSnippet);
+        initializationSnippets.add(Snippet.format("this.%s = %s;", snippet, initializeSnippet));
         setContributionInitializationState(binding, InitializationState.INITIALIZED);
       }
       parameterSnippets.add(snippet);
@@ -783,11 +797,15 @@ abstract class AbstractComponentWriter {
             "%s.create(%s)",
             ClassName.fromClass(factoryClass),
             makeParametersSnippet(parameterSnippets.build()));
-    initializeMember(initializeMethod, resolvedBindings.bindingKey(), initializeSetSnippet);
+    initializationSnippets.add(
+        initializeMember(resolvedBindings.bindingKey(), initializeSetSnippet));
+
+    return Snippet.concat(initializationSnippets.build());
   }
 
-  private void initializeMapMultibindings(
-      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+  private Snippet initializeMapMultibindings(ResolvedBindings resolvedBindings) {
+    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
+
     if (any(resolvedBindings.contributionBindings(), Binding.Type.PRODUCTION)) {
       // TODO(beder): Implement producer map bindings.
       throw new IllegalStateException("producer map bindings not implemented yet");
@@ -798,47 +816,54 @@ abstract class AbstractComponentWriter {
       if (!isMapWithNonProvidedValues(binding.key().type())
           && multibindingContributionSnippet.isPresent()
           && multibindingContributionSnippet.get().owningClass().equals(name)) {
-        initializeMethod
-            .body()
-            .addSnippet(
+        initializationSnippets.add(
+            Snippet.format(
                 "this.%s = %s;",
                 multibindingContributionSnippet.get().getSnippetFor(name),
-                initializeFactoryForContributionBinding(binding));
+                initializeFactoryForContributionBinding(binding)));
       }
     }
-    initializeMember(
-        initializeMethod,
-        resolvedBindings.bindingKey(),
-        initializeMapBinding(resolvedBindings.contributionBindings()));
+    initializationSnippets.add(
+        initializeMember(
+            resolvedBindings.bindingKey(),
+            initializeMapBinding(resolvedBindings.contributionBindings())));
+
+    return Snippet.concat(initializationSnippets.build());
   }
 
-  private void initializeUniqueContributionBinding(
-      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+  private Snippet initializeUniqueContributionBinding(ResolvedBindings resolvedBindings) {
+    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
+
     if (!resolvedBindings.ownedContributionBindings().isEmpty()) {
       ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
       if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
-        initializeDelegateFactories(binding, initializeMethod);
-        initializeMember(
-            initializeMethod,
-            resolvedBindings.bindingKey(),
-            initializeFactoryForContributionBinding(binding));
+        initializationSnippets.add(initializeDelegateFactories(binding));
+        initializationSnippets.add(
+            initializeMember(
+                resolvedBindings.bindingKey(), initializeFactoryForContributionBinding(binding)));
       }
     }
+
+    return Snippet.concat(initializationSnippets.build());
   }
 
-  private void initializeMembersInjectionBinding(
-      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+  private Snippet initializeMembersInjectionBinding(ResolvedBindings resolvedBindings) {
+    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
+
     MembersInjectionBinding binding = getOnlyElement(resolvedBindings.membersInjectionBindings());
     if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
-      initializeDelegateFactories(binding, initializeMethod);
-      initializeMember(
-          initializeMethod,
-          resolvedBindings.bindingKey(),
-          initializeMembersInjectorForBinding(binding));
+      initializationSnippets.add(initializeDelegateFactories(binding));
+      initializationSnippets.add(
+          initializeMember(
+              resolvedBindings.bindingKey(), initializeMembersInjectorForBinding(binding)));
     }
+
+    return Snippet.concat(initializationSnippets.build());
   }
 
-  private void initializeDelegateFactories(Binding binding, MethodWriter initializeMethod) {
+  private Snippet initializeDelegateFactories(Binding binding) {
+    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
+
     for (Collection<DependencyRequest> requestsForKey :
         indexDependenciesByUnresolvedKey(types, binding.dependencies()).asMap().values()) {
       BindingKey dependencyKey =
@@ -848,37 +873,40 @@ abstract class AbstractComponentWriter {
                   .toSet());
       if (!getMemberSelect(dependencyKey).staticMember()
           && getInitializationState(dependencyKey).equals(UNINITIALIZED)) {
-        initializeMethod
-            .body()
-            .addSnippet(
+        initializationSnippets.add(
+            Snippet.format(
                 "this.%s = new %s();",
                 getMemberSelectSnippet(dependencyKey),
-                ClassName.fromClass(DelegateFactory.class));
+                ClassName.fromClass(DelegateFactory.class)));
         setInitializationState(dependencyKey, DELEGATED);
       }
     }
+
+    return Snippet.concat(initializationSnippets.build());
   }
 
-  private void initializeMember(
-      MethodWriter initializeMethod, BindingKey bindingKey, Snippet initializationSnippet) {
+  private Snippet initializeMember(BindingKey bindingKey, Snippet initializationSnippet) {
+    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
+
     Snippet memberSelect = getMemberSelectSnippet(bindingKey);
     Snippet delegateFactoryVariable = delegateFactoryVariableSnippet(bindingKey);
     if (getInitializationState(bindingKey).equals(DELEGATED)) {
-      initializeMethod
-          .body()
-          .addSnippet(
+      initializationSnippets.add(
+          Snippet.format(
               "%1$s %2$s = (%1$s) %3$s;",
               ClassName.fromClass(DelegateFactory.class),
               delegateFactoryVariable,
-              memberSelect);
+              memberSelect));
     }
-    initializeMethod.body().addSnippet("this.%s = %s;", memberSelect, initializationSnippet);
+    initializationSnippets.add(
+        Snippet.format("this.%s = %s;", memberSelect, initializationSnippet));
     if (getInitializationState(bindingKey).equals(DELEGATED)) {
-      initializeMethod
-          .body()
-          .addSnippet("%s.setDelegatedProvider(%s);", delegateFactoryVariable, memberSelect);
+      initializationSnippets.add(
+          Snippet.format("%s.setDelegatedProvider(%s);", delegateFactoryVariable, memberSelect));
     }
     setInitializationState(bindingKey, INITIALIZED);
+
+    return Snippet.concat(initializationSnippets.build());
   }
 
   private Snippet delegateFactoryVariableSnippet(BindingKey key) {
@@ -1130,7 +1158,7 @@ abstract class AbstractComponentWriter {
 
     snippets.add(Snippet.format("    .build()"));
 
-    return Snippet.join(Joiner.on('\n'), snippets.build());
+    return Snippet.concat(snippets.build());
   }
 
   private static String simpleVariableName(TypeElement typeElement) {
