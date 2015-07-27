@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.ContributionBinding.bindingTypeFor;
 
 /**
  * The collection of bindings that have been resolved for a binding key.
@@ -69,5 +70,24 @@ abstract class ResolvedBindings {
   ImmutableSet<? extends MembersInjectionBinding> membersInjectionBindings() {
     checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
     return (ImmutableSet<? extends MembersInjectionBinding>) bindings();
+  }
+
+  /**
+   * Returns a {@code ResolvedBindings} with the same {@link #bindingKey()} and {@link #bindings()}
+   * as this one, but no {@link #ownedBindings()}.
+   */
+  ResolvedBindings asInherited() {
+    return ownedBindings().isEmpty()
+        ? this
+        : ResolvedBindings.create(bindingKey(), ImmutableSet.<Binding>of(), bindings());
+  }
+
+  /**
+   * {@code true} if this is a multibindings contribution.
+   */
+  boolean isMultibindings() {
+    return bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)
+        && !contributionBindings().isEmpty()
+        && bindingTypeFor(contributionBindings()).isMultibinding();
   }
 }

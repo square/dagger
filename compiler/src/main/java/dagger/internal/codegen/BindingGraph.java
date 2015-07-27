@@ -20,6 +20,8 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,10 +34,13 @@ import dagger.Component;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -203,6 +208,8 @@ abstract class BindingGraph {
       final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
+      final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
+          CacheBuilder.newBuilder().<BindingKey, Boolean>build();
 
       RequestResolver(Optional<RequestResolver> parentResolver,
           Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope,
@@ -329,18 +336,21 @@ abstract class BindingGraph {
       }
 
       private Optional<RequestResolver> getOwningResolver(ProvisionBinding provisionBinding) {
-        Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
-            provisionBinding.wrappedScope();
         for (RequestResolver requestResolver : getResolverLineage().reverse()) {
           if (requestResolver.explicitProvisionBindingsSet.contains(provisionBinding)) {
             return Optional.of(requestResolver);
           }
         }
+
         // look for scope separately.  we do this for the case where @Singleton can appear twice
         // in the † compatibility mode
-        for (RequestResolver requestResolver : getResolverLineage().reverse()) {
-          if (bindingScope.isPresent() && bindingScope.equals(requestResolver.targetScope)) {
-            return Optional.of(requestResolver);
+        Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
+            provisionBinding.wrappedScope();
+        if (bindingScope.isPresent()) {
+          for (RequestResolver requestResolver : getResolverLineage().reverse()) {
+            if (bindingScope.equals(requestResolver.targetScope)) {
+              return Optional.of(requestResolver);
+            }
           }
         }
         return Optional.absent();
@@ -390,19 +400,26 @@ abstract class BindingGraph {
       void resolve(DependencyRequest request) {
         BindingKey bindingKey = request.bindingKey();
 
-        Optional<ResolvedBindings> previouslyResolvedBinding =
-            getPreviouslyResolvedBindings(bindingKey);
-        if (previouslyResolvedBinding.isPresent()
-            && !(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
-                && !previouslyResolvedBinding.get().contributionBindings().isEmpty()
-                && ContributionBinding.bindingTypeFor(
-                    previouslyResolvedBinding.get().contributionBindings()).isMultibinding())) {
+        // If we find a cycle, stop resolving. The original request will add it with all of the
+        // other resolved deps.
+        if (cycleStack.contains(bindingKey)) {
           return;
         }
 
-        if (cycleStack.contains(bindingKey)) {
-          // We found a cycle. Don't add a resolved binding, since the original request will add it
-          // with all of the other resolved deps
+        // If the binding was previously resolved in this (sub)component, don't resolve it again.
+        if (resolvedBindings.containsKey(bindingKey)) {
+          return;
+        }
+
+        // If the binding was previously resolved in a supercomponent, then test to see if it
+        // depends on multibindings with contributions from this subcomponent. If it does, then we
+        // have to resolve it in this subcomponent so that it sees the local contributions. If it
+        // does not, then we can stop resolving it in this subcomponent and rely on the
+        // supercomponent resolution.
+        Optional<ResolvedBindings> bindingsPreviouslyResolvedInParent =
+            getPreviouslyResolvedBindings(bindingKey);
+        if (bindingsPreviouslyResolvedInParent.isPresent()
+            && !dependsOnLocalMultibindings(bindingsPreviouslyResolvedInParent.get())) {
           return;
         }
 
@@ -420,24 +437,70 @@ abstract class BindingGraph {
         }
       }
 
+      /**
+       * Returns {@code true} if {@code previouslyResolvedBindings} is multibindings with
+       * contributions declared within this (sub)component's modules, or if any of its unscoped
+       * provision-dependencies depend on such local multibindings.
+       *
+       * <p>We don't care about scoped dependencies or production bindings because they will never
+       * depend on multibindings with contributions from subcomponents.
+       */
+      private boolean dependsOnLocalMultibindings(
+          final ResolvedBindings previouslyResolvedBindings) {
+        try {
+          return dependsOnLocalMultibindingsCache.get(
+              previouslyResolvedBindings.bindingKey(),
+              new Callable<Boolean>() {
+                @Override
+                public Boolean call() {
+                  if (previouslyResolvedBindings.isMultibindings()
+                      && hasLocalContributions(previouslyResolvedBindings)) {
+                    return true;
+                  }
+
+                  for (Binding binding : previouslyResolvedBindings.bindings()) {
+                    if (!isScoped(binding) && !(binding instanceof ProductionBinding)) {
+                      for (DependencyRequest dependency : binding.implicitDependencies()) {
+                        if (dependsOnLocalMultibindings(
+                            getPreviouslyResolvedBindings(dependency.bindingKey()).get())) {
+                          return true;
+                        }
+                      }
+                    }
+                  }
+                  return false;
+                }
+              });
+        } catch (ExecutionException e) {
+          throw new AssertionError(e);
+        }
+      }
+
+      private boolean hasLocalContributions(ResolvedBindings resolvedBindings) {
+        return !explicitProvisionBindings.get(resolvedBindings.bindingKey().key()).isEmpty()
+            || !explicitProductionBindings.get(resolvedBindings.bindingKey().key()).isEmpty();
+      }
+
+      private boolean isScoped(Binding binding) {
+        if (binding instanceof ProvisionBinding) {
+          ProvisionBinding provisionBinding = (ProvisionBinding) binding;
+          return provisionBinding.scope().isPresent();
+        }
+        return false;
+      }
+
       ImmutableMap<BindingKey, ResolvedBindings> getResolvedBindings() {
         ImmutableMap.Builder<BindingKey, ResolvedBindings> resolvedBindingsBuilder =
             ImmutableMap.builder();
         resolvedBindingsBuilder.putAll(resolvedBindings);
         if (parentResolver.isPresent()) {
-          for (ResolvedBindings resolvedInParent :
-              parentResolver.get().getResolvedBindings().values()) {
-            BindingKey bindingKey = resolvedInParent.bindingKey();
-            if (!resolvedBindings.containsKey(bindingKey)) {
-              if (resolvedInParent.ownedBindings().isEmpty()) {
-                // reuse the instance if we can get away with it
-                resolvedBindingsBuilder.put(bindingKey, resolvedInParent);
-              } else {
-                resolvedBindingsBuilder.put(bindingKey,
-                    ResolvedBindings.create(
-                        bindingKey, ImmutableSet.<Binding>of(), resolvedInParent.bindings()));
-              }
-            }
+          Collection<ResolvedBindings> bindingsResolvedInParent =
+              Maps.difference(parentResolver.get().getResolvedBindings(), resolvedBindings)
+                  .entriesOnlyOnLeft()
+                  .values();
+          for (ResolvedBindings resolvedInParent : bindingsResolvedInParent) {
+            resolvedBindingsBuilder.put(
+                resolvedInParent.bindingKey(), resolvedInParent.asInherited());
           }
         }
         return resolvedBindingsBuilder.build();
