@@ -41,15 +41,17 @@ public class SubcomponentMultibindingsTest {
   }
 
   @Test
-  public void test() {
-    ChildComponentWithMultibindings child = parent.childComponent();
+  public void testMultibindingsInSubcomponents() {
     RequiresMultibindingsInChild requiresMultibindingsInChild =
-        child.requiresMultibindingsInChild();
-    assertWithMessage("child.requiresMultibindingsInChild.requiresSetOfObjects")
+        parent.childComponent().requiresMultibindingsInChild();
+
+    assertWithMessage("requiresSetOfObjects")
         .that(requiresMultibindingsInChild.requiresSetOfObjects().setOfObjects())
         .containsExactly("object provided by parent", "object provided by child");
-    assertWithMessage("child.requiresMultibindingsInChild.requiresSetOfStrings")
+
+    assertWithMessage("requiresSetOfStrings")
         .that(requiresMultibindingsInChild.requiresSetOfStrings().setOfStrings())
         .containsExactly("string provided by parent");
   }
+
 }

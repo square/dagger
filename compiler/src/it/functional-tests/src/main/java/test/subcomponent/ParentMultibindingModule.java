@@ -32,4 +32,9 @@ class ParentMultibindingModule {
   String provideString() {
     return "string provided by parent";
   }
+
+  @Provides(type = SET)
+  RequiresSetOfObjects requiresSetOfObjects(RequiresSetOfObjects requiresSetOfObjects) {
+    return requiresSetOfObjects;
+  }
 }

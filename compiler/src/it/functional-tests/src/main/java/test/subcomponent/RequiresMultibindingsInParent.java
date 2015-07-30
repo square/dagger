@@ -15,17 +15,22 @@
  */
 package test.subcomponent;
 
+import java.util.Set;
 import javax.inject.Inject;
 
 class RequiresMultibindingsInParent {
   private final RequiresSetOfObjects requiresSetOfObjects;
   private final RequiresSetOfStrings requiresSetOfStrings;
+  private final Set<RequiresSetOfObjects> setOfRequiresSetOfObjects;
 
   @Inject
   RequiresMultibindingsInParent(
-      RequiresSetOfObjects requiresSetOfObjects, RequiresSetOfStrings requiresSetOfStrings) {
+      RequiresSetOfObjects requiresSetOfObjects,
+      RequiresSetOfStrings requiresSetOfStrings,
+      Set<RequiresSetOfObjects> setOfRequiresSetOfObjects) {
     this.requiresSetOfObjects = requiresSetOfObjects;
     this.requiresSetOfStrings = requiresSetOfStrings;
+    this.setOfRequiresSetOfObjects = setOfRequiresSetOfObjects;
   }
 
   RequiresSetOfObjects requiresSetOfObjects() {
@@ -34,5 +39,9 @@ class RequiresMultibindingsInParent {
 
   RequiresSetOfStrings requiresSetOfStrings() {
     return requiresSetOfStrings;
+  }
+
+  Set<RequiresSetOfObjects> setOfRequiresSetOfObjects() {
+    return setOfRequiresSetOfObjects;
   }
 }
