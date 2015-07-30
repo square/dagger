@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
@@ -71,18 +72,21 @@ abstract class Binding {
 
   /** The type enclosing the binding {@link #bindingElement()}. */
   TypeElement bindingTypeElement() {
-    return bindingElement().accept(new SimpleElementVisitor6<TypeElement, Void>() {
-      @Override
-      protected TypeElement defaultAction(Element e, Void p) {
-        return MoreElements.asType(bindingElement().getEnclosingElement());
-      }
-
-      @Override
-      public TypeElement visitType(TypeElement e, Void p) {
-        return e;
-      }
-    }, null);
+    return BINDING_TYPE_ELEMENT.visit(bindingElement());
   }
+
+  private static final ElementVisitor<TypeElement, Void> BINDING_TYPE_ELEMENT =
+      new SimpleElementVisitor6<TypeElement, Void>() {
+        @Override
+        protected TypeElement defaultAction(Element e, Void p) {
+          return visit(e.getEnclosingElement());
+        }
+
+        @Override
+        public TypeElement visitType(TypeElement e, Void p) {
+          return e;
+        }
+      };
 
   /**
    * The explicit set of {@link DependencyRequest dependencies} required to satisfy this binding.
@@ -166,12 +170,12 @@ abstract class Binding {
     if (element.getTypeParameters().isEmpty()) {
       return false;
     }
-    
+
     List<TypeMirror> defaultTypes = Lists.newArrayList();
     for (TypeParameterElement parameter : element.getTypeParameters()) {
       defaultTypes.add(parameter.asType());
     }
-    
+
     List<TypeMirror> actualTypes =
         type.accept(
             new SimpleTypeVisitor6<List<TypeMirror>, Void>() {
@@ -186,7 +190,7 @@ abstract class Binding {
               }
             },
             null);
-    
+
     // The actual type parameter size can be different if the user is using a raw type.
     if (defaultTypes.size() != actualTypes.size()) {
       return true;

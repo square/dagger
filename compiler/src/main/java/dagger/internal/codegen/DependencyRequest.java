@@ -150,7 +150,7 @@ abstract class DependencyRequest {
       checkNotNull(delegatingRequest);
       return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
           delegatingRequest.requestElement(),
-          getEnclosingType(delegatingRequest.requestElement()),
+          delegatingRequest.enclosingType(),
           false /* doesn't allow null */);
     }
 

@@ -88,6 +88,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
+import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
+import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
@@ -376,56 +378,27 @@ class ComponentWriter {
       ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
 
-    if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
-        && resolvedBindings.ownedContributionBindings().isEmpty()
-        && !ContributionBinding.bindingTypeFor(resolvedBindings.contributionBindings())
-            .isMultibinding()) {
+    // No field needed for unique contributions inherited from the parent.
+    if (resolvedBindings.isUniqueContribution() && resolvedBindings.ownedBindings().isEmpty()) {
       return;
     }
 
-    if (resolvedBindings.bindings().size() == 1) {
-      if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-        ContributionBinding contributionBinding =
-            Iterables.getOnlyElement(resolvedBindings.contributionBindings());
-        if (!contributionBinding.bindingType().isMultibinding()
-            && (contributionBinding instanceof ProvisionBinding)) {
-          ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
-          if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
-              && !provisionBinding.scope().isPresent()) {
-            enumBindingKeysBuilder.add(bindingKey);
-            // skip keys whose factories are enum instances and aren't scoped
-            memberSelectSnippetsBuilder.put(bindingKey,
-                MemberSelect.staticSelect(
-                    factoryNameForProvisionBinding(provisionBinding),
-                    Snippet.format("create()")));
-            return;
-          }
-        }
-      } else if (bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION)) {
-        MembersInjectionBinding membersInjectionBinding =
-            Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
-        if (membersInjectionBinding.injectionStrategy().equals(NO_OP)) {
-          // TODO(gak): refactor to use enumBindingKeys throughout the generator
-          enumBindingKeysBuilder.add(bindingKey);
-          // TODO(gak): suppress the warnings in a reasonable place
-          memberSelectSnippetsBuilder.put(bindingKey,
-              MemberSelect.staticMethodInvocationWithCast(
-                  ClassName.fromClass(MembersInjectors.class),
-                  Snippet.format("noOp()"),
-                  ClassName.fromClass(MembersInjector.class)));
-          return;
-        }
-      }
+    // No field needed for bindings with no dependencies or state.
+    Optional<MemberSelect> staticMemberSelect = staticMemberSelect(resolvedBindings);
+    if (staticMemberSelect.isPresent()) {
+      // TODO(gak): refactor to use enumBindingKeys throughout the generator
+      enumBindingKeysBuilder.add(bindingKey);
+      memberSelectSnippetsBuilder.put(bindingKey, staticMemberSelect.get());
+      return;
     }
 
-    String bindingPackage = bindingPackageFor(resolvedBindings.bindings())
-        .or(componentWriter.name().packageName());
+    String bindingPackage = bindingPackageFor(resolvedBindings.bindings()).or(name.packageName());
 
     final Optional<String> proxySelector;
     final TypeWriter classWithFields;
     final Set<Modifier> fieldModifiers;
 
-    if (bindingPackage.equals(componentWriter.name().packageName())) {
+    if (bindingPackage.equals(name.packageName())) {
       // no proxy
       proxySelector = Optional.absent();
       // component gets the fields
@@ -438,10 +411,8 @@ class ComponentWriter {
       if (proxyClassAndField == null) {
         JavaWriter proxyJavaWriter = JavaWriter.inPackage(bindingPackage);
         javaWriters.add(proxyJavaWriter);
-        ClassWriter proxyWriter =
-            proxyJavaWriter.addClass(componentWriter.name().simpleName() + "_PackageProxy");
-        proxyWriter.annotate(Generated.class)
-            .setValue(ComponentProcessor.class.getCanonicalName());
+        ClassWriter proxyWriter = proxyJavaWriter.addClass(name.simpleName() + "_PackageProxy");
+        proxyWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
         proxyWriter.addModifiers(PUBLIC, FINAL);
         // create the field for the proxy in the component
         FieldWriter proxyFieldWriter =
@@ -505,6 +476,51 @@ class ComponentWriter {
     memberSelectSnippetsBuilder.put(
         bindingKey,
         MemberSelect.instanceSelect(name, Snippet.memberSelectSnippet(memberSelectTokens)));
+  }
+
+  /**
+   * If {@code resolvedBindings} is an unscoped provision binding with no factory arguments or a
+   * no-op members injection binding, then we do't need a field to hold its factory. In that case,
+   * this method returns the static member select snippet that returns the factory or no-op members
+   * injector.
+   */
+  private Optional<MemberSelect> staticMemberSelect(ResolvedBindings resolvedBindings) {
+    if (resolvedBindings.bindings().size() != 1) {
+      return Optional.absent();
+    }
+    switch (resolvedBindings.bindingKey().kind()) {
+      case CONTRIBUTION:
+        ContributionBinding contributionBinding =
+            getOnlyElement(resolvedBindings.contributionBindings());
+        if (contributionBinding.bindingType().isMultibinding()
+            || !(contributionBinding instanceof ProvisionBinding)) {
+          return Optional.absent();
+        }
+        ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
+        if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+            && !provisionBinding.scope().isPresent()) {
+          return Optional.of(
+              staticSelect(
+                  factoryNameForProvisionBinding(provisionBinding), Snippet.format("create()")));
+        }
+        break;
+
+      case MEMBERS_INJECTION:
+        if (getOnlyElement(resolvedBindings.membersInjectionBindings())
+            .injectionStrategy()
+            .equals(NO_OP)) {
+          return Optional.of(
+              staticMethodInvocationWithCast(
+                  ClassName.fromClass(MembersInjectors.class),
+                  Snippet.format("noOp()"),
+                  ClassName.fromClass(MembersInjector.class)));
+        }
+        break;
+
+      default:
+        throw new AssertionError();
+    }
+    return Optional.absent();
   }
 
   protected void writeInterfaceMethods() {
@@ -716,7 +732,7 @@ class ComponentWriter {
       }
     }
   }
-  
+
   private void initializeDelegateFactories(Binding binding, MethodWriter initializeMethod) {
     for (Collection<DependencyRequest> requestsForKey :
         SourceFiles.indexDependenciesByUnresolvedKey(types, binding.dependencies())
@@ -747,10 +763,9 @@ class ComponentWriter {
       }
     }
   }
-  
-  private Snippet delegateFactoryVariableSnippet(BindingKey key){
-    return Snippet.format(
-        "%sDelegate", getMemberSelectSnippet(key).toString().replace('.', '_'));
+
+  private Snippet delegateFactoryVariableSnippet(BindingKey key) {
+    return Snippet.format("%sDelegate", getMemberSelectSnippet(key).toString().replace('.', '_'));
   }
 
   private Snippet initializeFactoryForContributionBinding(ContributionBinding binding) {

@@ -90,4 +90,13 @@ abstract class ResolvedBindings {
         && !contributionBindings().isEmpty()
         && bindingTypeFor(contributionBindings()).isMultibinding();
   }
+
+  /**
+   * {@code true} if this is a unique contribution binding.
+   */
+  boolean isUniqueContribution() {
+    return bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)
+        && !contributionBindings().isEmpty()
+        && !bindingTypeFor(contributionBindings()).isMultibinding();
+  }
 }
