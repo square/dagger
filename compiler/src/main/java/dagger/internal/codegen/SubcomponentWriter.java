@@ -32,7 +32,6 @@ import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.List;
-import java.util.Map;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -40,8 +39,7 @@ import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
-import static com.google.common.base.Preconditions.checkState;
-import static javax.lang.model.element.Modifier.ABSTRACT;
+import static com.google.common.base.Verify.verify;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -49,13 +47,13 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 /**
  * Creates the nested implementation class for a subcomponent.
  */
-class SubcomponentWriter extends ComponentWriter {
+class SubcomponentWriter extends AbstractComponentWriter {
 
-  private ComponentWriter parent;
+  private AbstractComponentWriter parent;
   private ExecutableElement subcomponentFactoryMethod;
 
   public SubcomponentWriter(
-      ComponentWriter parent,
+      AbstractComponentWriter parent,
       ExecutableElement subcomponentFactoryMethod,
       BindingGraph subgraph) {
     super(
@@ -90,54 +88,64 @@ class SubcomponentWriter extends ComponentWriter {
         .or(parent.getMultibindingContributionSnippet(binding));
   }
 
+  private ExecutableType resolvedSubcomponentFactoryMethod() {
+    return MoreTypes.asExecutable(
+        types.asMemberOf(
+            MoreTypes.asDeclared(parent.componentDefinitionType().asType()),
+            subcomponentFactoryMethod));
+  }
+
   @Override
-  protected void writeComponent() {
-    componentWriter = parent.componentWriter.addNestedClass(name.simpleName());
+  protected ClassWriter createComponentClass() {
+    ClassWriter componentWriter = parent.componentWriter.addNestedClass(name.simpleName());
     componentWriter.addModifiers(PRIVATE, FINAL);
+    componentWriter.setSupertype(
+        MoreTypes.asTypeElement(
+            graph.componentDescriptor().builderSpec().isPresent()
+                ? graph
+                    .componentDescriptor()
+                    .builderSpec()
+                    .get()
+                    .componentType()
+                : resolvedSubcomponentFactoryMethod().getReturnType()));
+    return componentWriter;
+  }
 
-    constructorWriter = componentWriter.addConstructor();
-    constructorWriter.addModifiers(PRIVATE);
-    constructorWriter.body();
+  @Override
+  protected void addBuilder() {
+    // Only write subcomponent builders if there is a spec.
+    if (graph.componentDescriptor().builderSpec().isPresent()) {
+      super.addBuilder();
+    }
+  }
 
-    TypeMirror subcomponentType;
+  @Override
+  protected ClassWriter createBuilder() {
+    // Only write subcomponent builders if there is a spec.
+    verify(graph.componentDescriptor().builderSpec().isPresent());
+    return parent.componentWriter.addNestedClass(
+        componentDefinitionTypeName().simpleName() + "Builder");
+  }
+
+  @Override
+  protected void addFactoryMethods() {
     MethodWriter componentMethod;
-    Optional<ClassName> builderName;
     if (graph.componentDescriptor().builderSpec().isPresent()) {
       BuilderSpec spec = graph.componentDescriptor().builderSpec().get();
-      subcomponentType = spec.componentType();
-      componentMethod = parent.componentWriter.addMethod(
-          ClassName.fromTypeElement(spec.builderDefinitionType()),
-          subcomponentFactoryMethod.getSimpleName().toString());
-      ClassWriter builderWriter = writeBuilder(parent.componentWriter);
-      builderName = Optional.of(builderWriter.name());
-      componentMethod.body().addSnippet("return new %s();", builderWriter.name());
+      componentMethod =
+          parent.componentWriter.addMethod(
+              spec.builderDefinitionType().asType(),
+              subcomponentFactoryMethod.getSimpleName().toString());
+      componentMethod.body().addSnippet("return new %s();", builderName.get());
     } else {
-      builderName = Optional.absent();
-      ExecutableType resolvedMethod = MoreTypes.asExecutable(types.asMemberOf(
-          MoreTypes.asDeclared(parent.componentDefinitionType().asType()),
-          subcomponentFactoryMethod));
-      subcomponentType = resolvedMethod.getReturnType();
-      componentMethod = parent.componentWriter.addMethod(subcomponentType,
-          subcomponentFactoryMethod.getSimpleName().toString());
+      ExecutableType resolvedMethod = resolvedSubcomponentFactoryMethod();
+      componentMethod =
+          parent.componentWriter.addMethod(
+              resolvedMethod.getReturnType(), subcomponentFactoryMethod.getSimpleName().toString());
       writeSubcomponentWithoutBuilder(componentMethod, resolvedMethod);
     }
     componentMethod.addModifiers(PUBLIC);
     componentMethod.annotate(Override.class);
-
-    TypeElement subcomponentElement = MoreTypes.asTypeElement(subcomponentType);
-    checkState(subcomponentElement.getModifiers().contains(ABSTRACT));
-    componentWriter.setSupertype(subcomponentElement);
-
-    writeFields();
-    initializeFrameworkTypes(builderName);
-    writeInterfaceMethods();
-
-    for (Map.Entry<ExecutableElement, BindingGraph> subgraphEntry :
-        graph.subgraphs().entrySet()) {
-      SubcomponentWriter subcomponent =
-          new SubcomponentWriter(this, subgraphEntry.getKey(), subgraphEntry.getValue());
-      javaWriters.addAll(subcomponent.write());
-    }
   }
 
   private void writeSubcomponentWithoutBuilder(
