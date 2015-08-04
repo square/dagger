@@ -17,9 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -84,6 +82,7 @@ import javax.tools.Diagnostic.Kind;
 
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -130,15 +129,25 @@ class ComponentWriter {
   protected ImmutableMap<ContributionBinding, MemberSelect> multibindingContributionSnippets;
   protected ImmutableSet<BindingKey> enumBindingKeys;
   protected ConstructorWriter constructorWriter;
-  protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
   private final Set<BindingKey> bindingKeysWithInitializedProviders = Sets.newHashSet();
   private final Set<BindingKey> bindingKeysWithDelegates = Sets.newHashSet();
 
+  /**
+   * For each component requirement, the builder field. This map is empty for subcomponents that do
+   * not use a builder.
+   */
+  private ImmutableMap<TypeElement, FieldWriter> builderFields = ImmutableMap.of();
+
+  /**
+   * For each component requirement, the snippet for the component field that holds it.
+   *
+   * <p>Fields are written for all requirements for subcomponents that do not use a builder, and for
+   * any requirement that is reused from a subcomponent of this component.
+   */
+  protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
+
   ComponentWriter(
-      Types types,
-      Diagnostic.Kind nullableValidationType,
-      ClassName name,
-      BindingGraph graph) {
+      Types types, Diagnostic.Kind nullableValidationType, ClassName name, BindingGraph graph) {
     this.types = types;
     this.nullableValidationType = nullableValidationType;
     this.name = name;
@@ -151,6 +160,46 @@ class ComponentWriter {
 
   private ClassName componentDefinitionTypeName() {
     return ClassName.fromTypeElement(componentDefinitionType());
+  }
+
+  /**
+   * Returns an expression snippet that evaluates to an instance of the contribution, looking for
+   * either a builder field or a component field.
+   */
+  protected Snippet getComponentContributionSnippet(TypeElement contributionType) {
+    if (builderFields.containsKey(contributionType)) {
+      return Snippet.format("builder.%s", builderFields.get(contributionType).name());
+    } else {
+      Optional<Snippet> snippet = getOrCreateComponentContributionFieldSnippet(contributionType);
+      checkState(snippet.isPresent(), "no builder or component field for %s", contributionType);
+      return snippet.get();
+    }
+  }
+
+  /**
+   * Returns a snippet for a component contribution field. Adds a field the first time one is
+   * requested for a contribution type if this component's builder has a field for it.
+   */
+  protected Optional<Snippet> getOrCreateComponentContributionFieldSnippet(
+      TypeElement contributionType) {
+    MemberSelect fieldSelect = componentContributionFields.get(contributionType);
+    if (fieldSelect == null) {
+      if (!builderFields.containsKey(contributionType)) {
+        return Optional.absent();
+      }
+      FieldWriter componentField =
+          componentWriter.addField(contributionType, simpleVariableName(contributionType));
+      componentField.addModifiers(PRIVATE, FINAL);
+      constructorWriter
+          .body()
+          .addSnippet(
+              "this.%s = builder.%s;",
+              componentField.name(),
+              builderFields.get(contributionType).name());
+      fieldSelect = MemberSelect.instanceSelect(name, Snippet.format("%s", componentField.name()));
+      componentContributionFields.put(contributionType, fieldSelect);
+    }
+    return Optional.of(fieldSelect.getSnippetFor(name));
   }
 
   protected Snippet getMemberSelectSnippet(BindingKey key) {
@@ -184,6 +233,9 @@ class ComponentWriter {
     checkState(componentDefinitionType().getModifiers().contains(ABSTRACT));
     componentWriter.setSupertype(componentDefinitionType());
 
+    constructorWriter = componentWriter.addConstructor();
+    constructorWriter.addModifiers(PRIVATE);
+
     ClassWriter builderWriter = writeBuilder(componentWriter);
     if (!requiresUserSuppliedDependents()) {
       MethodWriter factoryMethod =
@@ -197,12 +249,6 @@ class ComponentWriter {
     }
 
     writeFields();
-
-    constructorWriter = componentWriter.addConstructor();
-    constructorWriter.addModifiers(PRIVATE);
-    constructorWriter.addParameter(builderWriter, "builder");
-    constructorWriter.body().addSnippet("assert builder != null;");
-
     initializeFrameworkTypes(Optional.of(builderWriter.name()));
     writeInterfaceMethods();
 
@@ -254,18 +300,6 @@ class ComponentWriter {
       builderWriter.addModifiers(PUBLIC);
     }
 
-    // the full set of types that calling code uses to construct a component instance
-    ImmutableMap<TypeElement, String> componentContributionNames =
-        ImmutableMap.copyOf(Maps.asMap(
-            graph.componentRequirements(),
-            Functions.compose(
-                CaseFormat.UPPER_CAMEL.converterTo(LOWER_CAMEL),
-                new Function<TypeElement, String>() {
-                  @Override public String apply(TypeElement input) {
-                    return input.getSimpleName().toString();
-                  }
-                })));
-
     MethodWriter buildMethod;
     if (builderSpec.isPresent()) {
       ExecutableElement specBuildMethod = builderSpec.get().buildMethod();
@@ -280,13 +314,15 @@ class ComponentWriter {
     }
     buildMethod.addModifiers(PUBLIC);
 
-    for (Map.Entry<TypeElement, String> entry : componentContributionNames.entrySet()) {
-      TypeElement contributionElement = entry.getKey();
-      String contributionName = entry.getValue();
+    constructorWriter.addParameter(builderWriter, "builder");
+    constructorWriter.body().addSnippet("assert builder != null;");
+
+    ImmutableMap.Builder<TypeElement, FieldWriter> builderFieldsBuilder = ImmutableMap.builder();
+    for (TypeElement contributionElement : graph.componentRequirements()) {
+      String contributionName = simpleVariableName(contributionElement);
       FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
       builderField.addModifiers(PRIVATE);
-      componentContributionFields.put(contributionElement, MemberSelect.instanceSelect(
-          name, Snippet.format("builder.%s", builderField.name())));
+      builderFieldsBuilder.put(contributionElement, builderField);
       if (componentCanMakeNewInstances(contributionElement)) {
         buildMethod.body()
             .addSnippet("if (%s == null) {", builderField.name())
@@ -336,6 +372,7 @@ class ComponentWriter {
         builderMethod.body().addSnippet("return this;");
       }
     }
+    builderFields = builderFieldsBuilder.build();
     buildMethod.body().addSnippet("return new %s(this);", name);
     return builderWriter;
   }
@@ -714,9 +751,12 @@ class ComponentWriter {
                 resolvedBindings.membersInjectionBindings());
             if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
               initializeDelegateFactories(binding, initializeMethod);
-              initializeMethod.body().addSnippet("this.%s = %s;",
-                  memberSelectSnippet, 
-                  initializeMembersInjectorForBinding(binding));
+              initializeMethod
+                  .body()
+                  .addSnippet(
+                      "this.%s = %s;",
+                      memberSelectSnippet,
+                      initializeMembersInjectorForBinding(binding));
             }
             break;
           default:
@@ -779,41 +819,40 @@ class ComponentWriter {
   }
 
   private Snippet initializeFactoryForProvisionBinding(ProvisionBinding binding) {
+    TypeName bindingKeyTypeName = TypeNames.forTypeMirror(binding.key().type());
     switch (binding.bindingKind()) {
       case COMPONENT:
-        MemberSelect componentContributionSelect =
-            componentContributionFields.get(MoreTypes.asTypeElement(binding.key().type()));
-        return Snippet.format("%s.<%s>create(%s)",
+        return Snippet.format(
+            "%s.<%s>create(%s)",
             ClassName.fromClass(InstanceFactory.class),
-            TypeNames.forTypeMirror(binding.key().type()),
-            componentContributionSelect != null
-                ? componentContributionSelect.getSnippetFor(name)
-                : "this");
+            bindingKeyTypeName,
+            bindingKeyTypeName.equals(componentDefinitionTypeName())
+                ? "this"
+                : getComponentContributionSnippet(MoreTypes.asTypeElement(binding.key().type())));
       case COMPONENT_PROVISION:
         TypeElement bindingTypeElement =
             graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
-        String sourceFieldName =
-            CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, bindingTypeElement.getSimpleName().toString());
         if (binding.nullableType().isPresent()
             || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
           Snippet nullableSnippet = binding.nullableType().isPresent()
               ? Snippet.format("@%s ", TypeNames.forTypeMirror(binding.nullableType().get()))
               : Snippet.format("");
           return Snippet.format(
-              Joiner.on('\n').join(
-                  "new %s<%2$s>() {",
-                  "  private final %6$s %7$s = %3$s;",
-                  "  %5$s@Override public %2$s get() {",
-                  "    return %7$s.%4$s();",
-                  "  }",
-                  "}"),
-              ClassName.fromClass(Factory.class),
-              TypeNames.forTypeMirror(binding.key().type()),
-              componentContributionFields.get(bindingTypeElement).getSnippetFor(name),
-              binding.bindingElement().getSimpleName().toString(),
-              nullableSnippet,
-              TypeNames.forTypeMirror(bindingTypeElement.asType()),
-              sourceFieldName);
+              Joiner.on('\n')
+                  .join(
+                      "new %1$s<%2$s>() {",
+                      "  private final %6$s %7$s = %3$s;",
+                      "  %5$s@Override public %2$s get() {",
+                      "    return %7$s.%4$s();",
+                      "  }",
+                      "}"),
+              /* 1 */ ClassName.fromClass(Factory.class),
+              /* 2 */ bindingKeyTypeName,
+              /* 3 */ getComponentContributionSnippet(bindingTypeElement),
+              /* 4 */ binding.bindingElement().getSimpleName().toString(),
+              /* 5 */ nullableSnippet,
+              /* 6 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
+              /* 7 */ simpleVariableName(bindingTypeElement));
         } else {
           // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
           // help to figure out what the method or return type is.  If we include a string
@@ -826,7 +865,7 @@ class ComponentWriter {
           return Snippet.format(
               Joiner.on('\n')
                   .join(
-                      "new %s<%2$s>() {",
+                      "new %1$s<%2$s>() {",
                       "  private final %6$s %7$s = %3$s;",
                       "  @Override public %2$s get() {",
                       "    %2$s provided = %7$s.%4$s();",
@@ -836,13 +875,13 @@ class ComponentWriter {
                       "    return provided;",
                       "  }",
                       "}"),
-              ClassName.fromClass(Factory.class),
-              TypeNames.forTypeMirror(binding.key().type()),
-              componentContributionFields.get(bindingTypeElement).getSnippetFor(name),
-              binding.bindingElement().getSimpleName().toString(),
-              failMsg,
-              TypeNames.forTypeMirror(bindingTypeElement.asType()),
-              sourceFieldName);
+              /* 1 */ ClassName.fromClass(Factory.class),
+              /* 2 */ bindingKeyTypeName,
+              /* 3 */ getComponentContributionSnippet(bindingTypeElement),
+              /* 4 */ binding.bindingElement().getSimpleName().toString(),
+              /* 5 */ failMsg,
+              /* 6 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
+              /* 7 */ simpleVariableName(bindingTypeElement));
         }
       case INJECTION:
       case PROVISION:
@@ -850,17 +889,18 @@ class ComponentWriter {
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
         if (binding.bindingKind().equals(PROVISION)
             && !binding.bindingElement().getModifiers().contains(STATIC)) {
-          parameters.add(componentContributionFields.get(binding.contributedBy().get())
-              .getSnippetFor(name));
+          parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
         }
         parameters.addAll(getDependencyParameters(binding.implicitDependencies()));
 
-        Snippet factorySnippet = Snippet.format("%s.create(%s)",
-            factoryNameForProvisionBinding(binding), Snippet.makeParametersSnippet(parameters));
+        Snippet factorySnippet =
+            Snippet.format(
+                "%s.create(%s)",
+                factoryNameForProvisionBinding(binding),
+                Snippet.makeParametersSnippet(parameters));
         return binding.scope().isPresent()
-            ? Snippet.format("%s.create(%s)",
-                ClassName.fromClass(ScopedProvider.class),
-                factorySnippet)
+            ? Snippet.format(
+                "%s.create(%s)", ClassName.fromClass(ScopedProvider.class), factorySnippet)
             : factorySnippet;
       default:
         throw new AssertionError();
@@ -872,37 +912,36 @@ class ComponentWriter {
       case COMPONENT_PRODUCTION:
         TypeElement bindingTypeElement =
             graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
-        String sourceFieldName =
-            CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, bindingTypeElement.getSimpleName().toString());
         return Snippet.format(
             Joiner.on('\n')
                 .join(
-                    "new %s<%2$s>() {",
+                    "new %1$s<%2$s>() {",
                     "  private final %6$s %7$s = %4$s;",
                     "  @Override public %3$s<%2$s> get() {",
                     "    return %7$s.%5$s();",
                     "  }",
                     "}"),
-            ClassName.fromClass(Producer.class),
-            TypeNames.forTypeMirror(binding.key().type()),
-            ClassName.fromClass(ListenableFuture.class),
-            componentContributionFields.get(bindingTypeElement).getSnippetFor(name),
-            binding.bindingElement().getSimpleName().toString(),
-            TypeNames.forTypeMirror(bindingTypeElement.asType()),
-            sourceFieldName);
+            /* 1 */ ClassName.fromClass(Producer.class),
+            /* 2 */ TypeNames.forTypeMirror(binding.key().type()),
+            /* 3 */ ClassName.fromClass(ListenableFuture.class),
+            /* 4 */ getComponentContributionSnippet(bindingTypeElement),
+            /* 5 */ binding.bindingElement().getSimpleName().toString(),
+            /* 6 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
+            /* 7 */ simpleVariableName(bindingTypeElement));
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         List<Snippet> parameters =
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 2);
-        parameters.add(componentContributionFields.get(binding.bindingTypeElement())
-            .getSnippetFor(name));
-        parameters.add(componentContributionFields.get(
-            graph.componentDescriptor().executorDependency().get())
-                .getSnippetFor(name));
+        parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
+        parameters.add(
+            getComponentContributionSnippet(
+                graph.componentDescriptor().executorDependency().get()));
         parameters.addAll(getProducerDependencyParameters(binding.dependencies()));
 
-        return Snippet.format("new %s(%s)",
-            factoryNameForProductionBinding(binding), Snippet.makeParametersSnippet(parameters));
+        return Snippet.format(
+            "new %s(%s)",
+            factoryNameForProductionBinding(binding),
+            Snippet.makeParametersSnippet(parameters));
       default:
         throw new AssertionError();
     }
@@ -1009,6 +1048,10 @@ class ComponentWriter {
     snippets.add(Snippet.format("    .build()"));
 
     return Snippet.join(Joiner.on('\n'), snippets.build());
+  }
+
+  private static String simpleVariableName(TypeElement typeElement) {
+    return UPPER_CAMEL.to(LOWER_CAMEL, typeElement.getSimpleName().toString());
   }
 }
 

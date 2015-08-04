@@ -72,6 +72,13 @@ class SubcomponentWriter extends ComponentWriter {
   }
 
   @Override
+  protected Optional<Snippet> getOrCreateComponentContributionFieldSnippet(
+      TypeElement contributionType) {
+    return super.getOrCreateComponentContributionFieldSnippet(contributionType)
+        .or(parent.getOrCreateComponentContributionFieldSnippet(contributionType));
+  }
+
+  @Override
   protected MemberSelect getMemberSelect(BindingKey key) {
     MemberSelect memberSelect = super.getMemberSelect(key);
     return memberSelect == null ? parent.getMemberSelect(key) : memberSelect;
@@ -103,8 +110,6 @@ class SubcomponentWriter extends ComponentWriter {
           subcomponentFactoryMethod.getSimpleName().toString());
       ClassWriter builderWriter = writeBuilder(parent.componentWriter);
       builderName = Optional.of(builderWriter.name());
-      constructorWriter.addParameter(builderWriter, "builder");
-      constructorWriter.body().addSnippet("assert builder != null;");
       componentMethod.body().addSnippet("return new %s();", builderWriter.name());
     } else {
       builderName = Optional.absent();
@@ -124,7 +129,6 @@ class SubcomponentWriter extends ComponentWriter {
     componentWriter.setSupertype(subcomponentElement);
 
     writeFields();
-
     initializeFrameworkTypes(builderName);
     writeInterfaceMethods();
 
