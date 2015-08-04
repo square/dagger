@@ -22,6 +22,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 @RunWith(Parameterized.class)
@@ -54,4 +55,20 @@ public class SubcomponentMultibindingsTest {
         .containsExactly("string provided by parent");
   }
 
+  @Test
+  public void testOverriddenMultibindingsInSubcomponents() {
+    RequiresMultibindingsInChild requiresMultibindingsInChild =
+        parent.childComponent().requiresMultibindingsInChild();
+
+    assertWithMessage("setOfRequiresSetOfObjects")
+        .that(requiresMultibindingsInChild.setOfRequiresSetOfObjects())
+        .hasSize(1);
+
+    RequiresSetOfObjects onlyElementInSetOfRequiresSetOfObjects =
+        getOnlyElement(requiresMultibindingsInChild.setOfRequiresSetOfObjects());
+
+    assertWithMessage("setOfRequiresSetOfObjects[only].setOfObjects")
+        .that(onlyElementInSetOfRequiresSetOfObjects.setOfObjects())
+        .containsExactly("object provided by parent", "object provided by child");
+  }
 }

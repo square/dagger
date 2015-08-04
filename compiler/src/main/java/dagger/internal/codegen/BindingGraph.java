@@ -264,9 +264,8 @@ abstract class BindingGraph {
               ImmutableSet.Builder<ContributionBinding> inheritedBindings = ImmutableSet.builder();
               for (ProvisionBinding provisionBinding :
                   Sets.union(explicitProvisionBindingsForKey, explicitMapProvisionBindings)) {
-                Optional<RequestResolver> owningResolver = getOwningResolver(provisionBinding);
-                if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
-                  owningResolver.get().resolve(request);
+                if (isResolvedInParent(request, provisionBinding)
+                    && !shouldOwnParentBinding(request, provisionBinding)) {
                   inheritedBindings.add(provisionBinding);
                 } else {
                   ownedBindings.add(provisionBinding);
@@ -298,13 +297,10 @@ abstract class BindingGraph {
                 Optional<ProvisionBinding> provisionBinding =
                     injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
                 if (provisionBinding.isPresent()) {
-                  Optional<RequestResolver> owningResolver =
-                      getOwningResolver(provisionBinding.get());
-                  if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
-                    owningResolver.get().resolve(request);
+                  if (isResolvedInParent(request, provisionBinding.get())
+                      && !shouldOwnParentBinding(request, provisionBinding.get())) {
                     return ResolvedBindings.create(
-                        bindingKey, ImmutableSet.<Binding>of(),
-                        provisionBinding.asSet());
+                        bindingKey, ImmutableSet.<Binding>of(), provisionBinding.asSet());
                   }
                 }
                 return ResolvedBindings.create(
@@ -318,6 +314,34 @@ abstract class BindingGraph {
           default:
             throw new AssertionError();
         }
+      }
+
+      /**
+       * Returns {@code true} if {@code provisionBinding} is owned by a parent resolver. If so,
+       * calls {@link #resolve(DependencyRequest) resolve(request)} on that resolver.
+       */
+      private boolean isResolvedInParent(
+          DependencyRequest request, ProvisionBinding provisionBinding) {
+        Optional<RequestResolver> owningResolver = getOwningResolver(provisionBinding);
+        if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
+          owningResolver.get().resolve(request);
+          return true;
+        } else {
+          return false;
+        }
+      }
+
+      /**
+       * Returns {@code true} if {@code provisionBinding}, which was previously resolved by a parent
+       * resolver, should be moved into this resolver's bindings for {@code request} because it is
+       * unscoped and {@linkplain #dependsOnLocalMultibindings(ResolvedBindings) depends on local
+       * multibindings}, or {@code false} if it can satisfy {@code request} as an inherited binding.
+       */
+      private boolean shouldOwnParentBinding(
+          DependencyRequest request, ProvisionBinding provisionBinding) {
+        return !isScoped(provisionBinding)
+            && dependsOnLocalMultibindings(
+                getPreviouslyResolvedBindings(request.bindingKey()).get());
       }
 
       private MembersInjectionBinding rollUpMembersInjectionBindings(Key key) {
