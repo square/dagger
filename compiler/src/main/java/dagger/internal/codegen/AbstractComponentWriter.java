@@ -212,6 +212,10 @@ abstract class AbstractComponentWriter {
     return Optional.fromNullable(multibindingContributionSnippets.get(binding));
   }
 
+  protected boolean isProviderInitialized(BindingKey bindingKey) {
+    return bindingKeysWithInitializedProviders.contains(bindingKey);
+  }
+
   ImmutableSet<JavaWriter> write() {
     if (javaWriters.isEmpty()) {
       writeComponent();
@@ -753,7 +757,7 @@ abstract class AbstractComponentWriter {
                           })
                       .toSet());
       if (!getMemberSelect(dependencyKey).staticMember()
-          && !bindingKeysWithInitializedProviders.contains(dependencyKey)
+          && !isProviderInitialized(dependencyKey)
           && !bindingKeysWithDelegates.contains(dependencyKey)) {
         initializeMethod
             .body()

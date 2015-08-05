@@ -68,6 +68,11 @@ class SubcomponentWriter extends AbstractComponentWriter {
   private static String subcomponentSimpleName(BindingGraph subgraph) {
     return subgraph.componentDescriptor().componentDefinitionType().getSimpleName() + "Impl";
   }
+  
+  @Override
+  protected boolean isProviderInitialized(BindingKey bindingKey) {
+    return super.isProviderInitialized(bindingKey) || parent.isProviderInitialized(bindingKey);
+  }
 
   @Override
   protected Optional<Snippet> getOrCreateComponentContributionFieldSnippet(

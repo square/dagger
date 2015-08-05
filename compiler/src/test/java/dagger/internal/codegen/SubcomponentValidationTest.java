@@ -244,4 +244,197 @@ public final class SubcomponentValidationTest {
         .failsToCompile()
         .withErrorContaining("@Singleton");
   }
+  
+  @Test
+  public void delegateFactoryNotCreatedForSubcomponentWhenProviderExistsInParent() {
+    JavaFileObject parentComponentFile =
+        JavaFileObjects.forSourceLines(
+            "test.ParentComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface ParentComponent {",
+            "  ChildComponent childComponent();",
+            "  Dep1 getDep1();",
+            "  Dep2 getDep2();",
+            "}");
+    JavaFileObject childComponentFile =
+        JavaFileObjects.forSourceLines(
+            "test.ChildComponent",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = ChildModule.class)",
+            "interface ChildComponent {",
+            "  Object getObject();",
+            "}");
+    JavaFileObject childModuleFile =
+        JavaFileObjects.forSourceLines(
+            "test.ChildModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module",
+            "final class ChildModule {",
+            "  @Provides Object provideObject(A a) { return null; }",
+            "}");
+    JavaFileObject aFile =
+        JavaFileObjects.forSourceLines(
+            "test.A",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class A {",
+            "  @Inject public A(NeedsDep1 a, Dep1 b, Dep2 c) { }",
+            "  @Inject public void methodA() { }",
+            "}");
+    JavaFileObject needsDep1File =
+        JavaFileObjects.forSourceLines(
+            "test.NeedsDep1",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class NeedsDep1 {",
+            "  @Inject public NeedsDep1(Dep1 d) { }",
+            "}");
+    JavaFileObject dep1File =
+        JavaFileObjects.forSourceLines(
+            "test.Dep1",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class Dep1 {",
+            "  @Inject public Dep1() { }",
+            "  @Inject public void dep1Method() { }",
+            "}");
+    JavaFileObject dep2File =
+        JavaFileObjects.forSourceLines(
+            "test.Dep2",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class Dep2 {",
+            "  @Inject public Dep2() { }",
+            "  @Inject public void dep2Method() { }",
+            "}");
+
+    JavaFileObject componentGeneratedFile =
+        JavaFileObjects.forSourceLines(
+            "DaggerParentComponent",
+            "package test;",
+            "",
+            "import dagger.MembersInjector;",
+            "import javax.annotation.Generated;",
+            "import javax.inject.Provider;",
+            "",
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            "public final class DaggerParentComponent implements ParentComponent {",
+            "  private MembersInjector<Dep1> dep1MembersInjector;",
+            "  private Provider<Dep1> dep1Provider;",
+            "  private MembersInjector<Dep2> dep2MembersInjector;",
+            "  private Provider<Dep2> dep2Provider;",
+            "",
+            "  private DaggerParentComponent(Builder builder) {  ",
+            "    assert builder != null;",
+            "    initialize(builder);",
+            "  }",
+            "",
+            "  public static Builder builder() {  ",
+            "    return new Builder();",
+            "  }",
+            "",
+            "  public static ParentComponent create() {  ",
+            "    return builder().build();",
+            "  }",
+            "",
+            "  private void initialize(final Builder builder) {  ",
+            "    this.dep1MembersInjector = Dep1_MembersInjector.create();",
+            "    this.dep1Provider = Dep1_Factory.create(dep1MembersInjector);",
+            "    this.dep2MembersInjector = Dep2_MembersInjector.create();",
+            "    this.dep2Provider = Dep2_Factory.create(dep2MembersInjector);",
+            "  }",
+            "",
+            "  @Override",
+            "  public Dep1 getDep1() {  ",
+            "    return dep1Provider.get();",
+            "  }",
+            "",
+            "  @Override",
+            "  public Dep2 getDep2() {  ",
+            "    return dep2Provider.get();",
+            "  }",
+            "",
+            "  @Override",
+            "  public ChildComponent childComponent() {  ",
+            "    return new ChildComponentImpl();",
+            "  }",
+            "",
+            "  public static final class Builder {",
+            "    private Builder() {  ",
+            "    }",
+            "  ",
+            "    public ParentComponent build() {  ",
+            "      return new DaggerParentComponent(this);",
+            "    }",
+            "  }",
+            "",
+            "  private final class ChildComponentImpl implements ChildComponent {",
+            "    private final ChildModule childModule;",
+            "    private MembersInjector<A> aMembersInjector;",
+            "    private Provider<NeedsDep1> needsDep1Provider;",
+            "    private Provider<A> aProvider;",
+            "    private Provider<Object> provideObjectProvider;",
+            "    private MembersInjector<Dep1> dep1MembersInjector;",
+            "    private MembersInjector<Dep2> dep2MembersInjector;",
+            "  ",
+            "    private ChildComponentImpl() {  ",
+            "      this.childModule = new ChildModule();",
+            "      initialize();",
+            "    }",
+            "  ",
+            "    private void initialize() {  ",
+            "      this.aMembersInjector = A_MembersInjector.create();",
+            "      this.needsDep1Provider = NeedsDep1_Factory.create(",
+            "          DaggerParentComponent.this.dep1Provider);",
+            "      this.aProvider = A_Factory.create(",
+            "          aMembersInjector,",
+            "          needsDep1Provider,",
+            "          DaggerParentComponent.this.dep1Provider,",
+            "          DaggerParentComponent.this.dep2Provider);",
+            "      this.provideObjectProvider = ChildModule_ProvideObjectFactory.create(",
+            "          childModule, aProvider);",
+            "      this.dep1MembersInjector = Dep1_MembersInjector.create();",
+            "      this.dep2MembersInjector = Dep2_MembersInjector.create();",
+            "    }",
+            "  ",
+            "    @Override",
+            "    public Object getObject() {  ",
+            "      return provideObjectProvider.get();",
+            "    }",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(
+            ImmutableList.of(
+                parentComponentFile,
+                childComponentFile,
+                childModuleFile,
+                aFile,
+                needsDep1File,
+                dep1File,
+                dep2File))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(componentGeneratedFile);
+  }
 }
