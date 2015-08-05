@@ -32,34 +32,32 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 
 /**
- * A {@link Validator} for {@link Inject} methods.
+ * A {@linkplain ValidationReport validator} for {@link Inject} methods.
  *
  * @author Gregory Kick
  * @since 2.0
  */
-final class InjectMethodValidator implements Validator<ExecutableElement> {
-  @Override
-  public ValidationReport<ExecutableElement> validate(ExecutableElement methodElement) {
-    ValidationReport.Builder<ExecutableElement> builder =
-        ValidationReport.Builder.about(methodElement);
+final class InjectMethodValidator {
+  ValidationReport<ExecutableElement> validate(ExecutableElement methodElement) {
+    ValidationReport.Builder<ExecutableElement> builder = ValidationReport.about(methodElement);
     Set<Modifier> modifiers = methodElement.getModifiers();
     if (modifiers.contains(ABSTRACT)) {
-      builder.addItem(ABSTRACT_INJECT_METHOD, methodElement);
+      builder.addError(ABSTRACT_INJECT_METHOD, methodElement);
     }
 
     if (modifiers.contains(PRIVATE)) {
-      builder.addItem(PRIVATE_INJECT_METHOD, methodElement);
+      builder.addError(PRIVATE_INJECT_METHOD, methodElement);
     }
 
     if (!methodElement.getTypeParameters().isEmpty()) {
-      builder.addItem(GENERIC_INJECT_METHOD, methodElement);
+      builder.addError(GENERIC_INJECT_METHOD, methodElement);
     }
 
     for (VariableElement parameter : methodElement.getParameters()) {
       ImmutableSet<? extends AnnotationMirror> qualifiers = getQualifiers(parameter);
       if (qualifiers.size() > 1) {
         for (AnnotationMirror qualifier : qualifiers) {
-          builder.addItem(MULTIPLE_QUALIFIERS, methodElement, qualifier);
+          builder.addError(MULTIPLE_QUALIFIERS, methodElement, qualifier);
         }
       }
     }

@@ -38,14 +38,14 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  *
  * @author Jesse Beder
  */
-final class ProductionComponentValidator implements Validator<TypeElement> {
-  @Override public ValidationReport<TypeElement> validate(final TypeElement subject) {
-    final ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
+final class ProductionComponentValidator {
+  ValidationReport<TypeElement> validate(final TypeElement subject) {
+    final ValidationReport.Builder<TypeElement> builder = ValidationReport.about(subject);
 
     if (!subject.getKind().equals(INTERFACE)
         && !(subject.getKind().equals(CLASS) && subject.getModifiers().contains(ABSTRACT))) {
-      builder.addItem("@ProductionComponent may only be applied to an interface or abstract class",
-          subject);
+      builder.addError(
+          "@ProductionComponent may only be applied to an interface or abstract class", subject);
     }
 
     AnnotationMirror componentMirror =
@@ -54,26 +54,30 @@ final class ProductionComponentValidator implements Validator<TypeElement> {
 
     // TODO(gak): make unused modules an error
     for (TypeMirror moduleType : moduleTypes) {
-      moduleType.accept(new SimpleTypeVisitor6<Void, Void>() {
-        @Override
-        protected Void defaultAction(TypeMirror mirror, Void p) {
-          builder.addItem(mirror + " is not a valid module type.", subject);
-          return null;
-        }
+      moduleType.accept(
+          new SimpleTypeVisitor6<Void, Void>() {
+            @Override
+            protected Void defaultAction(TypeMirror mirror, Void p) {
+              builder.addError(mirror + " is not a valid module type.", subject);
+              return null;
+            }
 
-        @Override
-        public Void visitDeclared(DeclaredType t, Void p) {
-          checkState(t.getTypeArguments().isEmpty());
-          TypeElement moduleElement = MoreElements.asType(t.asElement());
-          if (!getAnnotationMirror(moduleElement, Module.class).isPresent()
-              && !getAnnotationMirror(moduleElement, ProducerModule.class).isPresent()) {
-            builder.addItem(moduleElement.getQualifiedName()
-                + " is listed as a module, but is not annotated with @Module or @ProducerModule",
-                subject);
-          }
-          return null;
-        }
-      }, null);
+            @Override
+            public Void visitDeclared(DeclaredType t, Void p) {
+              checkState(t.getTypeArguments().isEmpty());
+              TypeElement moduleElement = MoreElements.asType(t.asElement());
+              if (!getAnnotationMirror(moduleElement, Module.class).isPresent()
+                  && !getAnnotationMirror(moduleElement, ProducerModule.class).isPresent()) {
+                builder.addError(
+                    moduleElement.getQualifiedName()
+                        + " is listed as a module, but is not annotated with @Module or"
+                        + " @ProducerModule",
+                    subject);
+              }
+              return null;
+            }
+          },
+          null);
     }
 
     return builder.build();

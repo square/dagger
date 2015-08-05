@@ -61,12 +61,12 @@ import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_NOT_ANNOTA
 import static javax.lang.model.element.Modifier.ABSTRACT;
 
 /**
- * A {@link Validator} for {@link Module}s or {@link ProducerModule}s.
+ * A {@linkplain ValidationReport validator} for {@link Module}s or {@link ProducerModule}s.
  *
  * @author Gregory Kick
  * @since 2.0
  */
-final class ModuleValidator implements Validator<TypeElement> {
+final class ModuleValidator {
   private final Types types;
   private final Elements elements;
   private final Class<? extends Annotation> moduleClass;
@@ -86,9 +86,8 @@ final class ModuleValidator implements Validator<TypeElement> {
     this.methodSignatureFormatter = methodSignatureFormatter;
   }
 
-  @Override
-  public ValidationReport<TypeElement> validate(final TypeElement subject) {
-    final ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
+  ValidationReport<TypeElement> validate(final TypeElement subject) {
+    final ValidationReport.Builder<TypeElement> builder = ValidationReport.about(subject);
 
     List<ExecutableElement> moduleMethods = ElementFilter.methodsIn(subject.getEnclosedElements());
     ListMultimap<String, ExecutableElement> allMethodsByName = ArrayListMultimap.create();
@@ -99,88 +98,102 @@ final class ModuleValidator implements Validator<TypeElement> {
       }
       allMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
     }
-      
+
     validateModuleVisibility(subject, builder);
     validateMethodsWithSameName(builder, bindingMethodsByName);
     if (subject.getKind() != ElementKind.INTERFACE) {
       validateProvidesOverrides(subject, builder, allMethodsByName, bindingMethodsByName);
     }
-    validateModifiers(subject, builder);    
+    validateModifiers(subject, builder);
     validateReferencedModules(subject, builder);
-    
+
     // TODO(gak): port the dagger 1 module validation?
     return builder.build();
   }
 
-  private void validateModifiers(TypeElement subject,
-      ValidationReport.Builder<TypeElement> builder) {    
+  private void validateModifiers(
+      TypeElement subject, ValidationReport.Builder<TypeElement> builder) {
     // This coupled with the check for abstract modules in ComponentValidator guarantees that
-    // only modules without type parameters are referenced from @Component(modules={...}). 
+    // only modules without type parameters are referenced from @Component(modules={...}).
     if (!subject.getTypeParameters().isEmpty() && !subject.getModifiers().contains(ABSTRACT)) {
-      builder.addItem(MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT, subject);
+      builder.addError(MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT, subject);
     }
   }
-  
-  private void validateMethodsWithSameName(ValidationReport.Builder<TypeElement> builder,
+
+  private void validateMethodsWithSameName(
+      ValidationReport.Builder<TypeElement> builder,
       ListMultimap<String, ExecutableElement> bindingMethodsByName) {
     for (Entry<String, Collection<ExecutableElement>> entry :
         bindingMethodsByName.asMap().entrySet()) {
       if (entry.getValue().size() > 1) {
         for (ExecutableElement offendingMethod : entry.getValue()) {
-          builder.addItem(String.format(BINDING_METHOD_WITH_SAME_NAME, methodClass.getSimpleName()),
+          builder.addError(
+              String.format(BINDING_METHOD_WITH_SAME_NAME, methodClass.getSimpleName()),
               offendingMethod);
         }
       }
-    }    
+    }
   }
-  
-  private void validateReferencedModules(final TypeElement subject,
-      final ValidationReport.Builder<TypeElement> builder) {
+
+  private void validateReferencedModules(
+      TypeElement subject, ValidationReport.Builder<TypeElement> builder) {
     // Validate that all the modules we include are valid for inclusion.
     AnnotationMirror mirror = getAnnotationMirror(subject, moduleClass).get();
     ImmutableList<TypeMirror> includedTypes = getModuleIncludes(mirror);
     validateReferencedModules(subject,  builder, includedTypes);
   }
-  
+
   /**
    * Used by {@link ModuleValidator} & {@link ComponentValidator} to validate referenced modules.
    */
-  void validateReferencedModules(final TypeElement subject,
+  void validateReferencedModules(
+      final TypeElement subject,
       final ValidationReport.Builder<TypeElement> builder,
       ImmutableList<TypeMirror> includedTypes) {
     for (TypeMirror includedType : includedTypes) {
-      includedType.accept(new SimpleTypeVisitor6<Void, Void>() {
-        @Override
-        protected Void defaultAction(TypeMirror mirror, Void p) {
-          builder.addItem(mirror + " is not a valid module type.", subject);
-          return null;
-        }
+      includedType.accept(
+          new SimpleTypeVisitor6<Void, Void>() {
+            @Override
+            protected Void defaultAction(TypeMirror mirror, Void p) {
+              builder.addError(mirror + " is not a valid module type.", subject);
+              return null;
+            }
 
-        @Override
-        public Void visitDeclared(DeclaredType t, Void p) {
-          TypeElement element = MoreElements.asType(t.asElement()); 
-          if (!t.getTypeArguments().isEmpty()) {
-            builder.addItem(String.format(REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS,
-                element.getQualifiedName()), subject);
-          }
-          if (!getAnnotationMirror(element, moduleClass).isPresent()) {
-            builder.addItem(String.format(REFERENCED_MODULE_NOT_ANNOTATED,
-                element.getQualifiedName(), moduleClass.getSimpleName()), subject);
-          }
-          if (element.getModifiers().contains(ABSTRACT)) {
-            builder.addItem(String.format(REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT,
-                element.getQualifiedName()), subject);
-          }
-          return null;
-        }
-      }, null);
+            @Override
+            public Void visitDeclared(DeclaredType t, Void p) {
+              TypeElement element = MoreElements.asType(t.asElement());
+              if (!t.getTypeArguments().isEmpty()) {
+                builder.addError(
+                    String.format(
+                        REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS, element.getQualifiedName()),
+                    subject);
+              }
+              if (!getAnnotationMirror(element, moduleClass).isPresent()) {
+                builder.addError(
+                    String.format(
+                        REFERENCED_MODULE_NOT_ANNOTATED,
+                        element.getQualifiedName(),
+                        moduleClass.getSimpleName()),
+                    subject);
+              }
+              if (element.getModifiers().contains(ABSTRACT)) {
+                builder.addError(
+                    String.format(
+                        REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT, element.getQualifiedName()),
+                    subject);
+              }
+              return null;
+            }
+          },
+          null);
     }
   }
-  
-  private void validateProvidesOverrides(TypeElement subject,
+
+  private void validateProvidesOverrides(
+      TypeElement subject,
       ValidationReport.Builder<TypeElement> builder,
       ListMultimap<String, ExecutableElement> allMethodsByName,
-      ListMultimap<String, ExecutableElement> bindingMethodsByName) { 
+      ListMultimap<String, ExecutableElement> bindingMethodsByName) {
     // For every @Provides method, confirm it overrides nothing *and* nothing overrides it.
     // Consider the following hierarchy:
     // class Parent {
@@ -211,8 +224,11 @@ final class ModuleValidator implements Validator<TypeElement> {
           if (!failedMethods.contains(providesMethod)
               && elements.overrides(providesMethod, superclassMethod, subject)) {
             failedMethods.add(providesMethod);
-            builder.addItem(String.format(PROVIDES_METHOD_OVERRIDES_ANOTHER,
-                methodClass.getSimpleName(), methodSignatureFormatter.format(superclassMethod)),
+            builder.addError(
+                String.format(
+                    PROVIDES_METHOD_OVERRIDES_ANOTHER,
+                    methodClass.getSimpleName(),
+                    methodSignatureFormatter.format(superclassMethod)),
                 providesMethod);
           }
         }
@@ -222,8 +238,11 @@ final class ModuleValidator implements Validator<TypeElement> {
             if (!failedMethods.contains(method)
                 && elements.overrides(method, superclassMethod, subject)) {
               failedMethods.add(method);
-              builder.addItem(String.format(METHOD_OVERRIDES_PROVIDES_METHOD,
-                  methodClass.getSimpleName(), methodSignatureFormatter.format(superclassMethod)),
+              builder.addError(
+                  String.format(
+                      METHOD_OVERRIDES_PROVIDES_METHOD,
+                      methodClass.getSimpleName(),
+                      methodSignatureFormatter.format(superclassMethod)),
                   method);
             }
           }
@@ -237,9 +256,9 @@ final class ModuleValidator implements Validator<TypeElement> {
       final ValidationReport.Builder<?> reportBuilder) {
     Visibility moduleVisibility = Visibility.ofElement(moduleElement);
     if (moduleVisibility.equals(PRIVATE)) {
-      reportBuilder.addItem("Modules cannot be private.", moduleElement);
+      reportBuilder.addError("Modules cannot be private.", moduleElement);
     } else if (effectiveVisibilityOfElement(moduleElement).equals(PRIVATE)) {
-      reportBuilder.addItem("Modules cannot be enclosed in private types.", moduleElement);
+      reportBuilder.addError("Modules cannot be enclosed in private types.", moduleElement);
     }
 
     switch (moduleElement.getNestingKind()) {
@@ -264,7 +283,7 @@ final class ModuleValidator implements Validator<TypeElement> {
                   })
                   .toSet();
           if (!nonPublicModules.isEmpty()) {
-            reportBuilder.addItem(
+            reportBuilder.addError(
                 String.format(
                     "This module is public, but it includes non-public "
                         + "(or effectively non-public) modules. "

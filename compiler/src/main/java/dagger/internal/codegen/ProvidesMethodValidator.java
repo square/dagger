@@ -54,12 +54,12 @@ import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
 /**
- * A {@link Validator} for {@link Provides} methods.
+ * A {@linkplain ValidationReport validator} for {@link Provides} methods.
  *
  * @author Gregory Kick
  * @since 2.0
  */
-final class ProvidesMethodValidator implements Validator<ExecutableElement> {
+final class ProvidesMethodValidator {
   private final Elements elements;
 
   ProvidesMethodValidator(Elements elements) {
@@ -70,45 +70,42 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
     return elements.getTypeElement(Set.class.getCanonicalName());
   }
 
-  @Override
-  public ValidationReport<ExecutableElement> validate(ExecutableElement providesMethodElement) {
+  ValidationReport<ExecutableElement> validate(ExecutableElement providesMethodElement) {
     ValidationReport.Builder<ExecutableElement> builder =
-        ValidationReport.Builder.about(providesMethodElement);
+        ValidationReport.about(providesMethodElement);
 
     Provides providesAnnotation = providesMethodElement.getAnnotation(Provides.class);
     checkArgument(providesAnnotation != null);
 
     Element enclosingElement = providesMethodElement.getEnclosingElement();
     if (!isAnnotationPresent(enclosingElement, Module.class)) {
-      builder.addItem(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE),
-          providesMethodElement);
+      builder.addError(
+          formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE), providesMethodElement);
     }
 
     if (!providesMethodElement.getTypeParameters().isEmpty()) {
-      builder.addItem(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER),
-          providesMethodElement);
+      builder.addError(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER), providesMethodElement);
     }
 
     Set<Modifier> modifiers = providesMethodElement.getModifiers();
     if (modifiers.contains(PRIVATE)) {
-      builder.addItem(formatErrorMessage(BINDING_METHOD_PRIVATE),
-          providesMethodElement);
+      builder.addError(formatErrorMessage(BINDING_METHOD_PRIVATE), providesMethodElement);
     }
     if (modifiers.contains(ABSTRACT)) {
-      builder.addItem(formatErrorMessage(BINDING_METHOD_ABSTRACT), providesMethodElement);
+      builder.addError(formatErrorMessage(BINDING_METHOD_ABSTRACT), providesMethodElement);
     }
 
     TypeMirror returnType = providesMethodElement.getReturnType();
     TypeKind returnTypeKind = returnType.getKind();
     if (returnTypeKind.equals(VOID)) {
-      builder.addItem(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE),
-          providesMethodElement);
+      builder.addError(
+          formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE), providesMethodElement);
     }
 
     // check mapkey is right
     if (!providesAnnotation.type().equals(Provides.Type.MAP)
         && !getMapKeys(providesMethodElement).isEmpty()) {
-      builder.addItem(
+      builder.addError(
           formatErrorMessage(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY), providesMethodElement);
     }
 
@@ -124,28 +121,28 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
         ImmutableSet<? extends AnnotationMirror> mapKeys = getMapKeys(providesMethodElement);
         switch (mapKeys.size()) {
           case 0:
-            builder.addItem(
+            builder.addError(
                 formatErrorMessage(BINDING_METHOD_WITH_NO_MAP_KEY), providesMethodElement);
             break;
           case 1:
             break;
           default:
-            builder.addItem(
+            builder.addError(
                 formatErrorMessage(BINDING_METHOD_WITH_MULTIPLE_MAP_KEY), providesMethodElement);
             break;
         }
         break;
       case SET_VALUES:
         if (!returnTypeKind.equals(DECLARED)) {
-          builder.addItem(PROVIDES_METHOD_SET_VALUES_RETURN_SET, providesMethodElement);
+          builder.addError(PROVIDES_METHOD_SET_VALUES_RETURN_SET, providesMethodElement);
         } else {
           DeclaredType declaredReturnType = (DeclaredType) returnType;
           // TODO(gak): should we allow "covariant return" for set values?
           if (!declaredReturnType.asElement().equals(getSetElement())) {
-            builder.addItem(PROVIDES_METHOD_SET_VALUES_RETURN_SET, providesMethodElement);
+            builder.addError(PROVIDES_METHOD_SET_VALUES_RETURN_SET, providesMethodElement);
           } else if (declaredReturnType.getTypeArguments().isEmpty()) {
-            builder.addItem(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET),
-                providesMethodElement);
+            builder.addError(
+                formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET), providesMethodElement);
           } else {
             validateKeyType(builder,
                 Iterables.getOnlyElement(declaredReturnType.getTypeArguments()));
@@ -165,7 +162,7 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
     ImmutableSet<? extends AnnotationMirror> qualifiers = getQualifiers(methodElement);
     if (qualifiers.size() > 1) {
       for (AnnotationMirror qualifier : qualifiers) {
-        builder.addItem(PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS, methodElement, qualifier);
+        builder.addError(PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS, methodElement, qualifier);
       }
     }
   }
@@ -182,7 +179,7 @@ final class ProvidesMethodValidator implements Validator<ExecutableElement> {
       TypeMirror type) {
     TypeKind kind = type.getKind();
     if (!(kind.isPrimitive() || kind.equals(DECLARED) || kind.equals(ARRAY))) {
-      reportBuilder.addItem(PROVIDES_METHOD_RETURN_TYPE, reportBuilder.getSubject());
+      reportBuilder.addError(PROVIDES_METHOD_RETURN_TYPE, reportBuilder.getSubject());
     }
   }
 }

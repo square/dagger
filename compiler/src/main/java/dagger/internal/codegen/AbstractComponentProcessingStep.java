@@ -22,6 +22,7 @@ import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 
 /**
  * A {@link ProcessingStep} that is responsible for dealing with a component or production component
@@ -52,7 +53,7 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
     for (ComponentDescriptor componentDescriptor : componentDescriptors(elementsByAnnotation)) {
       try {
         BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-        ValidationReport<BindingGraph> graphReport = bindingGraphValidator.validate(bindingGraph);
+        ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
         graphReport.printMessagesTo(messager);
         if (graphReport.isClean()) {
           try {

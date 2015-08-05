@@ -43,33 +43,33 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
-/** 
+/**
  * Validates {@link dagger.Component.Builder} annotations.
- * 
- * @author sameb@google.com (Sam Berlin)  
+ *
+ * @author sameb@google.com (Sam Berlin)
  */
-class BuilderValidator implements Validator<TypeElement> {
+class BuilderValidator {
   private final Elements elements;
   private final Types types;
   private final ComponentDescriptor.Kind componentType;
-  
+
   BuilderValidator(Elements elements, Types types, ComponentDescriptor.Kind componentType) {
     this.elements = elements;
     this.types = types;
     this.componentType = componentType;
   }
 
-  @Override public ValidationReport<TypeElement> validate(TypeElement subject) {
-    ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
+  public ValidationReport<TypeElement> validate(TypeElement subject) {
+    ValidationReport.Builder<TypeElement> builder = ValidationReport.about(subject);
 
     Element componentElement = subject.getEnclosingElement();
     ErrorMessages.ComponentBuilderMessages msgs = ErrorMessages.builderMsgsFor(componentType);
     Class<? extends Annotation> componentAnnotation = componentType.annotationType();
     Class<? extends Annotation> builderAnnotation = componentType.builderAnnotationType();
     checkArgument(subject.getAnnotation(builderAnnotation) != null);
-    
+
     if (!isAnnotationPresent(componentElement, componentAnnotation)) {
-      builder.addItem(msgs.mustBeInComponent(), subject);
+      builder.addError(msgs.mustBeInComponent(), subject);
     }
 
     switch (subject.getKind()) {
@@ -77,37 +77,36 @@ class BuilderValidator implements Validator<TypeElement> {
         List<? extends Element> allElements = subject.getEnclosedElements();
         List<ExecutableElement> cxtors = ElementFilter.constructorsIn(allElements);
         if (cxtors.size() != 1 || getOnlyElement(cxtors).getParameters().size() != 0) {
-          builder.addItem(msgs.cxtorOnlyOneAndNoArgs(), subject);
+          builder.addError(msgs.cxtorOnlyOneAndNoArgs(), subject);
         }
         break;
       case INTERFACE:
         break;
       default:
         // If not the correct type, exit early since the rest of the messages will be bogus.
-        builder.addItem(msgs.mustBeClassOrInterface(), subject);
-        return builder.build(); 
-    }    
+        builder.addError(msgs.mustBeClassOrInterface(), subject);
+        return builder.build();
+    }
 
-    
     if (!subject.getTypeParameters().isEmpty()) {
-      builder.addItem(msgs.generics(), subject);
+      builder.addError(msgs.generics(), subject);
     }
 
     Set<Modifier> modifiers = subject.getModifiers();
     if (modifiers.contains(PRIVATE)) {
-      builder.addItem(msgs.isPrivate(), subject);
+      builder.addError(msgs.isPrivate(), subject);
     }
     if (!modifiers.contains(STATIC)) {
-      builder.addItem(msgs.mustBeStatic(), subject);
+      builder.addError(msgs.mustBeStatic(), subject);
     }
     // Note: Must be abstract, so no need to check for final.
     if (!modifiers.contains(ABSTRACT)) {
-      builder.addItem(msgs.mustBeAbstract(), subject);
+      builder.addError(msgs.mustBeAbstract(), subject);
     }
-    
+
     ExecutableElement buildMethod = null;
     Multimap<Equivalence.Wrapper<TypeMirror>, ExecutableElement> methodsPerParam =
-        LinkedHashMultimap.create();    
+        LinkedHashMultimap.create();
     for (ExecutableElement method : Util.getUnimplementedMethods(elements, subject)) {
       ExecutableType resolvedMethodType =
           MoreTypes.asExecutable(types.asMemberOf(MoreTypes.asDeclared(subject.asType()), method));
@@ -141,33 +140,33 @@ class BuilderValidator implements Validator<TypeElement> {
                 Iterables.getOnlyElement(resolvedMethodType.getParameterTypes())),
             method);
       }
-      
+
       if (!method.getTypeParameters().isEmpty()) {
         error(builder, method, msgs.methodsMayNotHaveTypeParameters(),
             msgs.inheritedMethodsMayNotHaveTypeParameters());
       }
     }
-    
+
     if (buildMethod == null) {
-      builder.addItem(msgs.missingBuildMethod(), subject);
+      builder.addError(msgs.missingBuildMethod(), subject);
     }
-    
+
     // Go back through each recorded method per param type.  If we had more than one method
     // for a given param, fail.
     for (Map.Entry<Equivalence.Wrapper<TypeMirror>, Collection<ExecutableElement>> entry :
         methodsPerParam.asMap().entrySet()) {
       if (entry.getValue().size() > 1) {
         TypeMirror type = entry.getKey().get();
-        builder.addItem(String.format(msgs.manyMethodsForType(), type, entry.getValue()), subject);
+        builder.addError(String.format(msgs.manyMethodsForType(), type, entry.getValue()), subject);
       }
     }
-    
+
     // Note: there's more validation in BindingGraphValidator,
     // specifically to make sure the setter methods mirror the deps.
 
     return builder.build();
   }
-  
+
   /**
    * Generates one of two error messages. If the method is enclosed in the subject, we target the
    * error to the method itself. Otherwise we target the error to the subject and list the method as
@@ -182,19 +181,23 @@ class BuilderValidator implements Validator<TypeElement> {
    * of libfoo's SharedBuilder (which could have been compiled in a previous pass).
    * So we can't point to SharedBuilder#badSetter as the subject of the BarBuilder validation
    * failure.
-   * 
+   *
    * This check is a little more strict than necessary -- ideally we'd check if method's enclosing
    * class was included in this compile run.  But that's hard, and this is close enough.
    */
-  private void error(ValidationReport.Builder<TypeElement> builder, ExecutableElement method,
-      String enclosedError, String inheritedError, Object... extraArgs) {
+  private void error(
+      ValidationReport.Builder<TypeElement> builder,
+      ExecutableElement method,
+      String enclosedError,
+      String inheritedError,
+      Object... extraArgs) {
     if (method.getEnclosingElement().equals(builder.getSubject())) {
-      builder.addItem(String.format(enclosedError, extraArgs), method);
+      builder.addError(String.format(enclosedError, extraArgs), method);
     } else {
       Object[] newArgs = new Object[extraArgs.length + 1];
       newArgs[0] = method;
       System.arraycopy(extraArgs, 0, newArgs, 1, extraArgs.length);
-      builder.addItem(String.format(inheritedError, newArgs), builder.getSubject());
+      builder.addError(String.format(inheritedError, newArgs), builder.getSubject());
     }
   }
 }

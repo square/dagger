@@ -133,18 +133,21 @@ final class ComponentValidator {
   public ComponentValidationReport validate(final TypeElement subject,
       Set<? extends Element> validatedSubcomponents,
       Set<? extends Element> validatedSubcomponentBuilders) {
-    ValidationReport.Builder<TypeElement> builder = ValidationReport.Builder.about(subject);
+    ValidationReport.Builder<TypeElement> builder = ValidationReport.about(subject);
 
     if (!subject.getKind().equals(INTERFACE)
         && !(subject.getKind().equals(CLASS) && subject.getModifiers().contains(ABSTRACT))) {
-      builder.addItem(String.format("@%s may only be applied to an interface or abstract class",
-          componentType.annotationType().getSimpleName()), subject);
+      builder.addError(
+          String.format(
+              "@%s may only be applied to an interface or abstract class",
+              componentType.annotationType().getSimpleName()),
+          subject);
     }
 
     ImmutableList<DeclaredType> builders =
         enclosedBuilders(subject, componentType.builderAnnotationType());
     if (builders.size() > 1) {
-      builder.addItem(
+      builder.addError(
           String.format(ErrorMessages.builderMsgsFor(componentType).moreThanOne(), builders),
           subject);
     }
@@ -197,16 +200,16 @@ final class ComponentValidator {
               TypeMirror onlyParameter = Iterables.getOnlyElement(parameterTypes);
               if (!(returnType.getKind().equals(VOID)
                   || types.isSameType(returnType, onlyParameter))) {
-                builder.addItem(
-                    "Members injection methods may only return the injected type or void.",
-                    method);
+                builder.addError(
+                    "Members injection methods may only return the injected type or void.", method);
               }
               break;
             default:
               // this isn't any method that we know how to implement...
-              builder.addItem(
+              builder.addError(
                   "This method isn't a valid provision method, members injection method or "
-                      + "subcomponent factory method. Dagger cannot implement this method", method);
+                      + "subcomponent factory method. Dagger cannot implement this method",
+                  method);
               break;
           }
         }
@@ -216,10 +219,11 @@ final class ComponentValidator {
     for (Map.Entry<Element, Collection<ExecutableElement>> entry :
         referencedSubcomponents.asMap().entrySet()) {
       if (entry.getValue().size() > 1) {
-        builder.addItem(
+        builder.addError(
             String.format(
                 ErrorMessages.SubcomponentBuilderMessages.INSTANCE.moreThanOneRefToSubcomponent(),
-                entry.getKey(), entry.getValue()),
+                entry.getKey(),
+                entry.getValue()),
             subject);
       }
     }
@@ -291,14 +295,15 @@ final class ComponentValidator {
           }, null);
       if (moduleType.isPresent()) {
         if (variableTypes.contains(moduleType.get())) {
-          builder.addItem(
+          builder.addError(
               String.format(
                   "A module may only occur once an an argument in a Subcomponent factory "
                       + "method, but %s was already passed.",
-                  moduleType.get().getQualifiedName()), parameter);
+                  moduleType.get().getQualifiedName()),
+              parameter);
         }
         if (!transitiveModules.contains(moduleType.get())) {
-          builder.addItem(
+          builder.addError(
               String.format(
                   "%s is present as an argument to the %s factory method, but is not one of the"
                       + " modules used to implement the subcomponent.",
@@ -308,7 +313,7 @@ final class ComponentValidator {
         }
         variableTypes.add(moduleType.get());
       } else {
-        builder.addItem(
+        builder.addError(
             String.format(
                 "Subcomponent factory methods may only accept modules, but %s is not.",
                 parameterType),
@@ -319,7 +324,7 @@ final class ComponentValidator {
     SetView<TypeElement> missingModules =
         Sets.difference(requiredModules, ImmutableSet.copyOf(variableTypes));
     if (!missingModules.isEmpty()) {
-      builder.addItem(
+      builder.addError(
           String.format(
               "%s requires modules which have no visible default constructors. "
                   + "Add the following modules as parameters to this method: %s",
@@ -334,7 +339,7 @@ final class ComponentValidator {
       Set<? extends Element> validatedSubcomponentBuilders) {
 
     if (!parameters.isEmpty()) {
-      builder.addItem(
+      builder.addError(
           ErrorMessages.SubcomponentBuilderMessages.INSTANCE.builderMethodRequiresNoArgs(), method);
     }
 

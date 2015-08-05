@@ -26,6 +26,7 @@ import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -80,16 +81,16 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
       injectElement.accept(
           new ElementKindVisitor6<Void, Void>() {
             @Override
-            public Void visitExecutableAsConstructor(
-                ExecutableElement constructorElement, Void v) {
-              ValidationReport<ExecutableElement> report =
+            public Void visitExecutableAsConstructor(ExecutableElement constructorElement, Void v) {
+              ValidationReport<TypeElement> report =
                   constructorValidator.validate(constructorElement);
 
               report.printMessagesTo(messager);
 
               if (report.isClean()) {
-                provisions.add(provisionBindingFactory.forInjectConstructor(constructorElement,
-                    Optional.<TypeMirror>absent()));
+                provisions.add(
+                    provisionBindingFactory.forInjectConstructor(
+                        constructorElement, Optional.<TypeMirror>absent()));
               }
 
               return null;
@@ -111,8 +112,7 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
 
             @Override
             public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
-              ValidationReport<ExecutableElement> report =
-                  methodValidator.validate(methodElement);
+              ValidationReport<ExecutableElement> report = methodValidator.validate(methodElement);
 
               report.printMessagesTo(messager);
 
@@ -123,7 +123,8 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
 
               return null;
             }
-          }, null);
+          },
+          null);
     }
 
     for (DeclaredType injectedType : membersInjectedTypes.build()) {

@@ -76,7 +76,7 @@ import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCE
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
-public class BindingGraphValidator implements Validator<BindingGraph> {
+public class BindingGraphValidator {
 
   private final Types types;
   private final InjectBindingRegistry injectBindingRegistry;
@@ -111,21 +111,28 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
 
   private class Validation {
     final BindingGraph topLevelGraph;
-    final ValidationReport.Builder<BindingGraph> reportBuilder;
+    final BindingGraph subject;
+    final ValidationReport.Builder<TypeElement> reportBuilder;
 
-    Validation(BindingGraph topLevelGraph) {
+    Validation(BindingGraph topLevelGraph, BindingGraph subject) {
       this.topLevelGraph = topLevelGraph;
-      this.reportBuilder = ValidationReport.Builder.about(topLevelGraph);
+      this.subject = subject;
+      this.reportBuilder =
+          ValidationReport.about(subject.componentDescriptor().componentDefinitionType());
     }
 
-    ValidationReport<BindingGraph> buildReport() {
+    Validation(BindingGraph topLevelGraph) {
+      this(topLevelGraph, topLevelGraph);
+    }
+
+    ValidationReport<TypeElement> buildReport() {
       return reportBuilder.build();
     }
 
-    void validateSubgraph(BindingGraph subject) {
-      validateComponentScope(subject);
-      validateDependencyScopes(subject);
-      validateBuilders(subject);
+    void validateSubgraph() {
+      validateComponentScope();
+      validateDependencyScopes();
+      validateBuilders();
 
       for (ComponentMethodDescriptor componentMethod :
            subject.componentDescriptor().componentMethods()) {
@@ -138,7 +145,10 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       }
 
       for (BindingGraph subgraph : subject.subgraphs().values()) {
-        validateSubgraph(subgraph);
+        Validation subgraphValidation =
+            new Validation(topLevelGraph, subgraph);
+        subgraphValidation.validateSubgraph();
+        reportBuilder.addSubreport(subgraphValidation.buildReport());
       }
     }
 
@@ -298,93 +308,112 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
      */
     private boolean validateMembersInjectionBinding(
         MembersInjectionBinding binding, final Deque<ResolvedRequest> path) {
-      return binding.key().type().accept(new SimpleTypeVisitor6<Boolean, Void>() {
-        @Override protected Boolean defaultAction(TypeMirror e, Void p) {
-          reportBuilder.addItem("Invalid members injection request.",
-              path.peek().request().requestElement());
-          return false;
-        }
+      return binding
+          .key()
+          .type()
+          .accept(
+              new SimpleTypeVisitor6<Boolean, Void>() {
+                @Override
+                protected Boolean defaultAction(TypeMirror e, Void p) {
+                  reportBuilder.addError(
+                      "Invalid members injection request.", path.peek().request().requestElement());
+                  return false;
+                }
 
-        @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
-          // If the key has type arguments, validate that each type argument is declared.
-          // Otherwise the type argument may be a wildcard (or other type), and we can't
-          // resolve that to actual types.  If the arg was an array, validate the type
-          // of the array.
-          for (TypeMirror arg : type.getTypeArguments()) {
-            boolean declared;
-            switch (arg.getKind()) {
-              case ARRAY:
-                declared = MoreTypes.asArray(arg).getComponentType().accept(
-                    new SimpleTypeVisitor6<Boolean, Void>() {
-                      @Override protected Boolean defaultAction(TypeMirror e, Void p) {
-                        return false;
-                      }
+                @Override
+                public Boolean visitDeclared(DeclaredType type, Void ignored) {
+                  // If the key has type arguments, validate that each type argument is declared.
+                  // Otherwise the type argument may be a wildcard (or other type), and we can't
+                  // resolve that to actual types.  If the arg was an array, validate the type
+                  // of the array.
+                  for (TypeMirror arg : type.getTypeArguments()) {
+                    boolean declared;
+                    switch (arg.getKind()) {
+                      case ARRAY:
+                        declared =
+                            MoreTypes.asArray(arg)
+                                .getComponentType()
+                                .accept(
+                                    new SimpleTypeVisitor6<Boolean, Void>() {
+                                      @Override
+                                      protected Boolean defaultAction(TypeMirror e, Void p) {
+                                        return false;
+                                      }
 
-                      @Override public Boolean visitDeclared(DeclaredType t, Void p) {
-                        for (TypeMirror arg : t.getTypeArguments()) {
-                          if (!arg.accept(this, null)) {
-                            return false;
-                          }
-                        }
-                        return true;
-                      }
+                                      @Override
+                                      public Boolean visitDeclared(DeclaredType t, Void p) {
+                                        for (TypeMirror arg : t.getTypeArguments()) {
+                                          if (!arg.accept(this, null)) {
+                                            return false;
+                                          }
+                                        }
+                                        return true;
+                                      }
 
-                      @Override public Boolean visitArray(ArrayType t, Void p) {
-                        return t.getComponentType().accept(this, null);
-                      }
+                                      @Override
+                                      public Boolean visitArray(ArrayType t, Void p) {
+                                        return t.getComponentType().accept(this, null);
+                                      }
 
-                      @Override public Boolean visitPrimitive(PrimitiveType t, Void p) {
-                        return true;
-                      }
-                    }, null);
-                break;
-              case DECLARED:
-                declared = true;
-                break;
-              default:
-                declared = false;
-            }
-            if (!declared) {
-              ImmutableList<String> printableDependencyPath = FluentIterable.from(path)
-                  .transform(REQUEST_FROM_RESOLVED_REQUEST)
-                  .transform(dependencyRequestFormatter)
-                  .filter(Predicates.not(Predicates.equalTo("")))
-                  .toList()
-                  .reverse();
-              reportBuilder.addItem(
-                  String.format(MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
-                      arg.toString(),
-                      type.toString(),
-                      Joiner.on('\n').join(printableDependencyPath)),
-                      path.peek().request().requestElement());
-              return false;
-            }
-          }
+                                      @Override
+                                      public Boolean visitPrimitive(PrimitiveType t, Void p) {
+                                        return true;
+                                      }
+                                    },
+                                    null);
+                        break;
+                      case DECLARED:
+                        declared = true;
+                        break;
+                      default:
+                        declared = false;
+                    }
+                    if (!declared) {
+                      ImmutableList<String> printableDependencyPath =
+                          FluentIterable.from(path)
+                              .transform(REQUEST_FROM_RESOLVED_REQUEST)
+                              .transform(dependencyRequestFormatter)
+                              .filter(Predicates.not(Predicates.equalTo("")))
+                              .toList()
+                              .reverse();
+                      reportBuilder.addError(
+                          String.format(
+                              MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
+                              arg.toString(),
+                              type.toString(),
+                              Joiner.on('\n').join(printableDependencyPath)),
+                          path.peek().request().requestElement());
+                      return false;
+                    }
+                  }
 
-          TypeElement element = MoreElements.asType(type.asElement());
-          // Also validate that the key is not the erasure of a generic type.
-          // If it is, that means the user referred to Foo<T> as just 'Foo',
-          // which we don't allow.  (This is a judgement call -- we *could*
-          // allow it and instantiate the type bounds... but we don't.)
-          if (!MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
-              && types.isSameType(types.erasure(element.asType()), type)) {
-              ImmutableList<String> printableDependencyPath = FluentIterable.from(path)
-                  .transform(REQUEST_FROM_RESOLVED_REQUEST)
-                  .transform(dependencyRequestFormatter)
-                  .filter(Predicates.not(Predicates.equalTo("")))
-                  .toList()
-                  .reverse();
-            reportBuilder.addItem(
-                String.format(ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE,
-                    type.toString(),
-                    Joiner.on('\n').join(printableDependencyPath)),
-                path.peek().request().requestElement());
-            return false;
-          }
+                  TypeElement element = MoreElements.asType(type.asElement());
+                  // Also validate that the key is not the erasure of a generic type.
+                  // If it is, that means the user referred to Foo<T> as just 'Foo',
+                  // which we don't allow.  (This is a judgement call -- we *could*
+                  // allow it and instantiate the type bounds... but we don't.)
+                  if (!MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
+                      && types.isSameType(types.erasure(element.asType()), type)) {
+                    ImmutableList<String> printableDependencyPath =
+                        FluentIterable.from(path)
+                            .transform(REQUEST_FROM_RESOLVED_REQUEST)
+                            .transform(dependencyRequestFormatter)
+                            .filter(Predicates.not(Predicates.equalTo("")))
+                            .toList()
+                            .reverse();
+                    reportBuilder.addError(
+                        String.format(
+                            ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE,
+                            type.toString(),
+                            Joiner.on('\n').join(printableDependencyPath)),
+                        path.peek().request().requestElement());
+                    return false;
+                  }
 
-          return true; // valid
-        }
-      }, null);
+                  return true; // valid
+                }
+              },
+              null);
     }
 
     /**
@@ -392,7 +421,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
      * that there are no cycles within the scoping chain, and that singleton
      * components have no scoped dependencies.
      */
-    private void validateDependencyScopes(BindingGraph subject) {
+    private void validateDependencyScopes() {
       ComponentDescriptor descriptor = subject.componentDescriptor();
       Optional<AnnotationMirror> scope = descriptor.scope();
       ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
@@ -418,7 +447,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
               .append(descriptor.componentDefinitionType().getQualifiedName())
               .append(" depends on more than one scoped component:\n");
           appendIndentedComponentsList(message, scopedDependencies);
-          reportBuilder.addItem(message.toString(),
+          reportBuilder.addError(
+              message.toString(),
               descriptor.componentDefinitionType(),
               descriptor.componentAnnotation());
         } else {
@@ -437,14 +467,15 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
               new StringBuilder(descriptor.componentDefinitionType().getQualifiedName())
                   .append(" (unscoped) cannot depend on scoped components:\n");
           appendIndentedComponentsList(message, scopedDependencies);
-          reportBuilder.addItem(message.toString(),
+          reportBuilder.addError(
+              message.toString(),
               descriptor.componentDefinitionType(),
               descriptor.componentAnnotation());
         }
       }
     }
 
-    private void validateBuilders(BindingGraph subject) {
+    private void validateBuilders() {
       ComponentDescriptor componentDesc = subject.componentDescriptor();
       if (!componentDesc.builderSpec().isPresent()) {
         // If no builder, nothing to validate.
@@ -473,14 +504,14 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
                 return methodSignatureFormatter.format(input,
                     Optional.of(MoreTypes.asDeclared(spec.builderDefinitionType().asType())));
               }});
-        reportBuilder.addItem(String.format(msgs.extraSetters(), formatted),
-            spec.builderDefinitionType());
+        reportBuilder.addError(
+            String.format(msgs.extraSetters(), formatted), spec.builderDefinitionType());
       }
 
       Set<TypeElement> missingSetters = Sets.difference(requiredDependents, allSetters.keySet());
       if (!missingSetters.isEmpty()) {
-        reportBuilder.addItem(String.format(msgs.missingSetters(), missingSetters),
-            spec.builderDefinitionType());
+        reportBuilder.addError(
+            String.format(msgs.missingSetters(), missingSetters), spec.builderDefinitionType());
       }
     }
 
@@ -537,7 +568,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
      * Validates that the scope (if any) of this component are compatible with the scopes of the
      * bindings available in this component
      */
-    void validateComponentScope(final BindingGraph subject) {
+    void validateComponentScope() {
       ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
       Optional<Equivalence.Wrapper<AnnotationMirror>> componentScope =
           subject.componentDescriptor().wrappedScope();
@@ -587,8 +618,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         for (String method : incompatiblyScopedMethods) {
           message.append(ErrorMessages.INDENT).append(method).append("\n");
         }
-        reportBuilder.addItem(message.toString(), componentType,
-            subject.componentDescriptor().componentAnnotation());
+        reportBuilder.addError(
+            message.toString(), componentType, subject.componentDescriptor().componentAnnotation());
       }
     }
 
@@ -607,7 +638,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
         new Formatter(errorMessage).format(ErrorMessages.PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
             keyFormatter.format(dependentProvisions.iterator().next().key()));
       }
-      reportBuilder.addItem(errorMessage.toString(), path.getLast().request().requestElement());
+      reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
     }
 
     private void reportMissingBinding(Deque<ResolvedRequest> path) {
@@ -645,7 +676,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph, bindingKey)) {
         errorMessage.append('\n').append(suggestion);
       }
-      reportBuilder.addItem(errorMessage.toString(), path.getLast().request().requestElement());
+      reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
     }
 
     private static final int DUPLICATE_SIZE_LIMIT = 10;
@@ -673,7 +704,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       if (numberOfOtherBindings > 1) {
         builder.append('s');
       }
-      reportBuilder.addItem(builder.toString(), path.getLast().request().requestElement());
+      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
@@ -699,7 +730,7 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           builder.append('\n');
         }
       }
-      reportBuilder.addItem(builder.toString(), path.getLast().request().requestElement());
+      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
     private void reportCycle(DependencyRequest request, Deque<ResolvedRequest> bindingPath) {
@@ -717,8 +748,8 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
           MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
       Kind kind = cycleHasProviderOrLazy(pathElements) ? Kind.WARNING : Kind.ERROR;
       Element requestElement = rootRequest.requestElement();
-      if (kind == Kind.WARNING 
-          && (suppressCycleWarnings(requestElement) 
+      if (kind == Kind.WARNING
+          && (suppressCycleWarnings(requestElement)
               || suppressCycleWarnings(requestElement.getEnclosingElement()))) {
         return;
       }
@@ -749,10 +780,9 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
     return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
   }
 
-  @Override
-  public ValidationReport<BindingGraph> validate(final BindingGraph subject) {
+  ValidationReport<TypeElement> validate(BindingGraph subject) {
     Validation validation = new Validation(subject);
-    validation.validateSubgraph(subject);
+    validation.validateSubgraph();
     return validation.buildReport();
   }
 

@@ -35,7 +35,7 @@ import static javax.tools.Diagnostic.Kind.ERROR;
  * @author Gregory Kick
  * @since 2.0
  */
-final class SourceFileGenerationException extends Exception implements PrintableErrorMessage {
+final class SourceFileGenerationException extends Exception {
   private final ImmutableSet<ClassName> generatedClassNames;
   private final Optional<? extends Element> associatedElement;
 
@@ -71,8 +71,7 @@ final class SourceFileGenerationException extends Exception implements Printable
         message);
   }
 
-  @Override
-  public void printMessageTo(Messager messager) {
+  void printMessageTo(Messager messager) {
     if (associatedElement.isPresent()) {
       messager.printMessage(ERROR, getMessage(), associatedElement.get());
     } else {

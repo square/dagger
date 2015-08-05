@@ -34,18 +34,17 @@ import static javax.lang.model.util.ElementFilter.methodsIn;
  * @since 2.0
  */
 // TODO(dpb,gak): Should unwrapped MapKeys be required to have their single member be named "value"?
-final class MapKeyValidator implements Validator<Element> {
-  @Override
-  public ValidationReport<Element> validate(Element element) {
-    ValidationReport.Builder<Element> builder = ValidationReport.Builder.about(element);
+final class MapKeyValidator {
+  ValidationReport<Element> validate(Element element) {
+    ValidationReport.Builder<Element> builder = ValidationReport.about(element);
     List<ExecutableElement> members = methodsIn(((TypeElement) element).getEnclosedElements());
     if (members.isEmpty()) {
-      builder.addItem(MAPKEY_WITHOUT_MEMBERS, element);
+      builder.addError(MAPKEY_WITHOUT_MEMBERS, element);
     } else if (element.getAnnotation(MapKey.class).unwrapValue()) {
       if (members.size() > 1) {
-        builder.addItem(UNWRAPPED_MAP_KEY_WITH_TOO_MANY_MEMBERS, element);
+        builder.addError(UNWRAPPED_MAP_KEY_WITH_TOO_MANY_MEMBERS, element);
       } else if (members.get(0).getReturnType().getKind() == TypeKind.ARRAY) {
-        builder.addItem(UNWRAPPED_MAP_KEY_WITH_ARRAY_MEMBER, element);
+        builder.addError(UNWRAPPED_MAP_KEY_WITH_ARRAY_MEMBER, element);
       }
     }
     return builder.build();
