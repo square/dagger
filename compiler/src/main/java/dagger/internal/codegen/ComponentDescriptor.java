@@ -31,6 +31,7 @@ import dagger.MembersInjector;
 import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,7 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
@@ -72,16 +74,40 @@ abstract class ComponentDescriptor {
   ComponentDescriptor() {}
 
   enum Kind {
-    COMPONENT(Component.class, Component.Builder.class),
-    SUBCOMPONENT(Subcomponent.class, Subcomponent.Builder.class),
-    PRODUCTION_COMPONENT(ProductionComponent.class, null);
+    COMPONENT(Component.class, Component.Builder.class, true),
+    SUBCOMPONENT(Subcomponent.class, Subcomponent.Builder.class, false),
+    PRODUCTION_COMPONENT(ProductionComponent.class, null, true);
 
     private final Class<? extends Annotation> annotationType;
     private final Class<? extends Annotation> builderType;
+    private final boolean isTopLevel;
 
-    Kind(Class<? extends Annotation> annotationType, Class<? extends Annotation> builderType) {
+    /**
+     * Returns the kind of an annotated element if it is annotated with one of the
+     * {@linkplain #annotationType() annotation types}.
+     * 
+     * @throws IllegalArgumentException if the element is annotated with more than one of the
+     *     annotation types
+     */
+    static Optional<Kind> forAnnotatedElement(TypeElement element) {
+      Set<Kind> kinds = EnumSet.noneOf(Kind.class);
+      for (Kind kind : values()) {
+        if (MoreElements.isAnnotationPresent(element, kind.annotationType())) {
+          kinds.add(kind);
+        }
+      }
+      checkArgument(
+          kinds.size() <= 1, "%s cannot be annotated with more than one of %s", element, kinds);
+      return Optional.fromNullable(getOnlyElement(kinds, null));
+    }
+
+    Kind(
+        Class<? extends Annotation> annotationType,
+        Class<? extends Annotation> builderType,
+        boolean isTopLevel) {
       this.annotationType = annotationType;
       this.builderType = builderType;
+      this.isTopLevel = isTopLevel;
     }
 
     Class<? extends Annotation> annotationType() {
@@ -90,6 +116,10 @@ abstract class ComponentDescriptor {
 
     Class<? extends Annotation> builderAnnotationType() {
       return builderType;
+    }
+
+    boolean isTopLevel() {
+      return isTopLevel;
     }
   }
 
@@ -202,12 +232,17 @@ abstract class ComponentDescriptor {
       this.moduleDescriptorFactory = moduleDescriptorFactory;
     }
 
+    /**
+     * Returns a component descriptor for a type annotated with either {@link Component @Component}
+     * or {@link ProductionComponent @ProductionComponent}.
+     */
     ComponentDescriptor forComponent(TypeElement componentDefinitionType) {
-      return create(componentDefinitionType, Kind.COMPONENT);
-    }
-
-    ComponentDescriptor forProductionComponent(TypeElement componentDefinitionType) {
-      return create(componentDefinitionType, Kind.PRODUCTION_COMPONENT);
+      Optional<Kind> kind = Kind.forAnnotatedElement(componentDefinitionType);
+      checkArgument(
+          kind.isPresent() && kind.get().isTopLevel(),
+          "%s must be annotated with @Component or @ProductionComponent",
+          componentDefinitionType);
+      return create(componentDefinitionType, kind.get());
     }
 
     private ComponentDescriptor create(TypeElement componentDefinitionType, Kind kind) {

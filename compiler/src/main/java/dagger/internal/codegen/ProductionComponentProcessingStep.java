@@ -35,7 +35,6 @@ import javax.lang.model.element.TypeElement;
 final class ProductionComponentProcessingStep extends AbstractComponentProcessingStep {
   private final Messager messager;
   private final ProductionComponentValidator componentValidator;
-  private final ComponentDescriptor.Factory componentDescriptorFactory;
 
   ProductionComponentProcessingStep(
       Messager messager,
@@ -47,11 +46,11 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
     super(
         messager,
         bindingGraphValidator,
+        componentDescriptorFactory,
         bindingGraphFactory,
         componentGenerator);
     this.messager = messager;
     this.componentValidator = componentValidator;
-    this.componentDescriptorFactory = componentDescriptorFactory;
   }
 
   @Override
@@ -60,9 +59,9 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
   }
 
   @Override
-  protected ImmutableSet<ComponentDescriptor> componentDescriptors(
+  protected Set<TypeElement> componentTypeElements(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ComponentDescriptor> componentDescriptors = ImmutableSet.builder();
+    ImmutableSet.Builder<TypeElement> componentTypeElements = ImmutableSet.builder();
     Set<Element> componentElements = elementsByAnnotation.get(ProductionComponent.class);
     for (Element element : componentElements) {
       TypeElement componentTypeElement = MoreElements.asType(element);
@@ -70,10 +69,9 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
           componentValidator.validate(componentTypeElement);
       componentReport.printMessagesTo(messager);
       if (componentReport.isClean()) {
-        componentDescriptors.add(
-            componentDescriptorFactory.forProductionComponent(componentTypeElement));
+        componentTypeElements.add(componentTypeElement);
       }
     }
-    return componentDescriptors.build();
+    return componentTypeElements.build();
   }
 }

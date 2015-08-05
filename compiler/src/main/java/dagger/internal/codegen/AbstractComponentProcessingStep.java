@@ -32,16 +32,19 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
 
   private final Messager messager;
   private final BindingGraphValidator bindingGraphValidator;
+  private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final BindingGraph.Factory bindingGraphFactory;
   private final ComponentGenerator componentGenerator;
 
   AbstractComponentProcessingStep(
       Messager messager,
       BindingGraphValidator bindingGraphValidator,
+      ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     this.messager = messager;
     this.bindingGraphValidator = bindingGraphValidator;
+    this.componentDescriptorFactory = componentDescriptorFactory;
     this.bindingGraphFactory = bindingGraphFactory;
     this.componentGenerator = componentGenerator;
   }
@@ -50,8 +53,10 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   public final ImmutableSet<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     ImmutableSet.Builder<Element> rejectedElements = ImmutableSet.builder();
-    for (ComponentDescriptor componentDescriptor : componentDescriptors(elementsByAnnotation)) {
+    for (TypeElement componentTypeElement : componentTypeElements(elementsByAnnotation)) {
       try {
+        ComponentDescriptor componentDescriptor =
+            componentDescriptorFactory.forComponent(componentTypeElement);
         BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
         ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
         graphReport.printMessagesTo(messager);
@@ -63,16 +68,15 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
           }
         }
       } catch (TypeNotPresentException e) {
-        rejectedElements.add(componentDescriptor.componentDefinitionType());
+        rejectedElements.add(componentTypeElement);
       }
     }
     return rejectedElements.build();
   }
 
   /**
-   * Returns a {@link ComponentDescriptor} for each valid component element for which an
-   * implementation class should be generated.
+   * Returns the elements that represent valid components to process.
    */
-  protected abstract Set<ComponentDescriptor> componentDescriptors(
+  protected abstract Set<TypeElement> componentTypeElements(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation);
 }

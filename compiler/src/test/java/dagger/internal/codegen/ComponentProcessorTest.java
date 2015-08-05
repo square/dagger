@@ -37,6 +37,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT;
+import static javax.tools.StandardLocation.SOURCE_OUTPUT;
 
 @RunWith(JUnit4.class)
 public class ComponentProcessorTest {
@@ -1798,7 +1799,6 @@ public class ComponentProcessorTest {
         .withErrorContaining(
             "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
-
   @Test
   public void componentImplicitlyDependsOnGeneratedType() {
     JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
@@ -1813,9 +1813,6 @@ public class ComponentProcessorTest {
         "package test;",
         "",
         "import dagger.Component;",
-        "import dagger.Lazy;",
-        "",
-        "import javax.inject.Provider;",
         "",
         "@Component",
         "interface SimpleComponent {",
@@ -1825,7 +1822,8 @@ public class ComponentProcessorTest {
         .that(ImmutableList.of(injectableTypeFile, componentFile))
         .processedWith(
             new ComponentProcessor(),
-            new GeneratingProcessor("test.GeneratedType",
+            new GeneratingProcessor(
+                "test.GeneratedType",
                 "package test;",
                 "",
                 "import javax.inject.Inject;",
@@ -1833,7 +1831,45 @@ public class ComponentProcessorTest {
                 "final class GeneratedType {",
                 "  @Inject GeneratedType() {}",
                 "}"))
-        .compilesWithoutError();
+        .compilesWithoutError()
+        .and()
+        .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
+  }
+  @Test
+  public void componentSupertypeDependsOnGeneratedType() {
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface SimpleComponent extends SimpleComponentInterface {}");
+    JavaFileObject interfaceFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleComponentInterface",
+            "package test;",
+            "",
+            "interface SimpleComponentInterface {",
+            "  GeneratedType generatedType();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(componentFile, interfaceFile))
+        .processedWith(
+            new ComponentProcessor(),
+            new GeneratingProcessor(
+                "test.GeneratedType",
+                "package test;",
+                "",
+                "import javax.inject.Inject;",
+                "",
+                "final class GeneratedType {",
+                "  @Inject GeneratedType() {}",
+                "}"))
+        .compilesWithoutError()
+        .and()
+        .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
   }
 
   @Test

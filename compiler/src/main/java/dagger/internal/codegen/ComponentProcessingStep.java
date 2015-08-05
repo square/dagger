@@ -43,7 +43,6 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
   private final ComponentValidator subcomponentValidator;
   private final BuilderValidator componentBuilderValidator;
   private final BuilderValidator subcomponentBuilderValidator;
-  private final ComponentDescriptor.Factory componentDescriptorFactory;
 
   ComponentProcessingStep(
       Messager messager,
@@ -58,6 +57,7 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
     super(
         messager,
         bindingGraphValidator,
+        componentDescriptorFactory,
         bindingGraphFactory,
         componentGenerator);
     this.messager = messager;
@@ -65,7 +65,6 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
     this.subcomponentValidator = subcomponentValidator;
     this.componentBuilderValidator = componentBuilderValidator;
     this.subcomponentBuilderValidator = subcomponentBuilderValidator;
-    this.componentDescriptorFactory = componentDescriptorFactory;
   }
 
   @Override
@@ -75,7 +74,7 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
   }
 
   @Override
-  protected ImmutableSet<ComponentDescriptor> componentDescriptors(
+  protected Set<TypeElement> componentTypeElements(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     Map<Element, ValidationReport<TypeElement>> builderReportsByComponent =
         processComponentBuilders(elementsByAnnotation.get(Component.Builder.class));
@@ -87,7 +86,7 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
         processSubcomponents(subcomponentElements, subcomponentBuilderElements);
     Set<Element> componentElements = elementsByAnnotation.get(Component.class);
 
-    ImmutableSet.Builder<ComponentDescriptor> builder = ImmutableSet.builder();
+    ImmutableSet.Builder<TypeElement> componentTypeElements = ImmutableSet.builder();
     for (Element element : componentElements) {
       TypeElement componentTypeElement = MoreElements.asType(element);
       ComponentValidationReport report = componentValidator.validate(
@@ -95,14 +94,10 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
       report.report().printMessagesTo(messager);
       if (isClean(
           report, builderReportsByComponent, reportsBySubcomponent, builderReportsBySubcomponent)) {
-        try {
-          builder.add(componentDescriptorFactory.forComponent(componentTypeElement));
-        } catch (TypeNotPresentException e) {
-          // just skip it and get it later
-        }
+        componentTypeElements.add(componentTypeElement);
       }
     }
-    return builder.build();
+    return componentTypeElements.build();
   }
 
   private Map<Element, ValidationReport<TypeElement>> processComponentBuilders(
