@@ -19,29 +19,29 @@ import java.util.Set;
 import javax.inject.Inject;
 
 class RequiresMultibindingsInParent {
-  private final RequiresSetOfObjects requiresSetOfObjects;
-  private final RequiresSetOfStrings requiresSetOfStrings;
-  private final Set<RequiresSetOfObjects> setOfRequiresSetOfObjects;
+  private final RequiresMultiboundObjects requiresMultiboundObjects;
+  private final RequiresMultiboundStrings requiresMultiboundStrings;
+  private final Set<RequiresMultiboundObjects> setOfRequiresMultiboundObjects;
 
   @Inject
   RequiresMultibindingsInParent(
-      RequiresSetOfObjects requiresSetOfObjects,
-      RequiresSetOfStrings requiresSetOfStrings,
-      Set<RequiresSetOfObjects> setOfRequiresSetOfObjects) {
-    this.requiresSetOfObjects = requiresSetOfObjects;
-    this.requiresSetOfStrings = requiresSetOfStrings;
-    this.setOfRequiresSetOfObjects = setOfRequiresSetOfObjects;
+      RequiresMultiboundObjects requiresMultiboundObjects,
+      RequiresMultiboundStrings requiresMultiboundStrings,
+      Set<RequiresMultiboundObjects> setOfRequiresMultiboundObjects) {
+    this.requiresMultiboundObjects = requiresMultiboundObjects;
+    this.requiresMultiboundStrings = requiresMultiboundStrings;
+    this.setOfRequiresMultiboundObjects = setOfRequiresMultiboundObjects;
   }
 
-  RequiresSetOfObjects requiresSetOfObjects() {
-    return requiresSetOfObjects;
+  RequiresMultiboundObjects requiresMultiboundObjects() {
+    return requiresMultiboundObjects;
   }
 
-  RequiresSetOfStrings requiresSetOfStrings() {
-    return requiresSetOfStrings;
+  RequiresMultiboundStrings requiresMultiboundStrings() {
+    return requiresMultiboundStrings;
   }
 
-  Set<RequiresSetOfObjects> setOfRequiresSetOfObjects() {
-    return setOfRequiresSetOfObjects;
+  Set<RequiresMultiboundObjects> setOfRequiresMultiboundObjects() {
+    return setOfRequiresMultiboundObjects;
   }
 }

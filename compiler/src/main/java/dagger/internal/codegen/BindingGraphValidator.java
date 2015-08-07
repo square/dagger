@@ -66,6 +66,7 @@ import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
 import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
@@ -73,6 +74,7 @@ import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCT
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 
@@ -230,18 +232,25 @@ public class BindingGraphValidator {
             reportProviderMayNotDependOnProducer(path);
             return false;
           }
-          if ((provisionBindings.size() + productionBindings.size()) <= 1) {
+          if (combined.size() <= 1) {
             return true;
           }
           ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
-              ContributionBinding.bindingTypesFor(
-                  Iterables.<ContributionBinding>concat(provisionBindings, productionBindings));
+              ContributionBinding.bindingTypesFor(combined);
           if (bindingsByType.keySet().size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
-          } else if (getOnlyElement(bindingsByType.keySet()).equals(BindingType.UNIQUE)) {
-            reportDuplicateBindings(path);
-            return false;
+          }
+          switch (getOnlyElement(bindingsByType.keySet())) {
+            case UNIQUE:
+              reportDuplicateBindings(path);
+              return false;
+            case MAP:
+              return !hasDuplicateMapKeys(path, combined);
+            case SET:
+              break;
+            default:
+              throw new AssertionError();
           }
           break;
         case MEMBERS_INJECTION:
@@ -300,6 +309,23 @@ public class BindingGraphValidator {
         }
       }
       return valid;
+    }
+
+    /**
+     * Returns {@code true} (and reports errors) if {@code mapBindings} has more than one binding
+     * for the same map key.
+     */
+    private boolean hasDuplicateMapKeys(
+        Deque<ResolvedRequest> path, Set<? extends ContributionBinding> mapBindings) {
+      boolean hasDuplicateMapKeys = false;
+      for (Collection<ContributionBinding> mapBindingsForMapKey :
+          indexMapBindingsByMapKey(mapBindings).asMap().values()) {
+        if (mapBindingsForMapKey.size() > 1) {
+          hasDuplicateMapKeys = true;
+          reportDuplicateMapKeys(path, mapBindingsForMapKey);
+        }
+      }
+      return hasDuplicateMapKeys;
     }
 
     /**
@@ -688,13 +714,7 @@ public class BindingGraphValidator {
       new Formatter(builder).format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT,
           keyFormatter.format(path.peek().request().key()));
       for (Binding binding : Iterables.limit(resolvedBinding.bindings(), DUPLICATE_SIZE_LIMIT)) {
-        builder.append('\n').append(INDENT);
-        // TODO(beder): Refactor the formatters so we don't need these instanceof checks.
-        if (binding instanceof ProvisionBinding) {
-          builder.append(provisionBindingFormatter.format((ProvisionBinding) binding));
-        } else if (binding instanceof ProductionBinding) {
-          builder.append(productionBindingFormatter.format((ProductionBinding) binding));
-        }
+        builder.append('\n').append(INDENT).append(formatBinding(binding));
       }
       int numberOfOtherBindings = resolvedBinding.bindings().size() - DUPLICATE_SIZE_LIMIT;
       if (numberOfOtherBindings > 0) {
@@ -729,6 +749,28 @@ public class BindingGraphValidator {
           }
           builder.append('\n');
         }
+      }
+      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
+    }
+
+    private void reportDuplicateMapKeys(
+        Deque<ResolvedRequest> path, Collection<? extends ContributionBinding> mapBindings) {
+      StringBuilder builder = new StringBuilder();
+      builder.append(duplicateMapKeysError(keyFormatter.format(path.peek().request().key())));
+      for (Binding binding : Iterables.limit(mapBindings, DUPLICATE_SIZE_LIMIT)) {
+        builder.append('\n').append(INDENT).append(formatBinding(binding));
+      }
+      int numberOfOtherBindings = mapBindings.size() - DUPLICATE_SIZE_LIMIT;
+      if (numberOfOtherBindings > 0) {
+        builder
+            .append('\n')
+            .append(INDENT)
+            .append("and ")
+            .append(numberOfOtherBindings)
+            .append(" other");
+      }
+      if (numberOfOtherBindings > 1) {
+        builder.append('s');
       }
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
@@ -874,6 +916,18 @@ public class BindingGraphValidator {
     }
   }
 
+  private String formatBinding(Binding binding) {
+    // TODO(beder): Refactor the formatters so we don't need these instanceof checks.
+    if (binding instanceof ProvisionBinding) {
+      return provisionBindingFormatter.format((ProvisionBinding) binding);
+    } else if (binding instanceof ProductionBinding) {
+      return productionBindingFormatter.format((ProductionBinding) binding);
+    } else {
+      throw new IllegalArgumentException(
+          "Expected either a ProvisionBinding or a ProductionBinding, not " + binding);
+    }
+  }
+
   @AutoValue
   abstract static class ResolvedRequest {
     abstract DependencyRequest request();
@@ -896,8 +950,4 @@ public class BindingGraphValidator {
           return resolvedRequest.request();
         }
       };
-
-  abstract static class Traverser {
-    abstract boolean visitResolvedRequest(Deque<ResolvedRequest> path);
-  }
 }

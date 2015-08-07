@@ -22,9 +22,9 @@ class RequiresMultibindingsInChild extends RequiresMultibindingsInParent {
 
   @Inject
   RequiresMultibindingsInChild(
-      RequiresSetOfObjects requiresSetOfObjects,
-      RequiresSetOfStrings requiresSetOfStrings,
-      Set<RequiresSetOfObjects> setOfRequiresSetOfObjects) {
-    super(requiresSetOfObjects, requiresSetOfStrings, setOfRequiresSetOfObjects);
+      RequiresMultiboundObjects requiresMultiboundObjects,
+      RequiresMultiboundStrings requiresMultiboundStrings,
+      Set<RequiresMultiboundObjects> setOfRequiresMultiboundObjects) {
+    super(requiresMultiboundObjects, requiresMultiboundStrings, setOfRequiresMultiboundObjects);
   }
 }

@@ -17,16 +17,21 @@ package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import dagger.MapKey;
 import java.util.EnumSet;
 import java.util.Set;
 import javax.inject.Provider;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.MapKeys.getMapKey;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be
@@ -108,5 +113,26 @@ abstract class ContributionBinding extends Binding {
           String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
     }
     return Iterables.getOnlyElement(types);
+  }
+
+  /**
+   * Indexes map-multibindings by map key (the result of calling
+   * {@link AnnotationValue#getValue()} on a single member or the whole {@link AnnotationMirror}
+   * itself, depending on {@link MapKey#unwrapValue()}).
+   */
+  static ImmutableSetMultimap<Object, ContributionBinding> indexMapBindingsByMapKey(
+      Set<? extends ContributionBinding> mapBindings) {
+    ImmutableSetMultimap.Builder<Object, ContributionBinding> mapBindingsByMapKey =
+        ImmutableSetMultimap.builder();
+    for (ContributionBinding mapBinding : mapBindings) {
+      AnnotationMirror mapKey = getMapKey(mapBinding.bindingElement()).get();
+      Optional<? extends AnnotationValue> unwrappedValue = MapKeys.unwrapValue(mapKey);
+      if (unwrappedValue.isPresent()) {
+        mapBindingsByMapKey.put(unwrappedValue.get().getValue(), mapBinding);
+      } else {
+        mapBindingsByMapKey.put(mapKey, mapBinding);
+      }
+    }
+    return mapBindingsByMapKey.build();
   }
 }

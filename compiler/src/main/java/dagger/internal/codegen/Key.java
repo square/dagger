@@ -24,7 +24,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.MapKey;
 import dagger.Provides;
 import dagger.producers.Producer;
 import dagger.producers.Produces;
@@ -273,8 +272,7 @@ abstract class Key {
 
     private TypeMirror mapKeyType(ExecutableElement method) {
       AnnotationMirror mapKeyAnnotation = getMapKey(method).get();
-      MapKey mapKey = mapKeyAnnotation.getAnnotationType().asElement().getAnnotation(MapKey.class);
-      return mapKey.unwrapValue()
+      return MapKeys.unwrapValue(mapKeyAnnotation).isPresent()
           ? getUnwrappedMapKeyType(mapKeyAnnotation.getAnnotationType(), types)
           : mapKeyAnnotation.getAnnotationType();
     }

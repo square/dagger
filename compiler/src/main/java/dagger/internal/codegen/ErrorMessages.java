@@ -94,6 +94,10 @@ final class ErrorMessages {
   static final String DUPLICATE_BINDINGS_FOR_KEY_FORMAT =
       "%s is bound multiple times:";
 
+  static String duplicateMapKeysError(String key) {
+    return "The same map key is bound more than once for " + key;
+  }
+
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
 

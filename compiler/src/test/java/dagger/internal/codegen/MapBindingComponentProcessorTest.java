@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 @RunWith(JUnit4.class)
@@ -190,7 +190,7 @@ public class MapBindingComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             enumKeyFile,
@@ -356,7 +356,7 @@ public class MapBindingComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             stringKeyFile,
@@ -523,7 +523,7 @@ public class MapBindingComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             classKeyFile,
@@ -697,7 +697,7 @@ public class MapBindingComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             enumKeyFile,
@@ -715,7 +715,6 @@ public class MapBindingComponentProcessorTest {
   public void injectMapWithoutMapBinding() {
     JavaFileObject mapModuleFile = JavaFileObjects.forSourceLines("test.MapModule",
         "package test;",
-        "",
         "",
         "import dagger.Module;",
         "import dagger.Provides;",
@@ -735,7 +734,6 @@ public class MapBindingComponentProcessorTest {
         "",
         "import dagger.Component;",
         "import java.util.Map;",
-        "import javax.inject.Provider;",
         "",
         "@Component(modules = {MapModule.class})",
         "interface TestComponent {",
@@ -796,8 +794,71 @@ public class MapBindingComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources()).that(ImmutableList.of(mapModuleFile,componentFile))
+    assertAbout(javaSources()).that(ImmutableList.of(mapModuleFile,componentFile))
         .processedWith(new ComponentProcessor()).compilesWithoutError()
         .and().generatesSources(generatedComponent);
+  }
+
+  @Test
+  public void mapBindingsWithDuplicateKeys() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.MapModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "import static dagger.Provides.Type.MAP;",
+            "",
+            "@Module",
+            "final class MapModule {",
+            "  @Provides(type = MAP) @StringKey(\"AKey\") Object provideObjectForAKey() {",
+            "    return \"one\";",
+            "  }",
+            "",
+            "  @Provides(type = MAP) @StringKey(\"AKey\") Object provideObjectForAKeyAgain() {",
+            "    return \"one again\";",
+            "  }",
+            "}");
+    JavaFileObject stringKeyFile =
+        JavaFileObjects.forSourceLines(
+            "test.StringKey",
+            "package test;",
+            "",
+            "import dagger.MapKey;",
+            "import java.lang.annotation.Retention;",
+            "",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "",
+            "@MapKey(unwrapValue = true)",
+            "@Retention(RUNTIME)",
+            "public @interface StringKey {",
+            "  String value();",
+            "}");
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import java.util.Map;",
+            "import javax.inject.Provider;",
+            "",
+            "@Component(modules = {MapModule.class})",
+            "interface TestComponent {",
+            "  Map<String, Object> objects();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(module, stringKeyFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("The same map key is bound more than once")
+        .and()
+        .withErrorContaining("provideObjectForAKey()")
+        .and()
+        .withErrorContaining("provideObjectForAKeyAgain()")
+        .and()
+        .withErrorCount(1);
   }
 }

@@ -16,6 +16,7 @@
 package test.subcomponent;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,13 +47,22 @@ public class SubcomponentMultibindingsTest {
     RequiresMultibindingsInChild requiresMultibindingsInChild =
         parent.childComponent().requiresMultibindingsInChild();
 
-    assertWithMessage("requiresSetOfObjects")
-        .that(requiresMultibindingsInChild.requiresSetOfObjects().setOfObjects())
+    assertWithMessage("requiresMultiboundObjects.setOfObjects")
+        .that(requiresMultibindingsInChild.requiresMultiboundObjects().setOfObjects())
         .containsExactly("object provided by parent", "object provided by child");
 
-    assertWithMessage("requiresSetOfStrings")
-        .that(requiresMultibindingsInChild.requiresSetOfStrings().setOfStrings())
+    assertWithMessage("requiresMultiboundObjects.mapOfObjects")
+        .that(requiresMultibindingsInChild.requiresMultiboundObjects().mapOfObjects())
+        .isEqualTo(
+            ImmutableMap.of("parent key", "object in parent", "child key", "object in child"));
+
+    assertWithMessage("requiresMultiboundStrings")
+        .that(requiresMultibindingsInChild.requiresMultiboundStrings().setOfStrings())
         .containsExactly("string provided by parent");
+
+    assertWithMessage("requiresMultiboundStrings.mapOfStrings")
+        .that(requiresMultibindingsInChild.requiresMultiboundStrings().mapOfStrings())
+        .isEqualTo(ImmutableMap.of("parent key", "string in parent"));
   }
 
   @Test
@@ -60,15 +70,20 @@ public class SubcomponentMultibindingsTest {
     RequiresMultibindingsInChild requiresMultibindingsInChild =
         parent.childComponent().requiresMultibindingsInChild();
 
-    assertWithMessage("setOfRequiresSetOfObjects")
-        .that(requiresMultibindingsInChild.setOfRequiresSetOfObjects())
+    assertWithMessage("setOfRequiresMultiboundObjects")
+        .that(requiresMultibindingsInChild.setOfRequiresMultiboundObjects())
         .hasSize(1);
 
-    RequiresSetOfObjects onlyElementInSetOfRequiresSetOfObjects =
-        getOnlyElement(requiresMultibindingsInChild.setOfRequiresSetOfObjects());
+    RequiresMultiboundObjects onlyElementInMultiboundRequiresMultiboundObjects =
+        getOnlyElement(requiresMultibindingsInChild.setOfRequiresMultiboundObjects());
 
-    assertWithMessage("setOfRequiresSetOfObjects[only].setOfObjects")
-        .that(onlyElementInSetOfRequiresSetOfObjects.setOfObjects())
+    assertWithMessage("setOfRequiresMultiboundObjects[only].setOfObjects")
+        .that(onlyElementInMultiboundRequiresMultiboundObjects.setOfObjects())
         .containsExactly("object provided by parent", "object provided by child");
+
+    assertWithMessage("setOfRequiresMultiboundObjects[only].mapOfObjects")
+        .that(onlyElementInMultiboundRequiresMultiboundObjects.mapOfObjects())
+        .isEqualTo(
+            ImmutableMap.of("parent key", "object in parent", "child key", "object in child"));
   }
 }

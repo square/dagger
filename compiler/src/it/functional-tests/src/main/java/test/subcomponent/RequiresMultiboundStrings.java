@@ -15,18 +15,25 @@
  */
 package test.subcomponent;
 
+import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 
-class RequiresSetOfStrings {
-  private Set<String> setOfStrings;
+class RequiresMultiboundStrings {
+  private final Set<String> setOfStrings;
+  private final Map<String, String> mapOfStrings;
 
   @Inject
-  RequiresSetOfStrings(Set<String> setOfStrings) {
+  RequiresMultiboundStrings(Set<String> setOfStrings, Map<String, String> mapOfStrings) {
     this.setOfStrings = setOfStrings;
+    this.mapOfStrings = mapOfStrings;
   }
 
   Set<String> setOfStrings() {
     return setOfStrings;
+  }
+
+  Map<String, String> mapOfStrings() {
+    return mapOfStrings;
   }
 }

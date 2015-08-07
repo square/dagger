@@ -18,7 +18,7 @@ package test;
 import dagger.MapKey;
 
 @MapKey(unwrapValue = true)
-@interface TestStringKey {
+public @interface TestStringKey {
   String value();
 
   @MapKey(unwrapValue = false)

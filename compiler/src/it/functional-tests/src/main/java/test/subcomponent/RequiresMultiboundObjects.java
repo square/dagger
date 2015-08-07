@@ -15,18 +15,25 @@
  */
 package test.subcomponent;
 
+import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 
-class RequiresSetOfObjects {
-  private Set<Object> setOfObjects;
+class RequiresMultiboundObjects {
+  private final Set<Object> setOfObjects;
+  private final Map<String, Object> mapOfObjects;
 
   @Inject
-  RequiresSetOfObjects(Set<Object> setOfObjects) {
+  RequiresMultiboundObjects(Set<Object> setOfObjects, Map<String, Object> mapOfObjects) {
     this.setOfObjects = setOfObjects;
+    this.mapOfObjects = mapOfObjects;
   }
 
   Set<Object> setOfObjects() {
     return setOfObjects;
+  }
+
+  Map<String, Object> mapOfObjects() {
+    return mapOfObjects;
   }
 }

@@ -17,7 +17,9 @@ package test.subcomponent;
 
 import dagger.Module;
 import dagger.Provides;
+import test.TestStringKey;
 
+import static dagger.Provides.Type.MAP;
 import static dagger.Provides.Type.SET;
 
 @Module
@@ -26,5 +28,11 @@ class ChildMultibindingModule {
   @Provides(type = SET)
   Object childObject() {
     return "object provided by child";
+  }
+
+  @Provides(type = MAP)
+  @TestStringKey("child key")
+  Object childKeyObject() {
+    return "object in child";
   }
 }
