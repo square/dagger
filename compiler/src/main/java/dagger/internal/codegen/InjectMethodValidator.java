@@ -27,9 +27,11 @@ import static dagger.internal.codegen.ErrorMessages.ABSTRACT_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.GENERIC_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_METHOD;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Inject} methods.
@@ -47,6 +49,10 @@ final class InjectMethodValidator {
 
     if (modifiers.contains(PRIVATE)) {
       builder.addError(PRIVATE_INJECT_METHOD, methodElement);
+    }
+    
+    if (modifiers.contains(STATIC)) {
+      builder.addError(STATIC_INJECT_METHOD, methodElement);
     }
 
     if (!methodElement.getTypeParameters().isEmpty()) {

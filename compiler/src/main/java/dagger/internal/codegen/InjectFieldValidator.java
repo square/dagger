@@ -25,9 +25,11 @@ import javax.lang.model.element.VariableElement;
 import static dagger.internal.codegen.ErrorMessages.FINAL_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_FIELD;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Inject} fields.
@@ -47,6 +49,10 @@ final class InjectFieldValidator {
       builder.addError(PRIVATE_INJECT_FIELD, fieldElement);
     }
 
+    if (modifiers.contains(STATIC)) {
+      builder.addError(STATIC_INJECT_FIELD, fieldElement);
+    }
+    
     ImmutableSet<? extends AnnotationMirror> qualifiers = getQualifiers(fieldElement);
     if (qualifiers.size() > 1) {
       for (AnnotationMirror qualifier : qualifiers) {

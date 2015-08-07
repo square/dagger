@@ -76,10 +76,16 @@ final class ErrorMessages {
   /* fields */
   static final String PRIVATE_INJECT_FIELD =
       "Dagger does not support injection into private fields";
+  
+  static final String STATIC_INJECT_FIELD =
+      "Dagger does not support injection into static fields";
 
   /* methods */
   static final String PRIVATE_INJECT_METHOD =
       "Dagger does not support injection into private methods";
+  
+  static final String STATIC_INJECT_METHOD =
+      "Dagger does not support injection into static methods";
 
   /* all */
   static final String INJECT_INTO_PRIVATE_CLASS =

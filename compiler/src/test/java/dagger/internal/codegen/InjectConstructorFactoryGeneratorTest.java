@@ -37,6 +37,8 @@ import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_FIELD;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_METHOD;
 
 @RunWith(JUnit4.class)
 // TODO(gak): add tests for generation in the default package.
@@ -531,6 +533,21 @@ public final class InjectConstructorFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_FIELD).in(file).onLine(6);
   }
+  
+  @Test public void staticInjectField() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectField",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class StaticInjectField {",
+        "  @Inject static String s;",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(STATIC_INJECT_FIELD).in(file).onLine(6);
+  }
 
   @Test public void multipleQualifiersOnField() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.MultipleQualifierInjectField",
@@ -575,6 +592,21 @@ public final class InjectConstructorFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_METHOD).in(file).onLine(6);
+  }
+  
+  @Test public void staticInjectMethod() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectMethod",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class StaticInjectMethod {",
+        "  @Inject static void method();",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(STATIC_INJECT_METHOD).in(file).onLine(6);
   }
 
   @Test public void genericInjectMethod() {
