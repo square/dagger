@@ -43,6 +43,8 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Represents the full members injection of a particular type. This does not pay attention to
@@ -163,7 +165,7 @@ abstract class MembersInjectionBinding extends Binding {
           ImmutableSet.of(dependencyRequestFactory.forRequiredResolvedVariable(
               containingType, fieldElement, resolved)));
     }
-
+  
     /** Returns an unresolved version of this binding. */
     MembersInjectionBinding unresolve(MembersInjectionBinding binding) {
       checkState(binding.hasNonDefaultTypeParameters());
@@ -198,14 +200,14 @@ abstract class MembersInjectionBinding extends Binding {
                   @Override
                   public Optional<InjectionSite> visitExecutableAsMethod(ExecutableElement e,
                       Void p) {
-                    return isAnnotationPresent(e, Inject.class)
+                    return isAnnotationPresent(e, Inject.class) && modifiersSupported(e)
                         ? Optional.of(injectionSiteForInjectMethod(e, resolved))
                         : Optional.<InjectionSite>absent();
                   }
 
                   @Override
                   public Optional<InjectionSite> visitVariableAsField(VariableElement e, Void p) {
-                    return isAnnotationPresent(e, Inject.class)
+                    return isAnnotationPresent(e, Inject.class) && modifiersSupported(e)
                         ? Optional.of(injectionSiteForInjectField(e, resolved))
                         : Optional.<InjectionSite>absent();
                   }
@@ -242,6 +244,10 @@ abstract class MembersInjectionBinding extends Binding {
           typeElement,
           injectionSites,
           parentInjectorRequest);
+    }
+    
+    protected boolean modifiersSupported(Element e) {
+      return !e.getModifiers().contains(PRIVATE) && !e.getModifiers().contains(STATIC);
     }
   }
 }

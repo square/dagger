@@ -22,6 +22,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import javax.tools.Diagnostic.Kind;
 
 import static dagger.internal.codegen.ErrorMessages.ABSTRACT_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.GENERIC_INJECT_METHOD;
@@ -40,6 +41,15 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @since 2.0
  */
 final class InjectMethodValidator {
+  private Kind privateMemberValidationKind;
+  private Kind staticMemberValidationKind;
+  
+  public InjectMethodValidator(
+      Kind privateMemberValidationKind, Kind staticMemberValidationKind) {
+    this.privateMemberValidationKind = privateMemberValidationKind;
+    this.staticMemberValidationKind = staticMemberValidationKind;
+  }
+
   ValidationReport<ExecutableElement> validate(ExecutableElement methodElement) {
     ValidationReport.Builder<ExecutableElement> builder = ValidationReport.about(methodElement);
     Set<Modifier> modifiers = methodElement.getModifiers();
@@ -48,11 +58,11 @@ final class InjectMethodValidator {
     }
 
     if (modifiers.contains(PRIVATE)) {
-      builder.addError(PRIVATE_INJECT_METHOD, methodElement);
+      builder.addItem(PRIVATE_INJECT_METHOD, privateMemberValidationKind, methodElement);
     }
     
     if (modifiers.contains(STATIC)) {
-      builder.addError(STATIC_INJECT_METHOD, methodElement);
+      builder.addItem(STATIC_INJECT_METHOD, staticMemberValidationKind, methodElement);
     }
 
     if (!methodElement.getTypeParameters().isEmpty()) {

@@ -16,11 +16,13 @@
 package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableSet;
+
 import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import javax.tools.Diagnostic.Kind;
 
 import static dagger.internal.codegen.ErrorMessages.FINAL_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
@@ -38,6 +40,15 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @since 2.0
  */
 final class InjectFieldValidator {
+  private Kind privateMemberValidationKind;
+  private Kind staticMemberValidationKind;
+  
+  public InjectFieldValidator(
+      Kind privateMemberValidationKind, Kind staticMemberValidationKind) {
+    this.privateMemberValidationKind = privateMemberValidationKind;
+    this.staticMemberValidationKind = staticMemberValidationKind;
+  }
+
   ValidationReport<VariableElement> validate(VariableElement fieldElement) {
     ValidationReport.Builder<VariableElement> builder = ValidationReport.about(fieldElement);
     Set<Modifier> modifiers = fieldElement.getModifiers();
@@ -46,11 +57,11 @@ final class InjectFieldValidator {
     }
 
     if (modifiers.contains(PRIVATE)) {
-      builder.addError(PRIVATE_INJECT_FIELD, fieldElement);
+      builder.addItem(PRIVATE_INJECT_FIELD, privateMemberValidationKind, fieldElement);
     }
 
     if (modifiers.contains(STATIC)) {
-      builder.addError(STATIC_INJECT_FIELD, fieldElement);
+      builder.addItem(STATIC_INJECT_FIELD, staticMemberValidationKind, fieldElement);
     }
     
     ImmutableSet<? extends AnnotationMirror> qualifiers = getQualifiers(fieldElement);

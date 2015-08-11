@@ -61,7 +61,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   public Set<String> getSupportedOptions() {
     return ImmutableSet.of(
         DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
-        NULLABLE_VALIDATION_KEY
+        NULLABLE_VALIDATION_KEY,
+        PRIVATE_MEMBER_VALIDATION_TYPE_KEY,
+        STATIC_MEMBER_VALIDATION_TYPE_KEY
     );
   }
 
@@ -84,8 +86,12 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     KeyFormatter keyFormatter = new KeyFormatter();
 
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
-    InjectFieldValidator injectFieldValidator = new InjectFieldValidator();
-    InjectMethodValidator injectMethodValidator = new InjectMethodValidator();
+    InjectFieldValidator injectFieldValidator = new InjectFieldValidator(
+        privateMemberValidationType(processingEnv).diagnosticKind().get(),
+        staticMemberValidationType(processingEnv).diagnosticKind().get());
+    InjectMethodValidator injectMethodValidator = new InjectMethodValidator(
+        privateMemberValidationType(processingEnv).diagnosticKind().get(),
+        staticMemberValidationType(processingEnv).diagnosticKind().get());
     ModuleValidator moduleValidator = new ModuleValidator(types, elements, methodSignatureFormatter,
         Module.class, Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
@@ -212,6 +218,12 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
   private static final String NULLABLE_VALIDATION_KEY = "dagger.nullableValidation";
 
+  private static final String PRIVATE_MEMBER_VALIDATION_TYPE_KEY =
+      "dagger.privateMemberValidation";
+
+  private static final String STATIC_MEMBER_VALIDATION_TYPE_KEY =
+      "dagger.staticMemberValidation";
+
   private static ValidationType scopeValidationType(ProcessingEnvironment processingEnv) {
     return valueOf(processingEnv,
         DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
@@ -222,6 +234,20 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   private static ValidationType nullableValidationType(ProcessingEnvironment processingEnv) {
     return valueOf(processingEnv,
         NULLABLE_VALIDATION_KEY,
+        ValidationType.ERROR,
+        EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
+  }
+
+  private static ValidationType privateMemberValidationType(ProcessingEnvironment processingEnv) {
+    return valueOf(processingEnv,
+        PRIVATE_MEMBER_VALIDATION_TYPE_KEY,
+        ValidationType.ERROR,
+        EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
+  }
+
+  private static ValidationType staticMemberValidationType(ProcessingEnvironment processingEnv) {
+    return valueOf(processingEnv,
+        STATIC_MEMBER_VALIDATION_TYPE_KEY,
         ValidationType.ERROR,
         EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
   }
