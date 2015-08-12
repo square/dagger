@@ -20,6 +20,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import test.cycle.Cycles.A;
 import test.cycle.Cycles.C;
+import test.cycle.Cycles.ChildCycleComponent;
 import test.cycle.Cycles.CycleComponent;
 import test.cycle.Cycles.S;
 import test.cycle.Cycles.SelfCycleComponent;
@@ -60,5 +61,13 @@ public class CycleTest {
     assertThat(c.aLazy.get()).isNotNull();
     assertThat(a.b.c.aLazy.get()).isNotNull();
     assertThat(a.e.d.b.c.aLazy.get()).isNotNull();
+  }
+  
+  @Test
+  public void subcomponentIndirectionCycle() {
+    ChildCycleComponent childCycleComponent = DaggerCycles_CycleComponent.create().child();
+    A a = childCycleComponent.a();
+    assertThat(a.b.c.aProvider.get()).isNotNull();
+    assertThat(a.e.d.b.c.aProvider.get()).isNotNull();
   }
 }

@@ -36,9 +36,11 @@ import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -469,8 +471,16 @@ abstract class BindingGraph {
        * <p>We don't care about scoped dependencies or production bindings because they will never
        * depend on multibindings with contributions from subcomponents.
        */
+      private boolean dependsOnLocalMultibindings(ResolvedBindings previouslyResolvedBindings) {
+        return dependsOnLocalMultibindings(previouslyResolvedBindings, new HashSet<BindingKey>());
+      }
+
       private boolean dependsOnLocalMultibindings(
-          final ResolvedBindings previouslyResolvedBindings) {
+          final ResolvedBindings previouslyResolvedBindings, final Set<BindingKey> cycleChecker) {
+        // Don't recur infinitely if there are valid cycles in the dependency graph.
+        if (!cycleChecker.add(previouslyResolvedBindings.bindingKey())) {
+          return false;
+        }
         try {
           return dependsOnLocalMultibindingsCache.get(
               previouslyResolvedBindings.bindingKey(),
@@ -486,7 +496,8 @@ abstract class BindingGraph {
                     if (!isScoped(binding) && !(binding instanceof ProductionBinding)) {
                       for (DependencyRequest dependency : binding.implicitDependencies()) {
                         if (dependsOnLocalMultibindings(
-                            getPreviouslyResolvedBindings(dependency.bindingKey()).get())) {
+                            getPreviouslyResolvedBindings(dependency.bindingKey()).get(),
+                            cycleChecker)) {
                           return true;
                         }
                       }

@@ -17,6 +17,7 @@ package test.cycle;
 
 import dagger.Component;
 import dagger.Lazy;
+import dagger.Subcomponent;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
@@ -96,11 +97,19 @@ final class Cycles {
     A a();
 
     C c();
+
+    ChildCycleComponent child();
   }
 
   @SuppressWarnings("dependency-cycle")
   @Component
   interface SelfCycleComponent {
     S s();
+  }
+
+  @Subcomponent
+  interface ChildCycleComponent {
+    @SuppressWarnings("dependency-cycle")
+    A a();
   }
 }
