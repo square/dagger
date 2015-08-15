@@ -45,6 +45,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
@@ -788,7 +789,10 @@ public class BindingGraphValidator {
       DependencyRequest rootRequest = bindingPath.getLast().request();
       TypeElement componentType =
           MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
-      Kind kind = cycleHasProviderOrLazy(pathElements) ? Kind.WARNING : Kind.ERROR;
+      Kind kind =
+          cycleHasProviderOrLazy(findCycle(pathElements, request.bindingKey()))
+              ? Kind.WARNING
+              : Kind.ERROR;
       Element requestElement = rootRequest.requestElement();
       if (kind == Kind.WARNING
           && (suppressCycleWarnings(requestElement)
@@ -804,6 +808,24 @@ public class BindingGraphValidator {
                   .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
           kind,
           rootRequest.requestElement());
+    }
+    
+    private ImmutableList<DependencyRequest> findCycle(
+        List<DependencyRequest> pathElements, BindingKey cycleStartingKey) {
+      ImmutableList.Builder<DependencyRequest> cyclePath = ImmutableList.builder();
+      boolean cycle = false;
+      for (DependencyRequest dependencyRequest : pathElements) {
+        if (dependencyRequest.bindingKey().equals(cycleStartingKey)) {
+          cycle = !cycle;
+          if (!cycle) {
+            return cyclePath.build();
+          }
+        }
+        if (cycle) {
+          cyclePath.add(dependencyRequest);
+        }
+      }
+      return cyclePath.build();
     }
 
     private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> pathElements) {

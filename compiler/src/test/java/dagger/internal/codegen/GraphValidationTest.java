@@ -191,36 +191,38 @@ public class GraphValidationTest {
   }
 
   @Test public void cyclicDependencyNotIncludingEntryPoint() {
-    JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Inject;",
-        "",
-        "final class Outer {",
-        "  static class A {",
-        "    @Inject A(C cParam) {}",
-        "  }",
-        "",
-        "  static class B {",
-        "    @Inject B(A aParam) {}",
-        "  }",
-        "",
-        "  static class C {",
-        "    @Inject C(B bParam) {}",
-        "  }",
-
-        "  static class D {",
-        "    @Inject D(C cParam) {}",
-        "  }",
-        "",
-        "  @Component()",
-        "  interface DComponent {",
-        "    D getD();",
-        "  }",
-        "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(C cParam) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(A aParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(B bParam) {}",
+            "  }",
+            "",
+            "  static class D {",
+            "    @Inject D(C cParam) {}",
+            "  }",
+            "",
+            "  @Component()",
+            "  interface DComponent {",
+            "    D getD();",
+            "  }",
+            "}");
 
     String expectedError = "test.Outer.DComponent.getD() contains a dependency cycle:\n"
         + "      test.Outer.D.<init>(test.Outer.C cParam)\n"
@@ -232,9 +234,69 @@ public class GraphValidationTest {
         + "      test.Outer.A.<init>(test.Outer.C cParam)\n"
         + "          [parameter: test.Outer.C cParam]";
 
-    assertAbout(javaSource()).that(component)
+    assertAbout(javaSource())
+        .that(component)
         .processedWith(new ComponentProcessor())
-        .failsToCompile().withErrorContaining(expectedError).in(component).onLine(26);
+        .failsToCompile()
+        .withErrorContaining(expectedError)
+        .in(component)
+        .onLine(27);
+  }
+
+  @Test
+  public void falsePositiveCyclicDependencyIndirectionDetected() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(C cParam) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(A aParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(B bParam) {}",
+            "  }",
+            "",
+            "  static class D {",
+            "    @Inject D(Provider<C> cParam) {}",
+            "  }",
+            "",
+            "  @Component()",
+            "  interface DComponent {",
+            "    D getD();",
+            "  }",
+            "}");
+
+    String expectedError =
+        "test.Outer.DComponent.getD() contains a dependency cycle:\n"
+            + "      test.Outer.D.<init>(javax.inject.Provider<test.Outer.C> cParam)\n"
+            + "          [parameter: javax.inject.Provider<test.Outer.C> cParam]\n"
+            + "      test.Outer.C.<init>(test.Outer.B bParam)\n"
+            + "          [parameter: test.Outer.B bParam]\n"
+            + "      test.Outer.B.<init>(test.Outer.A aParam)\n"
+            + "          [parameter: test.Outer.A aParam]\n"
+            + "      test.Outer.A.<init>(test.Outer.C cParam)\n"
+            + "          [parameter: test.Outer.C cParam]";
+
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError)
+        .in(component)
+        .onLine(28);
   }
 
   @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarning() {
