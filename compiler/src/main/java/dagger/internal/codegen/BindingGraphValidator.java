@@ -781,22 +781,23 @@ public class BindingGraphValidator {
           .add(request)
           .addAll(Iterables.transform(bindingPath, REQUEST_FROM_RESOLVED_REQUEST))
           .build();
-      ImmutableList<String> printableDependencyPath = FluentIterable.from(pathElements)
-          .transform(dependencyRequestFormatter)
-          .filter(Predicates.not(Predicates.equalTo("")))
-          .toList()
-          .reverse();
+      ImmutableList<DependencyRequest> cycleElements =
+          findCycle(pathElements, request.bindingKey());
+      ImmutableList<String> printableDependencyPath =
+          FluentIterable.from(pathElements)
+              .transform(dependencyRequestFormatter)
+              .filter(Predicates.not(Predicates.equalTo("")))
+              .toList()
+              .reverse();
       DependencyRequest rootRequest = bindingPath.getLast().request();
       TypeElement componentType =
           MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
-      Kind kind =
-          cycleHasProviderOrLazy(findCycle(pathElements, request.bindingKey()))
-              ? Kind.WARNING
-              : Kind.ERROR;
+      Kind kind = cycleHasProviderOrLazy(cycleElements) ? Kind.WARNING : Kind.ERROR;
       Element requestElement = rootRequest.requestElement();
       if (kind == Kind.WARNING
-          && (suppressCycleWarnings(requestElement)
-              || suppressCycleWarnings(requestElement.getEnclosingElement()))) {
+              && (suppressCycleWarnings(requestElement)
+                  || suppressCycleWarnings(requestElement.getEnclosingElement())
+                  || suppressCycleWarnings(cycleElements))) {
         return;
       }
       // TODO(cgruber): Restructure to provide a hint for the start and end of the cycle.
@@ -809,7 +810,7 @@ public class BindingGraphValidator {
           kind,
           rootRequest.requestElement());
     }
-    
+
     private ImmutableList<DependencyRequest> findCycle(
         List<DependencyRequest> pathElements, BindingKey cycleStartingKey) {
       ImmutableList.Builder<DependencyRequest> cyclePath = ImmutableList.builder();
@@ -838,10 +839,19 @@ public class BindingGraphValidator {
       return false;
     }
   }
-
+  
   private boolean suppressCycleWarnings(Element requestElement) {
     SuppressWarnings suppressions = requestElement.getAnnotation(SuppressWarnings.class);
     return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
+  }
+  
+  private boolean suppressCycleWarnings(ImmutableList<DependencyRequest> pathElements) {
+    for (DependencyRequest dependencyRequest : pathElements) {
+      if (suppressCycleWarnings(dependencyRequest.requestElement())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   ValidationReport<TypeElement> validate(BindingGraph subject) {
@@ -973,3 +983,4 @@ public class BindingGraphValidator {
         }
       };
 }
+
