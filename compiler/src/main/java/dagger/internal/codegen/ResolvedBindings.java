@@ -24,12 +24,15 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import dagger.MembersInjector;
-import dagger.internal.codegen.ContributionBinding.ContributionType;
-import java.util.EnumSet;
-import java.util.Set;
+import dagger.internal.codegen.BindingType.HasBindingType;
+import dagger.internal.codegen.ContributionType.HasContributionType;
+import dagger.internal.codegen.Key.HasKey;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ContributionType.indexByContributionType;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT;
 
 /**
  * The collection of bindings that have been resolved for a binding key.
@@ -37,7 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
  * @author Gregory Kick
  */
 @AutoValue
-abstract class ResolvedBindings {
+abstract class ResolvedBindings implements HasBindingType, HasContributionType, HasKey {
   /**
    * The binding key for which the {@link #bindings()} have been resolved.
    */
@@ -66,6 +69,11 @@ abstract class ResolvedBindings {
    */
   abstract ImmutableMap<ComponentDescriptor, MembersInjectionBinding> allMembersInjectionBindings();
 
+  @Override
+  public Key key() {
+    return bindingKey().key();
+  }
+  
   /**
    * All bindings for {@link #bindingKey()}, regardless of in which component they were resolved.
    */
@@ -214,21 +222,30 @@ abstract class ResolvedBindings {
   }
 
   /**
+   * The binding type for all {@link #bindings()}.
+   *
+   * @throws IllegalStateException if {@link #bindings()} is empty or the binding types conflict
+   */
+  @Override
+  public BindingType bindingType() {
+    ImmutableSet<BindingType> bindingTypes =
+        FluentIterable.from(bindings()).transform(BindingType.BINDING_TYPE).toSet();
+    checkState(!bindingTypes.isEmpty(), "no bindings for %s", bindingKey());
+    checkState(bindingTypes.size() == 1, "conflicting binding types: %s", this);
+    return getOnlyElement(bindingTypes);
+  }
+
+  /**
    * The contribution type for these bindings.
    *
    * @throws IllegalStateException if the bindings are not all of one contribution type
    */
-  ContributionType contributionType() {
-    checkState(!contributionBindings().isEmpty(), "no bindings for %s", bindingKey());
-    Set<ContributionType> types = EnumSet.noneOf(ContributionType.class);
-    for (ContributionBinding binding : contributionBindings()) {
-      types.add(binding.contributionType());
-    }
-    if (types.size() > 1) {
-      throw new IllegalStateException(
-          String.format(ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types));
-    }
-    return Iterables.getOnlyElement(types);
+  @Override
+  public ContributionType contributionType() {
+    ImmutableSet<ContributionType> types = indexByContributionType(contributionBindings()).keySet();
+    checkState(!types.isEmpty(), "no bindings for %s", bindingKey());
+    checkState(types.size() == 1, MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types);
+    return getOnlyElement(types);
   }
 
   /**
@@ -259,9 +276,9 @@ abstract class ResolvedBindings {
   Class<?> frameworkClass() {
     switch (bindingKey().kind()) {
       case CONTRIBUTION:
-        return Iterables.any(contributionBindings(), Binding.isOfType(Binding.Type.PRODUCTION))
-            ? Binding.Type.PRODUCTION.frameworkClass()
-            : Binding.Type.PROVISION.frameworkClass();
+        return Iterables.any(contributionBindings(), BindingType.isOfType(BindingType.PRODUCTION))
+            ? BindingType.PRODUCTION.frameworkClass()
+            : BindingType.PROVISION.frameworkClass();
       case MEMBERS_INJECTION:
         return MembersInjector.class;
       default:

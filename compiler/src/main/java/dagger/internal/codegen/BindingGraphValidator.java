@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
@@ -41,7 +40,6 @@ import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.internal.codegen.ContributionBinding.ContributionType;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -86,6 +84,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDepen
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MAP;
+import static dagger.internal.codegen.ContributionType.indexByContributionType;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
@@ -107,7 +106,7 @@ public class BindingGraphValidator {
   private final InjectBindingRegistry injectBindingRegistry;
   private final ValidationType scopeCycleValidationType;
   private final Diagnostic.Kind nullableValidationType;
-  private final ContributionBindingFormatter contributionBindingFormatter;
+  private final HasSourceElementFormatter hasSourceElementFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
   private final KeyFormatter keyFormatter;
@@ -118,7 +117,7 @@ public class BindingGraphValidator {
       InjectBindingRegistry injectBindingRegistry,
       ValidationType scopeCycleValidationType,
       Diagnostic.Kind nullableValidationType,
-      ContributionBindingFormatter contributionBindingFormatter,
+      HasSourceElementFormatter hasSourceElementFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
       KeyFormatter keyFormatter,
@@ -127,7 +126,7 @@ public class BindingGraphValidator {
     this.injectBindingRegistry = injectBindingRegistry;
     this.scopeCycleValidationType = scopeCycleValidationType;
     this.nullableValidationType = nullableValidationType;
-    this.contributionBindingFormatter = contributionBindingFormatter;
+    this.hasSourceElementFormatter = hasSourceElementFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
     this.keyFormatter = keyFormatter;
@@ -286,14 +285,15 @@ public class BindingGraphValidator {
           ImmutableSet<ContributionBinding> contributionBindings =
               resolvedBinding.contributionBindings();
           if (Iterables.any(
-              contributionBindings, Binding.isOfType(Binding.Type.MEMBERS_INJECTION))) {
-            throw new IllegalArgumentException(
+              resolvedBinding.bindings(), BindingType.isOfType(BindingType.MEMBERS_INJECTION))) {
+            // TODO(dpb): How could this ever happen, even in an invalid graph?
+            throw new AssertionError(
                 "contribution binding keys should never have members injection bindings");
           }
           if (!validateNullability(path.peek().request(), contributionBindings)) {
             return false;
           }
-          if (Iterables.any(contributionBindings, Binding.isOfType(Binding.Type.PRODUCTION))
+          if (Iterables.any(contributionBindings, BindingType.isOfType(BindingType.PRODUCTION))
               && doesPathRequireProvisionOnly(path)) {
             reportProviderMayNotDependOnProducer(path);
             return false;
@@ -301,13 +301,13 @@ public class BindingGraphValidator {
           if (contributionBindings.size() <= 1) {
             return true;
           }
-          ImmutableListMultimap<ContributionType, ContributionBinding> contributionsByType =
-              contributionBindingsByType(resolvedBinding);
-          if (contributionsByType.keySet().size() > 1) {
+          ImmutableSet<ContributionType> contributionTypes =
+              contributionBindingsByType(resolvedBinding).keySet();
+          if (contributionTypes.size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
           }
-          switch (getOnlyElement(contributionsByType.keySet())) {
+          switch (getOnlyElement(contributionTypes)) {
             case UNIQUE:
               reportDuplicateBindings(path);
               return false;
@@ -324,8 +324,9 @@ public class BindingGraphValidator {
           break;
         case MEMBERS_INJECTION:
           if (!Iterables.all(
-              resolvedBinding.bindings(), Binding.isOfType(Binding.Type.MEMBERS_INJECTION))) {
-            throw new IllegalArgumentException(
+              resolvedBinding.bindings(), BindingType.isOfType(BindingType.MEMBERS_INJECTION))) {
+            // TODO(dpb): How could this ever happen, even in an invalid graph?
+            throw new AssertionError(
                 "members injection binding keys should never have contribution bindings");
           }
           if (resolvedBinding.bindings().size() > 1) {
@@ -387,8 +388,7 @@ public class BindingGraphValidator {
 
     private ImmutableListMultimap<ContributionType, ContributionBinding> contributionBindingsByType(
         ResolvedBindings resolvedBinding) {
-      return Multimaps.index(
-          inlineSyntheticContributions(resolvedBinding), ContributionBinding.CONTRIBUTION_TYPE);
+      return indexByContributionType(inlineSyntheticContributions(resolvedBinding));
     }
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
@@ -409,7 +409,7 @@ public class BindingGraphValidator {
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
           reportBuilder.addItem(
-              nullableToNonNullable(typeName, contributionBindingFormatter.format(binding))
+              nullableToNonNullable(typeName, hasSourceElementFormatter.format(binding))
                   + "\n at: "
                   + dependencyRequestFormatter.format(request),
               nullableValidationType,
@@ -877,7 +877,8 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      appendBindings(builder, inlineSyntheticContributions(resolvedBinding), 1);
+      hasSourceElementFormatter.formatIndentedList(
+          builder, inlineSyntheticContributions(resolvedBinding), 1, DUPLICATE_SIZE_LIMIT);
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
@@ -892,15 +893,11 @@ public class BindingGraphValidator {
       for (ContributionType type :
           Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
         builder.append(INDENT);
-        builder.append(formatBindingType(type));
-        builder.append(" bindings:\n");
-        for (ContributionBinding binding : bindingsByType.get(type)) {
-          builder
-              .append(INDENT)
-              .append(INDENT)
-              .append(contributionBindingFormatter.format(binding))
-              .append('\n');
-        }
+        builder.append(formatContributionType(type));
+        builder.append(" bindings:");
+        hasSourceElementFormatter.formatIndentedList(
+            builder, bindingsByType.get(type), 2, DUPLICATE_SIZE_LIMIT);
+        builder.append('\n');
       }
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
@@ -909,7 +906,7 @@ public class BindingGraphValidator {
         Deque<ResolvedRequest> path, Collection<ContributionBinding> mapBindings) {
       StringBuilder builder = new StringBuilder();
       builder.append(duplicateMapKeysError(formatRootRequestKey(path)));
-      appendBindings(builder, mapBindings, 1);
+      hasSourceElementFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
@@ -930,7 +927,7 @@ public class BindingGraphValidator {
             .append(annotationType)
             .append(':');
 
-        appendBindings(builder, bindings, 2);
+        hasSourceElementFormatter.formatIndentedList(builder, bindings, 2, DUPLICATE_SIZE_LIMIT);
       }
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
@@ -1115,7 +1112,7 @@ public class BindingGraphValidator {
     final DependencyRequest request = iterator.next().request();
     ResolvedRequest previousResolvedRequest = iterator.next();
     return FluentIterable.from(previousResolvedRequest.binding().bindings())
-        .filter(Binding.isOfType(Binding.Type.PROVISION))
+        .filter(BindingType.isOfType(BindingType.PROVISION))
         .filter(
             new Predicate<Binding>() {
               @Override
@@ -1126,7 +1123,7 @@ public class BindingGraphValidator {
         .toSet();
   }
 
-  private String formatBindingType(ContributionType type) {
+  private String formatContributionType(ContributionType type) {
     switch (type) {
       case MAP:
         return "Map";
@@ -1141,28 +1138,6 @@ public class BindingGraphValidator {
 
   private String formatRootRequestKey(Deque<ResolvedRequest> path) {
     return keyFormatter.format(path.peek().request().key());
-  }
-
-  private void appendBindings(
-      StringBuilder builder, Collection<ContributionBinding> bindings, int indentLevel) {
-    for (ContributionBinding binding : Iterables.limit(bindings, DUPLICATE_SIZE_LIMIT)) {
-      builder.append('\n');
-      for (int i = 0; i < indentLevel; i++) {
-        builder.append(INDENT);
-      }
-      builder.append(contributionBindingFormatter.format(binding));
-    }
-    int numberOfOtherBindings = bindings.size() - DUPLICATE_SIZE_LIMIT;
-    if (numberOfOtherBindings > 0) {
-      builder.append('\n');
-      for (int i = 0; i < indentLevel; i++) {
-        builder.append(INDENT);
-      }
-      builder.append("and ").append(numberOfOtherBindings).append(" other");
-    }
-    if (numberOfOtherBindings > 1) {
-      builder.append('s');
-    }
   }
 
   @AutoValue

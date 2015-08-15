@@ -61,7 +61,10 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 @AutoValue
 abstract class MembersInjectionBinding extends Binding {
-  @Override abstract TypeElement bindingElement();
+  @Override
+  TypeElement bindingElement() {
+    return MoreElements.asType(super.bindingElement());
+  }
         
   /** The set of individual sites where {@link Inject} is applied. */
   abstract ImmutableSortedSet<InjectionSite> injectionSites();
@@ -82,8 +85,8 @@ abstract class MembersInjectionBinding extends Binding {
   }
 
   @Override
-  protected Binding.Type bindingType() {
-    return Binding.Type.MEMBERS_INJECTION;
+  public BindingType bindingType() {
+    return BindingType.MEMBERS_INJECTION;
   }
 
   /**
@@ -218,12 +221,12 @@ abstract class MembersInjectionBinding extends Binding {
       Key key = keyFactory.forMembersInjectedType(declaredType);
       TypeElement typeElement = MoreElements.asType(declaredType.asElement());
       return new AutoValue_MembersInjectionBinding(
+          SourceElement.forElement(typeElement),
           key,
           dependencies,
           dependencies,
           findBindingPackage(key),
           hasNonDefaultTypeParameters(typeElement, key.type(), types),
-          typeElement,
           injectionSites,
           parentKey);
     }

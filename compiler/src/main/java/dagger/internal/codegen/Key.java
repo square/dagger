@@ -21,9 +21,12 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Provides;
 import dagger.producers.Produced;
@@ -63,6 +66,13 @@ import static javax.lang.model.element.ElementKind.METHOD;
  */
 @AutoValue
 abstract class Key {
+  
+  /** An object that is associated with a {@link Key}. */
+  interface HasKey {
+    /** The key associated with this object. */
+    Key key();
+  }
+
   /**
    * A {@link javax.inject.Qualifier} annotation that provides a unique namespace prefix
    * for the type of this key.
@@ -152,6 +162,21 @@ abstract class Key {
         .add("qualifier", qualifier().orNull())
         .add("type", type())
         .toString();
+  }
+
+  /**
+   * Indexes {@code haveKeys} by {@link HasKey#key()}.
+   */
+  static <T extends HasKey> ImmutableSetMultimap<Key, T> indexByKey(Iterable<T> haveKeys) {
+    return ImmutableSetMultimap.copyOf(
+        Multimaps.index(
+            haveKeys,
+            new Function<HasKey, Key>() {
+              @Override
+              public Key apply(HasKey hasKey) {
+                return hasKey.key();
+              }
+            }));
   }
 
   /**
@@ -282,10 +307,10 @@ abstract class Key {
         case SET:
           return types.getDeclaredType(getSetElement(), returnType);
         case MAP:
-          return mapOfFactoryType(
-              method,
-              returnType,
-              providesType.isPresent() ? getProviderElement() : getProducerElement());
+          return mapOfFrameworkType(
+              mapKeyType(method),
+              providesType.isPresent() ? getProviderElement() : getProducerElement(),
+              returnType);
         case SET_VALUES:
           // TODO(gak): do we want to allow people to use "covariant return" here?
           checkArgument(MoreTypes.isType(returnType) && MoreTypes.isTypeOf(Set.class, returnType));
@@ -295,11 +320,13 @@ abstract class Key {
       }
     }
 
-    private TypeMirror mapOfFactoryType(
-        ExecutableElement method, TypeMirror valueType, TypeElement factoryType) {
-      TypeMirror mapKeyType = mapKeyType(method);
-      TypeMirror mapValueFactoryType = types.getDeclaredType(factoryType, valueType);
-      return types.getDeclaredType(getMapElement(), mapKeyType, mapValueFactoryType);
+    /**
+     * Returns {@code Map<KeyType, FrameworkType<ValueType>>}.
+     */
+    private TypeMirror mapOfFrameworkType(
+        TypeMirror keyType, TypeElement frameworkType, TypeMirror valueType) {
+      return types.getDeclaredType(
+          getMapElement(), keyType, types.getDeclaredType(frameworkType, valueType));
     }
 
     private TypeMirror mapKeyType(ExecutableElement method) {

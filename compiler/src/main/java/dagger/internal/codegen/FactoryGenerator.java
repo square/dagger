@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import dagger.MembersInjector;
-import dagger.Provides.Type;
 import dagger.internal.Factory;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
@@ -107,7 +106,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     checkState(!binding.hasNonDefaultTypeParameters());
 
     TypeMirror keyType =
-        binding.provisionType().equals(Type.MAP)
+        binding.contributionType().equals(ContributionType.MAP)
             ? MapType.from(binding.key().type()).unwrappedValueType(Provider.class)
             : binding.key().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);

@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Provides;
+import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
 import java.util.Set;
@@ -48,7 +49,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @author Jesse Beder
  * @since 2.0
  */
-abstract class ContributionBinding extends Binding {
+abstract class ContributionBinding extends Binding implements HasContributionType {
 
   @Override
   Set<DependencyRequest> implicitDependencies() {
@@ -60,41 +61,6 @@ abstract class ContributionBinding extends Binding {
       return Sets.union(membersInjectionRequest().asSet(), dependencies());
     }
   }
-
-  static enum ContributionType {
-    /** Represents map bindings. */
-    MAP,
-    /** Represents set bindings. */
-    SET,
-    /** Represents a valid non-collection binding. */
-    UNIQUE;
-
-    boolean isMultibinding() {
-      return !this.equals(UNIQUE);
-    }
-  }
-
-  ContributionType contributionType() {
-    switch (provisionType()) {
-      case SET:
-      case SET_VALUES:
-        return ContributionType.SET;
-      case MAP:
-        return ContributionType.MAP;
-      case UNIQUE:
-        return ContributionType.UNIQUE;
-      default:
-        throw new AssertionError("Unknown provision type: " + provisionType());
-    }
-  }
-  
-  static final Function<ContributionBinding, ContributionType> CONTRIBUTION_TYPE =
-      new Function<ContributionBinding, ContributionType>() {
-        @Override
-        public ContributionType apply(ContributionBinding binding) {
-          return binding.contributionType();
-        }
-      };
   
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
@@ -105,7 +71,9 @@ abstract class ContributionBinding extends Binding {
    * binding's enclosed element, as this will return the subclass whereas the enclosed element will
    * be the superclass.
    */
-  abstract Optional<TypeElement> contributedBy();
+  Optional<TypeElement> contributedBy() {
+    return sourceElement().contributedBy();
+  }
 
   /**
    * Returns whether this binding is synthetic, i.e., not explicitly tied to code, but generated
@@ -183,6 +151,11 @@ abstract class ContributionBinding extends Binding {
 
   /** The provision type that was used to bind the key. */
   abstract Provides.Type provisionType();
+
+  @Override
+  public ContributionType contributionType() {
+    return ContributionType.forProvisionType(provisionType());
+  }
 
   /**
    * The strategy for getting an instance of a factory for a {@link ContributionBinding}.

@@ -65,7 +65,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   }
 
   @Override
-  protected Iterable<ProcessingStep> initSteps() {
+  protected Iterable<? extends ProcessingStep> initSteps() {
     Messager messager = processingEnv.getMessager();
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
@@ -75,8 +75,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         nullableValidationType(processingEnv).diagnosticKind().get();
 
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
-    ContributionBindingFormatter contributionBindingFormatter =
-        new ContributionBindingFormatter(methodSignatureFormatter);
+    HasSourceElementFormatter hasSourceElementFormatter =
+        new HasSourceElementFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter = new DependencyRequestFormatter(types);
     KeyFormatter keyFormatter = new KeyFormatter();
 
@@ -149,13 +149,13 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             injectBindingRegistry,
             scopeValidationType(processingEnv),
             nullableDiagnosticType,
-            contributionBindingFormatter,
+            hasSourceElementFormatter,
             methodSignatureFormatter,
             dependencyRequestFormatter,
             keyFormatter,
             keyFactory);
 
-    return ImmutableList.<ProcessingStep>of(
+    return ImmutableList.of(
         new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
         new InjectProcessingStep(
             messager,

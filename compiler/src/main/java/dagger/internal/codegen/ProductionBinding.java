@@ -26,7 +26,6 @@ import dagger.Provides;
 import dagger.producers.Produces;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
@@ -48,10 +47,10 @@ import static javax.lang.model.element.ElementKind.METHOD;
 abstract class ProductionBinding extends ContributionBinding {
 
   @Override
-  Binding.Type bindingType() {
-    return Binding.Type.PRODUCTION;
+  public BindingType bindingType() {
+    return BindingType.PRODUCTION;
   }
-
+  
   @Override
   Provides.Type provisionType() {
     return Provides.Type.valueOf(productionType().name());
@@ -75,21 +74,6 @@ abstract class ProductionBinding extends ContributionBinding {
 
   /** If this production requires a monitor, this will be the corresponding request. */
   abstract Optional<DependencyRequest> monitorRequest();
-
-  @Override
-  ContributionType contributionType() {
-    switch (productionType()) {
-      case SET:
-      case SET_VALUES:
-        return ContributionType.SET;
-      case MAP:
-        return ContributionType.MAP;
-      case UNIQUE:
-        return ContributionType.UNIQUE;
-      default:
-        throw new AssertionError("Unknown production type: " + productionType());
-    }
-  }
 
   static final class Factory {
     private final Types types;
@@ -125,13 +109,12 @@ abstract class ProductionBinding extends ContributionBinding {
           ? Kind.FUTURE_PRODUCTION
           : Kind.IMMEDIATE;
       return new AutoValue_ProductionBinding(
+          SourceElement.forElement(producesMethod, MoreTypes.asTypeElement(declaredContainer)),
           key,
-          producesMethod,
           dependencies,
           findBindingPackage(key),
           false,
           ConfigurationAnnotations.getNullableType(producesMethod),
-          Optional.of(MoreTypes.asTypeElement(declaredContainer)),
           Optional.<DependencyRequest>absent(),
           kind,
           producesAnnotation.type(),
@@ -149,13 +132,12 @@ abstract class ProductionBinding extends ContributionBinding {
           dependencyRequestFactory.forImplicitMapBinding(
               mapOfValueRequest, implicitMapOfProducerKey.get());
       return new AutoValue_ProductionBinding(
+          SourceElement.forElement(implicitMapOfProducerRequest.requestElement()),
           mapOfValueRequest.key(),
-          implicitMapOfProducerRequest.requestElement(),
           ImmutableSet.of(implicitMapOfProducerRequest),
           findBindingPackage(mapOfValueRequest.key()),
           false,
           Optional.<DeclaredType>absent(),
-          Optional.<TypeElement>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SYNTHETIC_MAP,
           Produces.Type.UNIQUE,
@@ -169,13 +151,12 @@ abstract class ProductionBinding extends ContributionBinding {
       checkArgument(componentMethod.getParameters().isEmpty());
       checkArgument(MoreTypes.isTypeOf(ListenableFuture.class, componentMethod.getReturnType()));
       return new AutoValue_ProductionBinding(
+          SourceElement.forElement(componentMethod),
           keyFactory.forProductionComponentMethod(componentMethod),
-          componentMethod,
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
           false,
           Optional.<DeclaredType>absent(),
-          Optional.<TypeElement>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.COMPONENT_PRODUCTION,
           Produces.Type.UNIQUE,

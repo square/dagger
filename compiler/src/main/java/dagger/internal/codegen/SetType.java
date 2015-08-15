@@ -44,6 +44,13 @@ abstract class SetType {
   }
 
   /**
+   * {@code true} if the set type is the raw {@link Set} type.
+   */
+  boolean isRawType() {
+    return declaredSetType().getTypeArguments().isEmpty();
+  }
+
+  /**
    * The element type.
    */
   TypeMirror elementType() {
@@ -76,7 +83,7 @@ abstract class SetType {
   /**
    * {@code true} if {@code type} is a {@link Set} type.
    */
-  static boolean isSetType(TypeMirror type) {
+  static boolean isSet(TypeMirror type) {
     return MoreTypes.isType(type) && MoreTypes.isTypeOf(Set.class, type);
   }
 
@@ -86,7 +93,7 @@ abstract class SetType {
    * @throws IllegalArgumentException if {@code type} is not a {@link Set} type
    */
   static SetType from(TypeMirror type) {
-    checkArgument(isSetType(type), "%s must be a Set", type);
+    checkArgument(isSet(type), "%s must be a Set", type);
     return new AutoValue_SetType(MoreTypes.equivalence().wrap(MoreTypes.asDeclared(type)));
   }
 }

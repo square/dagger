@@ -44,21 +44,36 @@ abstract class MapType {
   }
 
   /**
+   * {@code true} if the map type is the raw {@link Map} type.
+   */
+  boolean isRawType() {
+    return declaredMapType().getTypeArguments().isEmpty();
+  }
+
+  /**
    * The map key type.
+   * 
+   * @throws IllegalStateException if {@link #isRawType()} is true.
    */
   TypeMirror keyType() {
+    checkState(!isRawType());
     return declaredMapType().getTypeArguments().get(0);
   }
 
   /**
    * The map value type.
+   * 
+   * @throws IllegalStateException if {@link #isRawType()} is true.
    */
   TypeMirror valueType() {
+    checkState(!isRawType());
     return declaredMapType().getTypeArguments().get(1);
   }
 
   /**
    * {@code true} if {@link #valueType()} is a {@code clazz}.
+   * 
+   * @throws IllegalStateException if {@link #isRawType()} is true.
    */
   boolean valuesAreTypeOf(Class<?> clazz) {
     return MoreTypes.isType(valueType()) && MoreTypes.isTypeOf(clazz, valueType());
@@ -67,7 +82,8 @@ abstract class MapType {
   /**
    * {@code V} if {@link #valueType()} is a {@code WrappingClass<V>}.
    *
-   * @throws IllegalStateException if {@link #valueType()} is not a {@code WrappingClass<V>}
+   * @throws IllegalStateException if {@link #isRawType()} is true or {@link #valueType()} is not a
+   *     {@code WrappingClass<V>}
    * @throws IllegalArgumentException if {@code wrappingClass} does not have exactly one type
    *     parameter
    */

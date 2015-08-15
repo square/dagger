@@ -15,17 +15,14 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
-import dagger.internal.codegen.ContributionBinding.ContributionType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -49,9 +46,9 @@ abstract class FrameworkField {
   }
 
   private static FrameworkField createForMapBindingContribution(Key key, String name) {
-    TypeMirror mapValueType = MoreTypes.asDeclared(key.type()).getTypeArguments().get(1);
     return new AutoValue_FrameworkField(
-        (ParameterizedTypeName) TypeNames.forTypeMirror(mapValueType), name);
+        (ParameterizedTypeName) TypeNames.forTypeMirror(MapType.from(key.type()).valueType()),
+        name);
   }
 
   static FrameworkField createForSyntheticContributionBinding(

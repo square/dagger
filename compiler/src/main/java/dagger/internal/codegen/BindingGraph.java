@@ -33,7 +33,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.TreeTraverser;
 import dagger.Component;
 import dagger.Subcomponent;
-import dagger.internal.codegen.Binding.Type;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
@@ -63,6 +62,7 @@ import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescrip
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.Key.indexByKey;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
@@ -234,9 +234,7 @@ abstract class BindingGraph {
 
       Resolver requestResolver =
           new Resolver(
-              parentResolver,
-              componentDescriptor,
-              explicitBindingsByKey(explicitBindingsBuilder.build()));
+              parentResolver, componentDescriptor, indexByKey(explicitBindingsBuilder.build()));
       for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
         Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
         if (componentMethodRequest.isPresent()) {
@@ -266,16 +264,6 @@ abstract class BindingGraph {
           requestResolver.getResolvedBindings(),
           subgraphsBuilder.build(),
           requestResolver.getOwnedModules());
-    }
-
-    private <B extends ContributionBinding> ImmutableSetMultimap<Key, B> explicitBindingsByKey(
-        Iterable<? extends B> bindings) {
-      // Multimaps.index() doesn't do ImmutableSetMultimaps.
-      ImmutableSetMultimap.Builder<Key, B> builder = ImmutableSetMultimap.builder();
-      for (B binding : bindings) {
-        builder.put(binding.key(), binding);
-      }
-      return builder.build();
     }
 
     private final class Resolver {
@@ -465,6 +453,10 @@ abstract class BindingGraph {
         return ImmutableList.copyOf(Lists.reverse(resolverList));
       }
 
+      /**
+       * Returns the explicit {@link ContributionBinding}s that match the {@code requestKey} from
+       * this and all ancestor resolvers.
+       */
       private ImmutableSet<ContributionBinding> getExplicitBindings(Key requestKey) {
         ImmutableSet.Builder<ContributionBinding> explicitBindingsForKey = ImmutableSet.builder();
         for (Resolver resolver : getResolverLineage()) {
@@ -562,7 +554,7 @@ abstract class BindingGraph {
 
                   for (Binding binding : previouslyResolvedBindings.bindings()) {
                     if (!binding.scope().isPresent()
-                        && !binding.bindingType().equals(Type.PRODUCTION)) {
+                        && !binding.bindingType().equals(BindingType.PRODUCTION)) {
                       for (DependencyRequest dependency : binding.implicitDependencies()) {
                         if (dependsOnLocalMultibindings(
                             getPreviouslyResolvedBindings(dependency.bindingKey()).get(),

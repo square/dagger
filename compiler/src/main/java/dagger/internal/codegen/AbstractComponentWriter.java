@@ -536,7 +536,7 @@ abstract class AbstractComponentWriter {
         ContributionBinding contributionBinding =
             getOnlyElement(resolvedBindings.contributionBindings());
         if (contributionBinding.contributionType().isMultibinding()
-            || !(contributionBinding.bindingType().equals(Binding.Type.PROVISION))) {
+            || !contributionBinding.bindingType().equals(BindingType.PROVISION)) {
           return Optional.absent();
         }
         if (contributionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
@@ -751,7 +751,8 @@ abstract class AbstractComponentWriter {
     SetType setType = SetType.from(resolvedBindings.bindingKey().key().type());
     Class<?> factoryClass =
         Iterables.all(
-                resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PROVISION))
+                resolvedBindings.contributionBindings(),
+                BindingType.isOfType(BindingType.PROVISION))
             ? SetFactory.class
             : setType.elementsAreTypeOf(Produced.class)
                 ? SetOfProducedProducer.class
@@ -771,7 +772,7 @@ abstract class AbstractComponentWriter {
     ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
 
     if (Iterables.any(
-        resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PRODUCTION))) {
+        resolvedBindings.contributionBindings(), BindingType.isOfType(BindingType.PRODUCTION))) {
       // TODO(beder): Implement producer map bindings.
       throw new IllegalStateException("producer map bindings not implemented yet");
     }
