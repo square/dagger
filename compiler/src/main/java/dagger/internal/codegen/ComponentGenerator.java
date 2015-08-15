@@ -27,6 +27,7 @@ import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
@@ -38,11 +39,20 @@ import javax.tools.Diagnostic;
  */
 final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private final Types types;
+  private final Elements elements;
+  private final Key.Factory keyFactory;
   private final Diagnostic.Kind nullableValidationType;
 
-  ComponentGenerator(Filer filer, Types types, Diagnostic.Kind nullableValidationType) {
+  ComponentGenerator(
+      Filer filer,
+      Elements elements,
+      Types types,
+      Key.Factory keyFactory,
+      Diagnostic.Kind nullableValidationType) {
     super(filer);
     this.types = types;
+    this.elements = elements;
+    this.keyFactory = keyFactory;
     this.nullableValidationType = nullableValidationType;
   }
 
@@ -115,14 +125,14 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     }
 
     Snippet getSnippetFor(ClassName usingClass) {
-      return owningClass().equals(usingClass)
-          ? snippet()
-          : qualifiedSelectSnippet();
+      return owningClass().equals(usingClass) ? snippet() : qualifiedSelectSnippet();
     }
   }
 
   @Override
   ImmutableSet<JavaWriter> write(ClassName componentName, BindingGraph input) {
-    return new ComponentWriter(types, nullableValidationType, componentName, input).write();
+    return new ComponentWriter(
+            types, elements, keyFactory, nullableValidationType, componentName, input)
+        .write();
   }
 }

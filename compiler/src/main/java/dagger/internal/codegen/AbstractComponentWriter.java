@@ -61,12 +61,15 @@ import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetProducer;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Generated;
 import javax.inject.Provider;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -75,6 +78,8 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
@@ -95,7 +100,7 @@ import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProductionBinding;
 import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.membersInjectorNameForMembersInjectionBinding;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
@@ -114,8 +119,9 @@ import static javax.lang.model.type.TypeKind.VOID;
 abstract class AbstractComponentWriter {
 
   // TODO(dpb): Make all these fields private after refactoring is complete.
-
+  protected final Elements elements;
   protected final Types types;
+  protected final Key.Factory keyFactory;
   protected final Kind nullableValidationType;
   protected final Set<JavaWriter> javaWriters = new LinkedHashSet<>();
   protected final ClassName name;
@@ -145,8 +151,15 @@ abstract class AbstractComponentWriter {
   protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
 
   AbstractComponentWriter(
-      Types types, Diagnostic.Kind nullableValidationType, ClassName name, BindingGraph graph) {
+      Types types,
+      Elements elements,
+      Key.Factory keyFactory,
+      Diagnostic.Kind nullableValidationType,
+      ClassName name,
+      BindingGraph graph) {
     this.types = types;
+    this.elements = elements;
+    this.keyFactory = keyFactory;
     this.nullableValidationType = nullableValidationType;
     this.name = name;
     this.graph = graph;
@@ -521,7 +534,6 @@ abstract class AbstractComponentWriter {
 
   private void implementInterfaceMethods() {
     Set<MethodSignature> interfaceMethods = Sets.newHashSet();
-
     for (ComponentMethodDescriptor componentMethod :
         graph.componentDescriptor().componentMethods()) {
       if (componentMethod.dependencyRequest().isPresent()) {
@@ -858,7 +870,7 @@ abstract class AbstractComponentWriter {
             && !binding.bindingElement().getModifiers().contains(STATIC)) {
           parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
         }
-        parameters.addAll(getDependencyParameters(binding.implicitDependencies()));
+        parameters.addAll(getDependencyParameters(binding));
 
         Snippet factorySnippet =
             Snippet.format(
@@ -903,7 +915,7 @@ abstract class AbstractComponentWriter {
         parameters.add(
             getComponentContributionSnippet(
                 graph.componentDescriptor().executorDependency().get()));
-        parameters.addAll(getProducerDependencyParameters(binding.dependencies()));
+        parameters.addAll(getProducerDependencyParameters(binding));
 
         return Snippet.format(
             "new %s(%s)",
@@ -918,54 +930,75 @@ abstract class AbstractComponentWriter {
     switch (binding.injectionStrategy()) {
       case NO_OP:
         return Snippet.format("%s.noOp()", ClassName.fromClass(MembersInjectors.class));
-      case DELEGATE:
-        DependencyRequest parentInjectorRequest = binding.parentInjectorRequest().get();
-        return Snippet.format(
-            "%s.delegatingTo(%s)",
-            ClassName.fromClass(MembersInjectors.class),
-            getMemberSelectSnippet(parentInjectorRequest.bindingKey()));
       case INJECT_MEMBERS:
-        List<Snippet> parameters = getDependencyParameters(binding.implicitDependencies());
+        List<Snippet> parameters = getDependencyParameters(binding);
         return Snippet.format(
             "%s.create(%s)",
-            membersInjectorNameForMembersInjectionBinding(binding),
+            membersInjectorNameForType(binding.bindingElement()),
             Snippet.makeParametersSnippet(parameters));
       default:
         throw new AssertionError();
     }
   }
 
-  private List<Snippet> getDependencyParameters(Iterable<DependencyRequest> dependencies) {
+  private List<Snippet> getDependencyParameters(Binding binding) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
+    Set<Key> keysSeen = new HashSet<>();
     for (Collection<DependencyRequest> requestsForKey :
-        SourceFiles.indexDependenciesByUnresolvedKey(types, dependencies).asMap().values()) {
-      BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
-          .transform(new Function<DependencyRequest, BindingKey>() {
-            @Override public BindingKey apply(DependencyRequest request) {
-              return request.bindingKey();
-            }
-          })
-          .toSet());
-      if (bindingKeysWithDelegates.contains(key)) {
-        parameters.add(delegateFactoryVariableSnippet(key));
-      } else {
-        parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
+        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.implicitDependencies())
+            .asMap()
+            .values()) {
+      Set<BindingKey> requestedBindingKeys = new HashSet<>();
+      for (DependencyRequest dependencyRequest : requestsForKey) {
+        Element requestElement = dependencyRequest.requestElement();
+        TypeMirror typeMirror = typeMirrorAsMemberOf(binding.bindingTypeElement(), requestElement);
+        Key key = keyFactory.forQualifiedType(dependencyRequest.key().qualifier(), typeMirror);
+        if (keysSeen.add(key)) {
+          requestedBindingKeys.add(dependencyRequest.bindingKey());
+        }
+      }
+      if (!requestedBindingKeys.isEmpty()) {
+        BindingKey key = Iterables.getOnlyElement(requestedBindingKeys);
+        if (bindingKeysWithDelegates.contains(key)) {
+          parameters.add(delegateFactoryVariableSnippet(key));
+        } else {
+          parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
+        }
       }
     }
     return parameters.build();
   }
 
-  private List<Snippet> getProducerDependencyParameters(
-      Iterable<DependencyRequest> dependencies) {
+  // TODO(dpb): Investigate use of asMemberOf here.
+  private TypeMirror typeMirrorAsMemberOf(TypeElement bindingTypeElement, Element requestElement) {
+    TypeMirror requestType = requestElement.asType();
+    if (requestType.getKind() == TypeKind.TYPEVAR) {
+      return types.asMemberOf(
+          MoreTypes.asDeclared(bindingTypeElement.asType()),
+          (requestElement.getKind() == ElementKind.PARAMETER)
+              ? MoreTypes.asElement(requestType)
+              : requestElement);
+    } else {
+      return requestType;
+    }
+  }
+
+  private List<Snippet> getProducerDependencyParameters(Binding binding) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (Collection<DependencyRequest> requestsForKey :
-        SourceFiles.indexDependenciesByUnresolvedKey(types, dependencies).asMap().values()) {
-      BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
-          .transform(new Function<DependencyRequest, BindingKey>() {
-            @Override public BindingKey apply(DependencyRequest request) {
-              return request.bindingKey();
-            }
-          }));
+        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.dependencies())
+            .asMap()
+            .values()) {
+      BindingKey key =
+          Iterables.getOnlyElement(
+              FluentIterable.from(requestsForKey)
+                  .transform(
+                      new Function<DependencyRequest, BindingKey>() {
+                        @Override
+                        public BindingKey apply(DependencyRequest request) {
+                          return request.bindingKey();
+                        }
+                      }));
       ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);
       Class<?> frameworkClass =
           DependencyRequestMapper.FOR_PRODUCER.getFrameworkClass(requestsForKey);

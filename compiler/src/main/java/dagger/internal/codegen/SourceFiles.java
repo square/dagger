@@ -251,7 +251,7 @@ class SourceFiles {
    */
   static TypeName parameterizedMembersInjectorNameForMembersInjectionBinding(
       MembersInjectionBinding binding) {
-    ClassName factoryName = membersInjectorNameForMembersInjectionBinding(binding);
+    ClassName factoryName = membersInjectorNameForType(binding.bindingElement());
     TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
     // If the binding is parameterized, parameterize the MembersInjector.
     if (bindingName instanceof ParameterizedTypeName) {
@@ -261,10 +261,11 @@ class SourceFiles {
     return factoryName;
   }
 
-  static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
-    return injectedClassName.topLevelClassName().peerNamed(
-        injectedClassName.classFileName() + "_MembersInjector");
+  static ClassName membersInjectorNameForType(TypeElement typeElement) {
+    ClassName injectedClassName = ClassName.fromTypeElement(typeElement);
+    return injectedClassName
+        .topLevelClassName()
+        .peerNamed(injectedClassName.classFileName() + "_MembersInjector");
   }
 
   private static String factoryPrefix(ProvisionBinding binding) {
