@@ -58,8 +58,6 @@ class SubcomponentWriter extends AbstractComponentWriter {
       BindingGraph subgraph) {
     super(
         parent.types,
-        parent.elements,
-        parent.keyFactory,
         parent.nullableValidationType,
         parent.name.nestedClassNamed(subcomponentSimpleName(subgraph)),
         subgraph);

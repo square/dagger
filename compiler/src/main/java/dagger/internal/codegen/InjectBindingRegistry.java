@@ -45,7 +45,6 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members
@@ -192,7 +191,8 @@ final class InjectBindingRegistry {
    */
   private MembersInjectionBinding registerBinding(
       MembersInjectionBinding binding, boolean explicit) {
-    ClassName membersInjectorName = membersInjectorNameForType(binding.bindingTypeElement());
+    ClassName membersInjectorName =
+        SourceFiles.membersInjectorNameForMembersInjectionBinding(binding);
     if (binding.injectionSites().isEmpty()) {
       // empty members injection bindings are special and don't need source files.
       // so, we just pretend
