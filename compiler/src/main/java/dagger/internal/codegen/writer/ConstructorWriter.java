@@ -91,6 +91,7 @@ public final class ConstructorWriter extends Modifiable implements Writable, Has
 
   @Override
   public Appendable write(Appendable appendable, Context context) throws IOException {
+    writeAnnotations(appendable, context);
     writeModifiers(appendable).append(name).append('(');
     Writables.join(", ", parameterWriters.values(), appendable, context);
     appendable.append(") {");
