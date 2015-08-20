@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Module;
@@ -257,7 +258,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Map<String, String> options = processingEnv.getOptions();
     if (options.containsKey(key)) {
       try {
-        T type = Enum.valueOf(defaultValue.getDeclaringClass(), options.get(key).toUpperCase());
+        T type = Enum.valueOf(
+            defaultValue.getDeclaringClass(),
+            Ascii.toUpperCase(options.get(key)));
         if (!validValues.contains(type)) {
           throw new IllegalArgumentException(); // let handler below print out good msg.
         }
