@@ -60,7 +60,6 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Sets.union;
-import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
@@ -123,9 +122,7 @@ abstract class BindingGraph {
             new Function<ResolvedBindings, Set<ContributionBinding>>() {
               @Override
               public Set<ContributionBinding> apply(ResolvedBindings input) {
-                return (input.bindingKey().kind().equals(CONTRIBUTION))
-                    ? input.contributionBindings()
-                    : ImmutableSet.<ContributionBinding>of();
+                return input.contributionBindings();
               }
             })
         .transformAndConcat(

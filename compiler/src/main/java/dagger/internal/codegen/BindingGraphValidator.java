@@ -717,34 +717,33 @@ public class BindingGraphValidator {
       Scope componentScope = subject.componentDescriptor().scope();
       ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
       for (ResolvedBindings bindings : resolvedBindings.values()) {
-        if (bindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-          for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
-            Scope bindingScope = contributionBinding.scope();
-            if (bindingScope.isPresent() && !bindingScope.equals(componentScope)) {
-              // Scoped components cannot reference bindings to @Provides methods or @Inject
-              // types decorated by a different scope annotation. Unscoped components cannot
-              // reference to scoped @Provides methods or @Inject types decorated by any
-              // scope annotation.
-              switch (contributionBinding.bindingKind()) {
-                case PROVISION:
-                  ExecutableElement provisionMethod =
-                      MoreElements.asExecutable(contributionBinding.bindingElement());
-                  incompatiblyScopedMethodsBuilder.add(
-                      methodSignatureFormatter.format(provisionMethod));
-                  break;
-                case INJECTION:
-                  incompatiblyScopedMethodsBuilder.add(
-                      bindingScope.getReadableSource()
-                          + " class "
-                          + contributionBinding.bindingTypeElement().getQualifiedName());
-                  break;
-                default:
-                  throw new IllegalStateException();
-              }
+        for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
+          Scope bindingScope = contributionBinding.scope();
+          if (bindingScope.isPresent() && !bindingScope.equals(componentScope)) {
+            // Scoped components cannot reference bindings to @Provides methods or @Inject
+            // types decorated by a different scope annotation. Unscoped components cannot
+            // reference to scoped @Provides methods or @Inject types decorated by any
+            // scope annotation.
+            switch (contributionBinding.bindingKind()) {
+              case PROVISION:
+                ExecutableElement provisionMethod =
+                    MoreElements.asExecutable(contributionBinding.bindingElement());
+                incompatiblyScopedMethodsBuilder.add(
+                    methodSignatureFormatter.format(provisionMethod));
+                break;
+              case INJECTION:
+                incompatiblyScopedMethodsBuilder.add(
+                    bindingScope.getReadableSource()
+                        + " class "
+                        + contributionBinding.bindingTypeElement().getQualifiedName());
+                break;
+              default:
+                throw new IllegalStateException();
             }
           }
         }
       }
+
       ImmutableSet<String> incompatiblyScopedMethods = incompatiblyScopedMethodsBuilder.build();
       if (!incompatiblyScopedMethods.isEmpty()) {
         TypeElement componentType = subject.componentDescriptor().componentDefinitionType();

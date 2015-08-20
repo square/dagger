@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
 /**
@@ -96,35 +95,26 @@ abstract class ResolvedBindings {
   }
 
   /**
-   * All contribution bindings, regardless of owning component.
-   *
-   * @throws IllegalStateException if {@link #bindingKey()} is not a
-   * {@link BindingKey.Kind#CONTRIBUTION}.
+   * All contribution bindings, regardless of owning component. Empty if this is a members-injection
+   * binding.
    */
   ImmutableSet<ContributionBinding> contributionBindings() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
     return ImmutableSet.copyOf(allContributionBindings().values());
   }
 
   /**
-   * The contribution bindings that were resolved in {@link #owningComponent()}.
-   *
-   * @throws IllegalStateException if {@link #bindingKey()} is not a
-   * {@link BindingKey.Kind#CONTRIBUTION}.
+   * The contribution bindings that were resolved in {@link #owningComponent()}. Empty if this is a
+   * members-injection binding.
    */
   ImmutableSet<ContributionBinding> ownedContributionBindings() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
     return allContributionBindings().get(owningComponent());
   }
 
   /**
-   * The members-injection binding, regardless of owning component.
-   *
-   * @throws IllegalStateException if {@link #bindingKey()} is not a
-   * {@link BindingKey.Kind#MEMBERS_INJECTION}.
+   * The members-injection binding, regardless of owning component. Empty if these are contribution
+   * bindings.
    */
   Optional<MembersInjectionBinding> membersInjectionBinding() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
     ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
         FluentIterable.from(allMembersInjectionBindings().values()).toSet();
     return membersInjectionBindings.isEmpty()
@@ -133,13 +123,10 @@ abstract class ResolvedBindings {
   }
 
   /**
-   * The members-injection binding that was resolved in {@link #owningComponent()}.
-   *
-   * @throws IllegalStateException if {@link #bindingKey()} is not a
-   * {@link BindingKey.Kind#MEMBERS_INJECTION}.
+   * The members-injection binding that was resolved in {@link #owningComponent()}. Empty if these
+   * are contribution bindings.
    */
   Optional<MembersInjectionBinding> ownedMembersInjectionBinding() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
     return Optional.fromNullable(allMembersInjectionBindings().get(owningComponent()));
   }
 
@@ -212,8 +199,7 @@ abstract class ResolvedBindings {
    * {@code true} if this is a multibindings contribution.
    */
   boolean isMultibindings() {
-    return bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)
-        && !contributionBindings().isEmpty()
+    return !contributionBindings().isEmpty()
         && contributionTypeFor(contributionBindings()).isMultibinding();
   }
 
@@ -221,8 +207,7 @@ abstract class ResolvedBindings {
    * {@code true} if this is a unique contribution binding.
    */
   boolean isUniqueContribution() {
-    return bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)
-        && !contributionBindings().isEmpty()
+    return !contributionBindings().isEmpty()
         && !contributionTypeFor(contributionBindings()).isMultibinding();
   }
 }

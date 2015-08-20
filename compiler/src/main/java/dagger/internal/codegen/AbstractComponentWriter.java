@@ -476,31 +476,26 @@ abstract class AbstractComponentWriter {
     Optional<String> bindingPackage = bindingPackageFor(resolvedBindings.bindings());
     boolean useRawType = bindingPackage.isPresent()
         && !bindingPackage.get().equals(name.packageName());
-    if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
+    if (resolvedBindings.isMultibindings()) {
       ImmutableSet<ContributionBinding> contributionBindings =
           resolvedBindings.contributionBindings();
-      if (ContributionBinding.contributionTypeFor(contributionBindings).isMultibinding()) {
-        // note that here we rely on the order of the resolved bindings being from parent to child
-        // otherwise, the numbering wouldn't work
-        int contributionNumber = 0;
-        for (ContributionBinding contributionBinding : contributionBindings) {
-          if (!contributionBinding.isSyntheticBinding()) {
-            contributionNumber++;
-            if (resolvedBindings.ownedContributionBindings().contains(contributionBinding)) {
-              FrameworkField contributionBindingField =
-                  FrameworkField.createForSyntheticContributionBinding(
-                      contributionNumber, contributionBinding);
-              FieldWriter contributionField =
-                  addFrameworkField(useRawType, contributionBindingField);
+      // note that here we rely on the order of the resolved bindings being from parent to child
+      // otherwise, the numbering wouldn't work
+      int contributionNumber = 0;
+      for (ContributionBinding contributionBinding : contributionBindings) {
+        if (!contributionBinding.isSyntheticBinding()) {
+          contributionNumber++;
+          if (resolvedBindings.ownedContributionBindings().contains(contributionBinding)) {
+            FrameworkField contributionBindingField =
+                FrameworkField.createForSyntheticContributionBinding(
+                    contributionNumber, contributionBinding);
+            FieldWriter contributionField = addFrameworkField(useRawType, contributionBindingField);
 
-              ImmutableList<String> contributionSelectTokens =
-                  new ImmutableList.Builder<String>()
-                      .add(contributionField.name())
-                      .build();
-              multibindingContributionSnippets.put(
-                  contributionBinding,
-                  MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
-            }
+            ImmutableList<String> contributionSelectTokens =
+                ImmutableList.of(contributionField.name());
+            multibindingContributionSnippets.put(
+                contributionBinding,
+                MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
           }
         }
       }
