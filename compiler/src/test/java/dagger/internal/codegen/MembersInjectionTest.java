@@ -15,8 +15,16 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.Set;
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.element.TypeElement;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -658,5 +666,104 @@ public class MembersInjectionTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(bMembersInjector);
+  }
+
+  @Test
+  public void componentWithNestingAndGeneratedType() {
+    JavaFileObject nestedTypesFile =
+        JavaFileObjects.forSourceLines(
+            "test.OuterType",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import javax.inject.Inject;",
+            "",
+            "final class OuterType {",
+            "  @Inject GeneratedType generated;",
+            "  static class A {",
+            "    @Inject A() {}",
+            "  }",
+            "  static class B {",
+            "    @Inject A a;",
+            "  }",
+            "  @Component interface SimpleComponent {",
+            "    A a();",
+            "    void inject(B b);",
+            "  }",
+            "}");
+    JavaFileObject bMembersInjector =
+        JavaFileObjects.forSourceLines(
+            "test.OuterType$B_MembersInjector",
+            "package test;",
+            "",
+            "import dagger.MembersInjector;",
+            "import javax.annotation.Generated;",
+            "import javax.inject.Provider;",
+            "import test.OuterType.A;",
+            "import test.OuterType.B;",
+            "",
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            "public final class OuterType$B_MembersInjector implements MembersInjector<B> {",
+            "  private final Provider<A> aProvider;",
+            "",
+            "  public OuterType$B_MembersInjector(Provider<A> aProvider) {",
+            "    assert aProvider != null;",
+            "    this.aProvider = aProvider;",
+            "  }",
+            "",
+            "  @Override",
+            "  public void injectMembers(B instance) {",
+            "    if (instance == null) {",
+            "      throw new NullPointerException(\"Cannot inject members into a null reference\");",
+            "    }",
+            "    instance.a = aProvider.get();",
+            "  }",
+            "",
+            "  public static MembersInjector<B> create(Provider<A> aProvider) {",
+            "    return new OuterType$B_MembersInjector(aProvider);",
+            "  }",
+            "}");
+    assertAbout(javaSource())
+        .that(nestedTypesFile)
+        .processedWith(
+            new ComponentProcessor(),
+            new AbstractProcessor() {
+              private boolean done;
+
+              @Override
+              public Set<String> getSupportedAnnotationTypes() {
+                return ImmutableSet.of("*");
+              }
+
+              @Override
+              public boolean process(
+                  Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+                if (!done) {
+                  done = true;
+                  try (Writer writer =
+                          processingEnv
+                              .getFiler()
+                              .createSourceFile("test.GeneratedType")
+                              .openWriter()) {
+                    writer.write(
+                        Joiner.on('\n')
+                            .join(
+                                "package test;",
+                                "",
+                                "import javax.inject.Inject;",
+                                "",
+                                "class GeneratedType {",
+                                "  @Inject GeneratedType() {}",
+                                "}"));
+                  } catch (IOException e) {
+                    throw new RuntimeException(e);
+                  }
+                }
+                return false;
+              }
+            })
+        .compilesWithoutError()
+        .and()
+        .generatesSources(bMembersInjector);
   }
 }

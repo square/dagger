@@ -64,7 +64,7 @@ final class InjectBindingRegistry {
   final class BindingsCollection<B extends Binding> {
     private final Map<Key, B> bindingsByKey = Maps.newLinkedHashMap();
     private final Deque<B> bindingsRequiringGeneration = new ArrayDeque<>();
-    private final Set<B> materializedBindings = Sets.newLinkedHashSet();
+    private final Set<Key> materializedBindingKeys = Sets.newLinkedHashSet();
 
     void generateBindings(SourceFileGenerator<B> generator) throws SourceFileGenerationException {
       for (B binding = bindingsRequiringGeneration.poll();
@@ -72,8 +72,11 @@ final class InjectBindingRegistry {
           binding = bindingsRequiringGeneration.poll()) {
         checkState(!binding.hasNonDefaultTypeParameters());
         generator.generate(binding);
-        materializedBindings.add(binding);
+        materializedBindingKeys.add(binding.key());
       }
+      // Because Elements instantiated across processing rounds are not guaranteed to be equals() to
+      // the logically same element, clear the cache after generating 
+      bindingsByKey.clear();
     }
 
     /** Returns a previously cached binding. */
@@ -85,7 +88,7 @@ final class InjectBindingRegistry {
     B pretendBindingGenerated(B binding, ClassName factoryName) {
       tryToCacheBinding(binding);
       if (shouldGenerateBinding(binding, factoryName)) {
-        materializedBindings.add(binding);
+        materializedBindingKeys.add(binding.key());
       }
       return binding;
     }
@@ -116,7 +119,7 @@ final class InjectBindingRegistry {
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
       return !binding.hasNonDefaultTypeParameters()
           && elements.getTypeElement(factoryName.canonicalName()) == null
-          && !materializedBindings.contains(binding)
+          && !materializedBindingKeys.contains(binding.key())
           && !bindingsRequiringGeneration.contains(binding);
 
     }
