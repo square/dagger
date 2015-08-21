@@ -35,6 +35,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
+import dagger.Lazy;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
@@ -44,10 +45,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -60,12 +63,16 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-import javax.tools.Diagnostic.Kind;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.indexOf;
+import static com.google.common.collect.Iterables.skip;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
@@ -78,6 +85,13 @@ import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCE
 import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
+import static dagger.internal.codegen.Util.getKeyTypeOfMap;
+import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
+import static dagger.internal.codegen.Util.getValueTypeOfMap;
+import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
+import static dagger.internal.codegen.Util.isMapWithProvidedValues;
+import static javax.tools.Diagnostic.Kind.ERROR;
+import static javax.tools.Diagnostic.Kind.WARNING;
 
 public class BindingGraphValidator {
 
@@ -141,9 +155,12 @@ public class BindingGraphValidator {
            subject.componentDescriptor().componentMethods()) {
         Optional<DependencyRequest> entryPoint = componentMethod.dependencyRequest();
         if (entryPoint.isPresent()) {
-          traverseRequest(entryPoint.get(), new ArrayDeque<ResolvedRequest>(),
-              Sets.<BindingKey>newHashSet(), subject,
-              Sets.<DependencyRequest>newHashSet());
+          traverseRequest(
+              entryPoint.get(),
+              new ArrayDeque<ResolvedRequest>(),
+              new LinkedHashSet<BindingKey>(),
+              subject,
+              new HashSet<DependencyRequest>());
         }
       }
 
@@ -155,17 +172,35 @@ public class BindingGraphValidator {
       }
     }
 
+    /**
+     * Traverse the resolved dependency requests, validating resolved bindings, and reporting any
+     * cycles found.
+     *
+     * @param request the current dependency request
+     * @param bindingPath the dependency request path from the parent of {@code request} at the head
+     *     up to the root dependency request from the component method at the tail
+     * @param keysInPath the binding keys corresponding to the dependency requests in
+     *     {@code bindingPath}, but in reverse order: the first element is the binding key from the
+     *     component method
+     * @param resolvedRequests the requests that have already been resolved, so we can avoid
+     *     traversing that part of the graph again
+     */
+    // TODO(dpb): It might be simpler to invert bindingPath's order.
     private void traverseRequest(
         DependencyRequest request,
         Deque<ResolvedRequest> bindingPath,
-        Set<BindingKey> keysInPath,
+        LinkedHashSet<BindingKey> keysInPath,
         BindingGraph graph,
         Set<DependencyRequest> resolvedRequests) {
       verify(bindingPath.size() == keysInPath.size(),
           "mismatched path vs keys -- (%s vs %s)", bindingPath, keysInPath);
       BindingKey requestKey = request.bindingKey();
       if (keysInPath.contains(requestKey)) {
-        reportCycle(request, bindingPath);
+        reportCycle(
+            // Invert bindingPath to match keysInPath's order
+            ImmutableList.copyOf(bindingPath).reverse(),
+            request,
+            indexOf(keysInPath, equalTo(requestKey)));
         return;
       }
 
@@ -776,67 +811,110 @@ public class BindingGraphValidator {
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
-    private void reportCycle(DependencyRequest request, Deque<ResolvedRequest> bindingPath) {
-      ImmutableList<DependencyRequest> pathElements = ImmutableList.<DependencyRequest>builder()
-          .add(request)
-          .addAll(Iterables.transform(bindingPath, REQUEST_FROM_RESOLVED_REQUEST))
-          .build();
-      ImmutableList<DependencyRequest> cycleElements =
-          findCycle(pathElements, request.bindingKey());
-      ImmutableList<String> printableDependencyPath =
-          FluentIterable.from(pathElements)
-              .transform(dependencyRequestFormatter)
-              .filter(Predicates.not(Predicates.equalTo("")))
-              .toList()
-              .reverse();
-      DependencyRequest rootRequest = bindingPath.getLast().request();
-      TypeElement componentType =
-          MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
-      Kind kind = cycleHasProviderOrLazy(cycleElements) ? Kind.WARNING : Kind.ERROR;
-      Element requestElement = rootRequest.requestElement();
-      if (kind == Kind.WARNING
-              && (suppressCycleWarnings(requestElement)
-                  || suppressCycleWarnings(requestElement.getEnclosingElement())
-                  || suppressCycleWarnings(cycleElements))) {
+    /**
+     * Reports a cycle in the binding path.
+     *
+     * @param bindingPath the binding path, starting with the component provision dependency, and
+     *     ending with the binding that depends on {@code request}
+     * @param request the request that would have been added to the binding path if its
+     *     {@linkplain DependencyRequest#bindingKey() binding key} wasn't already in it
+     * @param indexOfDuplicatedKey the index of the dependency request in {@code bindingPath} whose
+     *     {@linkplain DependencyRequest#bindingKey() binding key} matches {@code request}'s
+     */
+    private void reportCycle(
+        Iterable<ResolvedRequest> bindingPath,
+        DependencyRequest request,
+        int indexOfDuplicatedKey) {
+      ImmutableList<DependencyRequest> requestPath =
+          FluentIterable.from(bindingPath)
+              .transform(REQUEST_FROM_RESOLVED_REQUEST)
+              .append(request)
+              .toList();
+      Element rootRequestElement = requestPath.get(0).requestElement();
+      ImmutableList<DependencyRequest> cycle =
+          requestPath.subList(indexOfDuplicatedKey, requestPath.size());
+      Diagnostic.Kind kind = cycleHasProviderOrLazy(cycle) ? WARNING : ERROR;
+      if (kind == WARNING
+          && (suppressCycleWarnings(rootRequestElement)
+              || suppressCycleWarnings(rootRequestElement.getEnclosingElement())
+              || suppressCycleWarnings(cycle))) {
         return;
       }
-      // TODO(cgruber): Restructure to provide a hint for the start and end of the cycle.
+      // TODO(cgruber): Provide a hint for the start and end of the cycle.
+      TypeElement componentType = MoreElements.asType(rootRequestElement.getEnclosingElement());
       reportBuilder.addItem(
-          String.format(ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
+          String.format(
+              ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
               componentType.getQualifiedName(),
-              rootRequest.requestElement().getSimpleName(),
+              rootRequestElement.getSimpleName(),
               Joiner.on("\n")
-                  .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
+                  .join(
+                      FluentIterable.from(requestPath)
+                          .transform(dependencyRequestFormatter)
+                          .filter(not(equalTo("")))
+                          .skip(1))),
           kind,
-          rootRequest.requestElement());
+          rootRequestElement);
     }
 
-    private ImmutableList<DependencyRequest> findCycle(
-        List<DependencyRequest> pathElements, BindingKey cycleStartingKey) {
-      ImmutableList.Builder<DependencyRequest> cyclePath = ImmutableList.builder();
-      boolean cycle = false;
-      for (DependencyRequest dependencyRequest : pathElements) {
-        if (dependencyRequest.bindingKey().equals(cycleStartingKey)) {
-          cycle = !cycle;
-          if (!cycle) {
-            return cyclePath.build();
-          }
-        }
-        if (cycle) {
-          cyclePath.add(dependencyRequest);
-        }
-      }
-      return cyclePath.build();
-    }
+    /**
+     * Returns {@code true} if any step of a dependency cycle after the first is a {@link Provider}
+     * or {@link Lazy} or a {@code Map<K, Provider<V>>}.
+     *
+     * <p>If an implicit {@link Provider} dependency on {@code Map<K, Provider<V>>} is immediately
+     * preceded by a dependency on {@code Map<K, V>}, which means that the map's {@link Provider}s'
+     * {@link Provider#get() get()} methods are called during provision and so the cycle is not
+     * really broken.
+     */
+    private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> cycle) {
+      DependencyRequest lastDependencyRequest = cycle.get(0);
+      for (DependencyRequest dependencyRequest : skip(cycle, 1)) {
+        switch (dependencyRequest.kind()) {
+          case PROVIDER:
+            if (!isImplicitProviderMapForValueMap(dependencyRequest, lastDependencyRequest)) {
+              return true;
+            }
+            break;
 
-    private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> pathElements) {
-      for (DependencyRequest dependencyRequest : pathElements) {
-        if (dependencyRequest.kind() == DependencyRequest.Kind.PROVIDER
-            || dependencyRequest.kind() == DependencyRequest.Kind.LAZY) {
-          return true;
+          case LAZY:
+            return true;
+
+          case INSTANCE:
+            if (isMapWithProvidedValues(dependencyRequest.key().type())) {
+              return true;
+            } else {
+              break;
+            }
+
+          default:
+            break;
         }
+        lastDependencyRequest = dependencyRequest;
       }
       return false;
+    }
+
+    /**
+     * Returns {@code true} if {@code maybeValueMapRequest}'s key type is {@code Map<K, V>} and
+     * {@code maybeProviderMapRequest}'s key type is {@code Map<K, Provider<V>>}, and both keys have
+     * the same qualifier.
+     */
+    private boolean isImplicitProviderMapForValueMap(
+        DependencyRequest maybeProviderMapRequest, DependencyRequest maybeValueMapRequest) {
+      TypeMirror maybeProviderMapRequestType = maybeProviderMapRequest.key().type();
+      TypeMirror maybeValueMapRequestType = maybeValueMapRequest.key().type();
+      return maybeProviderMapRequest
+              .key()
+              .wrappedQualifier()
+              .equals(maybeValueMapRequest.key().wrappedQualifier())
+          && isMapWithProvidedValues(maybeProviderMapRequestType)
+          && isMapWithNonProvidedValues(maybeValueMapRequestType)
+          && types.isSameType(
+              getKeyTypeOfMap(asDeclared(maybeProviderMapRequestType)),
+              getKeyTypeOfMap(asDeclared(maybeValueMapRequestType)))
+          && types.isSameType(
+              getProvidedValueTypeOfMap(asDeclared(maybeProviderMapRequestType)),
+              getValueTypeOfMap(asDeclared(maybeValueMapRequestType)));
     }
   }
   

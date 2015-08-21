@@ -22,6 +22,7 @@ import test.cycle.Cycles.A;
 import test.cycle.Cycles.C;
 import test.cycle.Cycles.ChildCycleComponent;
 import test.cycle.Cycles.CycleComponent;
+import test.cycle.Cycles.CycleMapComponent;
 import test.cycle.Cycles.S;
 import test.cycle.Cycles.SelfCycleComponent;
 
@@ -69,5 +70,22 @@ public class CycleTest {
     A a = childCycleComponent.a();
     assertThat(a.b.c.aProvider.get()).isNotNull();
     assertThat(a.e.d.b.c.aProvider.get()).isNotNull();
+  }
+  
+  @Test
+  public void providerMapIndirectionCycle() {
+    CycleMapComponent cycleMapComponent = DaggerCycles_CycleMapComponent.create();
+    assertThat(cycleMapComponent.y()).isNotNull();
+    assertThat(cycleMapComponent.y().mapOfProvidersOfX).containsKey("X");
+    assertThat(cycleMapComponent.y().mapOfProvidersOfX.get("X")).isNotNull();
+    assertThat(cycleMapComponent.y().mapOfProvidersOfX.get("X").get()).isNotNull();
+    assertThat(cycleMapComponent.y().mapOfProvidersOfX.get("X").get().y).isNotNull();
+    assertThat(cycleMapComponent.y().mapOfProvidersOfX).hasSize(1);
+    assertThat(cycleMapComponent.y().mapOfProvidersOfY).containsKey("Y");
+    assertThat(cycleMapComponent.y().mapOfProvidersOfY.get("Y")).isNotNull();
+    assertThat(cycleMapComponent.y().mapOfProvidersOfY.get("Y").get()).isNotNull();
+    assertThat(cycleMapComponent.y().mapOfProvidersOfY.get("Y").get().mapOfProvidersOfX).hasSize(1);
+    assertThat(cycleMapComponent.y().mapOfProvidersOfY.get("Y").get().mapOfProvidersOfY).hasSize(1);
+    assertThat(cycleMapComponent.y().mapOfProvidersOfY).hasSize(1);
   }
 }

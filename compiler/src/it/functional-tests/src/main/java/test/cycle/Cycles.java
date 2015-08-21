@@ -17,9 +17,15 @@ package test.cycle;
 
 import dagger.Component;
 import dagger.Lazy;
+import dagger.Module;
+import dagger.Provides;
 import dagger.Subcomponent;
+import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Provider;
+import test.TestStringKey;
+
+import static dagger.Provides.Type.MAP;
 
 /**
  * Cycle classes used for testing cyclic dependencies.
@@ -89,6 +95,47 @@ final class Cycles {
     S(Provider<S> sProvider) {
       this.sProvider = sProvider;
     }
+  }
+
+  static class X {
+    public final Y y;
+
+    @Inject
+    X(Y y) {
+      this.y = y;
+    }
+  }
+
+  static class Y {
+    public final Map<String, Provider<X>> mapOfProvidersOfX;
+    public final Map<String, Provider<Y>> mapOfProvidersOfY;
+
+    @Inject
+    Y(Map<String, Provider<X>> mapOfProvidersOfX, Map<String, Provider<Y>> mapOfProvidersOfY) {
+      this.mapOfProvidersOfX = mapOfProvidersOfX;
+      this.mapOfProvidersOfY = mapOfProvidersOfY;
+    }
+  }
+
+  @Module
+  static class CycleMapModule {
+    @Provides(type = MAP)
+    @TestStringKey("X")
+    static X x(X x) {
+      return x;
+    }
+
+    @Provides(type = MAP)
+    @TestStringKey("Y")
+    static Y y(Y y) {
+      return y;
+    }
+  }
+
+  @SuppressWarnings("dependency-cycle")
+  @Component(modules = CycleMapModule.class)
+  interface CycleMapComponent {
+    Y y();
   }
 
   @SuppressWarnings("dependency-cycle")

@@ -244,6 +244,77 @@ public class GraphValidationTest {
   }
 
   @Test
+  public void cyclicDependencyNotBrokenByMapBinding() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.MapKey;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import java.util.Map;",
+            "import javax.inject.Inject;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(Map<String, C> cMap) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(A aParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(B bParam) {}",
+            "  }",
+            "",
+            "  @Component(modules = CModule.class)",
+            "  interface CComponent {",
+            "    C getC();",
+            "  }",
+            "",
+            "  @Module",
+            "  static class CModule {",
+            "    @Provides(type = Provides.Type.MAP)",
+            "    @StringKey(\"C\")",
+            "    static C c(C c) {",
+            "      return c;",
+            "    }",
+            "  }",
+            "",
+            "  @MapKey",
+            "  @interface StringKey {",
+            "    String value();",
+            "  }",
+            "}");
+
+    String expectedError =
+        Joiner.on('\n')
+            .join(
+                "test.Outer.CComponent.getC() contains a dependency cycle:",
+                "      test.Outer.C.<init>(test.Outer.B bParam)",
+                "          [parameter: test.Outer.B bParam]",
+                "      test.Outer.B.<init>(test.Outer.A aParam)",
+                "          [parameter: test.Outer.A aParam]",
+                "      test.Outer.A.<init>(java.util.Map<java.lang.String,test.Outer.C> cMap)",
+                "          [parameter: java.util.Map<java.lang.String,test.Outer.C> cMap]",
+                "      test.Outer.A.<init>(java.util.Map<java.lang.String,test.Outer.C> cMap)",
+                "          [parameter: java.util.Map<java.lang.String,test.Outer.C> cMap]",
+                "      test.Outer.CModule.c(test.Outer.C c)",
+                "          [parameter: test.Outer.C c]");
+
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError)
+        .in(component)
+        .onLine(25);
+  }
+
+  @Test
   public void falsePositiveCyclicDependencyIndirectionDetected() {
     JavaFileObject component =
         JavaFileObjects.forSourceLines(

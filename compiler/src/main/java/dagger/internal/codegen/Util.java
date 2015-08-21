@@ -16,9 +16,6 @@
  */
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
-
-import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
@@ -36,6 +33,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
+import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Preconditions.checkState;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
@@ -51,19 +49,19 @@ final class Util {
    * Returns the {@code V} type for a {@link Map} type like Map<K, Provider<V>>} if the map
    * includes such a construction
    */
-  public static TypeMirror getProvidedValueTypeOfMap(DeclaredType mapType) {
+  public static DeclaredType getProvidedValueTypeOfMap(DeclaredType mapType) {
     checkState(MoreTypes.isTypeOf(Map.class, mapType), "%s is not a Map.", mapType);
-    return MoreTypes.asDeclared(mapType.getTypeArguments().get(1)).getTypeArguments().get(0);
+    return asDeclared(asDeclared(mapType.getTypeArguments().get(1)).getTypeArguments().get(0));
   }
 
   // TODO(cgruber): Consider an object that holds and exposes the various parts of a Map type.
   /**
    * returns the value type for a {@link Map} type like Map<K, V>}.
    */
-  public static TypeMirror getValueTypeOfMap(DeclaredType mapType) {
+  public static DeclaredType getValueTypeOfMap(DeclaredType mapType) {
     checkState(MoreTypes.isTypeOf(Map.class, mapType), "%s is not a Map.", mapType);
     List<? extends TypeMirror> mapArgs = mapType.getTypeArguments();
-    return mapArgs.get(1);
+    return asDeclared(mapArgs.get(1));
   }
 
   /**
@@ -82,6 +80,15 @@ final class Util {
     return MoreTypes.isType(type)
         && MoreTypes.isTypeOf(Map.class, type)
         && !MoreTypes.isTypeOf(Provider.class, asDeclared(type).getTypeArguments().get(1));
+  }
+
+  /**
+   * Returns true if {@code type} is a {@link Map} whose value type is a {@link Provider}.
+   */
+  public static boolean isMapWithProvidedValues(TypeMirror type) {
+    return MoreTypes.isType(type)
+        && MoreTypes.isTypeOf(Map.class, type)
+        && MoreTypes.isTypeOf(Provider.class, asDeclared(type).getTypeArguments().get(1));
   }
 
   /**
