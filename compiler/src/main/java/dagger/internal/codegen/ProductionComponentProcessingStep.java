@@ -39,12 +39,14 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
   ProductionComponentProcessingStep(
       Messager messager,
       ProductionComponentValidator componentValidator,
+      ComponentHierarchyValidator componentHierarchyValidator,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     super(
         messager,
+        componentHierarchyValidator,
         bindingGraphValidator,
         componentDescriptorFactory,
         bindingGraphFactory,

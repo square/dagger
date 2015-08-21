@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.util.SimpleElementVisitor6;
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
 
@@ -78,7 +80,7 @@ abstract class ValidationReport<T extends Element> {
           messager.printMessage(item.kind(), item.message(), item.element());
         }
       } else {
-        String message = String.format("[%s] %s", item.element(), item.message());
+        String message = String.format("[%s] %s", elementString(item.element()), item.message());
         if (item.annotation().isPresent()) {
           messager.printMessage(item.kind(), message, subject(), item.annotation().get());
         } else {
@@ -89,6 +91,22 @@ abstract class ValidationReport<T extends Element> {
     for (ValidationReport<?> subreport : subreports()) {
       subreport.printMessagesTo(messager);
     }
+  }
+
+  private static String elementString(Element element) {
+    return element.accept(
+        new SimpleElementVisitor6<String, Void>() {
+          @Override
+          protected String defaultAction(Element e, Void p) {
+            return e.toString();
+          }
+
+          @Override
+          public String visitExecutable(ExecutableElement e, Void p) {
+            return e.getEnclosingElement().accept(this, null) + '.' + e.toString();
+          }
+        },
+        null);
   }
 
   private static boolean isEnclosedIn(Element parent, Element child) {

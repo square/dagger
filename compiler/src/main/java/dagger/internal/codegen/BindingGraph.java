@@ -18,19 +18,19 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import dagger.Component;
+import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
@@ -70,19 +70,37 @@ abstract class BindingGraph {
   abstract ImmutableMap<ExecutableElement, BindingGraph> subgraphs();
 
   /**
+   * Returns the set of modules that are owned by this graph regardless of whether or not any of
+   * their bindings are used in this graph. For graphs representing top-level {@link Component
+   * components}, this set will be the same as
+   * {@linkplain ComponentDescriptor#transitiveModules the component's transitive modules}. For
+   * {@linkplain Subcomponent subcomponents}, this set will be the transitive modules that are not
+   * owned by any of their ancestors.
+   */
+  abstract ImmutableSet<ModuleDescriptor> ownedModules();
+
+  ImmutableSet<TypeElement> ownedModuleTypes() {
+    return FluentIterable.from(ownedModules())
+        .transform(ModuleDescriptor.getModuleElement())
+        .toSet();
+  }
+
+  /**
    * Returns the set of types necessary to implement the component, but are not part of the injected
    * graph.  This includes modules, component dependencies and an {@link Executor} in the case of
    * {@link ProductionComponent}.
    */
   ImmutableSet<TypeElement> componentRequirements() {
     return new ImmutableSet.Builder<TypeElement>()
-        .addAll(Iterables.transform(
-            componentDescriptor().transitiveModules(),
-            new Function<ModuleDescriptor, TypeElement>() {
-              @Override public TypeElement apply(ModuleDescriptor input) {
-                return input.moduleElement();
-              }
-            }))
+        .addAll(ownedModuleTypes())
+        .addAll(componentDescriptor().dependencies())
+        .addAll(componentDescriptor().executorDependency().asSet())
+        .build();
+  }
+
+  ImmutableSet<TypeElement> availableDependencies() {
+    return new ImmutableSet.Builder<TypeElement>()
+        .addAll(componentDescriptor().transitiveModuleTypes())
         .addAll(componentDescriptor().dependencies())
         .addAll(componentDescriptor().executorDependency().asSet())
         .build();
@@ -111,11 +129,11 @@ abstract class BindingGraph {
     }
 
     BindingGraph create(ComponentDescriptor componentDescriptor) {
-      return create(Optional.<RequestResolver>absent(), componentDescriptor);
+      return create(Optional.<Resolver>absent(), componentDescriptor);
     }
 
-    private BindingGraph create(Optional<RequestResolver> parentResolver,
-        ComponentDescriptor componentDescriptor) {
+    private BindingGraph create(
+        Optional<Resolver> parentResolver, ComponentDescriptor componentDescriptor) {
       ImmutableSet.Builder<ProvisionBinding> explicitProvisionBindingsBuilder =
           ImmutableSet.builder();
       ImmutableSet.Builder<ProductionBinding> explicitProductionBindingsBuilder =
@@ -166,11 +184,12 @@ abstract class BindingGraph {
         }
       }
 
-      RequestResolver requestResolver = new RequestResolver(
-          parentResolver,
-          componentDescriptor.wrappedScope(),
-          explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
-          explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
+      Resolver requestResolver =
+          new Resolver(
+              parentResolver,
+              componentDescriptor,
+              explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
+              explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
       for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
         Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
         if (componentMethodRequest.isPresent()) {
@@ -180,16 +199,18 @@ abstract class BindingGraph {
 
       ImmutableMap.Builder<ExecutableElement, BindingGraph> subgraphsBuilder =
           ImmutableMap.builder();
-      for (Entry<ExecutableElement, ComponentDescriptor> subcomponentEntry :
+      for (Entry<ComponentMethodDescriptor, ComponentDescriptor> subcomponentEntry :
           componentDescriptor.subcomponents().entrySet()) {
-        subgraphsBuilder.put(subcomponentEntry.getKey(),
+        subgraphsBuilder.put(
+            subcomponentEntry.getKey().methodElement(),
             create(Optional.of(requestResolver), subcomponentEntry.getValue()));
       }
 
       return new AutoValue_BindingGraph(
           componentDescriptor,
           requestResolver.getResolvedBindings(),
-          subgraphsBuilder.build());
+          subgraphsBuilder.build(),
+          requestResolver.getOwnedModules());
     }
 
     private <B extends ContributionBinding> ImmutableSetMultimap<Key, B> explicitBindingsByKey(
@@ -202,9 +223,9 @@ abstract class BindingGraph {
       return builder.build();
     }
 
-    private final class RequestResolver {
-      final Optional<RequestResolver> parentResolver;
-      final Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope;
+    private final class Resolver {
+      final Optional<Resolver> parentResolver;
+      final ComponentDescriptor componentDescriptor;
       final ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings;
       final ImmutableSet<ProvisionBinding> explicitProvisionBindingsSet;
       final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
@@ -213,14 +234,15 @@ abstract class BindingGraph {
       final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
           CacheBuilder.newBuilder().<BindingKey, Boolean>build();
 
-      RequestResolver(Optional<RequestResolver> parentResolver,
-          Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope,
+      Resolver(
+          Optional<Resolver> parentResolver,
+          ComponentDescriptor componentDescriptor,
           ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings,
           ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings) {
         assert parentResolver != null;
         this.parentResolver = parentResolver;
-        assert targetScope != null;
-        this.targetScope = targetScope;
+        assert componentDescriptor != null;
+        this.componentDescriptor = componentDescriptor;
         assert explicitProvisionBindings != null;
         this.explicitProvisionBindings = explicitProvisionBindings;
         this.explicitProvisionBindingsSet = ImmutableSet.copyOf(explicitProvisionBindings.values());
@@ -324,7 +346,7 @@ abstract class BindingGraph {
        */
       private boolean isResolvedInParent(
           DependencyRequest request, ProvisionBinding provisionBinding) {
-        Optional<RequestResolver> owningResolver = getOwningResolver(provisionBinding);
+        Optional<Resolver> owningResolver = getOwningResolver(provisionBinding);
         if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
           owningResolver.get().resolve(request);
           return true;
@@ -361,8 +383,8 @@ abstract class BindingGraph {
         return membersInjectionBinding;
       }
 
-      private Optional<RequestResolver> getOwningResolver(ProvisionBinding provisionBinding) {
-        for (RequestResolver requestResolver : getResolverLineage().reverse()) {
+      private Optional<Resolver> getOwningResolver(ProvisionBinding provisionBinding) {
+        for (Resolver requestResolver : getResolverLineage().reverse()) {
           if (requestResolver.explicitProvisionBindingsSet.contains(provisionBinding)) {
             return Optional.of(requestResolver);
           }
@@ -373,8 +395,8 @@ abstract class BindingGraph {
         Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
             provisionBinding.wrappedScope();
         if (bindingScope.isPresent()) {
-          for (RequestResolver requestResolver : getResolverLineage().reverse()) {
-            if (bindingScope.equals(requestResolver.targetScope)) {
+          for (Resolver requestResolver : getResolverLineage().reverse()) {
+            if (bindingScope.equals(requestResolver.componentDescriptor.wrappedScope())) {
               return Optional.of(requestResolver);
             }
           }
@@ -383,9 +405,9 @@ abstract class BindingGraph {
       }
 
       /** Returns the resolver lineage from parent to child. */
-      private ImmutableList<RequestResolver> getResolverLineage() {
-        List<RequestResolver> resolverList = Lists.newArrayList();
-        for (Optional<RequestResolver> currentResolver = Optional.of(this);
+      private ImmutableList<Resolver> getResolverLineage() {
+        List<Resolver> resolverList = Lists.newArrayList();
+        for (Optional<Resolver> currentResolver = Optional.of(this);
             currentResolver.isPresent();
             currentResolver = currentResolver.get().parentResolver) {
           resolverList.add(currentResolver.get());
@@ -395,18 +417,16 @@ abstract class BindingGraph {
 
       private ImmutableSet<ProvisionBinding> getExplicitProvisionBindings(Key requestKey) {
         ImmutableSet.Builder<ProvisionBinding> explicitBindingsForKey = ImmutableSet.builder();
-        for (RequestResolver resolver : getResolverLineage()) {
-          explicitBindingsForKey.addAll(
-              resolver.explicitProvisionBindings.get(requestKey));
+        for (Resolver resolver : getResolverLineage()) {
+          explicitBindingsForKey.addAll(resolver.explicitProvisionBindings.get(requestKey));
         }
         return explicitBindingsForKey.build();
       }
 
       private ImmutableSet<ProductionBinding> getExplicitProductionBindings(Key requestKey) {
         ImmutableSet.Builder<ProductionBinding> explicitBindingsForKey = ImmutableSet.builder();
-        for (RequestResolver resolver : getResolverLineage()) {
-          explicitBindingsForKey.addAll(
-              resolver.explicitProductionBindings.get(requestKey));
+        for (Resolver resolver : getResolverLineage()) {
+          explicitBindingsForKey.addAll(resolver.explicitProductionBindings.get(requestKey));
         }
         return explicitBindingsForKey.build();
       }
@@ -539,6 +559,20 @@ abstract class BindingGraph {
           }
         }
         return resolvedBindingsBuilder.build();
+      }
+
+      ImmutableSet<ModuleDescriptor> getInheritedModules() {
+        return parentResolver.isPresent()
+            ? Sets.union(
+                    parentResolver.get().getInheritedModules(),
+                    parentResolver.get().componentDescriptor.transitiveModules())
+                .immutableCopy()
+            : ImmutableSet.<ModuleDescriptor>of();
+      }
+
+      ImmutableSet<ModuleDescriptor> getOwnedModules() {
+        return Sets.difference(componentDescriptor.transitiveModules(), getInheritedModules())
+            .immutableCopy();
       }
     }
   }

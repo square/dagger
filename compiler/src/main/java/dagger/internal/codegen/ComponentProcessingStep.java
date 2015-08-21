@@ -50,12 +50,14 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
       ComponentValidator subcomponentValidator,
       BuilderValidator componentBuilderValidator,
       BuilderValidator subcomponentBuilderValidator,
+      ComponentHierarchyValidator componentHierarchyValidator,
       BindingGraphValidator bindingGraphValidator,
       Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     super(
         messager,
+        componentHierarchyValidator,
         bindingGraphValidator,
         componentDescriptorFactory,
         bindingGraphFactory,

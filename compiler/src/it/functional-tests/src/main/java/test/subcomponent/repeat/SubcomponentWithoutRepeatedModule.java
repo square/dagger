@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Google Inc.
+ * Copyright (C) 2015 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,9 @@
  */
 package test.subcomponent.repeat;
 
-import dagger.Component;
-import java.util.Set;
+import dagger.Subcomponent;
 
-@Component(modules = RepeatedModule.class)
-interface ParentComponent {
-  Object state();
-
-  String getString();
-  Set<String> getMultiboundStrings();
-  OnlyUsedInParent getOnlyUsedInParent();
-
-  SubcomponentWithRepeatedModule.Builder newChildComponentBuilder();
-
-  SubcomponentWithoutRepeatedModule newChildComponentWithoutRepeatedModule();
-
-  @Component.Builder
-  interface Builder {
-    Builder repeatedModule(RepeatedModule repeatedModule);
-
-    ParentComponent build();
-  }
+@Subcomponent
+interface SubcomponentWithoutRepeatedModule {
+  SubcomponentWithRepeatedModule.Builder newGrandchildBuilder();
 }
