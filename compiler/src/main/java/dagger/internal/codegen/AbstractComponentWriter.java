@@ -596,7 +596,7 @@ abstract class AbstractComponentWriter {
                     .body()
                     .addSnippet(
                         "%s.injectMembers(%s);",
-                        // In this casem we know we won't need the cast because we're never going to
+                        // In this case we know we won't need the cast because we're never going to
                         // pass the reference to anything.
                         membersInjectorSelect,
                         parameterName);
