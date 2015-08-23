@@ -45,7 +45,7 @@
     <java.version>1.7</java.version>
     <javax.inject.version>1</javax.inject.version>
     <javawriter.version>2.5.0</javawriter.version>
-    <auto.common.version>0.4</auto.common.version>
+    <auto.common.version>1.0-SNAPSHOT</auto.common.version>
     <auto.service.version>1.0-rc2</auto.service.version>
     <auto.value.version>1.0</auto.value.version>
     <guava.version>18.0</guava.version>
