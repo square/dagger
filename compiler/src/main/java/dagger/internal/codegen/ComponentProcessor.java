@@ -148,21 +148,23 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         productionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
-    ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
-    BindingGraphValidator bindingGraphValidator =
-        new BindingGraphValidator(
-            types,
-            injectBindingRegistry,
-            scopeValidationType(processingEnv),
-            nullableDiagnosticType,
-            provisionBindingFormatter,
-            productionBindingFormatter,
-            methodSignatureFormatter,
-            dependencyRequestFormatter,
-            keyFormatter);
+    BindingGraphValidator bindingGraphValidator = new BindingGraphValidator(
+        types,
+        injectBindingRegistry,
+        scopeValidationType(processingEnv),
+        nullableDiagnosticType,
+        provisionBindingFormatter,
+        productionBindingFormatter,
+        methodSignatureFormatter,
+        dependencyRequestFormatter,
+        keyFormatter);
 
     return ImmutableList.<ProcessingStep>of(
-        new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
+        new MapKeyProcessingStep(
+            messager,
+            types,
+            mapKeyValidator,
+            mapKeyGenerator),
         new InjectProcessingStep(
             messager,
             injectConstructorValidator,
@@ -183,7 +185,6 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             subcomponentValidator,
             componentBuilderValidator,
             subcomponentBuilderValidator,
-            componentHierarchyValidator,
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,
@@ -197,7 +198,6 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProductionComponentProcessingStep(
             messager,
             productionComponentValidator,
-            componentHierarchyValidator,
             bindingGraphValidator,
             componentDescriptorFactory,
             bindingGraphFactory,

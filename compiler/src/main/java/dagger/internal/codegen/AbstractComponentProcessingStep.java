@@ -31,7 +31,6 @@ import javax.lang.model.element.TypeElement;
 abstract class AbstractComponentProcessingStep implements ProcessingStep {
 
   private final Messager messager;
-  private final ComponentHierarchyValidator componentHierarchyValidator;
   private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final BindingGraph.Factory bindingGraphFactory;
@@ -39,13 +38,11 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
 
   AbstractComponentProcessingStep(
       Messager messager,
-      ComponentHierarchyValidator componentHierarchyValidator,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     this.messager = messager;
-    this.componentHierarchyValidator = componentHierarchyValidator;
     this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
     this.bindingGraphFactory = bindingGraphFactory;
@@ -60,19 +57,14 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
       try {
         ComponentDescriptor componentDescriptor =
             componentDescriptorFactory.forComponent(componentTypeElement);
-        ValidationReport<TypeElement> hierarchyReport =
-            componentHierarchyValidator.validate(componentDescriptor);
-        hierarchyReport.printMessagesTo(messager);
-        if (hierarchyReport.isClean()) {
-          BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-          ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
-          graphReport.printMessagesTo(messager);
-          if (graphReport.isClean()) {
-            try {
-              componentGenerator.generate(bindingGraph);
-            } catch (SourceFileGenerationException e) {
-              e.printMessageTo(messager);
-            }
+        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+        ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
+        graphReport.printMessagesTo(messager);
+        if (graphReport.isClean()) {
+          try {
+            componentGenerator.generate(bindingGraph);
+          } catch (SourceFileGenerationException e) {
+            e.printMessageTo(messager);
           }
         }
       } catch (TypeNotPresentException e) {

@@ -544,22 +544,19 @@ public class BindingGraphValidator {
         return;
       }
 
-      Set<TypeElement> availableDependencies = subject.availableDependencies();
-      Set<TypeElement> requiredDependencies =
-          Sets.filter(
-              availableDependencies,
-              new Predicate<TypeElement>() {
-                @Override
-                public boolean apply(TypeElement input) {
-                  return !Util.componentCanMakeNewInstances(input);
-                }
-              });
+      Set<TypeElement> allDependents = subject.componentRequirements();
+      Set<TypeElement> requiredDependents =
+          Sets.filter(allDependents, new Predicate<TypeElement>() {
+            @Override public boolean apply(TypeElement input) {
+              return !Util.componentCanMakeNewInstances(input);
+            }
+          });
       final BuilderSpec spec = componentDesc.builderSpec().get();
       Map<TypeElement, ExecutableElement> allSetters = spec.methodMap();
 
       ErrorMessages.ComponentBuilderMessages msgs =
           ErrorMessages.builderMsgsFor(subject.componentDescriptor().kind());
-      Set<TypeElement> extraSetters = Sets.difference(allSetters.keySet(), availableDependencies);
+      Set<TypeElement> extraSetters = Sets.difference(allSetters.keySet(), allDependents);
       if (!extraSetters.isEmpty()) {
         Collection<ExecutableElement> excessMethods =
             Maps.filterKeys(allSetters, Predicates.in(extraSetters)).values();
@@ -573,7 +570,7 @@ public class BindingGraphValidator {
             String.format(msgs.extraSetters(), formatted), spec.builderDefinitionType());
       }
 
-      Set<TypeElement> missingSetters = Sets.difference(requiredDependencies, allSetters.keySet());
+      Set<TypeElement> missingSetters = Sets.difference(requiredDependents, allSetters.keySet());
       if (!missingSetters.isEmpty()) {
         reportBuilder.addError(
             String.format(msgs.missingSetters(), missingSetters), spec.builderDefinitionType());
