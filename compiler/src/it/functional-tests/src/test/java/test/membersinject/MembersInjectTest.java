@@ -18,6 +18,13 @@ package test.membersinject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import test.multipackage.DaggerMembersInjectionVisibilityComponent;
+import test.multipackage.MembersInjectionVisibilityComponent;
+import test.multipackage.a.AGrandchild;
+import test.multipackage.a.AParent;
+import test.multipackage.b.BChild;
+
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class MembersInjectTest {
@@ -41,5 +48,31 @@ public class MembersInjectTest {
     
     ChildOfPrimitiveIntArray childOfPrimitiveIntArray = new ChildOfPrimitiveIntArray();
     component.inject(childOfPrimitiveIntArray);
+  }
+  
+  @Test
+  public void testMembersInject_overrides() {
+    MembersInjectionVisibilityComponent component =
+        DaggerMembersInjectionVisibilityComponent.create();
+    AParent aParent = new AParent();
+    component.inject(aParent);
+    assertThat(aParent.aParentField()).isNotNull();
+    assertThat(aParent.aParentMethod()).isNotNull();
+
+    BChild aChild = new BChild();
+    component.inject(aChild);
+    assertThat(aChild.aParentField()).isNotNull();
+    assertThat(aChild.aParentMethod()).isNull();
+    assertThat(aChild.aChildField()).isNotNull();
+    assertThat(aChild.aChildMethod()).isNotNull();
+
+    AGrandchild aGrandchild = new AGrandchild();
+    component.inject(aGrandchild);
+    assertThat(aGrandchild.aParentField()).isNotNull();
+    assertThat(aGrandchild.aParentMethod()).isNotNull();
+    assertThat(aGrandchild.aChildField()).isNotNull();
+    assertThat(aGrandchild.aChildMethod()).isNull();
+    assertThat(aGrandchild.aGrandchildField()).isNotNull();
+    assertThat(aGrandchild.aGrandchildMethod()).isNotNull();
   }
 }

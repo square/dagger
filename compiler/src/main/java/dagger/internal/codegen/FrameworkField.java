@@ -24,7 +24,6 @@ import dagger.MembersInjector;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
-import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.producers.Producer;
 import javax.inject.Provider;
@@ -54,12 +53,12 @@ abstract class FrameworkField {
         name.endsWith(suffix) ? name : name + suffix);
   }
 
-  static FrameworkField createForMapBindingContribution(
+  private static FrameworkField createForMapBindingContribution(
       Class<?> frameworkClass, BindingKey bindingKey, String name) {
     TypeMirror mapValueType =
         MoreTypes.asDeclared(bindingKey.key().type()).getTypeArguments().get(1);
     return new AutoValue_FrameworkField(frameworkClass,
-        TypeNames.forTypeMirror(mapValueType),
+        (ParameterizedTypeName) TypeNames.forTypeMirror(mapValueType),
         bindingKey,
         name);
   }
@@ -164,7 +163,7 @@ abstract class FrameworkField {
   }
 
   abstract Class<?> frameworkClass();
-  abstract TypeName frameworkType();
+  abstract ParameterizedTypeName frameworkType();
   abstract BindingKey bindingKey();
   abstract String name();
 }

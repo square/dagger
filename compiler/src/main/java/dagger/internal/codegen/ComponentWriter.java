@@ -23,6 +23,7 @@ import dagger.internal.codegen.writer.JavaWriter;
 import dagger.internal.codegen.writer.MethodWriter;
 import javax.annotation.Generated;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 
@@ -37,8 +38,13 @@ import static javax.lang.model.element.Modifier.STATIC;
 class ComponentWriter extends AbstractComponentWriter {
 
   ComponentWriter(
-      Types types, Kind nullableValidationType, ClassName name, BindingGraph graph) {
-    super(types, nullableValidationType, name, graph);
+      Types types,
+      Elements elements,
+      Key.Factory keyFactory,
+      Kind nullableValidationType,
+      ClassName name,
+      BindingGraph graph) {
+    super(types, elements, keyFactory, nullableValidationType, name, graph);
   }
 
   @Override

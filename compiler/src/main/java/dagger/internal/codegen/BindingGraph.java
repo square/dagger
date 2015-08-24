@@ -55,7 +55,7 @@ import static dagger.internal.codegen.ComponentDescriptor.isComponentContributio
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.DELEGATE;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 
 /**
@@ -350,9 +350,11 @@ abstract class BindingGraph {
         MembersInjectionBinding membersInjectionBinding =
             injectBindingRegistry.getOrFindMembersInjectionBinding(key);
 
-        if (membersInjectionBinding.injectionStrategy().equals(DELEGATE)) {
-          MembersInjectionBinding parentBinding = rollUpMembersInjectionBindings(
-              membersInjectionBinding.parentInjectorRequest().get().key());
+        if (membersInjectionBinding.parentInjectorRequest().isPresent()
+            && membersInjectionBinding.injectionStrategy().equals(INJECT_MEMBERS)) {
+          MembersInjectionBinding parentBinding =
+              rollUpMembersInjectionBindings(
+                  membersInjectionBinding.parentInjectorRequest().get().key());
           if (parentBinding.injectionStrategy().equals(NO_OP)) {
             return membersInjectionBinding.withoutParentInjectorRequest();
           }
