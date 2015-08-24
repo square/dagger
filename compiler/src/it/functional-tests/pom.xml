@@ -46,6 +46,13 @@ limitations under the License.
       <version>${auto.value.version}</version>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <!-- For map-bindings -->
+      <groupId>com.google.auto.factory</groupId>
+      <artifactId>auto-factory</artifactId>
+      <version>${auto.factory.version}</version>
+      <optional>true</optional>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>
