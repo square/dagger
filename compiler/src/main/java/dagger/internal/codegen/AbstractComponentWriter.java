@@ -761,13 +761,7 @@ abstract class AbstractComponentWriter {
       BindingKey dependencyKey =
           Iterables.getOnlyElement(
                   FluentIterable.from(requestsForKey)
-                      .transform(
-                          new Function<DependencyRequest, BindingKey>() {
-                            @Override
-                            public BindingKey apply(DependencyRequest request) {
-                              return request.bindingKey();
-                            }
-                          })
+                      .transform(DependencyRequest.BINDING_KEY_FUNCTION)
                       .toSet());
       if (!getMemberSelect(dependencyKey).staticMember()
           && !isProviderInitialized(dependencyKey)
@@ -986,19 +980,10 @@ abstract class AbstractComponentWriter {
   private List<Snippet> getProducerDependencyParameters(Binding binding) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (Collection<DependencyRequest> requestsForKey :
-        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.dependencies())
-            .asMap()
-            .values()) {
-      BindingKey key =
-          Iterables.getOnlyElement(
-              FluentIterable.from(requestsForKey)
-                  .transform(
-                      new Function<DependencyRequest, BindingKey>() {
-                        @Override
-                        public BindingKey apply(DependencyRequest request) {
-                          return request.bindingKey();
-                        }
-                      }));
+        SourceFiles.indexDependenciesByUnresolvedKey(
+            types, binding.dependencies()).asMap().values()) {
+      BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
+          .transform(DependencyRequest.BINDING_KEY_FUNCTION));
       ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);
       Class<?> frameworkClass =
           DependencyRequestMapper.FOR_PRODUCER.getFrameworkClass(requestsForKey);
@@ -1054,4 +1039,3 @@ abstract class AbstractComponentWriter {
     return UPPER_CAMEL.to(LOWER_CAMEL, typeElement.getSimpleName().toString());
   }
 }
-

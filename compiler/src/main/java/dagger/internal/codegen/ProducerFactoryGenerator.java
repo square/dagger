@@ -240,9 +240,10 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             ClassName.fromClass(Object.class),
             Joiner.on(",").join(FluentIterable
                 .from(asyncDependencies)
-                .transform(new Function<DependencyRequest, String>() {
-                  @Override public String apply(DependencyRequest dependency) {
-                    return fields.get(dependency.bindingKey()).name() + "Future";
+                .transform(DependencyRequest.BINDING_KEY_FUNCTION)
+                .transform(new Function<BindingKey, String>() {
+                  @Override public String apply(BindingKey dependencyBindingKey) {
+                    return fields.get(dependencyBindingKey).name() + "Future";
                   }
                 })));
         ImmutableList<Snippet> parameterSnippets = getParameterSnippets(binding, fields, "args");

@@ -57,6 +57,13 @@ import static javax.lang.model.type.TypeKind.DECLARED;
 // TODO(gak): Set bindings and the permutations thereof need to be addressed
 @AutoValue
 abstract class DependencyRequest {
+  static Function<DependencyRequest, BindingKey> BINDING_KEY_FUNCTION =
+      new Function<DependencyRequest, BindingKey>() {
+        @Override public BindingKey apply(DependencyRequest request) {
+          return request.bindingKey();
+        }
+      };
+
   enum Kind {
     /** A default request for an instance.  E.g.: {@code Blah} */
     INSTANCE,
