@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
-import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import dagger.producers.ProductionComponent;
@@ -33,24 +32,32 @@ import javax.lang.model.element.TypeElement;
  * @author Jesse Beder
  */
 final class ProductionComponentProcessingStep extends AbstractComponentProcessingStep {
-  private final Messager messager;
-  private final ProductionComponentValidator componentValidator;
+  private final ComponentElementValidator componentElementValidator;
 
   ProductionComponentProcessingStep(
       Messager messager,
-      ProductionComponentValidator componentValidator,
+      final ProductionComponentValidator componentValidator,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     super(
+        ProductionComponent.class,
         messager,
         bindingGraphValidator,
         componentDescriptorFactory,
         bindingGraphFactory,
         componentGenerator);
-    this.messager = messager;
-    this.componentValidator = componentValidator;
+    this.componentElementValidator =
+        new ComponentElementValidator() {
+          @Override
+          boolean validateComponent(TypeElement componentTypeElement, Messager messager) {
+            ValidationReport<TypeElement> validationReport =
+                componentValidator.validate(componentTypeElement);
+            validationReport.printMessagesTo(messager);
+            return validationReport.isClean();
+          }
+        };
   }
 
   @Override
@@ -59,19 +66,8 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
   }
 
   @Override
-  protected Set<TypeElement> componentTypeElements(
+  protected ComponentElementValidator componentElementValidator(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<TypeElement> componentTypeElements = ImmutableSet.builder();
-    Set<Element> componentElements = elementsByAnnotation.get(ProductionComponent.class);
-    for (Element element : componentElements) {
-      TypeElement componentTypeElement = MoreElements.asType(element);
-      ValidationReport<TypeElement> componentReport =
-          componentValidator.validate(componentTypeElement);
-      componentReport.printMessagesTo(messager);
-      if (componentReport.isClean()) {
-        componentTypeElements.add(componentTypeElement);
-      }
-    }
-    return componentTypeElements.build();
+    return componentElementValidator;
   }
 }

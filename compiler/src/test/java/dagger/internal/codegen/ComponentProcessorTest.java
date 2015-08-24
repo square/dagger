@@ -762,6 +762,47 @@ public class ComponentProcessorTest {
         .compilesWithoutError();
   }
 
+  @Test
+  public void generatedModuleInSubcomponent() {
+    JavaFileObject subcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.ChildComponent",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = GeneratedModule.class)",
+            "interface ChildComponent {}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface TestComponent {",
+            "  ChildComponent childComponent();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(subcomponent, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile();
+    assertAbout(javaSources())
+        .that(ImmutableList.of(subcomponent, component))
+        .processedWith(
+            new ComponentProcessor(),
+            new GeneratingProcessor(
+                "test.GeneratedModule",
+                "package test;",
+                "",
+                "import dagger.Module;",
+                "",
+                "@Module",
+                "final class GeneratedModule {}"))
+        .compilesWithoutError();
+  }
+
   @Test public void testDefaultPackage() {
     JavaFileObject aClass = JavaFileObjects.forSourceLines("AClass", "class AClass {}");
     JavaFileObject bClass = JavaFileObjects.forSourceLines("BClass",

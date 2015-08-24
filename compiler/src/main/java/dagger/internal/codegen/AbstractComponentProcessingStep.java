@@ -16,10 +16,10 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
+import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.lang.annotation.Annotation;
-import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -30,6 +30,7 @@ import javax.lang.model.element.TypeElement;
  */
 abstract class AbstractComponentProcessingStep implements ProcessingStep {
 
+  private final Class<? extends Annotation> componentAnnotation;
   private final Messager messager;
   private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
@@ -37,11 +38,13 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   private final ComponentGenerator componentGenerator;
 
   AbstractComponentProcessingStep(
+      Class<? extends Annotation> componentAnnotation,
       Messager messager,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
+    this.componentAnnotation = componentAnnotation;
     this.messager = messager;
     this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
@@ -53,18 +56,19 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   public final ImmutableSet<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     ImmutableSet.Builder<Element> rejectedElements = ImmutableSet.builder();
-    for (TypeElement componentTypeElement : componentTypeElements(elementsByAnnotation)) {
+    ComponentElementValidator componentElementValidator =
+        componentElementValidator(elementsByAnnotation);
+    for (Element element : elementsByAnnotation.get(componentAnnotation)) {
+      TypeElement componentTypeElement = MoreElements.asType(element);
       try {
-        ComponentDescriptor componentDescriptor =
-            componentDescriptorFactory.forComponent(componentTypeElement);
-        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-        ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
-        graphReport.printMessagesTo(messager);
-        if (graphReport.isClean()) {
-          try {
-            componentGenerator.generate(bindingGraph);
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
+        if (componentElementValidator.validateComponent(componentTypeElement, messager)) {
+          ComponentDescriptor componentDescriptor =
+              componentDescriptorFactory.forComponent(componentTypeElement);
+          BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+          ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
+          graphReport.printMessagesTo(messager);
+          if (graphReport.isClean()) {
+            generateComponent(bindingGraph);
           }
         }
       } catch (TypeNotPresentException e) {
@@ -74,9 +78,31 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
     return rejectedElements.build();
   }
 
+  private void generateComponent(BindingGraph bindingGraph) {
+    try {
+      componentGenerator.generate(bindingGraph);
+    } catch (SourceFileGenerationException e) {
+      e.printMessageTo(messager);
+    }
+  }
+
   /**
-   * Returns the elements that represent valid components to process.
+   * Returns an object that can validate a type element annotated with the component type.
    */
-  protected abstract Set<TypeElement> componentTypeElements(
+  protected abstract ComponentElementValidator componentElementValidator(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation);
+
+  /**
+   * Validates a component type element.
+   */
+  protected static abstract class ComponentElementValidator {
+    /**
+     * Validates a component type element. Prints any messages about the element to
+     * {@code messager}.
+     *
+     * @throws TypeNotPresentException if any type required to validate the component cannot be
+     *     found
+     */
+    abstract boolean validateComponent(TypeElement componentTypeElement, Messager messager);
+  }
 }

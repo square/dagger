@@ -55,6 +55,7 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     super(
+        Component.class,
         messager,
         bindingGraphValidator,
         componentDescriptorFactory,
@@ -74,30 +75,31 @@ final class ComponentProcessingStep extends AbstractComponentProcessingStep {
   }
 
   @Override
-  protected Set<TypeElement> componentTypeElements(
+  protected ComponentElementValidator componentElementValidator(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    Map<Element, ValidationReport<TypeElement>> builderReportsByComponent =
+    final Map<Element, ValidationReport<TypeElement>> builderReportsByComponent =
         processComponentBuilders(elementsByAnnotation.get(Component.Builder.class));
-    Set<Element> subcomponentBuilderElements = elementsByAnnotation.get(Subcomponent.Builder.class);
-    Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent =
+    final Set<Element> subcomponentBuilderElements =
+        elementsByAnnotation.get(Subcomponent.Builder.class);
+    final Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent =
         processSubcomponentBuilders(subcomponentBuilderElements);
-    Set<Element> subcomponentElements = elementsByAnnotation.get(Subcomponent.class);
-    Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent =
+    final Set<Element> subcomponentElements = elementsByAnnotation.get(Subcomponent.class);
+    final Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent =
         processSubcomponents(subcomponentElements, subcomponentBuilderElements);
-    Set<Element> componentElements = elementsByAnnotation.get(Component.class);
-
-    ImmutableSet.Builder<TypeElement> componentTypeElements = ImmutableSet.builder();
-    for (Element element : componentElements) {
-      TypeElement componentTypeElement = MoreElements.asType(element);
-      ComponentValidationReport report = componentValidator.validate(
-          componentTypeElement, subcomponentElements, subcomponentBuilderElements);
-      report.report().printMessagesTo(messager);
-      if (isClean(
-          report, builderReportsByComponent, reportsBySubcomponent, builderReportsBySubcomponent)) {
-        componentTypeElements.add(componentTypeElement);
+    return new ComponentElementValidator() {
+      @Override
+      boolean validateComponent(TypeElement componentTypeElement, Messager messager) {
+        ComponentValidationReport validationReport =
+            componentValidator.validate(
+                componentTypeElement, subcomponentElements, subcomponentBuilderElements);
+        validationReport.report().printMessagesTo(messager);
+        return isClean(
+            validationReport,
+            builderReportsByComponent,
+            reportsBySubcomponent,
+            builderReportsBySubcomponent);
       }
-    }
-    return componentTypeElements.build();
+    };
   }
 
   private Map<Element, ValidationReport<TypeElement>> processComponentBuilders(
