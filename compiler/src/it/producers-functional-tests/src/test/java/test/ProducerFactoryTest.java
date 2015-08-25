@@ -31,18 +31,18 @@ public class ProducerFactoryTest {
     SimpleProducerModule module = new SimpleProducerModule();
     Producer<String> producer =
         new SimpleProducerModule_StrFactory(module, MoreExecutors.directExecutor());
-    assertThat(producer.get().get()).isEqualTo("Hello, World!");
+    assertThat(producer.get().get()).isEqualTo("str");
   }
 
   @Test public void singleArgMethod() throws Exception {
     SimpleProducerModule module = new SimpleProducerModule();
-    SettableFuture<String> strFuture = SettableFuture.create();
-    Producer<String> strProducer = producerOfFuture(strFuture);
-    Producer<Integer> producer =
-        new SimpleProducerModule_LenFactory(module, MoreExecutors.directExecutor(), strProducer);
+    SettableFuture<Integer> intFuture = SettableFuture.create();
+    Producer<Integer> intProducer = producerOfFuture(intFuture);
+    Producer<String> producer = new SimpleProducerModule_StrWithArgFactory(
+        module, MoreExecutors.directExecutor(), intProducer);
     assertThat(producer.get().isDone()).isFalse();
-    strFuture.set("abcdef");
-    assertThat(producer.get().get()).isEqualTo(6);
+    intFuture.set(42);
+    assertThat(producer.get().get()).isEqualTo("str with arg");
   }
 
   private static <T> Producer<T> producerOfFuture(final ListenableFuture<T> future) {

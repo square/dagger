@@ -801,7 +801,7 @@ public class ProducerModuleFactoryGeneratorTest {
         "        new AsyncFunction<List<Object>, String>() {",
         "          @SuppressWarnings(\"unchecked\")  // safe by specification",
         "          @Override public ListenableFuture<String> apply(List<Object> args) {",
-        "            return Futures.immediateFuture(module.produceString(",
+        "            return Futures.<String>immediateFuture(module.produceString(",
         "                (Integer) args.get(0),",
         "                (Produced<Double>) args.get(1),",
         "                cProducer,",

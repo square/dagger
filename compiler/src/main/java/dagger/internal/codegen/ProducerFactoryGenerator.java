@@ -334,23 +334,27 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     Snippet moduleSnippet = Snippet.format("module.%s(%s)",
         binding.bindingElement().getSimpleName(),
         makeParametersSnippet(parameterSnippets));
-    if (wrapWithFuture) {
-      moduleSnippet = Snippet.format("%s.immediateFuture(%s)",
-          ClassName.fromClass(Futures.class),
-          moduleSnippet);
-    }
+    final Snippet valueSnippet;
     if (binding.productionType().equals(Produces.Type.SET)) {
       if (binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION)) {
-        return Snippet.format("%s.createFutureSingletonSet(%s)",
+        valueSnippet = Snippet.format("%s.createFutureSingletonSet(%s)",
             ClassName.fromClass(Producers.class),
             moduleSnippet);
       } else {
-        return Snippet.format("%s.of(%s)",
+        valueSnippet = Snippet.format("%s.of(%s)",
             ClassName.fromClass(ImmutableSet.class),
             moduleSnippet);
       }
     } else {
-      return moduleSnippet;
+      valueSnippet = moduleSnippet;
+    }
+    if (wrapWithFuture) {
+      return Snippet.format("%s.<%s>immediateFuture(%s)",
+          ClassName.fromClass(Futures.class),
+          TypeNames.forTypeMirror(binding.key().type()),
+          valueSnippet);
+    } else {
+      return valueSnippet;
     }
   }
 

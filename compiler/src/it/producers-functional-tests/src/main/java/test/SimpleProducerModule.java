@@ -15,18 +15,69 @@
 */
 package test;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import java.util.Set;
+import javax.inject.Qualifier;
+
+import static dagger.producers.Produces.Type.SET;
+import static dagger.producers.Produces.Type.SET_VALUES;
 
 @ProducerModule
 final class SimpleProducerModule {
-  @Produces ListenableFuture<String> str() {
-    return Futures.immediateFuture("Hello, World!");
+  @Qualifier @interface Qual {
+    int value();
   }
 
-  @Produces int len(String str) {
-    return str.length();
+  @Produces @Qual(0) String str() {
+    return "str";
+  }
+
+  @Produces @Qual(1) ListenableFuture<String> futureStr() {
+    return Futures.immediateFuture("future str");
+  }
+
+  @Produces @Qual(2) String strWithArg(int i) {
+    return "str with arg";
+  }
+
+  @Produces @Qual(3) ListenableFuture<String> futureStrWithArg(int i) {
+    return Futures.immediateFuture("future str with arg");
+  }
+
+  @Produces(type = SET) String setOfStrElement() {
+    return "set of str element";
+  }
+
+  @Produces(type = SET) ListenableFuture<String> setOfStrFutureElement() {
+    return Futures.immediateFuture("set of str element");
+  }
+
+  @Produces(type = SET) String setOfStrElementWithArg(int i) {
+    return "set of str element with arg";
+  }
+
+  @Produces(type = SET) ListenableFuture<String> setOfStrFutureElementWithArg(int i) {
+    return Futures.immediateFuture("set of str element with arg");
+  }
+
+  @Produces(type = SET_VALUES) Set<String> setOfStrValues() {
+    return ImmutableSet.of("set of str 1", "set of str 2");
+  }
+
+  @Produces(type = SET_VALUES) ListenableFuture<Set<String>> setOfStrFutureValues() {
+    return Futures.<Set<String>>immediateFuture(ImmutableSet.of("set of str 1", "set of str 2"));
+  }
+
+  @Produces(type = SET_VALUES) Set<String> setOfStrValuesWithArg(int i) {
+    return ImmutableSet.of("set of str with arg 1", "set of str with arg 2");
+  }
+
+  @Produces(type = SET_VALUES) ListenableFuture<Set<String>> setOfStrFutureValuesWithArg(int i) {
+    return Futures.<Set<String>>immediateFuture(ImmutableSet.of(
+        "set of str with arg 1", "set of str with arg 2"));
   }
 }
