@@ -21,6 +21,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MembersInjector;
+import dagger.Module;
 import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
@@ -85,7 +87,7 @@ abstract class ComponentDescriptor {
     /**
      * Returns the kind of an annotated element if it is annotated with one of the
      * {@linkplain #annotationType() annotation types}.
-     * 
+     *
      * @throws IllegalArgumentException if the element is annotated with more than one of the
      *     annotation types
      */
@@ -138,14 +140,32 @@ abstract class ComponentDescriptor {
    */
   abstract ImmutableSet<TypeElement> dependencies();
 
+  /**
+   * The set of {@link ModuleDescriptor modules} declared directly in {@link Component#modules}.
+   * Use {@link #transitiveModules} to get the full set of modules available upon traversing
+   * {@link Module#includes}.
+   */
   abstract ImmutableSet<ModuleDescriptor> modules();
 
+  /**
+   * Returns the set of {@link ModuleDescriptor modules} declared in {@link Component#modules} and
+   * those reachable by traversing {@link Module#includes}.
+   *
+   * <p>Note that for subcomponents this <em>will not</em> include descriptors for any modules that
+   * are declared in parent components.
+   */
   ImmutableSet<ModuleDescriptor> transitiveModules() {
     Set<ModuleDescriptor> transitiveModules = new LinkedHashSet<>();
     for (ModuleDescriptor module : modules()) {
       addTransitiveModules(transitiveModules, module);
     }
     return ImmutableSet.copyOf(transitiveModules);
+  }
+
+  ImmutableSet<TypeElement> transitiveModuleTypes() {
+    return FluentIterable.from(transitiveModules())
+        .transform(ModuleDescriptor.getModuleElement())
+        .toSet();
   }
 
   private static Set<ModuleDescriptor> addTransitiveModules(
@@ -184,7 +204,7 @@ abstract class ComponentDescriptor {
    */
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
 
-  abstract ImmutableMap<ExecutableElement, ComponentDescriptor> subcomponents();
+  abstract ImmutableMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponents();
 
   abstract ImmutableSet<ComponentMethodDescriptor> componentMethods();
 
@@ -285,7 +305,7 @@ abstract class ComponentDescriptor {
       ImmutableSet.Builder<ComponentMethodDescriptor> componentMethodsBuilder =
           ImmutableSet.builder();
 
-      ImmutableMap.Builder<ExecutableElement, ComponentDescriptor> subcomponentDescriptors =
+      ImmutableMap.Builder<ComponentMethodDescriptor, ComponentDescriptor> subcomponentDescriptors =
           ImmutableMap.builder();
       for (ExecutableElement componentMethod : unimplementedMethods) {
         ExecutableType resolvedMethod =
@@ -295,13 +315,18 @@ abstract class ComponentDescriptor {
         componentMethodsBuilder.add(componentMethodDescriptor);
         switch (componentMethodDescriptor.kind()) {
           case SUBCOMPONENT:
-            subcomponentDescriptors.put(componentMethod,
-                create(MoreElements.asType(MoreTypes.asElement(resolvedMethod.getReturnType())),
+            subcomponentDescriptors.put(
+                componentMethodDescriptor,
+                create(
+                    MoreElements.asType(MoreTypes.asElement(resolvedMethod.getReturnType())),
                     Kind.SUBCOMPONENT));
             break;
           case SUBCOMPONENT_BUILDER:
-            subcomponentDescriptors.put(componentMethod, create(MoreElements.asType(
-                MoreTypes.asElement(resolvedMethod.getReturnType()).getEnclosingElement()),
+            subcomponentDescriptors.put(
+                componentMethodDescriptor,
+                create(
+                    MoreElements.asType(
+                        MoreTypes.asElement(resolvedMethod.getReturnType()).getEnclosingElement()),
                     Kind.SUBCOMPONENT));
             break;
           default: // nothing special to do for other methods.

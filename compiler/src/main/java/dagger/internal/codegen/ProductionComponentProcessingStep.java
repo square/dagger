@@ -37,6 +37,7 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
   ProductionComponentProcessingStep(
       Messager messager,
       final ProductionComponentValidator componentValidator,
+      ComponentHierarchyValidator componentHierarchyValidator,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
@@ -44,6 +45,7 @@ final class ProductionComponentProcessingStep extends AbstractComponentProcessin
     super(
         ProductionComponent.class,
         messager,
+        componentHierarchyValidator,
         bindingGraphValidator,
         componentDescriptorFactory,
         bindingGraphFactory,

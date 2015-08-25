@@ -15,37 +15,23 @@
  */
 package test.subcomponent.repeat;
 
-import dagger.Module;
-import dagger.Provides;
+import dagger.Subcomponent;
+import java.util.Set;
 
-import static dagger.Provides.Type.SET;
+@Subcomponent(modules = RepeatedModule.class)
+interface SubcomponentWithRepeatedModule {
+  Object state();
 
-@Module
-final class RepeatedModule {
-  private final Object state = new Object();
+  String getString();
 
-  @Provides
-  Object state() {
-    return state;
-  }
+  Set<String> getMultiboundStrings();
 
-  @Provides
-  static String provideString() {
-    return "a string";
-  }
+  OnlyUsedInChild getOnlyUsedInChild();
 
-  @Provides(type = SET)
-  static String contributeString() {
-    return "a string in a set";
-  }
+  @Subcomponent.Builder
+  interface Builder {
+    Builder repeatedModule(RepeatedModule repeatedModule);
 
-  @Provides
-  static OnlyUsedInParent provideOnlyUsedInParent() {
-    return new OnlyUsedInParent() {};
-  }
-
-  @Provides
-  static OnlyUsedInChild provideOnlyUsedInChild() {
-    return new OnlyUsedInChild() {};
+    SubcomponentWithRepeatedModule build();
   }
 }

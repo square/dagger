@@ -32,6 +32,7 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
 
   private final Class<? extends Annotation> componentAnnotation;
   private final Messager messager;
+  private final ComponentHierarchyValidator componentHierarchyValidator;
   private final BindingGraphValidator bindingGraphValidator;
   private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final BindingGraph.Factory bindingGraphFactory;
@@ -40,12 +41,14 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   AbstractComponentProcessingStep(
       Class<? extends Annotation> componentAnnotation,
       Messager messager,
+      ComponentHierarchyValidator componentHierarchyValidator,
       BindingGraphValidator bindingGraphValidator,
       ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
     this.componentAnnotation = componentAnnotation;
     this.messager = messager;
+    this.componentHierarchyValidator = componentHierarchyValidator;
     this.bindingGraphValidator = bindingGraphValidator;
     this.componentDescriptorFactory = componentDescriptorFactory;
     this.bindingGraphFactory = bindingGraphFactory;
@@ -64,11 +67,17 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
         if (componentElementValidator.validateComponent(componentTypeElement, messager)) {
           ComponentDescriptor componentDescriptor =
               componentDescriptorFactory.forComponent(componentTypeElement);
-          BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-          ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
-          graphReport.printMessagesTo(messager);
-          if (graphReport.isClean()) {
-            generateComponent(bindingGraph);
+          ValidationReport<TypeElement> hierarchyReport =
+              componentHierarchyValidator.validate(componentDescriptor);
+          hierarchyReport.printMessagesTo(messager);
+          if (hierarchyReport.isClean()) {
+            BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+            ValidationReport<TypeElement> graphReport =
+                bindingGraphValidator.validate(bindingGraph);
+            graphReport.printMessagesTo(messager);
+            if (graphReport.isClean()) {
+              generateComponent(bindingGraph);
+            }
           }
         }
       } catch (TypeNotPresentException e) {
