@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
@@ -917,12 +918,12 @@ public class BindingGraphValidator {
               getValueTypeOfMap(asDeclared(maybeValueMapRequestType)));
     }
   }
-  
+
   private boolean suppressCycleWarnings(Element requestElement) {
     SuppressWarnings suppressions = requestElement.getAnnotation(SuppressWarnings.class);
     return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
   }
-  
+
   private boolean suppressCycleWarnings(ImmutableList<DependencyRequest> pathElements) {
     for (DependencyRequest dependencyRequest : pathElements) {
       if (suppressCycleWarnings(dependencyRequest.requestElement())) {
@@ -1049,7 +1050,9 @@ public class BindingGraphValidator {
       return new AutoValue_BindingGraphValidator_ResolvedRequest(request,
           resolvedBindings == null
               ? ResolvedBindings.create(bindingKey,
-                  ImmutableSet.<Binding>of(), ImmutableSet.<Binding>of())
+                  graph.componentDescriptor(),
+                  ImmutableSet.<Binding>of(),
+                  ImmutableSetMultimap.<ComponentDescriptor, Binding>of())
               : resolvedBindings);
     }
   }

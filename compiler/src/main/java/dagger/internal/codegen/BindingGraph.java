@@ -51,6 +51,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
@@ -168,7 +169,7 @@ abstract class BindingGraph {
 
       RequestResolver requestResolver = new RequestResolver(
           parentResolver,
-          componentDescriptor.wrappedScope(),
+          componentDescriptor,
           explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
           explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
       for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
@@ -184,6 +185,14 @@ abstract class BindingGraph {
           componentDescriptor.subcomponents().entrySet()) {
         subgraphsBuilder.put(subcomponentEntry.getKey(),
             create(Optional.of(requestResolver), subcomponentEntry.getValue()));
+      }
+
+      for (ResolvedBindings resolvedBindings : requestResolver.getResolvedBindings().values()) {
+        verify(
+            resolvedBindings.owningComponent().equals(componentDescriptor),
+            "%s is not owned by %s",
+            resolvedBindings,
+            componentDescriptor);
       }
 
       return new AutoValue_BindingGraph(
@@ -204,7 +213,7 @@ abstract class BindingGraph {
 
     private final class RequestResolver {
       final Optional<RequestResolver> parentResolver;
-      final Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope;
+      final ComponentDescriptor componentDescriptor;
       final ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings;
       final ImmutableSet<ProvisionBinding> explicitProvisionBindingsSet;
       final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
@@ -213,14 +222,15 @@ abstract class BindingGraph {
       final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
           CacheBuilder.newBuilder().<BindingKey, Boolean>build();
 
-      RequestResolver(Optional<RequestResolver> parentResolver,
-          Optional<Equivalence.Wrapper<AnnotationMirror>> targetScope,
+      RequestResolver(
+          Optional<RequestResolver> parentResolver,
+          ComponentDescriptor componentDescriptor,
           ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings,
           ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings) {
         assert parentResolver != null;
         this.parentResolver = parentResolver;
-        assert targetScope != null;
-        this.targetScope = targetScope;
+        assert componentDescriptor != null;
+        this.componentDescriptor = componentDescriptor;
         assert explicitProvisionBindings != null;
         this.explicitProvisionBindings = explicitProvisionBindings;
         this.explicitProvisionBindingsSet = ImmutableSet.copyOf(explicitProvisionBindings.values());
@@ -263,17 +273,21 @@ abstract class BindingGraph {
               // we have some explicit binding for this key, so we collect all explicit implicit map
               // bindings that might conflict with this and let the validator sort it out
               ImmutableSet.Builder<ContributionBinding> ownedBindings = ImmutableSet.builder();
-              ImmutableSet.Builder<ContributionBinding> inheritedBindings = ImmutableSet.builder();
+              ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding>
+                  inheritedBindings = ImmutableSetMultimap.builder();
               for (ProvisionBinding provisionBinding :
                   Sets.union(explicitProvisionBindingsForKey, explicitMapProvisionBindings)) {
                 if (isResolvedInParent(request, provisionBinding)
                     && !shouldOwnParentBinding(request, provisionBinding)) {
-                  inheritedBindings.add(provisionBinding);
+                  inheritedBindings.put(
+                      getOwningResolver(provisionBinding).get().componentDescriptor,
+                      provisionBinding);
                 } else {
                   ownedBindings.add(provisionBinding);
                 }
               }
               return ResolvedBindings.create(bindingKey,
+                  componentDescriptor,
                   ownedBindings
                       .addAll(explicitProductionBindingsForKey)
                       .addAll(explicitMapProductionBindings)
@@ -285,14 +299,18 @@ abstract class BindingGraph {
                 // must be considered an implicit ProductionBinding
                 DependencyRequest implicitRequest =
                     dependencyRequestFactory.forImplicitMapBinding(request, mapProducerKey.get());
-                return ResolvedBindings.create(bindingKey,
+                return ResolvedBindings.create(
+                    bindingKey,
+                    componentDescriptor,
                     productionBindingFactory.forImplicitMapBinding(request, implicitRequest));
               } else if (!explicitMapProvisionBindings.isEmpty()) {
                 // if there are Map<K, Provider<V>> bindings, then it'll be an implicit
                 // ProvisionBinding
                 DependencyRequest implicitRequest =
                     dependencyRequestFactory.forImplicitMapBinding(request, mapProviderKey.get());
-                return ResolvedBindings.create(bindingKey,
+                return ResolvedBindings.create(
+                    bindingKey,
+                    componentDescriptor,
                     provisionBindingFactory.forImplicitMapBinding(request, implicitRequest));
               } else {
                 // no explicit binding, look it up.
@@ -302,17 +320,27 @@ abstract class BindingGraph {
                   if (isResolvedInParent(request, provisionBinding.get())
                       && !shouldOwnParentBinding(request, provisionBinding.get())) {
                     return ResolvedBindings.create(
-                        bindingKey, ImmutableSet.<Binding>of(), provisionBinding.asSet());
+                        bindingKey,
+                        componentDescriptor,
+                        ImmutableSet.<Binding>of(),
+                        ImmutableSetMultimap.of(
+                            getOwningResolver(provisionBinding.get()).get().componentDescriptor,
+                            provisionBinding.get()));
                   }
                 }
                 return ResolvedBindings.create(
-                    bindingKey, provisionBinding.asSet(), ImmutableSet.<Binding>of());
+                    bindingKey,
+                    componentDescriptor,
+                    provisionBinding.asSet(),
+                    ImmutableSetMultimap.<ComponentDescriptor, Binding>of());
               }
             }
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
             return ResolvedBindings.create(
-                bindingKey, rollUpMembersInjectionBindings(bindingKey.key()));
+                bindingKey,
+                componentDescriptor,
+                rollUpMembersInjectionBindings(bindingKey.key()));
           default:
             throw new AssertionError();
         }
@@ -376,7 +404,7 @@ abstract class BindingGraph {
             provisionBinding.wrappedScope();
         if (bindingScope.isPresent()) {
           for (RequestResolver requestResolver : getResolverLineage().reverse()) {
-            if (bindingScope.equals(requestResolver.targetScope)) {
+            if (bindingScope.equals(requestResolver.componentDescriptor.wrappedScope())) {
               return Optional.of(requestResolver);
             }
           }
@@ -537,7 +565,8 @@ abstract class BindingGraph {
                   .values();
           for (ResolvedBindings resolvedInParent : bindingsResolvedInParent) {
             resolvedBindingsBuilder.put(
-                resolvedInParent.bindingKey(), resolvedInParent.asInherited());
+                resolvedInParent.bindingKey(),
+                resolvedInParent.asInheritedIn(componentDescriptor));
           }
         }
         return resolvedBindingsBuilder.build();

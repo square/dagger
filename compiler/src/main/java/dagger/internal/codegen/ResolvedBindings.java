@@ -17,6 +17,8 @@ package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Multimap;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -30,28 +32,38 @@ import static dagger.internal.codegen.ContributionBinding.bindingTypeFor;
 @AutoValue
 abstract class ResolvedBindings {
   abstract BindingKey bindingKey();
+  abstract ComponentDescriptor owningComponent();
   abstract ImmutableSet<? extends Binding> ownedBindings();
-  abstract ImmutableSet<? extends Binding> bindings();
+  abstract ImmutableSetMultimap<ComponentDescriptor, ? extends Binding> inheritedBindings();
 
   static ResolvedBindings create(
       BindingKey bindingKey,
+      ComponentDescriptor owningComponent,
       Set<? extends Binding> ownedBindings,
-      Set<? extends Binding> inheritedBindings) {
-    ImmutableSet<Binding> immutableOwnedBindings = ImmutableSet.<Binding>copyOf(ownedBindings);
+      Multimap<ComponentDescriptor, ? extends Binding> inheritedBindings) {
     return new AutoValue_ResolvedBindings(
-        bindingKey,
-        immutableOwnedBindings,
-        ImmutableSet.<Binding>builder()
-        .addAll(inheritedBindings)
-        .addAll(immutableOwnedBindings)
-        .build());
+            bindingKey,
+            owningComponent,
+            ImmutableSet.copyOf(ownedBindings),
+            ImmutableSetMultimap.copyOf(inheritedBindings));
   }
 
   static ResolvedBindings create(
       BindingKey bindingKey,
+      ComponentDescriptor owningComponent,
       Binding... ownedBindings) {
-    ImmutableSet<Binding> bindings = ImmutableSet.copyOf(ownedBindings);
-    return new AutoValue_ResolvedBindings(bindingKey, bindings, bindings);
+    return new AutoValue_ResolvedBindings(
+        bindingKey,
+        owningComponent,
+        ImmutableSet.copyOf(ownedBindings),
+        ImmutableSetMultimap.<ComponentDescriptor, Binding>of());
+  }
+
+  ImmutableSet<? extends Binding> bindings() {
+     return new ImmutableSet.Builder<Binding>()
+         .addAll(ownedBindings())
+         .addAll(inheritedBindings().values())
+         .build();
   }
 
   @SuppressWarnings("unchecked")  // checked by validator
@@ -63,23 +75,34 @@ abstract class ResolvedBindings {
   @SuppressWarnings("unchecked")  // checked by validator
   ImmutableSet<? extends ContributionBinding> contributionBindings() {
     checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
-    return (ImmutableSet<? extends ContributionBinding>) bindings();
+    return new ImmutableSet.Builder<ContributionBinding>()
+        .addAll((Iterable<? extends ContributionBinding>) ownedBindings())
+        .addAll((Iterable<? extends ContributionBinding>) inheritedBindings().values())
+        .build();
   }
 
   @SuppressWarnings("unchecked")  // checked by validator
   ImmutableSet<? extends MembersInjectionBinding> membersInjectionBindings() {
     checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
-    return (ImmutableSet<? extends MembersInjectionBinding>) bindings();
+    return new ImmutableSet.Builder<MembersInjectionBinding>()
+        .addAll((Iterable<? extends MembersInjectionBinding>) ownedBindings())
+        .addAll((Iterable<? extends MembersInjectionBinding>) inheritedBindings().values())
+        .build();
   }
 
   /**
    * Returns a {@code ResolvedBindings} with the same {@link #bindingKey()} and {@link #bindings()}
    * as this one, but no {@link #ownedBindings()}.
    */
-  ResolvedBindings asInherited() {
-    return ownedBindings().isEmpty()
-        ? this
-        : ResolvedBindings.create(bindingKey(), ImmutableSet.<Binding>of(), bindings());
+  ResolvedBindings asInheritedIn(ComponentDescriptor owningComponent) {
+    return ResolvedBindings.create(
+            bindingKey(),
+            owningComponent,
+            ImmutableSet.<Binding>of(),
+            new ImmutableSetMultimap.Builder<ComponentDescriptor, Binding>()
+                .putAll(inheritedBindings())
+                .putAll(owningComponent, ownedBindings())
+                .build());
   }
 
   /**
