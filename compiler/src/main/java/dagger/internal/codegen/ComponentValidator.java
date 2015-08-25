@@ -72,7 +72,7 @@ final class ComponentValidator {
   private final ModuleValidator moduleValidator;
   private final ComponentValidator subcomponentValidator;
   private final BuilderValidator subcomponentBuilderValidator;
-  
+
   private ComponentValidator(Elements elements,
       Types types,
       ModuleValidator moduleValidator,
@@ -97,7 +97,7 @@ final class ComponentValidator {
     this.subcomponentValidator = subcomponentValidator;
     this.subcomponentBuilderValidator = subcomponentBuilderValidator;
   }
-  
+
   static ComponentValidator createForComponent(Elements elements,
       Types types,
       ModuleValidator moduleValidator,
@@ -109,7 +109,7 @@ final class ComponentValidator {
         subcomponentValidator,
         subcomponentBuilderValidator);
   }
-  
+
   static ComponentValidator createForSubcomponent(Elements elements,
       Types types,
       ModuleValidator moduleValidator,
@@ -119,7 +119,7 @@ final class ComponentValidator {
         moduleValidator,
         subcomponentBuilderValidator);
   }
-  
+
   @AutoValue
   static abstract class ComponentValidationReport {
     abstract Set<Element> referencedSubcomponents();
@@ -140,7 +140,7 @@ final class ComponentValidator {
       builder.addItem(String.format("@%s may only be applied to an interface or abstract class",
           componentType.annotationType().getSimpleName()), subject);
     }
-    
+
     ImmutableList<DeclaredType> builders =
         enclosedBuilders(subject, componentType.builderAnnotationType());
     if (builders.size() > 1) {
@@ -148,7 +148,7 @@ final class ComponentValidator {
           String.format(ErrorMessages.builderMsgsFor(componentType).moreThanOne(), builders),
           subject);
     }
-    
+
     DeclaredType subjectType = MoreTypes.asDeclared(subject.asType());
 
     // TODO(gak): This should use Util.findLocalAndInheritedMethods, otherwise
@@ -212,7 +212,7 @@ final class ComponentValidator {
         }
       }
     }
-    
+
     for (Map.Entry<Element, Collection<ExecutableElement>> entry :
         referencedSubcomponents.asMap().entrySet()) {
       if (entry.getValue().size() > 1) {
@@ -228,7 +228,7 @@ final class ComponentValidator {
         getAnnotationMirror(subject, componentType.annotationType()).get();
     ImmutableList<TypeMirror> moduleTypes = getComponentModules(componentMirror);
     moduleValidator.validateReferencedModules(subject, builder, moduleTypes);
-    
+
     // Make sure we validate any subcomponents we're referencing, unless we know we validated
     // them already in this pass.
     // TODO(sameb): If subcomponents refer to each other and both aren't in
@@ -243,7 +243,7 @@ final class ComponentValidator {
       builder.addItems(subreport.report().items());
       allSubcomponents.addAll(subreport.referencedSubcomponents());
     }
-    
+
     return new AutoValue_ComponentValidator_ComponentValidationReport(allSubcomponents.build(),
         builder.build());
   }
@@ -257,6 +257,9 @@ final class ComponentValidator {
     ImmutableSet<TypeElement> moduleTypes =
         MoreTypes.asTypeElements(getComponentModules(subcomponentAnnotation.get()));
 
+    // TODO(gak): This logic maybe/probably shouldn't live here as it requires us to traverse
+    // subcomponents and their modules separately from how it is done in ComponentDescriptor and
+    // ModuleDescriptor
     ImmutableSet<TypeElement> transitiveModules =
         getTransitiveModules(types, elements, moduleTypes);
 
@@ -334,7 +337,7 @@ final class ComponentValidator {
       builder.addItem(
           ErrorMessages.SubcomponentBuilderMessages.INSTANCE.builderMethodRequiresNoArgs(), method);
     }
-    
+
     // If we haven't already validated the subcomponent builder itself, validate it now.
     TypeElement builderElement = MoreTypes.asTypeElement(returnType);
     if (!validatedSubcomponentBuilders.contains(builderElement)) {
@@ -345,7 +348,6 @@ final class ComponentValidator {
     }
   }
 
-  
   private Optional<AnnotationMirror> checkForAnnotation(TypeMirror type,
       final Class<? extends Annotation> annotation) {
     return type.accept(new SimpleTypeVisitor6<Optional<AnnotationMirror>, Void>() {

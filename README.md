@@ -35,7 +35,7 @@ instructions and other useful information.  Substantial usage information can be
 found in the [API documentation][20api].
 
 You can also learn more from [the original proposal][proposal], 
-[this talk by Greg Kick][gaktalk], and on discussions on the dagger-discuss@googlegroups.com
+[this talk by Greg Kick][gaktalk], and on the dagger-discuss@googlegroups.com
 mailing list. 
 
 Installation
@@ -46,9 +46,9 @@ In order to activate code generation and generate implementations to manage
 your graph you will need to include `dagger-compiler-2.0.1.jar` in your build
 at compile time.
 
-In a Maven project, one would include the `dagger` artifact in the dependencies section
-of your `pom.xml` and the `dagger-compiler` artifact as either  an `optional` or `provided`
-dependency:
+In a Maven project, include the `dagger` artifact in the dependencies section
+of your `pom.xml` and the `dagger-compiler` artifact as either an `optional` or
+`provided` dependency:
 
 ```xml
 <dependencies>
@@ -67,7 +67,7 @@ dependency:
 ```
 
 If you use the beta `dagger-producers` extension (which supplies parallelizable execution graphs),
-then you should add this to your maven configuration:
+then add this to your maven configuration:
 
 ```xml
 <dependencies>
