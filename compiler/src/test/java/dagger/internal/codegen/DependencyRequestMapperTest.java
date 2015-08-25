@@ -131,7 +131,7 @@ public class DependencyRequestMapperTest {
   @Module
   static final class ProvidesMethodModule {
     @Provides String provideString(
-        Integer a, Lazy<Integer> b, Provider<Integer> c, MembersInjector<Integer> d) {
+        Integer a, Lazy<Integer> b, Provider<Integer> c, MembersInjector<Y> d) {
       return null;
     }
   }
@@ -142,4 +142,6 @@ public class DependencyRequestMapperTest {
       return null;
     }
   }
+  
+  static final class Y {}
 }
