@@ -155,7 +155,7 @@ final class ErrorMessages {
       "%s is listed as a module, but is an abstract class or interface";
 
   static final String REFERENCED_MODULE_NOT_ANNOTATED =
-      "%s is listed as a module, but is not annotated with @%s";
+      "%s is listed as a module, but is not annotated with %s";
 
   static final String REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS =
       "%s is listed as a module, but has type parameters";

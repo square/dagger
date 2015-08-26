@@ -15,20 +15,13 @@
  */
 package test;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import dagger.producers.ProducerModule;
-import dagger.producers.Produces;
+import dagger.Module;
+import dagger.Provides;
 
-@ProducerModule(includes = ResponseModule.class)
-final class ResponseProducerModule {
-  @Produces
-  static ListenableFuture<String> greeting() {
-    return Futures.immediateFuture("Hello");
-  }
-
-  @Produces
-  static Response response(String greeting, Request request, int requestNumber) {
-    return new Response(String.format("%s, %s #%d!", greeting, request.name(), requestNumber));
+@Module
+final class ResponseModule {
+  @Provides
+  static int requestNumber() {
+    return 5;
   }
 }

@@ -24,6 +24,7 @@ import dagger.Module;
 import dagger.Provides;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import java.lang.annotation.Annotation;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -93,8 +94,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     InjectMethodValidator injectMethodValidator = new InjectMethodValidator(
         privateMemberValidationType(processingEnv).diagnosticKind().get(),
         staticMemberValidationType(processingEnv).diagnosticKind().get());
-    ModuleValidator moduleValidator = new ModuleValidator(types, elements, methodSignatureFormatter,
-        Module.class, Provides.class);
+    ModuleValidator moduleValidator =
+        new ModuleValidator(
+            types,
+            elements,
+            methodSignatureFormatter,
+            Module.class,
+            ImmutableList.<Class<? extends Annotation>>of(Module.class),
+            Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
     BuilderValidator componentBuilderValidator =
         new BuilderValidator(elements, types, ComponentDescriptor.Kind.COMPONENT);
@@ -105,8 +112,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ComponentValidator componentValidator = ComponentValidator.createForComponent(elements, types,
         moduleValidator, subcomponentValidator, subcomponentBuilderValidator);
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
-    ModuleValidator producerModuleValidator = new ModuleValidator(types, elements,
-        methodSignatureFormatter, ProducerModule.class, Produces.class);
+    ModuleValidator producerModuleValidator =
+        new ModuleValidator(
+            types,
+            elements,
+            methodSignatureFormatter,
+            ProducerModule.class,
+            ImmutableList.of(Module.class, ProducerModule.class),
+            Produces.class);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements);
     ProductionComponentValidator productionComponentValidator = new ProductionComponentValidator();
 

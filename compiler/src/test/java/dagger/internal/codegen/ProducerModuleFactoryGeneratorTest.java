@@ -379,6 +379,31 @@ public class ProducerModuleFactoryGeneratorTest {
   }
 
   @Test
+  public void includesNonModule() {
+    JavaFileObject xFile =
+        JavaFileObjects.forSourceLines("test.X", "package test;", "", "public final class X {}");
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.FooModule",
+            "package test;",
+            "",
+            "import dagger.producers.ProducerModule;",
+            "",
+            "@ProducerModule(includes = X.class)",
+            "public final class FooModule {",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(xFile, moduleFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            String.format(
+                ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED,
+                "X",
+                "one of @Module, @ProducerModule"));
+  }
+
+  @Test
   public void publicModuleNonPublicIncludes() {
     JavaFileObject publicModuleFile = JavaFileObjects.forSourceLines("test.PublicModule",
         "package test;",

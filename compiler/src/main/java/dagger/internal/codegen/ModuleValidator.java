@@ -50,6 +50,7 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.Visibility.PRIVATE;
 import static com.google.auto.common.Visibility.PUBLIC;
 import static com.google.auto.common.Visibility.effectiveVisibilityOfElement;
+import static com.google.common.collect.Iterables.any;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD;
@@ -70,6 +71,7 @@ final class ModuleValidator {
   private final Types types;
   private final Elements elements;
   private final Class<? extends Annotation> moduleClass;
+  private final ImmutableList<Class<? extends Annotation>> includedModuleClasses;
   private final Class<? extends Annotation> methodClass;
   private final MethodSignatureFormatter methodSignatureFormatter;
 
@@ -78,10 +80,12 @@ final class ModuleValidator {
       Elements elements,
       MethodSignatureFormatter methodSignatureFormatter,
       Class<? extends Annotation> moduleClass,
+      ImmutableList<Class<? extends Annotation>> includedModuleClasses,
       Class<? extends Annotation> methodClass) {
     this.types = types;
     this.elements = elements;
     this.moduleClass = moduleClass;
+    this.includedModuleClasses = includedModuleClasses;
     this.methodClass = methodClass;
     this.methodSignatureFormatter = methodSignatureFormatter;
   }
@@ -161,19 +165,39 @@ final class ModuleValidator {
 
             @Override
             public Void visitDeclared(DeclaredType t, Void p) {
-              TypeElement element = MoreElements.asType(t.asElement());
+              final TypeElement element = MoreElements.asType(t.asElement());
               if (!t.getTypeArguments().isEmpty()) {
                 builder.addError(
                     String.format(
                         REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS, element.getQualifiedName()),
                     subject);
               }
-              if (!getAnnotationMirror(element, moduleClass).isPresent()) {
+              boolean isIncludedModule =
+                  any(
+                      includedModuleClasses,
+                      new Predicate<Class<? extends Annotation>>() {
+                        @Override
+                        public boolean apply(Class<? extends Annotation> otherClass) {
+                          return MoreElements.isAnnotationPresent(element, otherClass);
+                        }
+                      });
+              if (!isIncludedModule) {
                 builder.addError(
                     String.format(
                         REFERENCED_MODULE_NOT_ANNOTATED,
                         element.getQualifiedName(),
-                        moduleClass.getSimpleName()),
+                        (includedModuleClasses.size() > 1 ? "one of " : "")
+                            + Joiner.on(", ")
+                                .join(
+                                    FluentIterable.from(includedModuleClasses)
+                                        .transform(
+                                            new Function<Class<? extends Annotation>, String>() {
+                                              @Override
+                                              public String apply(
+                                                  Class<? extends Annotation> otherClass) {
+                                                return "@" + otherClass.getSimpleName();
+                                              }
+                                            }))),
                     subject);
               }
               if (element.getModifiers().contains(ABSTRACT)) {

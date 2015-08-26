@@ -30,6 +30,6 @@ public class SimpleTest {
         .executor(MoreExecutors.directExecutor())
         .build();
     assertThat(simpleComponent).isNotNull();
-    assertThat(simpleComponent.response().get().data()).isEqualTo("Hello, Request!");
+    assertThat(simpleComponent.response().get().data()).isEqualTo("Hello, Request #5!");
   }
 }
