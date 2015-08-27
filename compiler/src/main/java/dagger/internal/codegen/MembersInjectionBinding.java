@@ -159,6 +159,11 @@ abstract class MembersInjectionBinding extends Binding {
       return forInjectedType(unresolved, Optional.<TypeMirror>absent());
     }
 
+    /** Returns true if the type has some injected members in itself or any of its super classes. */
+    boolean hasInjectedMembers(DeclaredType declaredType) {
+      return !getInjectionSites(declaredType).isEmpty();
+    }
+
     /**
      * Returns a MembersInjectionBinding for the given type. If {@code resolvedType} is present,
      * this will return a resolved binding, with the key & type resolved to the given type (using

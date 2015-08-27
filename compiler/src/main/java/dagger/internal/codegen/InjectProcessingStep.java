@@ -48,7 +48,8 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
   private final InjectBindingRegistry injectBindingRegistry;
 
-  InjectProcessingStep(Messager messager,
+  InjectProcessingStep(
+      Messager messager,
       InjectConstructorValidator constructorValidator,
       InjectFieldValidator fieldValidator,
       InjectMethodValidator methodValidator,
@@ -91,6 +92,11 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
                 provisions.add(
                     provisionBindingFactory.forInjectConstructor(
                         constructorElement, Optional.<TypeMirror>absent()));
+                DeclaredType type =
+                    MoreTypes.asDeclared(constructorElement.getEnclosingElement().asType());
+                if (membersInjectionBindingFactory.hasInjectedMembers(type)) {
+                  membersInjectedTypes.add(type);
+                }
               }
 
               return null;
