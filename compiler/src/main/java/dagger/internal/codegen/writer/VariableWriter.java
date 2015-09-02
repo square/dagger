@@ -15,6 +15,8 @@
  */
 package dagger.internal.codegen.writer;
 
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Set;
 
@@ -47,6 +49,10 @@ public class VariableWriter extends Modifiable implements Writable, HasClassRefe
 
   @Override
   public Set<ClassName> referencedClasses() {
-    return type.referencedClasses();
+    return FluentIterable.from(ImmutableList.<HasClassReferences>of())
+        .append(annotations)
+        .append(type)
+        .transformAndConcat(HasClassReferences.COMBINER)
+        .toSet();
   }
 }
