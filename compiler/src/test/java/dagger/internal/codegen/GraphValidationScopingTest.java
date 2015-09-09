@@ -130,6 +130,7 @@ public class GraphValidationScopingTest {
         "import javax.inject.Inject;",
         "",
         "class SimpleType {",
+        "  @Inject SimpleType() {}",
         "  static class A { @Inject A() {} }",
         "  static class B { @Inject B() {} }",
         "}");
