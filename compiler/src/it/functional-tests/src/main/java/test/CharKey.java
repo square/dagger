@@ -18,6 +18,6 @@ package test;
 import dagger.MapKey;
 
 @MapKey(unwrapValue = true)
-@interface TestUnwrappedAnnotationKey {
-  TestStringKey value();
+@interface CharKey {
+  char value();
 }

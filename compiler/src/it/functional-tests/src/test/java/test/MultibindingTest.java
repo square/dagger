@@ -15,6 +15,8 @@ package test;
 
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableMap;
+import dagger.mapkeys.ClassKey;
+import dagger.mapkeys.StringKey;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Map;
@@ -80,7 +82,7 @@ public class MultibindingTest {
         .isEqualTo(
             ImmutableMap.of(
                 testWrappedAnnotationKey(
-                    testStringKey("foo"), new int[] {1, 2, 3}, new TestClassKey[] {}, classes),
+                    testStringKey("foo"), new int[] {1, 2, 3}, new ClassKey[] {}, classes),
                 "wrapped foo annotation"));
   }
 
@@ -141,21 +143,18 @@ public class MultibindingTest {
   }
 
   @AutoAnnotation
-  static TestStringKey testStringKey(String value) {
+  static StringKey testStringKey(String value) {
     return new AutoAnnotation_MultibindingTest_testStringKey(value);
   }
 
   @AutoAnnotation
-  static TestStringKey.NestedWrappedKey nestedWrappedKey(Class<?> value) {
+  static NestedAnnotationContainer.NestedWrappedKey nestedWrappedKey(Class<?> value) {
     return new AutoAnnotation_MultibindingTest_nestedWrappedKey(value);
   }
 
   @AutoAnnotation
-  static TestWrappedAnnotationKey testWrappedAnnotationKey(
-      TestStringKey value,
-      int[] integers,
-      TestClassKey[] annotations,
-      Class<? extends Number>[] classes) {
+  static WrappedAnnotationKey testWrappedAnnotationKey(
+      StringKey value, int[] integers, ClassKey[] annotations, Class<? extends Number>[] classes) {
     return new AutoAnnotation_MultibindingTest_testWrappedAnnotationKey(
         value, integers, annotations, classes);
   }

@@ -13,26 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package dagger.mapkeys;
 
-import dagger.Module;
-import dagger.Provides;
-import dagger.mapkeys.StringKey;
+import dagger.MapKey;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Target;
 
-import static dagger.Provides.Type.MAP;
-import static dagger.Provides.Type.SET;
+import static java.lang.annotation.ElementType.METHOD;
 
-@Module
-class ChildMultibindingModule {
-
-  @Provides(type = SET)
-  static Object childObject() {
-    return "object provided by child";
-  }
-
-  @Provides(type = MAP)
-  @StringKey("child key")
-  static Object childKeyObject() {
-    return "object in child";
-  }
+/**
+ * A {@link MapKey} annotation for maps with {@code Class<?>} keys.
+ * 
+ * <p>If your map's keys can be constrained, consider using a custom annotation instead, with a
+ * member whose type is {@code Class<? extends Something>}.
+ */
+@Documented
+@Target(METHOD)
+@MapKey
+public @interface ClassKey {
+  Class<?> value();
 }

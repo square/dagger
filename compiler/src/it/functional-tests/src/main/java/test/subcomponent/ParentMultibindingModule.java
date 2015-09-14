@@ -17,7 +17,7 @@ package test.subcomponent;
 
 import dagger.Module;
 import dagger.Provides;
-import test.TestStringKey;
+import dagger.mapkeys.StringKey;
 
 import static dagger.Provides.Type.MAP;
 import static dagger.Provides.Type.SET;
@@ -26,30 +26,30 @@ import static dagger.Provides.Type.SET;
 class ParentMultibindingModule {
 
   @Provides(type = SET)
-  Object provideObject() {
+  static Object provideObject() {
     return "object provided by parent";
   }
 
   @Provides(type = SET)
-  String provideString() {
+  static String provideString() {
     return "string provided by parent";
   }
 
   @Provides(type = SET)
-  RequiresMultiboundObjects requiresMultiboundObjects(
+  static RequiresMultiboundObjects requiresMultiboundObjects(
       RequiresMultiboundObjects requiresMultiboundObjects) {
     return requiresMultiboundObjects;
   }
 
   @Provides(type = MAP)
-  @TestStringKey("parent key")
-  String parentKeyString() {
+  @StringKey("parent key")
+  static String parentKeyString() {
     return "string in parent";
   }
 
   @Provides(type = MAP)
-  @TestStringKey("parent key")
-  Object parentKeyObject() {
+  @StringKey("parent key")
+  static Object parentKeyObject() {
     return "object in parent";
   }
 }

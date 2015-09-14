@@ -16,8 +16,13 @@
 package test;
 
 import dagger.MapKey;
+import dagger.mapkeys.ClassKey;
+import dagger.mapkeys.StringKey;
 
-@MapKey(unwrapValue = true)
-@interface TestClassKey {
-  Class<?> value();
+@MapKey(unwrapValue = false)
+@interface WrappedAnnotationKey {
+  StringKey value();
+  int[] integers();
+  ClassKey[] annotations();
+  Class<? extends Number>[] classes();
 }

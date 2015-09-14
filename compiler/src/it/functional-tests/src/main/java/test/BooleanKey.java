@@ -18,6 +18,6 @@ package test;
 import dagger.MapKey;
 
 @MapKey(unwrapValue = true)
-@interface TestNumberClassKey {
-  Class<? extends Number> value();
+@interface BooleanKey {
+  boolean value();
 }

@@ -17,7 +17,10 @@ package test;
 
 import dagger.MapKey;
 
-@MapKey(unwrapValue = true)
-@interface TestBooleanKey {
-  boolean value();
+public final class NestedAnnotationContainer {
+
+  @MapKey(unwrapValue = false)
+  @interface NestedWrappedKey {
+    Class<?> value();
+  }
 }

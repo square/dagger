@@ -18,11 +18,6 @@ package test;
 import dagger.MapKey;
 
 @MapKey(unwrapValue = true)
-public @interface TestStringKey {
-  String value();
-
-  @MapKey(unwrapValue = false)
-  @interface NestedWrappedKey {
-    Class<?> value();
-  }
+@interface ByteKey {
+  byte value();
 }

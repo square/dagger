@@ -16,8 +16,9 @@
 package test;
 
 import dagger.MapKey;
+import dagger.mapkeys.StringKey;
 
 @MapKey(unwrapValue = true)
-@interface TestIntKey {
-  int value();
+@interface UnwrappedAnnotationKey {
+  StringKey value();
 }

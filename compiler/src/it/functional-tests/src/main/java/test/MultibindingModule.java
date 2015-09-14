@@ -17,6 +17,10 @@ package test;
 
 import dagger.Module;
 import dagger.Provides;
+import dagger.mapkeys.ClassKey;
+import dagger.mapkeys.IntKey;
+import dagger.mapkeys.LongKey;
+import dagger.mapkeys.StringKey;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;
@@ -30,125 +34,129 @@ import static dagger.Provides.Type.SET;
 @Module
 class MultibindingModule {
   @Provides(type = MAP)
-  @TestStringKey("foo")
-  String provideFooKey(double doubleDependency) {
+  @StringKey("foo")
+  static String provideFooKey(double doubleDependency) {
     return "foo value";
   }
 
   @Provides(type = MAP)
-  @TestStringKey("bar")
-  String provideBarKey() {
+  @StringKey("bar")
+  static String provideBarKey() {
     return "bar value";
   }
 
-  @Provides(type = SET) int provideFiveToSet() {
+  @Provides(type = SET)
+  static int provideFiveToSet() {
     return 5;
   }
 
-  @Provides(type = SET) int provideSixToSet() {
+  @Provides(type = SET)
+  static int provideSixToSet() {
     return 6;
   }
 
-  @Provides Set<String> provideMapKeys(Map<String, Provider<String>> map) {
+  @Provides
+  static Set<String> provideMapKeys(Map<String, Provider<String>> map) {
     return map.keySet();
   }
 
-  @Provides Collection<String> provideMapValues(Map<String, String> map) {
+  @Provides
+  static Collection<String> provideMapValues(Map<String, String> map) {
     return map.values();
   }
 
   @Provides(type = MAP)
-  @TestStringKey.NestedWrappedKey(Integer.class)
-  String valueForInteger() {
+  @NestedAnnotationContainer.NestedWrappedKey(Integer.class)
+  static String valueForInteger() {
     return "integer";
   }
 
   @Provides(type = MAP)
-  @TestStringKey.NestedWrappedKey(Long.class)
-  String valueForLong() {
+  @NestedAnnotationContainer.NestedWrappedKey(Long.class)
+  static String valueForLong() {
     return "long";
   }
 
   @Provides(type = MAP)
-  @TestClassKey(Integer.class)
-  String valueForClassInteger() {
+  @ClassKey(Integer.class)
+  static String valueForClassInteger() {
     return "integer";
   }
 
   @Provides(type = MAP)
-  @TestClassKey(Long.class)
-  String valueForClassLong() {
+  @ClassKey(Long.class)
+  static String valueForClassLong() {
     return "long";
   }
 
   @Provides(type = MAP)
-  @TestNumberClassKey(BigDecimal.class)
-  String valueForNumberClassBigDecimal() {
+  @NumberClassKey(BigDecimal.class)
+  static String valueForNumberClassBigDecimal() {
     return "bigdecimal";
   }
 
   @Provides(type = MAP)
-  @TestNumberClassKey(BigInteger.class)
-  String valueForNumberClassBigInteger() {
+  @NumberClassKey(BigInteger.class)
+  static String valueForNumberClassBigInteger() {
     return "biginteger";
   }
 
   @Provides(type = MAP)
-  @TestLongKey(longValue = 100)
-  String valueFor100Long() {
+  @LongKey(100)
+  static String valueFor100Long() {
     return "100 long";
   }
 
   @Provides(type = MAP)
-  @TestIntKey(100)
-  String valueFor100Int() {
+  @IntKey(100)
+  static String valueFor100Int() {
     return "100 int";
   }
 
   @Provides(type = MAP)
-  @TestShortKey(100)
-  String valueFor100Short() {
+  @ShortKey(100)
+  static String valueFor100Short() {
     return "100 short";
   }
 
   @Provides(type = MAP)
-  @TestByteKey(100)
-  String valueFor100Byte() {
+  @ByteKey(100)
+  static String valueFor100Byte() {
     return "100 byte";
   }
 
   @Provides(type = MAP)
-  @TestBooleanKey(true)
-  String valueForTrue() {
+  @BooleanKey(true)
+  static String valueForTrue() {
     return "true";
   }
 
   @Provides(type = MAP)
-  @TestCharKey('a')
-  String valueForA() {
+  @CharKey('a')
+  static String valueForA() {
     return "a char";
   }
 
   @Provides(type = MAP)
-  @TestCharKey('\n')
-  String valueForNewline() {
+  @CharKey('\n')
+  static String valueForNewline() {
     return "newline char";
   }
 
   @Provides(type = MAP)
-  @TestUnwrappedAnnotationKey(@TestStringKey("foo\n"))
-  String valueForUnwrappedAnnotationKeyFoo() {
+  @UnwrappedAnnotationKey(@StringKey("foo\n"))
+  static String valueForUnwrappedAnnotationKeyFoo() {
     return "foo annotation";
   }
 
   @Provides(type = MAP)
-  @TestWrappedAnnotationKey(
-    value = @TestStringKey("foo"),
+  @WrappedAnnotationKey(
+    value = @StringKey("foo"),
     integers = {1, 2, 3},
     annotations = {},
     classes = {Long.class, Integer.class}
   )
-  String valueForWrappedAnnotationKeyFoo() {
+  static String valueForWrappedAnnotationKeyFoo() {
     return "wrapped foo annotation";
   }
 }

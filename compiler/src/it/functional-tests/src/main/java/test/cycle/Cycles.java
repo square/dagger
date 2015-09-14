@@ -20,10 +20,10 @@ import dagger.Lazy;
 import dagger.Module;
 import dagger.Provides;
 import dagger.Subcomponent;
+import dagger.mapkeys.StringKey;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Provider;
-import test.TestStringKey;
 
 import static dagger.Provides.Type.MAP;
 
@@ -120,13 +120,13 @@ final class Cycles {
   @Module
   static class CycleMapModule {
     @Provides(type = MAP)
-    @TestStringKey("X")
+    @StringKey("X")
     static X x(X x) {
       return x;
     }
 
     @Provides(type = MAP)
-    @TestStringKey("Y")
+    @StringKey("Y")
     static Y y(Y y) {
       return y;
     }

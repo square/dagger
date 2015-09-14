@@ -17,10 +17,7 @@ package test;
 
 import dagger.MapKey;
 
-@MapKey(unwrapValue = false)
-@interface TestWrappedAnnotationKey {
-  TestStringKey value();
-  int[] integers();
-  TestClassKey[] annotations();
-  Class<? extends Number>[] classes();
+@MapKey(unwrapValue = true)
+@interface ShortKey {
+  short value();
 }

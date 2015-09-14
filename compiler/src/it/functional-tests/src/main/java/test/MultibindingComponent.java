@@ -16,6 +16,7 @@
 package test;
 
 import dagger.Component;
+import dagger.mapkeys.StringKey;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +36,7 @@ interface MultibindingComponent {
   Set<String> mapKeys();
   Collection<String> mapValues();
   Set<Integer> set();
-  Map<TestStringKey.NestedWrappedKey, String> nestedKeyMap();
+  Map<NestedAnnotationContainer.NestedWrappedKey, String> nestedKeyMap();
   Map<Class<? extends Number>, String> numberClassKeyMap();
   Map<Class<?>, String> classKeyMap();
   Map<Long, String> longKeyMap();
@@ -44,6 +45,6 @@ interface MultibindingComponent {
   Map<Byte, String> byteKeyMap();
   Map<Boolean, String> booleanKeyMap();
   Map<Character, String> characterKeyMap();
-  Map<TestStringKey, String> unwrappedAnnotationKeyMap();
-  Map<TestWrappedAnnotationKey, String> wrappedAnnotationKeyMap();
+  Map<StringKey, String> unwrappedAnnotationKeyMap();
+  Map<WrappedAnnotationKey, String> wrappedAnnotationKeyMap();
 }
