@@ -150,6 +150,7 @@ public class BindingGraphValidator {
     void validateSubgraph() {
       validateComponentScope();
       validateDependencyScopes();
+      validateComponentHierarchy();
       validateBuilders();
 
       for (ComponentMethodDescriptor componentMethod :
@@ -480,6 +481,51 @@ public class BindingGraphValidator {
     }
 
     /**
+     * Validates that component dependencies do not form a cycle.
+     */
+    private void validateComponentHierarchy() {
+      ComponentDescriptor descriptor = subject.componentDescriptor();
+      TypeElement componentType = descriptor.componentDefinitionType();
+      validateComponentHierarchy(componentType, componentType, new ArrayDeque<TypeElement>());
+    }
+
+    /**
+     * Recursive method to validate that component dependencies do not form a cycle.
+     */
+    private void validateComponentHierarchy(
+        TypeElement rootComponent,
+        TypeElement componentType,
+        Deque<TypeElement> componentStack) {
+
+      if (componentStack.contains(componentType)) {
+        // Current component has already appeared in the component chain.
+        StringBuilder message = new StringBuilder();
+        message.append(rootComponent.getQualifiedName());
+        message.append(" contains a cycle in its component dependencies:\n");
+        componentStack.push(componentType);
+        appendIndentedComponentsList(message, componentStack);
+        componentStack.pop();
+        reportBuilder.addItem(message.toString(),
+            scopeCycleValidationType.diagnosticKind().get(),
+            rootComponent, getAnnotationMirror(rootComponent, Component.class).get());
+      } else {
+        Optional<AnnotationMirror> componentAnnotation =
+            getAnnotationMirror(componentType, Component.class);
+        if (componentAnnotation.isPresent()) {
+          componentStack.push(componentType);
+
+          ImmutableSet<TypeElement> dependencies =
+              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get()));
+          for (TypeElement dependency : dependencies) {
+            validateComponentHierarchy(rootComponent, dependency, componentStack);
+          }
+
+          componentStack.pop();
+        }
+      }
+    }
+
+    /**
      * Validates that among the dependencies are at most one scoped dependency,
      * that there are no cycles within the scoping chain, and that singleton
      * components have no scoped dependencies.
@@ -587,7 +633,8 @@ public class BindingGraphValidator {
      *
      * <p>As a side-effect, this means scoped components cannot have a dependency cycle between
      * themselves, since a component's presence within its own dependency path implies a cyclical
-     * relationship between scopes.
+     * relationship between scopes. However, cycles in component dependencies are explicitly
+     * checked in {@link #validateComponentHierarchy()}.
      */
     private void validateScopeHierarchy(TypeElement rootComponent,
         TypeElement componentType,

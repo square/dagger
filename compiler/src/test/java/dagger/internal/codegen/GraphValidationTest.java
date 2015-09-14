@@ -29,6 +29,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
+import static java.util.Arrays.asList;
 
 @RunWith(JUnit4.class)
 public class GraphValidationTest {
@@ -1047,5 +1048,76 @@ public class GraphValidationTest {
         .withCompilerOptions("-Adagger.nullableValidation=WARNING")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
+  }
+
+  @Test public void componentDependencyMustNotCycle_Direct() {
+    JavaFileObject shortLifetime = JavaFileObjects.forSourceLines("test.ComponentShort",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(dependencies = ComponentShort.class)",
+        "interface ComponentShort {",
+        "}");
+    String errorMessage =
+        "test.ComponentShort contains a cycle in its component dependencies:\n"
+            + "      test.ComponentShort";
+    assertAbout(javaSource())
+        .that(shortLifetime)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(errorMessage);
+  }
+
+  @Test public void componentDependencyMustNotCycle_Indirect() {
+    JavaFileObject longLifetime = JavaFileObjects.forSourceLines("test.ComponentLong",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(dependencies = ComponentMedium.class)",
+        "interface ComponentLong {",
+        "}");
+    JavaFileObject mediumLifetime = JavaFileObjects.forSourceLines("test.ComponentMedium",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(dependencies = ComponentLong.class)",
+        "interface ComponentMedium {",
+        "}");
+    JavaFileObject shortLifetime = JavaFileObjects.forSourceLines("test.ComponentShort",
+        "package test;",
+        "",
+        "import dagger.Component;",
+        "",
+        "@Component(dependencies = ComponentMedium.class)",
+        "interface ComponentShort {",
+        "}");
+    String longErrorMessage =
+        "test.ComponentLong contains a cycle in its component dependencies:\n"
+            + "      test.ComponentLong\n"
+            + "      test.ComponentMedium\n"
+            + "      test.ComponentLong";
+    String mediumErrorMessage =
+        "test.ComponentMedium contains a cycle in its component dependencies:\n"
+            + "      test.ComponentMedium\n"
+            + "      test.ComponentLong\n"
+            + "      test.ComponentMedium";
+    String shortErrorMessage =
+        "test.ComponentShort contains a cycle in its component dependencies:\n"
+            + "      test.ComponentMedium\n"
+            + "      test.ComponentLong\n"
+            + "      test.ComponentMedium\n"
+            + "      test.ComponentShort";
+    assertAbout(javaSources())
+        .that(ImmutableList.of(longLifetime, mediumLifetime, shortLifetime))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(longErrorMessage).in(longLifetime)
+        .and()
+        .withErrorContaining(mediumErrorMessage).in(mediumLifetime)
+        .and()
+        .withErrorContaining(shortErrorMessage).in(shortLifetime);
   }
 }
