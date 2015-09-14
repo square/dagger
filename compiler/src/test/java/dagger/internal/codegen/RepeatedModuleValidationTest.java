@@ -87,7 +87,7 @@ public class RepeatedModuleValidationTest {
         .that(ImmutableList.of(MODULE_FILE, subcomponentFile, componentFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
-    // TOOD(gak): assert about the warning when we have that ability
+    // TODO(gak): assert about the warning when we have that ability
   }
 
   @Test
