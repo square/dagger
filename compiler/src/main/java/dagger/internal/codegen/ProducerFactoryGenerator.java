@@ -64,6 +64,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PROTECTED;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Generates {@link Producer} implementations from {@link ProductionBinding} instances.
@@ -119,11 +120,14 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             ClassName.fromClass(ProducerToken.class),
             factoryWriter.name());
 
-    factoryWriter.addField(binding.bindingTypeElement(), "module").addModifiers(PRIVATE, FINAL);
-    constructorWriter.addParameter(binding.bindingTypeElement(), "module");
-    constructorWriter.body()
-        .addSnippet("assert module != null;")
-        .addSnippet("this.module = module;");
+    if (!binding.bindingElement().getModifiers().contains(STATIC)) {
+      factoryWriter.addField(binding.bindingTypeElement(), "module")
+          .addModifiers(PRIVATE, FINAL);
+      constructorWriter.addParameter(binding.bindingTypeElement(), "module");
+      constructorWriter.body()
+          .addSnippet("assert module != null;")
+          .addSnippet("this.module = module;");
+    }
 
     factoryWriter.addField(Executor.class, "executor")
         .addModifiers(PRIVATE, FINAL);
@@ -383,6 +387,13 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
    */
   private InvocationSnippets getInvocationSnippets(
       boolean wrapWithFuture, ProductionBinding binding, ImmutableList<Snippet> parameterSnippets) {
+     Snippet moduleSnippet = Snippet.format("%s.%s(%s)",
+        binding.bindingElement().getModifiers().contains(STATIC)
+            ? ClassName.fromTypeElement(binding.bindingTypeElement())
+            : "module",
+        binding.bindingElement().getSimpleName(),
+        makeParametersSnippet(parameterSnippets));
+
     // NOTE(beder): We don't worry about catching exeptions from the monitor methods themselves
     // because we'll wrap all monitoring in non-throwing monitors before we pass them to the
     // factories.
@@ -398,12 +409,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             Joiner.on('\n')
                 .join(
                     "try {",
-                    "  value = module.%s(%s);",
+                    "  value = %s;",
                     "} finally {",
                     "  if (monitor != null) { monitor.methodFinished(); }",
                     "}"),
-            binding.bindingElement().getSimpleName(),
-            makeParametersSnippet(parameterSnippets)));
+            moduleSnippet));
     final Snippet valueSnippet;
     if (binding.productionType().equals(Produces.Type.SET)) {
       if (binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION)) {

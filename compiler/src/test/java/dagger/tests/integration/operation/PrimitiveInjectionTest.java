@@ -124,7 +124,7 @@ public final class PrimitiveInjectionTest {
       "",
       "    public Builder primitiveModule(PrimitiveModule primitiveModule) {",
       "      if (primitiveModule == null) {",
-      "        throw new NullPointerException(\"primitiveModule\");",
+      "        throw new NullPointerException();",
       "      }",
       "      this.primitiveModule = primitiveModule;",
       "      return this;",

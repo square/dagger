@@ -110,6 +110,7 @@ import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
 import static dagger.internal.codegen.writer.Snippet.memberSelectSnippet;
+import static dagger.internal.codegen.writer.Snippet.nullCheck;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -226,7 +227,7 @@ abstract class AbstractComponentWriter {
   protected Optional<MemberSelect> getMultibindingContributionSnippet(ContributionBinding binding) {
     return Optional.fromNullable(multibindingContributionSnippets.get(binding));
   }
-  
+
   /**
    * Returns the initialization state of the factory field for a binding key in this component.
    */
@@ -303,8 +304,16 @@ abstract class AbstractComponentWriter {
     constructorWriter.addParameter(builderWriter, "builder");
     constructorWriter.body().addSnippet("assert builder != null;");
 
+    builderFields = addBuilderMethods(builderWriter, builderSpec, buildMethod);
+    buildMethod.body().addSnippet("return new %s(this);", name);
+  }
+
+  private ImmutableMap<TypeElement, FieldWriter> addBuilderMethods(
+      ClassWriter builderWriter, Optional<BuilderSpec> builderSpec, MethodWriter buildMethod) {
     ImmutableMap.Builder<TypeElement, FieldWriter> builderFieldsBuilder = ImmutableMap.builder();
-    for (TypeElement contributionElement : graph.componentRequirements()) {
+    ImmutableSet<TypeElement> componentRequirements = graph.componentRequirements();
+
+    for (TypeElement contributionElement : componentRequirements) {
       String contributionName = simpleVariableName(contributionElement);
       FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
       builderField.addModifiers(PRIVATE);
@@ -344,10 +353,7 @@ abstract class AbstractComponentWriter {
       builderMethod.addParameter(contributionElement, contributionName);
       builderMethod
           .body()
-          .addSnippet("if (%s == null) {", contributionName)
-          .addSnippet(
-              "  throw new NullPointerException(%s);", StringLiteral.forValue(contributionName))
-          .addSnippet("}")
+          .addSnippet(nullCheck(contributionName))
           .addSnippet("this.%s = %s;", builderField.name(), contributionName);
       if (!builderMethod.returnType().equals(VoidName.VOID)) {
         builderMethod.body().addSnippet("return this;");
@@ -359,7 +365,7 @@ abstract class AbstractComponentWriter {
        * component requirements that are in the builder spec but _not_ owned by the component must
        * be inherited. */
       for (TypeElement inheritedRequirement :
-          Sets.difference(builderSpec.get().methodMap().keySet(), graph.componentRequirements())) {
+          Sets.difference(builderSpec.get().methodMap().keySet(), componentRequirements)) {
         MethodWriter builderMethod =
             addBuilderMethodFromSpec(
                 builderWriter, builderSpec.get().methodMap().get(inheritedRequirement));
@@ -375,10 +381,23 @@ abstract class AbstractComponentWriter {
                     "%s cannot be set because it is inherited from the enclosing component"),
                 ClassName.fromTypeElement(inheritedRequirement));
       }
+    } else {
+      for (TypeElement ownedButNotRequired :
+          Sets.difference(graph.ownedModuleTypes(), componentRequirements)) {
+        String contributionName = simpleVariableName(ownedButNotRequired);
+        MethodWriter builderMethod =
+            builderWriter.addMethod(builderWriter, contributionName);
+        builderMethod.addModifiers(PUBLIC);
+        builderMethod.annotate(Deprecated.class);
+        builderMethod.addParameter(ownedButNotRequired, contributionName);
+        builderMethod.body()
+            .addSnippet("// This module is declared, but not used in the component. "
+                + "This method is a no-op")
+            .addSnippet(nullCheck(contributionName))
+            .addSnippet("return this;");
+      }
     }
-
-    builderFields = builderFieldsBuilder.build();
-    buildMethod.body().addSnippet("return new %s(this);", name);
+    return builderFieldsBuilder.build();
   }
 
   private MethodWriter addBuilderMethodFromSpec(
@@ -966,7 +985,9 @@ abstract class AbstractComponentWriter {
             Lists.newArrayListWithCapacity(binding.dependencies().size() + 3);
         // TODO(beder): Pass the actual ProductionComponentMonitor.
         parameters.add(Snippet.format("null"));
-        parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
+        if (!binding.bindingElement().getModifiers().contains(STATIC)) {
+          parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
+        }
         parameters.add(
             getComponentContributionSnippet(
                 graph.componentDescriptor().executorDependency().get()));

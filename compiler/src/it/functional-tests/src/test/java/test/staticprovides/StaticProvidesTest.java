@@ -15,13 +15,16 @@
  */
 package test.staticprovides;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.collect.ImmutableSet;
-
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 @RunWith(JUnit4.class)
 public class StaticProvidesTest {
@@ -32,5 +35,22 @@ public class StaticProvidesTest {
         AllStaticModule.class + ".contributeString",
         SomeStaticModule.class + ".contributeStringFromAStaticMethod",
         SomeStaticModule.class + ".contributeStringFromAnInstanceMethod"));
+  }
+
+  @Test public void allStaticProvidesModules_noFieldInComponentBuilder() {
+    for (Field field : DaggerStaticTestComponent.Builder.class.getDeclaredFields()) {
+      assertWithMessage(field.getName())
+          .that(field.getType()).isNotEqualTo(AllStaticModule.class);
+    }
+  }
+
+  @Test public void allStaticProvidesModules_deprecatedMethodInComponentBuilder() {
+    for (Method method : DaggerStaticTestComponent.Builder.class.getDeclaredMethods()) {
+      if (Arrays.asList(method.getParameterTypes()).contains(AllStaticModule.class)) {
+        assertWithMessage(method.getName())
+            .that(method.isAnnotationPresent(Deprecated.class))
+            .isTrue();
+      }
+    }
   }
 }

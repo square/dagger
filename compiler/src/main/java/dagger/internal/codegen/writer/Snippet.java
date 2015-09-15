@@ -110,6 +110,16 @@ public final class Snippet implements HasClassReferences, Writable {
         selectors);
   }
 
+  public static Snippet nullCheck(Object thingToCheck) {
+    return format("if (%s == null) { throw new NullPointerException();} ", thingToCheck);
+  }
+
+  public static Snippet nullCheck(Object thingToCheck, String message) {
+    return format("if (%s == null) { throw new NullPointerException(%s);} ",
+        thingToCheck,
+        StringLiteral.forValue(message));
+  }
+
   public static Snippet makeParametersSnippet(Iterable<Snippet> parameterSnippets) {
     Iterator<Snippet> iterator = parameterSnippets.iterator();
     StringBuilder stringBuilder = new StringBuilder();

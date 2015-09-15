@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.TreeTraverser;
 import dagger.Component;
 import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
@@ -51,13 +53,16 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
+import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * The canonical representation of a full-resolved graph.
@@ -86,17 +91,47 @@ abstract class BindingGraph {
         .toSet();
   }
 
+  private static final TreeTraverser<BindingGraph> SUBGRAPH_TRAVERSER =
+      new TreeTraverser<BindingGraph>() {
+        @Override
+        public Iterable<BindingGraph> children(BindingGraph node) {
+          return node.subgraphs().values();
+        }
+      };
+
   /**
    * Returns the set of types necessary to implement the component, but are not part of the injected
    * graph.  This includes modules, component dependencies and an {@link Executor} in the case of
    * {@link ProductionComponent}.
    */
   ImmutableSet<TypeElement> componentRequirements() {
-    return new ImmutableSet.Builder<TypeElement>()
-        .addAll(ownedModuleTypes())
-        .addAll(componentDescriptor().dependencies())
-        .addAll(componentDescriptor().executorDependency().asSet())
-        .build();
+    return SUBGRAPH_TRAVERSER.preOrderTraversal(this)
+        .transformAndConcat(new Function<BindingGraph, Iterable<ResolvedBindings>>() {
+          @Override
+          public Iterable<ResolvedBindings> apply(BindingGraph input) {
+            return input.resolvedBindings().values();
+          }
+        })
+        .transformAndConcat(new Function<ResolvedBindings, Set<? extends ContributionBinding>>() {
+          @Override
+          public Set<? extends ContributionBinding> apply(ResolvedBindings input) {
+            return (input.bindingKey().kind().equals(CONTRIBUTION))
+                ? input.contributionBindings()
+                : ImmutableSet.<ContributionBinding>of();
+          }
+        })
+        .transformAndConcat(new Function<ContributionBinding, Set<TypeElement>>() {
+          @Override
+          public Set<TypeElement> apply(ContributionBinding input) {
+            return input.bindingElement().getModifiers().contains(STATIC)
+                ? ImmutableSet.<TypeElement>of()
+                : input.contributedBy().asSet();
+          }
+        })
+        .filter(in(ownedModuleTypes()))
+        .append(componentDescriptor().dependencies())
+        .append(componentDescriptor().executorDependency().asSet())
+        .toSet();
   }
 
   ImmutableSet<TypeElement> availableDependencies() {
