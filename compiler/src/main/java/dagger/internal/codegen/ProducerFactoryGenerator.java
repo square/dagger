@@ -15,9 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -192,8 +190,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             Snippet.format(fields.get(dependency.bindingKey()).name()), dependency.kind()));
       }
       final boolean wrapWithFuture = false;  // since submitToExecutor will create the future
-      InvocationSnippets invocationSnippets =
-          getInvocationSnippets(wrapWithFuture, binding, parameterSnippets.build());
+      Snippet invocationSnippet =
+          getInvocationSnippet(wrapWithFuture, binding, parameterSnippets.build());
       TypeName callableReturnType = returnsFuture ? futureTypeName : providedTypeName;
       Snippet throwsClause = getThrowsClause(binding.thrownTypes());
       Snippet callableSnippet =
@@ -208,7 +206,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
               ClassName.fromClass(Callable.class),
               callableReturnType,
               throwsClause,
-              invocationSnippets.asMethodBody());
+              invocationSnippet);
       getMethodWriter
           .body()
           .addSnippet(
@@ -245,8 +243,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
           }
         }
         boolean wrapWithFuture = !returnsFuture;  // only wrap if we don't already have a future
-        InvocationSnippets invocationSnippets =
-            getInvocationSnippets(wrapWithFuture, binding, parameterSnippets.build());
+        Snippet invocationSnippet =
+            getInvocationSnippet(wrapWithFuture, binding, parameterSnippets.build());
         Snippet throwsClause = getThrowsClause(binding.thrownTypes());
         transformSnippet =
             Snippet.format(
@@ -263,7 +261,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 futureTypeName,
                 argName,
                 throwsClause,
-                invocationSnippets.asMethodBody());
+                invocationSnippet);
       } else {
         futureSnippet = Snippet.format("%s.<%s>allAsList(%s)",
             ClassName.fromClass(Futures.class),
@@ -278,8 +276,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 })));
         ImmutableList<Snippet> parameterSnippets = getParameterSnippets(binding, fields, "args");
         boolean wrapWithFuture = !returnsFuture;  // only wrap if we don't already have a future
-        InvocationSnippets invocationSnippets =
-            getInvocationSnippets(wrapWithFuture, binding, parameterSnippets);
+        Snippet invocationSnippet =
+            getInvocationSnippet(wrapWithFuture, binding, parameterSnippets);
         ParameterizedTypeName listOfObject =
             ParameterizedTypeName.create(
                 ClassName.fromClass(List.class), ClassName.fromClass(Object.class));
@@ -299,7 +297,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 providedTypeName,
                 futureTypeName,
                 throwsClause,
-                invocationSnippets.asMethodBody());
+                invocationSnippet);
       }
       getMethodWriter.body().addSnippet("return %s.%s(%s, %s, executor);",
           ClassName.fromClass(Futures.class),
@@ -355,37 +353,16 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     return snippets.build();
   }
 
-  /** A collection of snippets for invoking a producer method. */
-  @AutoValue
-  abstract static class InvocationSnippets {
-    /** A list of statements forming a code block that must be called in succession. */
-    abstract ImmutableList<Snippet> setupSnippets();
-
-    /** An expression that represents the wrapped value resulting from invoking the method. */
-    abstract Snippet expressionSnippet();
-
-    /** Returns this invocation as a self-contained method body. */
-    Snippet asMethodBody() {
-      return Snippet.format(
-          "%s return %s;", Snippet.join(Joiner.on('\n'), setupSnippets()), expressionSnippet());
-    }
-
-    static InvocationSnippets create(
-        ImmutableList<Snippet> setupSnippets, Snippet expressionSnippet) {
-      return new AutoValue_ProducerFactoryGenerator_InvocationSnippets(
-          setupSnippets, expressionSnippet);
-    }
-  }
-
   /**
-   * Creates snippets for the invocation of the producer method from the module.
+   * Creates a snippet for the invocation of the producer method from the module, which should be
+   * used entirely within a method body.
    *
    * @param wrapWithFuture If true, wraps the result of the call to the producer method
    *        in an immediate future.
    * @param binding The binding to generate the invocation snippet for.
    * @param parameterSnippets The snippets for all the parameters to the producer method.
    */
-  private InvocationSnippets getInvocationSnippets(
+  private Snippet getInvocationSnippet(
       boolean wrapWithFuture, ProductionBinding binding, ImmutableList<Snippet> parameterSnippets) {
      Snippet moduleSnippet = Snippet.format("%s.%s(%s)",
         binding.bindingElement().getModifiers().contains(STATIC)
@@ -399,45 +376,40 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     // factories.
     ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
     snippets.add(Snippet.format("if (monitor != null) { monitor.methodStarting(); }"));
-    snippets.add(
-        Snippet.format(
-            "final %s value;",
-            TypeNames.forTypeMirror(
-                MoreElements.asExecutable(binding.bindingElement()).getReturnType())));
-    snippets.add(
-        Snippet.format(
-            Joiner.on('\n')
-                .join(
-                    "try {",
-                    "  value = %s;",
-                    "} finally {",
-                    "  if (monitor != null) { monitor.methodFinished(); }",
-                    "}"),
-            moduleSnippet));
+
     final Snippet valueSnippet;
     if (binding.productionType().equals(Produces.Type.SET)) {
       if (binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION)) {
         valueSnippet =
             Snippet.format(
-                "%s.createFutureSingletonSet(%s)", ClassName.fromClass(Producers.class), "value");
+                "%s.createFutureSingletonSet(%s)",
+                ClassName.fromClass(Producers.class),
+                moduleSnippet);
       } else {
         valueSnippet =
-            Snippet.format("%s.of(%s)", ClassName.fromClass(ImmutableSet.class), "value");
+            Snippet.format("%s.of(%s)", ClassName.fromClass(ImmutableSet.class), moduleSnippet);
       }
     } else {
-      valueSnippet = Snippet.format("value");
+      valueSnippet = moduleSnippet;
     }
-    if (wrapWithFuture) {
-      return InvocationSnippets.create(
-          snippets.build(),
-          Snippet.format(
-              "%s.<%s>immediateFuture(%s)",
-              ClassName.fromClass(Futures.class),
-              TypeNames.forTypeMirror(binding.key().type()),
-              valueSnippet));
-    } else {
-      return InvocationSnippets.create(snippets.build(), valueSnippet);
-    }
+    Snippet returnSnippet =
+        wrapWithFuture
+            ? Snippet.format(
+                "%s.<%s>immediateFuture(%s)",
+                ClassName.fromClass(Futures.class),
+                TypeNames.forTypeMirror(binding.key().type()),
+                valueSnippet)
+            : valueSnippet;
+    return Snippet.format(
+        Joiner.on('\n')
+            .join(
+                "if (monitor != null) { monitor.methodStarting(); }",
+                "try {",
+                "  return %s;",
+                "} finally {",
+                "  if (monitor != null) { monitor.methodFinished(); }",
+                "}"),
+        returnSnippet);
   }
 
   /**
