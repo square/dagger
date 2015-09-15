@@ -33,10 +33,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Lazy;
+import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
@@ -75,7 +77,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
 import static com.google.common.collect.Iterables.skip;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
+import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
 import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
@@ -84,6 +88,7 @@ import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCT
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
+import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
@@ -284,7 +289,10 @@ public class BindingGraphValidator {
               reportDuplicateBindings(path);
               return false;
             case MAP:
-              return !hasDuplicateMapKeys(path, combined);
+              boolean duplicateMapKeys = hasDuplicateMapKeys(path, combined);
+              boolean inconsistentMapKeyAnnotationTypes =
+                  hasInconsistentMapKeyAnnotationTypes(path, combined);
+              return !duplicateMapKeys && !inconsistentMapKeyAnnotationTypes;
             case SET:
               break;
             default:
@@ -364,6 +372,21 @@ public class BindingGraphValidator {
         }
       }
       return hasDuplicateMapKeys;
+    }
+
+    /**
+     * Returns {@code true} (and reports errors) if {@code mapBindings} uses more than one
+     * {@link MapKey} annotation type.
+     */
+    private boolean hasInconsistentMapKeyAnnotationTypes(
+        Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
+      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
+          mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(mapBindings);
+      if (mapBindingsByAnnotationType.keySet().size() > 1) {
+        reportInconsistentMapKeyAnnotations(path, mapBindingsByAnnotationType);
+        return true;
+      }
+      return false;
     }
 
     /**
@@ -740,9 +763,10 @@ public class BindingGraphValidator {
     private void reportProviderMayNotDependOnProducer(Deque<ResolvedRequest> path) {
       StringBuilder errorMessage = new StringBuilder();
       if (path.size() == 1) {
-        new Formatter(errorMessage).format(
-            ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-            keyFormatter.format(path.peek().request().key()));
+        new Formatter(errorMessage)
+            .format(
+                ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                formatRootRequestKey(path));
       } else {
         ImmutableSet<ProvisionBinding> dependentProvisions =
             provisionsDependingOnLatestRequest(path);
@@ -792,14 +816,12 @@ public class BindingGraphValidator {
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
     }
 
-    private static final int DUPLICATE_SIZE_LIMIT = 10;
-
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
     private void reportDuplicateBindings(Deque<ResolvedRequest> path) {
       ResolvedBindings resolvedBinding = path.peek().binding();
       StringBuilder builder = new StringBuilder();
-      new Formatter(builder).format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT,
-          keyFormatter.format(path.peek().request().key()));
+      new Formatter(builder)
+          .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
       for (Binding binding : Iterables.limit(resolvedBinding.bindings(), DUPLICATE_SIZE_LIMIT)) {
         builder.append('\n').append(INDENT).append(formatBinding(binding));
       }
@@ -818,8 +840,8 @@ public class BindingGraphValidator {
     private void reportMultipleBindingTypes(Deque<ResolvedRequest> path) {
       ResolvedBindings resolvedBinding = path.peek().binding();
       StringBuilder builder = new StringBuilder();
-      new Formatter(builder).format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT,
-          keyFormatter.format(path.peek().request().key()));
+      new Formatter(builder)
+          .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
           ContributionBinding.<ContributionBinding>bindingTypesFor(
               resolvedBinding.contributionBindings());
@@ -843,21 +865,29 @@ public class BindingGraphValidator {
     private void reportDuplicateMapKeys(
         Deque<ResolvedRequest> path, Collection<? extends ContributionBinding> mapBindings) {
       StringBuilder builder = new StringBuilder();
-      builder.append(duplicateMapKeysError(keyFormatter.format(path.peek().request().key())));
-      for (Binding binding : Iterables.limit(mapBindings, DUPLICATE_SIZE_LIMIT)) {
-        builder.append('\n').append(INDENT).append(formatBinding(binding));
-      }
-      int numberOfOtherBindings = mapBindings.size() - DUPLICATE_SIZE_LIMIT;
-      if (numberOfOtherBindings > 0) {
+      builder.append(duplicateMapKeysError(formatRootRequestKey(path)));
+      appendBindings(builder, mapBindings, 1);
+      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
+    }
+
+    private void reportInconsistentMapKeyAnnotations(
+        Deque<ResolvedRequest> path,
+        Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
+            mapBindingsByAnnotationType) {
+      StringBuilder builder =
+          new StringBuilder(inconsistentMapKeyAnnotationsError(formatRootRequestKey(path)));
+      for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
+          mapBindingsByAnnotationType.asMap().entrySet()) {
+        DeclaredType annotationType = entry.getKey().get();
+        Collection<ContributionBinding> bindings = entry.getValue();
+
         builder
             .append('\n')
             .append(INDENT)
-            .append("and ")
-            .append(numberOfOtherBindings)
-            .append(" other");
-      }
-      if (numberOfOtherBindings > 1) {
-        builder.append('s');
+            .append(annotationType)
+            .append(':');
+
+        appendBindings(builder, bindings, 2);
       }
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
@@ -1086,6 +1116,32 @@ public class BindingGraphValidator {
     } else {
       throw new IllegalArgumentException(
           "Expected either a ProvisionBinding or a ProductionBinding, not " + binding);
+    }
+  }
+
+  private String formatRootRequestKey(Deque<ResolvedRequest> path) {
+    return keyFormatter.format(path.peek().request().key());
+  }
+
+  private void appendBindings(
+      StringBuilder builder, Collection<? extends Binding> bindings, int indentLevel) {
+    for (Binding binding : Iterables.limit(bindings, DUPLICATE_SIZE_LIMIT)) {
+      builder.append('\n');
+      for (int i = 0; i < indentLevel; i++) {
+        builder.append(INDENT);
+      }
+      builder.append(formatBinding(binding));
+    }
+    int numberOfOtherBindings = bindings.size() - DUPLICATE_SIZE_LIMIT;
+    if (numberOfOtherBindings > 0) {
+      builder.append('\n');
+      for (int i = 0; i < indentLevel; i++) {
+        builder.append(INDENT);
+      }
+      builder.append("and ").append(numberOfOtherBindings).append(" other");
+    }
+    if (numberOfOtherBindings > 1) {
+      builder.append('s');
     }
   }
 

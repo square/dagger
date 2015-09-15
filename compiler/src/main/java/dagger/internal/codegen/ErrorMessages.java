@@ -31,6 +31,7 @@ final class ErrorMessages {
    * Common constants.
    */
   static final String INDENT = "    ";
+  static final int DUPLICATE_SIZE_LIMIT = 10;
 
   /*
    * JSR-330 errors
@@ -102,6 +103,10 @@ final class ErrorMessages {
 
   static String duplicateMapKeysError(String key) {
     return "The same map key is bound more than once for " + key;
+  }
+
+  static String inconsistentMapKeyAnnotationsError(String key) {
+    return key + " uses more than one @MapKey annotation type";
   }
 
   static final String PROVIDES_METHOD_RETURN_TYPE =

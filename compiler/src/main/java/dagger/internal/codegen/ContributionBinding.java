@@ -15,10 +15,15 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import dagger.MapKey;
 import java.util.EnumSet;
@@ -32,6 +37,7 @@ import javax.lang.model.type.DeclaredType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MapKeys.unwrapValue;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be
@@ -122,17 +128,33 @@ abstract class ContributionBinding extends Binding {
    */
   static ImmutableSetMultimap<Object, ContributionBinding> indexMapBindingsByMapKey(
       Set<? extends ContributionBinding> mapBindings) {
-    ImmutableSetMultimap.Builder<Object, ContributionBinding> mapBindingsByMapKey =
-        ImmutableSetMultimap.builder();
-    for (ContributionBinding mapBinding : mapBindings) {
-      AnnotationMirror mapKey = getMapKey(mapBinding.bindingElement()).get();
-      Optional<? extends AnnotationValue> unwrappedValue = MapKeys.unwrapValue(mapKey);
-      if (unwrappedValue.isPresent()) {
-        mapBindingsByMapKey.put(unwrappedValue.get().getValue(), mapBinding);
-      } else {
-        mapBindingsByMapKey.put(mapKey, mapBinding);
-      }
-    }
-    return mapBindingsByMapKey.build();
+    return ImmutableSetMultimap.copyOf(
+        Multimaps.index(
+            mapBindings,
+            new Function<ContributionBinding, Object>() {
+              @Override
+              public Object apply(ContributionBinding mapBinding) {
+                AnnotationMirror mapKey = getMapKey(mapBinding.bindingElement()).get();
+                Optional<? extends AnnotationValue> unwrappedValue = unwrapValue(mapKey);
+                return unwrappedValue.isPresent() ? unwrappedValue.get().getValue() : mapKey;
+              }
+            }));
+  }
+
+  /**
+   * Indexes map-multibindings by map key annotation type.
+   */
+  static ImmutableSetMultimap<Wrapper<DeclaredType>, ContributionBinding>
+      indexMapBindingsByAnnotationType(Set<ContributionBinding> mapBindings) {
+    return ImmutableSetMultimap.copyOf(
+        Multimaps.index(
+            mapBindings,
+            new Function<ContributionBinding, Equivalence.Wrapper<DeclaredType>>() {
+              @Override
+              public Equivalence.Wrapper<DeclaredType> apply(ContributionBinding mapBinding) {
+                return MoreTypes.equivalence()
+                    .wrap(getMapKey(mapBinding.bindingElement()).get().getAnnotationType());
+              }
+            }));
   }
 }
