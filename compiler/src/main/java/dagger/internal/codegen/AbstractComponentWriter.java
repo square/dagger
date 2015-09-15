@@ -17,7 +17,6 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
@@ -61,6 +60,7 @@ import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetProducer;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -89,6 +89,9 @@ import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
@@ -126,14 +129,13 @@ abstract class AbstractComponentWriter {
   protected final Set<JavaWriter> javaWriters = new LinkedHashSet<>();
   protected final ClassName name;
   protected final BindingGraph graph;
+  private final Map<String, ProxyClassAndField> packageProxies = new HashMap<>();
+  private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
   protected ClassWriter componentWriter;
-  private final Map<String, ProxyClassAndField> packageProxies = Maps.newHashMap();
   private ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets;
   private ImmutableMap<ContributionBinding, MemberSelect> multibindingContributionSnippets;
   private ImmutableSet<BindingKey> enumBindingKeys;
   protected ConstructorWriter constructorWriter;
-  private final Set<BindingKey> bindingKeysWithInitializedProviders = Sets.newHashSet();
-  private final Set<BindingKey> bindingKeysWithDelegates = Sets.newHashSet();
   protected Optional<ClassName> builderName = Optional.absent();
 
   /**
@@ -224,9 +226,18 @@ abstract class AbstractComponentWriter {
   protected Optional<MemberSelect> getMultibindingContributionSnippet(ContributionBinding binding) {
     return Optional.fromNullable(multibindingContributionSnippets.get(binding));
   }
+  
+  /**
+   * Returns the initialization state of the factory field for a binding key in this component.
+   */
+  protected InitializationState getInitializationState(BindingKey bindingKey) {
+    return initializationStates.containsKey(bindingKey)
+        ? initializationStates.get(bindingKey)
+        : UNINITIALIZED;
+  }
 
-  protected boolean isProviderInitialized(BindingKey bindingKey) {
-    return bindingKeysWithInitializedProviders.contains(bindingKey);
+  private void setInitializationState(BindingKey bindingKey, InitializationState state) {
+    initializationStates.put(bindingKey, state);
   }
 
   ImmutableSet<JavaWriter> write() {
@@ -677,9 +688,7 @@ abstract class AbstractComponentWriter {
       } else {
         constructorWriter.body().addSnippet("%s();", initializeMethod.name());
       }
-      bindingKeysWithDelegates.clear();
       for (BindingKey bindingKey : partitions.get(i)) {
-        Snippet memberSelectSnippet = getMemberSelectSnippet(bindingKey);
         ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
@@ -710,9 +719,7 @@ abstract class AbstractComponentWriter {
                             ? ClassName.fromClass(SetFactory.class)
                             : ClassName.fromClass(SetProducer.class),
                         Snippet.makeParametersSnippet(parameterSnippets.build()));
-                initializeMethod
-                    .body()
-                    .addSnippet("this.%s = %s;", memberSelectSnippet, initializeSetSnippet);
+                initializeMember(initializeMethod, bindingKey, initializeSetSnippet);
                 break;
               case MAP:
                 if (Sets.filter(bindings, Predicates.instanceOf(ProductionBinding.class))
@@ -734,14 +741,8 @@ abstract class AbstractComponentWriter {
                               initializeFactoryForProvisionBinding(provisionBinding));
                     }
                   }
-                  if (!provisionBindings.isEmpty()) {
-                    initializeMethod
-                        .body()
-                        .addSnippet(
-                            "this.%s = %s;",
-                            memberSelectSnippet,
-                            initializeMapBinding(provisionBindings));
-                  }
+                  initializeMember(
+                      initializeMethod, bindingKey, initializeMapBinding(provisionBindings));
                 } else {
                   // TODO(beder): Implement producer map bindings.
                   throw new IllegalStateException("producer map bindings not implemented yet");
@@ -752,24 +753,20 @@ abstract class AbstractComponentWriter {
                   ContributionBinding binding = Iterables.getOnlyElement(bindings);
                   if (binding instanceof ProvisionBinding) {
                     ProvisionBinding provisionBinding = (ProvisionBinding) binding;
-                    initializeDelegateFactories(binding, initializeMethod);
                     if (!provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
                         || provisionBinding.scope().isPresent()) {
-                      initializeMethod
-                          .body()
-                          .addSnippet(
-                              "this.%s = %s;",
-                              memberSelectSnippet,
-                              initializeFactoryForProvisionBinding(provisionBinding));
+                      initializeDelegateFactories(binding, initializeMethod);
+                      initializeMember(
+                          initializeMethod,
+                          bindingKey,
+                          initializeFactoryForProvisionBinding(provisionBinding));
                     }
                   } else if (binding instanceof ProductionBinding) {
                     ProductionBinding productionBinding = (ProductionBinding) binding;
-                    initializeMethod
-                        .body()
-                        .addSnippet(
-                            "this.%s = %s;",
-                            memberSelectSnippet,
-                            initializeFactoryForProductionBinding(productionBinding));
+                    initializeMember(
+                        initializeMethod,
+                        bindingKey,
+                        initializeFactoryForProductionBinding(productionBinding));
                   } else {
                     throw new AssertionError();
                   }
@@ -784,53 +781,58 @@ abstract class AbstractComponentWriter {
                 Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
             if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
               initializeDelegateFactories(binding, initializeMethod);
-              initializeMethod
-                  .body()
-                  .addSnippet(
-                      "this.%s = %s;",
-                      memberSelectSnippet,
-                      initializeMembersInjectorForBinding(binding));
+              initializeMember(
+                  initializeMethod, bindingKey, initializeMembersInjectorForBinding(binding));
             }
             break;
           default:
             throw new AssertionError();
         }
-        bindingKeysWithInitializedProviders.add(bindingKey);
-      }
-      for (BindingKey key : bindingKeysWithDelegates) {
-        initializeMethod
-            .body()
-            .addSnippet(
-                "%s.setDelegatedProvider(%s);",
-                delegateFactoryVariableSnippet(key),
-                getMemberSelectSnippet(key));
       }
     }
   }
 
   private void initializeDelegateFactories(Binding binding, MethodWriter initializeMethod) {
     for (Collection<DependencyRequest> requestsForKey :
-        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.dependencies())
-            .asMap()
-            .values()) {
+        indexDependenciesByUnresolvedKey(types, binding.dependencies()).asMap().values()) {
       BindingKey dependencyKey =
           Iterables.getOnlyElement(
-                  FluentIterable.from(requestsForKey)
-                      .transform(DependencyRequest.BINDING_KEY_FUNCTION)
-                      .toSet());
+              FluentIterable.from(requestsForKey)
+                  .transform(DependencyRequest.BINDING_KEY_FUNCTION)
+                  .toSet());
       if (!getMemberSelect(dependencyKey).staticMember()
-          && !isProviderInitialized(dependencyKey)
-          && !bindingKeysWithDelegates.contains(dependencyKey)) {
+          && getInitializationState(dependencyKey).equals(UNINITIALIZED)) {
         initializeMethod
             .body()
             .addSnippet(
-                "%s %s = new %s();",
-                ClassName.fromClass(DelegateFactory.class),
-                delegateFactoryVariableSnippet(dependencyKey),
+                "this.%s = new %s();",
+                getMemberSelectSnippet(dependencyKey),
                 ClassName.fromClass(DelegateFactory.class));
-        bindingKeysWithDelegates.add(dependencyKey);
+        setInitializationState(dependencyKey, DELEGATED);
       }
     }
+  }
+
+  private void initializeMember(
+      MethodWriter initializeMethod, BindingKey bindingKey, Snippet initializationSnippet) {
+    Snippet memberSelect = getMemberSelectSnippet(bindingKey);
+    Snippet delegateFactoryVariable = delegateFactoryVariableSnippet(bindingKey);
+    if (getInitializationState(bindingKey).equals(DELEGATED)) {
+      initializeMethod
+          .body()
+          .addSnippet(
+              "%1$s %2$s = (%1$s) %3$s;",
+              ClassName.fromClass(DelegateFactory.class),
+              delegateFactoryVariable,
+              memberSelect);
+    }
+    initializeMethod.body().addSnippet("this.%s = %s;", memberSelect, initializationSnippet);
+    if (getInitializationState(bindingKey).equals(DELEGATED)) {
+      initializeMethod
+          .body()
+          .addSnippet("%s.setDelegatedProvider(%s);", delegateFactoryVariable, memberSelect);
+    }
+    setInitializationState(bindingKey, INITIALIZED);
   }
 
   private Snippet delegateFactoryVariableSnippet(BindingKey key) {
@@ -1008,11 +1010,7 @@ abstract class AbstractComponentWriter {
       }
       if (!requestedBindingKeys.isEmpty()) {
         BindingKey key = Iterables.getOnlyElement(requestedBindingKeys);
-        if (bindingKeysWithDelegates.contains(key)) {
-          parameters.add(delegateFactoryVariableSnippet(key));
-        } else {
-          parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
-        }
+        parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
       }
     }
     return parameters.build();
@@ -1092,5 +1090,19 @@ abstract class AbstractComponentWriter {
 
   private static String simpleVariableName(TypeElement typeElement) {
     return UPPER_CAMEL.to(LOWER_CAMEL, typeElement.getSimpleName().toString());
+  }
+
+  /**
+   * Initialization state for a factory field.
+   */
+  enum InitializationState {
+    /** The field is {@code null}. */
+    UNINITIALIZED,
+
+    /** The field is set to a {@link DelegateFactory}. */
+    DELEGATED,
+
+    /** The field is set to an undelegated factory. */
+    INITIALIZED;
   }
 }

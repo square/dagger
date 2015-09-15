@@ -40,6 +40,7 @@ import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.Verify.verify;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -72,8 +73,11 @@ class SubcomponentWriter extends AbstractComponentWriter {
   }
   
   @Override
-  protected boolean isProviderInitialized(BindingKey bindingKey) {
-    return super.isProviderInitialized(bindingKey) || parent.isProviderInitialized(bindingKey);
+  protected InitializationState getInitializationState(BindingKey bindingKey) {
+    InitializationState initializationState = super.getInitializationState(bindingKey);
+    return initializationState.equals(UNINITIALIZED)
+        ? parent.getInitializationState(bindingKey)
+        : initializationState;
   }
 
   @Override
