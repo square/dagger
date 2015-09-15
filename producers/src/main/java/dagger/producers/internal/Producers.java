@@ -23,10 +23,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import dagger.producers.monitoring.ProducerMonitor;
+import dagger.producers.monitoring.ProducerToken;
+import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import javax.annotation.Nullable;
 import javax.inject.Provider;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -105,10 +109,21 @@ public final class Producers {
   public static <T> Producer<T> producerFromProvider(final Provider<T> provider) {
     checkNotNull(provider);
     return new AbstractProducer<T>() {
-      @Override protected ListenableFuture<T> compute() {
+      @Override
+      protected ListenableFuture<T> compute() {
         return Futures.immediateFuture(provider.get());
       }
     };
+  }
+
+  /** Lifts {@link ProductionComponentMonitor#producerMonitorFor} to nullable types. */
+  @Nullable
+  public static ProducerMonitor producerMonitorFor(
+      @Nullable ProductionComponentMonitor componentMonitor, ProducerToken token) {
+    if (componentMonitor != null) {
+      return componentMonitor.producerMonitorFor(token);
+    }
+    return null;
   }
 
   private Producers() {}

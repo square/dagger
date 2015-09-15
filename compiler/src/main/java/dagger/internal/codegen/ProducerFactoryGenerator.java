@@ -15,7 +15,9 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -44,10 +46,13 @@ import dagger.producers.Producer;
 import dagger.producers.Produces;
 import dagger.producers.internal.AbstractProducer;
 import dagger.producers.internal.Producers;
+import dagger.producers.monitoring.ProducerToken;
+import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import javax.annotation.Generated;
+import javax.annotation.Nullable;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
@@ -103,8 +108,18 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     ConstructorWriter constructorWriter = factoryWriter.addConstructor();
     constructorWriter.addModifiers(PUBLIC);
 
-    factoryWriter.addField(binding.bindingTypeElement(), "module")
-        .addModifiers(PRIVATE, FINAL);
+    constructorWriter
+        .addParameter(ProductionComponentMonitor.class, "componentMonitor")
+        .annotate(Nullable.class);
+    constructorWriter
+        .body()
+        .addSnippet(
+            "super(%s.producerMonitorFor(componentMonitor, %s.create(%s.class)));",
+            ClassName.fromClass(Producers.class),
+            ClassName.fromClass(ProducerToken.class),
+            factoryWriter.name());
+
+    factoryWriter.addField(binding.bindingTypeElement(), "module").addModifiers(PRIVATE, FINAL);
     constructorWriter.addParameter(binding.bindingTypeElement(), "module");
     constructorWriter.body()
         .addSnippet("assert module != null;")
@@ -173,30 +188,38 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             Snippet.format(fields.get(dependency.bindingKey()).name()), dependency.kind()));
       }
       final boolean wrapWithFuture = false;  // since submitToExecutor will create the future
-      Snippet invocationSnippet = getInvocationSnippet(wrapWithFuture, binding,
-          parameterSnippets.build());
+      InvocationSnippets invocationSnippets =
+          getInvocationSnippets(wrapWithFuture, binding, parameterSnippets.build());
       TypeName callableReturnType = returnsFuture ? futureTypeName : providedTypeName;
       Snippet throwsClause = getThrowsClause(binding.thrownTypes());
-      Snippet callableSnippet = Snippet.format(Joiner.on('\n').join(
-          "new %1$s<%2$s>() {",
-          "  @Override public %2$s call() %3$s{",
-          "    return %4$s;",
-          "  }",
-          "}"),
-          ClassName.fromClass(Callable.class),
-          callableReturnType,
-          throwsClause,
-          invocationSnippet);
-      getMethodWriter.body().addSnippet("%s future = %s.submitToExecutor(%s, executor);",
-          ParameterizedTypeName.create(
-              ClassName.fromClass(ListenableFuture.class),
-              callableReturnType),
-          ClassName.fromClass(Producers.class),
-          callableSnippet);
-      getMethodWriter.body().addSnippet("return %s;",
-          returnsFuture
-              ? Snippet.format("%s.dereference(future)", ClassName.fromClass(Futures.class))
-              : "future");
+      Snippet callableSnippet =
+          Snippet.format(
+              Joiner.on('\n')
+                  .join(
+                      "new %1$s<%2$s>() {",
+                      "  @Override public %2$s call() %3$s{",
+                      "    %4$s",
+                      "  }",
+                      "}"),
+              ClassName.fromClass(Callable.class),
+              callableReturnType,
+              throwsClause,
+              invocationSnippets.asMethodBody());
+      getMethodWriter
+          .body()
+          .addSnippet(
+              "%s future = %s.submitToExecutor(%s, executor);",
+              ParameterizedTypeName.create(
+                  ClassName.fromClass(ListenableFuture.class), callableReturnType),
+              ClassName.fromClass(Producers.class),
+              callableSnippet);
+      getMethodWriter
+          .body()
+          .addSnippet(
+              "return %s;",
+              returnsFuture
+                  ? Snippet.format("%s.dereference(future)", ClassName.fromClass(Futures.class))
+                  : "future");
     } else {
       final Snippet futureSnippet;
       final Snippet transformSnippet;
@@ -218,22 +241,25 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
           }
         }
         boolean wrapWithFuture = !returnsFuture;  // only wrap if we don't already have a future
-        Snippet invocationSnippet = getInvocationSnippet(wrapWithFuture, binding,
-            parameterSnippets.build());
+        InvocationSnippets invocationSnippets =
+            getInvocationSnippets(wrapWithFuture, binding, parameterSnippets.build());
         Snippet throwsClause = getThrowsClause(binding.thrownTypes());
-        transformSnippet = Snippet.format(Joiner.on('\n').join(
-            "new %1$s<%2$s, %3$s>() {",
-            "  @Override public %4$s apply(%2$s %5$s) %6$s{",
-            "    return %7$s;",
-            "  }",
-            "}"),
-            ClassName.fromClass(AsyncFunction.class),
-            asyncDependencyType(asyncDependency),
-            providedTypeName,
-            futureTypeName,
-            argName,
-            throwsClause,
-            invocationSnippet);
+        transformSnippet =
+            Snippet.format(
+                Joiner.on('\n')
+                    .join(
+                        "new %1$s<%2$s, %3$s>() {",
+                        "  @Override public %4$s apply(%2$s %5$s) %6$s{",
+                        "    %7$s",
+                        "  }",
+                        "}"),
+                ClassName.fromClass(AsyncFunction.class),
+                asyncDependencyType(asyncDependency),
+                providedTypeName,
+                futureTypeName,
+                argName,
+                throwsClause,
+                invocationSnippets.asMethodBody());
       } else {
         futureSnippet = Snippet.format("%s.<%s>allAsList(%s)",
             ClassName.fromClass(Futures.class),
@@ -248,24 +274,28 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 })));
         ImmutableList<Snippet> parameterSnippets = getParameterSnippets(binding, fields, "args");
         boolean wrapWithFuture = !returnsFuture;  // only wrap if we don't already have a future
-        Snippet invocationSnippet = getInvocationSnippet(wrapWithFuture, binding,
-            parameterSnippets);
-        ParameterizedTypeName listOfObject = ParameterizedTypeName.create(
-            ClassName.fromClass(List.class), ClassName.fromClass(Object.class));
+        InvocationSnippets invocationSnippets =
+            getInvocationSnippets(wrapWithFuture, binding, parameterSnippets);
+        ParameterizedTypeName listOfObject =
+            ParameterizedTypeName.create(
+                ClassName.fromClass(List.class), ClassName.fromClass(Object.class));
         Snippet throwsClause = getThrowsClause(binding.thrownTypes());
-        transformSnippet = Snippet.format(Joiner.on('\n').join(
-            "new %1$s<%2$s, %3$s>() {",
-            "  @SuppressWarnings(\"unchecked\")  // safe by specification",
-            "  @Override public %4$s apply(%2$s args) %5$s{",
-            "    return %6$s;",
-            "  }",
-            "}"),
-            ClassName.fromClass(AsyncFunction.class),
-            listOfObject,
-            providedTypeName,
-            futureTypeName,
-            throwsClause,
-            invocationSnippet);
+        transformSnippet =
+            Snippet.format(
+                Joiner.on('\n')
+                    .join(
+                        "new %1$s<%2$s, %3$s>() {",
+                        "  @SuppressWarnings(\"unchecked\")  // safe by specification",
+                        "  @Override public %4$s apply(%2$s args) %5$s{",
+                        "    %6$s",
+                        "  }",
+                        "}"),
+                ClassName.fromClass(AsyncFunction.class),
+                listOfObject,
+                providedTypeName,
+                futureTypeName,
+                throwsClause,
+                invocationSnippets.asMethodBody());
       }
       getMethodWriter.body().addSnippet("return %s.%s(%s, %s, executor);",
           ClassName.fromClass(Futures.class),
@@ -321,40 +351,82 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     return snippets.build();
   }
 
+  /** A collection of snippets for invoking a producer method. */
+  @AutoValue
+  abstract static class InvocationSnippets {
+    /** A list of statements forming a code block that must be called in succession. */
+    abstract ImmutableList<Snippet> setupSnippets();
+
+    /** An expression that represents the wrapped value resulting from invoking the method. */
+    abstract Snippet expressionSnippet();
+
+    /** Returns this invocation as a self-contained method body. */
+    Snippet asMethodBody() {
+      return Snippet.format(
+          "%s return %s;", Snippet.join(Joiner.on('\n'), setupSnippets()), expressionSnippet());
+    }
+
+    static InvocationSnippets create(
+        ImmutableList<Snippet> setupSnippets, Snippet expressionSnippet) {
+      return new AutoValue_ProducerFactoryGenerator_InvocationSnippets(
+          setupSnippets, expressionSnippet);
+    }
+  }
+
   /**
-   * Creates a Snippet for the invocation of the producer method from the module.
+   * Creates snippets for the invocation of the producer method from the module.
    *
    * @param wrapWithFuture If true, wraps the result of the call to the producer method
    *        in an immediate future.
    * @param binding The binding to generate the invocation snippet for.
    * @param parameterSnippets The snippets for all the parameters to the producer method.
    */
-  private Snippet getInvocationSnippet(boolean wrapWithFuture, ProductionBinding binding,
-      ImmutableList<Snippet> parameterSnippets) {
-    Snippet moduleSnippet = Snippet.format("module.%s(%s)",
-        binding.bindingElement().getSimpleName(),
-        makeParametersSnippet(parameterSnippets));
+  private InvocationSnippets getInvocationSnippets(
+      boolean wrapWithFuture, ProductionBinding binding, ImmutableList<Snippet> parameterSnippets) {
+    // NOTE(beder): We don't worry about catching exeptions from the monitor methods themselves
+    // because we'll wrap all monitoring in non-throwing monitors before we pass them to the
+    // factories.
+    ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
+    snippets.add(Snippet.format("if (monitor != null) { monitor.methodStarting(); }"));
+    snippets.add(
+        Snippet.format(
+            "final %s value;",
+            TypeNames.forTypeMirror(
+                MoreElements.asExecutable(binding.bindingElement()).getReturnType())));
+    snippets.add(
+        Snippet.format(
+            Joiner.on('\n')
+                .join(
+                    "try {",
+                    "  value = module.%s(%s);",
+                    "} finally {",
+                    "  if (monitor != null) { monitor.methodFinished(); }",
+                    "}"),
+            binding.bindingElement().getSimpleName(),
+            makeParametersSnippet(parameterSnippets)));
     final Snippet valueSnippet;
     if (binding.productionType().equals(Produces.Type.SET)) {
       if (binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION)) {
-        valueSnippet = Snippet.format("%s.createFutureSingletonSet(%s)",
-            ClassName.fromClass(Producers.class),
-            moduleSnippet);
+        valueSnippet =
+            Snippet.format(
+                "%s.createFutureSingletonSet(%s)", ClassName.fromClass(Producers.class), "value");
       } else {
-        valueSnippet = Snippet.format("%s.of(%s)",
-            ClassName.fromClass(ImmutableSet.class),
-            moduleSnippet);
+        valueSnippet =
+            Snippet.format("%s.of(%s)", ClassName.fromClass(ImmutableSet.class), "value");
       }
     } else {
-      valueSnippet = moduleSnippet;
+      valueSnippet = Snippet.format("value");
     }
     if (wrapWithFuture) {
-      return Snippet.format("%s.<%s>immediateFuture(%s)",
-          ClassName.fromClass(Futures.class),
-          TypeNames.forTypeMirror(binding.key().type()),
-          valueSnippet);
+      return InvocationSnippets.create(
+          snippets.build(),
+          Snippet.format(
+              "%s.<%s>immediateFuture(%s)",
+              ClassName.fromClass(Futures.class),
+              TypeNames.forTypeMirror(binding.key().type()),
+              valueSnippet));
     } else {
-      return valueSnippet;
+      return InvocationSnippets.create(snippets.build(), valueSnippet);
     }
   }
 

@@ -963,7 +963,9 @@ abstract class AbstractComponentWriter {
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         List<Snippet> parameters =
-            Lists.newArrayListWithCapacity(binding.dependencies().size() + 2);
+            Lists.newArrayListWithCapacity(binding.dependencies().size() + 3);
+        // TODO(beder): Pass the actual ProductionComponentMonitor.
+        parameters.add(Snippet.format("null"));
         parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
         parameters.add(
             getComponentContributionSnippet(

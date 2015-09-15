@@ -45,6 +45,7 @@ public final class SetProducer<T> extends AbstractProducer<Set<T>> {
   private final Set<Producer<Set<T>>> contributingProducers;
 
   private SetProducer(Set<Producer<Set<T>>> contributingProducers) {
+    super();
     this.contributingProducers = contributingProducers;
   }
 

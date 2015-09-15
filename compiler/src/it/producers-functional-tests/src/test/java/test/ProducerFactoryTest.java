@@ -19,30 +19,174 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import dagger.producers.Producer;
+import dagger.producers.monitoring.ProducerMonitor;
+import dagger.producers.monitoring.ProducerToken;
+import dagger.producers.monitoring.ProductionComponentMonitor;
+import java.util.concurrent.ExecutionException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
 
 @RunWith(JUnit4.class)
 public class ProducerFactoryTest {
-  @Test public void noArgMethod() throws Exception {
+  @Mock private ProductionComponentMonitor componentMonitor;
+  @Mock private ProducerMonitor monitor;
+
+  @Before
+  public void setUpMocks() {
+    MockitoAnnotations.initMocks(this);
+    when(componentMonitor.producerMonitorFor(any(ProducerToken.class))).thenReturn(monitor);
+  }
+
+  @Test
+  public void noArgMethod() throws Exception {
+    ProducerToken token = ProducerToken.create(SimpleProducerModule_StrFactory.class);
     SimpleProducerModule module = new SimpleProducerModule();
     Producer<String> producer =
-        new SimpleProducerModule_StrFactory(module, MoreExecutors.directExecutor());
+        new SimpleProducerModule_StrFactory(
+            componentMonitor, module, MoreExecutors.directExecutor());
     assertThat(producer.get().get()).isEqualTo("str");
+    InOrder order = inOrder(componentMonitor, monitor);
+    order.verify(componentMonitor).producerMonitorFor(token);
+    order.verify(monitor).methodStarting();
+    order.verify(monitor).methodFinished();
+    order.verify(monitor).succeeded("str");
+    order.verifyNoMoreInteractions();
   }
 
   @Test public void singleArgMethod() throws Exception {
     SimpleProducerModule module = new SimpleProducerModule();
     SettableFuture<Integer> intFuture = SettableFuture.create();
     Producer<Integer> intProducer = producerOfFuture(intFuture);
-    Producer<String> producer = new SimpleProducerModule_StrWithArgFactory(
-        module, MoreExecutors.directExecutor(), intProducer);
+    Producer<String> producer =
+        new SimpleProducerModule_StrWithArgFactory(
+            componentMonitor, module, MoreExecutors.directExecutor(), intProducer);
     assertThat(producer.get().isDone()).isFalse();
     intFuture.set(42);
     assertThat(producer.get().get()).isEqualTo("str with arg");
+  }
+
+  @Test
+  public void successMonitor() throws Exception {
+    ProducerToken token = ProducerToken.create(SimpleProducerModule_SettableFutureStrFactory.class);
+
+    SimpleProducerModule module = new SimpleProducerModule();
+    SettableFuture<String> strFuture = SettableFuture.create();
+    SettableFuture<SettableFuture<String>> strFutureFuture = SettableFuture.create();
+    Producer<SettableFuture<String>> strFutureProducer = producerOfFuture(strFutureFuture);
+    Producer<String> producer =
+        new SimpleProducerModule_SettableFutureStrFactory(
+            componentMonitor, module, MoreExecutors.directExecutor(), strFutureProducer);
+    assertThat(producer.get().isDone()).isFalse();
+
+    InOrder order = inOrder(componentMonitor, monitor);
+    order.verify(componentMonitor).producerMonitorFor(token);
+
+    strFutureFuture.set(strFuture);
+    order.verify(monitor).methodStarting();
+    order.verify(monitor).methodFinished();
+    assertThat(producer.get().isDone()).isFalse();
+
+    strFuture.set("monkey");
+    assertThat(producer.get().get()).isEqualTo("monkey");
+    order.verify(monitor).succeeded("monkey");
+
+    order.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void failureMonitor() throws Exception {
+    ProducerToken token = ProducerToken.create(SimpleProducerModule_SettableFutureStrFactory.class);
+
+    SimpleProducerModule module = new SimpleProducerModule();
+    SettableFuture<String> strFuture = SettableFuture.create();
+    SettableFuture<SettableFuture<String>> strFutureFuture = SettableFuture.create();
+    Producer<SettableFuture<String>> strFutureProducer = producerOfFuture(strFutureFuture);
+    Producer<String> producer =
+        new SimpleProducerModule_SettableFutureStrFactory(
+            componentMonitor, module, MoreExecutors.directExecutor(), strFutureProducer);
+    assertThat(producer.get().isDone()).isFalse();
+
+    InOrder order = inOrder(componentMonitor, monitor);
+    order.verify(componentMonitor).producerMonitorFor(token);
+
+    strFutureFuture.set(strFuture);
+    order.verify(monitor).methodStarting();
+    order.verify(monitor).methodFinished();
+    assertThat(producer.get().isDone()).isFalse();
+
+    Throwable t = new RuntimeException("monkey");
+    strFuture.setException(t);
+    try {
+      producer.get().get();
+      fail();
+    } catch (ExecutionException e) {
+      assertThat(e.getCause()).isSameAs(t);
+      order.verify(monitor).failed(t);
+    }
+
+    order.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void failureMonitorDueToThrowingProducer() throws Exception {
+    ProducerToken token = ProducerToken.create(SimpleProducerModule_ThrowingProducerFactory.class);
+
+    SimpleProducerModule module = new SimpleProducerModule();
+    Producer<String> producer =
+        new SimpleProducerModule_ThrowingProducerFactory(
+            componentMonitor, module, MoreExecutors.directExecutor());
+    assertThat(producer.get().isDone()).isTrue();
+
+    InOrder order = inOrder(componentMonitor, monitor);
+    order.verify(componentMonitor).producerMonitorFor(token);
+
+    order.verify(monitor).methodStarting();
+    order.verify(monitor).methodFinished();
+
+    try {
+      producer.get().get();
+      fail();
+    } catch (ExecutionException e) {
+      order.verify(monitor).failed(e.getCause());
+    }
+
+    order.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void nullComponentMonitor() throws Exception {
+    SimpleProducerModule module = new SimpleProducerModule();
+    Producer<String> producer =
+        new SimpleProducerModule_StrFactory(null, module, MoreExecutors.directExecutor());
+    assertThat(producer.get().get()).isEqualTo("str");
+    verifyZeroInteractions(componentMonitor, monitor);
+  }
+
+  @Test
+  public void nullMonitor() throws Exception {
+    when(componentMonitor.producerMonitorFor(any(ProducerToken.class))).thenReturn(null);
+
+    ProducerToken token = ProducerToken.create(SimpleProducerModule_StrFactory.class);
+    SimpleProducerModule module = new SimpleProducerModule();
+    Producer<String> producer =
+        new SimpleProducerModule_StrFactory(
+            componentMonitor, module, MoreExecutors.directExecutor());
+    assertThat(producer.get().get()).isEqualTo("str");
+    verify(componentMonitor).producerMonitorFor(token);
+    verifyZeroInteractions(monitor);
   }
 
   private static <T> Producer<T> producerOfFuture(final ListenableFuture<T> future) {
