@@ -142,6 +142,10 @@ public class MultibindingTest {
     assertThat(multibindingComponent.set()).containsExactly(-90, -17, -1, 5, 6, 832, 1742);
   }
 
+  @Test public void complexQualifierSet() {
+    assertThat(multibindingComponent.complexQualifierStringSet()).containsExactly("foo");
+  }
+
   @AutoAnnotation
   static StringKey testStringKey(String value) {
     return new AutoAnnotation_MultibindingTest_testStringKey(value);

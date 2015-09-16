@@ -20,6 +20,7 @@ import dagger.mapkeys.StringKey;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Named;
 import javax.inject.Provider;
 import test.sub.ContributionsModule;
 
@@ -47,4 +48,5 @@ interface MultibindingComponent {
   Map<Character, String> characterKeyMap();
   Map<StringKey, String> unwrappedAnnotationKeyMap();
   Map<WrappedAnnotationKey, String> wrappedAnnotationKeyMap();
+  @Named("complexQualifier") Set<String> complexQualifierStringSet();
 }

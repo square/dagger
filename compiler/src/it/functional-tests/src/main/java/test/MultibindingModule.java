@@ -26,6 +26,7 @@ import java.math.BigInteger;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Named;
 import javax.inject.Provider;
 
 import static dagger.Provides.Type.MAP;
@@ -158,5 +159,11 @@ class MultibindingModule {
   )
   static String valueForWrappedAnnotationKeyFoo() {
     return "wrapped foo annotation";
+  }
+
+  @Provides(type = SET)
+  @Named("complexQualifier")
+  static String valueForComplexQualifierSet() {
+    return "foo";
   }
 }
