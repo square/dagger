@@ -168,11 +168,11 @@ abstract class AbstractComponentWriter {
     this.graph = graph;
   }
 
-  protected TypeElement componentDefinitionType() {
+  protected final TypeElement componentDefinitionType() {
     return graph.componentDescriptor().componentDefinitionType();
   }
 
-  protected ClassName componentDefinitionTypeName() {
+  protected final ClassName componentDefinitionTypeName() {
     return ClassName.fromTypeElement(componentDefinitionType());
   }
 
@@ -180,7 +180,7 @@ abstract class AbstractComponentWriter {
    * Returns an expression snippet that evaluates to an instance of the contribution, looking for
    * either a builder field or a component field.
    */
-  protected Snippet getComponentContributionSnippet(TypeElement contributionType) {
+  private Snippet getComponentContributionSnippet(TypeElement contributionType) {
     if (builderFields.containsKey(contributionType)) {
       return Snippet.format("builder.%s", builderFields.get(contributionType).name());
     } else {
@@ -216,7 +216,7 @@ abstract class AbstractComponentWriter {
     return Optional.of(fieldSelect.getSnippetFor(name));
   }
 
-  protected Snippet getMemberSelectSnippet(BindingKey key) {
+  private Snippet getMemberSelectSnippet(BindingKey key) {
     return getMemberSelect(key).getSnippetFor(name);
   }
 
@@ -248,7 +248,7 @@ abstract class AbstractComponentWriter {
     return ImmutableSet.copyOf(javaWriters);
   }
 
-  protected void writeComponent() {
+  private void writeComponent() {
     componentWriter = createComponentClass();
     addConstructor();
     addBuilder();
@@ -264,7 +264,7 @@ abstract class AbstractComponentWriter {
    */
   protected abstract ClassWriter createComponentClass();
 
-  protected void addConstructor() {
+  private void addConstructor() {
     constructorWriter = componentWriter.addConstructor();
     constructorWriter.addModifiers(PRIVATE);
   }
