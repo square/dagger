@@ -15,7 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
@@ -54,7 +53,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
-import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -69,7 +67,6 @@ import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.asDeclared;
-import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
@@ -90,7 +87,6 @@ import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCE
 import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static dagger.internal.codegen.Util.getValueTypeOfMap;
@@ -555,12 +551,12 @@ public class BindingGraphValidator {
      */
     private void validateDependencyScopes() {
       ComponentDescriptor descriptor = subject.componentDescriptor();
-      Optional<AnnotationMirror> scope = descriptor.scope();
+      Scope scope = descriptor.scope();
       ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
       if (scope.isPresent()) {
         // Dagger 1.x scope compatibility requires this be suppress-able.
         if (scopeCycleValidationType.diagnosticKind().isPresent()
-            && isTypeOf(Singleton.class, scope.get().getAnnotationType())) {
+            && scope.isSingleton()) {
           // Singleton is a special-case representing the longest lifetime, and therefore
           // @Singleton components may not depend on scoped components
           if (!scopedDependencies.isEmpty()) {
@@ -574,7 +570,7 @@ public class BindingGraphValidator {
           }
         } else if (scopedDependencies.size() > 1) {
           // Scoped components may depend on at most one scoped component.
-          StringBuilder message = new StringBuilder(ErrorMessages.format(scope.get()))
+          StringBuilder message = new StringBuilder(scope.getReadableSource())
               .append(' ')
               .append(descriptor.componentDefinitionType().getQualifiedName())
               .append(" depends on more than one scoped component:\n");
@@ -588,7 +584,7 @@ public class BindingGraphValidator {
           if (!scopeCycleValidationType.equals(ValidationType.NONE)) {
             validateScopeHierarchy(descriptor.componentDefinitionType(),
                 descriptor.componentDefinitionType(),
-                new ArrayDeque<Equivalence.Wrapper<AnnotationMirror>>(),
+                new ArrayDeque<Scope>(),
                 new ArrayDeque<TypeElement>());
           }
         }
@@ -661,13 +657,11 @@ public class BindingGraphValidator {
      */
     private void validateScopeHierarchy(TypeElement rootComponent,
         TypeElement componentType,
-        Deque<Equivalence.Wrapper<AnnotationMirror>> scopeStack,
+        Deque<Scope> scopeStack,
         Deque<TypeElement> scopedDependencyStack) {
-      Optional<AnnotationMirror> scope = getScopeAnnotation(componentType);
+      Scope scope = Scope.scopeOf(componentType);
       if (scope.isPresent()) {
-        Equivalence.Wrapper<AnnotationMirror> wrappedScope =
-            AnnotationMirrors.equivalence().wrap(scope.get());
-        if (scopeStack.contains(wrappedScope)) {
+        if (scopeStack.contains(scope)) {
           scopedDependencyStack.push(componentType);
           // Current scope has already appeared in the component chain.
           StringBuilder message = new StringBuilder();
@@ -688,7 +682,7 @@ public class BindingGraphValidator {
                 MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get())));
             if (scopedDependencies.size() == 1) {
               // empty can be ignored (base-case), and > 1 is a different error reported separately.
-              scopeStack.push(wrappedScope);
+              scopeStack.push(scope);
               scopedDependencyStack.push(componentType);
               validateScopeHierarchy(rootComponent, getOnlyElement(scopedDependencies),
                   scopeStack, scopedDependencyStack);
@@ -706,16 +700,15 @@ public class BindingGraphValidator {
      */
     void validateComponentScope() {
       ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
-      Optional<Equivalence.Wrapper<AnnotationMirror>> componentScope =
-          subject.componentDescriptor().wrappedScope();
+      Scope componentScope = subject.componentDescriptor().scope();
       ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
       for (ResolvedBindings bindings : resolvedBindings.values()) {
         if (bindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
           for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
             if (contributionBinding instanceof ProvisionBinding) {
               ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
-              if (provisionBinding.scope().isPresent()
-                  && !componentScope.equals(provisionBinding.wrappedScope())) {
+              Scope bindingScope = provisionBinding.scope();
+              if (bindingScope.isPresent() && !componentScope.equals(bindingScope)) {
                 // Scoped components cannot reference bindings to @Provides methods or @Inject
                 // types decorated by a different scope annotation. Unscoped components cannot
                 // reference to scoped @Provides methods or @Inject types decorated by any
@@ -728,9 +721,8 @@ public class BindingGraphValidator {
                         methodSignatureFormatter.format(provisionMethod));
                     break;
                   case INJECTION:
-                    incompatiblyScopedMethodsBuilder.add(stripCommonTypePrefixes(
-                        provisionBinding.scope().get().toString()) + " class "
-                            + provisionBinding.bindingTypeElement().getQualifiedName());
+                    incompatiblyScopedMethodsBuilder.add(bindingScope.getReadableSource()
+                        + " class " + provisionBinding.bindingTypeElement().getQualifiedName());
                     break;
                   default:
                     throw new IllegalStateException();
@@ -746,7 +738,7 @@ public class BindingGraphValidator {
         StringBuilder message = new StringBuilder(componentType.getQualifiedName());
         if (componentScope.isPresent()) {
           message.append(" scoped with ");
-          message.append(stripCommonTypePrefixes(ErrorMessages.format(componentScope.get().get())));
+          message.append(componentScope.getReadableSource());
           message.append(" may not reference bindings with different scopes:\n");
         } else {
           message.append(" (unscoped) may not reference scoped bindings:\n");
@@ -1025,9 +1017,9 @@ public class BindingGraphValidator {
   private void appendIndentedComponentsList(StringBuilder message, Iterable<TypeElement> types) {
     for (TypeElement scopedComponent : types) {
       message.append(INDENT);
-      Optional<AnnotationMirror> scope = getScopeAnnotation(scopedComponent);
+      Scope scope = Scope.scopeOf(scopedComponent);
       if (scope.isPresent()) {
-        message.append(ErrorMessages.format(scope.get())).append(' ');
+        message.append(scope.getReadableSource()).append(' ');
       }
       message.append(stripCommonTypePrefixes(scopedComponent.getQualifiedName().toString()))
           .append('\n');
@@ -1041,7 +1033,7 @@ public class BindingGraphValidator {
   private ImmutableSet<TypeElement> scopedTypesIn(Set<TypeElement> types) {
     return FluentIterable.from(types).filter(new Predicate<TypeElement>() {
       @Override public boolean apply(TypeElement input) {
-        return getScopeAnnotation(input).isPresent();
+        return Scope.scopeOf(input).isPresent();
       }
     }).toSet();
   }

@@ -15,11 +15,9 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -27,7 +25,6 @@ import dagger.Provides;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Provider;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -44,11 +41,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
 import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -99,17 +93,10 @@ abstract class ProvisionBinding extends ContributionBinding {
   /** Returns provision type that was used to bind the key. */
   abstract Provides.Type provisionType();
 
-  /** The scope in which the binding declares the {@link #key()}. */
-  Optional<AnnotationMirror> scope() {
-    return unwrapOptionalEquivalence(wrappedScope());
-  }
-
   /**
-   * An optional annotation constraining the scope of this component wrapped in an
-   * {@link com.google.common.base.Equivalence.Wrapper} to preserve comparison semantics of
-   * {@link AnnotationMirror}.
+   * The scope of the provider.
    */
-  abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
+  abstract Scope scope();
 
   /** If this provision requires members injection, this will be the corresponding request. */
   abstract Optional<DependencyRequest> memberInjectionRequest();
@@ -211,8 +198,7 @@ abstract class ProvisionBinding extends ContributionBinding {
               cxtorType.getParameterTypes());
       Optional<DependencyRequest> membersInjectionRequest =
           membersInjectionRequest(enclosingCxtorType);
-      Optional<AnnotationMirror> scope =
-          getScopeAnnotation(constructorElement.getEnclosingElement());
+      Scope scope = Scope.scopeOf(constructorElement.getEnclosingElement());
 
       TypeElement bindingTypeElement =
           MoreElements.asType(constructorElement.getEnclosingElement());
@@ -227,7 +213,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           Kind.INJECTION,
           Provides.Type.UNIQUE,
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          scope,
           membersInjectionRequest);
     }
 
@@ -264,7 +250,7 @@ abstract class ProvisionBinding extends ContributionBinding {
               declaredContainer,
               providesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
-      Optional<AnnotationMirror> scope = getScopeAnnotation(providesMethod);
+      Scope scope = Scope.scopeOf(providesMethod);
       return new AutoValue_ProvisionBinding(
           key,
           providesMethod,
@@ -275,7 +261,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.of(MoreTypes.asTypeElement(declaredContainer)),
           Kind.PROVISION,
           providesAnnotation.type(),
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          scope,
           Optional.<DependencyRequest>absent());
     }
 
@@ -284,7 +270,7 @@ abstract class ProvisionBinding extends ContributionBinding {
       checkNotNull(explicitRequest);
       checkNotNull(implicitRequest);
       ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
-      Optional<AnnotationMirror> scope = getScopeAnnotation(implicitRequest.requestElement());
+      Scope scope = Scope.scopeOf(implicitRequest.requestElement());
       return new AutoValue_ProvisionBinding(
           explicitRequest.key(),
           implicitRequest.requestElement(),
@@ -295,7 +281,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           Kind.SYNTHETIC_PROVISON,
           Provides.Type.MAP,
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          scope,
           Optional.<DependencyRequest>absent());
     }
 
@@ -311,7 +297,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+          Scope.unscoped(),
           Optional.<DependencyRequest>absent());
     }
 
@@ -319,7 +305,7 @@ abstract class ProvisionBinding extends ContributionBinding {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
       checkArgument(componentMethod.getParameters().isEmpty());
-      Optional<AnnotationMirror> scope = getScopeAnnotation(componentMethod);
+      Scope scope = Scope.scopeOf(componentMethod);
       return new AutoValue_ProvisionBinding(
           keyFactory.forComponentMethod(componentMethod),
           componentMethod,
@@ -330,7 +316,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          scope,
           Optional.<DependencyRequest>absent());
     }
   }

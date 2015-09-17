@@ -17,7 +17,6 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
@@ -456,11 +455,10 @@ abstract class BindingGraph {
 
         // look for scope separately.  we do this for the case where @Singleton can appear twice
         // in the † compatibility mode
-        Optional<Equivalence.Wrapper<AnnotationMirror>> bindingScope =
-            provisionBinding.wrappedScope();
+        Scope bindingScope = provisionBinding.scope();
         if (bindingScope.isPresent()) {
           for (Resolver requestResolver : getResolverLineage().reverse()) {
-            if (bindingScope.equals(requestResolver.componentDescriptor.wrappedScope())) {
+            if (bindingScope.equals(requestResolver.componentDescriptor.scope())) {
               return Optional.of(requestResolver);
             }
           }

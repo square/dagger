@@ -15,11 +15,9 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -59,9 +57,6 @@ import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.isComponent;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
-import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -191,18 +186,9 @@ abstract class ComponentDescriptor {
   abstract Optional<TypeElement> executorDependency();
 
   /**
-   * An optional annotation constraining the scope of this component.
+   * The scope of the component.
    */
-  Optional<AnnotationMirror> scope() {
-    return unwrapOptionalEquivalence(wrappedScope());
-  }
-
-  /**
-   * An optional annotation constraining the scope of this component wrapped in an
-   * {@link com.google.common.base.Equivalence.Wrapper} to preserve comparison semantics of
-   * {@link AnnotationMirror}.
-   */
-  abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
+  abstract Scope scope();
 
   abstract ImmutableMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponents();
 
@@ -340,7 +326,7 @@ abstract class ComponentDescriptor {
       Optional<DeclaredType> builderType =
           Optional.fromNullable(getOnlyElement(enclosedBuilders, null));
 
-      Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
+      Scope scope = Scope.scopeOf(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
           kind,
           componentMirror,
@@ -349,7 +335,7 @@ abstract class ComponentDescriptor {
           modules.build(),
           dependencyMethodIndex.build(),
           executorDependency,
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          scope,
           subcomponentDescriptors.build(),
           componentMethodsBuilder.build(),
           createBuilderSpec(builderType));
