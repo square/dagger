@@ -19,16 +19,31 @@ import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-@RunWith(JUnit4.class)
+@RunWith(Parameterized.class)
 public class StaticProvidesTest {
-  private final StaticTestComponent component = DaggerStaticTestComponent.create();
+  @Parameters
+  public static Collection<Object[]> components() {
+    return Arrays.asList(new Object[][] {
+        {DaggerStaticTestComponent.create()},
+        {DaggerStaticTestComponentWithBuilder.builder().build()},
+        {DaggerStaticTestComponentWithBuilder.builder()
+          .allStaticModule(new AllStaticModule())
+          .someStaticModule(new SomeStaticModule())
+          .build()}});
+  }
+
+  @Parameter
+  public StaticTestComponent component;
 
   @Test public void setMultibinding() {
     assertThat(component.getMultiboundStrings()).isEqualTo(ImmutableSet.of(

@@ -16,13 +16,16 @@
 package test.staticprovides;
 
 import dagger.Component;
-import java.util.Set;
 
 /**
- * A simple component that demonstrates both static and non-static provides methods.
+ * A simple component that demonstrates both static and non-static provides methods with a builder.
  */
 @Component(modules = {AllStaticModule.class, SomeStaticModule.class})
-interface StaticTestComponent {
-  Set<String> getMultiboundStrings();
-  Set<Integer> getMultiboundIntegers();
+interface StaticTestComponentWithBuilder extends StaticTestComponent {
+  @Component.Builder
+  interface Builder {
+    Builder allStaticModule(AllStaticModule allStaticModule);
+    Builder someStaticModule(SomeStaticModule someStaticModule);
+    StaticTestComponentWithBuilder build();
+  }
 }

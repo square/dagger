@@ -111,6 +111,7 @@ import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
 import static dagger.internal.codegen.writer.Snippet.memberSelectSnippet;
 import static dagger.internal.codegen.writer.Snippet.nullCheck;
+import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -286,6 +287,31 @@ abstract class AbstractComponentWriter {
       builderWriter.addModifiers(PUBLIC);
     }
 
+    builderFields = addBuilderFields(builderWriter);
+    addBuildMethod(builderWriter, builderSpec);
+    addBuilderMethods(builderWriter, builderSpec);
+
+    constructorWriter.addParameter(builderWriter, "builder");
+    constructorWriter.body().addSnippet("assert builder != null;");
+  }
+
+  /**
+   * Adds fields for each of the {@linkplain BindingGraph#componentRequirements component
+   * requirements}. Regardless of builder spec, there is always one field per requirement.
+   */
+  private ImmutableMap<TypeElement, FieldWriter> addBuilderFields(ClassWriter builderWriter) {
+    ImmutableMap.Builder<TypeElement, FieldWriter> builderFieldsBuilder = ImmutableMap.builder();
+    for (TypeElement contributionElement : graph.componentRequirements()) {
+      String contributionName = simpleVariableName(contributionElement);
+      FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
+      builderField.addModifiers(PRIVATE);
+      builderFieldsBuilder.put(contributionElement, builderField);
+    }
+    return builderFieldsBuilder.build();
+  }
+
+  /** Adds the build method to the builder. */
+  private void addBuildMethod(ClassWriter builderWriter, Optional<BuilderSpec> builderSpec) {
     MethodWriter buildMethod;
     if (builderSpec.isPresent()) {
       ExecutableElement specBuildMethod = builderSpec.get().buildMethod();
@@ -301,103 +327,95 @@ abstract class AbstractComponentWriter {
     }
     buildMethod.addModifiers(PUBLIC);
 
-    constructorWriter.addParameter(builderWriter, "builder");
-    constructorWriter.body().addSnippet("assert builder != null;");
+    for (Map.Entry<TypeElement, FieldWriter> builderFieldEntry : builderFields.entrySet()) {
+      FieldWriter builderField = builderFieldEntry.getValue();
+      if (componentCanMakeNewInstances(builderFieldEntry.getKey())) {
+        buildMethod.body()
+            .addSnippet("if (%1$s == null) { this.%1$s = new %2$s(); }",
+                builderField.name(),
+                builderField.type());
+      } else {
+        buildMethod.body()
+            .addSnippet(
+                "if (%s == null) { throw new %s(%s.class.getCanonicalName() + \" must be set\"); }",
+                builderField.name(),
+                ClassName.fromClass(IllegalStateException.class),
+                builderField.type());
+      }
+    }
 
-    builderFields = addBuilderMethods(builderWriter, builderSpec, buildMethod);
     buildMethod.body().addSnippet("return new %s(this);", name);
   }
 
-  private ImmutableMap<TypeElement, FieldWriter> addBuilderMethods(
-      ClassWriter builderWriter, Optional<BuilderSpec> builderSpec, MethodWriter buildMethod) {
-    ImmutableMap.Builder<TypeElement, FieldWriter> builderFieldsBuilder = ImmutableMap.builder();
-    ImmutableSet<TypeElement> componentRequirements = graph.componentRequirements();
-
-    for (TypeElement contributionElement : componentRequirements) {
-      String contributionName = simpleVariableName(contributionElement);
-      FieldWriter builderField = builderWriter.addField(contributionElement, contributionName);
-      builderField.addModifiers(PRIVATE);
-      builderFieldsBuilder.put(contributionElement, builderField);
-      if (componentCanMakeNewInstances(contributionElement)) {
-        buildMethod
-            .body()
-            .addSnippet("if (%s == null) {", builderField.name())
-            .addSnippet(
-                "  this.%s = new %s();",
-                builderField.name(),
-                ClassName.fromTypeElement(contributionElement))
-            .addSnippet("}");
-      } else {
-        buildMethod
-            .body()
-            .addSnippet("if (%s == null) {", builderField.name())
-            .addSnippet(
-                "  throw new IllegalStateException(\"%s must be set\");", builderField.name())
-            .addSnippet("}");
-      }
-
-      MethodWriter builderMethod;
-      if (builderSpec.isPresent()) {
-        ExecutableElement method = builderSpec.get().methodMap().get(contributionElement);
-        if (method == null) { // no method in the API, nothing to write out.
-          continue;
+  /**
+   * Adds the methods that set each of parameters on the builder. If the {@link BuilderSpec} is
+   * present, it will tailor the methods to match the spec.
+   */
+  private void addBuilderMethods(
+      ClassWriter builderWriter,
+      Optional<BuilderSpec> builderSpec) {
+    if (builderSpec.isPresent()) {
+      for (Map.Entry<TypeElement, ExecutableElement> builderMethodEntry :
+          builderSpec.get().methodMap().entrySet()) {
+        TypeElement builderMethodType = builderMethodEntry.getKey();
+        ExecutableElement specMethod = builderMethodEntry.getValue();
+        MethodWriter builderMethod = addBuilderMethodFromSpec(builderWriter, specMethod);
+        String parameterName =
+            Iterables.getOnlyElement(specMethod.getParameters()).getSimpleName().toString();
+        builderMethod.addParameter(builderMethodType, parameterName);
+        builderMethod.body().addSnippet(nullCheck(parameterName));
+        if (graph.componentRequirements().contains(builderMethodType)) {
+          // required type
+          builderMethod.body().addSnippet("this.%s = %s;",
+              builderFields.get(builderMethodType).name(),
+              parameterName);
+          addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
+        } else if (graph.ownedModuleTypes().contains(builderMethodType)) {
+          // owned, but not required
+          builderMethod.body()
+              .addSnippet("// This module is declared, but not used in the component. "
+                  + "This method is a no-op");
+          addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
+        } else {
+          // neither owned nor required, so it must be an inherited module
+          builderMethod
+              .body()
+              .addSnippet(
+                  "throw new %s(%s.format(%s, %s.class.getCanonicalName()));",
+                  ClassName.fromClass(UnsupportedOperationException.class),
+                  ClassName.fromClass(String.class),
+                  StringLiteral.forValue(
+                      "%s cannot be set because it is inherited from the enclosing component"),
+                  ClassName.fromTypeElement(builderMethodType));
         }
-        builderMethod = addBuilderMethodFromSpec(builderWriter, method);
-      } else {
-        builderMethod = builderWriter.addMethod(builderWriter, contributionName);
       }
-      // TODO(gak): Mirror the API's visibility.
-      // (Makes no difference to the user since this class is private,
-      //  but makes generated code prettier.)
-      builderMethod.addModifiers(PUBLIC);
-      builderMethod.addParameter(contributionElement, contributionName);
-      builderMethod
-          .body()
-          .addSnippet(nullCheck(contributionName))
-          .addSnippet("this.%s = %s;", builderField.name(), contributionName);
-      if (!builderMethod.returnType().equals(VoidName.VOID)) {
+    } else {
+      for (TypeElement componentRequirement : graph.availableDependencies()) {
+        String componentRequirementName = simpleVariableName(componentRequirement);
+        MethodWriter builderMethod = builderWriter.addMethod(
+            builderWriter.name(),
+            componentRequirementName);
+        builderMethod.addModifiers(PUBLIC);
+        builderMethod.addParameter(componentRequirement, componentRequirementName);
+        builderMethod.body().addSnippet(nullCheck(componentRequirementName));
+        if (graph.componentRequirements().contains(componentRequirement)) {
+          builderMethod.body()
+              .addSnippet("this.%s = %s;",
+                  builderFields.get(componentRequirement).name(),
+                  componentRequirementName);
+        } else {
+          builderMethod.annotate(Deprecated.class);
+        }
         builderMethod.body().addSnippet("return this;");
       }
     }
+  }
 
-    if (builderSpec.isPresent()) {
-      /* We know that the graph is properly formed because it passed validation, so all
-       * component requirements that are in the builder spec but _not_ owned by the component must
-       * be inherited. */
-      for (TypeElement inheritedRequirement :
-          Sets.difference(builderSpec.get().methodMap().keySet(), componentRequirements)) {
-        MethodWriter builderMethod =
-            addBuilderMethodFromSpec(
-                builderWriter, builderSpec.get().methodMap().get(inheritedRequirement));
-        builderMethod.addModifiers(PUBLIC);
-        builderMethod.addParameter(inheritedRequirement, simpleVariableName(inheritedRequirement));
-        builderMethod
-            .body()
-            .addSnippet(
-                "throw new %s(%s.format(%s, %s.class.getCanonicalName()));",
-                ClassName.fromClass(UnsupportedOperationException.class),
-                ClassName.fromClass(String.class),
-                StringLiteral.forValue(
-                    "%s cannot be set because it is inherited from the enclosing component"),
-                ClassName.fromTypeElement(inheritedRequirement));
-      }
-    } else {
-      for (TypeElement ownedButNotRequired :
-          Sets.difference(graph.ownedModuleTypes(), componentRequirements)) {
-        String contributionName = simpleVariableName(ownedButNotRequired);
-        MethodWriter builderMethod =
-            builderWriter.addMethod(builderWriter, contributionName);
-        builderMethod.addModifiers(PUBLIC);
-        builderMethod.annotate(Deprecated.class);
-        builderMethod.addParameter(ownedButNotRequired, contributionName);
-        builderMethod.body()
-            .addSnippet("// This module is declared, but not used in the component. "
-                + "This method is a no-op")
-            .addSnippet(nullCheck(contributionName))
-            .addSnippet("return this;");
-      }
+  private void addBuilderMethodReturnStatementForSpec(
+      ExecutableElement specMethod, MethodWriter builderMethod) {
+    if (!specMethod.getReturnType().getKind().equals(VOID)) {
+      builderMethod.body().addSnippet("return this;");
     }
-    return builderFieldsBuilder.build();
   }
 
   private MethodWriter addBuilderMethodFromSpec(
@@ -412,6 +430,7 @@ abstract class AbstractComponentWriter {
             ? builderWriter.addMethod(returnType, methodName)
             : builderWriter.addMethod(builderWriter, methodName);
     builderMethod.annotate(Override.class);
+    builderMethod.addModifiers(Sets.difference(method.getModifiers(), ImmutableSet.of(ABSTRACT)));
     return builderMethod;
   }
 

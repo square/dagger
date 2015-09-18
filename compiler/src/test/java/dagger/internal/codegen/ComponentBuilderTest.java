@@ -227,7 +227,7 @@ public class ComponentBuilderTest {
         "",
         "  @Component.Builder",
         "  interface Builder {",
-        "    Builder testModule1(TestModule1 testModule);",
+        "    Builder testModule1(TestModule1 testModule1);",
         "    TestComponent build();",
         "  }",
         "}");

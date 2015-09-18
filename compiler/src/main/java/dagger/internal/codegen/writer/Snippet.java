@@ -111,11 +111,11 @@ public final class Snippet implements HasClassReferences, Writable {
   }
 
   public static Snippet nullCheck(Object thingToCheck) {
-    return format("if (%s == null) { throw new NullPointerException();} ", thingToCheck);
+    return format("if (%s == null) { throw new NullPointerException(); } ", thingToCheck);
   }
 
   public static Snippet nullCheck(Object thingToCheck, String message) {
-    return format("if (%s == null) { throw new NullPointerException(%s);} ",
+    return format("if (%s == null) { throw new NullPointerException(%s); } ",
         thingToCheck,
         StringLiteral.forValue(message));
   }
