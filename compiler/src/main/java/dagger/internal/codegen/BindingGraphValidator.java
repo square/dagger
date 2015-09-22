@@ -358,7 +358,7 @@ public class BindingGraphValidator {
      * for the same map key.
      */
     private boolean hasDuplicateMapKeys(
-        Deque<ResolvedRequest> path, Set<? extends ContributionBinding> mapBindings) {
+        Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
       boolean hasDuplicateMapKeys = false;
       for (Collection<ContributionBinding> mapBindingsForMapKey :
           indexMapBindingsByMapKey(mapBindings).asMap().values()) {

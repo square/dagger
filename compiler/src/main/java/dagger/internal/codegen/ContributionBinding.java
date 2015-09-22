@@ -127,7 +127,7 @@ abstract class ContributionBinding extends Binding {
    * itself, depending on {@link MapKey#unwrapValue()}).
    */
   static ImmutableSetMultimap<Object, ContributionBinding> indexMapBindingsByMapKey(
-      Set<? extends ContributionBinding> mapBindings) {
+      Set<ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
             mapBindings,
