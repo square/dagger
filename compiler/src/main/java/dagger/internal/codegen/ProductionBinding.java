@@ -149,16 +149,20 @@ abstract class ProductionBinding extends ContributionBinding {
           ImmutableList.copyOf(producesMethod.getThrownTypes()));
     }
 
-    ProductionBinding forImplicitMapBinding(DependencyRequest explicitRequest,
-        DependencyRequest implicitRequest) {
-      checkNotNull(explicitRequest);
-      checkNotNull(implicitRequest);
-      ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
+    ProductionBinding implicitMapOfProducerBinding(DependencyRequest mapOfValueRequest) {
+      checkNotNull(mapOfValueRequest);
+      Optional<Key> implicitMapOfProducerKey =
+          keyFactory.implicitMapProducerKeyFrom(mapOfValueRequest.key());
+      checkArgument(
+          implicitMapOfProducerKey.isPresent(), "%s is not for a Map<K, V>", mapOfValueRequest);
+      DependencyRequest implicitMapOfProducerRequest =
+          dependencyRequestFactory.forImplicitMapBinding(
+              mapOfValueRequest, implicitMapOfProducerKey.get());
       return new AutoValue_ProductionBinding(
-          explicitRequest.key(),
-          implicitRequest.requestElement(),
-          dependencies,
-          findBindingPackage(explicitRequest.key()),
+          mapOfValueRequest.key(),
+          implicitMapOfProducerRequest.requestElement(),
+          ImmutableSet.of(implicitMapOfProducerRequest),
+          findBindingPackage(mapOfValueRequest.key()),
           false,
           Optional.<DeclaredType>absent(),
           Optional.<TypeElement>absent(),

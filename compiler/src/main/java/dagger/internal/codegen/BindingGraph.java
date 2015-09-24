@@ -33,6 +33,7 @@ import com.google.common.collect.TreeTraverser;
 import dagger.Component;
 import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
+import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -45,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -145,20 +147,17 @@ abstract class BindingGraph {
     private final Elements elements;
     private final InjectBindingRegistry injectBindingRegistry;
     private final Key.Factory keyFactory;
-    private final DependencyRequest.Factory dependencyRequestFactory;
     private final ProvisionBinding.Factory provisionBindingFactory;
     private final ProductionBinding.Factory productionBindingFactory;
 
     Factory(Elements elements,
         InjectBindingRegistry injectBindingRegistry,
         Key.Factory keyFactory,
-        DependencyRequest.Factory dependencyRequestFactory,
         ProvisionBinding.Factory provisionBindingFactory,
         ProductionBinding.Factory productionBindingFactory) {
       this.elements = elements;
       this.injectBindingRegistry = injectBindingRegistry;
       this.keyFactory = keyFactory;
-      this.dependencyRequestFactory = dependencyRequestFactory;
       this.provisionBindingFactory = provisionBindingFactory;
       this.productionBindingFactory = productionBindingFactory;
     }
@@ -295,9 +294,14 @@ abstract class BindingGraph {
       }
 
       /**
-       *  Looks up the bindings associated with a given dependency request and returns them.  In the
-       *  event that the binding is owned by a parent component it will trigger resolution in that
-       *  component's resolver but will return an {@link Optional#absent} value.
+       * Looks up the bindings associated with a given dependency request and returns them.
+       *
+       * <p>Requests for {@code Map<K, V>} for which there are only bindings for
+       * {@code Map<K, Provider<V>>} will resolve to a single implicit binding for the latter map
+       * (and similarly for {@link Producer}s).
+       *
+       * <p>If there are no explicit bindings for a contribution, looks for implicit
+       * {@link Inject @Inject}-annotated constructor types.
        */
       ResolvedBindings lookUpBindings(DependencyRequest request) {
         BindingKey bindingKey = request.bindingKey();
@@ -325,8 +329,8 @@ abstract class BindingGraph {
 
             if (!explicitProvisionBindingsForKey.isEmpty()
                 || !explicitProductionBindingsForKey.isEmpty()) {
-              // we have some explicit binding for this key, so we collect all explicit implicit map
-              // bindings that might conflict with this and let the validator sort it out
+              /* If there are any explicit bindings for this key, then combine those with any
+               * conflicting Map<K, Provider<V>> bindings and let the validator fail. */
               ImmutableSet.Builder<ContributionBinding> ownedBindings = ImmutableSet.builder();
               ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding>
                   inheritedBindings = ImmutableSetMultimap.builder();
@@ -348,41 +352,38 @@ abstract class BindingGraph {
                       .addAll(explicitMapProductionBindings)
                       .build(),
                   inheritedBindings.build());
+            } else if (!explicitMapProductionBindings.isEmpty()) {
+              /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
+               * some explicit Map<K, Producer<V>> bindings, then this binding must have only the
+               * implicit dependency on Map<K, Producer<V>>. */
+              return ResolvedBindings.create(
+                  bindingKey,
+                  componentDescriptor,
+                  productionBindingFactory.implicitMapOfProducerBinding(request));
+            } else if (!explicitMapProvisionBindings.isEmpty()) {
+              /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
+               * some explicit Map<K, Provider<V>> bindings, then this binding must have only the
+               * implicit dependency on Map<K, Provider<V>>. */
+              return ResolvedBindings.create(
+                  bindingKey,
+                  componentDescriptor,
+                  provisionBindingFactory.implicitMapOfProviderBinding(request));
             } else {
-              if (!explicitMapProductionBindings.isEmpty()) {
-                // if we have any explicit Map<K, Producer<V>> bindings, then this Map<K, V> binding
-                // must be considered an implicit ProductionBinding
-                DependencyRequest implicitRequest =
-                    dependencyRequestFactory.forImplicitMapBinding(request, mapProducerKey.get());
+              /* If there are no explicit bindings at all, look for an implicit @Inject-constructed
+               * binding. */
+              Optional<ProvisionBinding> provisionBinding =
+                  injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
+              if (provisionBinding.isPresent()
+                  && isResolvedInParent(request, provisionBinding.get())
+                  && !shouldOwnParentBinding(request, provisionBinding.get())) {
                 return ResolvedBindings.create(
                     bindingKey,
                     componentDescriptor,
-                    productionBindingFactory.forImplicitMapBinding(request, implicitRequest));
-              } else if (!explicitMapProvisionBindings.isEmpty()) {
-                // if there are Map<K, Provider<V>> bindings, then it'll be an implicit
-                // ProvisionBinding
-                DependencyRequest implicitRequest =
-                    dependencyRequestFactory.forImplicitMapBinding(request, mapProviderKey.get());
-                return ResolvedBindings.create(
-                    bindingKey,
-                    componentDescriptor,
-                    provisionBindingFactory.forImplicitMapBinding(request, implicitRequest));
+                    ImmutableSet.<Binding>of(),
+                    ImmutableSetMultimap.of(
+                        getOwningResolver(provisionBinding.get()).get().componentDescriptor,
+                        provisionBinding.get()));
               } else {
-                // no explicit binding, look it up.
-                Optional<ProvisionBinding> provisionBinding =
-                    injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
-                if (provisionBinding.isPresent()) {
-                  if (isResolvedInParent(request, provisionBinding.get())
-                      && !shouldOwnParentBinding(request, provisionBinding.get())) {
-                    return ResolvedBindings.create(
-                        bindingKey,
-                        componentDescriptor,
-                        ImmutableSet.<Binding>of(),
-                        ImmutableSetMultimap.of(
-                            getOwningResolver(provisionBinding.get()).get().componentDescriptor,
-                            provisionBinding.get()));
-                  }
-                }
                 return ResolvedBindings.create(
                     bindingKey,
                     componentDescriptor,

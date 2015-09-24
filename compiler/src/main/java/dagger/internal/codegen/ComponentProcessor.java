@@ -156,7 +156,6 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         elements,
         injectBindingRegistry,
         keyFactory,
-        dependencyRequestFactory,
         provisionBindingFactory,
         productionBindingFactory);
 

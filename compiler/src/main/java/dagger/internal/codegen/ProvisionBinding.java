@@ -43,6 +43,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.ProvisionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
+import static dagger.internal.codegen.Scope.scopeOf;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -265,23 +266,28 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<DependencyRequest>absent());
     }
 
-    ProvisionBinding forImplicitMapBinding(DependencyRequest explicitRequest,
-        DependencyRequest implicitRequest) {
-      checkNotNull(explicitRequest);
-      checkNotNull(implicitRequest);
-      ImmutableSet<DependencyRequest> dependencies = ImmutableSet.of(implicitRequest);
-      Scope scope = Scope.scopeOf(implicitRequest.requestElement());
+    ProvisionBinding implicitMapOfProviderBinding(DependencyRequest mapOfValueRequest) {
+      checkNotNull(mapOfValueRequest);
+      Optional<Key> implicitMapOfProviderKey =
+          keyFactory.implicitMapProviderKeyFrom(mapOfValueRequest.key());
+      checkArgument(
+          implicitMapOfProviderKey.isPresent(),
+          "%s is not a request for Map<K, V>",
+          mapOfValueRequest);
+      DependencyRequest implicitMapOfProviderRequest =
+          dependencyRequestFactory.forImplicitMapBinding(
+              mapOfValueRequest, implicitMapOfProviderKey.get());
       return new AutoValue_ProvisionBinding(
-          explicitRequest.key(),
-          implicitRequest.requestElement(),
-          dependencies,
-          findBindingPackage(explicitRequest.key()),
+          mapOfValueRequest.key(),
+          implicitMapOfProviderRequest.requestElement(),
+          ImmutableSet.of(implicitMapOfProviderRequest),
+          findBindingPackage(mapOfValueRequest.key()),
           false /* no non-default parameter types */,
           Optional.<DeclaredType>absent(),
           Optional.<TypeElement>absent(),
           Kind.SYNTHETIC_PROVISON,
           Provides.Type.MAP,
-          scope,
+          scopeOf(implicitMapOfProviderRequest.requestElement()),
           Optional.<DependencyRequest>absent());
     }
 
