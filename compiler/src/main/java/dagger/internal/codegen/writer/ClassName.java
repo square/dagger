@@ -95,11 +95,23 @@ public final class ClassName implements TypeName, Comparable<ClassName> {
     return fullyQualifiedName;
   }
 
+  /**
+   * Equivalent to {@link #classFileName(char) classFileName('$')}
+   */
   public String classFileName() {
+    return classFileName('$');
+  }
+
+  /**
+   * Returns the class name (excluding package).
+   *
+   * <p>The returned value includes the names of its enclosing classes (if any) but not the package
+   * name. e.g. {@code fromClass(Map.Entry.class).classFileName('_')} will return {@code Map_Entry}.
+   */
+  public String classFileName(char separator) {
     StringBuilder builder = new StringBuilder();
-    Joiner.on('$').appendTo(builder, enclosingSimpleNames());
-    if (!enclosingSimpleNames().isEmpty()) {
-      builder.append('$');
+    for (String enclosingSimpleName : enclosingSimpleNames) {
+      builder.append(enclosingSimpleName).append(separator);
     }
     return builder.append(simpleName()).toString();
   }
