@@ -17,12 +17,10 @@ package dagger.producers.internal;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.inject.Provider;
@@ -96,16 +94,6 @@ public class ProducersTest {
     } catch (ExecutionException e) {
       assertThat(e.getCause()).hasMessage("monkey");
     }
-  }
-
-  @Test public void submitToExecutor() throws Exception {
-    ListenableFuture<Integer> future = Producers.submitToExecutor(new Callable<Integer>() {
-      @Override public Integer call() {
-        return 42;
-      }
-    }, MoreExecutors.directExecutor());
-    assertThat(future.isDone()).isTrue();
-    assertThat(future.get()).isEqualTo(42);
   }
 
   @Test public void producerFromProvider() throws Exception {

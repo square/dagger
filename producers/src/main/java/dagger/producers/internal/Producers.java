@@ -20,16 +20,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureFallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
 import javax.annotation.Nullable;
 import javax.inject.Provider;
 
@@ -87,19 +83,6 @@ public final class Producers {
         return ImmutableSet.of(value);
       }
     });
-  }
-
-  /**
-   * Submits a callable to an executor, returning the future representing the task. This mirrors
-   * {@link com.google.common.util.concurrent.ListeningExecutorService#submit}, but only requires an
-   * {@link Executor}.
-   *
-   * @throws RejectedExecutionException if this task cannot be accepted for execution.
-   */
-  public static <T> ListenableFuture<T> submitToExecutor(Callable<T> callable, Executor executor) {
-    ListenableFutureTask<T> future = ListenableFutureTask.create(callable);
-    executor.execute(future);
-    return future;
   }
 
   /**
