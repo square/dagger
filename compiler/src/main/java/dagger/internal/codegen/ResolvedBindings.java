@@ -22,7 +22,7 @@ import com.google.common.collect.Multimap;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.ContributionBinding.bindingTypeFor;
+import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
 /**
  * The collection of bindings that have been resolved for a binding key.
@@ -111,7 +111,7 @@ abstract class ResolvedBindings {
   boolean isMultibindings() {
     return bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)
         && !contributionBindings().isEmpty()
-        && bindingTypeFor(contributionBindings()).isMultibinding();
+        && contributionTypeFor(contributionBindings()).isMultibinding();
   }
 
   /**
@@ -120,6 +120,6 @@ abstract class ResolvedBindings {
   boolean isUniqueContribution() {
     return bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)
         && !contributionBindings().isEmpty()
-        && !bindingTypeFor(contributionBindings()).isMultibinding();
+        && !contributionTypeFor(contributionBindings()).isMultibinding();
   }
 }

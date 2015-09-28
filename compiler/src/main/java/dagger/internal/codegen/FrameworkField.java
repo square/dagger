@@ -21,17 +21,18 @@ import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
-import dagger.internal.codegen.ContributionBinding.BindingType;
+import dagger.internal.codegen.ContributionBinding.ContributionType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
-import dagger.producers.Producer;
-import javax.inject.Provider;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
+
+import static com.google.common.collect.Iterables.any;
+import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
 /**
  * A value object that represents a field used by Dagger-generated code.
@@ -65,25 +66,28 @@ abstract class FrameworkField {
 
   static FrameworkField createForSyntheticContributionBinding(
       BindingKey bindingKey, int contributionNumber, ContributionBinding contributionBinding) {
-    switch (contributionBinding.bindingType()) {
+    switch (contributionBinding.contributionType()) {
       case MAP:
         return createForMapBindingContribution(
             contributionBinding.frameworkClass(),
             BindingKey.create(bindingKey.kind(), contributionBinding.key()),
             KeyVariableNamer.INSTANCE.apply(bindingKey.key())
-                + "Contribution" + contributionNumber);
+                + "Contribution"
+                + contributionNumber);
       case SET:
         return createWithTypeFromKey(
             contributionBinding.frameworkClass(),
             bindingKey,
             KeyVariableNamer.INSTANCE.apply(bindingKey.key())
-                + "Contribution" + contributionNumber);
+                + "Contribution"
+                + contributionNumber);
       case UNIQUE:
         return createWithTypeFromKey(
             contributionBinding.frameworkClass(),
             bindingKey,
             KeyVariableNamer.INSTANCE.apply(bindingKey.key())
-                + "Contribution" + contributionNumber);
+                + "Contribution"
+                + contributionNumber);
       default:
         throw new AssertionError();
     }
@@ -95,8 +99,7 @@ abstract class FrameworkField {
       case CONTRIBUTION:
         ImmutableSet<? extends ContributionBinding> contributionBindings =
             resolvedBindings.contributionBindings();
-        BindingType bindingsType = ProvisionBinding.bindingTypeFor(contributionBindings);
-        switch (bindingsType) {
+        switch (contributionTypeFor(contributionBindings)) {
           case SET:
           case MAP:
             return createWithTypeFromKey(
@@ -149,12 +152,9 @@ abstract class FrameworkField {
   static Class<?> frameworkClassForResolvedBindings(ResolvedBindings resolvedBindings) {
     switch (resolvedBindings.bindingKey().kind()) {
       case CONTRIBUTION:
-        for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
-          if (binding instanceof ProductionBinding) {
-            return Producer.class;
-          }
-        }
-        return Provider.class;
+        return any(resolvedBindings.contributionBindings(), Binding.Type.PRODUCTION)
+            ? Binding.Type.PRODUCTION.frameworkClass()
+            : Binding.Type.PROVISION.frameworkClass();
       case MEMBERS_INJECTION:
         return MembersInjector.class;
       default:

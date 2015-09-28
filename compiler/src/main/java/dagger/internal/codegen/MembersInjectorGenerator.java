@@ -62,7 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
-import static dagger.internal.codegen.SourceFiles.parameterizedMembersInjectorNameForMembersInjectionBinding;
+import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -109,6 +109,10 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, MembersInjectionBinding binding) {
+    // Empty members injection bindings are special and don't need source files.
+    if (binding.injectionSites().isEmpty()) {
+      return ImmutableSet.of();
+    }
     Set<String> delegateMethods = new HashSet<>();
 
     // We don't want to write out resolved bindings -- we want to write out the generic version.
@@ -197,7 +201,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         .body()
         .addSnippet(
             "  return new %s(%s);",
-            parameterizedMembersInjectorNameForMembersInjectionBinding(binding),
+            parameterizedGeneratedTypeNameForBinding(binding),
             Joiner.on(", ").join(constructorWriter.parameters().keySet()));
 
     ImmutableMap<BindingKey, FieldWriter> dependencyFields = dependencyFieldsBuilder.build();

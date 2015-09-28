@@ -21,25 +21,30 @@ import static com.google.auto.common.MoreElements.asExecutable;
 import static com.google.auto.common.MoreTypes.asDeclared;
 
 /**
- * Formats a {@link ProvisionBinding} into a {@link String} suitable for use in error messages.
+ * Formats a {@link ContributionBinding} into a {@link String} suitable for use in error messages.
  *
  * @author Christian Gruber
  * @since 2.0
  */
-final class ProvisionBindingFormatter extends Formatter<ProvisionBinding> {
+final class ContributionBindingFormatter extends Formatter<ContributionBinding> {
   private final MethodSignatureFormatter methodSignatureFormatter;
   
-  ProvisionBindingFormatter(MethodSignatureFormatter methodSignatureFormatter) { 
+  ContributionBindingFormatter(MethodSignatureFormatter methodSignatureFormatter) { 
     this.methodSignatureFormatter = methodSignatureFormatter;
   }
 
-  @Override public String format(ProvisionBinding binding) {
+  @Override public String format(ContributionBinding binding) {
     switch (binding.bindingKind()) {
+      case COMPONENT_PROVISION:
+      case COMPONENT_PRODUCTION:
+        return methodSignatureFormatter.format(asExecutable(binding.bindingElement()));
+
       case PROVISION:
+      case IMMEDIATE:
+      case FUTURE_PRODUCTION:
         return methodSignatureFormatter.format(asExecutable(binding.bindingElement()),
             Optional.of(asDeclared(binding.contributedBy().get().asType())));
-      case COMPONENT_PROVISION:
-        return methodSignatureFormatter.format(asExecutable(binding.bindingElement()));
+
       default:
         throw new UnsupportedOperationException(
             "Not yet supporting " + binding.bindingKind() + " binding types.");

@@ -80,10 +80,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         nullableValidationType(processingEnv).diagnosticKind().get();
 
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
-    ProvisionBindingFormatter provisionBindingFormatter =
-        new ProvisionBindingFormatter(methodSignatureFormatter);
-    ProductionBindingFormatter productionBindingFormatter =
-        new ProductionBindingFormatter(methodSignatureFormatter);
+    ContributionBindingFormatter contributionBindingFormatter =
+        new ContributionBindingFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter = new DependencyRequestFormatter(types);
     KeyFormatter keyFormatter = new KeyFormatter();
 
@@ -167,8 +165,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             injectBindingRegistry,
             scopeValidationType(processingEnv),
             nullableDiagnosticType,
-            provisionBindingFormatter,
-            productionBindingFormatter,
+            contributionBindingFormatter,
             methodSignatureFormatter,
             dependencyRequestFormatter,
             keyFormatter);

@@ -17,11 +17,15 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import dagger.MembersInjector;
+import dagger.producers.Producer;
 import java.util.List;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.Name;
@@ -36,6 +40,7 @@ import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
@@ -48,6 +53,47 @@ import static javax.lang.model.element.Modifier.PUBLIC;
  * @since 2.0
  */
 abstract class Binding {
+  
+  /**
+   * The subtype of this binding.
+   */
+  enum Type implements Predicate<Binding> {
+    /** A binding with this type is a {@link ProvisionBinding}. */
+    PROVISION(Provider.class),
+    /** A binding with this type is a {@link MembersInjectionBinding}. */
+    MEMBERS_INJECTION(MembersInjector.class),
+    /** A binding with this type is a {@link ProductionBinding}. */
+    PRODUCTION(Producer.class),
+    ;
+    
+    private final Class<?> frameworkClass;
+    
+    private Type(Class<?> frameworkClass) {
+      this.frameworkClass = frameworkClass;
+    }
+    
+    /**
+     * Returns the framework class associated with bindings of this type.
+     */
+    Class<?> frameworkClass() {
+      return frameworkClass;
+    }
+    
+    @Override
+    public boolean apply(Binding binding) {
+      return this.equals(binding.bindingType());
+    }
+  }
+
+  abstract Binding.Type bindingType();
+
+  /**
+   * Returns the framework class associated with this binding.
+   */
+  Class<?> frameworkClass() {
+    return bindingType().frameworkClass();
+  }
+
   static Optional<String> bindingPackageFor(Iterable<? extends Binding> bindings) {
     ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
     for (Binding binding : bindings) {
@@ -163,6 +209,13 @@ abstract class Binding {
    * element it's providing.
    */
   abstract boolean hasNonDefaultTypeParameters();
+
+  /**
+   * The scope of this binding.
+   */
+  Scope scope() {
+    return Scope.unscoped();
+  }
 
   // TODO(sameb): Remove the TypeElement parameter and pull it from the TypeMirror.
   static boolean hasNonDefaultTypeParameters(TypeElement element, TypeMirror type, Types types) {

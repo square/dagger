@@ -185,7 +185,7 @@ final class ErrorMessages {
       "Map key annotations with unwrapped values cannot use arrays";
 
   /* collection binding errors */
-  static final String MULTIPLE_BINDING_TYPES_FORMAT =
+  static final String MULTIPLE_CONTRIBUTION_TYPES_FORMAT =
       "More than one binding present of different types %s";
 
   static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
@@ -224,8 +224,12 @@ final class ErrorMessages {
   static final String MALFORMED_MODULE_METHOD_FORMAT =
       "Cannot generated a graph because method %s on module %s was malformed";
 
-  static final String NULLABLE_TO_NON_NULLABLE =
-      "%s is not nullable, but is being provided by %s";
+  static String nullableToNonNullable(String typeName, String bindingString) {
+    return String.format(
+            "%s is not nullable, but is being provided by %s",
+            typeName,
+            bindingString);
+  }
 
   static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD =
       "Cannot return null from a non-@Nullable component method";

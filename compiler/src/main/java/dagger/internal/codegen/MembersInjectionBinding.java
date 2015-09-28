@@ -89,6 +89,11 @@ abstract class MembersInjectionBinding extends Binding {
           Optional.<DependencyRequest>absent());
   }
 
+  @Override
+  protected Binding.Type bindingType() {
+    return Binding.Type.MEMBERS_INJECTION;
+  }
+
   @AutoValue
   abstract static class InjectionSite {
     enum Kind {

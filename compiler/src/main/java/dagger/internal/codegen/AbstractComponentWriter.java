@@ -19,7 +19,6 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -88,6 +87,7 @@ import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
@@ -95,20 +95,21 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
+import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
-import static dagger.internal.codegen.ProvisionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProductionBinding;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.indexDependenciesByUnresolvedKey;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
+import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static dagger.internal.codegen.writer.Snippet.memberSelectSnippet;
 import static dagger.internal.codegen.writer.Snippet.nullCheck;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -526,7 +527,7 @@ abstract class AbstractComponentWriter {
     if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
       ImmutableSet<? extends ContributionBinding> contributionBindings =
           resolvedBindings.contributionBindings();
-      if (ContributionBinding.bindingTypeFor(contributionBindings).isMultibinding()) {
+      if (ContributionBinding.contributionTypeFor(contributionBindings).isMultibinding()) {
         // note that here we rely on the order of the resolved bindings being from parent to child
         // otherwise, the numbering wouldn't work
         int contributionNumber = 0;
@@ -585,16 +586,15 @@ abstract class AbstractComponentWriter {
       case CONTRIBUTION:
         ContributionBinding contributionBinding =
             getOnlyElement(resolvedBindings.contributionBindings());
-        if (contributionBinding.bindingType().isMultibinding()
-            || !(contributionBinding instanceof ProvisionBinding)) {
+        if (contributionBinding.contributionType().isMultibinding()
+            || !(contributionBinding.bindingType().equals(Binding.Type.PROVISION))) {
           return Optional.absent();
         }
-        ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
-        if (provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
-            && !provisionBinding.scope().isPresent()) {
+        if (contributionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+            && !contributionBinding.scope().isPresent()) {
           return Optional.of(
               staticSelect(
-                  factoryNameForProvisionBinding(provisionBinding), Snippet.format("create()")));
+                  generatedClassNameForBinding(contributionBinding), Snippet.format("create()")));
         }
         break;
 
@@ -730,103 +730,105 @@ abstract class AbstractComponentWriter {
         ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
-            ImmutableSet<? extends ContributionBinding> bindings =
-                resolvedBindings.contributionBindings();
-
-            switch (ContributionBinding.bindingTypeFor(bindings)) {
+            switch (contributionTypeFor(resolvedBindings.contributionBindings())) {
               case SET:
-                boolean hasOnlyProvisions =
-                    Iterables.all(bindings, Predicates.instanceOf(ProvisionBinding.class));
-                ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
-                for (ContributionBinding binding : bindings) {
-                  Optional<MemberSelect> multibindingContributionSnippet =
-                      getMultibindingContributionSnippet(binding);
-                  checkState(
-                      multibindingContributionSnippet.isPresent(), "%s was not found", binding);
-                  Snippet snippet = multibindingContributionSnippet.get().getSnippetFor(name);
-                  if (multibindingContributionSnippet.get().owningClass().equals(name)) {
-                    Snippet initializeSnippet = initializeFactoryForContributionBinding(binding);
-                    initializeMethod.body().addSnippet("this.%s = %s;", snippet, initializeSnippet);
-                  }
-                  parameterSnippets.add(snippet);
-                }
-                Snippet initializeSetSnippet =
-                    Snippet.format(
-                        "%s.create(%s)",
-                        hasOnlyProvisions
-                            ? ClassName.fromClass(SetFactory.class)
-                            : ClassName.fromClass(SetProducer.class),
-                        Snippet.makeParametersSnippet(parameterSnippets.build()));
-                initializeMember(initializeMethod, bindingKey, initializeSetSnippet);
+                initializeSetMultibindings(initializeMethod, resolvedBindings);
                 break;
               case MAP:
-                if (Sets.filter(bindings, Predicates.instanceOf(ProductionBinding.class))
-                    .isEmpty()) {
-                  @SuppressWarnings("unchecked") // checked by the instanceof filter above
-                  ImmutableSet<ProvisionBinding> provisionBindings =
-                      (ImmutableSet<ProvisionBinding>) bindings;
-                  for (ProvisionBinding provisionBinding : provisionBindings) {
-                    Optional<MemberSelect> multibindingContributionSnippet =
-                        getMultibindingContributionSnippet(provisionBinding);
-                    if (!isMapWithNonProvidedValues(provisionBinding.key().type())
-                        && multibindingContributionSnippet.isPresent()
-                        && multibindingContributionSnippet.get().owningClass().equals(name)) {
-                      initializeMethod
-                          .body()
-                          .addSnippet(
-                              "this.%s = %s;",
-                              multibindingContributionSnippet.get().getSnippetFor(name),
-                              initializeFactoryForProvisionBinding(provisionBinding));
-                    }
-                  }
-                  initializeMember(
-                      initializeMethod, bindingKey, initializeMapBinding(provisionBindings));
-                } else {
-                  // TODO(beder): Implement producer map bindings.
-                  throw new IllegalStateException("producer map bindings not implemented yet");
-                }
+                initializeMapMultibindings(initializeMethod, resolvedBindings);
                 break;
               case UNIQUE:
-                if (!resolvedBindings.ownedContributionBindings().isEmpty()) {
-                  ContributionBinding binding = Iterables.getOnlyElement(bindings);
-                  if (binding instanceof ProvisionBinding) {
-                    ProvisionBinding provisionBinding = (ProvisionBinding) binding;
-                    if (!provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
-                        || provisionBinding.scope().isPresent()) {
-                      initializeDelegateFactories(binding, initializeMethod);
-                      initializeMember(
-                          initializeMethod,
-                          bindingKey,
-                          initializeFactoryForProvisionBinding(provisionBinding));
-                    }
-                  } else if (binding instanceof ProductionBinding) {
-                    ProductionBinding productionBinding = (ProductionBinding) binding;
-                    initializeMember(
-                        initializeMethod,
-                        bindingKey,
-                        initializeFactoryForProductionBinding(productionBinding));
-                  } else {
-                    throw new AssertionError();
-                  }
-                }
+                initializeUniqueContributionBinding(initializeMethod, resolvedBindings);
                 break;
               default:
-                throw new IllegalStateException();
+                throw new AssertionError();
             }
             break;
+
           case MEMBERS_INJECTION:
-            MembersInjectionBinding binding =
-                Iterables.getOnlyElement(resolvedBindings.membersInjectionBindings());
-            if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
-              initializeDelegateFactories(binding, initializeMethod);
-              initializeMember(
-                  initializeMethod, bindingKey, initializeMembersInjectorForBinding(binding));
-            }
+            initializeMembersInjectionBinding(initializeMethod, resolvedBindings);
             break;
+
           default:
             throw new AssertionError();
         }
       }
+    }
+  }
+
+  private void initializeSetMultibindings(
+      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+    ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
+    for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
+      Optional<MemberSelect> multibindingContributionSnippet =
+          getMultibindingContributionSnippet(binding);
+      checkState(multibindingContributionSnippet.isPresent(), "%s was not found", binding);
+      Snippet snippet = multibindingContributionSnippet.get().getSnippetFor(name);
+      if (multibindingContributionSnippet.get().owningClass().equals(name)) {
+        Snippet initializeSnippet = initializeFactoryForContributionBinding(binding);
+        initializeMethod.body().addSnippet("this.%s = %s;", snippet, initializeSnippet);
+      }
+      parameterSnippets.add(snippet);
+    }
+    Snippet initializeSetSnippet =
+        Snippet.format(
+            "%s.create(%s)",
+            Iterables.all(resolvedBindings.contributionBindings(), Binding.Type.PROVISION)
+                ? ClassName.fromClass(SetFactory.class)
+                : ClassName.fromClass(SetProducer.class),
+            makeParametersSnippet(parameterSnippets.build()));
+    initializeMember(initializeMethod, resolvedBindings.bindingKey(), initializeSetSnippet);
+  }
+
+  private void initializeMapMultibindings(
+      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+    if (any(resolvedBindings.contributionBindings(), Binding.Type.PRODUCTION)) {
+      // TODO(beder): Implement producer map bindings.
+      throw new IllegalStateException("producer map bindings not implemented yet");
+    }
+    for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
+      Optional<MemberSelect> multibindingContributionSnippet =
+          getMultibindingContributionSnippet(binding);
+      if (!isMapWithNonProvidedValues(binding.key().type())
+          && multibindingContributionSnippet.isPresent()
+          && multibindingContributionSnippet.get().owningClass().equals(name)) {
+        initializeMethod
+            .body()
+            .addSnippet(
+                "this.%s = %s;",
+                multibindingContributionSnippet.get().getSnippetFor(name),
+                initializeFactoryForContributionBinding(binding));
+      }
+    }
+    initializeMember(
+        initializeMethod,
+        resolvedBindings.bindingKey(),
+        initializeMapBinding(resolvedBindings.contributionBindings()));
+  }
+
+  private void initializeUniqueContributionBinding(
+      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+    if (!resolvedBindings.ownedContributionBindings().isEmpty()) {
+      ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
+      if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
+        initializeDelegateFactories(binding, initializeMethod);
+        initializeMember(
+            initializeMethod,
+            resolvedBindings.bindingKey(),
+            initializeFactoryForContributionBinding(binding));
+      }
+    }
+  }
+
+  private void initializeMembersInjectionBinding(
+      MethodWriter initializeMethod, ResolvedBindings resolvedBindings) {
+    MembersInjectionBinding binding = getOnlyElement(resolvedBindings.membersInjectionBindings());
+    if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
+      initializeDelegateFactories(binding, initializeMethod);
+      initializeMember(
+          initializeMethod,
+          resolvedBindings.bindingKey(),
+          initializeMembersInjectorForBinding(binding));
     }
   }
 
@@ -878,16 +880,6 @@ abstract class AbstractComponentWriter {
   }
 
   private Snippet initializeFactoryForContributionBinding(ContributionBinding binding) {
-    if (binding instanceof ProvisionBinding) {
-      return initializeFactoryForProvisionBinding((ProvisionBinding) binding);
-    } else if (binding instanceof ProductionBinding) {
-      return initializeFactoryForProductionBinding((ProductionBinding) binding);
-    } else {
-      throw new AssertionError();
-    }
-  }
-
-  private Snippet initializeFactoryForProvisionBinding(ProvisionBinding binding) {
     TypeName bindingKeyTypeName = TypeNames.forTypeMirror(binding.key().type());
     switch (binding.bindingKind()) {
       case COMPONENT:
@@ -898,32 +890,17 @@ abstract class AbstractComponentWriter {
             bindingKeyTypeName.equals(componentDefinitionTypeName())
                 ? "this"
                 : getComponentContributionSnippet(MoreTypes.asTypeElement(binding.key().type())));
+
       case COMPONENT_PROVISION:
-        TypeElement bindingTypeElement =
-            graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
-        if (binding.nullableType().isPresent()
-            || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
-          Snippet nullableSnippet =
-              binding.nullableType().isPresent()
-                  ? Snippet.format("@%s ", TypeNames.forTypeMirror(binding.nullableType().get()))
-                  : Snippet.format("");
-          return Snippet.format(
-              Joiner.on('\n')
-                  .join(
-                      "new %1$s<%2$s>() {",
-                      "  private final %6$s %7$s = %3$s;",
-                      "  %5$s@Override public %2$s get() {",
-                      "    return %7$s.%4$s();",
-                      "  }",
-                      "}"),
-              /* 1 */ ClassName.fromClass(Factory.class),
-              /* 2 */ bindingKeyTypeName,
-              /* 3 */ getComponentContributionSnippet(bindingTypeElement),
-              /* 4 */ binding.bindingElement().getSimpleName().toString(),
-              /* 5 */ nullableSnippet,
-              /* 6 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
-              /* 7 */ simpleVariableName(bindingTypeElement));
-        } else {
+        {
+          TypeElement bindingTypeElement =
+              graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
+          String localFactoryVariable = simpleVariableName(bindingTypeElement);
+          Snippet callFactoryMethodSnippet =
+              Snippet.format(
+                  "%s.%s()",
+                  localFactoryVariable,
+                  binding.bindingElement().getSimpleName().toString());
           // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
           // help to figure out what the method or return type is.  If we include a string
           // of the return type or method name in the error message, that can defeat obfuscation.
@@ -932,93 +909,113 @@ abstract class AbstractComponentWriter {
           // What should we do?
           StringLiteral failMsg =
               StringLiteral.forValue(CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
+          Snippet getMethodBody =
+              binding.nullableType().isPresent()
+                      || nullableValidationType.equals(Diagnostic.Kind.WARNING)
+                  ? Snippet.format("return %s;", callFactoryMethodSnippet)
+                  : Snippet.format(
+                      Joiner.on('\n')
+                          .join(
+                              "%s provided = %s;",
+                              "if (provided == null) {",
+                              "  throw new NullPointerException(%s);",
+                              "}",
+                              "return provided;"),
+                      bindingKeyTypeName,
+                      callFactoryMethodSnippet,
+                      failMsg);
           return Snippet.format(
               Joiner.on('\n')
                   .join(
                       "new %1$s<%2$s>() {",
-                      "  private final %6$s %7$s = %3$s;",
-                      "  @Override public %2$s get() {",
-                      "    %2$s provided = %7$s.%4$s();",
-                      "    if (provided == null) {",
-                      "      throw new NullPointerException(%5$s);",
-                      "    }",
-                      "    return provided;",
+                      "  private final %5$s %6$s = %3$s;",
+                      "  %4$s@Override public %2$s get() {",
+                      "    %7$s",
                       "  }",
                       "}"),
               /* 1 */ ClassName.fromClass(Factory.class),
               /* 2 */ bindingKeyTypeName,
               /* 3 */ getComponentContributionSnippet(bindingTypeElement),
-              /* 4 */ binding.bindingElement().getSimpleName().toString(),
-              /* 5 */ failMsg,
+              /* 4 */ nullableSnippet(binding.nullableType()),
+              /* 5 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
+              /* 6 */ localFactoryVariable,
+              /* 7 */ getMethodBody);
+        }
+
+      case INJECTION:
+      case PROVISION:
+        {
+          List<Snippet> parameters =
+              Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
+          if (binding.bindingKind().equals(PROVISION)
+              && !binding.bindingElement().getModifiers().contains(STATIC)) {
+            parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
+          }
+          parameters.addAll(getDependencyParameters(binding));
+
+          Snippet factorySnippet =
+              Snippet.format(
+                  "%s.create(%s)",
+                  generatedClassNameForBinding(binding),
+                  Snippet.makeParametersSnippet(parameters));
+          return binding.scope().isPresent()
+              ? Snippet.format(
+                  "%s.create(%s)", ClassName.fromClass(ScopedProvider.class), factorySnippet)
+              : factorySnippet;
+        }
+
+      case COMPONENT_PRODUCTION:
+        {
+          TypeElement bindingTypeElement =
+              graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
+          return Snippet.format(
+              Joiner.on('\n')
+                  .join(
+                      "new %1$s<%2$s>() {",
+                      "  private final %6$s %7$s = %4$s;",
+                      "  @Override public %3$s<%2$s> get() {",
+                      "    return %7$s.%5$s();",
+                      "  }",
+                      "}"),
+              /* 1 */ ClassName.fromClass(Producer.class),
+              /* 2 */ TypeNames.forTypeMirror(binding.key().type()),
+              /* 3 */ ClassName.fromClass(ListenableFuture.class),
+              /* 4 */ getComponentContributionSnippet(bindingTypeElement),
+              /* 5 */ binding.bindingElement().getSimpleName().toString(),
               /* 6 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
               /* 7 */ simpleVariableName(bindingTypeElement));
         }
-      case INJECTION:
-      case PROVISION:
-        List<Snippet> parameters =
-            Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-        if (binding.bindingKind().equals(PROVISION)
-            && !binding.bindingElement().getModifiers().contains(STATIC)) {
-          parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
-        }
-        parameters.addAll(getDependencyParameters(binding));
 
-        Snippet factorySnippet =
-            Snippet.format(
-                "%s.create(%s)",
-                factoryNameForProvisionBinding(binding),
-                Snippet.makeParametersSnippet(parameters));
-        return binding.scope().isPresent()
-            ? Snippet.format(
-                "%s.create(%s)", ClassName.fromClass(ScopedProvider.class), factorySnippet)
-            : factorySnippet;
+      case IMMEDIATE:
+      case FUTURE_PRODUCTION:
+        {
+          List<Snippet> parameters =
+              Lists.newArrayListWithCapacity(binding.dependencies().size() + 3);
+          // TODO(beder): Pass the actual ProductionComponentMonitor.
+          parameters.add(Snippet.format("null"));
+          if (!binding.bindingElement().getModifiers().contains(STATIC)) {
+            parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
+          }
+          parameters.add(
+              getComponentContributionSnippet(
+                  graph.componentDescriptor().executorDependency().get()));
+          parameters.addAll(getProducerDependencyParameters(binding));
+
+          return Snippet.format(
+              "new %s(%s)",
+              generatedClassNameForBinding(binding),
+              Snippet.makeParametersSnippet(parameters));
+        }
+
       default:
         throw new AssertionError();
     }
   }
 
-  private Snippet initializeFactoryForProductionBinding(ProductionBinding binding) {
-    switch (binding.bindingKind()) {
-      case COMPONENT_PRODUCTION:
-        TypeElement bindingTypeElement =
-            graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
-        return Snippet.format(
-            Joiner.on('\n')
-                .join(
-                    "new %1$s<%2$s>() {",
-                    "  private final %6$s %7$s = %4$s;",
-                    "  @Override public %3$s<%2$s> get() {",
-                    "    return %7$s.%5$s();",
-                    "  }",
-                    "}"),
-            /* 1 */ ClassName.fromClass(Producer.class),
-            /* 2 */ TypeNames.forTypeMirror(binding.key().type()),
-            /* 3 */ ClassName.fromClass(ListenableFuture.class),
-            /* 4 */ getComponentContributionSnippet(bindingTypeElement),
-            /* 5 */ binding.bindingElement().getSimpleName().toString(),
-            /* 6 */ TypeNames.forTypeMirror(bindingTypeElement.asType()),
-            /* 7 */ simpleVariableName(bindingTypeElement));
-      case IMMEDIATE:
-      case FUTURE_PRODUCTION:
-        List<Snippet> parameters =
-            Lists.newArrayListWithCapacity(binding.dependencies().size() + 3);
-        // TODO(beder): Pass the actual ProductionComponentMonitor.
-        parameters.add(Snippet.format("null"));
-        if (!binding.bindingElement().getModifiers().contains(STATIC)) {
-          parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
-        }
-        parameters.add(
-            getComponentContributionSnippet(
-                graph.componentDescriptor().executorDependency().get()));
-        parameters.addAll(getProducerDependencyParameters(binding));
-
-        return Snippet.format(
-            "new %s(%s)",
-            factoryNameForProductionBinding(binding),
-            Snippet.makeParametersSnippet(parameters));
-      default:
-        throw new AssertionError();
-    }
+  private Snippet nullableSnippet(Optional<DeclaredType> nullableType) {
+    return nullableType.isPresent()
+        ? Snippet.format("@%s ", TypeNames.forTypeMirror(nullableType.get()))
+        : Snippet.format("");
   }
 
   private Snippet initializeMembersInjectorForBinding(MembersInjectionBinding binding) {
@@ -1097,9 +1094,9 @@ abstract class AbstractComponentWriter {
     return parameters.build();
   }
 
-  private Snippet initializeMapBinding(Set<ProvisionBinding> bindings) {
+  private Snippet initializeMapBinding(Set<? extends ContributionBinding> bindings) {
     // Get type information from the first binding.
-    ProvisionBinding firstBinding = bindings.iterator().next();
+    ContributionBinding firstBinding = bindings.iterator().next();
     DeclaredType mapType = asDeclared(firstBinding.key().type());
 
     if (isMapWithNonProvidedValues(mapType)) {
@@ -1117,7 +1114,7 @@ abstract class AbstractComponentWriter {
         TypeNames.forTypeMirror(getProvidedValueTypeOfMap(mapType)), // V of Map<K, Provider<V>>
         bindings.size()));
 
-    for (ProvisionBinding binding : bindings) {
+    for (ContributionBinding binding : bindings) {
       snippets.add(
           Snippet.format(
               "    .put(%s, %s)",

@@ -25,10 +25,16 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
+import dagger.Component;
 import dagger.MapKey;
+import dagger.Provides;
+import dagger.producers.Produces;
+import dagger.producers.ProductionComponent;
 import java.util.EnumSet;
 import java.util.Set;
-import javax.inject.Provider;
+import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.TypeElement;
@@ -38,6 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.MapKeys.getMapKey;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be
@@ -47,7 +54,19 @@ import static dagger.internal.codegen.MapKeys.unwrapValue;
  * @since 2.0
  */
 abstract class ContributionBinding extends Binding {
-  static enum BindingType {
+  
+  @Override
+  Set<DependencyRequest> implicitDependencies() {
+    // Optimization: If we don't need the memberInjectionRequest, don't create more objects.
+    if (!membersInjectionRequest().isPresent()) {
+      return dependencies();
+    } else {
+      // Optimization: Avoid creating an ImmutableSet+Builder just to union two things together.
+      return Sets.union(membersInjectionRequest().asSet(), dependencies());
+    }
+  }
+
+  static enum ContributionType {
     /** Represents map bindings. */
     MAP,
     /** Represents set bindings. */
@@ -60,8 +79,20 @@ abstract class ContributionBinding extends Binding {
     }
   }
 
-  abstract BindingType bindingType();
-
+  ContributionType contributionType() {
+    switch (provisionType()) {
+      case SET:
+      case SET_VALUES:
+        return ContributionType.SET;
+      case MAP:
+        return ContributionType.MAP;
+      case UNIQUE:
+        return ContributionType.UNIQUE;
+      default:
+        throw new AssertionError("Unknown provision type: " + provisionType());
+    }
+  }
+  
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
 
@@ -77,46 +108,126 @@ abstract class ContributionBinding extends Binding {
    * Returns whether this binding is synthetic, i.e., not explicitly tied to code, but generated
    * implicitly by the framework.
    */
-  // TODO(user): Remove the SYNTHETIC enums from ProvisionBinding and ProductionBinding and make
-  // this field the source of truth for synthetic bindings.
-  abstract boolean isSyntheticBinding();
+  boolean isSyntheticBinding() {
+    return bindingKind().equals(Kind.SYNTHETIC);
+  }
+
+  /** If this provision requires members injection, this will be the corresponding request. */
+  abstract Optional<DependencyRequest> membersInjectionRequest();
 
   /**
-   * Returns the framework class associated with this binding, e.g., {@link Provider} for a
-   * ProvisionBinding.
+   * The kind of contribution this binding represents. Defines which elements can specify this kind
+   * of contribution.
    */
-  abstract Class<?> frameworkClass();
+  enum Kind {
+    /**
+     * A binding that is not explicitly tied to an element, but generated implicitly by the
+     * framework.
+     */
+    SYNTHETIC,
+
+    // Provision kinds
+
+    /** An {@link Inject}-annotated constructor. */
+    INJECTION,
+
+    /** A {@link Provides}-annotated method. */
+    PROVISION,
+
+    /** An implicit binding to a {@link Component @Component}-annotated type. */
+    COMPONENT,
+
+    /** A provision method on a component's {@linkplain Component#dependencies() dependency}. */
+    COMPONENT_PROVISION,
+
+    // Production kinds
+
+    /** A {@link Produces}-annotated method that doesn't return a {@link ListenableFuture}. */
+    IMMEDIATE,
+
+    /** A {@link Produces}-annotated method that returns a {@link ListenableFuture}. */
+    FUTURE_PRODUCTION,
+
+    /**
+     * A production method on a production component's
+     * {@linkplain ProductionComponent#dependencies() dependency} that returns a
+     * {@link ListenableFuture}. Methods on production component dependencies that don't return a
+     * {@link ListenableFuture} are considered {@linkplain #PROVISION provision bindings}.
+     */
+    COMPONENT_PRODUCTION,
+  }
 
   /**
-   * Returns the set of {@link BindingType} enum values implied by a given
-   * {@link ContributionBinding} collection.
+   * The kind of this contribution binding.
    */
-  static <B extends ContributionBinding> ImmutableListMultimap<BindingType, B> bindingTypesFor(
-      Iterable<? extends B> bindings) {
-    ImmutableListMultimap.Builder<BindingType, B> builder =
-        ImmutableListMultimap.builder();
-    builder.orderKeysBy(Ordering.<BindingType>natural());
+  protected abstract Kind bindingKind();
+
+  /** The provision type that was used to bind the key. */
+  abstract Provides.Type provisionType();
+
+  /**
+   * The strategy for getting an instance of a factory for a {@link ContributionBinding}.
+   */
+  enum FactoryCreationStrategy {
+    /** The factory class is an enum with one value named {@code INSTANCE}. */
+    ENUM_INSTANCE,
+    /** The factory must be created by calling the constructor. */
+    CLASS_CONSTRUCTOR,
+  }
+
+  /**
+   * Returns {@link FactoryCreationStrategy#ENUM_INSTANCE} if the binding has no dependencies and
+   * is a static provision binding or an {@link Inject @Inject} constructor binding. Otherwise
+   * returns {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR}.
+   */
+  FactoryCreationStrategy factoryCreationStrategy() {
+    switch (bindingKind()) {
+      case PROVISION:
+        return implicitDependencies().isEmpty() && bindingElement().getModifiers().contains(STATIC)
+            ? FactoryCreationStrategy.ENUM_INSTANCE
+            : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+
+      case INJECTION:
+        return implicitDependencies().isEmpty()
+            ? FactoryCreationStrategy.ENUM_INSTANCE
+            : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+
+      default:
+        return FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+    }
+  }
+
+  /**
+   * Returns the {@link ContributionType}s represented by a given {@link ContributionBinding}
+   * collection.
+   */
+  static <B extends ContributionBinding>
+      ImmutableListMultimap<ContributionType, B> contributionTypesFor(
+          Iterable<? extends B> bindings) {
+    ImmutableListMultimap.Builder<ContributionType, B> builder = ImmutableListMultimap.builder();
+    builder.orderKeysBy(Ordering.<ContributionType>natural());
     for (B binding : bindings) {
-      builder.put(binding.bindingType(), binding);
+      builder.put(binding.contributionType(), binding);
     }
     return builder.build();
   }
 
   /**
-   * Returns a single {@code BindingsType} represented by a given collection of
-   * {@code ContributionBindings} or throws an IllegalArgumentException if the given bindings
-   * are not all of one type.
+   * Returns a single {@link ContributionType} represented by a given collection of
+   * {@link ContributionBinding}s.
+   *
+   * @throws IllegalArgumentException if the given bindings are not all of one type
    */
-  static BindingType bindingTypeFor(Iterable<? extends ContributionBinding> bindings) {
+  static ContributionType contributionTypeFor(Iterable<? extends ContributionBinding> bindings) {
     checkNotNull(bindings);
     checkArgument(!Iterables.isEmpty(bindings), "no bindings");
-    Set<BindingType> types = EnumSet.noneOf(BindingType.class);
+    Set<ContributionType> types = EnumSet.noneOf(ContributionType.class);
     for (ContributionBinding binding : bindings) {
-      types.add(binding.bindingType());
+      types.add(binding.contributionType());
     }
     if (types.size() > 1) {
       throw new IllegalArgumentException(
-          String.format(ErrorMessages.MULTIPLE_BINDING_TYPES_FORMAT, types));
+          String.format(ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types));
     }
     return Iterables.getOnlyElement(types);
   }
@@ -127,7 +238,7 @@ abstract class ContributionBinding extends Binding {
    * itself, depending on {@link MapKey#unwrapValue()}).
    */
   static ImmutableSetMultimap<Object, ContributionBinding> indexMapBindingsByMapKey(
-      Set<ContributionBinding> mapBindings) {
+      Set<? extends ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
             mapBindings,
@@ -145,7 +256,7 @@ abstract class ContributionBinding extends Binding {
    * Indexes map-multibindings by map key annotation type.
    */
   static ImmutableSetMultimap<Wrapper<DeclaredType>, ContributionBinding>
-      indexMapBindingsByAnnotationType(Set<ContributionBinding> mapBindings) {
+      indexMapBindingsByAnnotationType(Set<? extends ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
             mapBindings,

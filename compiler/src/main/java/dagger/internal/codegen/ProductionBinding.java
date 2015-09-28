@@ -21,7 +21,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.producers.Producer;
+import dagger.Provides;
 import dagger.producers.Produces;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -44,34 +44,17 @@ import static javax.lang.model.element.ElementKind.METHOD;
  */
 @AutoValue
 abstract class ProductionBinding extends ContributionBinding {
+  
   @Override
-  ImmutableSet<DependencyRequest> implicitDependencies() {
-    return dependencies();
+  Binding.Type bindingType() {
+    return Binding.Type.PRODUCTION;
   }
 
-  enum Kind {
-    /** Represents a binding configured by {@link Produces} that doesn't return a future. */
-    IMMEDIATE,
-    /** Represents a binding configured by {@link Produces} that returns a future. */
-    FUTURE_PRODUCTION,
-    /**
-     * Represents a binding that is not explicitly tied to code, but generated implicitly by the
-     * framework.
-     */
-    SYNTHETIC_PRODUCTION,
-    /**
-     * Represents a binding from a production method on a component dependency that returns a
-     * future. Methods that return immediate values are considered provision bindings.
-     */
-    COMPONENT_PRODUCTION,
+  @Override
+  Provides.Type provisionType() {
+    return Provides.Type.valueOf(productionType().name());
   }
-
-  /**
-   * The type of binding (whether the {@link Produces} method returns a future). For the particular
-   * type of production, use {@link #productionType}.
-   */
-  abstract Kind bindingKind();
-
+  
   /** Returns provision type that was used to bind the key. */
   abstract Produces.Type productionType();
 
@@ -79,28 +62,18 @@ abstract class ProductionBinding extends ContributionBinding {
   abstract ImmutableList<? extends TypeMirror> thrownTypes();
 
   @Override
-  BindingType bindingType() {
+  ContributionType contributionType() {
     switch (productionType()) {
       case SET:
       case SET_VALUES:
-        return BindingType.SET;
+        return ContributionType.SET;
       case MAP:
-        return BindingType.MAP;
+        return ContributionType.MAP;
       case UNIQUE:
-        return BindingType.UNIQUE;
+        return ContributionType.UNIQUE;
       default:
-        throw new IllegalStateException("Unknown production type: " + productionType());
+        throw new AssertionError("Unknown production type: " + productionType());
     }
-  }
-
-  @Override
-  boolean isSyntheticBinding() {
-    return bindingKind().equals(Kind.SYNTHETIC_PRODUCTION);
-  }
-
-  @Override
-  Class<?> frameworkClass() {
-    return Producer.class;
   }
 
   static final class Factory {
@@ -144,6 +117,7 @@ abstract class ProductionBinding extends ContributionBinding {
           false,
           ConfigurationAnnotations.getNullableType(producesMethod),
           Optional.of(MoreTypes.asTypeElement(declaredContainer)),
+          Optional.<DependencyRequest>absent(),
           kind,
           producesAnnotation.type(),
           ImmutableList.copyOf(producesMethod.getThrownTypes()));
@@ -166,7 +140,8 @@ abstract class ProductionBinding extends ContributionBinding {
           false,
           Optional.<DeclaredType>absent(),
           Optional.<TypeElement>absent(),
-          Kind.SYNTHETIC_PRODUCTION,
+          Optional.<DependencyRequest>absent(),
+          Kind.SYNTHETIC,
           Produces.Type.MAP,
           ImmutableList.<TypeMirror>of());
     }
@@ -184,6 +159,7 @@ abstract class ProductionBinding extends ContributionBinding {
           false,
           Optional.<DeclaredType>absent(),
           Optional.<TypeElement>absent(),
+          Optional.<DependencyRequest>absent(),
           Kind.COMPONENT_PRODUCTION,
           Produces.Type.UNIQUE,
           ImmutableList.copyOf(componentMethod.getThrownTypes()));

@@ -32,6 +32,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.TreeTraverser;
 import dagger.Component;
 import dagger.Subcomponent;
+import dagger.internal.codegen.Binding.Type;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
@@ -56,6 +57,8 @@ import javax.lang.model.util.Elements;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.any;
+import static com.google.common.collect.Sets.union;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
@@ -168,16 +171,11 @@ abstract class BindingGraph {
 
     private BindingGraph create(
         Optional<Resolver> parentResolver, ComponentDescriptor componentDescriptor) {
-      ImmutableSet.Builder<ProvisionBinding> explicitProvisionBindingsBuilder =
-          ImmutableSet.builder();
-      ImmutableSet.Builder<ProductionBinding> explicitProductionBindingsBuilder =
-          ImmutableSet.builder();
+      ImmutableSet.Builder<ContributionBinding> explicitBindingsBuilder = ImmutableSet.builder();
 
       // binding for the component itself
       TypeElement componentDefinitionType = componentDescriptor.componentDefinitionType();
-      ProvisionBinding componentBinding =
-          provisionBindingFactory.forComponent(componentDefinitionType);
-      explicitProvisionBindingsBuilder.add(componentBinding);
+      explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDefinitionType));
 
       // Collect Component dependencies.
       Optional<AnnotationMirror> componentMirror =
@@ -187,21 +185,17 @@ abstract class BindingGraph {
           ? MoreTypes.asTypeElements(getComponentDependencies(componentMirror.get()))
           : ImmutableSet.<TypeElement>of();
       for (TypeElement componentDependency : componentDependencyTypes) {
-        explicitProvisionBindingsBuilder.add(
-            provisionBindingFactory.forComponent(componentDependency));
+        explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDependency));
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
         for (ExecutableElement method : dependencyMethods) {
           // MembersInjection methods aren't "provided" explicitly, so ignore them.
           if (isComponentContributionMethod(elements, method)) {
-            if (componentDescriptor.kind().equals(PRODUCTION_COMPONENT)
-                && isComponentProductionMethod(elements, method)) {
-              explicitProductionBindingsBuilder.add(
-                  productionBindingFactory.forComponentMethod(method));
-            } else {
-              explicitProvisionBindingsBuilder.add(
-                  provisionBindingFactory.forComponentMethod(method));
-            }
+            explicitBindingsBuilder.add(
+                componentDescriptor.kind().equals(PRODUCTION_COMPONENT)
+                        && isComponentProductionMethod(elements, method)
+                    ? productionBindingFactory.forComponentMethod(method)
+                    : provisionBindingFactory.forComponentMethod(method));
           }
         }
       }
@@ -209,12 +203,7 @@ abstract class BindingGraph {
       // Collect transitive module bindings.
       for (ModuleDescriptor moduleDescriptor : componentDescriptor.transitiveModules()) {
         for (ContributionBinding binding : moduleDescriptor.bindings()) {
-          if (binding instanceof ProvisionBinding) {
-            explicitProvisionBindingsBuilder.add((ProvisionBinding) binding);
-          }
-          if (binding instanceof ProductionBinding) {
-            explicitProductionBindingsBuilder.add((ProductionBinding) binding);
-          }
+          explicitBindingsBuilder.add(binding);
         }
       }
 
@@ -222,8 +211,7 @@ abstract class BindingGraph {
           new Resolver(
               parentResolver,
               componentDescriptor,
-              explicitBindingsByKey(explicitProvisionBindingsBuilder.build()),
-              explicitBindingsByKey(explicitProductionBindingsBuilder.build()));
+              explicitBindingsByKey(explicitBindingsBuilder.build()));
       for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
         Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
         if (componentMethodRequest.isPresent()) {
@@ -268,9 +256,8 @@ abstract class BindingGraph {
     private final class Resolver {
       final Optional<Resolver> parentResolver;
       final ComponentDescriptor componentDescriptor;
-      final ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings;
-      final ImmutableSet<ProvisionBinding> explicitProvisionBindingsSet;
-      final ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings;
+      final ImmutableSetMultimap<Key, ContributionBinding> explicitBindings;
+      final ImmutableSet<ContributionBinding> explicitBindingsSet;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
       final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
@@ -279,17 +266,14 @@ abstract class BindingGraph {
       Resolver(
           Optional<Resolver> parentResolver,
           ComponentDescriptor componentDescriptor,
-          ImmutableSetMultimap<Key, ProvisionBinding> explicitProvisionBindings,
-          ImmutableSetMultimap<Key, ProductionBinding> explicitProductionBindings) {
+          ImmutableSetMultimap<Key, ContributionBinding> explicitBindings) {
         assert parentResolver != null;
         this.parentResolver = parentResolver;
         assert componentDescriptor != null;
         this.componentDescriptor = componentDescriptor;
-        assert explicitProvisionBindings != null;
-        this.explicitProvisionBindings = explicitProvisionBindings;
-        this.explicitProvisionBindingsSet = ImmutableSet.copyOf(explicitProvisionBindings.values());
-        assert explicitProductionBindings != null;
-        this.explicitProductionBindings = explicitProductionBindings;
+        assert explicitBindings != null;
+        this.explicitBindings = explicitBindings;
+        this.explicitBindingsSet = ImmutableSet.copyOf(explicitBindings.values());
         this.resolvedBindings = Maps.newLinkedHashMap();
       }
 
@@ -308,51 +292,47 @@ abstract class BindingGraph {
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
             // First, check for explicit keys (those from modules and components)
-            ImmutableSet<ProvisionBinding> explicitProvisionBindingsForKey =
-                getExplicitProvisionBindings(bindingKey.key());
-            ImmutableSet<ProductionBinding> explicitProductionBindingsForKey =
-                getExplicitProductionBindings(bindingKey.key());
+            ImmutableSet<ContributionBinding> explicitBindingsForKey =
+                getExplicitBindings(bindingKey.key());
 
             // If the key is Map<K, V>, get its implicit binding keys, which are either
             // Map<K, Provider<V>> or Map<K, Producer<V>>, and grab their explicit bindings.
             Optional<Key> mapProviderKey = keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
-            ImmutableSet<ProvisionBinding> explicitMapProvisionBindings = ImmutableSet.of();
+            ImmutableSet.Builder<ContributionBinding> explicitMapBindingsBuilder =
+                ImmutableSet.builder();
             if (mapProviderKey.isPresent()) {
-              explicitMapProvisionBindings = getExplicitProvisionBindings(mapProviderKey.get());
+              explicitMapBindingsBuilder.addAll(getExplicitBindings(mapProviderKey.get()));
             }
 
             Optional<Key> mapProducerKey = keyFactory.implicitMapProducerKeyFrom(bindingKey.key());
-            ImmutableSet<ProductionBinding> explicitMapProductionBindings = ImmutableSet.of();
             if (mapProducerKey.isPresent()) {
-              explicitMapProductionBindings = getExplicitProductionBindings(mapProducerKey.get());
+              explicitMapBindingsBuilder.addAll(getExplicitBindings(mapProducerKey.get()));
             }
+            ImmutableSet<ContributionBinding> explicitMapBindings =
+                explicitMapBindingsBuilder.build();
 
-            if (!explicitProvisionBindingsForKey.isEmpty()
-                || !explicitProductionBindingsForKey.isEmpty()) {
+            if (!explicitBindingsForKey.isEmpty()) {
               /* If there are any explicit bindings for this key, then combine those with any
                * conflicting Map<K, Provider<V>> bindings and let the validator fail. */
               ImmutableSet.Builder<ContributionBinding> ownedBindings = ImmutableSet.builder();
               ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding>
                   inheritedBindings = ImmutableSetMultimap.builder();
-              for (ProvisionBinding provisionBinding :
-                  Sets.union(explicitProvisionBindingsForKey, explicitMapProvisionBindings)) {
-                if (isResolvedInParent(request, provisionBinding)
-                    && !shouldOwnParentBinding(request, provisionBinding)) {
+              for (ContributionBinding binding :
+                  union(explicitBindingsForKey, explicitMapBindings)) {
+                if (isResolvedInParent(request, binding)
+                    && !shouldOwnParentBinding(request, binding)) {
                   inheritedBindings.put(
-                      getOwningResolver(provisionBinding).get().componentDescriptor,
-                      provisionBinding);
+                      getOwningResolver(binding).get().componentDescriptor, binding);
                 } else {
-                  ownedBindings.add(provisionBinding);
+                  ownedBindings.add(binding);
                 }
               }
-              return ResolvedBindings.create(bindingKey,
+              return ResolvedBindings.create(
+                  bindingKey,
                   componentDescriptor,
-                  ownedBindings
-                      .addAll(explicitProductionBindingsForKey)
-                      .addAll(explicitMapProductionBindings)
-                      .build(),
+                  ownedBindings.build(),
                   inheritedBindings.build());
-            } else if (!explicitMapProductionBindings.isEmpty()) {
+            } else if (any(explicitMapBindings, Binding.Type.PRODUCTION)) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Producer<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Producer<V>>. */
@@ -360,7 +340,7 @@ abstract class BindingGraph {
                   bindingKey,
                   componentDescriptor,
                   productionBindingFactory.implicitMapOfProducerBinding(request));
-            } else if (!explicitMapProvisionBindings.isEmpty()) {
+            } else if (any(explicitMapBindings, Binding.Type.PROVISION)) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Provider<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Provider<V>>. */
@@ -391,24 +371,22 @@ abstract class BindingGraph {
                     ImmutableSetMultimap.<ComponentDescriptor, Binding>of());
               }
             }
+
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
             return ResolvedBindings.create(
-                bindingKey,
-                componentDescriptor,
-                rollUpMembersInjectionBindings(bindingKey.key()));
+                bindingKey, componentDescriptor, rollUpMembersInjectionBindings(bindingKey.key()));
           default:
             throw new AssertionError();
         }
       }
 
       /**
-       * Returns {@code true} if {@code provisionBinding} is owned by a parent resolver. If so,
-       * calls {@link #resolve(DependencyRequest) resolve(request)} on that resolver.
+       * Returns {@code true} if {@code binding} is owned by a parent resolver. If so, calls
+       * {@link #resolve(DependencyRequest) resolve(request)} on that resolver.
        */
-      private boolean isResolvedInParent(
-          DependencyRequest request, ProvisionBinding provisionBinding) {
-        Optional<Resolver> owningResolver = getOwningResolver(provisionBinding);
+      private boolean isResolvedInParent(DependencyRequest request, ContributionBinding binding) {
+        Optional<Resolver> owningResolver = getOwningResolver(binding);
         if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
           owningResolver.get().resolve(request);
           return true;
@@ -418,14 +396,14 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns {@code true} if {@code provisionBinding}, which was previously resolved by a parent
+       * Returns {@code true} if {@code binding}, which was previously resolved by a parent
        * resolver, should be moved into this resolver's bindings for {@code request} because it is
        * unscoped and {@linkplain #dependsOnLocalMultibindings(ResolvedBindings) depends on local
        * multibindings}, or {@code false} if it can satisfy {@code request} as an inherited binding.
        */
       private boolean shouldOwnParentBinding(
-          DependencyRequest request, ProvisionBinding provisionBinding) {
-        return !isScoped(provisionBinding)
+          DependencyRequest request, ContributionBinding binding) {
+        return !binding.scope().isPresent()
             && dependsOnLocalMultibindings(
                 getPreviouslyResolvedBindings(request.bindingKey()).get());
       }
@@ -447,9 +425,9 @@ abstract class BindingGraph {
         return membersInjectionBinding;
       }
 
-      private Optional<Resolver> getOwningResolver(ProvisionBinding provisionBinding) {
+      private Optional<Resolver> getOwningResolver(ContributionBinding provisionBinding) {
         for (Resolver requestResolver : getResolverLineage().reverse()) {
-          if (requestResolver.explicitProvisionBindingsSet.contains(provisionBinding)) {
+          if (requestResolver.explicitBindingsSet.contains(provisionBinding)) {
             return Optional.of(requestResolver);
           }
         }
@@ -478,18 +456,10 @@ abstract class BindingGraph {
         return ImmutableList.copyOf(Lists.reverse(resolverList));
       }
 
-      private ImmutableSet<ProvisionBinding> getExplicitProvisionBindings(Key requestKey) {
-        ImmutableSet.Builder<ProvisionBinding> explicitBindingsForKey = ImmutableSet.builder();
+      private ImmutableSet<ContributionBinding> getExplicitBindings(Key requestKey) {
+        ImmutableSet.Builder<ContributionBinding> explicitBindingsForKey = ImmutableSet.builder();
         for (Resolver resolver : getResolverLineage()) {
-          explicitBindingsForKey.addAll(resolver.explicitProvisionBindings.get(requestKey));
-        }
-        return explicitBindingsForKey.build();
-      }
-
-      private ImmutableSet<ProductionBinding> getExplicitProductionBindings(Key requestKey) {
-        ImmutableSet.Builder<ProductionBinding> explicitBindingsForKey = ImmutableSet.builder();
-        for (Resolver resolver : getResolverLineage()) {
-          explicitBindingsForKey.addAll(resolver.explicitProductionBindings.get(requestKey));
+          explicitBindingsForKey.addAll(resolver.explicitBindings.get(requestKey));
         }
         return explicitBindingsForKey.build();
       }
@@ -576,7 +546,8 @@ abstract class BindingGraph {
                   }
 
                   for (Binding binding : previouslyResolvedBindings.bindings()) {
-                    if (!isScoped(binding) && !(binding instanceof ProductionBinding)) {
+                    if (!binding.scope().isPresent()
+                        && !binding.bindingType().equals(Type.PRODUCTION)) {
                       for (DependencyRequest dependency : binding.implicitDependencies()) {
                         if (dependsOnLocalMultibindings(
                             getPreviouslyResolvedBindings(dependency.bindingKey()).get(),
@@ -595,16 +566,7 @@ abstract class BindingGraph {
       }
 
       private boolean hasLocalContributions(ResolvedBindings resolvedBindings) {
-        return !explicitProvisionBindings.get(resolvedBindings.bindingKey().key()).isEmpty()
-            || !explicitProductionBindings.get(resolvedBindings.bindingKey().key()).isEmpty();
-      }
-
-      private boolean isScoped(Binding binding) {
-        if (binding instanceof ProvisionBinding) {
-          ProvisionBinding provisionBinding = (ProvisionBinding) binding;
-          return provisionBinding.scope().isPresent();
-        }
-        return false;
+        return !explicitBindings.get(resolvedBindings.bindingKey().key()).isEmpty();
       }
 
       ImmutableMap<BindingKey, ResolvedBindings> getResolvedBindings() {

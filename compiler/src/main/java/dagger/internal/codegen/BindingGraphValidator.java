@@ -40,7 +40,7 @@ import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.internal.codegen.ContributionBinding.BindingType;
+import dagger.internal.codegen.ContributionBinding.ContributionType;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -70,6 +70,8 @@ import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.all;
+import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
 import static com.google.common.collect.Iterables.skip;
@@ -79,13 +81,13 @@ import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapK
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
-import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
+import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
@@ -101,8 +103,7 @@ public class BindingGraphValidator {
   private final InjectBindingRegistry injectBindingRegistry;
   private final ValidationType scopeCycleValidationType;
   private final Diagnostic.Kind nullableValidationType;
-  private final ProvisionBindingFormatter provisionBindingFormatter;
-  private final ProductionBindingFormatter productionBindingFormatter;
+  private final ContributionBindingFormatter contributionBindingFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
   private final KeyFormatter keyFormatter;
@@ -112,8 +113,7 @@ public class BindingGraphValidator {
       InjectBindingRegistry injectBindingRegistry,
       ValidationType scopeCycleValidationType,
       Diagnostic.Kind nullableValidationType,
-      ProvisionBindingFormatter provisionBindingFormatter,
-      ProductionBindingFormatter productionBindingFormatter,
+      ContributionBindingFormatter contributionBindingFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
       KeyFormatter keyFormatter) {
@@ -121,8 +121,7 @@ public class BindingGraphValidator {
     this.injectBindingRegistry = injectBindingRegistry;
     this.scopeCycleValidationType = scopeCycleValidationType;
     this.nullableValidationType = nullableValidationType;
-    this.provisionBindingFormatter = provisionBindingFormatter;
-    this.productionBindingFormatter = productionBindingFormatter;
+    this.contributionBindingFormatter = contributionBindingFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
     this.keyFormatter = keyFormatter;
@@ -235,59 +234,39 @@ public class BindingGraphValidator {
         return false;
       }
 
-      ImmutableSet.Builder<ProvisionBinding> provisionBindingsBuilder =
-          ImmutableSet.builder();
-      ImmutableSet.Builder<ProductionBinding> productionBindingsBuilder =
-          ImmutableSet.builder();
-      ImmutableSet.Builder<MembersInjectionBinding> membersInjectionBindingsBuilder =
-          ImmutableSet.builder();
-      for (Binding binding : resolvedBinding.bindings()) {
-        if (binding instanceof ProvisionBinding) {
-          provisionBindingsBuilder.add((ProvisionBinding) binding);
-        }
-        if (binding instanceof ProductionBinding) {
-          productionBindingsBuilder.add((ProductionBinding) binding);
-        }
-        if (binding instanceof MembersInjectionBinding) {
-          membersInjectionBindingsBuilder.add((MembersInjectionBinding) binding);
-        }
-      }
-      ImmutableSet<ProvisionBinding> provisionBindings = provisionBindingsBuilder.build();
-      ImmutableSet<ProductionBinding> productionBindings = productionBindingsBuilder.build();
-      ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
-          membersInjectionBindingsBuilder.build();
-
       switch (resolvedBinding.bindingKey().kind()) {
         case CONTRIBUTION:
-          if (!membersInjectionBindings.isEmpty()) {
+          ImmutableSet<? extends ContributionBinding> contributionBindings =
+              resolvedBinding.contributionBindings();
+          if (any(contributionBindings, Binding.Type.MEMBERS_INJECTION)) {
             throw new IllegalArgumentException(
                 "contribution binding keys should never have members injection bindings");
           }
-          Set<ContributionBinding> combined = Sets.union(provisionBindings, productionBindings);
-          if (!validateNullability(path.peek().request(), combined)) {
+          if (!validateNullability(path.peek().request(), contributionBindings)) {
             return false;
           }
-          if (!productionBindings.isEmpty() && doesPathRequireProvisionOnly(path)) {
+          if (any(contributionBindings, Binding.Type.PRODUCTION)
+              && doesPathRequireProvisionOnly(path)) {
             reportProviderMayNotDependOnProducer(path);
             return false;
           }
-          if (combined.size() <= 1) {
+          if (contributionBindings.size() <= 1) {
             return true;
           }
-          ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
-              ContributionBinding.bindingTypesFor(combined);
-          if (bindingsByType.keySet().size() > 1) {
+          ImmutableListMultimap<ContributionType, ContributionBinding> contributionsByType =
+              ContributionBinding.contributionTypesFor(contributionBindings);
+          if (contributionsByType.keySet().size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
           }
-          switch (getOnlyElement(bindingsByType.keySet())) {
+          switch (getOnlyElement(contributionsByType.keySet())) {
             case UNIQUE:
               reportDuplicateBindings(path);
               return false;
             case MAP:
-              boolean duplicateMapKeys = hasDuplicateMapKeys(path, combined);
+              boolean duplicateMapKeys = hasDuplicateMapKeys(path, contributionBindings);
               boolean inconsistentMapKeyAnnotationTypes =
-                  hasInconsistentMapKeyAnnotationTypes(path, combined);
+                  hasInconsistentMapKeyAnnotationTypes(path, contributionBindings);
               return !duplicateMapKeys && !inconsistentMapKeyAnnotationTypes;
             case SET:
               break;
@@ -296,21 +275,15 @@ public class BindingGraphValidator {
           }
           break;
         case MEMBERS_INJECTION:
-          if (!provisionBindings.isEmpty() || !productionBindings.isEmpty()) {
+          if (!all(resolvedBinding.bindings(), Binding.Type.MEMBERS_INJECTION)) {
             throw new IllegalArgumentException(
                 "members injection binding keys should never have contribution bindings");
           }
-          if (membersInjectionBindings.size() > 1) {
+          if (resolvedBinding.bindings().size() > 1) {
             reportDuplicateBindings(path);
             return false;
           }
-          if (membersInjectionBindings.size() == 1) {
-            MembersInjectionBinding binding = getOnlyElement(membersInjectionBindings);
-            if (!validateMembersInjectionBinding(binding, path)) {
-              return false;
-            }
-          }
-          break;
+          return validateMembersInjectionBinding(getOnlyElement(resolvedBinding.bindings()), path);
         default:
           throw new AssertionError();
       }
@@ -319,35 +292,28 @@ public class BindingGraphValidator {
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
     private boolean validateNullability(
-        DependencyRequest request, Set<ContributionBinding> bindings) {
+        DependencyRequest request, Set<? extends ContributionBinding> bindings) {
+      if (request.isNullable()) {
+        return true;
+      }
+
+      // Note: the method signature will include the @Nullable in it!
+      /* TODO(sameb): Sometimes javac doesn't include the Element in its output.
+       * (Maybe this happens if the code was already compiled before this point?)
+       * ... we manually print out the request in that case, otherwise the error
+       * message is kind of useless. */
+      String typeName = TypeNames.forTypeMirror(request.key().type()).toString();
+
       boolean valid = true;
-      if (!request.isNullable()) {
-        String typeName = null;
-        for (ContributionBinding binding : bindings) {
-          if (binding.nullableType().isPresent()) {
-            String methodSignature;
-            if (binding instanceof ProvisionBinding) {
-              ProvisionBinding provisionBinding = (ProvisionBinding) binding;
-              methodSignature = provisionBindingFormatter.format(provisionBinding);
-            } else {
-              ProductionBinding productionBinding = (ProductionBinding) binding;
-              methodSignature = productionBindingFormatter.format(productionBinding);
-            }
-            // Note: the method signature will include the @Nullable in it!
-            // TODO(sameb): Sometimes javac doesn't include the Element in its output.
-            // (Maybe this happens if the code was already compiled before this point?)
-            // ... we manually print ouf the request in that case, otherwise the error
-            // message is kind of useless.
-            if (typeName == null) {
-              typeName = TypeNames.forTypeMirror(request.key().type()).toString();
-            }
-            reportBuilder.addItem(
-                String.format(NULLABLE_TO_NON_NULLABLE, typeName, methodSignature)
-                + "\n at: " + dependencyRequestFormatter.format(request),
-                nullableValidationType,
-                request.requestElement());
-            valid = false;
-          }
+      for (ContributionBinding binding : bindings) {
+        if (binding.nullableType().isPresent()) {
+          reportBuilder.addItem(
+              nullableToNonNullable(typeName, contributionBindingFormatter.format(binding))
+                  + "\n at: "
+                  + dependencyRequestFormatter.format(request),
+              nullableValidationType,
+              request.requestElement());
+          valid = false;
         }
       }
       return valid;
@@ -358,7 +324,7 @@ public class BindingGraphValidator {
      * for the same map key.
      */
     private boolean hasDuplicateMapKeys(
-        Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
+        Deque<ResolvedRequest> path, Set<? extends ContributionBinding> mapBindings) {
       boolean hasDuplicateMapKeys = false;
       for (Collection<ContributionBinding> mapBindingsForMapKey :
           indexMapBindingsByMapKey(mapBindings).asMap().values()) {
@@ -375,9 +341,9 @@ public class BindingGraphValidator {
      * {@link MapKey} annotation type.
      */
     private boolean hasInconsistentMapKeyAnnotationTypes(
-        Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
+        Deque<ResolvedRequest> path, Set<? extends ContributionBinding> contributionBindings) {
       ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
-          mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(mapBindings);
+          mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(contributionBindings);
       if (mapBindingsByAnnotationType.keySet().size() > 1) {
         reportInconsistentMapKeyAnnotations(path, mapBindingsByAnnotationType);
         return true;
@@ -390,7 +356,7 @@ public class BindingGraphValidator {
      * valid.
      */
     private boolean validateMembersInjectionBinding(
-        MembersInjectionBinding binding, final Deque<ResolvedRequest> path) {
+        Binding binding, final Deque<ResolvedRequest> path) {
       return binding
           .key()
           .type()
@@ -705,28 +671,27 @@ public class BindingGraphValidator {
       for (ResolvedBindings bindings : resolvedBindings.values()) {
         if (bindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
           for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
-            if (contributionBinding instanceof ProvisionBinding) {
-              ProvisionBinding provisionBinding = (ProvisionBinding) contributionBinding;
-              Scope bindingScope = provisionBinding.scope();
-              if (bindingScope.isPresent() && !componentScope.equals(bindingScope)) {
-                // Scoped components cannot reference bindings to @Provides methods or @Inject
-                // types decorated by a different scope annotation. Unscoped components cannot
-                // reference to scoped @Provides methods or @Inject types decorated by any
-                // scope annotation.
-                switch (provisionBinding.bindingKind()) {
-                  case PROVISION:
-                    ExecutableElement provisionMethod =
-                        MoreElements.asExecutable(provisionBinding.bindingElement());
-                    incompatiblyScopedMethodsBuilder.add(
-                        methodSignatureFormatter.format(provisionMethod));
-                    break;
-                  case INJECTION:
-                    incompatiblyScopedMethodsBuilder.add(bindingScope.getReadableSource()
-                        + " class " + provisionBinding.bindingTypeElement().getQualifiedName());
-                    break;
-                  default:
-                    throw new IllegalStateException();
-                }
+            Scope bindingScope = contributionBinding.scope();
+            if (bindingScope.isPresent() && !bindingScope.equals(componentScope)) {
+              // Scoped components cannot reference bindings to @Provides methods or @Inject
+              // types decorated by a different scope annotation. Unscoped components cannot
+              // reference to scoped @Provides methods or @Inject types decorated by any
+              // scope annotation.
+              switch (contributionBinding.bindingKind()) {
+                case PROVISION:
+                  ExecutableElement provisionMethod =
+                      MoreElements.asExecutable(contributionBinding.bindingElement());
+                  incompatiblyScopedMethodsBuilder.add(
+                      methodSignatureFormatter.format(provisionMethod));
+                  break;
+                case INJECTION:
+                  incompatiblyScopedMethodsBuilder.add(
+                      bindingScope.getReadableSource()
+                          + " class "
+                          + contributionBinding.bindingTypeElement().getQualifiedName());
+                  break;
+                default:
+                  throw new IllegalStateException();
               }
             }
           }
@@ -760,7 +725,7 @@ public class BindingGraphValidator {
                 ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
                 formatRootRequestKey(path));
       } else {
-        ImmutableSet<ProvisionBinding> dependentProvisions =
+        ImmutableSet<? extends Binding> dependentProvisions =
             provisionsDependingOnLatestRequest(path);
         // TODO(beder): Consider displaying all dependent provisions in the error message. If we do
         // that, should we display all productions that depend on them also?
@@ -814,8 +779,9 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      for (Binding binding : Iterables.limit(resolvedBinding.bindings(), DUPLICATE_SIZE_LIMIT)) {
-        builder.append('\n').append(INDENT).append(formatBinding(binding));
+      for (ContributionBinding binding :
+          Iterables.limit(resolvedBinding.contributionBindings(), DUPLICATE_SIZE_LIMIT)) {
+        builder.append('\n').append(INDENT).append(contributionBindingFormatter.format(binding));
       }
       int numberOfOtherBindings = resolvedBinding.bindings().size() - DUPLICATE_SIZE_LIMIT;
       if (numberOfOtherBindings > 0) {
@@ -834,21 +800,19 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      ImmutableListMultimap<BindingType, ContributionBinding> bindingsByType =
-          ContributionBinding.<ContributionBinding>bindingTypesFor(
-              resolvedBinding.contributionBindings());
-      for (BindingType type : Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
+      ImmutableListMultimap<ContributionType, ContributionBinding> bindingsByType =
+          ContributionBinding.contributionTypesFor(resolvedBinding.contributionBindings());
+      for (ContributionType type :
+          Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
         builder.append(INDENT);
         builder.append(formatBindingType(type));
         builder.append(" bindings:\n");
         for (ContributionBinding binding : bindingsByType.get(type)) {
-          builder.append(INDENT).append(INDENT);
-          if (binding instanceof ProvisionBinding) {
-            builder.append(provisionBindingFormatter.format((ProvisionBinding) binding));
-          } else if (binding instanceof ProductionBinding) {
-            builder.append(productionBindingFormatter.format((ProductionBinding) binding));
-          }
-          builder.append('\n');
+          builder
+              .append(INDENT)
+              .append(INDENT)
+              .append(contributionBindingFormatter.format(binding))
+              .append('\n');
         }
       }
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
@@ -1061,33 +1025,32 @@ public class BindingGraphValidator {
     }
     // otherwise, the second-most-recent bindings determine whether the most recent one must be a
     // provision
-    ImmutableSet<ProvisionBinding> dependentProvisions = provisionsDependingOnLatestRequest(path);
-    return !dependentProvisions.isEmpty();
+    return !provisionsDependingOnLatestRequest(path).isEmpty();
   }
 
   /**
    * Returns any provision bindings resolved for the second-most-recent request in the given path;
    * that is, returns those provision bindings that depend on the latest request in the path.
    */
-  private ImmutableSet<ProvisionBinding> provisionsDependingOnLatestRequest(
+  private ImmutableSet<? extends Binding> provisionsDependingOnLatestRequest(
       Deque<ResolvedRequest> path) {
     Iterator<ResolvedRequest> iterator = path.iterator();
     final DependencyRequest request = iterator.next().request();
     ResolvedRequest previousResolvedRequest = iterator.next();
-    @SuppressWarnings("unchecked")  // validated by instanceof below
-    ImmutableSet<ProvisionBinding> bindings = (ImmutableSet<ProvisionBinding>) FluentIterable
-        .from(previousResolvedRequest.binding().bindings())
-        .filter(new Predicate<Binding>() {
-            @Override public boolean apply(Binding binding) {
-              return binding instanceof ProvisionBinding
-                  && binding.implicitDependencies().contains(request);
-            }
-        }).toSet();
-    return bindings;
+    return FluentIterable.from(previousResolvedRequest.binding().bindings())
+        .filter(Binding.Type.PROVISION)
+        .filter(
+            new Predicate<Binding>() {
+              @Override
+              public boolean apply(Binding binding) {
+                return binding.implicitDependencies().contains(request);
+              }
+            })
+        .toSet();
   }
 
-  private String formatBindingType(BindingType type) {
-    switch(type) {
+  private String formatBindingType(ContributionType type) {
+    switch (type) {
       case MAP:
         return "Map";
       case SET:
@@ -1099,30 +1062,18 @@ public class BindingGraphValidator {
     }
   }
 
-  private String formatBinding(Binding binding) {
-    // TODO(beder): Refactor the formatters so we don't need these instanceof checks.
-    if (binding instanceof ProvisionBinding) {
-      return provisionBindingFormatter.format((ProvisionBinding) binding);
-    } else if (binding instanceof ProductionBinding) {
-      return productionBindingFormatter.format((ProductionBinding) binding);
-    } else {
-      throw new IllegalArgumentException(
-          "Expected either a ProvisionBinding or a ProductionBinding, not " + binding);
-    }
-  }
-
   private String formatRootRequestKey(Deque<ResolvedRequest> path) {
     return keyFormatter.format(path.peek().request().key());
   }
 
   private void appendBindings(
-      StringBuilder builder, Collection<? extends Binding> bindings, int indentLevel) {
-    for (Binding binding : Iterables.limit(bindings, DUPLICATE_SIZE_LIMIT)) {
+      StringBuilder builder, Collection<? extends ContributionBinding> bindings, int indentLevel) {
+    for (ContributionBinding binding : Iterables.limit(bindings, DUPLICATE_SIZE_LIMIT)) {
       builder.append('\n');
       for (int i = 0; i < indentLevel; i++) {
         builder.append(INDENT);
       }
-      builder.append(formatBinding(binding));
+      builder.append(contributionBindingFormatter.format(binding));
     }
     int numberOfOtherBindings = bindings.size() - DUPLICATE_SIZE_LIMIT;
     if (numberOfOtherBindings > 0) {

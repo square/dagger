@@ -52,11 +52,11 @@ import javax.tools.Diagnostic;
 
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.Provides.Type.SET;
+import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD;
-import static dagger.internal.codegen.ProvisionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.SourceFiles.factoryNameForProvisionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.parameterizedFactoryNameForProvisionBinding;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -83,7 +83,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   ClassName nameGeneratedType(ProvisionBinding binding) {
-    return factoryNameForProvisionBinding(binding);
+    return generatedClassNameForBinding(binding);
   }
 
   @Override
@@ -156,7 +156,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     getMethodWriter.annotate(Override.class);
     getMethodWriter.addModifiers(PUBLIC);
 
-    if (binding.memberInjectionRequest().isPresent()) {
+    if (binding.membersInjectionRequest().isPresent()) {
       ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
           MembersInjector.class, providedTypeName);
       factoryWriter.addField(membersInjectorType, "membersInjector").addModifiers(PRIVATE, FINAL);
@@ -211,7 +211,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
             break;
           case CLASS_CONSTRUCTOR:
             createMethodWriter.body().addSnippet("return new %s(%s);",
-                parameterizedFactoryNameForProvisionBinding(binding),
+                parameterizedGeneratedTypeNameForBinding(binding),
                 Joiner.on(", ").join(params.keySet()));
             break;
           default:
@@ -262,7 +262,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
             providesMethodInvocation,
             failMsg));
       }
-    } else if (binding.memberInjectionRequest().isPresent()) {
+    } else if (binding.membersInjectionRequest().isPresent()) {
       getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",
           providedTypeName, parametersSnippet);
       getMethodWriter.body().addSnippet("membersInjector.injectMembers(instance);");

@@ -28,8 +28,7 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static dagger.internal.codegen.ErrorMessages.NULLABLE_TO_NON_NULLABLE;
-import static java.util.Arrays.asList;
+import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 
 @RunWith(JUnit4.class)
 public class GraphValidationTest {
@@ -923,8 +922,10 @@ public class GraphValidationTest {
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
-            "@test.Nullable @Provides String test.TestModule.provideString()"));
+        .withErrorContaining(
+            nullableToNonNullable(
+                "java.lang.String",
+                "@test.Nullable @Provides String test.TestModule.provideString()"));
 
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
@@ -965,8 +966,10 @@ public class GraphValidationTest {
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
-            "@test.Nullable @Provides String test.TestModule.provideString()"));
+        .withErrorContaining(
+            nullableToNonNullable(
+                "java.lang.String",
+                "@test.Nullable @Provides String test.TestModule.provideString()"));
 
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
@@ -1007,8 +1010,10 @@ public class GraphValidationTest {
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
-            "@test.Nullable @Provides String test.TestModule.provideString()"));
+        .withErrorContaining(
+            nullableToNonNullable(
+                "java.lang.String",
+                "@test.Nullable @Provides String test.TestModule.provideString()"));
 
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, a, module, component))
@@ -1040,8 +1045,10 @@ public class GraphValidationTest {
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(NULLABLE_TO_NON_NULLABLE, "java.lang.String",
-            "@test.Nullable @Provides String test.TestModule.provideString()"));
+        .withErrorContaining(
+            nullableToNonNullable(
+                "java.lang.String",
+                "@test.Nullable @Provides String test.TestModule.provideString()"));
 
     // but if we disable the validation, then it compiles fine.
     assertAbout(javaSources()).that(ImmutableList.of(NULLABLE, module, component))

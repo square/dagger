@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Provides.Type;
+import dagger.internal.codegen.ContributionBinding.Kind;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -54,8 +55,8 @@ import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
-import static dagger.internal.codegen.SourceFiles.factoryNameForProductionBinding;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -79,7 +80,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
   @Override
   ClassName nameGeneratedType(ProductionBinding binding) {
-    return factoryNameForProductionBinding(binding);
+    return generatedClassNameForBinding(binding);
   }
 
   @Override
@@ -157,7 +158,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
           .addSnippet("this.%1$s = %1$s;", field.name());
     }
 
-    boolean returnsFuture = binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION);
+    boolean returnsFuture =
+        binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION);
     ImmutableList<DependencyRequest> asyncDependencies = FluentIterable
         .from(binding.dependencies())
         .filter(new Predicate<DependencyRequest>() {
@@ -460,7 +462,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
     final Snippet valueSnippet;
     if (binding.productionType().equals(Produces.Type.SET)) {
-      if (binding.bindingKind().equals(ProductionBinding.Kind.FUTURE_PRODUCTION)) {
+      if (binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION)) {
         valueSnippet =
             Snippet.format(
                 "%s.createFutureSingletonSet(%s)",
