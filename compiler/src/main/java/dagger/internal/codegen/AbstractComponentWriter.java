@@ -574,7 +574,7 @@ abstract class AbstractComponentWriter {
 
   /**
    * If {@code resolvedBindings} is an unscoped provision binding with no factory arguments or a
-   * no-op members injection binding, then we do't need a field to hold its factory. In that case,
+   * no-op members injection binding, then we don't need a field to hold its factory. In that case,
    * this method returns the static member select snippet that returns the factory or no-op members
    * injector.
    */
