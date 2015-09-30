@@ -25,6 +25,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Provides;
+import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Produces;
 import java.util.Map;
@@ -346,6 +347,23 @@ abstract class Key {
           return Optional.<Key>of(new AutoValue_Key(
               possibleMapKey.wrappedQualifier(),
               MoreTypes.equivalence().wrap(mapType)));
+        }
+      }
+      return Optional.absent();
+    }
+
+    /**
+     * Optionally extract a {@link Key} for a {@code Set<T>} if the given key is for
+     * {@code Set<Produced<T>>}.
+     */
+    Optional<Key> implicitSetKeyFromProduced(Key possibleSetOfProducedKey) {
+      if (MoreTypes.isTypeOf(Set.class, possibleSetOfProducedKey.type())) {
+        TypeMirror argType =
+            MoreTypes.asDeclared(possibleSetOfProducedKey.type()).getTypeArguments().get(0);
+        if (MoreTypes.isTypeOf(Produced.class, argType)) {
+          TypeMirror producedArgType = MoreTypes.asDeclared(argType).getTypeArguments().get(0);
+          TypeMirror setType = types.getDeclaredType(getSetElement(), producedArgType);
+          return Optional.of(possibleSetOfProducedKey.withType(types, setType));
         }
       }
       return Optional.absent();

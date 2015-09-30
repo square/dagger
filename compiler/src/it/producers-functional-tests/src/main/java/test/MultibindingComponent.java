@@ -16,11 +16,18 @@
 package test;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import dagger.producers.Produced;
 import dagger.producers.ProductionComponent;
 import java.util.Set;
+import test.MultibindingProducerModule.PossiblyThrowingSet;
 
 @ProductionComponent(modules = MultibindingProducerModule.class)
 interface MultibindingComponent {
   ListenableFuture<Set<String>> strs();
   ListenableFuture<Integer> strCount();
+
+  ListenableFuture<Set<Produced<String>>> successfulSet();
+
+  @PossiblyThrowingSet
+  ListenableFuture<Set<Produced<String>>> possiblyThrowingSet();
 }

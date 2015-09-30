@@ -21,29 +21,56 @@ import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.util.Set;
+import javax.inject.Qualifier;
 
 import static dagger.producers.Produces.Type.SET;
 import static dagger.producers.Produces.Type.SET_VALUES;
 
 @ProducerModule
 final class MultibindingProducerModule {
-  @Produces(type = SET) ListenableFuture<String> futureStr() {
+  @Qualifier
+  @interface PossiblyThrowingSet {}
+
+  @Produces(type = SET)
+  static ListenableFuture<String> futureStr() {
     return Futures.immediateFuture("foo");
   }
 
-  @Produces(type = SET) String str() {
+  @Produces(type = SET)
+  static String str() {
     return "bar";
   }
 
-  @Produces(type = SET_VALUES) ListenableFuture<Set<String>> futureStrs() {
+  @Produces(type = SET_VALUES)
+  static ListenableFuture<Set<String>> futureStrs() {
     return Futures.<Set<String>>immediateFuture(ImmutableSet.of("foo1", "foo2"));
   }
 
-  @Produces(type = SET_VALUES) Set<String> strs() {
+  @Produces(type = SET_VALUES)
+  static Set<String> strs() {
     return ImmutableSet.of("bar1", "bar2");
   }
 
-  @Produces int strCount(Set<String> strs) {
+  @Produces
+  static int strCount(Set<String> strs) {
     return strs.size();
+  }
+
+  @Produces(type = SET)
+  @PossiblyThrowingSet
+  static String successfulStringForSet() {
+    return "singleton";
+  }
+
+  @Produces(type = SET_VALUES)
+  @PossiblyThrowingSet
+  static Set<String> successfulStringsForSet() {
+    return ImmutableSet.of("double", "ton");
+  }
+
+  @Produces(type = SET)
+  @PossiblyThrowingSet
+  static String throwingStringForSet() {
+    throw new RuntimeException("monkey");
   }
 }

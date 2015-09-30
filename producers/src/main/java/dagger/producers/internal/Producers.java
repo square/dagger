@@ -109,5 +109,25 @@ public final class Producers {
     return null;
   }
 
+  /** Returns a producer that succeeds with the given value. */
+  public static <T> Producer<T> immediateProducer(final T value) {
+    return new Producer<T>() {
+      @Override
+      public ListenableFuture<T> get() {
+        return Futures.immediateFuture(value);
+      }
+    };
+  }
+
+  /** Returns a producer that fails with the given exception. */
+  public static <T> Producer<T> immediateFailedProducer(final Throwable throwable) {
+    return new Producer<T>() {
+      @Override
+      public ListenableFuture<T> get() {
+        return Futures.immediateFailedFuture(throwable);
+      }
+    };
+  }
+
   private Producers() {}
 }

@@ -40,7 +40,6 @@ import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
@@ -78,7 +77,19 @@ abstract class Binding {
     Class<?> frameworkClass() {
       return frameworkClass;
     }
-    
+
+    BindingKey.Kind bindingKeyKind() {
+      switch (this) {
+        case MEMBERS_INJECTION:
+          return BindingKey.Kind.MEMBERS_INJECTION;
+        case PROVISION:
+        case PRODUCTION:
+          return BindingKey.Kind.CONTRIBUTION;
+        default:
+          throw new AssertionError();
+      }
+    }
+
     @Override
     public boolean apply(Binding binding) {
       return this.equals(binding.bindingType());
@@ -112,6 +123,10 @@ abstract class Binding {
 
   /** The {@link Key} that is provided by this binding. */
   protected abstract Key key();
+
+  BindingKey bindingKey() {
+    return BindingKey.create(bindingType().bindingKeyKind(), key());
+  }
 
   /** Returns the {@link Element} instance that is responsible for declaring the binding. */
   abstract Element bindingElement();

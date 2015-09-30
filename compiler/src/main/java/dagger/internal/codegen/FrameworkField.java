@@ -21,7 +21,6 @@ import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
-import dagger.internal.codegen.ContributionBinding.ContributionType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
@@ -65,27 +64,22 @@ abstract class FrameworkField {
   }
 
   static FrameworkField createForSyntheticContributionBinding(
-      BindingKey bindingKey, int contributionNumber, ContributionBinding contributionBinding) {
+      int contributionNumber, ContributionBinding contributionBinding) {
     switch (contributionBinding.contributionType()) {
       case MAP:
         return createForMapBindingContribution(
             contributionBinding.frameworkClass(),
-            BindingKey.create(bindingKey.kind(), contributionBinding.key()),
-            KeyVariableNamer.INSTANCE.apply(bindingKey.key())
+            contributionBinding.bindingKey(),
+            KeyVariableNamer.INSTANCE.apply(contributionBinding.key())
                 + "Contribution"
                 + contributionNumber);
+
       case SET:
-        return createWithTypeFromKey(
-            contributionBinding.frameworkClass(),
-            bindingKey,
-            KeyVariableNamer.INSTANCE.apply(bindingKey.key())
-                + "Contribution"
-                + contributionNumber);
       case UNIQUE:
         return createWithTypeFromKey(
             contributionBinding.frameworkClass(),
-            bindingKey,
-            KeyVariableNamer.INSTANCE.apply(bindingKey.key())
+            contributionBinding.bindingKey(),
+            KeyVariableNamer.INSTANCE.apply(contributionBinding.key())
                 + "Contribution"
                 + contributionNumber);
       default:

@@ -56,6 +56,7 @@ import dagger.internal.codegen.writer.TypeWriter;
 import dagger.internal.codegen.writer.VoidName;
 import dagger.producers.Producer;
 import dagger.producers.internal.Producers;
+import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -134,6 +135,8 @@ abstract class AbstractComponentWriter {
   protected final BindingGraph graph;
   private final Map<String, ProxyClassAndField> packageProxies = new HashMap<>();
   private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
+  private final Map<Binding, InitializationState> contributionInitializationStates =
+      new HashMap<>();
   protected ClassWriter componentWriter;
   private ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets;
   private ImmutableMap<ContributionBinding, MemberSelect> multibindingContributionSnippets;
@@ -241,6 +244,16 @@ abstract class AbstractComponentWriter {
 
   private void setInitializationState(BindingKey bindingKey, InitializationState state) {
     initializationStates.put(bindingKey, state);
+  }
+
+  private InitializationState getContributionInitializationState(Binding binding) {
+    return contributionInitializationStates.containsKey(binding)
+        ? contributionInitializationStates.get(binding)
+        : UNINITIALIZED;
+  }
+
+  private void setContributionInitializationState(Binding binding, InitializationState state) {
+    contributionInitializationStates.put(binding, state);
   }
 
   ImmutableSet<JavaWriter> write() {
@@ -537,7 +550,7 @@ abstract class AbstractComponentWriter {
             if (resolvedBindings.ownedBindings().contains(contributionBinding)) {
               FrameworkField contributionBindingField =
                   FrameworkField.createForSyntheticContributionBinding(
-                      bindingKey, contributionNumber, contributionBinding);
+                      contributionNumber, contributionBinding);
               FieldWriter contributionField =
                   classWithFields.addField(
                       contributionBindingField.frameworkType(), contributionBindingField.name());
@@ -764,18 +777,27 @@ abstract class AbstractComponentWriter {
           getMultibindingContributionSnippet(binding);
       checkState(multibindingContributionSnippet.isPresent(), "%s was not found", binding);
       Snippet snippet = multibindingContributionSnippet.get().getSnippetFor(name);
-      if (multibindingContributionSnippet.get().owningClass().equals(name)) {
+      if (multibindingContributionSnippet.get().owningClass().equals(name)
+          // the binding might already be initialized by a different set binding that shares the
+          // same contributions (e.g., Set<T> and Set<Produced<T>>)
+          && getContributionInitializationState(binding)
+              .equals(InitializationState.UNINITIALIZED)) {
         Snippet initializeSnippet = initializeFactoryForContributionBinding(binding);
         initializeMethod.body().addSnippet("this.%s = %s;", snippet, initializeSnippet);
+        setContributionInitializationState(binding, InitializationState.INITIALIZED);
       }
       parameterSnippets.add(snippet);
     }
+    Class<?> factoryClass =
+        Iterables.all(resolvedBindings.contributionBindings(), Binding.Type.PROVISION)
+            ? SetFactory.class
+            : Util.isSetOfProduced(resolvedBindings.bindingKey().key().type())
+                ? SetOfProducedProducer.class
+                : SetProducer.class;
     Snippet initializeSetSnippet =
         Snippet.format(
             "%s.create(%s)",
-            Iterables.all(resolvedBindings.contributionBindings(), Binding.Type.PROVISION)
-                ? ClassName.fromClass(SetFactory.class)
-                : ClassName.fromClass(SetProducer.class),
+            ClassName.fromClass(factoryClass),
             makeParametersSnippet(parameterSnippets.build()));
     initializeMember(initializeMethod, resolvedBindings.bindingKey(), initializeSetSnippet);
   }

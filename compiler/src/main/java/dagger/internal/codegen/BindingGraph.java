@@ -311,14 +311,22 @@ abstract class BindingGraph {
             ImmutableSet<ContributionBinding> explicitMapBindings =
                 explicitMapBindingsBuilder.build();
 
-            if (!explicitBindingsForKey.isEmpty()) {
+            // If the key is Set<Produced<T>>, then we look up bindings by the alternate key Set<T>.
+            Optional<Key> setKeyFromProduced =
+                keyFactory.implicitSetKeyFromProduced(bindingKey.key());
+            ImmutableSet<ContributionBinding> explicitSetBindings =
+                setKeyFromProduced.isPresent()
+                    ? getExplicitBindings(setKeyFromProduced.get())
+                    : ImmutableSet.<ContributionBinding>of();
+
+            if (!explicitBindingsForKey.isEmpty() || !explicitSetBindings.isEmpty()) {
               /* If there are any explicit bindings for this key, then combine those with any
                * conflicting Map<K, Provider<V>> bindings and let the validator fail. */
               ImmutableSet.Builder<ContributionBinding> ownedBindings = ImmutableSet.builder();
               ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding>
                   inheritedBindings = ImmutableSetMultimap.builder();
               for (ContributionBinding binding :
-                  union(explicitBindingsForKey, explicitMapBindings)) {
+                  union(explicitBindingsForKey, union(explicitSetBindings, explicitMapBindings))) {
                 if (isResolvedInParent(request, binding)
                     && !shouldOwnParentBinding(request, binding)) {
                   inheritedBindings.put(

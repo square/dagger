@@ -21,6 +21,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import dagger.producers.Produced;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -89,6 +90,13 @@ final class Util {
     return MoreTypes.isType(type)
         && MoreTypes.isTypeOf(Map.class, type)
         && MoreTypes.isTypeOf(Provider.class, asDeclared(type).getTypeArguments().get(1));
+  }
+
+  /** Returns true if {@code type} is a {@code Set<Produced<T>>}. */
+  static boolean isSetOfProduced(TypeMirror type) {
+    return MoreTypes.isType(type)
+        && MoreTypes.isTypeOf(Set.class, type)
+        && MoreTypes.isTypeOf(Produced.class, MoreTypes.asDeclared(type).getTypeArguments().get(0));
   }
 
   /**
