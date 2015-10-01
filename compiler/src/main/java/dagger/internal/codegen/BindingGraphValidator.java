@@ -739,7 +739,6 @@ public class BindingGraphValidator {
       Key key = path.peek().request().key();
       BindingKey bindingKey = path.peek().request().bindingKey();
       TypeMirror type = key.type();
-      String typeName = TypeNames.forTypeMirror(type).toString();
       boolean requiresContributionMethod = !key.isValidImplicitProvisionKey(types);
       boolean requiresProvision = doesPathRequireProvisionOnly(path);
       StringBuilder errorMessage = new StringBuilder();
@@ -750,7 +749,7 @@ public class BindingGraphValidator {
           : requiresProvision
               ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
               : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
-      errorMessage.append(String.format(requiresErrorMessageFormat, typeName));
+      errorMessage.append(String.format(requiresErrorMessageFormat, keyFormatter.format(key)));
       if (key.isValidMembersInjectionKey()
           && !injectBindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites()
               .isEmpty()) {

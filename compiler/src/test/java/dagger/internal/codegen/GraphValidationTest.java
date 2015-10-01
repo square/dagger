@@ -68,25 +68,38 @@ public class GraphValidationTest {
   }
 
   @Test public void componentProvisionWithNoDependencyChain() {
-    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "",
-        "final class TestClass {",
-        "  interface A {}",
-        "",
-        "  @Component()",
-        "  interface AComponent {",
-        "    A getA();",
-        "  }",
-        "}");
-    String expectedError =
-        "test.TestClass.A cannot be provided without an @Provides-annotated method.";
-    assertAbout(javaSource()).that(component)
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestClass",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import javax.inject.Qualifier;",
+            "",
+            "final class TestClass {",
+            "  @Qualifier @interface Q {}",
+            "  interface A {}",
+            "",
+            "  @Component()",
+            "  interface AComponent {",
+            "    A getA();",
+            "    @Q A qualifiedA();",
+            "  }",
+            "}");
+    assertAbout(javaSource())
+        .that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(expectedError).in(component).onLine(10);
+        .withErrorContaining(
+            "test.TestClass.A cannot be provided without an @Provides-annotated method.")
+        .in(component)
+        .onLine(12)
+        .and()
+        .withErrorContaining(
+            "@test.TestClass.Q test.TestClass.A "
+                + "cannot be provided without an @Provides-annotated method.")
+        .in(component)
+        .onLine(13);
   }
 
   @Test public void constructorInjectionWithoutAnnotation() {
