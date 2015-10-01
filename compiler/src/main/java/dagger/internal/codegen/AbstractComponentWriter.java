@@ -138,9 +138,10 @@ abstract class AbstractComponentWriter {
   private final Map<Binding, InitializationState> contributionInitializationStates =
       new HashMap<>();
   protected ClassWriter componentWriter;
-  private ImmutableMap<BindingKey, MemberSelect> memberSelectSnippets;
-  private ImmutableMap<ContributionBinding, MemberSelect> multibindingContributionSnippets;
-  private ImmutableSet<BindingKey> enumBindingKeys;
+  private final Map<BindingKey, MemberSelect> memberSelectSnippets = new HashMap<>();
+  private final Map<ContributionBinding, MemberSelect> multibindingContributionSnippets =
+      new HashMap<>();
+  private final Set<BindingKey> enumBindingKeys = new HashSet<>();
   protected ConstructorWriter constructorWriter;
   protected Optional<ClassName> builderName = Optional.absent();
 
@@ -459,29 +460,12 @@ abstract class AbstractComponentWriter {
   protected abstract void addFactoryMethods();
 
   private void addFields() {
-    Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder = Maps.newHashMap();
-    Map<ContributionBinding, MemberSelect> multibindingContributionSnippetsBuilder =
-        Maps.newHashMap();
-    ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder = ImmutableSet.builder();
-
     for (ResolvedBindings resolvedBindings : graph.resolvedBindings().values()) {
-      addField(
-          memberSelectSnippetsBuilder,
-          multibindingContributionSnippetsBuilder,
-          enumBindingKeysBuilder,
-          resolvedBindings);
+      addField(resolvedBindings);
     }
-
-    memberSelectSnippets = ImmutableMap.copyOf(memberSelectSnippetsBuilder);
-    multibindingContributionSnippets = ImmutableMap.copyOf(multibindingContributionSnippetsBuilder);
-    enumBindingKeys = enumBindingKeysBuilder.build();
   }
 
-  private void addField(
-      Map<BindingKey, MemberSelect> memberSelectSnippetsBuilder,
-      Map<ContributionBinding, MemberSelect> multibindingContributionSnippetsBuilder,
-      ImmutableSet.Builder<BindingKey> enumBindingKeysBuilder,
-      ResolvedBindings resolvedBindings) {
+  private void addField(ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
 
     // No field needed for unique contributions inherited from the parent.
@@ -493,8 +477,8 @@ abstract class AbstractComponentWriter {
     Optional<MemberSelect> staticMemberSelect = staticMemberSelect(resolvedBindings);
     if (staticMemberSelect.isPresent()) {
       // TODO(gak): refactor to use enumBindingKeys throughout the generator
-      enumBindingKeysBuilder.add(bindingKey);
-      memberSelectSnippetsBuilder.put(bindingKey, staticMemberSelect.get());
+      enumBindingKeys.add(bindingKey);
+      memberSelectSnippets.put(bindingKey, staticMemberSelect.get());
       return;
     }
 
@@ -561,7 +545,7 @@ abstract class AbstractComponentWriter {
                       .addAll(proxySelector.asSet())
                       .add(contributionField.name())
                       .build();
-              multibindingContributionSnippetsBuilder.put(
+              multibindingContributionSnippets.put(
                   contributionBinding,
                   MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
             }
@@ -580,7 +564,7 @@ abstract class AbstractComponentWriter {
             .addAll(proxySelector.asSet())
             .add(frameworkField.name())
             .build();
-    memberSelectSnippetsBuilder.put(
+    memberSelectSnippets.put(
         bindingKey,
         MemberSelect.instanceSelect(name, Snippet.memberSelectSnippet(memberSelectTokens)));
   }
