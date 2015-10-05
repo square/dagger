@@ -237,7 +237,7 @@ abstract class ContributionBinding extends Binding {
    * {@link AnnotationValue#getValue()} on a single member or the whole {@link AnnotationMirror}
    * itself, depending on {@link MapKey#unwrapValue()}).
    */
-  static ImmutableSetMultimap<Object, ContributionBinding> indexMapBindingsByMapKey(
+  static ImmutableSetMultimap<Object, ? extends ContributionBinding> indexMapBindingsByMapKey(
       Set<? extends ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
@@ -255,7 +255,7 @@ abstract class ContributionBinding extends Binding {
   /**
    * Indexes map-multibindings by map key annotation type.
    */
-  static ImmutableSetMultimap<Wrapper<DeclaredType>, ContributionBinding>
+  static ImmutableSetMultimap<Wrapper<DeclaredType>, ? extends ContributionBinding>
       indexMapBindingsByAnnotationType(Set<? extends ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(

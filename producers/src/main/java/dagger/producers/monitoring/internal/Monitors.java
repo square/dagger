@@ -188,7 +188,7 @@ public final class Monitors {
     }
 
     static final class Factory implements ProductionComponentMonitor.Factory {
-      private final ImmutableList<ProductionComponentMonitor.Factory> delegates;
+      private final ImmutableList<? extends ProductionComponentMonitor.Factory> delegates;
 
       Factory(Iterable<? extends ProductionComponentMonitor.Factory> delegates) {
         this.delegates = ImmutableList.copyOf(delegates);

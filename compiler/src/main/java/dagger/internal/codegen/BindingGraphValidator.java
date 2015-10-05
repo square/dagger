@@ -253,8 +253,8 @@ public class BindingGraphValidator {
           if (contributionBindings.size() <= 1) {
             return true;
           }
-          ImmutableListMultimap<ContributionType, ContributionBinding> contributionsByType =
-              ContributionBinding.contributionTypesFor(contributionBindings);
+          ImmutableListMultimap<ContributionType, ? extends ContributionBinding>
+              contributionsByType = ContributionBinding.contributionTypesFor(contributionBindings);
           if (contributionsByType.keySet().size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
@@ -326,7 +326,7 @@ public class BindingGraphValidator {
     private boolean hasDuplicateMapKeys(
         Deque<ResolvedRequest> path, Set<? extends ContributionBinding> mapBindings) {
       boolean hasDuplicateMapKeys = false;
-      for (Collection<ContributionBinding> mapBindingsForMapKey :
+      for (Collection<? extends ContributionBinding> mapBindingsForMapKey :
           indexMapBindingsByMapKey(mapBindings).asMap().values()) {
         if (mapBindingsForMapKey.size() > 1) {
           hasDuplicateMapKeys = true;
@@ -342,7 +342,7 @@ public class BindingGraphValidator {
      */
     private boolean hasInconsistentMapKeyAnnotationTypes(
         Deque<ResolvedRequest> path, Set<? extends ContributionBinding> contributionBindings) {
-      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
+      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ? extends ContributionBinding>
           mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(contributionBindings);
       if (mapBindingsByAnnotationType.keySet().size() > 1) {
         reportInconsistentMapKeyAnnotations(path, mapBindingsByAnnotationType);
@@ -799,7 +799,7 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      ImmutableListMultimap<ContributionType, ContributionBinding> bindingsByType =
+      ImmutableListMultimap<ContributionType, ? extends ContributionBinding> bindingsByType =
           ContributionBinding.contributionTypesFor(resolvedBinding.contributionBindings());
       for (ContributionType type :
           Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
@@ -827,14 +827,16 @@ public class BindingGraphValidator {
 
     private void reportInconsistentMapKeyAnnotations(
         Deque<ResolvedRequest> path,
-        Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
+        Multimap<Equivalence.Wrapper<DeclaredType>, ? extends ContributionBinding>
             mapBindingsByAnnotationType) {
       StringBuilder builder =
           new StringBuilder(inconsistentMapKeyAnnotationsError(formatRootRequestKey(path)));
-      for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
-          mapBindingsByAnnotationType.asMap().entrySet()) {
+      for (Map.Entry<
+              Equivalence.Wrapper<DeclaredType>,
+              ? extends Collection<? extends ContributionBinding>>
+          entry : mapBindingsByAnnotationType.asMap().entrySet()) {
         DeclaredType annotationType = entry.getKey().get();
-        Collection<ContributionBinding> bindings = entry.getValue();
+        Collection<? extends ContributionBinding> bindings = entry.getValue();
 
         builder
             .append('\n')
@@ -1112,4 +1114,3 @@ public class BindingGraphValidator {
         }
       };
 }
-
