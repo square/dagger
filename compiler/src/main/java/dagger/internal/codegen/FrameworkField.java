@@ -19,7 +19,6 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
@@ -31,6 +30,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
 import static com.google.common.collect.Iterables.any;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
 /**
@@ -91,7 +91,7 @@ abstract class FrameworkField {
     BindingKey bindingKey = resolvedBindings.bindingKey();
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
-        ImmutableSet<? extends ContributionBinding> contributionBindings =
+        ImmutableSet<ContributionBinding> contributionBindings =
             resolvedBindings.contributionBindings();
         switch (contributionTypeFor(contributionBindings)) {
           case SET:
@@ -101,7 +101,7 @@ abstract class FrameworkField {
                 bindingKey,
                 KeyVariableNamer.INSTANCE.apply(bindingKey.key()));
           case UNIQUE:
-            ContributionBinding binding = Iterables.getOnlyElement(contributionBindings);
+            ContributionBinding binding = getOnlyElement(contributionBindings);
             return createWithTypeFromKey(
                 FrameworkField.frameworkClassForResolvedBindings(resolvedBindings),
                 bindingKey,
@@ -115,7 +115,9 @@ abstract class FrameworkField {
             bindingKey,
             CaseFormat.UPPER_CAMEL.to(
                 CaseFormat.LOWER_CAMEL,
-                Iterables.getOnlyElement(resolvedBindings.bindings())
+                resolvedBindings
+                    .membersInjectionBinding()
+                    .get()
                     .bindingElement()
                     .getSimpleName()
                     .toString()));

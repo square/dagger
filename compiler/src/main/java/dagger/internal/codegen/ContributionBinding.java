@@ -218,7 +218,7 @@ abstract class ContributionBinding extends Binding {
    *
    * @throws IllegalArgumentException if the given bindings are not all of one type
    */
-  static ContributionType contributionTypeFor(Iterable<? extends ContributionBinding> bindings) {
+  static ContributionType contributionTypeFor(Iterable<ContributionBinding> bindings) {
     checkNotNull(bindings);
     checkArgument(!Iterables.isEmpty(bindings), "no bindings");
     Set<ContributionType> types = EnumSet.noneOf(ContributionType.class);
@@ -237,8 +237,8 @@ abstract class ContributionBinding extends Binding {
    * {@link AnnotationValue#getValue()} on a single member or the whole {@link AnnotationMirror}
    * itself, depending on {@link MapKey#unwrapValue()}).
    */
-  static ImmutableSetMultimap<Object, ? extends ContributionBinding> indexMapBindingsByMapKey(
-      Set<? extends ContributionBinding> mapBindings) {
+  static ImmutableSetMultimap<Object, ContributionBinding> indexMapBindingsByMapKey(
+      Set<ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
             mapBindings,
@@ -255,8 +255,8 @@ abstract class ContributionBinding extends Binding {
   /**
    * Indexes map-multibindings by map key annotation type.
    */
-  static ImmutableSetMultimap<Wrapper<DeclaredType>, ? extends ContributionBinding>
-      indexMapBindingsByAnnotationType(Set<? extends ContributionBinding> mapBindings) {
+  static ImmutableSetMultimap<Wrapper<DeclaredType>, ContributionBinding>
+      indexMapBindingsByAnnotationType(Set<ContributionBinding> mapBindings) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
             mapBindings,

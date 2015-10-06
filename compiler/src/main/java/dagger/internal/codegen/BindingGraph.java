@@ -109,29 +109,33 @@ abstract class BindingGraph {
    * {@link ProductionComponent}.
    */
   ImmutableSet<TypeElement> componentRequirements() {
-    return SUBGRAPH_TRAVERSER.preOrderTraversal(this)
-        .transformAndConcat(new Function<BindingGraph, Iterable<ResolvedBindings>>() {
-          @Override
-          public Iterable<ResolvedBindings> apply(BindingGraph input) {
-            return input.resolvedBindings().values();
-          }
-        })
-        .transformAndConcat(new Function<ResolvedBindings, Set<? extends ContributionBinding>>() {
-          @Override
-          public Set<? extends ContributionBinding> apply(ResolvedBindings input) {
-            return (input.bindingKey().kind().equals(CONTRIBUTION))
-                ? input.contributionBindings()
-                : ImmutableSet.<ContributionBinding>of();
-          }
-        })
-        .transformAndConcat(new Function<ContributionBinding, Set<TypeElement>>() {
-          @Override
-          public Set<TypeElement> apply(ContributionBinding input) {
-            return input.bindingElement().getModifiers().contains(STATIC)
-                ? ImmutableSet.<TypeElement>of()
-                : input.contributedBy().asSet();
-          }
-        })
+    return SUBGRAPH_TRAVERSER
+        .preOrderTraversal(this)
+        .transformAndConcat(
+            new Function<BindingGraph, Iterable<ResolvedBindings>>() {
+              @Override
+              public Iterable<ResolvedBindings> apply(BindingGraph input) {
+                return input.resolvedBindings().values();
+              }
+            })
+        .transformAndConcat(
+            new Function<ResolvedBindings, Set<ContributionBinding>>() {
+              @Override
+              public Set<ContributionBinding> apply(ResolvedBindings input) {
+                return (input.bindingKey().kind().equals(CONTRIBUTION))
+                    ? input.contributionBindings()
+                    : ImmutableSet.<ContributionBinding>of();
+              }
+            })
+        .transformAndConcat(
+            new Function<ContributionBinding, Set<TypeElement>>() {
+              @Override
+              public Set<TypeElement> apply(ContributionBinding input) {
+                return input.bindingElement().getModifiers().contains(STATIC)
+                    ? ImmutableSet.<TypeElement>of()
+                    : input.contributedBy().asSet();
+              }
+            })
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())
         .append(componentDescriptor().executorDependency().asSet())
@@ -322,29 +326,24 @@ abstract class BindingGraph {
             if (!explicitBindingsForKey.isEmpty() || !explicitSetBindings.isEmpty()) {
               /* If there are any explicit bindings for this key, then combine those with any
                * conflicting Map<K, Provider<V>> bindings and let the validator fail. */
-              ImmutableSet.Builder<ContributionBinding> ownedBindings = ImmutableSet.builder();
-              ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding>
-                  inheritedBindings = ImmutableSetMultimap.builder();
+              ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> bindings =
+                  ImmutableSetMultimap.builder();
               for (ContributionBinding binding :
                   union(explicitBindingsForKey, union(explicitSetBindings, explicitMapBindings))) {
                 if (isResolvedInParent(request, binding)
                     && !shouldOwnParentBinding(request, binding)) {
-                  inheritedBindings.put(
-                      getOwningResolver(binding).get().componentDescriptor, binding);
+                  bindings.put(getOwningResolver(binding).get().componentDescriptor, binding);
                 } else {
-                  ownedBindings.add(binding);
+                  bindings.put(componentDescriptor, binding);
                 }
               }
-              return ResolvedBindings.create(
-                  bindingKey,
-                  componentDescriptor,
-                  ownedBindings.build(),
-                  inheritedBindings.build());
+              return ResolvedBindings.forContributionBindings(
+                  bindingKey, componentDescriptor, bindings.build());
             } else if (any(explicitMapBindings, Binding.Type.PRODUCTION)) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Producer<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Producer<V>>. */
-              return ResolvedBindings.create(
+              return ResolvedBindings.forContributionBindings(
                   bindingKey,
                   componentDescriptor,
                   productionBindingFactory.implicitMapOfProducerBinding(request));
@@ -352,7 +351,7 @@ abstract class BindingGraph {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Provider<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Provider<V>>. */
-              return ResolvedBindings.create(
+              return ResolvedBindings.forContributionBindings(
                   bindingKey,
                   componentDescriptor,
                   provisionBindingFactory.implicitMapOfProviderBinding(request));
@@ -361,28 +360,23 @@ abstract class BindingGraph {
                * binding. */
               Optional<ProvisionBinding> provisionBinding =
                   injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
-              if (provisionBinding.isPresent()
-                  && isResolvedInParent(request, provisionBinding.get())
-                  && !shouldOwnParentBinding(request, provisionBinding.get())) {
-                return ResolvedBindings.create(
-                    bindingKey,
-                    componentDescriptor,
-                    ImmutableSet.<Binding>of(),
-                    ImmutableSetMultimap.of(
-                        getOwningResolver(provisionBinding.get()).get().componentDescriptor,
-                        provisionBinding.get()));
-              } else {
-                return ResolvedBindings.create(
-                    bindingKey,
-                    componentDescriptor,
-                    provisionBinding.asSet(),
-                    ImmutableSetMultimap.<ComponentDescriptor, Binding>of());
-              }
+              ComponentDescriptor owningComponent =
+                  provisionBinding.isPresent()
+                          && isResolvedInParent(request, provisionBinding.get())
+                          && !shouldOwnParentBinding(request, provisionBinding.get())
+                      ? getOwningResolver(provisionBinding.get()).get().componentDescriptor
+                      : componentDescriptor;
+              return ResolvedBindings.forContributionBindings(
+                  bindingKey,
+                  componentDescriptor,
+                  ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>builder()
+                      .putAll(owningComponent, provisionBinding.asSet())
+                      .build());
             }
 
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
-            return ResolvedBindings.create(
+            return ResolvedBindings.forMembersInjectionBinding(
                 bindingKey, componentDescriptor, rollUpMembersInjectionBindings(bindingKey.key()));
           default:
             throw new AssertionError();

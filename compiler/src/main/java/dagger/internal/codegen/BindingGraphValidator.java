@@ -236,7 +236,7 @@ public class BindingGraphValidator {
 
       switch (resolvedBinding.bindingKey().kind()) {
         case CONTRIBUTION:
-          ImmutableSet<? extends ContributionBinding> contributionBindings =
+          ImmutableSet<ContributionBinding> contributionBindings =
               resolvedBinding.contributionBindings();
           if (any(contributionBindings, Binding.Type.MEMBERS_INJECTION)) {
             throw new IllegalArgumentException(
@@ -253,8 +253,8 @@ public class BindingGraphValidator {
           if (contributionBindings.size() <= 1) {
             return true;
           }
-          ImmutableListMultimap<ContributionType, ? extends ContributionBinding>
-              contributionsByType = ContributionBinding.contributionTypesFor(contributionBindings);
+          ImmutableListMultimap<ContributionType, ContributionBinding> contributionsByType =
+              ContributionBinding.contributionTypesFor(contributionBindings);
           if (contributionsByType.keySet().size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
@@ -292,7 +292,7 @@ public class BindingGraphValidator {
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
     private boolean validateNullability(
-        DependencyRequest request, Set<? extends ContributionBinding> bindings) {
+        DependencyRequest request, Set<ContributionBinding> bindings) {
       if (request.isNullable()) {
         return true;
       }
@@ -324,9 +324,9 @@ public class BindingGraphValidator {
      * for the same map key.
      */
     private boolean hasDuplicateMapKeys(
-        Deque<ResolvedRequest> path, Set<? extends ContributionBinding> mapBindings) {
+        Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
       boolean hasDuplicateMapKeys = false;
-      for (Collection<? extends ContributionBinding> mapBindingsForMapKey :
+      for (Collection<ContributionBinding> mapBindingsForMapKey :
           indexMapBindingsByMapKey(mapBindings).asMap().values()) {
         if (mapBindingsForMapKey.size() > 1) {
           hasDuplicateMapKeys = true;
@@ -341,8 +341,8 @@ public class BindingGraphValidator {
      * {@link MapKey} annotation type.
      */
     private boolean hasInconsistentMapKeyAnnotationTypes(
-        Deque<ResolvedRequest> path, Set<? extends ContributionBinding> contributionBindings) {
-      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ? extends ContributionBinding>
+        Deque<ResolvedRequest> path, Set<ContributionBinding> contributionBindings) {
+      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
           mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(contributionBindings);
       if (mapBindingsByAnnotationType.keySet().size() > 1) {
         reportInconsistentMapKeyAnnotations(path, mapBindingsByAnnotationType);
@@ -782,7 +782,8 @@ public class BindingGraphValidator {
           Iterables.limit(resolvedBinding.contributionBindings(), DUPLICATE_SIZE_LIMIT)) {
         builder.append('\n').append(INDENT).append(contributionBindingFormatter.format(binding));
       }
-      int numberOfOtherBindings = resolvedBinding.bindings().size() - DUPLICATE_SIZE_LIMIT;
+      int numberOfOtherBindings =
+          resolvedBinding.contributionBindings().size() - DUPLICATE_SIZE_LIMIT;
       if (numberOfOtherBindings > 0) {
         builder.append('\n').append(INDENT)
             .append("and ").append(numberOfOtherBindings).append(" other");
@@ -799,7 +800,7 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      ImmutableListMultimap<ContributionType, ? extends ContributionBinding> bindingsByType =
+      ImmutableListMultimap<ContributionType, ContributionBinding> bindingsByType =
           ContributionBinding.contributionTypesFor(resolvedBinding.contributionBindings());
       for (ContributionType type :
           Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
@@ -818,7 +819,7 @@ public class BindingGraphValidator {
     }
 
     private void reportDuplicateMapKeys(
-        Deque<ResolvedRequest> path, Collection<? extends ContributionBinding> mapBindings) {
+        Deque<ResolvedRequest> path, Collection<ContributionBinding> mapBindings) {
       StringBuilder builder = new StringBuilder();
       builder.append(duplicateMapKeysError(formatRootRequestKey(path)));
       appendBindings(builder, mapBindings, 1);
@@ -827,16 +828,14 @@ public class BindingGraphValidator {
 
     private void reportInconsistentMapKeyAnnotations(
         Deque<ResolvedRequest> path,
-        Multimap<Equivalence.Wrapper<DeclaredType>, ? extends ContributionBinding>
+        Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
             mapBindingsByAnnotationType) {
       StringBuilder builder =
           new StringBuilder(inconsistentMapKeyAnnotationsError(formatRootRequestKey(path)));
-      for (Map.Entry<
-              Equivalence.Wrapper<DeclaredType>,
-              ? extends Collection<? extends ContributionBinding>>
-          entry : mapBindingsByAnnotationType.asMap().entrySet()) {
+      for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
+          mapBindingsByAnnotationType.asMap().entrySet()) {
         DeclaredType annotationType = entry.getKey().get();
-        Collection<? extends ContributionBinding> bindings = entry.getValue();
+        Collection<ContributionBinding> bindings = entry.getValue();
 
         builder
             .append('\n')
@@ -1068,7 +1067,7 @@ public class BindingGraphValidator {
   }
 
   private void appendBindings(
-      StringBuilder builder, Collection<? extends ContributionBinding> bindings, int indentLevel) {
+      StringBuilder builder, Collection<ContributionBinding> bindings, int indentLevel) {
     for (ContributionBinding binding : Iterables.limit(bindings, DUPLICATE_SIZE_LIMIT)) {
       builder.append('\n');
       for (int i = 0; i < indentLevel; i++) {
@@ -1097,12 +1096,10 @@ public class BindingGraphValidator {
     static ResolvedRequest create(DependencyRequest request, BindingGraph graph) {
       BindingKey bindingKey = request.bindingKey();
       ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-      return new AutoValue_BindingGraphValidator_ResolvedRequest(request,
+      return new AutoValue_BindingGraphValidator_ResolvedRequest(
+          request,
           resolvedBindings == null
-              ? ResolvedBindings.create(bindingKey,
-                  graph.componentDescriptor(),
-                  ImmutableSet.<Binding>of(),
-                  ImmutableSetMultimap.<ComponentDescriptor, Binding>of())
+              ? ResolvedBindings.noBindings(bindingKey, graph.componentDescriptor())
               : resolvedBindings);
     }
   }

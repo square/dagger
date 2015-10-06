@@ -469,7 +469,8 @@ abstract class AbstractComponentWriter {
     BindingKey bindingKey = resolvedBindings.bindingKey();
 
     // No field needed for unique contributions inherited from the parent.
-    if (resolvedBindings.isUniqueContribution() && resolvedBindings.ownedBindings().isEmpty()) {
+    if (resolvedBindings.isUniqueContribution()
+        && resolvedBindings.ownedContributionBindings().isEmpty()) {
       return;
     }
 
@@ -522,7 +523,7 @@ abstract class AbstractComponentWriter {
     }
 
     if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
-      ImmutableSet<? extends ContributionBinding> contributionBindings =
+      ImmutableSet<ContributionBinding> contributionBindings =
           resolvedBindings.contributionBindings();
       if (ContributionBinding.contributionTypeFor(contributionBindings).isMultibinding()) {
         // note that here we rely on the order of the resolved bindings being from parent to child
@@ -531,7 +532,7 @@ abstract class AbstractComponentWriter {
         for (ContributionBinding contributionBinding : contributionBindings) {
           if (!contributionBinding.isSyntheticBinding()) {
             contributionNumber++;
-            if (resolvedBindings.ownedBindings().contains(contributionBinding)) {
+            if (resolvedBindings.ownedContributionBindings().contains(contributionBinding)) {
               FrameworkField contributionBindingField =
                   FrameworkField.createForSyntheticContributionBinding(
                       contributionNumber, contributionBinding);
@@ -576,11 +577,11 @@ abstract class AbstractComponentWriter {
    * injector.
    */
   private Optional<MemberSelect> staticMemberSelect(ResolvedBindings resolvedBindings) {
-    if (resolvedBindings.bindings().size() != 1) {
-      return Optional.absent();
-    }
     switch (resolvedBindings.bindingKey().kind()) {
       case CONTRIBUTION:
+        if (resolvedBindings.contributionBindings().size() != 1) {
+          return Optional.absent();
+        }
         ContributionBinding contributionBinding =
             getOnlyElement(resolvedBindings.contributionBindings());
         if (contributionBinding.contributionType().isMultibinding()
@@ -596,9 +597,10 @@ abstract class AbstractComponentWriter {
         break;
 
       case MEMBERS_INJECTION:
-        if (getOnlyElement(resolvedBindings.membersInjectionBindings())
-            .injectionStrategy()
-            .equals(NO_OP)) {
+        Optional<MembersInjectionBinding> membersInjectionBinding =
+            resolvedBindings.membersInjectionBinding();
+        if (membersInjectionBinding.isPresent()
+            && membersInjectionBinding.get().injectionStrategy().equals(NO_OP)) {
           return Optional.of(
               staticMethodInvocationWithCast(
                   ClassName.fromClass(MembersInjectors.class),
@@ -850,7 +852,7 @@ abstract class AbstractComponentWriter {
   private Snippet initializeMembersInjectionBinding(ResolvedBindings resolvedBindings) {
     ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
 
-    MembersInjectionBinding binding = getOnlyElement(resolvedBindings.membersInjectionBindings());
+    MembersInjectionBinding binding = resolvedBindings.membersInjectionBinding().get();
     if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
       initializationSnippets.add(initializeDelegateFactories(binding));
       initializationSnippets.add(
@@ -1128,7 +1130,7 @@ abstract class AbstractComponentWriter {
     return parameters.build();
   }
 
-  private Snippet initializeMapBinding(Set<? extends ContributionBinding> bindings) {
+  private Snippet initializeMapBinding(Set<ContributionBinding> bindings) {
     // Get type information from the first binding.
     ContributionBinding firstBinding = bindings.iterator().next();
     DeclaredType mapType = asDeclared(firstBinding.key().type());

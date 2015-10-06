@@ -16,11 +16,15 @@
 package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
@@ -31,63 +35,168 @@ import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
  */
 @AutoValue
 abstract class ResolvedBindings {
+  /**
+   * The binding key for which the {@link #bindings()} have been resolved.
+   */
   abstract BindingKey bindingKey();
-  abstract ComponentDescriptor owningComponent();
-  abstract ImmutableSet<? extends Binding> ownedBindings();
-  abstract ImmutableSetMultimap<ComponentDescriptor, ? extends Binding> inheritedBindings();
 
-  static ResolvedBindings create(
-      BindingKey bindingKey,
-      ComponentDescriptor owningComponent,
-      Set<? extends Binding> ownedBindings,
-      Multimap<ComponentDescriptor, ? extends Binding> inheritedBindings) {
-    return new AutoValue_ResolvedBindings(
-            bindingKey,
-            owningComponent,
-            ImmutableSet.copyOf(ownedBindings),
-            ImmutableSetMultimap.copyOf(inheritedBindings));
+  /**
+   * The component in which the bindings in {@link #ownedBindings()},
+   * {@link #ownedContributionBindings()}, and {@link #ownedMembersInjectionBinding()} were
+   * resolved.
+   */
+  abstract ComponentDescriptor owningComponent();
+
+  /**
+   * The contribution bindings for {@link #bindingKey()} that were resolved in
+   * {@link #owningComponent()} or its ancestor components, keyed by the component in which the
+   * binding was resolved. If {@link #bindingKey()}'s kind is not
+   * {@link BindingKey.Kind#CONTRIBUTION}, this is empty.
+   */
+  abstract ImmutableSetMultimap<ComponentDescriptor, ContributionBinding> allContributionBindings();
+
+  /**
+   * The members-injection bindings for {@link #bindingKey()} that were resolved in
+   * {@link #owningComponent()} or its ancestor components, keyed by the component in which the
+   * binding was resolved. If {@link #bindingKey()}'s kind is not
+   * {@link BindingKey.Kind#MEMBERS_INJECTION}, this is empty.
+   */
+  abstract ImmutableMap<ComponentDescriptor, MembersInjectionBinding> allMembersInjectionBindings();
+
+  /**
+   * All bindings for {@link #bindingKey()}, regardless of in which component they were resolved.
+   */
+  ImmutableSet<? extends Binding> bindings() {
+    switch (bindingKey().kind()) {
+      case CONTRIBUTION:
+        return contributionBindings();
+
+      case MEMBERS_INJECTION:
+        return ImmutableSet.copyOf(membersInjectionBinding().asSet());
+
+      default:
+        throw new AssertionError(bindingKey());
+    }
   }
 
-  static ResolvedBindings create(
+  /**
+   * All bindings for {@link #bindingKey()} that were resolved in {@link #owningComponent()}.
+   */
+  ImmutableSet<? extends Binding> ownedBindings() {
+    switch (bindingKey().kind()) {
+      case CONTRIBUTION:
+        return ownedContributionBindings();
+
+      case MEMBERS_INJECTION:
+        return ImmutableSet.copyOf(ownedMembersInjectionBinding().asSet());
+
+      default:
+        throw new AssertionError(bindingKey());
+    }
+  }
+
+  /**
+   * All contribution bindings, regardless of owning component.
+   *
+   * @throws IllegalStateException if {@link #bindingKey()} is not a
+   * {@link BindingKey.Kind#CONTRIBUTION}.
+   */
+  ImmutableSet<ContributionBinding> contributionBindings() {
+    checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
+    return ImmutableSet.copyOf(allContributionBindings().values());
+  }
+
+  /**
+   * The contribution bindings that were resolved in {@link #owningComponent()}.
+   *
+   * @throws IllegalStateException if {@link #bindingKey()} is not a
+   * {@link BindingKey.Kind#CONTRIBUTION}.
+   */
+  ImmutableSet<ContributionBinding> ownedContributionBindings() {
+    checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
+    return allContributionBindings().get(owningComponent());
+  }
+
+  /**
+   * The members-injection binding, regardless of owning component.
+   *
+   * @throws IllegalStateException if {@link #bindingKey()} is not a
+   * {@link BindingKey.Kind#MEMBERS_INJECTION}.
+   */
+  Optional<MembersInjectionBinding> membersInjectionBinding() {
+    checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
+    ImmutableSet<MembersInjectionBinding> membersInjectionBindings =
+        FluentIterable.from(allMembersInjectionBindings().values()).toSet();
+    return membersInjectionBindings.isEmpty()
+        ? Optional.<MembersInjectionBinding>absent()
+        : Optional.of(Iterables.getOnlyElement(membersInjectionBindings));
+  }
+
+  /**
+   * The members-injection binding that was resolved in {@link #owningComponent()}.
+   *
+   * @throws IllegalStateException if {@link #bindingKey()} is not a
+   * {@link BindingKey.Kind#MEMBERS_INJECTION}.
+   */
+  Optional<MembersInjectionBinding> ownedMembersInjectionBinding() {
+    checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
+    return Optional.fromNullable(allMembersInjectionBindings().get(owningComponent()));
+  }
+
+  /**
+   * Creates a {@link ResolvedBindings} for contribution bindings.
+   */
+  static ResolvedBindings forContributionBindings(
       BindingKey bindingKey,
       ComponentDescriptor owningComponent,
-      Binding... ownedBindings) {
+      Multimap<ComponentDescriptor, ? extends ContributionBinding> contributionBindings) {
+    checkArgument(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION));
     return new AutoValue_ResolvedBindings(
         bindingKey,
         owningComponent,
-        ImmutableSet.copyOf(ownedBindings),
-        ImmutableSetMultimap.<ComponentDescriptor, Binding>of());
+        ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>copyOf(contributionBindings),
+        ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of());
   }
 
-  ImmutableSet<? extends Binding> bindings() {
-     return new ImmutableSet.Builder<Binding>()
-         .addAll(ownedBindings())
-         .addAll(inheritedBindings().values())
-         .build();
+  /**
+   * Creates a {@link ResolvedBindings} for contribution bindings.
+   */
+  static ResolvedBindings forContributionBindings(
+      BindingKey bindingKey,
+      ComponentDescriptor owningComponent,
+      ContributionBinding... ownedContributionBindings) {
+    return forContributionBindings(
+        bindingKey,
+        owningComponent,
+        ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>builder()
+            .putAll(owningComponent, ownedContributionBindings)
+            .build());
   }
 
-  @SuppressWarnings("unchecked")  // checked by validator
-  ImmutableSet<? extends ContributionBinding> ownedContributionBindings() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
-    return (ImmutableSet<? extends ContributionBinding>) ownedBindings();
+  /**
+   * Creates a {@link ResolvedBindings} for members injection bindings.
+   */
+  static ResolvedBindings forMembersInjectionBinding(
+      BindingKey bindingKey,
+      ComponentDescriptor owningComponent,
+      MembersInjectionBinding ownedMembersInjectionBinding) {
+    checkArgument(bindingKey.kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
+    return new AutoValue_ResolvedBindings(
+        bindingKey,
+        owningComponent,
+        ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>of(),
+        ImmutableMap.of(owningComponent, ownedMembersInjectionBinding));
   }
 
-  @SuppressWarnings("unchecked")  // checked by validator
-  ImmutableSet<? extends ContributionBinding> contributionBindings() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION));
-    return new ImmutableSet.Builder<ContributionBinding>()
-        .addAll((Iterable<? extends ContributionBinding>) ownedBindings())
-        .addAll((Iterable<? extends ContributionBinding>) inheritedBindings().values())
-        .build();
-  }
-
-  @SuppressWarnings("unchecked")  // checked by validator
-  ImmutableSet<? extends MembersInjectionBinding> membersInjectionBindings() {
-    checkState(bindingKey().kind().equals(BindingKey.Kind.MEMBERS_INJECTION));
-    return new ImmutableSet.Builder<MembersInjectionBinding>()
-        .addAll((Iterable<? extends MembersInjectionBinding>) ownedBindings())
-        .addAll((Iterable<? extends MembersInjectionBinding>) inheritedBindings().values())
-        .build();
+  /**
+   * Creates a {@link ResolvedBindings} appropriate for when there are no bindings for the key.
+   */
+  static ResolvedBindings noBindings(BindingKey bindingKey, ComponentDescriptor owningComponent) {
+    return new AutoValue_ResolvedBindings(
+        bindingKey,
+        owningComponent,
+        ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>of(),
+        ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of());
   }
 
   /**
@@ -95,14 +204,8 @@ abstract class ResolvedBindings {
    * as this one, but no {@link #ownedBindings()}.
    */
   ResolvedBindings asInheritedIn(ComponentDescriptor owningComponent) {
-    return ResolvedBindings.create(
-            bindingKey(),
-            owningComponent,
-            ImmutableSet.<Binding>of(),
-            new ImmutableSetMultimap.Builder<ComponentDescriptor, Binding>()
-                .putAll(inheritedBindings())
-                .putAll(owningComponent, ownedBindings())
-                .build());
+    return new AutoValue_ResolvedBindings(
+        bindingKey(), owningComponent, allContributionBindings(), allMembersInjectionBindings());
   }
 
   /**
