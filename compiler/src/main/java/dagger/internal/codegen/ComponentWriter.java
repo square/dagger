@@ -34,6 +34,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.MembersInjector;
+import dagger.internal.DelegateFactory;
 import dagger.internal.Factory;
 import dagger.internal.InstanceFactory;
 import dagger.internal.MapFactory;
@@ -128,6 +129,8 @@ class ComponentWriter {
   protected ImmutableSet<BindingKey> enumBindingKeys;
   protected ConstructorWriter constructorWriter;
   protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
+  private final Set<BindingKey> bindingKeysWithInitializedProviders = Sets.newHashSet();
+  private final Set<BindingKey> bindingKeysWithDelegates = Sets.newHashSet();
 
   ComponentWriter(
       Types types,
@@ -604,7 +607,7 @@ class ComponentWriter {
       } else {
         constructorWriter.body().addSnippet("%s();", initializeMethod.name());
       }
-
+      bindingKeysWithDelegates.clear();
       for (BindingKey bindingKey : partitions.get(i)) {
         Snippet memberSelectSnippet = getMemberSelectSnippet(bindingKey);
         ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
@@ -669,6 +672,7 @@ class ComponentWriter {
                   ContributionBinding binding = Iterables.getOnlyElement(bindings);
                   if (binding instanceof ProvisionBinding) {
                     ProvisionBinding provisionBinding = (ProvisionBinding) binding;
+                    initializeDelegateFactories(binding, initializeMethod);
                     if (!provisionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
                         || provisionBinding.scope().isPresent()) {
                       initializeMethod.body().addSnippet("this.%s = %s;",
@@ -693,15 +697,60 @@ class ComponentWriter {
             MembersInjectionBinding binding = Iterables.getOnlyElement(
                 resolvedBindings.membersInjectionBindings());
             if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
+              initializeDelegateFactories(binding, initializeMethod);
               initializeMethod.body().addSnippet("this.%s = %s;",
-                  memberSelectSnippet, initializeMembersInjectorForBinding(binding));
+                  memberSelectSnippet, 
+                  initializeMembersInjectorForBinding(binding));
             }
             break;
           default:
             throw new AssertionError();
         }
+        bindingKeysWithInitializedProviders.add(bindingKey);
+      }
+      for (BindingKey key : bindingKeysWithDelegates) {
+        initializeMethod.body().addSnippet(
+                "%s.setDelegatedProvider(%s);",
+                delegateFactoryVariableSnippet(key),
+                getMemberSelectSnippet(key));
       }
     }
+  }
+  
+  private void initializeDelegateFactories(Binding binding, MethodWriter initializeMethod) {
+    for (Collection<DependencyRequest> requestsForKey :
+        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.dependencies())
+            .asMap()
+            .values()) {
+      BindingKey dependencyKey =
+          Iterables.getOnlyElement(
+                  FluentIterable.from(requestsForKey)
+                      .transform(
+                          new Function<DependencyRequest, BindingKey>() {
+                            @Override
+                            public BindingKey apply(DependencyRequest request) {
+                              return request.bindingKey();
+                            }
+                          })
+                      .toSet());
+      if (!getMemberSelect(dependencyKey).staticMember()
+          && !bindingKeysWithInitializedProviders.contains(dependencyKey)
+          && !bindingKeysWithDelegates.contains(dependencyKey)) {
+        initializeMethod
+            .body()
+            .addSnippet(
+                "%s %s = new %s();",
+                ClassName.fromClass(DelegateFactory.class),
+                delegateFactoryVariableSnippet(dependencyKey),
+                ClassName.fromClass(DelegateFactory.class));
+        bindingKeysWithDelegates.add(dependencyKey);
+      }
+    }
+  }
+  
+  private Snippet delegateFactoryVariableSnippet(BindingKey key){
+    return Snippet.format(
+        "%sDelegate", getMemberSelectSnippet(key).toString().replace('.', '_'));
   }
 
   private Snippet initializeFactoryForContributionBinding(ContributionBinding binding) {
@@ -876,7 +925,11 @@ class ComponentWriter {
             }
           })
           .toSet());
-      parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
+      if (bindingKeysWithDelegates.contains(key)) {
+        parameters.add(delegateFactoryVariableSnippet(key));
+      } else {
+        parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
+      }
     }
     return parameters.build();
   }
@@ -943,3 +996,4 @@ class ComponentWriter {
     return Snippet.join(Joiner.on('\n'), snippets.build());
   }
 }
+

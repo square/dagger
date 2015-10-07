@@ -40,6 +40,7 @@ import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -57,6 +59,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
+import javax.tools.Diagnostic.Kind;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.isTypeOf;
@@ -699,19 +702,26 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
       reportBuilder.addItem(builder.toString(), path.getLast().request().requestElement());
     }
 
-    private void reportCycle(DependencyRequest request, Deque<ResolvedRequest> path) {
+    private void reportCycle(DependencyRequest request, Deque<ResolvedRequest> bindingPath) {
       ImmutableList<DependencyRequest> pathElements = ImmutableList.<DependencyRequest>builder()
           .add(request)
-          .addAll(Iterables.transform(path, REQUEST_FROM_RESOLVED_REQUEST))
+          .addAll(Iterables.transform(bindingPath, REQUEST_FROM_RESOLVED_REQUEST))
           .build();
       ImmutableList<String> printableDependencyPath = FluentIterable.from(pathElements)
           .transform(dependencyRequestFormatter)
           .filter(Predicates.not(Predicates.equalTo("")))
           .toList()
           .reverse();
-      DependencyRequest rootRequest = path.getLast().request();
+      DependencyRequest rootRequest = bindingPath.getLast().request();
       TypeElement componentType =
           MoreElements.asType(rootRequest.requestElement().getEnclosingElement());
+      Kind kind = cycleHasProviderOrLazy(pathElements) ? Kind.WARNING : Kind.ERROR;
+      Element requestElement = rootRequest.requestElement();
+      if (kind == Kind.WARNING 
+          && (suppressCycleWarnings(requestElement) 
+              || suppressCycleWarnings(requestElement.getEnclosingElement()))) {
+        return;
+      }
       // TODO(cgruber): Restructure to provide a hint for the start and end of the cycle.
       reportBuilder.addItem(
           String.format(ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
@@ -719,8 +729,24 @@ public class BindingGraphValidator implements Validator<BindingGraph> {
               rootRequest.requestElement().getSimpleName(),
               Joiner.on("\n")
                   .join(printableDependencyPath.subList(1, printableDependencyPath.size()))),
+          kind,
           rootRequest.requestElement());
     }
+
+    private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> pathElements) {
+      for (DependencyRequest dependencyRequest : pathElements) {
+        if (dependencyRequest.kind() == DependencyRequest.Kind.PROVIDER
+            || dependencyRequest.kind() == DependencyRequest.Kind.LAZY) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  private boolean suppressCycleWarnings(Element requestElement) {
+    SuppressWarnings suppressions = requestElement.getAnnotation(SuppressWarnings.class);
+    return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
   }
 
   @Override

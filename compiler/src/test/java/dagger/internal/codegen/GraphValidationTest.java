@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -233,10 +234,103 @@ public class GraphValidationTest {
 
     assertAbout(javaSource()).that(component)
         .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(expectedError).in(component).onLine(26);
+        .failsToCompile().withErrorContaining(expectedError).in(component).onLine(26);
   }
 
+  @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarning() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(B bParam) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(C bParam, D dParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(Provider<A> aParam) {}",
+            "  }",
+            "",
+            "  static class D {",
+            "    @Inject D() {}",
+            "  }",
+            "",
+            "  @Component()",
+            "  interface CComponent {",
+            "    C get();",
+            "  }",
+            "}");
+
+    /* String expectedWarning =
+     "test.Outer.CComponent.get() contains a dependency cycle:"
+     + "      test.Outer.C.<init>(javax.inject.Provider<test.Outer.A> aParam)"
+     + "          [parameter: javax.inject.Provider<test.Outer.A> aParam]"
+     + "      test.Outer.A.<init>(test.Outer.B bParam)"
+     + "          [parameter: test.Outer.B bParam]"
+     + "      test.Outer.B.<init>(test.Outer.C bParam, test.Outer.D dParam)"
+     + "          [parameter: test.Outer.C bParam]";
+     */
+    assertAbout(javaSource()) // TODO(cgruber): Implement warning checks.
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+        //.withWarningContaining(expectedWarning).in(component).onLine(X);
+  }
+
+  @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarningSuppressed() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(B bParam) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(C bParam, D dParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(Provider<A> aParam) {}",
+            "  }",
+            "",
+            "  static class D {",
+            "    @Inject D() {}",
+            "  }",
+            "",
+            "  @SuppressWarnings(\"dependency-cycle\")",
+            "  @Component()",
+            "  interface CComponent {",
+            "    C get();",
+            "  }",
+            "}");
+
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+        //.compilesWithoutWarning(); //TODO(cgruber)
+  }
+  
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -320,7 +414,7 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(24);
   }
-
+  
   @Test public void duplicateExplicitBindings_MultipleProvisionTypes() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -391,7 +485,7 @@ public class GraphValidationTest {
         .withErrorContaining(expectedSetError).in(component).onLine(43)
         .and().withErrorContaining(expectedMapError).in(component).onLine(44);
   }
-
+  
   @Test public void duplicateBindings_TruncateAfterLimit() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
