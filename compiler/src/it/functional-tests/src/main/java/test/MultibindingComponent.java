@@ -33,6 +33,7 @@ import test.sub.ContributionsModule;
 )
 interface MultibindingComponent {
   Map<String, String> map();
+  Map<String, String[]> mapOfArrays();
   Map<String, Provider<String>> mapOfProviders();
   Set<String> mapKeys();
   Collection<String> mapValues();

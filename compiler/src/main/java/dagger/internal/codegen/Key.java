@@ -335,7 +335,7 @@ abstract class Key {
         DeclaredType declaredMapType = MoreTypes.asDeclared(possibleMapKey.type());
         TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
         if (!MoreTypes.isTypeOf(wrappingClass, mapValueType)) {
-          DeclaredType keyType = Util.getKeyTypeOfMap(declaredMapType);
+          TypeMirror keyType = Util.getKeyTypeOfMap(declaredMapType);
           TypeElement wrappingElement = getClassElement(wrappingClass);
           if (wrappingElement == null) {
             // This target might not be compiled with Producers, so wrappingClass might not have an

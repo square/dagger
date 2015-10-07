@@ -46,6 +46,18 @@ class MultibindingModule {
     return "bar value";
   }
 
+  @Provides(type = MAP)
+  @StringKey("foo")
+  static String[] provideFooArrayValue(double doubleDependency) {
+    return new String[] {"foo1", "foo2"};
+  }
+
+  @Provides(type = MAP)
+  @StringKey("bar")
+  static String[] provideBarArrayValue() {
+    return new String[] {"bar1", "bar2"};
+  }
+
   @Provides(type = SET)
   static int provideFiveToSet() {
     return 5;

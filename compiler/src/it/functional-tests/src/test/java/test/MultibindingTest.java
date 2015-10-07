@@ -49,6 +49,15 @@ public class MultibindingTest {
     assertThat(map).containsEntry("bar", "bar value");
   }
 
+  @Test public void mapOfArrays() {
+    Map<String, String[]> map = multibindingComponent.mapOfArrays();
+    assertThat(map).hasSize(2);
+    assertThat(map).containsKey("foo");
+    assertThat(map.get("foo")).asList().containsExactly("foo1", "foo2").inOrder();
+    assertThat(map).containsKey("bar");
+    assertThat(map.get("bar")).asList().containsExactly("bar1", "bar2").inOrder();
+  }
+
   @Test public void mapOfProviders() {
     Map<String, Provider<String>> mapOfProviders = multibindingComponent.mapOfProviders();
     assertThat(mapOfProviders).hasSize(2);

@@ -22,7 +22,6 @@ import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import dagger.producers.Produced;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
@@ -47,31 +46,29 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 final class Util {
   /**
-   * Returns the {@code V} type for a {@link Map} type like Map<K, Provider<V>>} if the map
+   * Returns the {@code V} type for a {@link Map} type like {@code Map<K, Provider<V>>} if the map
    * includes such a construction
    */
-  public static DeclaredType getProvidedValueTypeOfMap(DeclaredType mapType) {
+  public static TypeMirror getProvidedValueTypeOfMap(DeclaredType mapType) {
     checkState(MoreTypes.isTypeOf(Map.class, mapType), "%s is not a Map.", mapType);
-    return asDeclared(asDeclared(mapType.getTypeArguments().get(1)).getTypeArguments().get(0));
+    return asDeclared(mapType.getTypeArguments().get(1)).getTypeArguments().get(0);
   }
 
   // TODO(cgruber): Consider an object that holds and exposes the various parts of a Map type.
   /**
    * returns the value type for a {@link Map} type like Map<K, V>}.
    */
-  public static DeclaredType getValueTypeOfMap(DeclaredType mapType) {
+  public static TypeMirror getValueTypeOfMap(DeclaredType mapType) {
     checkState(MoreTypes.isTypeOf(Map.class, mapType), "%s is not a Map.", mapType);
-    List<? extends TypeMirror> mapArgs = mapType.getTypeArguments();
-    return asDeclared(mapArgs.get(1));
+    return mapType.getTypeArguments().get(1);
   }
 
   /**
    * Returns the key type for a {@link Map} type like Map<K, Provider<V>>}
    */
-  public static DeclaredType getKeyTypeOfMap(DeclaredType mapType) {
+  public static TypeMirror getKeyTypeOfMap(DeclaredType mapType) {
     checkState(MoreTypes.isTypeOf(Map.class, mapType), "%s is not a Map.", mapType);
-    List<? extends TypeMirror> mapArgs = mapType.getTypeArguments();
-    return MoreTypes.asDeclared(mapArgs.get(0));
+    return mapType.getTypeArguments().get(0);
   }
 
   /**
