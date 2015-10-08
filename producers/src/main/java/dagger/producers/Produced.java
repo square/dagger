@@ -64,7 +64,7 @@ public abstract class Produced<T> {
 
   /** Returns a successful {@code Produced}, whose {@link #get} will return the given value. */
   public static <T> Produced<T> successful(@Nullable T value) {
-    return new Successful(value);
+    return new Successful<T>(value);
   }
 
   /**
@@ -72,7 +72,7 @@ public abstract class Produced<T> {
    * {@code ExecutionException} with the given cause.
    */
   public static <T> Produced<T> failed(Throwable throwable) {
-    return new Failed(checkNotNull(throwable));
+    return new Failed<T>(checkNotNull(throwable));
   }
 
   private static final class Successful<T> extends Produced<T> {
@@ -90,7 +90,7 @@ public abstract class Produced<T> {
       if (o == this) {
         return true;
       } else if (o instanceof Successful) {
-        Successful that = (Successful) o;
+        Successful<?> that = (Successful<?>) o;
         return Objects.equal(this.value, that.value);
       } else {
         return false;
@@ -117,7 +117,7 @@ public abstract class Produced<T> {
       if (o == this) {
         return true;
       } else if (o instanceof Failed) {
-        Failed that = (Failed) o;
+        Failed<?> that = (Failed<?>) o;
         return this.throwable.equals(that.throwable);
       } else {
         return false;

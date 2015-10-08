@@ -15,24 +15,27 @@
  */
 package dagger.producers.monitoring;
 
+import dagger.producers.Produces;
+
 /**
  * A hook for monitoring the execution of individual {@linkplain Produces producer methods}. See
  * {@link ProductionComponentMonitor} for how to install these monitors.
  *
  * <p>The lifecycle of the monitor is:
  * <ul>
- *   <li>{@link #methodStarting}
+ *   <li>{@link #methodStarting()}
  *   <li>The method is called
- *   <li>{@link #methodFinished}
+ *   <li>{@link #methodFinished()}
  *   <li>If the method returns a value, then:
  *   <ul>
- *     <li>{#succeeded} if the method returned normally; or
- *     <li>{#failed} if the method threw an exception.
+ *     <li>{@link #succeeded(Object)} if the method returned normally; or
+ *     <li>{@link #failed(Throwable)} if the method threw an exception.
  *   </ul>
  *   <li>If the method returns a future, then:
  *   <ul>
- *     <li>{#succeeded} if the method returned normally, and the future succeeded; or
- *     <li>{#failed} if the method threw an exception, or returned normally and the future failed.
+ *     <li>{@link #succeeded(Object)} if the method returned normally, and the future succeeded; or
+ *     <li>{@link #failed(Throwable)} if the method threw an exception, or returned normally and the
+ *         future failed.
  *   </ul>
  * </ul>
  *
@@ -45,33 +48,32 @@ public abstract class ProducerMonitor {
   /**
    * Called when the producer method is about to start executing.
    *
-   * <p>When multiple monitors are installed, the order that each monitor will call
-   * {@code methodWillStart} is unspecified, but will remain consistent throughout the course of the
-   * execution of a component.
+   * <p>When multiple monitors are installed, the order that each monitor will call this method is
+   * unspecified, but will remain consistent throughout the course of the execution of a component.
    */
   public void methodStarting() {}
 
   /**
    * Called when the producer method has finished executing.
    *
-   * <p>When multiple monitors are installed, the {@code methodFinished} calls will be in the
-   * reverse order from the {@link #methodWillStart} calls.
+   * <p>When multiple monitors are installed, calls to this method will be in the reverse order from
+   * calls to {@link #methodStarting()}.
    */
   public void methodFinished() {}
 
   /**
    * Called when the producer’s future has completed successfully with a value.
    *
-   * <p>When multiple monitors are installed, the {@code futureSucceeded} calls will be in the
-   * reverse order from the {@link #methodWillStart} calls.
+   * <p>When multiple monitors are installed, calls to this method will be in the reverse order from
+   * calls to {@link #methodStarting()}.
    */
   public void succeeded(Object o) {}
 
   /**
    * Called when the producer's future has failed with an exception.
    *
-   * <p>When multiple monitors are installed, the {@code futureFailed} calls will be in the reverse
-   * order from the {@link #methodWillStart} calls.
+   * <p>When multiple monitors are installed, calls to this method will be in the reverse order from
+   * calls to {@link #methodStarting()}.
    */
   public void failed(Throwable t) {}
 }

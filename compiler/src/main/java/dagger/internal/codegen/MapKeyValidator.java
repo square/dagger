@@ -28,7 +28,7 @@ import static dagger.internal.codegen.ErrorMessages.UNWRAPPED_MAP_KEY_WITH_TOO_M
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
- * A {@link Validator} for {@link MapKey} annotations.
+ * A validator for {@link MapKey} annotations.
  *
  * @author Chenying Hou
  * @since 2.0

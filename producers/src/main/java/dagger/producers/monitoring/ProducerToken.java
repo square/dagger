@@ -15,6 +15,8 @@
  */
 package dagger.producers.monitoring;
 
+import dagger.producers.Produces;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /** A token that represents an individual {@linkplain Produces producer method}. */

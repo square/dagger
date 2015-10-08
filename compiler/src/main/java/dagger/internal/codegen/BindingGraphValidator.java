@@ -738,7 +738,6 @@ public class BindingGraphValidator {
     private void reportMissingBinding(Deque<ResolvedRequest> path) {
       Key key = path.peek().request().key();
       BindingKey bindingKey = path.peek().request().bindingKey();
-      TypeMirror type = key.type();
       boolean requiresContributionMethod = !key.isValidImplicitProvisionKey(types);
       boolean requiresProvision = doesPathRequireProvisionOnly(path);
       StringBuilder errorMessage = new StringBuilder();

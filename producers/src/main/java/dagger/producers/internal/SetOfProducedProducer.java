@@ -39,8 +39,8 @@ public final class SetOfProducedProducer<T> extends AbstractProducer<Set<Produce
    * Returns a new producer that creates {@link Set} futures from the union of the given
    * {@link Producer} instances.
    */
-  public static <T> Producer<Set<Produced<T>>> create(
-      @SuppressWarnings("unchecked") Producer<Set<T>>... producers) {
+  @SafeVarargs
+  public static <T> Producer<Set<Produced<T>>> create(Producer<Set<T>>... producers) {
     return new SetOfProducedProducer<T>(ImmutableSet.copyOf(producers));
   }
 

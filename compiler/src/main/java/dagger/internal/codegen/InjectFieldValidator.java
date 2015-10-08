@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableSet;
-
 import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;

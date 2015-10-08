@@ -15,6 +15,9 @@
  */
 package dagger.producers.monitoring;
 
+import dagger.producers.Produces;
+import dagger.producers.ProductionComponent;
+
 /**
  * A hook for monitoring execution of {@linkplain ProductionComponent production components}. To
  * install a {@code ProductionComponentMonitor}, contribute to a set binding of

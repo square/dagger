@@ -51,12 +51,17 @@ public final class Producers {
   // TODO(user): Document what happens with an InterruptedException after you figure out how to
   // trigger one in a test.
   public static <T> ListenableFuture<Produced<T>> createFutureProduced(ListenableFuture<T> future) {
+    // TODO(dpb): Switch to Futures.catchAsync once guava_jdk5 gets to v19.
     return Futures.withFallback(
-        Futures.transform(future, new Function<T, Produced<T>>() {
-          @Override public Produced<T> apply(final T value) {
-            return Produced.successful(value);
-          }
-        }), Producers.<T>futureFallbackForProduced());
+        Futures.transform(
+            future,
+            new Function<T, Produced<T>>() {
+              @Override
+              public Produced<T> apply(final T value) {
+                return Produced.successful(value);
+              }
+            }),
+        Producers.<T>futureFallbackForProduced());
 
   }
 

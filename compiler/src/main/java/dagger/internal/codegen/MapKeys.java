@@ -20,7 +20,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import dagger.MapKey;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.Snippet;
