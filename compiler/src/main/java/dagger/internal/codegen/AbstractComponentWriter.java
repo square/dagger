@@ -141,7 +141,6 @@ abstract class AbstractComponentWriter {
   private final Map<BindingKey, MemberSelect> memberSelectSnippets = new HashMap<>();
   private final Map<ContributionBinding, MemberSelect> multibindingContributionSnippets =
       new HashMap<>();
-  private final Set<BindingKey> enumBindingKeys = new HashSet<>();
   protected ConstructorWriter constructorWriter;
   protected Optional<ClassName> builderName = Optional.absent();
 
@@ -477,8 +476,6 @@ abstract class AbstractComponentWriter {
     // No field needed for bindings with no dependencies or state.
     Optional<MemberSelect> staticMemberSelect = staticMemberSelect(resolvedBindings);
     if (staticMemberSelect.isPresent()) {
-      // TODO(gak): refactor to use enumBindingKeys throughout the generator
-      enumBindingKeys.add(bindingKey);
       memberSelectSnippets.put(bindingKey, staticMemberSelect.get());
       return;
     }
@@ -638,13 +635,14 @@ abstract class AbstractComponentWriter {
           interfaceMethod.annotate(Override.class);
           interfaceMethod.addModifiers(PUBLIC);
           BindingKey bindingKey = interfaceRequest.bindingKey();
+          MemberSelect memberSelect = getMemberSelect(bindingKey);
+          Snippet memberSelectSnippet = memberSelect.getSnippetFor(name);
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
-              Snippet membersInjectorSelect = getMemberSelectSnippet(bindingKey);
               List<? extends VariableElement> parameters = requestElement.getParameters();
               if (parameters.isEmpty()) {
                 // we're returning the framework type
-                interfaceMethod.body().addSnippet("return %s;", membersInjectorSelect);
+                interfaceMethod.body().addSnippet("return %s;", memberSelectSnippet);
               } else {
                 VariableElement parameter = Iterables.getOnlyElement(parameters);
                 Name parameterName = parameter.getSimpleName();
@@ -656,9 +654,7 @@ abstract class AbstractComponentWriter {
                     .body()
                     .addSnippet(
                         "%s.injectMembers(%s);",
-                        // In this case we know we won't need the cast because we're never going to
-                        // pass the reference to anything.
-                        membersInjectorSelect,
+                        memberSelectSnippet,
                         parameterName);
                 if (!requestType.getReturnType().getKind().equals(VOID)) {
                   interfaceMethod.body().addSnippet("return %s;", parameterName);
@@ -666,7 +662,7 @@ abstract class AbstractComponentWriter {
               }
               break;
             case INSTANCE:
-              if (enumBindingKeys.contains(bindingKey)
+              if (memberSelect.staticMember()
                   && bindingKey.key().type().getKind().equals(DECLARED)
                   && !((DeclaredType) bindingKey.key().type()).getTypeArguments().isEmpty()) {
                 // If using a parameterized enum type, then we need to store the factory
@@ -678,7 +674,7 @@ abstract class AbstractComponentWriter {
                 interfaceMethod
                     .body()
                     .addSnippet(
-                        "%s factory = %s;", factoryType, getMemberSelectSnippet(bindingKey));
+                        "%s factory = %s;", factoryType, memberSelectSnippet);
                 interfaceMethod.body().addSnippet("return factory.get();");
                 break;
               }
@@ -693,7 +689,7 @@ abstract class AbstractComponentWriter {
                   .addSnippet(
                       "return %s;",
                       frameworkTypeUsageStatement(
-                          getMemberSelectSnippet(bindingKey), interfaceRequest.kind()));
+                          memberSelectSnippet, interfaceRequest.kind()));
               break;
             default:
               throw new AssertionError();
