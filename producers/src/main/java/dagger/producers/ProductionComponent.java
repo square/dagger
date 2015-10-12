@@ -80,4 +80,42 @@ public @interface ProductionComponent {
    * A list of types that are to be used as component dependencies.
    */
   Class<?>[] dependencies() default {};
+
+  /**
+   * A builder for a component. Components may have a single nested static abstract class or
+   * interface annotated with {@code @ProductionComponent.Builder}. If they do, then the component's
+   * generated builder will match the API in the type.  Builders must follow some rules:
+   * <ul>
+   * <li> A single abstract method with no arguments must exist, and must return the component.
+   *      (This is typically the {@code build()} method.)
+   * <li> All other abstract methods must take a single argument and must return void,
+   *      the builder type, or a supertype of the builder.
+   * <li> There <b>must</b> be an abstract method whose parameter is
+   *      {@link java.util.concurrent.Executor}.
+   * <li> Each component dependency <b>must</b> have an abstract setter method.
+   * <li> Each module dependency that Dagger can't instantiate itself (i.e., the module
+   *      doesn't have a visible no-args constructor) <b>must</b> have an abstract setter method.
+   *      Other module dependencies (ones that Dagger can instantiate) are allowed, but not
+   *      required.
+   * <li> Non-abstract methods are allowed, but ignored as far as validation and builder generation
+   *      are concerned.
+   * </ul>
+   *
+   * For example, this could be a valid {@code ProductionComponent} with a builder: <pre><code>
+   * {@literal @}ProductionComponent(modules = {BackendModule.class, FrontendModule.class})
+   * interface MyComponent {
+   *   {@literal ListenableFuture<MyWidget>} myWidget();
+   *
+   *   {@literal @}ProductionComponent.Builder
+   *   interface Builder {
+   *     MyComponent build();
+   *     Builder executor(Executor executor);
+   *     Builder backendModule(BackendModule bm);
+   *     Builder frontendModule(FrontendModule fm);
+   *   }
+   * }</code></pre>
+   */
+  @Target(TYPE)
+  @Documented
+  @interface Builder {}
 }

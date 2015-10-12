@@ -73,7 +73,7 @@ abstract class ComponentDescriptor {
   enum Kind {
     COMPONENT(Component.class, Component.Builder.class, true),
     SUBCOMPONENT(Subcomponent.class, Subcomponent.Builder.class, false),
-    PRODUCTION_COMPONENT(ProductionComponent.class, null, true);
+    PRODUCTION_COMPONENT(ProductionComponent.class, ProductionComponent.Builder.class, true);
 
     private final Class<? extends Annotation> annotationType;
     private final Class<? extends Annotation> builderType;

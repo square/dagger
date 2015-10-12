@@ -243,6 +243,8 @@ final class ErrorMessages {
         return ComponentBuilderMessages.INSTANCE;
       case SUBCOMPONENT:
         return SubcomponentBuilderMessages.INSTANCE;
+      case PRODUCTION_COMPONENT:
+        return ProductionComponentBuilderMessages.INSTANCE;
       default:
         throw new IllegalStateException(kind.toString());
     }
@@ -371,6 +373,17 @@ final class ErrorMessages {
 
     String moreThanOneRefToSubcomponent() {
       return "Only one method can create a given subcomponent. %s is created by: %s";
+    }
+  }
+
+  static final class ProductionComponentBuilderMessages extends ComponentBuilderMessages {
+    @SuppressWarnings("hiding")
+    static final ProductionComponentBuilderMessages INSTANCE =
+        new ProductionComponentBuilderMessages();
+
+    @Override protected String process(String s) {
+      return s.replaceAll("component", "production component")
+          .replaceAll("Component", "ProductionComponent");
     }
   }
 
