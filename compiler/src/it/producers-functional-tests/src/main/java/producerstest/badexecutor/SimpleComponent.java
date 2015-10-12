@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.badexecutor;
+package producerstest.badexecutor;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.ProductionComponent;

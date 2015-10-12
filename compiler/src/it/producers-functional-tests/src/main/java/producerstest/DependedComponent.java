@@ -13,16 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest;
 
-final class Response {
-  private final String data;
+import com.google.common.util.concurrent.ListenableFuture;
+import dagger.Component;
 
-  Response(String data) {
-    this.data = data;
-  }
-
-  String data() {
-    return this.data;
-  }
+@Component(modules = DependedModule.class)
+interface DependedComponent {
+  String getGreeting();
 }
+

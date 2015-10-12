@@ -13,13 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest;
 
+import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.Component;
+import dagger.producers.ProducerModule;
+import dagger.producers.Produces;
 
-@Component(modules = DependedModule.class)
-interface DependedComponent {
-  String getGreeting();
+import java.util.List;
+
+@ProducerModule
+final class DependedProducerModule {
+
+  @Produces
+  int produceNumberOfGreetings() {
+    return 2;
+  }
 }
-

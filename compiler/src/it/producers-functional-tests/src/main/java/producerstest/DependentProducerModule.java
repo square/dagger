@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest;
 
+import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 
-@ProducerModule(includes = ResponseModule.class)
-final class ResponseProducerModule {
-  @Produces
-  static ListenableFuture<String> greeting() {
-    return Futures.immediateFuture("Hello");
-  }
+import java.util.List;
 
+@ProducerModule
+final class DependentProducerModule {
   @Produces
-  static Response response(String greeting, Request request, int requestNumber) {
-    return new Response(String.format("%s, %s #%d!", greeting, request.name(), requestNumber));
+  ListenableFuture<List<String>> greetings(Integer numGreetings, String greeting) {
+    List<String> greetings = ImmutableList.of(
+        String.valueOf(numGreetings), greeting, Ascii.toUpperCase(greeting));
+    return Futures.immediateFuture(greetings);
   }
 }

@@ -13,10 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.badexecutor;
+package producerstest;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import dagger.Module;
+import dagger.Provides;
 
-interface ComponentDependency {
-  ListenableFuture<Double> doubleDep();
+@Module
+final class DependedModule {
+  @Provides
+  String provideGreeting() {
+    return "Hello world!";
+  }
 }

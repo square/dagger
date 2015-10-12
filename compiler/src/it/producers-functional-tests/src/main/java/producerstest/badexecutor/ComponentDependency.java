@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest.badexecutor;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.producers.ProductionComponent;
 
-@ProductionComponent(modules = DependedProducerModule.class)
-interface DependedProductionComponent {
-  ListenableFuture<Integer> numGreetings();
+interface ComponentDependency {
+  ListenableFuture<Double> doubleDep();
 }
-

@@ -13,21 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest.badexecutor;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import dagger.producers.Produced;
-import dagger.producers.ProductionComponent;
-import java.util.Set;
-import test.MultibindingProducerModule.PossiblyThrowingSet;
+import dagger.producers.ProducerModule;
+import dagger.producers.Produces;
 
-@ProductionComponent(modules = MultibindingProducerModule.class)
-interface MultibindingComponent {
-  ListenableFuture<Set<String>> strs();
-  ListenableFuture<Integer> strCount();
+@ProducerModule
+final class SimpleProducerModule {
+  @Produces
+  static String noArgStr() {
+    return "no arg string";
+  }
 
-  ListenableFuture<Set<Produced<String>>> successfulSet();
+  @Produces
+  static int singleArgInt(String arg) {
+    return arg.length();
+  }
 
-  @PossiblyThrowingSet
-  ListenableFuture<Set<Produced<String>>> possiblyThrowingSet();
+  @Produces
+  static boolean singleArgBool(double arg) {
+    return arg > 0.0;
+  }
 }

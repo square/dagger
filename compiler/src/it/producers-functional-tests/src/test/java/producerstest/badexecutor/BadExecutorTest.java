@@ -1,4 +1,4 @@
-package test.badexecutor;
+package producerstest.badexecutor;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;

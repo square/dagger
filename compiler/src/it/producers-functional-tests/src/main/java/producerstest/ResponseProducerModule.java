@@ -13,25 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.badexecutor;
+package producerstest;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 
-@ProducerModule
-final class SimpleProducerModule {
+@ProducerModule(includes = ResponseModule.class)
+final class ResponseProducerModule {
   @Produces
-  static String noArgStr() {
-    return "no arg string";
+  static ListenableFuture<String> greeting() {
+    return Futures.immediateFuture("Hello");
   }
 
   @Produces
-  static int singleArgInt(String arg) {
-    return arg.length();
-  }
-
-  @Produces
-  static boolean singleArgBool(double arg) {
-    return arg > 0.0;
+  static Response response(String greeting, Request request, int requestNumber) {
+    return new Response(String.format("%s, %s #%d!", greeting, request.name(), requestNumber));
   }
 }

@@ -13,16 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import dagger.producers.Produced;
 import dagger.producers.ProductionComponent;
+import java.util.Set;
+import producerstest.MultibindingProducerModule.PossiblyThrowingSet;
 
-import java.util.List;
+@ProductionComponent(modules = MultibindingProducerModule.class)
+interface MultibindingComponent {
+  ListenableFuture<Set<String>> strs();
+  ListenableFuture<Integer> strCount();
 
-@ProductionComponent(
-    modules = DependentProducerModule.class,
-    dependencies = {DependedComponent.class, DependedProductionComponent.class})
-interface DependentComponent {
-  ListenableFuture<List<String>> greetings();
+  ListenableFuture<Set<Produced<String>>> successfulSet();
+
+  @PossiblyThrowingSet
+  ListenableFuture<Set<Produced<String>>> possiblyThrowingSet();
 }

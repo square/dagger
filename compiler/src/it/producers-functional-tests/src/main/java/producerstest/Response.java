@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test;
+package producerstest;
 
-import dagger.Module;
-import dagger.Provides;
+final class Response {
+  private final String data;
 
-@Module
-final class DependedModule {
-  @Provides
-  String provideGreeting() {
-    return "Hello world!";
+  Response(String data) {
+    this.data = data;
+  }
+
+  String data() {
+    return this.data;
   }
 }
