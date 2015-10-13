@@ -167,21 +167,6 @@ abstract class DependencyRequest {
           false /* doesn't allow null */);
     }
 
-    /**
-     * Creates a DependencyRequest for a binding for {@code Set<T>}, given a request for
-     * {@code Set<Produced<T>>}.
-     */
-    DependencyRequest forImplicitProductionSetBinding(
-        DependencyRequest delegatingRequest, Key delegateKey) {
-      checkNotNull(delegatingRequest);
-      return new AutoValue_DependencyRequest(
-          Kind.PRODUCER,
-          delegateKey,
-          delegatingRequest.requestElement(),
-          delegatingRequest.enclosingType(),
-          false /* doesn't allow null */);
-    }
-
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
