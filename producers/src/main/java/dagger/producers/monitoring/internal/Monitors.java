@@ -17,13 +17,13 @@ package dagger.producers.monitoring.internal;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 
 /**
  * Utility methods relating to monitoring, for use in generated producers code.
@@ -35,17 +35,17 @@ public final class Monitors {
 
   /**
    * Returns a monitor factory that delegates to the given factories, and ensures that any method
-   * called on this object, even transitively, does not throw a {@link RuntimeException}.
+   * called on this object, even transitively, does not throw a {@link RuntimeException} or return
+   * null.
    *
    * <p>If the delegate monitors throw an {@link Error}, then that will escape this monitor
    * implementation. Errors are treated as unrecoverable conditions, and may cause the entire
    * component's execution to fail.
    */
-  @Nullable
   public static ProductionComponentMonitor.Factory delegatingProductionComponentMonitorFactory(
       Collection<? extends ProductionComponentMonitor.Factory> factories) {
     if (factories.isEmpty()) {
-      return null;
+      return noOpProductionComponentMonitorFactory();
     } else if (factories.size() == 1) {
       return new NonThrowingProductionComponentMonitor.Factory(Iterables.getOnlyElement(factories));
     } else {
@@ -69,14 +69,10 @@ public final class Monitors {
     public ProducerMonitor producerMonitorFor(ProducerToken token) {
       try {
         ProducerMonitor monitor = delegate.producerMonitorFor(token);
-        if (monitor == null) {
-          return null;
-        } else {
-          return new NonThrowingProducerMonitor(monitor);
-        }
+        return monitor == null ? noOpProducerMonitor() : new NonThrowingProducerMonitor(monitor);
       } catch (RuntimeException e) {
         logProducerMonitorForException(e, delegate, token);
-        return null;
+        return noOpProducerMonitor();
       }
     }
 
@@ -91,14 +87,12 @@ public final class Monitors {
       public ProductionComponentMonitor create(Object component) {
         try {
           ProductionComponentMonitor monitor = delegate.create(component);
-          if (monitor == null) {
-            return null;
-          } else {
-            return new NonThrowingProductionComponentMonitor(monitor);
-          }
+          return monitor == null
+              ? noOpProductionComponentMonitor()
+              : new NonThrowingProductionComponentMonitor(monitor);
         } catch (RuntimeException e) {
           logCreateException(e, delegate, component);
-          return null;
+          return noOpProductionComponentMonitor();
         }
       }
     }
@@ -179,7 +173,7 @@ public final class Monitors {
       }
       ImmutableList<ProducerMonitor> monitors = monitorsBuilder.build();
       if (monitors.isEmpty()) {
-        return null;
+        return noOpProducerMonitor();
       } else if (monitors.size() == 1) {
         return new NonThrowingProducerMonitor(Iterables.getOnlyElement(monitors));
       } else {
@@ -209,7 +203,7 @@ public final class Monitors {
         }
         ImmutableList<ProductionComponentMonitor> monitors = monitorsBuilder.build();
         if (monitors.isEmpty()) {
-          return null;
+          return noOpProductionComponentMonitor();
         } else if (monitors.size() == 1) {
           return new NonThrowingProductionComponentMonitor(Iterables.getOnlyElement(monitors));
         } else {
@@ -274,6 +268,46 @@ public final class Monitors {
       }
     }
   }
+
+  /** Returns a monitor factory that returns no-op component monitors. */
+  public static ProductionComponentMonitor.Factory noOpProductionComponentMonitorFactory() {
+    return NO_OP_PRODUCTION_COMPONENT_MONITOR_FACTORY;
+  }
+
+  /** Returns a component monitor that returns no-op producer monitors. */
+  public static ProductionComponentMonitor noOpProductionComponentMonitor() {
+    return NO_OP_PRODUCTION_COMPONENT_MONITOR;
+  }
+
+  /** Returns a producer monitor that does nothing. */
+  public static ProducerMonitor noOpProducerMonitor() {
+    return NO_OP_PRODUCER_MONITOR;
+  }
+
+  private static final ProductionComponentMonitor.Factory
+      NO_OP_PRODUCTION_COMPONENT_MONITOR_FACTORY =
+          new ProductionComponentMonitor.Factory() {
+            @Override
+            public ProductionComponentMonitor create(Object component) {
+              return noOpProductionComponentMonitor();
+            }
+          };
+
+  private static final ProductionComponentMonitor NO_OP_PRODUCTION_COMPONENT_MONITOR =
+      new ProductionComponentMonitor() {
+        @Override
+        public ProducerMonitor producerMonitorFor(ProducerToken token) {
+          return noOpProducerMonitor();
+        }
+      };
+
+  private static final ProducerMonitor NO_OP_PRODUCER_MONITOR =
+      new ProducerMonitor() {
+        @Override
+        public <T> void addCallbackTo(ListenableFuture<T> future) {
+          // overridden to avoid adding a do-nothing callback
+        }
+      };
 
   private static void logCreateException(
       RuntimeException e, ProductionComponentMonitor.Factory factory, Object component) {

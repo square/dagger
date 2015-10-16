@@ -25,25 +25,24 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.Mockito;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 
 /**
  * Tests {@link AbstractProducer}.
  */
 @RunWith(JUnit4.class)
 public class AbstractProducerTest {
-  @Mock private ProducerMonitor monitor;
+  private ProducerMonitor monitor;
 
   @Before
   public void initMocks() {
-    MockitoAnnotations.initMocks(this);
+    monitor = Mockito.mock(ProducerMonitor.class, Mockito.CALLS_REAL_METHODS);
   }
 
   @Test
@@ -78,7 +77,7 @@ public class AbstractProducerTest {
 
     ListenableFuture<Integer> future = producer.get();
     assertThat(future.isDone()).isFalse();
-    verifyZeroInteractions(monitor);
+    verify(monitor).addCallbackTo(any(ListenableFuture.class));
     delegateFuture.set(-42);
     assertThat(future.get()).isEqualTo(-42);
     verify(monitor).succeeded(-42);
@@ -92,7 +91,7 @@ public class AbstractProducerTest {
 
     ListenableFuture<Integer> future = producer.get();
     assertThat(future.isDone()).isFalse();
-    verifyZeroInteractions(monitor);
+    verify(monitor).addCallbackTo(any(ListenableFuture.class));
     Throwable t = new RuntimeException("monkey");
     delegateFuture.setException(t);
     try {
@@ -105,10 +104,9 @@ public class AbstractProducerTest {
     verifyNoMoreInteractions(monitor);
   }
 
-  @Test
+  @Test(expected = NullPointerException.class)
   public void monitor_null() throws Exception {
-    Producer<Integer> producer = new DelegateProducer<>(null, Futures.immediateFuture(42));
-    assertThat(producer.get().get()).isEqualTo(42);
+    new DelegateProducer<>(null, Futures.immediateFuture(42));
   }
 
   static final class DelegateProducer<T> extends AbstractProducer<T> {

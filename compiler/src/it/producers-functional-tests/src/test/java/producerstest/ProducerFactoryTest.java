@@ -15,41 +15,38 @@
 */
 package producerstest;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
-
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-
 import dagger.producers.Producer;
 import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
-
+import java.util.concurrent.ExecutionException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-import java.util.concurrent.ExecutionException;
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.when;
 
 @RunWith(JUnit4.class)
 public class ProducerFactoryTest {
   @Mock private ProductionComponentMonitor componentMonitor;
-  @Mock private ProducerMonitor monitor;
+  private ProducerMonitor monitor;
 
   @Before
   public void setUpMocks() {
     MockitoAnnotations.initMocks(this);
+    monitor = Mockito.mock(ProducerMonitor.class, Mockito.CALLS_REAL_METHODS);
     when(componentMonitor.producerMonitorFor(any(ProducerToken.class))).thenReturn(monitor);
   }
 
@@ -164,25 +161,9 @@ public class ProducerFactoryTest {
     order.verifyNoMoreInteractions();
   }
 
-  @Test
+  @Test(expected = NullPointerException.class)
   public void nullComponentMonitor() throws Exception {
-    Producer<String> producer =
-        new SimpleProducerModule_StrFactory(null, MoreExecutors.directExecutor());
-    assertThat(producer.get().get()).isEqualTo("str");
-    verifyZeroInteractions(componentMonitor, monitor);
-  }
-
-  @Test
-  public void nullMonitor() throws Exception {
-    when(componentMonitor.producerMonitorFor(any(ProducerToken.class))).thenReturn(null);
-
-    ProducerToken token = ProducerToken.create(SimpleProducerModule_StrFactory.class);
-    Producer<String> producer =
-        new SimpleProducerModule_StrFactory(
-            componentMonitor, MoreExecutors.directExecutor());
-    assertThat(producer.get().get()).isEqualTo("str");
-    verify(componentMonitor).producerMonitorFor(token);
-    verifyZeroInteractions(monitor);
+    new SimpleProducerModule_StrFactory(null, MoreExecutors.directExecutor());
   }
 
   private static <T> Producer<T> producerOfFuture(final ListenableFuture<T> future) {

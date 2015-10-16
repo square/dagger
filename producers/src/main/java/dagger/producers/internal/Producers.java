@@ -22,11 +22,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
-import dagger.producers.monitoring.ProducerMonitor;
-import dagger.producers.monitoring.ProducerToken;
-import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.inject.Provider;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -102,16 +98,6 @@ public final class Producers {
         return Futures.immediateFuture(provider.get());
       }
     };
-  }
-
-  /** Lifts {@link ProductionComponentMonitor#producerMonitorFor} to nullable types. */
-  @Nullable
-  public static ProducerMonitor producerMonitorFor(
-      @Nullable ProductionComponentMonitor componentMonitor, ProducerToken token) {
-    if (componentMonitor != null) {
-      return componentMonitor.producerMonitorFor(token);
-    }
-    return null;
   }
 
   /** Returns a producer that succeeds with the given value. */

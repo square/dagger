@@ -58,6 +58,7 @@ import dagger.producers.Producer;
 import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
+import dagger.producers.monitoring.internal.Monitors;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -1024,7 +1025,9 @@ abstract class AbstractComponentWriter {
           List<Snippet> parameters =
               Lists.newArrayListWithCapacity(binding.dependencies().size() + 3);
           // TODO(beder): Pass the actual ProductionComponentMonitor.
-          parameters.add(Snippet.format("null"));
+          parameters.add(
+              Snippet.format(
+                  "%s.noOpProductionComponentMonitor()", ClassName.fromClass(Monitors.class)));
           if (!binding.bindingElement().getModifiers().contains(STATIC)) {
             parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
           }

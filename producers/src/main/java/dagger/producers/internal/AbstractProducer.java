@@ -15,12 +15,12 @@
  */
 package dagger.producers.internal;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Producer;
 import dagger.producers.monitoring.ProducerMonitor;
-import javax.annotation.Nullable;
+import dagger.producers.monitoring.internal.Monitors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * An abstract {@link Producer} implementation that memoizes the result of its compute method.
@@ -29,15 +29,15 @@ import javax.annotation.Nullable;
  * @since 2.0
  */
 public abstract class AbstractProducer<T> implements Producer<T> {
-  @Nullable protected final ProducerMonitor monitor;
+  protected final ProducerMonitor monitor;
   private volatile ListenableFuture<T> instance = null;
 
   protected AbstractProducer() {
-    this(null);
+    this(Monitors.noOpProducerMonitor());
   }
 
-  protected AbstractProducer(@Nullable ProducerMonitor monitor) {
-    this.monitor = monitor;
+  protected AbstractProducer(ProducerMonitor monitor) {
+    this.monitor = checkNotNull(monitor);
   }
 
   /** Computes this producer's future, which is then cached in {@link #get}. */
@@ -55,21 +55,7 @@ public abstract class AbstractProducer<T> implements Producer<T> {
           if (result == null) {
             throw new NullPointerException("compute returned null");
           }
-          if (monitor != null) {
-            Futures.addCallback(
-                result,
-                new FutureCallback<T>() {
-                  @Override
-                  public void onSuccess(T value) {
-                    monitor.succeeded(value);
-                  }
-
-                  @Override
-                  public void onFailure(Throwable t) {
-                    monitor.failed(t);
-                  }
-                });
-          }
+          monitor.addCallbackTo(result);
         }
       }
     }

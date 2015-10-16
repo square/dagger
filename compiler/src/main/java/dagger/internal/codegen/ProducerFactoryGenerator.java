@@ -49,7 +49,6 @@ import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.List;
 import java.util.concurrent.Executor;
 import javax.annotation.Generated;
-import javax.annotation.Nullable;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
@@ -106,14 +105,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     ConstructorWriter constructorWriter = factoryWriter.addConstructor();
     constructorWriter.addModifiers(PUBLIC);
 
-    constructorWriter
-        .addParameter(ProductionComponentMonitor.class, "componentMonitor")
-        .annotate(Nullable.class);
+    constructorWriter.addParameter(ProductionComponentMonitor.class, "componentMonitor");
     constructorWriter
         .body()
         .addSnippet(
-            "super(%s.producerMonitorFor(componentMonitor, %s.create(%s.class)));",
-            ClassName.fromClass(Producers.class),
+            "super(componentMonitor.producerMonitorFor(%s.create(%s.class)));",
             ClassName.fromClass(ProducerToken.class),
             factoryWriter.name());
 
@@ -457,7 +453,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     // because we'll wrap all monitoring in non-throwing monitors before we pass them to the
     // factories.
     ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
-    snippets.add(Snippet.format("if (monitor != null) { monitor.methodStarting(); }"));
+    snippets.add(Snippet.format("monitor.methodStarting();"));
 
     final Snippet valueSnippet;
     if (binding.productionType().equals(Produces.Type.SET)) {
@@ -485,11 +481,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     return Snippet.format(
         Joiner.on('\n')
             .join(
-                "if (monitor != null) { monitor.methodStarting(); }",
+                "monitor.methodStarting();",
                 "try {",
                 "  return %s;",
                 "} finally {",
-                "  if (monitor != null) { monitor.methodFinished(); }",
+                "  monitor.methodFinished();",
                 "}"),
         returnSnippet);
   }
