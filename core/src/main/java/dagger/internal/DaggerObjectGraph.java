@@ -177,11 +177,8 @@ public class DaggerObjectGraph extends ObjectGraph {
             if (moduleClass != null) break;
         }
         if (moduleClass == null) {
-            String firstHalf = String.format("No inject registered for %s. ", injectableKey);
-            String secondHalf =
-                    "You must explicitly add it to the 'injects' option in one of your modules.";
-
-            throw new IllegalArgumentException(firstHalf + secondHalf);
+            throw new IllegalArgumentException("No inject registered for " + injectableKey
+            + ". You must explicitly add it to the 'injects' option in one of your modules.");
         }
 
         synchronized (linker) {
