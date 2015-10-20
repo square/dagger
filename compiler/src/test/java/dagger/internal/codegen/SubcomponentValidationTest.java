@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -244,7 +245,8 @@ public final class SubcomponentValidationTest {
         .failsToCompile()
         .withErrorContaining("@Singleton");
   }
-  
+
+  @Ignore
   @Test
   public void delegateFactoryNotCreatedForSubcomponentWhenProviderExistsInParent() {
     JavaFileObject parentComponentFile =
