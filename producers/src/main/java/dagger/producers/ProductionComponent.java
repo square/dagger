@@ -62,7 +62,7 @@ import static java.lang.annotation.ElementType.TYPE;
  * <p>If a non-execution exception is thrown (e.g., an {@code InterruptedException} or
  * {@code CancellationException}), then exception is handled as in
  * {@link com.google.common.util.concurrent.Futures#transform}.
- * <!-- TODO(user): Explain this more thoroughly, and update the javadocs of those utilities. -->
+ * <!-- TODO(beder): Explain this more thoroughly, and update the javadocs of those utilities. -->
  *
  * @author Jesse Beder
  */
