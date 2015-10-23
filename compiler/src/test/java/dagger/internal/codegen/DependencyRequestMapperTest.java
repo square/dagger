@@ -57,7 +57,7 @@ public class DependencyRequestMapperTest {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
     this.keyFactory = new Key.Factory(types, elements);
-    this.dependencyRequestFactory = new DependencyRequest.Factory(keyFactory);
+    this.dependencyRequestFactory = new DependencyRequest.Factory(elements, keyFactory);
   }
 
   private List<? extends VariableElement> sampleProviderParameters() {

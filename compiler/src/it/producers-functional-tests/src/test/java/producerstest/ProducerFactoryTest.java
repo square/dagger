@@ -23,6 +23,7 @@ import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.concurrent.ExecutionException;
+import javax.inject.Provider;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,12 +43,20 @@ import static org.mockito.Mockito.when;
 public class ProducerFactoryTest {
   @Mock private ProductionComponentMonitor componentMonitor;
   private ProducerMonitor monitor;
+  private Provider<ProductionComponentMonitor> componentMonitorProvider;
 
   @Before
   public void setUpMocks() {
     MockitoAnnotations.initMocks(this);
     monitor = Mockito.mock(ProducerMonitor.class, Mockito.CALLS_REAL_METHODS);
     when(componentMonitor.producerMonitorFor(any(ProducerToken.class))).thenReturn(monitor);
+    componentMonitorProvider =
+        new Provider<ProductionComponentMonitor>() {
+          @Override
+          public ProductionComponentMonitor get() {
+            return componentMonitor;
+          }
+        };
   }
 
   @Test
@@ -55,7 +64,7 @@ public class ProducerFactoryTest {
     ProducerToken token = ProducerToken.create(SimpleProducerModule_StrFactory.class);
     Producer<String> producer =
         new SimpleProducerModule_StrFactory(
-            componentMonitor, MoreExecutors.directExecutor());
+            MoreExecutors.directExecutor(), componentMonitorProvider);
     assertThat(producer.get().get()).isEqualTo("str");
     InOrder order = inOrder(componentMonitor, monitor);
     order.verify(componentMonitor).producerMonitorFor(token);
@@ -70,7 +79,7 @@ public class ProducerFactoryTest {
     Producer<Integer> intProducer = producerOfFuture(intFuture);
     Producer<String> producer =
         new SimpleProducerModule_StrWithArgFactory(
-            componentMonitor, MoreExecutors.directExecutor(), intProducer);
+            MoreExecutors.directExecutor(), componentMonitorProvider, intProducer);
     assertThat(producer.get().isDone()).isFalse();
     intFuture.set(42);
     assertThat(producer.get().get()).isEqualTo("str with arg");
@@ -85,7 +94,7 @@ public class ProducerFactoryTest {
     Producer<SettableFuture<String>> strFutureProducer = producerOfFuture(strFutureFuture);
     Producer<String> producer =
         new SimpleProducerModule_SettableFutureStrFactory(
-            componentMonitor, MoreExecutors.directExecutor(), strFutureProducer);
+            MoreExecutors.directExecutor(), componentMonitorProvider, strFutureProducer);
     assertThat(producer.get().isDone()).isFalse();
 
     InOrder order = inOrder(componentMonitor, monitor);
@@ -112,7 +121,7 @@ public class ProducerFactoryTest {
     Producer<SettableFuture<String>> strFutureProducer = producerOfFuture(strFutureFuture);
     Producer<String> producer =
         new SimpleProducerModule_SettableFutureStrFactory(
-            componentMonitor, MoreExecutors.directExecutor(), strFutureProducer);
+            MoreExecutors.directExecutor(), componentMonitorProvider, strFutureProducer);
     assertThat(producer.get().isDone()).isFalse();
 
     InOrder order = inOrder(componentMonitor, monitor);
@@ -142,7 +151,7 @@ public class ProducerFactoryTest {
 
     Producer<String> producer =
         new SimpleProducerModule_ThrowingProducerFactory(
-            componentMonitor, MoreExecutors.directExecutor());
+            MoreExecutors.directExecutor(), componentMonitorProvider);
     assertThat(producer.get().isDone()).isTrue();
 
     InOrder order = inOrder(componentMonitor, monitor);
@@ -162,8 +171,8 @@ public class ProducerFactoryTest {
   }
 
   @Test(expected = NullPointerException.class)
-  public void nullComponentMonitor() throws Exception {
-    new SimpleProducerModule_StrFactory(null, MoreExecutors.directExecutor());
+  public void nullComponentMonitorProvider() throws Exception {
+    new SimpleProducerModule_StrFactory(MoreExecutors.directExecutor(), null);
   }
 
   private static <T> Producer<T> producerOfFuture(final ListenableFuture<T> future) {

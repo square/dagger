@@ -284,6 +284,9 @@ abstract class ComponentDescriptor {
       for (TypeMirror moduleIncludesType : getComponentModules(componentMirror)) {
         modules.add(moduleDescriptorFactory.create(MoreTypes.asTypeElement(moduleIncludesType)));
       }
+      if (kind.equals(Kind.PRODUCTION_COMPONENT)) {
+        modules.add(descriptorForMonitoringModule(componentDefinitionType));
+      }
 
       ImmutableSet<ExecutableElement> unimplementedMethods =
           Util.getUnimplementedMethods(elements, componentDefinitionType);
@@ -433,6 +436,23 @@ abstract class ComponentDescriptor {
       verify(buildMethod != null); // validation should have ensured this.
       return Optional.<BuilderSpec>of(new AutoValue_ComponentDescriptor_BuilderSpec(element,
           map.build(), buildMethod, element.getEnclosingElement().asType()));
+    }
+
+    /**
+     * Returns a descriptor for a generated module that handles monitoring for production
+     * components. This module is generated in the {@link MonitoringModuleProcessingStep}.
+     *
+     * @throws TypeNotPresentException if the module has not been generated yet. This will cause the
+     *     processor to retry in a later processing round.
+     */
+    private ModuleDescriptor descriptorForMonitoringModule(TypeElement componentDefinitionType) {
+      String generatedMonitorModuleName =
+          SourceFiles.generatedMonitoringModuleName(componentDefinitionType).canonicalName();
+      TypeElement monitoringModule = elements.getTypeElement(generatedMonitorModuleName);
+      if (monitoringModule == null) {
+        throw new TypeNotPresentException(generatedMonitorModuleName, null);
+      }
+      return moduleDescriptorFactory.create(monitoringModule);
     }
   }
 

@@ -133,8 +133,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ComponentGenerator(filer, elements, types, keyFactory, nullableDiagnosticType);
     ProducerFactoryGenerator producerFactoryGenerator =
         new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
+    MonitoringModuleGenerator monitoringModuleGenerator = new MonitoringModuleGenerator(filer);
 
-    DependencyRequest.Factory dependencyRequestFactory = new DependencyRequest.Factory(keyFactory);
+    DependencyRequest.Factory dependencyRequestFactory =
+        new DependencyRequest.Factory(elements, keyFactory);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
     ProductionBinding.Factory productionBindingFactory =
@@ -152,12 +154,13 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ComponentDescriptor.Factory componentDescriptorFactory = new ComponentDescriptor.Factory(
         elements, types, dependencyRequestFactory, moduleDescriptorFactory);
 
-    BindingGraph.Factory bindingGraphFactory = new BindingGraph.Factory(
-        elements,
-        injectBindingRegistry,
-        keyFactory,
-        provisionBindingFactory,
-        productionBindingFactory);
+    BindingGraph.Factory bindingGraphFactory =
+        new BindingGraph.Factory(
+            elements,
+            injectBindingRegistry,
+            keyFactory,
+            provisionBindingFactory,
+            productionBindingFactory);
 
     MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
@@ -182,6 +185,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             membersInjectionBindingFactory,
             injectBindingRegistry),
+        new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
         new ModuleProcessingStep(
             messager,
             moduleValidator,

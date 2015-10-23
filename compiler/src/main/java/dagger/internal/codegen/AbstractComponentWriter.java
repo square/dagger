@@ -58,7 +58,6 @@ import dagger.producers.Producer;
 import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
-import dagger.producers.monitoring.internal.Monitors;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -97,9 +96,9 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
-import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
+import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
@@ -1023,11 +1022,7 @@ abstract class AbstractComponentWriter {
       case FUTURE_PRODUCTION:
         {
           List<Snippet> parameters =
-              Lists.newArrayListWithCapacity(binding.dependencies().size() + 3);
-          // TODO(beder): Pass the actual ProductionComponentMonitor.
-          parameters.add(
-              Snippet.format(
-                  "%s.noOpProductionComponentMonitor()", ClassName.fromClass(Monitors.class)));
+              Lists.newArrayListWithCapacity(binding.implicitDependencies().size() + 2);
           if (!binding.bindingElement().getModifiers().contains(STATIC)) {
             parameters.add(getComponentContributionSnippet(binding.bindingTypeElement()));
           }
@@ -1108,8 +1103,9 @@ abstract class AbstractComponentWriter {
   private List<Snippet> getProducerDependencyParameters(Binding binding) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (Collection<DependencyRequest> requestsForKey :
-        SourceFiles.indexDependenciesByUnresolvedKey(
-            types, binding.dependencies()).asMap().values()) {
+        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.implicitDependencies())
+            .asMap()
+            .values()) {
       BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
           .transform(DependencyRequest.BINDING_KEY_FUNCTION));
       ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);

@@ -24,6 +24,7 @@ import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.inject.Provider;
 
 /**
  * Utility methods relating to monitoring, for use in generated producers code.
@@ -284,6 +285,11 @@ public final class Monitors {
     return NO_OP_PRODUCER_MONITOR;
   }
 
+  /** Returns a provider of a no-op component monitor. */
+  public static Provider<ProductionComponentMonitor> noOpProductionComponentMonitorProvider() {
+    return NO_OP_PRODUCTION_COMPONENT_MONITOR_PROVIDER;
+  }
+
   private static final ProductionComponentMonitor.Factory
       NO_OP_PRODUCTION_COMPONENT_MONITOR_FACTORY =
           new ProductionComponentMonitor.Factory() {
@@ -308,6 +314,15 @@ public final class Monitors {
           // overridden to avoid adding a do-nothing callback
         }
       };
+
+  private static final Provider<ProductionComponentMonitor>
+      NO_OP_PRODUCTION_COMPONENT_MONITOR_PROVIDER =
+          new Provider() {
+            @Override
+            public ProductionComponentMonitor get() {
+              return noOpProductionComponentMonitor();
+            }
+          };
 
   private static void logCreateException(
       RuntimeException e, ProductionComponentMonitor.Factory factory, Object component) {

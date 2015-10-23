@@ -15,9 +15,10 @@
  */
 package dagger.internal.codegen.writer;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -27,6 +28,7 @@ import static dagger.internal.codegen.writer.Writables.toStringWritable;
 
 public final class AnnotationWriter implements Writable, HasClassReferences {
   private final ClassName annotationName;
+  private final Set<HasClassReferences> memberReferences = Sets.newLinkedHashSet();
   private final SortedMap<String, Writable> memberMap = Maps.newTreeMap();
 
   AnnotationWriter(ClassName annotationName) {
@@ -43,6 +45,12 @@ public final class AnnotationWriter implements Writable, HasClassReferences {
 
   public void setMember(String name, String value) {
     memberMap.put(name, toStringWritable(StringLiteral.forValue(value)));
+  }
+
+  public <T extends Enum<T>> void setMember(String name, T value) {
+    Snippet snippet = Snippet.format("%s.%s", ClassName.fromClass(value.getClass()), value);
+    memberMap.put(name, snippet);
+    memberReferences.add(snippet);
   }
 
   @Override
@@ -65,6 +73,9 @@ public final class AnnotationWriter implements Writable, HasClassReferences {
 
   @Override
   public Set<ClassName> referencedClasses() {
-    return ImmutableSet.of(annotationName);
+    return FluentIterable.from(memberReferences)
+        .append(annotationName)
+        .transformAndConcat(HasClassReferences.COMBINER)
+        .toSet();
   }
 }

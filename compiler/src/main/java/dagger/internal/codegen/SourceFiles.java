@@ -280,6 +280,13 @@ class SourceFiles {
         .peerNamed(injectedClassName.classFileName() + "_MembersInjector");
   }
 
+  static ClassName generatedMonitoringModuleName(TypeElement componentElement) {
+    ClassName componentName = ClassName.fromTypeElement(componentElement);
+    return componentName
+        .topLevelClassName()
+        .peerNamed(componentName.classFileName() + "_MonitoringModule");
+  }
+
   private static String factoryPrefix(ContributionBinding binding) {
     switch (binding.bindingKind()) {
       case INJECTION:

@@ -44,8 +44,8 @@ import dagger.producers.Producer;
 import dagger.producers.Produces;
 import dagger.producers.internal.AbstractProducer;
 import dagger.producers.internal.Producers;
+import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
-import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.List;
 import java.util.concurrent.Executor;
 import javax.annotation.Generated;
@@ -105,11 +105,15 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     ConstructorWriter constructorWriter = factoryWriter.addConstructor();
     constructorWriter.addModifiers(PUBLIC);
 
-    constructorWriter.addParameter(ProductionComponentMonitor.class, "componentMonitor");
+    ImmutableMap<BindingKey, FrameworkField> fields =
+        SourceFiles.generateBindingFieldsForDependencies(
+            dependencyRequestMapper, binding.implicitDependencies());
+
     constructorWriter
         .body()
         .addSnippet(
-            "super(componentMonitor.producerMonitorFor(%s.create(%s.class)));",
+            "super(%s, %s.create(%s.class));",
+            fields.get(binding.monitorRequest().get().bindingKey()).name(),
             ClassName.fromClass(ProducerToken.class),
             factoryWriter.name());
 
@@ -135,13 +139,10 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     factoryWriter.setSuperclass(
         ParameterizedTypeName.create(AbstractProducer.class, providedTypeName));
 
-    MethodWriter getMethodWriter = factoryWriter.addMethod(futureTypeName, "compute");
-    getMethodWriter.annotate(Override.class);
-    getMethodWriter.addModifiers(PROTECTED);
-
-    ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(
-            dependencyRequestMapper, binding.dependencies());
+    MethodWriter computeMethodWriter = factoryWriter.addMethod(futureTypeName, "compute");
+    computeMethodWriter.annotate(Override.class);
+    computeMethodWriter.addModifiers(PROTECTED);
+    computeMethodWriter.addParameter(ProducerMonitor.class, "monitor").addModifiers(FINAL);
 
     for (FrameworkField bindingField : fields.values()) {
       TypeName fieldType = bindingField.frameworkType();
@@ -155,14 +156,16 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
     boolean returnsFuture =
         binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION);
-    ImmutableList<DependencyRequest> asyncDependencies = FluentIterable
-        .from(binding.dependencies())
-        .filter(new Predicate<DependencyRequest>() {
-          @Override public boolean apply(DependencyRequest dependency) {
-            return isAsyncDependency(dependency);
-          }
-        })
-        .toList();
+    ImmutableList<DependencyRequest> asyncDependencies =
+        FluentIterable.from(binding.implicitDependencies())
+            .filter(
+                new Predicate<DependencyRequest>() {
+                  @Override
+                  public boolean apply(DependencyRequest dependency) {
+                    return isAsyncDependency(dependency);
+                  }
+                })
+            .toList();
 
     for (DependencyRequest dependency : asyncDependencies) {
       ParameterizedTypeName futureType = ParameterizedTypeName.create(
@@ -170,13 +173,18 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
           asyncDependencyType(dependency));
       String name = fields.get(dependency.bindingKey()).name();
       Snippet futureAccess = Snippet.format("%s.get()", name);
-      getMethodWriter.body().addSnippet("%s %sFuture = %s;",
-          futureType,
-          name,
-          dependency.kind().equals(DependencyRequest.Kind.PRODUCED)
-              ? Snippet.format("%s.createFutureProduced(%s)",
-                  ClassName.fromClass(Producers.class), futureAccess)
-              : futureAccess);
+      computeMethodWriter
+          .body()
+          .addSnippet(
+              "%s %sFuture = %s;",
+              futureType,
+              name,
+              dependency.kind().equals(DependencyRequest.Kind.PRODUCED)
+                  ? Snippet.format(
+                      "%s.createFutureProduced(%s)",
+                      ClassName.fromClass(Producers.class),
+                      futureAccess)
+                  : futureAccess);
     }
 
     FutureTransform futureTransform = FutureTransform.create(fields, binding, asyncDependencies);
@@ -200,7 +208,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
             futureTransform.applyArgName(),
             getThrowsClause(binding.thrownTypes()),
             getInvocationSnippet(!returnsFuture, binding, futureTransform.parameterSnippets()));
-    getMethodWriter
+    computeMethodWriter
         .body()
         .addSnippet(
             "return %s.transform(%s, %s, executor);",

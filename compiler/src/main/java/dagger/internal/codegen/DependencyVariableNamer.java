@@ -33,6 +33,9 @@ import javax.inject.Provider;
 final class DependencyVariableNamer implements Function<DependencyRequest, String> {
   @Override
   public String apply(DependencyRequest dependency) {
+    if (dependency.overriddenVariableName().isPresent()) {
+      return dependency.overriddenVariableName().get();
+    }
     String variableName = dependency.requestElement().getSimpleName().toString();
     switch (dependency.kind()) {
       case INSTANCE:
