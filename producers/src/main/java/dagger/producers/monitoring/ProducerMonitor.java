@@ -24,7 +24,7 @@ import dagger.producers.Produces;
  * A hook for monitoring the execution of individual {@linkplain Produces producer methods}. See
  * {@link ProductionComponentMonitor} for how to install these monitors.
  *
- * <p>The lifecycle of the monitor is:
+ * <p>The lifecycle of the monitor, under normal conditions, is:
  * <ul>
  *   <li>{@link #methodStarting()}
  *   <li>The method is called
@@ -41,6 +41,10 @@ import dagger.producers.Produces;
  *         future failed.
  *   </ul>
  * </ul>
+ *
+ * <p>If any input to the monitored producer fails, {@link #failed(Throwable)} will be called
+ * immediately with the failed input's exception. If more than one input fails, an arbitrary failed
+ * input's exception is used.
  *
  * <p>If any of the monitor's methods throw, then the exception will be logged and processing will
  * continue unaffected.
