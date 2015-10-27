@@ -20,8 +20,10 @@ import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
+
 import java.lang.annotation.Annotation;
 import java.util.Set;
+
 import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
@@ -73,64 +75,71 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
   @Override
   public Set<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+    ImmutableSet.Builder<Element> rejectedElements = ImmutableSet.builder();
     // TODO(gak): add some error handling for bad source files
     final ImmutableSet.Builder<ProvisionBinding> provisions = ImmutableSet.builder();
     // TODO(gak): instead, we should collect reports by type and check later
     final ImmutableSet.Builder<DeclaredType> membersInjectedTypes = ImmutableSet.builder();
 
     for (Element injectElement : elementsByAnnotation.get(Inject.class)) {
-      injectElement.accept(
-          new ElementKindVisitor6<Void, Void>() {
-            @Override
-            public Void visitExecutableAsConstructor(ExecutableElement constructorElement, Void v) {
-              ValidationReport<TypeElement> report =
-                  constructorValidator.validate(constructorElement);
+      try {
+        injectElement.accept(
+            new ElementKindVisitor6<Void, Void>() {
+              @Override
+              public Void visitExecutableAsConstructor(
+                  ExecutableElement constructorElement, Void v) {
+                ValidationReport<TypeElement> report =
+                    constructorValidator.validate(constructorElement);
 
-              report.printMessagesTo(messager);
+                report.printMessagesTo(messager);
 
-              if (report.isClean()) {
-                provisions.add(
-                    provisionBindingFactory.forInjectConstructor(
-                        constructorElement, Optional.<TypeMirror>absent()));
-                DeclaredType type =
-                    MoreTypes.asDeclared(constructorElement.getEnclosingElement().asType());
-                if (membersInjectionBindingFactory.hasInjectedMembers(type)) {
-                  membersInjectedTypes.add(type);
+                if (report.isClean()) {
+                  provisions.add(
+                      provisionBindingFactory.forInjectConstructor(
+                          constructorElement, Optional.<TypeMirror>absent()));
+                  DeclaredType type =
+                      MoreTypes.asDeclared(constructorElement.getEnclosingElement().asType());
+                  if (membersInjectionBindingFactory.hasInjectedMembers(type)) {
+                    membersInjectedTypes.add(type);
+                  }
                 }
+
+                return null;
               }
 
-              return null;
-            }
+              @Override
+              public Void visitVariableAsField(VariableElement fieldElement, Void p) {
+                ValidationReport<VariableElement> report = fieldValidator.validate(fieldElement);
 
-            @Override
-            public Void visitVariableAsField(VariableElement fieldElement, Void p) {
-              ValidationReport<VariableElement> report = fieldValidator.validate(fieldElement);
+                report.printMessagesTo(messager);
 
-              report.printMessagesTo(messager);
+                if (report.isClean()) {
+                  membersInjectedTypes.add(
+                      MoreTypes.asDeclared(fieldElement.getEnclosingElement().asType()));
+                }
 
-              if (report.isClean()) {
-                membersInjectedTypes.add(
-                    MoreTypes.asDeclared(fieldElement.getEnclosingElement().asType()));
+                return null;
               }
 
-              return null;
-            }
+              @Override
+              public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
+                ValidationReport<ExecutableElement> report =
+                    methodValidator.validate(methodElement);
 
-            @Override
-            public Void visitExecutableAsMethod(ExecutableElement methodElement, Void p) {
-              ValidationReport<ExecutableElement> report = methodValidator.validate(methodElement);
+                report.printMessagesTo(messager);
 
-              report.printMessagesTo(messager);
+                if (report.isClean()) {
+                  membersInjectedTypes.add(
+                      MoreTypes.asDeclared(methodElement.getEnclosingElement().asType()));
+                }
 
-              if (report.isClean()) {
-                membersInjectedTypes.add(
-                    MoreTypes.asDeclared(methodElement.getEnclosingElement().asType()));
+                return null;
               }
-
-              return null;
-            }
-          },
-          null);
+            },
+            null);
+      } catch (TypeNotPresentException e) {
+        rejectedElements.add(injectElement);
+      }
     }
 
     for (DeclaredType injectedType : membersInjectedTypes.build()) {
@@ -141,6 +150,6 @@ final class InjectProcessingStep implements BasicAnnotationProcessor.ProcessingS
     for (ProvisionBinding binding : provisions.build()) {
       injectBindingRegistry.registerBinding(binding);
     }
-    return ImmutableSet.of();
+    return rejectedElements.build();
   }
 }
