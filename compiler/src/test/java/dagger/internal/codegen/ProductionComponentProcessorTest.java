@@ -163,6 +163,7 @@ public class ProductionComponentProcessorTest {
             "    return new Builder();",
             "  }",
             "",
+            "  @SuppressWarnings(\"unchecked\")",
             "  private void initialize(final Builder builder) {",
             "    this.simpleComponentProvider = InstanceFactory.<SimpleComponent>create(this);",
             "    this.setOfFactoryContribution1Provider =",

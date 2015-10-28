@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2015 Google, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
@@ -7,12 +22,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 @RunWith(JUnit4.class)
-public class PackageProxyTest {
-  @Test public void basicPackageProxy() {
+public class InaccessibleTypeTest {
+  @Test public void basicInjectedType() {
     JavaFileObject noDepClassFile = JavaFileObjects.forSourceLines("foreign.NoDepClass",
         "package foreign;",
         "",
@@ -62,7 +77,6 @@ public class PackageProxyTest {
         "test.DaggerTestComponent",
         "package test;",
         "",
-        "import foreign.DaggerTestComponent_PackageProxy;",
         "import foreign.NoDepClass_Factory;",
         "import foreign.NonPublicClass1_Factory;",
         "import foreign.NonPublicClass2_Factory;",
@@ -73,8 +87,10 @@ public class PackageProxyTest {
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
-        "  private final DaggerTestComponent_PackageProxy foreign_Proxy =",
-        "      new DaggerTestComponent_PackageProxy();",
+        "  @SuppressWarnings(\"rawtypes\")",
+        "  private Provider nonPublicClass1Provider;",
+        "  @SuppressWarnings(\"rawtypes\")",
+        "  private Provider nonPublicClass2Provider;",
         "  private Provider<PublicClass> publicClassProvider;",
         "",
         "  private DaggerTestComponent(Builder builder) {",
@@ -90,14 +106,15 @@ public class PackageProxyTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
-        "    this.foreign_Proxy.nonPublicClass1Provider =",
+        "    this.nonPublicClass1Provider =",
         "        NonPublicClass1_Factory.create(NoDepClass_Factory.create());",
-        "    this.foreign_Proxy.nonPublicClass2Provider =",
+        "    this.nonPublicClass2Provider =",
         "        NonPublicClass2_Factory.create(NoDepClass_Factory.create());",
         "    this.publicClassProvider = PublicClass_Factory.create(",
-        "        foreign_Proxy.nonPublicClass1Provider,",
-        "        foreign_Proxy.nonPublicClass2Provider,",
+        "        nonPublicClass1Provider,",
+        "        nonPublicClass2Provider,",
         "        NoDepClass_Factory.create());",
         "  }",
         "",
@@ -115,19 +132,20 @@ public class PackageProxyTest {
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(
             noDepClassFile,
             publicClassFile,
             nonPublicClass1File,
             nonPublicClass2File,
             componentFile))
+        .withCompilerOptions("-Xlint", "-Werror:rawtypes,unchecked")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
 
-  @Test public void memberInjectionPackageProxy() {
+  @Test public void memberInjectedType() {
     JavaFileObject noDepClassFile = JavaFileObjects.forSourceLines("test.NoDepClass",
         "package test;",
         "",
@@ -209,6 +227,7 @@ public class PackageProxyTest {
             "    return builder().build();",
             "  }",
             "",
+            "  @SuppressWarnings(\"unchecked\")",
             "  private void initialize(final Builder builder) {",
             "     this.aMembersInjector = A_MembersInjector.create(NoDepClass_Factory.create());",
             "  }",
@@ -227,7 +246,7 @@ public class PackageProxyTest {
             "    }",
             "  }",
             "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(
             noDepClassFile,
             aClassFile,
@@ -235,6 +254,7 @@ public class PackageProxyTest {
             cClassFile,
             dClassFile,
             componentFile))
+        .withCompilerOptions("-Xlint", "-Werror:rawtypes,unchecked")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);

@@ -40,7 +40,6 @@ import dagger.internal.SetFactory;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ComponentGenerator.MemberSelect;
-import dagger.internal.codegen.ComponentGenerator.ProxyClassAndField;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -52,26 +51,22 @@ import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
-import dagger.internal.codegen.writer.TypeWriter;
 import dagger.internal.codegen.writer.VoidName;
 import dagger.producers.Producer;
 import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Generated;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -96,9 +91,9 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
+import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
@@ -133,7 +128,6 @@ abstract class AbstractComponentWriter {
   protected final Set<JavaWriter> javaWriters = new LinkedHashSet<>();
   protected final ClassName name;
   protected final BindingGraph graph;
-  private final Map<String, ProxyClassAndField> packageProxies = new HashMap<>();
   private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
   private final Map<Binding, InitializationState> contributionInitializationStates =
       new HashMap<>();
@@ -480,45 +474,9 @@ abstract class AbstractComponentWriter {
       return;
     }
 
-    String bindingPackage = bindingPackageFor(resolvedBindings.bindings()).or(name.packageName());
-
-    final Optional<String> proxySelector;
-    final TypeWriter classWithFields;
-    final Set<Modifier> fieldModifiers;
-
-    if (bindingPackage.equals(name.packageName())) {
-      // no proxy
-      proxySelector = Optional.absent();
-      // component gets the fields
-      classWithFields = componentWriter;
-      // private fields
-      fieldModifiers = EnumSet.of(PRIVATE);
-    } else {
-      // get or create the proxy
-      ProxyClassAndField proxyClassAndField = packageProxies.get(bindingPackage);
-      if (proxyClassAndField == null) {
-        JavaWriter proxyJavaWriter = JavaWriter.inPackage(bindingPackage);
-        javaWriters.add(proxyJavaWriter);
-        ClassWriter proxyWriter = proxyJavaWriter.addClass(name.simpleName() + "_PackageProxy");
-        proxyWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
-        proxyWriter.addModifiers(PUBLIC, FINAL);
-        // create the field for the proxy in the component
-        FieldWriter proxyFieldWriter =
-            componentWriter.addField(
-                proxyWriter.name(), bindingPackage.replace('.', '_') + "_Proxy");
-        proxyFieldWriter.addModifiers(PRIVATE, FINAL);
-        proxyFieldWriter.setInitializer("new %s()", proxyWriter.name());
-        proxyClassAndField = ProxyClassAndField.create(proxyWriter, proxyFieldWriter);
-        packageProxies.put(bindingPackage, proxyClassAndField);
-      }
-      // add the field for the member select
-      proxySelector = Optional.of(proxyClassAndField.proxyFieldWriter().name());
-      // proxy gets the fields
-      classWithFields = proxyClassAndField.proxyWriter();
-      // public fields in the proxy
-      fieldModifiers = EnumSet.of(PUBLIC);
-    }
-
+    Optional<String> bindingPackage = bindingPackageFor(resolvedBindings.bindings());
+    boolean useRawType = bindingPackage.isPresent()
+        && !bindingPackage.get().equals(name.packageName());
     if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)) {
       ImmutableSet<ContributionBinding> contributionBindings =
           resolvedBindings.contributionBindings();
@@ -534,13 +492,10 @@ abstract class AbstractComponentWriter {
                   FrameworkField.createForSyntheticContributionBinding(
                       contributionNumber, contributionBinding);
               FieldWriter contributionField =
-                  classWithFields.addField(
-                      contributionBindingField.frameworkType(), contributionBindingField.name());
-              contributionField.addModifiers(fieldModifiers);
+                  addFrameworkField(useRawType, contributionBindingField);
 
               ImmutableList<String> contributionSelectTokens =
                   new ImmutableList.Builder<String>()
-                      .addAll(proxySelector.asSet())
                       .add(contributionField.name())
                       .build();
               multibindingContributionSnippets.put(
@@ -553,18 +508,30 @@ abstract class AbstractComponentWriter {
     }
 
     FrameworkField bindingField = FrameworkField.createForResolvedBindings(resolvedBindings);
-    FieldWriter frameworkField =
-        classWithFields.addField(bindingField.frameworkType(), bindingField.name());
-    frameworkField.addModifiers(fieldModifiers);
+    FieldWriter frameworkField = addFrameworkField(useRawType, bindingField);
 
     ImmutableList<String> memberSelectTokens =
         new ImmutableList.Builder<String>()
-            .addAll(proxySelector.asSet())
             .add(frameworkField.name())
             .build();
     memberSelectSnippets.put(
         bindingKey,
         MemberSelect.instanceSelect(name, Snippet.memberSelectSnippet(memberSelectTokens)));
+  }
+
+  private FieldWriter addFrameworkField(boolean useRawType,
+      FrameworkField contributionBindingField) {
+    FieldWriter contributionField =
+        componentWriter.addField(
+            useRawType
+                ? contributionBindingField.frameworkType().type()
+                : contributionBindingField.frameworkType(),
+            contributionBindingField.name());
+    contributionField.addModifiers(PRIVATE);
+    if (useRawType) {
+      contributionField.annotate(SuppressWarnings.class).setValue("rawtypes");
+    }
+    return contributionField;
   }
 
   /**
@@ -720,6 +687,11 @@ abstract class AbstractComponentWriter {
     for (int i = 0; i < partitions.size(); i++) {
       MethodWriter initializeMethod =
           componentWriter.addMethod(VoidName.VOID, "initialize" + ((i == 0) ? "" : i));
+      /* TODO(gak): Strictly speaking, we only need the suppression here if we are also initializing
+       * a raw field in this method, but the structure of this code makes it awkward to pass that
+       * bit through.  This will be cleaned up when we no longer separate fields and initilization
+       * as we do now. */
+      initializeMethod.annotate(SuppressWarnings.class).setValue("unchecked");
       for (Snippet snippet : partitions.get(i)) {
         initializeMethod.body().addSnippet(snippet);
       }

@@ -92,6 +92,7 @@ public final class PrimitiveInjectionTest {
       "    return builder().build();",
       "  }",
       "",
+      "  @SuppressWarnings(\"unchecked\")",
       "  private void initialize(final Builder builder) {",
       "    this.primitiveIntProvider =",
       "        PrimitiveModule_PrimitiveIntFactory.create(builder.primitiveModule);",

@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -358,6 +357,7 @@ public final class SubcomponentValidationTest {
             "    return builder().build();",
             "  }",
             "",
+            "  @SuppressWarnings(\"unchecked\")",
             "  private void initialize(final Builder builder) {  ",
             "    this.dep1MembersInjector = Dep1_MembersInjector.create();",
             "    this.dep1Provider = Dep1_Factory.create(dep1MembersInjector);",
@@ -402,7 +402,8 @@ public final class SubcomponentValidationTest {
             "      this.childModule = new ChildModule();",
             "      initialize();",
             "    }",
-            "  ",
+            "",
+            "    @SuppressWarnings(\"unchecked\")",
             "    private void initialize() {  ",
             "      this.aMembersInjector = A_MembersInjector.create();",
             "      this.needsDep1Provider = NeedsDep1_Factory.create(",
