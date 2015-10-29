@@ -74,16 +74,6 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
     return Optional.of(input.componentDescriptor().componentDefinitionType());
   }
 
-  @AutoValue
-  static abstract class ProxyClassAndField {
-    abstract ClassWriter proxyWriter();
-    abstract FieldWriter proxyFieldWriter();
-
-    static ProxyClassAndField create(ClassWriter proxyWriter, FieldWriter proxyFieldWriter) {
-      return new AutoValue_ComponentGenerator_ProxyClassAndField(proxyWriter, proxyFieldWriter);
-    }
-  }
-
   @AutoValue static abstract class MemberSelect {
     static MemberSelect instanceSelect(ClassName owningClass, Snippet snippet) {
       return new AutoValue_ComponentGenerator_MemberSelect(
