@@ -245,7 +245,6 @@ public final class SubcomponentValidationTest {
         .withErrorContaining("@Singleton");
   }
 
-  @Ignore
   @Test
   public void delegateFactoryNotCreatedForSubcomponentWhenProviderExistsInParent() {
     JavaFileObject parentComponentFile =
@@ -395,8 +394,6 @@ public final class SubcomponentValidationTest {
             "    private Provider<NeedsDep1> needsDep1Provider;",
             "    private Provider<A> aProvider;",
             "    private Provider<Object> provideObjectProvider;",
-            "    private MembersInjector<Dep1> dep1MembersInjector;",
-            "    private MembersInjector<Dep2> dep2MembersInjector;",
             "  ",
             "    private ChildComponentImpl() {  ",
             "      this.childModule = new ChildModule();",
@@ -415,8 +412,6 @@ public final class SubcomponentValidationTest {
             "          DaggerParentComponent.this.dep2Provider);",
             "      this.provideObjectProvider = ChildModule_ProvideObjectFactory.create(",
             "          childModule, aProvider);",
-            "      this.dep1MembersInjector = Dep1_MembersInjector.create();",
-            "      this.dep2MembersInjector = Dep2_MembersInjector.create();",
             "    }",
             "  ",
             "    @Override",

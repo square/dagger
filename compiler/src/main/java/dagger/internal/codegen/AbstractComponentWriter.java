@@ -461,12 +461,11 @@ abstract class AbstractComponentWriter {
   private void addField(ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
 
-    // No field needed for unique contributions inherited from the parent.
-    if (resolvedBindings.isUniqueContribution()
-        && resolvedBindings.ownedContributionBindings().isEmpty()) {
+    // No field needed if there are no owned bindings.
+    if (resolvedBindings.ownedBindings().isEmpty()) {
       return;
     }
-
+    
     // No field needed for bindings with no dependencies or state.
     Optional<MemberSelect> staticMemberSelect = staticMemberSelect(resolvedBindings);
     if (staticMemberSelect.isPresent()) {
@@ -702,7 +701,6 @@ abstract class AbstractComponentWriter {
       } else {
         constructorWriter.body().addSnippet("%s();", initializeMethod.name());
       }
-
     }
   }
 
@@ -715,6 +713,12 @@ abstract class AbstractComponentWriter {
    */
   private Snippet initializeFrameworkType(BindingKey bindingKey) {
     ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
+    
+    // There's no field for inherited bindings.
+    if (resolvedBindings.ownedBindings().isEmpty()) {
+      return Snippet.format("");
+    }
+    
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
         switch (contributionTypeFor(resolvedBindings.contributionBindings())) {
@@ -804,14 +808,12 @@ abstract class AbstractComponentWriter {
   private Snippet initializeUniqueContributionBinding(ResolvedBindings resolvedBindings) {
     ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
 
-    if (!resolvedBindings.ownedContributionBindings().isEmpty()) {
-      ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
-      if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
+    ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
+    if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
         initializationSnippets.add(initializeDelegateFactories(binding));
-        initializationSnippets.add(
-            initializeMember(
-                resolvedBindings.bindingKey(), initializeFactoryForContributionBinding(binding)));
-      }
+      initializationSnippets.add(
+          initializeMember(
+              resolvedBindings.bindingKey(), initializeFactoryForContributionBinding(binding)));
     }
 
     return Snippet.concat(initializationSnippets.build());
