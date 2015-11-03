@@ -330,12 +330,7 @@ abstract class BindingGraph {
                   ImmutableSetMultimap.builder();
               for (ContributionBinding binding :
                   union(explicitBindingsForKey, union(explicitSetBindings, explicitMapBindings))) {
-                if (isResolvedInParent(request, binding)
-                    && !shouldOwnParentBinding(request, binding)) {
-                  bindings.put(getOwningResolver(binding).get().componentDescriptor, binding);
-                } else {
-                  bindings.put(componentDescriptor, binding);
-                }
+                bindings.put(getOwningComponent(request, binding), binding);
               }
               return ResolvedBindings.forContributionBindings(
                   bindingKey, componentDescriptor, bindings.build());
@@ -381,6 +376,18 @@ abstract class BindingGraph {
           default:
             throw new AssertionError();
         }
+      }
+
+      /**
+       * If {@code binding} should be owned by a parent component, resolves the binding in that
+       * component's resolver and returns that component. Otherwise returns the component for this
+       * resolver.
+       */
+      private ComponentDescriptor getOwningComponent(
+          DependencyRequest request, ContributionBinding binding) {
+        return isResolvedInParent(request, binding) && !shouldOwnParentBinding(request, binding)
+            ? getOwningResolver(binding).get().componentDescriptor
+            : componentDescriptor;
       }
 
       /**
