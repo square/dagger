@@ -37,6 +37,7 @@
       <groupId>com.google.dagger</groupId>
       <artifactId>dagger-compiler</artifactId>
       <version>${project.version}</version>
+      <scope>provided</scope>
       <optional>true</optional>
     </dependency>
 
@@ -54,7 +55,7 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>com.jayway.maven.plugins.android.generation2</groupId>
+        <groupId>com.simpligility.maven.plugins</groupId>
         <artifactId>android-maven-plugin</artifactId>
         <extensions>true</extensions>
       </plugin>
