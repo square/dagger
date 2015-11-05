@@ -19,7 +19,7 @@ import dagger.Subcomponent;
 import java.util.Set;
 import javax.inject.Provider;
 
-@Subcomponent(modules = ChildModule.class)
+@Subcomponent(modules = {ChildModule.class, StaticChildModule.class})
 interface ChildComponent {
   Provider<UnscopedType> getUnscopedTypeProvider();
 
@@ -28,4 +28,6 @@ interface ChildComponent {
   Set<Object> objectSet();
 
   GrandchildComponent newGrandchildComponent();
+  
+  Object object();
 }

@@ -43,15 +43,26 @@ public final class SubcomponentValidationTest {
         "import dagger.Subcomponent;",
         "",
         "@Subcomponent(modules = ModuleWithParameters.class)",
-        "interface ChildComponent {}");
+        "interface ChildComponent {",
+        "  Object object();",
+        "}");
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.ModuleWithParameters",
         "package test;",
         "",
         "import dagger.Module;",
+        "import dagger.Provides;",
         "",
         "@Module",
         "final class ModuleWithParameters {",
-        "  ModuleWithParameters(Object whatever) {}",
+        "  private final Object object;",
+        "",
+        "  ModuleWithParameters(Object object) {",
+        "    this.object = object;",
+        "  }",
+        "",
+        "  @Provides Object object() {",
+        "    return object;",
+        "  }",
         "}");
     assertAbout(javaSources()).that(ImmutableList.of(componentFile, childComponentFile, moduleFile))
         .processedWith(new ComponentProcessor())

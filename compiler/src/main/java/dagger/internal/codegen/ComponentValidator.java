@@ -18,17 +18,13 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
 import dagger.Component;
 import dagger.Module;
 import dagger.Subcomponent;
@@ -54,7 +50,6 @@ import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
-import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.ElementKind.INTERFACE;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -264,17 +259,9 @@ final class ComponentValidator {
     // TODO(gak): This logic maybe/probably shouldn't live here as it requires us to traverse
     // subcomponents and their modules separately from how it is done in ComponentDescriptor and
     // ModuleDescriptor
+    @SuppressWarnings("deprecation")
     ImmutableSet<TypeElement> transitiveModules =
         getTransitiveModules(types, elements, moduleTypes);
-
-    ImmutableSet<TypeElement> requiredModules =
-        FluentIterable.from(transitiveModules)
-            .filter(new Predicate<TypeElement>() {
-              @Override public boolean apply(TypeElement input) {
-                return !componentCanMakeNewInstances(input);
-              }
-            })
-            .toSet();
 
     Set<TypeElement> variableTypes = Sets.newHashSet();
 
@@ -319,18 +306,6 @@ final class ComponentValidator {
                 parameterType),
             parameter);
       }
-    }
-
-    SetView<TypeElement> missingModules =
-        Sets.difference(requiredModules, ImmutableSet.copyOf(variableTypes));
-    if (!missingModules.isEmpty()) {
-      builder.addError(
-          String.format(
-              "%s requires modules which have no visible default constructors. "
-                  + "Add the following modules as parameters to this method: %s",
-              MoreTypes.asTypeElement(returnType).getQualifiedName(),
-              Joiner.on(", ").join(missingModules)),
-          method);
     }
   }
 

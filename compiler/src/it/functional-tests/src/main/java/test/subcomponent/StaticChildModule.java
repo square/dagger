@@ -15,8 +15,14 @@
  */
 package test.subcomponent;
 
-import dagger.Subcomponent;
+import dagger.Module;
+import dagger.Provides;
 
-@Subcomponent(modules = {ChildModule.class, StaticChildModule.class})
-abstract class ChildAbstractClassComponent implements ChildComponent {
+@Module
+final class StaticChildModule {
+  private StaticChildModule() {}
+  
+  @Provides static Object provideStaticObject() {
+    return "static";
+  }
 }

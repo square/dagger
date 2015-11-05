@@ -59,6 +59,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
@@ -67,7 +68,10 @@ import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.asDeclared;
+import static com.google.auto.common.MoreTypes.asExecutable;
+import static com.google.auto.common.MoreTypes.asTypeElements;
 import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.all;
@@ -75,6 +79,9 @@ import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
 import static com.google.common.collect.Iterables.skip;
+import static com.google.common.collect.Maps.filterKeys;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
@@ -89,6 +96,7 @@ import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.Util.getKeyTypeOfMap;
 import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
 import static dagger.internal.codegen.Util.getValueTypeOfMap;
@@ -165,6 +173,13 @@ public class BindingGraphValidator {
               new HashSet<DependencyRequest>());
         }
       }
+      
+      for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> entry :
+          filterKeys(subject.componentDescriptor().subcomponents(), isOfKind(SUBCOMPONENT))
+              .entrySet()) {
+        validateSubcomponentFactoryMethod(
+            entry.getKey().methodElement(), entry.getValue().componentDefinitionType());
+      }
 
       for (BindingGraph subgraph : subject.subgraphs().values()) {
         Validation subgraphValidation =
@@ -172,6 +187,39 @@ public class BindingGraphValidator {
         subgraphValidation.validateSubgraph();
         reportBuilder.addSubreport(subgraphValidation.buildReport());
       }
+    }
+
+    private void validateSubcomponentFactoryMethod(
+        ExecutableElement factoryMethod, TypeElement subcomponentType) {
+      BindingGraph subgraph = subject.subgraphs().get(factoryMethod);
+      FluentIterable<TypeElement> missingModules =
+          FluentIterable.from(subgraph.componentRequirements())
+              .filter(not(in(subgraphFactoryMethodParameters(factoryMethod))))
+              .filter(
+                  new Predicate<TypeElement>() {
+                    @Override
+                    public boolean apply(TypeElement moduleType) {
+                      return !componentCanMakeNewInstances(moduleType);
+                    }
+                  });
+      if (!missingModules.isEmpty()) {
+        reportBuilder.addError(
+            String.format(
+                "%s requires modules which have no visible default constructors. "
+                    + "Add the following modules as parameters to this method: %s",
+                subcomponentType.getQualifiedName(),
+                Joiner.on(", ").join(missingModules.toSet())),
+            factoryMethod);
+      }
+    }
+
+    private ImmutableSet<TypeElement> subgraphFactoryMethodParameters(
+        ExecutableElement factoryMethod) {
+      DeclaredType componentType =
+          asDeclared(subject.componentDescriptor().componentDefinitionType().asType());
+      ExecutableType factoryMethodType =
+          asExecutable(types.asMemberOf(componentType, factoryMethod));
+      return asTypeElements(factoryMethodType.getParameterTypes());
     }
 
     /**

@@ -19,6 +19,7 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -203,6 +204,18 @@ abstract class ComponentDescriptor {
     abstract ComponentMethodKind kind();
     abstract Optional<DependencyRequest> dependencyRequest();
     abstract ExecutableElement methodElement();
+    
+    /**
+     * A predicate that passes for {@link ComponentMethodDescriptor}s of a given kind.
+     */
+    static Predicate<ComponentMethodDescriptor> isOfKind(final ComponentMethodKind kind) {
+      return new Predicate<ComponentMethodDescriptor>() {
+        @Override
+        public boolean apply(ComponentMethodDescriptor descriptor) {
+          return kind.equals(descriptor.kind());
+        }
+      };
+    }
   }
 
   enum ComponentMethodKind {
@@ -212,7 +225,7 @@ abstract class ComponentDescriptor {
     SUBCOMPONENT,
     SUBCOMPONENT_BUILDER,
   }
-
+  
   @AutoValue
   static abstract class BuilderSpec {
     abstract TypeElement builderDefinitionType();

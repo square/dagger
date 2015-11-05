@@ -18,10 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentGenerator.MemberSelect;
 import dagger.internal.codegen.writer.ClassName;
@@ -32,6 +29,7 @@ import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.List;
+import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -40,6 +38,7 @@ import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Sets.difference;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -189,12 +188,9 @@ class SubcomponentWriter extends AbstractComponentWriter {
       }
     }
 
-    ImmutableSet<TypeElement> uninitializedModules =
-        FluentIterable.from(graph.componentDescriptor().transitiveModules())
-            .transform(ModuleDescriptor.getModuleElement())
-            .filter(Predicates.not(Predicates.in(componentContributionFields.keySet())))
-            .toSet();
-
+    Set<TypeElement> uninitializedModules =
+        difference(graph.componentRequirements(), componentContributionFields.keySet());
+    
     for (TypeElement moduleType : uninitializedModules) {
       String preferredModuleName =
           CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, moduleType.getSimpleName().toString());
