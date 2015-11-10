@@ -47,7 +47,7 @@
     <javax.annotation.version>2.0.1</javax.annotation.version>
     <javawriter.version>2.5.0</javawriter.version>
     <auto.common.version>1.0-SNAPSHOT</auto.common.version>
-    <auto.factory.version>1.0-SNAPSHOT</auto.factory.version>
+    <auto.factory.version>1.0-beta3</auto.factory.version>
     <auto.service.version>1.0-rc2</auto.service.version>
     <auto.value.version>1.0</auto.value.version>
     <guava.version>19.0-rc2</guava.version>
@@ -90,6 +90,11 @@
       <dependency>
         <groupId>javax.inject</groupId>
         <artifactId>javax.inject</artifactId>
+        <version>${javax.inject.version}</version>
+      </dependency>
+       <dependency>
+        <groupId>javax.inject</groupId>
+        <artifactId>javax.inject-tck</artifactId>
         <version>${javax.inject.version}</version>
       </dependency>
       <dependency>
