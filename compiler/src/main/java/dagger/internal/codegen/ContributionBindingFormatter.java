@@ -40,9 +40,11 @@ final class ContributionBindingFormatter extends Formatter<ContributionBinding> 
         return methodSignatureFormatter.format(asExecutable(binding.bindingElement()));
 
       case PROVISION:
+      case SUBCOMPONENT_BUILDER:
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
-        return methodSignatureFormatter.format(asExecutable(binding.bindingElement()),
+        return methodSignatureFormatter.format(
+            asExecutable(binding.bindingElement()),
             Optional.of(asDeclared(binding.contributedBy().get().asType())));
 
       default:

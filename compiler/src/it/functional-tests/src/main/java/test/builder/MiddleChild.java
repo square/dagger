@@ -24,6 +24,8 @@ interface MiddleChild {
   
   Grandchild.Builder grandchildBuilder();
   
+  RequiresSubcomponentBuilder<Grandchild.Builder> requiresGrandchildBuilder();
+  
   @Subcomponent.Builder
   interface Builder {
     MiddleChild build();

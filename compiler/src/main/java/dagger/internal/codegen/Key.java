@@ -46,6 +46,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
@@ -199,6 +200,16 @@ abstract class Key {
         keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
       }
       return forMethod(componentMethod, keyType);
+    }
+
+    Key forSubcomponentBuilderMethod(
+        ExecutableElement subcomponentBuilderMethod, DeclaredType declaredContainer) {
+      checkNotNull(subcomponentBuilderMethod);
+      checkArgument(subcomponentBuilderMethod.getKind().equals(METHOD));
+      ExecutableType resolvedMethod =
+          asExecutable(types.asMemberOf(declaredContainer, subcomponentBuilderMethod));
+      TypeMirror returnType = normalize(types, resolvedMethod.getReturnType());
+      return forMethod(subcomponentBuilderMethod, returnType);
     }
 
     Key forProvidesMethod(ExecutableType executableType, ExecutableElement method) {

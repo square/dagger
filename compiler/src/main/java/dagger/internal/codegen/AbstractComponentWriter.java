@@ -810,7 +810,7 @@ abstract class AbstractComponentWriter {
 
     ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
     if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
-        initializationSnippets.add(initializeDelegateFactories(binding));
+      initializationSnippets.add(initializeDelegateFactories(binding));
       initializationSnippets.add(
           initializeMember(
               resolvedBindings.bindingKey(), initializeFactoryForContributionBinding(binding)));
@@ -948,6 +948,19 @@ abstract class AbstractComponentWriter {
               /* 7 */ getMethodBody);
         }
 
+      case SUBCOMPONENT_BUILDER:
+        return Snippet.format(
+            Joiner.on('\n')
+                .join(
+                    "new %1$s<%2$s>() {",
+                    "  @Override public %2$s get() {",
+                    "    return %3$s();",
+                    "  }",
+                    "}"),
+            /* 1 */ ClassName.fromClass(Factory.class),
+            /* 2 */ bindingKeyTypeName,
+            /* 3 */ binding.bindingElement().getSimpleName().toString());
+        
       case INJECTION:
       case PROVISION:
         {

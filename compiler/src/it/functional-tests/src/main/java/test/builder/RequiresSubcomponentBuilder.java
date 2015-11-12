@@ -15,17 +15,24 @@
  */
 package test.builder;
 
-import dagger.Component;
-import javax.inject.Singleton;
+import javax.inject.Inject;
+import javax.inject.Provider;
 
-@Singleton
-@Component
-interface ParentComponent {  
-  TestChildComponentWithBuilderAbstractClass.Builder childAbstractClassBuilder();
-  TestChildComponentWithBuilderInterface.Builder childInterfaceBuilder();
+class RequiresSubcomponentBuilder<B> {
+  private final Provider<B> subcomponentBuilderProvider;
+  private final B subcomponentBuilder;
+
+  @Inject
+  RequiresSubcomponentBuilder(Provider<B> subcomponentBuilderProvider, B subcomponentBuilder) {
+    this.subcomponentBuilderProvider = subcomponentBuilderProvider;
+    this.subcomponentBuilder = subcomponentBuilder;
+  }
+
+  Provider<B> subcomponentBuilderProvider() {
+    return subcomponentBuilderProvider;
+  }
   
-  MiddleChild.Builder middleBuilder();
-  OtherMiddleChild.Builder otherBuilder();
-  
-  RequiresSubcomponentBuilder<MiddleChild.Builder> requiresMiddleChildBuilder();
+  B subcomponentBuilder() {
+    return subcomponentBuilder;
+  }
 }

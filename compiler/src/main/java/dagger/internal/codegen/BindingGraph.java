@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -62,6 +63,8 @@ import static com.google.common.collect.Sets.union;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
@@ -202,6 +205,16 @@ abstract class BindingGraph {
                     : provisionBindingFactory.forComponentMethod(method));
           }
         }
+      }
+
+      // Bindings for subcomponent builders.
+      for (ComponentMethodDescriptor subcomponentMethodDescriptor :
+          Iterables.filter(
+              componentDescriptor.subcomponents().keySet(), isOfKind(SUBCOMPONENT_BUILDER))) {
+        explicitBindingsBuilder.add(
+            provisionBindingFactory.forSubcomponentBuilderMethod(
+                subcomponentMethodDescriptor.methodElement(),
+                componentDescriptor.componentDefinitionType()));
       }
 
       // Collect transitive module bindings.

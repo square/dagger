@@ -35,6 +35,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -242,6 +243,26 @@ abstract class ProvisionBinding extends ContributionBinding {
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
           scope);
+    }
+
+    ProvisionBinding forSubcomponentBuilderMethod(
+        ExecutableElement subcomponentBuilderMethod, TypeElement contributedBy) {
+      checkNotNull(subcomponentBuilderMethod);
+      checkArgument(subcomponentBuilderMethod.getKind().equals(METHOD));
+      checkArgument(subcomponentBuilderMethod.getParameters().isEmpty());
+      DeclaredType declaredContainer = asDeclared(contributedBy.asType());
+      return new AutoValue_ProvisionBinding(
+          keyFactory.forSubcomponentBuilderMethod(subcomponentBuilderMethod, declaredContainer),
+          subcomponentBuilderMethod,
+          ImmutableSet.<DependencyRequest>of(),
+          Optional.<String>absent(),
+          false /* no non-default parameter types */,
+          Optional.<DeclaredType>absent(),
+          Optional.of(contributedBy),
+          Optional.<DependencyRequest>absent(),
+          Kind.SUBCOMPONENT_BUILDER,
+          Provides.Type.UNIQUE,
+          Scope.unscoped());
     }
   }
 }

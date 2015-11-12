@@ -20,6 +20,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -140,6 +141,11 @@ abstract class ContributionBinding extends Binding {
     /** A provision method on a component's {@linkplain Component#dependencies() dependency}. */
     COMPONENT_PROVISION,
 
+    /**
+     * A subcomponent builder method on a component or subcomponent.
+     */
+    SUBCOMPONENT_BUILDER,
+
     // Production kinds
 
     /** A {@link Produces}-annotated method that doesn't return a {@link ListenableFuture}. */
@@ -161,6 +167,17 @@ abstract class ContributionBinding extends Binding {
    * The kind of this contribution binding.
    */
   protected abstract Kind bindingKind();
+  
+  /**
+   * A predicate that passes for bindings of a given kind.
+   */
+  static Predicate<ContributionBinding> isOfKind(final Kind kind) {
+    return new Predicate<ContributionBinding>() {
+      @Override
+      public boolean apply(ContributionBinding binding) {
+        return binding.bindingKind().equals(kind);
+      }};
+  }
 
   /** The provision type that was used to bind the key. */
   abstract Provides.Type provisionType();
