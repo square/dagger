@@ -46,25 +46,27 @@
       <artifactId>auto-common</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.google.auto.service</groupId>
-      <artifactId>auto-service</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <!-- TODO(gak): Restore this presumably as javapoet when appropriate.
-    <dependency>
-      <groupId>com.squareup</groupId>
-      <artifactId>javawriter</artifactId>
-    </dependency>
-    -->
-    <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
-
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>com.google.googlejavaformat</groupId>
+      <artifactId>google-java-format</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
+    </dependency>
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
-      <optional>true</optional>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
       <version>1.0</version>
     </dependency>
 
@@ -187,6 +189,16 @@
                   <shadedPattern>dagger.shaded.auto.common</shadedPattern>
                 </relocation>
               </relocations>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
             </configuration>
           </execution>
         </executions>

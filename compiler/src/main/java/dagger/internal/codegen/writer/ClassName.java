@@ -95,11 +95,23 @@ public final class ClassName implements TypeName, Comparable<ClassName> {
     return fullyQualifiedName;
   }
 
+  /**
+   * Equivalent to {@link #classFileName(char) classFileName('$')}
+   */
   public String classFileName() {
+    return classFileName('$');
+  }
+
+  /**
+   * Returns the class name (excluding package).
+   *
+   * <p>The returned value includes the names of its enclosing classes (if any) but not the package
+   * name. e.g. {@code fromClass(Map.Entry.class).classFileName('_')} will return {@code Map_Entry}.
+   */
+  public String classFileName(char separator) {
     StringBuilder builder = new StringBuilder();
-    Joiner.on('$').appendTo(builder, enclosingSimpleNames());
-    if (!enclosingSimpleNames().isEmpty()) {
-      builder.append('$');
+    for (String enclosingSimpleName : enclosingSimpleNames) {
+      builder.append(enclosingSimpleName).append(separator);
     }
     return builder.append(simpleName()).toString();
   }
@@ -115,7 +127,6 @@ public final class ClassName implements TypeName, Comparable<ClassName> {
   public ClassName nestedClassNamed(String memberClassName) {
     checkNotNull(memberClassName);
     checkArgument(SourceVersion.isIdentifier(memberClassName));
-    checkArgument(Ascii.isUpperCase(memberClassName.charAt(0)));
     return new ClassName(packageName(),
         new ImmutableList.Builder<String>()
             .addAll(enclosingSimpleNames())
@@ -127,8 +138,15 @@ public final class ClassName implements TypeName, Comparable<ClassName> {
   public ClassName peerNamed(String peerClassName) {
     checkNotNull(peerClassName);
     checkArgument(SourceVersion.isIdentifier(peerClassName));
-    checkArgument(Ascii.isUpperCase(peerClassName.charAt(0)));
     return new ClassName(packageName(), enclosingSimpleNames(), peerClassName);
+  }
+
+  /**
+   * Returns a parameterized type name with this as its raw type if {@code parameters} is not empty.
+   * If {@code parameters} is empty, returns this object.
+   */
+  public TypeName withTypeParameters(List<? extends TypeName> parameters) {
+    return parameters.isEmpty() ? this : ParameterizedTypeName.create(this, parameters);
   }
 
   private static final ImmutableSet<NestingKind> ACCEPTABLE_NESTING_KINDS =

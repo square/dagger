@@ -29,10 +29,10 @@ import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 /** Tests for {@link dagger.Component.Builder} */
 @RunWith(JUnit4.class)
 public class ComponentBuilderTest {
-  
+
   private static final ErrorMessages.ComponentBuilderMessages MSGS =
       ErrorMessages.ComponentBuilderMessages.INSTANCE;
-  
+
   @Test
   public void testEmptyBuilder() {
     JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
@@ -57,7 +57,7 @@ public class ComponentBuilderTest {
         "  @Component.Builder",
         "  static interface Builder {",
         "     SimpleComponent build();",
-        "  }",        
+        "  }",
         "}");
     JavaFileObject generatedComponent = JavaFileObjects.forSourceLines(
         "test.DaggerSimpleComponent",
@@ -81,6 +81,7 @@ public class ComponentBuilderTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "  }",
         "",
@@ -101,7 +102,7 @@ public class ComponentBuilderTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
-  
+
   @Test
   public void testUsesBuildAndSetterNames() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
@@ -155,6 +156,7 @@ public class ComponentBuilderTest {
         "    return builder().create();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.stringProvider = TestModule_StringFactory.create(builder.testModule);",
         "  }",
@@ -178,7 +180,7 @@ public class ComponentBuilderTest {
         "    @Override",
         "    public Builder setTestModule(TestModule testModule) {",
         "      if (testModule == null) {",
-        "        throw new NullPointerException(\"testModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.testModule = testModule;",
         "      return this;",
@@ -191,7 +193,7 @@ public class ComponentBuilderTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
-  
+
   @Test
   public void testIgnoresModulesNotInApi() {
     JavaFileObject module1 = JavaFileObjects.forSourceLines("test.TestModule1",
@@ -227,7 +229,7 @@ public class ComponentBuilderTest {
         "",
         "  @Component.Builder",
         "  interface Builder {",
-        "    Builder testModule1(TestModule1 testModule);",
+        "    Builder testModule1(TestModule1 testModule1);",
         "    TestComponent build();",
         "  }",
         "}");
@@ -257,6 +259,7 @@ public class ComponentBuilderTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.stringProvider = TestModule1_StringFactory.create(builder.testModule1);",
         "    this.integerProvider = TestModule2_IntegerFactory.create(builder.testModule2);",
@@ -290,7 +293,7 @@ public class ComponentBuilderTest {
         "    @Override",
         "    public Builder testModule1(TestModule1 testModule1) {",
         "      if (testModule1 == null) {",
-        "        throw new NullPointerException(\"testModule1\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.testModule1 = testModule1;",
         "      return this;",
@@ -303,7 +306,7 @@ public class ComponentBuilderTest {
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
   }
-  
+
   @Test
   public void testMoreThanOneBuilderFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -323,7 +326,7 @@ public class ComponentBuilderTest {
         "  @Component.Builder",
         "  interface Builder2 {",
         "     SimpleComponent build();",
-        "  }",           
+        "  }",
         "}");
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
@@ -332,7 +335,7 @@ public class ComponentBuilderTest {
             "[test.SimpleComponent.Builder, test.SimpleComponent.Builder2]"))
         .in(componentFile);
   }
-  
+
   @Test
   public void testBuilderGenericsFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -347,7 +350,7 @@ public class ComponentBuilderTest {
         "  @Component.Builder",
         "  interface Builder<T> {",
         "     SimpleComponent build();",
-        "  }",           
+        "  }",
         "}");
     assertAbout(javaSource()).that(componentFile)
         .processedWith(new ComponentProcessor())
@@ -355,7 +358,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.generics())
         .in(componentFile);
   }
-  
+
   @Test
   public void testBuilderNotInComponentFails() {
     JavaFileObject builder = JavaFileObjects.forSourceLines("test.Builder",
@@ -371,7 +374,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.mustBeInComponent())
         .in(builder);
   }
-  
+
   @Test
   public void testBuilderMissingBuildMethodFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -392,7 +395,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.missingBuildMethod())
         .in(componentFile);
   }
-  
+
   @Test
   public void testPrivateBuilderFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -413,7 +416,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.isPrivate())
         .in(componentFile);
   }
-  
+
   @Test
   public void testNonStaticBuilderFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -434,7 +437,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.mustBeStatic())
         .in(componentFile);
   }
-  
+
   @Test
   public void testNonAbstractBuilderFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -454,7 +457,7 @@ public class ComponentBuilderTest {
         .failsToCompile()
         .withErrorContaining(MSGS.mustBeAbstract());
   }
-  
+
   @Test
   public void testBuilderOneCxtorWithArgsFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -477,7 +480,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.cxtorOnlyOneAndNoArgs())
         .in(componentFile);
   }
-  
+
   @Test
   public void testBuilderMoreThanOneCxtorFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -501,7 +504,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.cxtorOnlyOneAndNoArgs())
         .in(componentFile);
   }
-  
+
   @Test
   public void testBuilderEnumFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -522,7 +525,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.mustBeClassOrInterface())
         .in(componentFile);
   }
-  
+
   @Test
   public void testBuilderBuildReturnsWrongTypeFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -545,7 +548,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.buildMustReturnComponentType())
             .in(componentFile).onLine(11);
   }
-  
+
   @Test
   public void testInheritedBuilderBuildReturnsWrongTypeFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -571,7 +574,7 @@ public class ComponentBuilderTest {
             String.format(MSGS.inheritedBuildMustReturnComponentType(), "build"))
             .in(componentFile).onLine(14);
   }
-  
+
   @Test
   public void testTwoBuildMethodsFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -595,7 +598,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(String.format(MSGS.twoBuildMethods(), "build()"))
             .in(componentFile).onLine(12);
   }
-  
+
   @Test
   public void testInheritedTwoBuildMethodsFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -622,7 +625,7 @@ public class ComponentBuilderTest {
             String.format(MSGS.inheritedTwoBuildMethods(), "create()", "build()"))
             .in(componentFile).onLine(15);
   }
-  
+
   @Test
   public void testMoreThanOneArgFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -649,7 +652,7 @@ public class ComponentBuilderTest {
         .and().withErrorContaining(MSGS.methodsMustTakeOneArg())
             .in(componentFile).onLine(13);
   }
-  
+
   @Test
   public void testInheritedMoreThanOneArgFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -677,7 +680,7 @@ public class ComponentBuilderTest {
                 "set1(java.lang.String,java.lang.Integer)"))
             .in(componentFile).onLine(15);
   }
-  
+
   @Test
   public void testSetterReturningNonVoidOrBuilderFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -701,7 +704,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.methodsMustReturnVoidOrBuilder())
             .in(componentFile).onLine(12);
   }
-  
+
   @Test
   public void testInheritedSetterReturningNonVoidOrBuilderFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -727,9 +730,9 @@ public class ComponentBuilderTest {
         .withErrorContaining(
             String.format(MSGS.inheritedMethodsMustReturnVoidOrBuilder(),
                 "set(java.lang.Integer)"))
-            .in(componentFile).onLine(15);    
+            .in(componentFile).onLine(15);
   }
-  
+
   @Test
   public void testGenericsOnSetterMethodFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -753,7 +756,7 @@ public class ComponentBuilderTest {
         .withErrorContaining(MSGS.methodsMayNotHaveTypeParameters())
             .in(componentFile).onLine(12);
   }
-  
+
   @Test
   public void testGenericsOnInheritedSetterMethodFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -778,9 +781,9 @@ public class ComponentBuilderTest {
         .failsToCompile()
         .withErrorContaining(
             String.format(MSGS.inheritedMethodsMayNotHaveTypeParameters(), "<T>set(T)"))
-            .in(componentFile).onLine(15);    
+            .in(componentFile).onLine(15);
   }
-  
+
   @Test
   public void testMultipleSettersPerTypeFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -807,7 +810,7 @@ public class ComponentBuilderTest {
                   "java.lang.String", "[set1(java.lang.String), set2(java.lang.String)]"))
             .in(componentFile).onLine(10);
   }
-  
+
   @Test
   public void testMultipleSettersPerTypeIncludingResolvedGenericsFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -837,7 +840,7 @@ public class ComponentBuilderTest {
                   "java.lang.String", "[set1(T), set2(java.lang.String)]"))
             .in(componentFile).onLine(14);
   }
-  
+
   @Test
   public void testExtraSettersFails() {
     JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.SimpleComponent",
@@ -864,9 +867,9 @@ public class ComponentBuilderTest {
                   "[void test.SimpleComponent.Builder.set1(String),"
                   + " void test.SimpleComponent.Builder.set2(Integer)]"))
             .in(componentFile).onLine(10);
-    
+
   }
-  
+
   @Test
   public void testMissingSettersFail() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",

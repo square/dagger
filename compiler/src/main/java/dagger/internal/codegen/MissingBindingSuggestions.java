@@ -15,9 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 

@@ -57,7 +57,7 @@ public class DependencyRequestMapperTest {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
     this.keyFactory = new Key.Factory(types, elements);
-    this.dependencyRequestFactory = new DependencyRequest.Factory(keyFactory);
+    this.dependencyRequestFactory = new DependencyRequest.Factory(elements, keyFactory);
   }
 
   private List<? extends VariableElement> sampleProviderParameters() {
@@ -131,7 +131,7 @@ public class DependencyRequestMapperTest {
   @Module
   static final class ProvidesMethodModule {
     @Provides String provideString(
-        Integer a, Lazy<Integer> b, Provider<Integer> c, MembersInjector<Integer> d) {
+        Integer a, Lazy<Integer> b, Provider<Integer> c, MembersInjector<Y> d) {
       return null;
     }
   }
@@ -142,4 +142,6 @@ public class DependencyRequestMapperTest {
       return null;
     }
   }
+  
+  static final class Y {}
 }

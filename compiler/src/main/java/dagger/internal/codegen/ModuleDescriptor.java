@@ -42,7 +42,7 @@ abstract class ModuleDescriptor {
 
   abstract ImmutableSet<ModuleDescriptor> includedModules();
 
-  abstract ImmutableSet<? extends ContributionBinding> bindings();
+  abstract ImmutableSet<ContributionBinding> bindings();
 
   enum DefaultCreationStrategy {
     PASSED,

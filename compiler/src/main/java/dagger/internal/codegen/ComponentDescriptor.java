@@ -15,12 +15,12 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,9 +28,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MembersInjector;
+import dagger.Module;
 import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import java.lang.annotation.Annotation;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,15 +51,13 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.isComponent;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
-import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -72,16 +72,40 @@ abstract class ComponentDescriptor {
   ComponentDescriptor() {}
 
   enum Kind {
-    COMPONENT(Component.class, Component.Builder.class),
-    SUBCOMPONENT(Subcomponent.class, Subcomponent.Builder.class),
-    PRODUCTION_COMPONENT(ProductionComponent.class, null);
+    COMPONENT(Component.class, Component.Builder.class, true),
+    SUBCOMPONENT(Subcomponent.class, Subcomponent.Builder.class, false),
+    PRODUCTION_COMPONENT(ProductionComponent.class, ProductionComponent.Builder.class, true);
 
     private final Class<? extends Annotation> annotationType;
     private final Class<? extends Annotation> builderType;
+    private final boolean isTopLevel;
 
-    Kind(Class<? extends Annotation> annotationType, Class<? extends Annotation> builderType) {
+    /**
+     * Returns the kind of an annotated element if it is annotated with one of the
+     * {@linkplain #annotationType() annotation types}.
+     *
+     * @throws IllegalArgumentException if the element is annotated with more than one of the
+     *     annotation types
+     */
+    static Optional<Kind> forAnnotatedElement(TypeElement element) {
+      Set<Kind> kinds = EnumSet.noneOf(Kind.class);
+      for (Kind kind : values()) {
+        if (MoreElements.isAnnotationPresent(element, kind.annotationType())) {
+          kinds.add(kind);
+        }
+      }
+      checkArgument(
+          kinds.size() <= 1, "%s cannot be annotated with more than one of %s", element, kinds);
+      return Optional.fromNullable(getOnlyElement(kinds, null));
+    }
+
+    Kind(
+        Class<? extends Annotation> annotationType,
+        Class<? extends Annotation> builderType,
+        boolean isTopLevel) {
       this.annotationType = annotationType;
       this.builderType = builderType;
+      this.isTopLevel = isTopLevel;
     }
 
     Class<? extends Annotation> annotationType() {
@@ -90,6 +114,10 @@ abstract class ComponentDescriptor {
 
     Class<? extends Annotation> builderAnnotationType() {
       return builderType;
+    }
+
+    boolean isTopLevel() {
+      return isTopLevel;
     }
   }
 
@@ -108,14 +136,32 @@ abstract class ComponentDescriptor {
    */
   abstract ImmutableSet<TypeElement> dependencies();
 
+  /**
+   * The set of {@link ModuleDescriptor modules} declared directly in {@link Component#modules}.
+   * Use {@link #transitiveModules} to get the full set of modules available upon traversing
+   * {@link Module#includes}.
+   */
   abstract ImmutableSet<ModuleDescriptor> modules();
 
+  /**
+   * Returns the set of {@link ModuleDescriptor modules} declared in {@link Component#modules} and
+   * those reachable by traversing {@link Module#includes}.
+   *
+   * <p>Note that for subcomponents this <em>will not</em> include descriptors for any modules that
+   * are declared in parent components.
+   */
   ImmutableSet<ModuleDescriptor> transitiveModules() {
     Set<ModuleDescriptor> transitiveModules = new LinkedHashSet<>();
     for (ModuleDescriptor module : modules()) {
       addTransitiveModules(transitiveModules, module);
     }
     return ImmutableSet.copyOf(transitiveModules);
+  }
+
+  ImmutableSet<TypeElement> transitiveModuleTypes() {
+    return FluentIterable.from(transitiveModules())
+        .transform(ModuleDescriptor.getModuleElement())
+        .toSet();
   }
 
   private static Set<ModuleDescriptor> addTransitiveModules(
@@ -141,20 +187,11 @@ abstract class ComponentDescriptor {
   abstract Optional<TypeElement> executorDependency();
 
   /**
-   * An optional annotation constraining the scope of this component.
+   * The scope of the component.
    */
-  Optional<AnnotationMirror> scope() {
-    return unwrapOptionalEquivalence(wrappedScope());
-  }
+  abstract Scope scope();
 
-  /**
-   * An optional annotation constraining the scope of this component wrapped in an
-   * {@link com.google.common.base.Equivalence.Wrapper} to preserve comparison semantics of
-   * {@link AnnotationMirror}.
-   */
-  abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedScope();
-
-  abstract ImmutableMap<ExecutableElement, ComponentDescriptor> subcomponents();
+  abstract ImmutableMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponents();
 
   abstract ImmutableSet<ComponentMethodDescriptor> componentMethods();
 
@@ -167,6 +204,18 @@ abstract class ComponentDescriptor {
     abstract ComponentMethodKind kind();
     abstract Optional<DependencyRequest> dependencyRequest();
     abstract ExecutableElement methodElement();
+    
+    /**
+     * A predicate that passes for {@link ComponentMethodDescriptor}s of a given kind.
+     */
+    static Predicate<ComponentMethodDescriptor> isOfKind(final ComponentMethodKind kind) {
+      return new Predicate<ComponentMethodDescriptor>() {
+        @Override
+        public boolean apply(ComponentMethodDescriptor descriptor) {
+          return kind.equals(descriptor.kind());
+        }
+      };
+    }
   }
 
   enum ComponentMethodKind {
@@ -176,7 +225,7 @@ abstract class ComponentDescriptor {
     SUBCOMPONENT,
     SUBCOMPONENT_BUILDER,
   }
-
+  
   @AutoValue
   static abstract class BuilderSpec {
     abstract TypeElement builderDefinitionType();
@@ -202,12 +251,17 @@ abstract class ComponentDescriptor {
       this.moduleDescriptorFactory = moduleDescriptorFactory;
     }
 
+    /**
+     * Returns a component descriptor for a type annotated with either {@link Component @Component}
+     * or {@link ProductionComponent @ProductionComponent}.
+     */
     ComponentDescriptor forComponent(TypeElement componentDefinitionType) {
-      return create(componentDefinitionType, Kind.COMPONENT);
-    }
-
-    ComponentDescriptor forProductionComponent(TypeElement componentDefinitionType) {
-      return create(componentDefinitionType, Kind.PRODUCTION_COMPONENT);
+      Optional<Kind> kind = Kind.forAnnotatedElement(componentDefinitionType);
+      checkArgument(
+          kind.isPresent() && kind.get().isTopLevel(),
+          "%s must be annotated with @Component or @ProductionComponent",
+          componentDefinitionType);
+      return create(componentDefinitionType, kind.get());
     }
 
     private ComponentDescriptor create(TypeElement componentDefinitionType, Kind kind) {
@@ -243,6 +297,9 @@ abstract class ComponentDescriptor {
       for (TypeMirror moduleIncludesType : getComponentModules(componentMirror)) {
         modules.add(moduleDescriptorFactory.create(MoreTypes.asTypeElement(moduleIncludesType)));
       }
+      if (kind.equals(Kind.PRODUCTION_COMPONENT)) {
+        modules.add(descriptorForMonitoringModule(componentDefinitionType));
+      }
 
       ImmutableSet<ExecutableElement> unimplementedMethods =
           Util.getUnimplementedMethods(elements, componentDefinitionType);
@@ -250,7 +307,7 @@ abstract class ComponentDescriptor {
       ImmutableSet.Builder<ComponentMethodDescriptor> componentMethodsBuilder =
           ImmutableSet.builder();
 
-      ImmutableMap.Builder<ExecutableElement, ComponentDescriptor> subcomponentDescriptors =
+      ImmutableMap.Builder<ComponentMethodDescriptor, ComponentDescriptor> subcomponentDescriptors =
           ImmutableMap.builder();
       for (ExecutableElement componentMethod : unimplementedMethods) {
         ExecutableType resolvedMethod =
@@ -260,13 +317,18 @@ abstract class ComponentDescriptor {
         componentMethodsBuilder.add(componentMethodDescriptor);
         switch (componentMethodDescriptor.kind()) {
           case SUBCOMPONENT:
-            subcomponentDescriptors.put(componentMethod,
-                create(MoreElements.asType(MoreTypes.asElement(resolvedMethod.getReturnType())),
+            subcomponentDescriptors.put(
+                componentMethodDescriptor,
+                create(
+                    MoreElements.asType(MoreTypes.asElement(resolvedMethod.getReturnType())),
                     Kind.SUBCOMPONENT));
             break;
           case SUBCOMPONENT_BUILDER:
-            subcomponentDescriptors.put(componentMethod, create(MoreElements.asType(
-                MoreTypes.asElement(resolvedMethod.getReturnType()).getEnclosingElement()),
+            subcomponentDescriptors.put(
+                componentMethodDescriptor,
+                create(
+                    MoreElements.asType(
+                        MoreTypes.asElement(resolvedMethod.getReturnType()).getEnclosingElement()),
                     Kind.SUBCOMPONENT));
             break;
           default: // nothing special to do for other methods.
@@ -280,7 +342,7 @@ abstract class ComponentDescriptor {
       Optional<DeclaredType> builderType =
           Optional.fromNullable(getOnlyElement(enclosedBuilders, null));
 
-      Optional<AnnotationMirror> scope = getScopeAnnotation(componentDefinitionType);
+      Scope scope = Scope.scopeOf(componentDefinitionType);
       return new AutoValue_ComponentDescriptor(
           kind,
           componentMirror,
@@ -289,7 +351,7 @@ abstract class ComponentDescriptor {
           modules.build(),
           dependencyMethodIndex.build(),
           executorDependency,
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), scope),
+          scope,
           subcomponentDescriptors.build(),
           componentMethodsBuilder.build(),
           createBuilderSpec(builderType));
@@ -387,6 +449,23 @@ abstract class ComponentDescriptor {
       verify(buildMethod != null); // validation should have ensured this.
       return Optional.<BuilderSpec>of(new AutoValue_ComponentDescriptor_BuilderSpec(element,
           map.build(), buildMethod, element.getEnclosingElement().asType()));
+    }
+
+    /**
+     * Returns a descriptor for a generated module that handles monitoring for production
+     * components. This module is generated in the {@link MonitoringModuleProcessingStep}.
+     *
+     * @throws TypeNotPresentException if the module has not been generated yet. This will cause the
+     *     processor to retry in a later processing round.
+     */
+    private ModuleDescriptor descriptorForMonitoringModule(TypeElement componentDefinitionType) {
+      String generatedMonitorModuleName =
+          SourceFiles.generatedMonitoringModuleName(componentDefinitionType).canonicalName();
+      TypeElement monitoringModule = elements.getTypeElement(generatedMonitorModuleName);
+      if (monitoringModule == null) {
+        throw new TypeNotPresentException(generatedMonitorModuleName, null);
+      }
+      return moduleDescriptorFactory.create(monitoringModule);
     }
   }
 

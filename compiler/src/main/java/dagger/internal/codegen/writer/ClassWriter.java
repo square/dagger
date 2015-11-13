@@ -138,17 +138,16 @@ public final class ClassWriter extends TypeWriter {
 
   @Override
   public Set<ClassName> referencedClasses() {
-    @SuppressWarnings("unchecked")
-    Iterable<? extends HasClassReferences> concat =
-        Iterables.concat(nestedTypeWriters, fieldWriters.values(), constructorWriters,
-            methodWriters, implementedTypes, superclass.asSet(), annotations, typeParameters);
-    return FluentIterable.from(concat)
-        .transformAndConcat(new Function<HasClassReferences, Set<ClassName>>() {
-          @Override
-          public Set<ClassName> apply(HasClassReferences input) {
-            return input.referencedClasses();
-          }
-        })
+    return FluentIterable.from(ImmutableList.<HasClassReferences>of())
+        .append(nestedTypeWriters)
+        .append(fieldWriters.values())
+        .append(constructorWriters)
+        .append(methodWriters)
+        .append(implementedTypes)
+        .append(superclass.asSet())
+        .append(annotations)
+        .append(typeParameters)
+        .transformAndConcat(HasClassReferences.COMBINER)
         .toSet();
   }
 }

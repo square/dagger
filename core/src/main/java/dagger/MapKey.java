@@ -34,19 +34,19 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * <p>Typically, the key annotation has a single member, whose value is used as the map key.
  *
- * <p>For example, to add an entry to a {@code Map<String, Integer>} with key "foo", you could use
- * an annotation called {@code @StringKey}:
+ * <p>For example, to add an entry to a {@code Map<SomeEnum, Integer>} with key
+ * {@code SomeEnum.FOO}, you could use an annotation called {@code @SomeEnumKey}:
  *
  * <pre><code>
  * {@literal @}MapKey
- * {@literal @}interface StringKey {
- *   String value();
+ * {@literal @}interface SomeEnumKey {
+ *   SomeEnum value();
  * }
  *
  * {@literal @}Module
  * class SomeModule {
  *   {@literal @}Provides(type = MAP)
- *   {@literal @}StringKey("foo")
+ *   {@literal @}SomeEnumKey(SomeEnum.FOO)
  *   Integer provideFooValue() {
  *     return 2;
  *   }
@@ -54,14 +54,17 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * class SomeInjectedType {
  *   {@literal @}Inject
- *   SomeInjectedType(Map<String, Integer> map) {
- *     assert map.get("foo") == 2;
+ *   SomeInjectedType(Map<SomeEnum, Integer> map) {
+ *     assert map.get(SomeEnum.FOO) == 2;
  *   }
  * }
  * </code></pre>
  *
  * <p>If {@code unwrapValue} is true, the annotation's single member can be any type except an
  * array.
+ *
+ * <p>See {@link dagger.mapkeys} for standard unwrapped map key annotations for keys that are boxed
+ * primitives, strings, or classes.
  *
  * <h2>Annotations as keys</h2>
  *
@@ -94,6 +97,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * <p>(Note that there must be a class {@code MyMapKeyImpl} that implements {@code MyMapKey} in
  * order to call {@link Map#get(Object)} on the provided map.)
+ *
  */
 @Documented
 @Target(ANNOTATION_TYPE)

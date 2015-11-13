@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import dagger.internal.DoubleCheckLazy;
-import dagger.internal.codegen.ContributionBinding.BindingType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
@@ -31,7 +30,6 @@ import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.ExecutableElement;
@@ -40,6 +38,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Utilities for generating files.
@@ -184,107 +183,121 @@ class SourceFiles {
         throw new AssertionError();
     }
   }
-
-  static ClassName factoryNameForProvisionBinding(ProvisionBinding binding) {
-    TypeElement enclosingTypeElement = binding.bindingTypeElement();
-    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
-    switch (binding.bindingKind()) {
-      case INJECTION:
+  
+  /**
+   * Returns the generated factory or members injector name for a binding.
+   */
+  static ClassName generatedClassNameForBinding(Binding binding) {
+    switch (binding.bindingType()) {
       case PROVISION:
-        return enclosingClassName.topLevelClassName().peerNamed(
-            enclosingClassName.classFileName() + "_" + factoryPrefix(binding) + "Factory");
-      case SYNTHETIC_PROVISON:
-        throw new IllegalArgumentException();
+      case PRODUCTION:
+        ContributionBinding contribution = (ContributionBinding) binding;
+        checkArgument(!contribution.isSyntheticBinding());
+        ClassName enclosingClassName = ClassName.fromTypeElement(contribution.bindingTypeElement());
+        switch (contribution.bindingKind()) {
+          case INJECTION:
+          case PROVISION:
+          case IMMEDIATE:
+          case FUTURE_PRODUCTION:
+            return enclosingClassName
+                .topLevelClassName()
+                .peerNamed(
+                    enclosingClassName.classFileName()
+                        + "_"
+                        + factoryPrefix(contribution)
+                        + "Factory");
+
+          default:
+            throw new AssertionError();
+        }
+
+      case MEMBERS_INJECTION:
+        return membersInjectorNameForType(binding.bindingTypeElement());
+
       default:
         throw new AssertionError();
     }
   }
 
   /**
-   * Returns the factory name parameterized with the ProvisionBinding's parameters (if necessary).
+   * Returns the generated factory or members injector name parameterized with the proper type
+   * parameters if necessary.
    */
-  static TypeName parameterizedFactoryNameForProvisionBinding(
-      ProvisionBinding binding) {
-    ClassName factoryName = factoryNameForProvisionBinding(binding);
-    List<TypeName> parameters = ImmutableList.of();
-    if (binding.bindingType().equals(BindingType.UNIQUE)) {
-      switch(binding.bindingKind()) {
-        case INJECTION:
-          TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
-          // If the binding is parameterized, parameterize the factory.
-          if (bindingName instanceof ParameterizedTypeName) {
-            parameters = ((ParameterizedTypeName) bindingName).parameters();
-          }
-          break;
-        case PROVISION:
-          // For provision bindings, we parameterize creation on the types of
-          // the module, not the types of the binding.
-          // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
-          // The binding is just parameterized on <B>, but we need all of <A, B, C>.
-          if (!binding.bindingTypeElement().getTypeParameters().isEmpty()) {
-            parameters = ((ParameterizedTypeName) TypeNames.forTypeMirror(
-                binding.bindingTypeElement().asType())).parameters();
-          }
-          break;
-        default: // fall through.
-      }
-    }
-    return parameters.isEmpty() ? factoryName
-        : ParameterizedTypeName.create(factoryName, parameters);
+  static TypeName parameterizedGeneratedTypeNameForBinding(Binding binding) {
+    return generatedClassNameForBinding(binding).withTypeParameters(bindingTypeParameters(binding));
   }
+  
+  private static ImmutableList<TypeName> bindingTypeParameters(Binding binding)
+      throws AssertionError {
+    TypeMirror bindingType;
+    switch (binding.bindingType()) {
+      case PROVISION:
+      case PRODUCTION:
+        ContributionBinding contributionBinding = (ContributionBinding) binding;
+        if (contributionBinding.contributionType().isMultibinding()) {
+          return ImmutableList.of();
+        }
+        switch (contributionBinding.bindingKind()) {
+          case INJECTION:
+            bindingType = contributionBinding.key().type();
+            break;
+            
+          case PROVISION:
+            // For provision bindings, we parameterize creation on the types of
+            // the module, not the types of the binding.
+            // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
+            // The binding is just parameterized on <B>, but we need all of <A, B, C>.
+            bindingType = contributionBinding.bindingTypeElement().asType();
+            break;
+            
+          case IMMEDIATE:
+          case FUTURE_PRODUCTION:
+            // TODO(beder): Can these be treated just like PROVISION?
+            throw new UnsupportedOperationException();
+            
+          default:
+            return ImmutableList.of();
+        }
+        break;
 
-  static ClassName factoryNameForProductionBinding(ProductionBinding binding) {
-    TypeElement enclosingTypeElement = binding.bindingTypeElement();
-    ClassName enclosingClassName = ClassName.fromTypeElement(enclosingTypeElement);
-    switch (binding.bindingKind()) {
-      case IMMEDIATE:
-      case FUTURE_PRODUCTION:
-        return enclosingClassName.topLevelClassName().peerNamed(
-            enclosingClassName.classFileName() + "_" + factoryPrefix(binding) + "Factory");
+      case MEMBERS_INJECTION:
+        bindingType = binding.key().type();
+        break;
+
       default:
         throw new AssertionError();
     }
+    TypeName bindingTypeName = TypeNames.forTypeMirror(bindingType);
+    return bindingTypeName instanceof ParameterizedTypeName
+        ? ((ParameterizedTypeName) bindingTypeName).parameters()
+        : ImmutableList.<TypeName>of();
+  }
+  
+  static ClassName membersInjectorNameForType(TypeElement typeElement) {
+    ClassName injectedClassName = ClassName.fromTypeElement(typeElement);
+    return injectedClassName
+        .topLevelClassName()
+        .peerNamed(injectedClassName.classFileName() + "_MembersInjector");
   }
 
-  /**
-   * Returns the members injector's name parameterized with the binding's parameters (if necessary).
-   */
-  static TypeName parameterizedMembersInjectorNameForMembersInjectionBinding(
-      MembersInjectionBinding binding) {
-    ClassName factoryName = membersInjectorNameForMembersInjectionBinding(binding);
-    TypeName bindingName = TypeNames.forTypeMirror(binding.key().type());
-    // If the binding is parameterized, parameterize the MembersInjector.
-    if (bindingName instanceof ParameterizedTypeName) {
-      return ParameterizedTypeName.create(factoryName,
-          ((ParameterizedTypeName) bindingName).parameters());
-    }
-    return factoryName;
+  static ClassName generatedMonitoringModuleName(TypeElement componentElement) {
+    ClassName componentName = ClassName.fromTypeElement(componentElement);
+    return componentName
+        .topLevelClassName()
+        .peerNamed(componentName.classFileName() + "_MonitoringModule");
   }
 
-  static ClassName membersInjectorNameForMembersInjectionBinding(MembersInjectionBinding binding) {
-    ClassName injectedClassName = ClassName.fromTypeElement(binding.bindingElement());
-    return injectedClassName.topLevelClassName().peerNamed(
-        injectedClassName.classFileName() + "_MembersInjector");
-  }
-
-  private static String factoryPrefix(ProvisionBinding binding) {
+  private static String factoryPrefix(ContributionBinding binding) {
     switch (binding.bindingKind()) {
       case INJECTION:
         return "";
-      case PROVISION:
-        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
-            ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
-      default:
-        throw new IllegalArgumentException();
-    }
-  }
 
-  private static String factoryPrefix(ProductionBinding binding) {
-    switch (binding.bindingKind()) {
+      case PROVISION:
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
-        return CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL,
-            ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
+        return CaseFormat.LOWER_CAMEL.to(
+            UPPER_CAMEL, ((ExecutableElement) binding.bindingElement()).getSimpleName().toString());
+
       default:
         throw new IllegalArgumentException();
     }

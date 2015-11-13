@@ -322,11 +322,13 @@ public class ModuleFactoryGeneratorTest {
         "",
         "@Module(includes = Void.class)",
         "class TestModule {}");
-    assertAbout(javaSources()).that(ImmutableList.of(module))
+    assertAbout(javaSources())
+        .that(ImmutableList.of(module))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(String.format(ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED,
-            "java.lang.Void", "Module"));
+        .withErrorContaining(
+            String.format(
+                ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED, "java.lang.Void", "@Module"));
   }
 
   @Test public void referencedModulesMustNotBeAbstract() {

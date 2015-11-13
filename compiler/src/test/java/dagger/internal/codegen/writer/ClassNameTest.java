@@ -120,4 +120,9 @@ public class ClassNameTest {
     assertThat(className.canonicalName()).isEqualTo(
         "dagger.internal.codegen.writer.ClassNameTest.OuterClass.InnerClass");
   }
+
+  @Test public void fromClass_classFileName() {
+    ClassName className = ClassName.fromClass(InnerClass.class);
+    assertThat(className.classFileName('_')).isEqualTo("ClassNameTest_OuterClass_InnerClass");
+  }
 }

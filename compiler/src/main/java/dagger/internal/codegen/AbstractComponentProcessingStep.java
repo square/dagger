@@ -16,12 +16,13 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
+import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.lang.annotation.Annotation;
-import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 
 /**
  * A {@link ProcessingStep} that is responsible for dealing with a component or production component
@@ -29,18 +30,27 @@ import javax.lang.model.element.Element;
  */
 abstract class AbstractComponentProcessingStep implements ProcessingStep {
 
+  private final Class<? extends Annotation> componentAnnotation;
   private final Messager messager;
+  private final ComponentHierarchyValidator componentHierarchyValidator;
   private final BindingGraphValidator bindingGraphValidator;
+  private final ComponentDescriptor.Factory componentDescriptorFactory;
   private final BindingGraph.Factory bindingGraphFactory;
   private final ComponentGenerator componentGenerator;
 
   AbstractComponentProcessingStep(
+      Class<? extends Annotation> componentAnnotation,
       Messager messager,
+      ComponentHierarchyValidator componentHierarchyValidator,
       BindingGraphValidator bindingGraphValidator,
+      ComponentDescriptor.Factory componentDescriptorFactory,
       BindingGraph.Factory bindingGraphFactory,
       ComponentGenerator componentGenerator) {
+    this.componentAnnotation = componentAnnotation;
     this.messager = messager;
+    this.componentHierarchyValidator = componentHierarchyValidator;
     this.bindingGraphValidator = bindingGraphValidator;
+    this.componentDescriptorFactory = componentDescriptorFactory;
     this.bindingGraphFactory = bindingGraphFactory;
     this.componentGenerator = componentGenerator;
   }
@@ -49,29 +59,59 @@ abstract class AbstractComponentProcessingStep implements ProcessingStep {
   public final ImmutableSet<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     ImmutableSet.Builder<Element> rejectedElements = ImmutableSet.builder();
-    for (ComponentDescriptor componentDescriptor : componentDescriptors(elementsByAnnotation)) {
+    ComponentElementValidator componentElementValidator =
+        componentElementValidator(elementsByAnnotation);
+    for (Element element : elementsByAnnotation.get(componentAnnotation)) {
+      TypeElement componentTypeElement = MoreElements.asType(element);
       try {
-        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-        ValidationReport<BindingGraph> graphReport = bindingGraphValidator.validate(bindingGraph);
-        graphReport.printMessagesTo(messager);
-        if (graphReport.isClean()) {
-          try {
-            componentGenerator.generate(bindingGraph);
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
+        if (componentElementValidator.validateComponent(componentTypeElement, messager)) {
+          ComponentDescriptor componentDescriptor =
+              componentDescriptorFactory.forComponent(componentTypeElement);
+          ValidationReport<TypeElement> hierarchyReport =
+              componentHierarchyValidator.validate(componentDescriptor);
+          hierarchyReport.printMessagesTo(messager);
+          if (hierarchyReport.isClean()) {
+            BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+            ValidationReport<TypeElement> graphReport =
+                bindingGraphValidator.validate(bindingGraph);
+            graphReport.printMessagesTo(messager);
+            if (graphReport.isClean()) {
+              generateComponent(bindingGraph);
+            }
           }
         }
       } catch (TypeNotPresentException e) {
-        rejectedElements.add(componentDescriptor.componentDefinitionType());
+        rejectedElements.add(componentTypeElement);
       }
     }
     return rejectedElements.build();
   }
 
+  private void generateComponent(BindingGraph bindingGraph) {
+    try {
+      componentGenerator.generate(bindingGraph);
+    } catch (SourceFileGenerationException e) {
+      e.printMessageTo(messager);
+    }
+  }
+
   /**
-   * Returns a {@link ComponentDescriptor} for each valid component element for which an
-   * implementation class should be generated.
+   * Returns an object that can validate a type element annotated with the component type.
    */
-  protected abstract Set<ComponentDescriptor> componentDescriptors(
+  protected abstract ComponentElementValidator componentElementValidator(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation);
+
+  /**
+   * Validates a component type element.
+   */
+  protected static abstract class ComponentElementValidator {
+    /**
+     * Validates a component type element. Prints any messages about the element to
+     * {@code messager}.
+     *
+     * @throws TypeNotPresentException if any type required to validate the component cannot be
+     *     found
+     */
+    abstract boolean validateComponent(TypeElement componentTypeElement, Messager messager);
+  }
 }

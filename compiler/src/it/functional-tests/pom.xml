@@ -29,6 +29,10 @@ limitations under the License.
   <name>Functional Tests</name>
   <dependencies>
     <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.google.dagger</groupId>
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>
@@ -40,18 +44,22 @@ limitations under the License.
       <optional>true</optional>
     </dependency>
     <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject-tck</artifactId>
+    </dependency>
+    <dependency>
       <!-- For map-bindings -->
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
       <version>${auto.value.version}</version>
-      <optional>true</optional>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
     </dependency>
     <dependency>
       <!-- For map-bindings -->
       <groupId>com.google.auto.factory</groupId>
       <artifactId>auto-factory</artifactId>
       <version>${auto.factory.version}</version>
-      <optional>true</optional>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
     </dependency>
 
     <dependency>

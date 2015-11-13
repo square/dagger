@@ -18,7 +18,6 @@ package dagger.internal.codegen.writer;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -123,17 +122,15 @@ public final class EnumWriter extends TypeWriter {
 
   @Override
   public Set<ClassName> referencedClasses() {
-    @SuppressWarnings("unchecked")
-    Iterable<? extends HasClassReferences> concat =
-        Iterables.concat(nestedTypeWriters, constantWriters.values(), fieldWriters.values(),
-            constructorWriters, methodWriters, implementedTypes, annotations);
-    return FluentIterable.from(concat)
-        .transformAndConcat(new Function<HasClassReferences, Set<ClassName>>() {
-          @Override
-          public Set<ClassName> apply(HasClassReferences input) {
-            return input.referencedClasses();
-          }
-        })
+    return FluentIterable.from(ImmutableList.<HasClassReferences>of())
+        .append(nestedTypeWriters)
+        .append(constantWriters.values())
+        .append(fieldWriters.values())
+        .append(constructorWriters)
+        .append(methodWriters)
+        .append(implementedTypes)
+        .append(annotations)
+        .transformAndConcat(HasClassReferences.COMBINER)
         .toSet();
   }
 
@@ -170,12 +167,7 @@ public final class EnumWriter extends TypeWriter {
     @Override
     public Set<ClassName> referencedClasses() {
       return FluentIterable.from(constructorSnippets)
-          .transformAndConcat(new Function<Snippet, Set<ClassName>>() {
-            @Override
-            public Set<ClassName> apply(Snippet input) {
-              return input.referencedClasses();
-            }
-          })
+          .transformAndConcat(HasClassReferences.COMBINER)
           .toSet();
     }
   }

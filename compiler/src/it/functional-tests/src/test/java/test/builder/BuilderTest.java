@@ -163,7 +163,7 @@ public class BuilderTest {
     assertThat(child2.l()).isEqualTo(6L);
     assertThat(child2.b()).isEqualTo((byte)70);
   }
-  
+    
   @Test
   public void grandchildren() {
     ParentComponent parent = DaggerParentComponent.create();
@@ -222,4 +222,45 @@ public class BuilderTest {
     assertThat(child.i()).isEqualTo(21);
   }
   
+  @Test
+  public void requireSubcomponentBuilderProviders() {
+    ParentComponent parent = DaggerParentComponent.create();
+    MiddleChild middle =
+        parent
+            .requiresMiddleChildBuilder()
+            .subcomponentBuilderProvider()
+            .get()
+            .set(new StringModule("sam"))
+            .build();
+    Grandchild grandchild =
+        middle
+            .requiresGrandchildBuilder()
+            .subcomponentBuilderProvider()
+            .get()
+            .set(new IntModuleIncludingDoubleAndFloat(12))
+            .build();
+    assertThat(middle.s()).isEqualTo("sam");
+    assertThat(grandchild.i()).isEqualTo(12);
+    assertThat(grandchild.s()).isEqualTo("sam");
+  }
+  
+  @Test
+  public void requireSubcomponentBuilders() {
+    ParentComponent parent = DaggerParentComponent.create();
+    MiddleChild middle =
+        parent
+            .requiresMiddleChildBuilder()
+            .subcomponentBuilder()
+            .set(new StringModule("sam"))
+            .build();
+    Grandchild grandchild =
+        middle
+            .requiresGrandchildBuilder()
+            .subcomponentBuilder()
+            .set(new IntModuleIncludingDoubleAndFloat(12))
+            .build();
+    assertThat(middle.s()).isEqualTo("sam");
+    assertThat(grandchild.i()).isEqualTo(12);
+    assertThat(grandchild.s()).isEqualTo("sam");
+  }
 }

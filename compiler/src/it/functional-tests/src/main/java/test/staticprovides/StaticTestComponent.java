@@ -19,7 +19,7 @@ import dagger.Component;
 import java.util.Set;
 
 /**
- * A simple component that demonstrates both static an non-static provides methods.
+ * A simple component that demonstrates both static and non-static provides methods.
  */
 @Component(modules = {AllStaticModule.class, SomeStaticModule.class})
 interface StaticTestComponent {

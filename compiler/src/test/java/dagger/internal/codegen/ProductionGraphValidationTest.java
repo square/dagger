@@ -161,4 +161,110 @@ public class ProductionGraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(20);
   }
+
+  @Test
+  public void monitoringDependsOnUnboundType() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestClass",
+            "package test;",
+            "",
+            "import com.google.common.util.concurrent.ListenableFuture;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.producers.ProducerModule;",
+            "import dagger.producers.Produces;",
+            "import dagger.producers.ProductionComponent;",
+            "import dagger.producers.monitoring.ProductionComponentMonitor;",
+            "",
+            "import static dagger.Provides.Type.SET;",
+            "",
+            "final class TestClass {",
+            "  interface A {}",
+            "",
+            "  @Module",
+            "  final class MonitoringModule {",
+            "    @Provides(type = SET)",
+            "    ProductionComponentMonitor.Factory monitorFactory(A unbound) {",
+            "      return null;",
+            "    }",
+            "  }",
+            "",
+            "  @ProducerModule",
+            "  final class StringModule {",
+            "    @Produces ListenableFuture<String> str() {",
+            "      return null;",
+            "    }",
+            "  }",
+            "",
+            "  @ProductionComponent(modules = {MonitoringModule.class, StringModule.class})",
+            "  interface StringComponent {",
+            "    ListenableFuture<String> getString();",
+            "  }",
+            "}");
+    String expectedError =
+        "test.TestClass.A cannot be provided without an @Provides-annotated method.";
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError)
+        .in(component)
+        .onLine(33);
+  }
+
+  @Test
+  public void monitoringDependsOnProduction() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestClass",
+            "package test;",
+            "",
+            "import com.google.common.util.concurrent.ListenableFuture;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.producers.ProducerModule;",
+            "import dagger.producers.Produces;",
+            "import dagger.producers.ProductionComponent;",
+            "import dagger.producers.monitoring.ProductionComponentMonitor;",
+            "",
+            "import static dagger.Provides.Type.SET;",
+            "",
+            "final class TestClass {",
+            "  interface A {}",
+            "",
+            "  @Module",
+            "  final class MonitoringModule {",
+            "    @Provides(type = SET) ProductionComponentMonitor.Factory monitorFactory(A a) {",
+            "      return null;",
+            "    }",
+            "  }",
+            "",
+            "  @ProducerModule",
+            "  final class StringModule {",
+            "    @Produces A a() {",
+            "      return null;",
+            "    }",
+            "",
+            "    @Produces ListenableFuture<String> str() {",
+            "      return null;",
+            "    }",
+            "  }",
+            "",
+            "  @ProductionComponent(modules = {MonitoringModule.class, StringModule.class})",
+            "  interface StringComponent {",
+            "    ListenableFuture<String> getString();",
+            "  }",
+            "}");
+    String expectedError =
+        "java.util.Set<dagger.producers.monitoring.ProductionComponentMonitor.Factory> is a"
+            + " provision, which cannot depend on a production.";
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError)
+        .in(component)
+        .onLine(36);
+  }
 }

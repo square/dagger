@@ -24,8 +24,8 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.MapKey;
 import dagger.Provides;
+import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Produces;
 import java.util.Map;
@@ -46,6 +46,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
@@ -201,6 +202,16 @@ abstract class Key {
       return forMethod(componentMethod, keyType);
     }
 
+    Key forSubcomponentBuilderMethod(
+        ExecutableElement subcomponentBuilderMethod, DeclaredType declaredContainer) {
+      checkNotNull(subcomponentBuilderMethod);
+      checkArgument(subcomponentBuilderMethod.getKind().equals(METHOD));
+      ExecutableType resolvedMethod =
+          asExecutable(types.asMemberOf(declaredContainer, subcomponentBuilderMethod));
+      TypeMirror returnType = normalize(types, resolvedMethod.getReturnType());
+      return forMethod(subcomponentBuilderMethod, returnType);
+    }
+
     Key forProvidesMethod(ExecutableType executableType, ExecutableElement method) {
       checkNotNull(method);
       checkArgument(method.getKind().equals(METHOD));
@@ -273,8 +284,7 @@ abstract class Key {
 
     private TypeMirror mapKeyType(ExecutableElement method) {
       AnnotationMirror mapKeyAnnotation = getMapKey(method).get();
-      MapKey mapKey = mapKeyAnnotation.getAnnotationType().asElement().getAnnotation(MapKey.class);
-      return mapKey.unwrapValue()
+      return MapKeys.unwrapValue(mapKeyAnnotation).isPresent()
           ? getUnwrappedMapKeyType(mapKeyAnnotation.getAnnotationType(), types)
           : mapKeyAnnotation.getAnnotationType();
     }
@@ -336,7 +346,7 @@ abstract class Key {
         DeclaredType declaredMapType = MoreTypes.asDeclared(possibleMapKey.type());
         TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
         if (!MoreTypes.isTypeOf(wrappingClass, mapValueType)) {
-          DeclaredType keyType = Util.getKeyTypeOfMap(declaredMapType);
+          TypeMirror keyType = Util.getKeyTypeOfMap(declaredMapType);
           TypeElement wrappingElement = getClassElement(wrappingClass);
           if (wrappingElement == null) {
             // This target might not be compiled with Producers, so wrappingClass might not have an
@@ -348,6 +358,23 @@ abstract class Key {
           return Optional.<Key>of(new AutoValue_Key(
               possibleMapKey.wrappedQualifier(),
               MoreTypes.equivalence().wrap(mapType)));
+        }
+      }
+      return Optional.absent();
+    }
+
+    /**
+     * Optionally extract a {@link Key} for a {@code Set<T>} if the given key is for
+     * {@code Set<Produced<T>>}.
+     */
+    Optional<Key> implicitSetKeyFromProduced(Key possibleSetOfProducedKey) {
+      if (MoreTypes.isTypeOf(Set.class, possibleSetOfProducedKey.type())) {
+        TypeMirror argType =
+            MoreTypes.asDeclared(possibleSetOfProducedKey.type()).getTypeArguments().get(0);
+        if (MoreTypes.isTypeOf(Produced.class, argType)) {
+          TypeMirror producedArgType = MoreTypes.asDeclared(argType).getTypeArguments().get(0);
+          TypeMirror setType = types.getDeclaredType(getSetElement(), producedArgType);
+          return Optional.of(possibleSetOfProducedKey.withType(types, setType));
         }
       }
       return Optional.absent();

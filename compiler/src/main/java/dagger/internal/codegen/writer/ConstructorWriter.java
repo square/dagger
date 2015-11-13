@@ -15,11 +15,9 @@
  */
 package dagger.internal.codegen.writer;
 
-import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.util.Map;
@@ -78,19 +76,17 @@ public final class ConstructorWriter extends Modifiable implements Writable, Has
 
   @Override
   public Set<ClassName> referencedClasses() {
-    return FluentIterable.from(
-        Iterables.concat(parameterWriters.values(), ImmutableList.of(blockWriter)))
-            .transformAndConcat(new Function<HasClassReferences, Set<ClassName>>() {
-              @Override
-              public Set<ClassName> apply(HasClassReferences input) {
-                return input.referencedClasses();
-              }
-            })
-            .toSet();
+    return FluentIterable.from(ImmutableList.<HasClassReferences>of())
+        .append(parameterWriters.values())
+        .append(annotations)
+        .append(blockWriter)
+        .transformAndConcat(HasClassReferences.COMBINER)
+        .toSet();
   }
 
   @Override
   public Appendable write(Appendable appendable, Context context) throws IOException {
+    writeAnnotations(appendable, context);
     writeModifiers(appendable).append(name).append('(');
     Writables.join(", ", parameterWriters.values(), appendable, context);
     appendable.append(") {");

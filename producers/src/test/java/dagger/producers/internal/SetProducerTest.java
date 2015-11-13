@@ -16,7 +16,6 @@
 package dagger.producers.internal;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Producer;
 import java.util.Collections;
@@ -35,16 +34,18 @@ import static org.junit.Assert.fail;
 @RunWith(JUnit4.class)
 public class SetProducerTest {
   @Test public void success() throws Exception {
-    Producer<Set<Integer>> producer = SetProducer.create(
-        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(1, 2)),
-        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(5, 7)));
+    Producer<Set<Integer>> producer =
+        SetProducer.create(
+            Producers.<Set<Integer>>immediateProducer(ImmutableSet.of(1, 2)),
+            Producers.<Set<Integer>>immediateProducer(ImmutableSet.of(5, 7)));
     assertThat(producer.get().get()).containsExactly(1, 2, 5, 7);
   }
 
   @Test public void delegateSetNpe() throws Exception {
-    Producer<Set<Integer>> producer = SetProducer.create(
-        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(1, 2)),
-        new ImmediateProducer<Set<Integer>>(null));
+    Producer<Set<Integer>> producer =
+        SetProducer.create(
+            Producers.<Set<Integer>>immediateProducer(ImmutableSet.of(1, 2)),
+            Producers.<Set<Integer>>immediateProducer(null));
     ListenableFuture<Set<Integer>> future = producer.get();
     try {
       future.get();
@@ -55,28 +56,16 @@ public class SetProducerTest {
   }
 
   @Test public void delegateElementNpe() throws Exception {
-    Producer<Set<Integer>> producer = SetProducer.create(
-        new ImmediateProducer<Set<Integer>>(ImmutableSet.of(1, 2)),
-        new ImmediateProducer<Set<Integer>>(
-            Collections.<Integer>singleton(null)));
+    Producer<Set<Integer>> producer =
+        SetProducer.create(
+            Producers.<Set<Integer>>immediateProducer(ImmutableSet.of(1, 2)),
+            Producers.<Set<Integer>>immediateProducer(Collections.<Integer>singleton(null)));
     ListenableFuture<Set<Integer>> future = producer.get();
     try {
       future.get();
       fail();
     } catch (ExecutionException e) {
       assertThat(e.getCause()).isInstanceOf(NullPointerException.class);
-    }
-  }
-
-  private static final class ImmediateProducer<T> implements Producer<T> {
-    private final T value;
-
-    ImmediateProducer(T value) {
-      this.value = value;
-    }
-
-    @Override public ListenableFuture<T> get() {
-      return Futures.immediateFuture(value);
     }
   }
 }

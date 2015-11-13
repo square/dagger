@@ -37,6 +37,8 @@ import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
 import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_FIELD;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_METHOD;
 
 @RunWith(JUnit4.class)
 // TODO(gak): add tests for generation in the default package.
@@ -517,7 +519,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .withErrorContaining(FINAL_INJECT_FIELD).in(file).onLine(6);
   }
 
-  @Test public void privateInjectField() {
+  @Test public void privateInjectFieldError() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.PrivateInjectField",
         "package test;",
         "",
@@ -530,6 +532,51 @@ public final class InjectConstructorFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_FIELD).in(file).onLine(6);
+  }
+  
+  @Test public void privateInjectFieldWarning() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.PrivateInjectField",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class PrivateInjectField {",
+        "  @Inject private String s;",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .withCompilerOptions("-Adagger.privateMemberValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError(); // TODO: Verify warning message when supported
+  }
+  
+  @Test public void staticInjectFieldError() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectField",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class StaticInjectField {",
+        "  @Inject static String s;",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(STATIC_INJECT_FIELD).in(file).onLine(6);
+  }
+  
+  @Test public void staticInjectFieldWarning() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectField",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class StaticInjectField {",
+        "  @Inject static String s;",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .withCompilerOptions("-Adagger.staticMemberValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError(); // TODO: Verify warning message when supported
   }
 
   @Test public void multipleQualifiersOnField() {
@@ -562,19 +609,64 @@ public final class InjectConstructorFactoryGeneratorTest {
         .withErrorContaining(ABSTRACT_INJECT_METHOD).in(file).onLine(6);
   }
 
-  @Test public void privateInjectMethod() {
+  @Test public void privateInjectMethodError() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.PrivateInjectMethod",
         "package test;",
         "",
         "import javax.inject.Inject;",
         "",
         "class PrivateInjectMethod {",
-        "  @Inject private void method();",
+        "  @Inject private void method(){}",
         "}");
     assertAbout(javaSource()).that(file)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_METHOD).in(file).onLine(6);
+  }
+  
+  @Test public void privateInjectMethodWarning() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.PrivateInjectMethod",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class PrivateInjectMethod {",
+        "  @Inject private void method(){}",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .withCompilerOptions("-Adagger.privateMemberValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError(); // TODO: Verify warning message when supported
+  }
+  
+  @Test public void staticInjectMethodError() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectMethod",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class StaticInjectMethod {",
+        "  @Inject static void method(){}",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(STATIC_INJECT_METHOD).in(file).onLine(6);
+  }
+  
+  @Test public void staticInjectMethodWarning() {
+    JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectMethod",
+        "package test;",
+        "",
+        "import javax.inject.Inject;",
+        "",
+        "class StaticInjectMethod {",
+        "  @Inject static void method(){}",
+        "}");
+    assertAbout(javaSource()).that(file)
+        .withCompilerOptions("-Adagger.staticMemberValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError(); // TODO: Verify warning message when supported
   }
 
   @Test public void genericInjectMethod() {

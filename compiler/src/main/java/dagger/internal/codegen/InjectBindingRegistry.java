@@ -45,6 +45,7 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members
@@ -64,7 +65,7 @@ final class InjectBindingRegistry {
   final class BindingsCollection<B extends Binding> {
     private final Map<Key, B> bindingsByKey = Maps.newLinkedHashMap();
     private final Deque<B> bindingsRequiringGeneration = new ArrayDeque<>();
-    private final Set<B> materializedBindings = Sets.newLinkedHashSet();
+    private final Set<Key> materializedBindingKeys = Sets.newLinkedHashSet();
 
     void generateBindings(SourceFileGenerator<B> generator) throws SourceFileGenerationException {
       for (B binding = bindingsRequiringGeneration.poll();
@@ -72,22 +73,16 @@ final class InjectBindingRegistry {
           binding = bindingsRequiringGeneration.poll()) {
         checkState(!binding.hasNonDefaultTypeParameters());
         generator.generate(binding);
-        materializedBindings.add(binding);
+        materializedBindingKeys.add(binding.key());
       }
+      // Because Elements instantiated across processing rounds are not guaranteed to be equals() to
+      // the logically same element, clear the cache after generating 
+      bindingsByKey.clear();
     }
 
     /** Returns a previously cached binding. */
     B getBinding(Key key) {
       return bindingsByKey.get(key);
-    }
-
-    /** Caches the binding and pretends a binding is generated without actually generating it. */
-    B pretendBindingGenerated(B binding, ClassName factoryName) {
-      tryToCacheBinding(binding);
-      if (shouldGenerateBinding(binding, factoryName)) {
-        materializedBindings.add(binding);
-      }
-      return binding;
     }
 
     /** Caches the binding and generates it if it needs generation. */
@@ -116,7 +111,7 @@ final class InjectBindingRegistry {
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
       return !binding.hasNonDefaultTypeParameters()
           && elements.getTypeElement(factoryName.canonicalName()) == null
-          && !materializedBindings.contains(binding)
+          && !materializedBindingKeys.contains(binding.key())
           && !bindingsRequiringGeneration.contains(binding);
 
     }
@@ -176,7 +171,7 @@ final class InjectBindingRegistry {
    * attempt to register an unresolved version of it.
    */
   private ProvisionBinding registerBinding(ProvisionBinding binding, boolean explicit) {
-    ClassName factoryName = SourceFiles.factoryNameForProvisionBinding(binding);
+    ClassName factoryName = generatedClassNameForBinding(binding);
     provisionBindings.tryRegisterBinding(binding, factoryName, explicit);
     if (binding.hasNonDefaultTypeParameters()) {
       provisionBindings.tryToGenerateBinding(provisionBindingFactory.unresolve(binding),
@@ -191,22 +186,11 @@ final class InjectBindingRegistry {
    */
   private MembersInjectionBinding registerBinding(
       MembersInjectionBinding binding, boolean explicit) {
-    ClassName membersInjectorName =
-        SourceFiles.membersInjectorNameForMembersInjectionBinding(binding);
-    if (binding.injectionSites().isEmpty()) {
-      // empty members injection bindings are special and don't need source files.
-      // so, we just pretend
-      membersInjectionBindings.pretendBindingGenerated(binding, membersInjectorName);
-      if (binding.hasNonDefaultTypeParameters()) {
-        membersInjectionBindings.pretendBindingGenerated(
-            membersInjectionBindingFactory.unresolve(binding), membersInjectorName);
-      }
-    } else {
-      membersInjectionBindings.tryRegisterBinding(binding, membersInjectorName, explicit);
-      if (binding.hasNonDefaultTypeParameters()) {
-        membersInjectionBindings.tryToGenerateBinding(
-            membersInjectionBindingFactory.unresolve(binding), membersInjectorName, explicit);
-      }
+    ClassName membersInjectorName = generatedClassNameForBinding(binding);
+    membersInjectionBindings.tryRegisterBinding(binding, membersInjectorName, explicit);
+    if (binding.hasNonDefaultTypeParameters()) {
+      membersInjectionBindings.tryToGenerateBinding(
+          membersInjectionBindingFactory.unresolve(binding), membersInjectorName, explicit);
     }
     return binding;
   }

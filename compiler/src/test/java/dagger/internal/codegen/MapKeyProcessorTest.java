@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 @RunWith(JUnit4.class)
@@ -49,26 +49,27 @@ public class MapKeyProcessorTest {
         "    ADMIN,",
         "    LOGIN;",
         "}");
-    JavaFileObject generatedKeyCreator = JavaFileObjects.forSourceLines("test.PathKeyCreator",
-        "package test;",
-        "",
-        "import javax.annotation.Generated;",
-        "",
-        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
-        "public final class PathKeyCreator {",
-        "  @com.google.auto.value.AutoAnnotation",
-        "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
-        "    return new AutoAnnotation_PathKeyCreator_createPathKey(value, relativePath);",
-        "  }",
-        "}");
-    assert_().about(javaSources())
-    .that(ImmutableList.of(
-        enumKeyFile,
-        pathEnumFile))
-    .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
-    .compilesWithoutError()
-    .and()
-    .generatesSources(generatedKeyCreator);
+    JavaFileObject generatedKeyCreator =
+        JavaFileObjects.forSourceLines(
+            "test.PathKeyCreator",
+            "package test;",
+            "",
+            "import com.google.auto.value.AutoAnnotation;",
+            "import javax.annotation.Generated;",
+            "",
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            "public final class PathKeyCreator {",
+            "  @AutoAnnotation",
+            "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
+            "    return new AutoAnnotation_PathKeyCreator_createPathKey(value, relativePath);",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(enumKeyFile, pathEnumFile))
+        .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(generatedKeyCreator);
   }
 
   @Test
@@ -95,28 +96,28 @@ public class MapKeyProcessorTest {
         "    LOGIN;",
         "}");
     JavaFileObject generatedKeyCreator =
-        JavaFileObjects.forSourceLines("test.Container$PathKeyCreator",
+        JavaFileObjects.forSourceLines(
+            "test.Container$PathKeyCreator",
             "package test;",
             "",
+            "import com.google.auto.value.AutoAnnotation;",
             "import javax.annotation.Generated;",
             "import test.Container.PathKey",
             "",
             "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class Container$PathKeyCreator {",
-            "  @com.google.auto.value.AutoAnnotation",
+            "  @AutoAnnotation",
             "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
             "    return new AutoAnnotation_Container$PathKeyCreator_createPathKey(",
             "        value, relativePath);",
             "  }",
             "}");
-    assert_().about(javaSources())
-    .that(ImmutableList.of(
-        enumKeyFile,
-        pathEnumFile))
-    .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
-    .compilesWithoutError()
-    .and()
-    .generatesSources(generatedKeyCreator);
+    assertAbout(javaSources())
+        .that(ImmutableList.of(enumKeyFile, pathEnumFile))
+        .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(generatedKeyCreator);
   }
 
   @Test
@@ -225,6 +226,7 @@ public class MapKeyProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.mapOfPathKeyAndProviderOfHandlerContribution1 =",
         "        MapModuleOne_ProvideAdminHandlerFactory.create(builder.mapModuleOne);",
@@ -263,7 +265,7 @@ public class MapKeyProcessorTest {
         "",
         "    public Builder mapModuleOne(MapModuleOne mapModuleOne) {",
         "      if (mapModuleOne == null) {",
-        "        throw new NullPointerException(\"mapModuleOne\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleOne = mapModuleOne;",
         "      return this;",
@@ -271,23 +273,24 @@ public class MapKeyProcessorTest {
         "",
         "    public Builder mapModuleTwo(MapModuleTwo mapModuleTwo) {",
         "      if (mapModuleTwo == null) {",
-        "        throw new NullPointerException(\"mapModuleTwo\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleTwo = mapModuleTwo;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
-        .that(ImmutableList.of(
-            mapModuleOneFile,
-            mapModuleTwoFile,
-            enumKeyFile,
-            pathEnumFile,
-            handlerFile,
-            loginHandlerFile,
-            adminHandlerFile,
-            componentFile))
+    assertAbout(javaSources())
+        .that(
+            ImmutableList.of(
+                mapModuleOneFile,
+                mapModuleTwoFile,
+                enumKeyFile,
+                pathEnumFile,
+                handlerFile,
+                loginHandlerFile,
+                adminHandlerFile,
+                componentFile))
         .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
         .compilesWithoutError()
         .and()
@@ -399,6 +402,7 @@ public class MapKeyProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.mapOfPathKeyAndProviderOfHandlerContribution1 =",
         "        MapModuleOne_ProvideAdminHandlerFactory.create(builder.mapModuleOne);",
@@ -437,7 +441,7 @@ public class MapKeyProcessorTest {
         "",
         "    public Builder mapModuleOne(MapModuleOne mapModuleOne) {",
         "      if (mapModuleOne == null) {",
-        "        throw new NullPointerException(\"mapModuleOne\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleOne = mapModuleOne;",
         "      return this;",
@@ -445,23 +449,24 @@ public class MapKeyProcessorTest {
         "",
         "    public Builder mapModuleTwo(MapModuleTwo mapModuleTwo) {",
         "      if (mapModuleTwo == null) {",
-        "        throw new NullPointerException(\"mapModuleTwo\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleTwo = mapModuleTwo;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
-        .that(ImmutableList.of(
-            mapModuleOneFile,
-            mapModuleTwoFile,
-            enumKeyFile,
-            pathEnumFile,
-            handlerFile,
-            loginHandlerFile,
-            adminHandlerFile,
-            componentFile))
+    assertAbout(javaSources())
+        .that(
+            ImmutableList.of(
+                mapModuleOneFile,
+                mapModuleTwoFile,
+                enumKeyFile,
+                pathEnumFile,
+                handlerFile,
+                loginHandlerFile,
+                adminHandlerFile,
+                componentFile))
         .processedWith(new ComponentProcessor(), new AutoAnnotationProcessor())
         .compilesWithoutError()
         .and()

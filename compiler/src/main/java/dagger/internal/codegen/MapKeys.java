@@ -77,6 +77,22 @@ final class MapKeys {
   }
 
   /**
+   * Returns the annotation value if {@code mapKey}'s type is annotated with
+   * {@link MapKey @MapKey(unwrapValue = true)}.
+   *
+   * @throws IllegalArgumentException if {@code mapKey}'s type is not annotated with
+   *     {@link MapKey @MapKey} at all.
+   */
+  static Optional<? extends AnnotationValue> unwrapValue(AnnotationMirror mapKey) {
+    MapKey mapKeyAnnotation = mapKey.getAnnotationType().asElement().getAnnotation(MapKey.class);
+    checkArgument(
+        mapKeyAnnotation != null, "%s is not annotated with @MapKey", mapKey.getAnnotationType());
+    return mapKeyAnnotation.unwrapValue()
+        ? Optional.of(getOnlyElement(mapKey.getElementValues().values()))
+        : Optional.<AnnotationValue>absent();
+  }
+
+  /**
    * Returns the map key type for an unwrapped {@link MapKey} annotation type. If the single member
    * type is primitive, returns the boxed type.
    *
@@ -121,10 +137,8 @@ final class MapKeys {
    * {@link MapKey} annotation type.
    */
   public static ClassName getMapKeyCreatorClassName(TypeElement mapKeyType) {
-    ClassName enclosingClassName = ClassName.fromTypeElement(mapKeyType);
-    return enclosingClassName
-        .topLevelClassName()
-        .peerNamed(enclosingClassName.classFileName() + "Creator");
+    ClassName mapKeyTypeName = ClassName.fromTypeElement(mapKeyType);
+    return mapKeyTypeName.topLevelClassName().peerNamed(mapKeyTypeName.classFileName() + "Creator");
   }
 
   /**
@@ -138,11 +152,12 @@ final class MapKeys {
    */
   static Snippet getMapKeySnippet(Element bindingElement) {
     AnnotationMirror mapKey = getMapKey(bindingElement).get();
-    TypeElement mapKeyAnnotationType = MoreTypes.asTypeElement(mapKey.getAnnotationType());
-    ClassName mapKeyCreator = MapKeys.getMapKeyCreatorClassName(mapKeyAnnotationType);
-    if (mapKeyAnnotationType.getAnnotation(MapKey.class).unwrapValue()) {
-      AnnotationValue memberToUnwrap = getOnlyElement(mapKey.getElementValues().values());
-      return new MapKeySnippetExceptArrays(mapKeyCreator).visit(memberToUnwrap, memberToUnwrap);
+    ClassName mapKeyCreator =
+        getMapKeyCreatorClassName(MoreTypes.asTypeElement(mapKey.getAnnotationType()));
+    Optional<? extends AnnotationValue> unwrappedValue = unwrapValue(mapKey);
+    if (unwrappedValue.isPresent()) {
+      return new MapKeySnippetExceptArrays(mapKeyCreator)
+          .visit(unwrappedValue.get(), unwrappedValue.get());
     } else {
       return annotationSnippet(mapKey, new MapKeySnippet(mapKeyCreator));
     }

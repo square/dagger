@@ -15,7 +15,6 @@
  */
 package dagger.internal.codegen.writer;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -111,14 +110,12 @@ public final class MethodWriter extends Modifiable implements HasClassReferences
 
   @Override
   public Set<ClassName> referencedClasses() {
-    return FluentIterable.from(
-        Iterables.concat(ImmutableList.of(returnType), parameterWriters.values(), body.asSet()))
-            .transformAndConcat(new Function<HasClassReferences, Set<ClassName>>() {
-              @Override
-              public Set<ClassName> apply(HasClassReferences input) {
-                return input.referencedClasses();
-              }
-            })
-            .toSet();
+    return FluentIterable.from(ImmutableList.<HasClassReferences>of())
+        .append(parameterWriters.values())
+        .append(returnType)
+        .append(body.asSet())
+        .append(annotations)
+        .transformAndConcat(HasClassReferences.COMBINER)
+        .toSet();
   }
 }

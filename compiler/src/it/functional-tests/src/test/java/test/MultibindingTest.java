@@ -15,6 +15,8 @@ package test;
 
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableMap;
+import dagger.mapkeys.ClassKey;
+import dagger.mapkeys.StringKey;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Map;
@@ -45,6 +47,15 @@ public class MultibindingTest {
     assertThat(map).hasSize(2);
     assertThat(map).containsEntry("foo", "foo value");
     assertThat(map).containsEntry("bar", "bar value");
+  }
+
+  @Test public void mapOfArrays() {
+    Map<String, String[]> map = multibindingComponent.mapOfArrays();
+    assertThat(map).hasSize(2);
+    assertThat(map).containsKey("foo");
+    assertThat(map.get("foo")).asList().containsExactly("foo1", "foo2").inOrder();
+    assertThat(map).containsKey("bar");
+    assertThat(map.get("bar")).asList().containsExactly("bar1", "bar2").inOrder();
   }
 
   @Test public void mapOfProviders() {
@@ -80,7 +91,7 @@ public class MultibindingTest {
         .isEqualTo(
             ImmutableMap.of(
                 testWrappedAnnotationKey(
-                    testStringKey("foo"), new int[] {1, 2, 3}, new TestClassKey[] {}, classes),
+                    testStringKey("foo"), new int[] {1, 2, 3}, new ClassKey[] {}, classes),
                 "wrapped foo annotation"));
   }
 
@@ -140,22 +151,23 @@ public class MultibindingTest {
     assertThat(multibindingComponent.set()).containsExactly(-90, -17, -1, 5, 6, 832, 1742);
   }
 
+  @Test public void complexQualifierSet() {
+    assertThat(multibindingComponent.complexQualifierStringSet()).containsExactly("foo");
+  }
+
   @AutoAnnotation
-  static TestStringKey testStringKey(String value) {
+  static StringKey testStringKey(String value) {
     return new AutoAnnotation_MultibindingTest_testStringKey(value);
   }
 
   @AutoAnnotation
-  static TestStringKey.NestedWrappedKey nestedWrappedKey(Class<?> value) {
+  static NestedAnnotationContainer.NestedWrappedKey nestedWrappedKey(Class<?> value) {
     return new AutoAnnotation_MultibindingTest_nestedWrappedKey(value);
   }
 
   @AutoAnnotation
-  static TestWrappedAnnotationKey testWrappedAnnotationKey(
-      TestStringKey value,
-      int[] integers,
-      TestClassKey[] annotations,
-      Class<? extends Number>[] classes) {
+  static WrappedAnnotationKey testWrappedAnnotationKey(
+      StringKey value, int[] integers, ClassKey[] annotations, Class<? extends Number>[] classes) {
     return new AutoAnnotation_MultibindingTest_testWrappedAnnotationKey(
         value, integers, annotations, classes);
   }

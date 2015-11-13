@@ -29,23 +29,27 @@ import dagger.MembersInjector;
 import dagger.Provides;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import dagger.producers.internal.AbstractProducer;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static javax.lang.model.type.TypeKind.DECLARED;
+import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 /**
  * Represents a request for a key at an injection point. Parameters to {@link Inject} constructors
@@ -57,6 +61,13 @@ import static javax.lang.model.type.TypeKind.DECLARED;
 // TODO(gak): Set bindings and the permutations thereof need to be addressed
 @AutoValue
 abstract class DependencyRequest {
+  static final Function<DependencyRequest, BindingKey> BINDING_KEY_FUNCTION =
+      new Function<DependencyRequest, BindingKey>() {
+        @Override public BindingKey apply(DependencyRequest request) {
+          return request.bindingKey();
+        }
+      };
+
   enum Kind {
     /** A default request for an instance.  E.g.: {@code Blah} */
     INSTANCE,
@@ -108,15 +119,23 @@ abstract class DependencyRequest {
   abstract boolean isNullable();
 
   /**
+   * An optional name for this request when it's referred to in generated code. If absent, it will
+   * use a name derived from {@link #requestElement}.
+   */
+  abstract Optional<String> overriddenVariableName();
+
+  /**
    * Factory for {@link DependencyRequest}s.
    *
    * <p>Any factory method may throw {@link TypeNotPresentException} if a type is not available,
    * which may mean that the type will be generated in a later round of processing.
    */
   static final class Factory {
+    private final Elements elements;
     private final Key.Factory keyFactory;
 
-    Factory(Key.Factory keyFactory) {
+    Factory(Elements elements, Key.Factory keyFactory) {
+      this.elements = elements;
       this.keyFactory = keyFactory;
     }
 
@@ -133,33 +152,46 @@ abstract class DependencyRequest {
     ImmutableSet<DependencyRequest> forRequiredVariables(
         List<? extends VariableElement> variables) {
       return FluentIterable.from(variables)
-          .transform(new Function<VariableElement, DependencyRequest>() {
-            @Override public DependencyRequest apply(VariableElement input) {
-              return forRequiredVariable(input);
-            }
-          })
+          .transform(
+              new Function<VariableElement, DependencyRequest>() {
+                @Override
+                public DependencyRequest apply(VariableElement input) {
+                  return forRequiredVariable(input);
+                }
+              })
           .toSet();
     }
 
     /**
-     * Creates a DependencyRequest for implictMapBinding, this request's key will be
-     * {@code Map<K, Provider<V>>}, this DependencyRequest is depended by the DependencyRequest
-     * whose key is {@code Map<K, V>}
+     * Creates a implicit {@link DependencyRequest} for {@code mapOfFactoryKey}, which will be used
+     * to satisfy the {@code mapOfValueRequest}.
+     * 
+     * @param mapOfValueRequest a request for {@code Map<K, V>}
+     * @param mapOfFactoryKey a key equivalent to {@code mapOfValueRequest}'s key, whose type is
+     *     {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}
      */
-    DependencyRequest forImplicitMapBinding(DependencyRequest delegatingRequest, Key delegateKey) {
-      checkNotNull(delegatingRequest);
-      return new AutoValue_DependencyRequest(Kind.PROVIDER, delegateKey,
-          delegatingRequest.requestElement(),
-          getEnclosingType(delegatingRequest.requestElement()),
-          false /* doesn't allow null */);
+    DependencyRequest forImplicitMapBinding(
+        DependencyRequest mapOfValueRequest, Key mapOfFactoryKey) {
+      checkNotNull(mapOfValueRequest);
+      return new AutoValue_DependencyRequest(
+          Kind.PROVIDER,
+          mapOfFactoryKey,
+          mapOfValueRequest.requestElement(),
+          mapOfValueRequest.enclosingType(),
+          false /* doesn't allow null */,
+          Optional.<String>absent());
     }
 
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
+      return forRequiredVariable(variableElement, Optional.<String>absent());
+    }
+
+    DependencyRequest forRequiredVariable(VariableElement variableElement, Optional<String> name) {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
-      return newDependencyRequest(variableElement, type, qualifier,
-          getEnclosingType(variableElement));
+      return newDependencyRequest(
+          variableElement, type, qualifier, getEnclosingType(variableElement), name);
     }
 
     DependencyRequest forRequiredResolvedVariable(DeclaredType container,
@@ -168,18 +200,25 @@ abstract class DependencyRequest {
       checkNotNull(variableElement);
       checkNotNull(resolvedType);
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
-      return newDependencyRequest(variableElement, resolvedType, qualifier, container);
+      return newDependencyRequest(
+          variableElement, resolvedType, qualifier, container, Optional.<String>absent());
     }
 
     DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod,
         ExecutableType provisionMethodType) {
       checkNotNull(provisionMethod);
       checkNotNull(provisionMethodType);
-      checkArgument(provisionMethod.getParameters().isEmpty(),
-          "Component provision methods must be empty: " + provisionMethod);
+      checkArgument(
+          provisionMethod.getParameters().isEmpty(),
+          "Component provision methods must be empty: %s",
+          provisionMethod);
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(provisionMethod);
-      return newDependencyRequest(provisionMethod, provisionMethodType.getReturnType(), qualifier,
-          getEnclosingType(provisionMethod));
+      return newDependencyRequest(
+          provisionMethod,
+          provisionMethodType.getReturnType(),
+          qualifier,
+          getEnclosingType(provisionMethod),
+          Optional.<String>absent());
     }
 
     DependencyRequest forComponentProductionMethod(ExecutableElement productionMethod,
@@ -196,13 +235,15 @@ abstract class DependencyRequest {
       if (isTypeOf(ListenableFuture.class, type)) {
         return new AutoValue_DependencyRequest(
             Kind.FUTURE,
-            keyFactory.forQualifiedType(qualifier,
-                Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())),
+            keyFactory.forQualifiedType(
+                qualifier, Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())),
             productionMethod,
             container,
-            false /* doesn't allow null */);
+            false /* doesn't allow null */,
+            Optional.<String>absent());
       } else {
-        return newDependencyRequest(productionMethod, type, qualifier, container);
+        return newDependencyRequest(
+            productionMethod, type, qualifier, container, Optional.<String>absent());
       }
     }
 
@@ -216,32 +257,53 @@ abstract class DependencyRequest {
       TypeMirror returnType = membersInjectionMethodType.getReturnType();
       if (returnType.getKind().equals(DECLARED)
           && MoreTypes.isTypeOf(MembersInjector.class, returnType)) {
-        return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+        return new AutoValue_DependencyRequest(
+            Kind.MEMBERS_INJECTOR,
             keyFactory.forMembersInjectedType(
                 Iterables.getOnlyElement(((DeclaredType) returnType).getTypeArguments())),
-                membersInjectionMethod,
-                getEnclosingType(membersInjectionMethod),
-                false /* doesn't allow null */);
+            membersInjectionMethod,
+            getEnclosingType(membersInjectionMethod),
+            false /* doesn't allow null */,
+            Optional.<String>absent());
       } else {
-        return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+        return new AutoValue_DependencyRequest(
+            Kind.MEMBERS_INJECTOR,
             keyFactory.forMembersInjectedType(
                 Iterables.getOnlyElement(membersInjectionMethodType.getParameterTypes())),
-                membersInjectionMethod,
-                getEnclosingType(membersInjectionMethod),
-                false /* doesn't allow null */);
+            membersInjectionMethod,
+            getEnclosingType(membersInjectionMethod),
+            false /* doesn't allow null */,
+            Optional.<String>absent());
       }
     }
 
     DependencyRequest forMembersInjectedType(DeclaredType type) {
-      return new AutoValue_DependencyRequest(Kind.MEMBERS_INJECTOR,
+      return new AutoValue_DependencyRequest(
+          Kind.MEMBERS_INJECTOR,
           keyFactory.forMembersInjectedType(type),
           type.asElement(),
           type,
-          false /* doesn't allow null */);
+          false /* doesn't allow null */,
+          Optional.<String>absent());
     }
 
-    private DependencyRequest newDependencyRequest(Element requestElement,
-        TypeMirror type, Optional<AnnotationMirror> qualifier, DeclaredType container) {
+    DependencyRequest forProductionComponentMonitorProvider() {
+      TypeElement element = elements.getTypeElement(AbstractProducer.class.getCanonicalName());
+      for (ExecutableElement constructor : constructorsIn(element.getEnclosedElements())) {
+        if (constructor.getParameters().size() == 2) {
+          // the 2-arg constructor has the appropriate dependency as its first arg
+          return forRequiredVariable(constructor.getParameters().get(0), Optional.of("monitor"));
+        }
+      }
+      throw new AssertionError("expected 2-arg constructor in AbstractProducer");
+    }
+
+    private DependencyRequest newDependencyRequest(
+        Element requestElement,
+        TypeMirror type,
+        Optional<AnnotationMirror> qualifier,
+        DeclaredType container,
+        Optional<String> name) {
       KindAndType kindAndType = extractKindAndType(type);
       if (kindAndType.kind().equals(Kind.MEMBERS_INJECTOR)) {
         checkArgument(!qualifier.isPresent());
@@ -251,11 +313,13 @@ abstract class DependencyRequest {
       // TODO(sameb): should Produced/Producer always require non-nullable?
       boolean allowsNull = !kindAndType.kind().equals(Kind.INSTANCE)
           || ConfigurationAnnotations.getNullableType(requestElement).isPresent();
-      return new AutoValue_DependencyRequest(kindAndType.kind(),
+      return new AutoValue_DependencyRequest(
+          kindAndType.kind(),
           keyFactory.forQualifiedType(qualifier, kindAndType.type()),
           requestElement,
           container,
-          allowsNull);
+          allowsNull,
+          name);
     }
 
     @AutoValue

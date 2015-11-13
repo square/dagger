@@ -48,7 +48,8 @@ abstract class SourceFileGenerator<T> {
 
   final void generate(T input) throws SourceFileGenerationException {
     ClassName generatedTypeName = nameGeneratedType(input);
-    ImmutableSet<Element> originatingElements = ImmutableSet.copyOf(getOriginatingElements(input));
+    ImmutableSet<Element> originatingElements =
+        ImmutableSet.<Element>copyOf(getOriginatingElements(input));
     try {
       ImmutableSet<JavaWriter> writers = write(generatedTypeName, input);
       for (JavaWriter javaWriter : writers) {

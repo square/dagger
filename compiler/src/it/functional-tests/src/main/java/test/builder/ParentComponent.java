@@ -26,4 +26,6 @@ interface ParentComponent {
   
   MiddleChild.Builder middleBuilder();
   OtherMiddleChild.Builder otherBuilder();
+  
+  RequiresSubcomponentBuilder<MiddleChild.Builder> requiresMiddleChildBuilder();
 }

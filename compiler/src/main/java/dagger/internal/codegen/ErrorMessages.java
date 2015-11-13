@@ -31,6 +31,7 @@ final class ErrorMessages {
    * Common constants.
    */
   static final String INDENT = "    ";
+  static final int DUPLICATE_SIZE_LIMIT = 10;
 
   /*
    * JSR-330 errors
@@ -76,10 +77,16 @@ final class ErrorMessages {
   /* fields */
   static final String PRIVATE_INJECT_FIELD =
       "Dagger does not support injection into private fields";
+  
+  static final String STATIC_INJECT_FIELD =
+      "Dagger does not support injection into static fields";
 
   /* methods */
   static final String PRIVATE_INJECT_METHOD =
       "Dagger does not support injection into private methods";
+  
+  static final String STATIC_INJECT_METHOD =
+      "Dagger does not support injection into static methods";
 
   /* all */
   static final String INJECT_INTO_PRIVATE_CLASS =
@@ -93,6 +100,14 @@ final class ErrorMessages {
    */
   static final String DUPLICATE_BINDINGS_FOR_KEY_FORMAT =
       "%s is bound multiple times:";
+
+  static String duplicateMapKeysError(String key) {
+    return "The same map key is bound more than once for " + key;
+  }
+
+  static String inconsistentMapKeyAnnotationsError(String key) {
+    return key + " uses more than one @MapKey annotation type";
+  }
 
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
@@ -145,7 +160,7 @@ final class ErrorMessages {
       "%s is listed as a module, but is an abstract class or interface";
 
   static final String REFERENCED_MODULE_NOT_ANNOTATED =
-      "%s is listed as a module, but is not annotated with @%s";
+      "%s is listed as a module, but is not annotated with %s";
 
   static final String REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS =
       "%s is listed as a module, but has type parameters";
@@ -170,7 +185,7 @@ final class ErrorMessages {
       "Map key annotations with unwrapped values cannot use arrays";
 
   /* collection binding errors */
-  static final String MULTIPLE_BINDING_TYPES_FORMAT =
+  static final String MULTIPLE_CONTRIBUTION_TYPES_FORMAT =
       "More than one binding present of different types %s";
 
   static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
@@ -209,8 +224,12 @@ final class ErrorMessages {
   static final String MALFORMED_MODULE_METHOD_FORMAT =
       "Cannot generated a graph because method %s on module %s was malformed";
 
-  static final String NULLABLE_TO_NON_NULLABLE =
-      "%s is not nullable, but is being provided by %s";
+  static String nullableToNonNullable(String typeName, String bindingString) {
+    return String.format(
+            "%s is not nullable, but is being provided by %s",
+            typeName,
+            bindingString);
+  }
 
   static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD =
       "Cannot return null from a non-@Nullable component method";
@@ -224,6 +243,8 @@ final class ErrorMessages {
         return ComponentBuilderMessages.INSTANCE;
       case SUBCOMPONENT:
         return SubcomponentBuilderMessages.INSTANCE;
+      case PRODUCTION_COMPONENT:
+        return ProductionComponentBuilderMessages.INSTANCE;
       default:
         throw new IllegalStateException(kind.toString());
     }
@@ -352,6 +373,17 @@ final class ErrorMessages {
 
     String moreThanOneRefToSubcomponent() {
       return "Only one method can create a given subcomponent. %s is created by: %s";
+    }
+  }
+
+  static final class ProductionComponentBuilderMessages extends ComponentBuilderMessages {
+    @SuppressWarnings("hiding")
+    static final ProductionComponentBuilderMessages INSTANCE =
+        new ProductionComponentBuilderMessages();
+
+    @Override protected String process(String s) {
+      return s.replaceAll("component", "production component")
+          .replaceAll("Component", "ProductionComponent");
     }
   }
 

@@ -17,6 +17,6 @@ package test.subcomponent;
 
 import dagger.Subcomponent;
 
-@Subcomponent(modules = ChildModule.class)
+@Subcomponent(modules = {ChildModule.class, StaticChildModule.class})
 abstract class ChildAbstractClassComponent implements ChildComponent {
 }

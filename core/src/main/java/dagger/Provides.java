@@ -46,6 +46,7 @@ public @interface Provides {
      * returned value is contributed to the set. The object graph will pass dependencies to the
      * method as parameters. The {@code Set<T>} produced from the accumulation of values will be
      * immutable.
+     *
      */
     SET,
 
@@ -53,6 +54,7 @@ public @interface Provides {
      * Like {@link #SET}, except the method's return type is {@code Set<T>}, where any values are
      * contributed to the set. An example use is to provide a default empty set binding, which is
      * otherwise not possible using {@link #SET}.
+     *
      */
     SET_VALUES,
 
@@ -61,6 +63,7 @@ public @interface Provides {
      * {@code Map<K, Provider<V>>}, and the combination of the annotated key and the returned value
      * is contributed to the map as a key/value pair. The {@code Map<K, Provider<V>>} produced from
      * the accumulation of values will be immutable.
+     *
      */
     @Beta
     MAP;

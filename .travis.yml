@@ -6,8 +6,8 @@ jdk:
 
 android:
   components:
-    - build-tools-20.0.0
-    - android-16
+    - build-tools-23.0.0
+    - android-23
   licenses:
     - android-sdk-license-5be876d5
 

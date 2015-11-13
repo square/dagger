@@ -37,6 +37,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT;
+import static javax.tools.StandardLocation.SOURCE_OUTPUT;
 
 @RunWith(JUnit4.class)
 public class ComponentProcessorTest {
@@ -231,6 +232,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "  }",
         "",
@@ -317,6 +319,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.someInjectableTypeProvider =",
         "        ScopedProvider.create(SomeInjectableType_Factory.create());",
@@ -399,6 +402,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.bMembersInjector =",
         "        OuterType$B_MembersInjector.create(OuterType$A_Factory.create());",
@@ -498,6 +502,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.bProvider = TestModule_BFactory.create(builder.testModule,",
         "        C_Factory.create());",
@@ -524,7 +529,7 @@ public class ComponentProcessorTest {
         "",
         "    public Builder testModule(TestModule testModule) {",
         "      if (testModule == null) {",
-        "        throw new NullPointerException(\"testModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.testModule = testModule;",
         "      return this;",
@@ -630,83 +635,58 @@ public class ComponentProcessorTest {
         "  }",
         "",
         "  public static final class Builder {",
-        "    private TestModule testModule;",
-        "    private ParentTestIncluded parentTestIncluded;",
-        "    private AlwaysIncluded alwaysIncluded;",
-        "    private DepModule depModule;",
-        "    private ParentDepIncluded parentDepIncluded;",
-        "    private RefByDep refByDep;",
-        "",
         "    private Builder() {",
         "    }",
         "",
         "    public TestComponent build() {",
-        "      if (testModule == null) {",
-        "        this.testModule = new TestModule();",
-        "      }",
-        "      if (parentTestIncluded == null) {",
-        "        this.parentTestIncluded = new ParentTestIncluded();",
-        "      }",
-        "      if (alwaysIncluded == null) {",
-        "        this.alwaysIncluded = new AlwaysIncluded();",
-        "      }",
-        "      if (depModule == null) {",
-        "        this.depModule = new DepModule();",
-        "      }",
-        "      if (parentDepIncluded == null) {",
-        "        this.parentDepIncluded = new ParentDepIncluded();",
-        "      }",
-        "      if (refByDep == null) {",
-        "        this.refByDep = new RefByDep();",
-        "      }",
         "      return new DaggerTestComponent(this);",
         "    }",
         "",
+        "    @Deprecated",
         "    public Builder testModule(TestModule testModule) {",
         "      if (testModule == null) {",
-        "        throw new NullPointerException(\"testModule\");",
+        "        throw new NullPointerException();",
         "      }",
-        "      this.testModule = testModule;",
         "      return this;",
         "    }",
         "",
+        "    @Deprecated",
         "    public Builder parentTestIncluded(ParentTestIncluded parentTestIncluded) {",
         "      if (parentTestIncluded == null) {",
-        "        throw new NullPointerException(\"parentTestIncluded\");",
+        "        throw new NullPointerException();",
         "      }",
-        "      this.parentTestIncluded = parentTestIncluded;",
         "      return this;",
         "    }",
         "",
+        "    @Deprecated",
         "    public Builder alwaysIncluded(AlwaysIncluded alwaysIncluded) {",
         "      if (alwaysIncluded == null) {",
-        "        throw new NullPointerException(\"alwaysIncluded\");",
+        "        throw new NullPointerException();",
         "      }",
-        "      this.alwaysIncluded = alwaysIncluded;",
         "      return this;",
         "    }",
         "",
+        "    @Deprecated",
         "    public Builder depModule(DepModule depModule) {",
         "      if (depModule == null) {",
-        "        throw new NullPointerException(\"depModule\");",
+        "        throw new NullPointerException();",
         "      }",
-        "      this.depModule = depModule;",
         "      return this;",
         "    }",
         "",
+        "    @Deprecated",
         "    public Builder parentDepIncluded(ParentDepIncluded parentDepIncluded) {",
         "      if (parentDepIncluded == null) {",
-        "        throw new NullPointerException(\"parentDepIncluded\");",
+        "        throw new NullPointerException();",
         "      }",
-        "      this.parentDepIncluded = parentDepIncluded;",
         "      return this;",
         "    }",
         "",
+        "    @Deprecated",
         "    public Builder refByDep(RefByDep refByDep) {",
         "      if (refByDep == null) {",
-        "        throw new NullPointerException(\"refByDep\");",
+        "        throw new NullPointerException();",
         "      }",
-        "      this.refByDep = refByDep;",
         "      return this;",
         "    }",
         "  }",
@@ -759,6 +739,201 @@ public class ComponentProcessorTest {
                 "@Module",
                 "final class GeneratedModule {}"))
         .compilesWithoutError();
+  }
+
+  @Test
+  public void generatedModuleInSubcomponent() {
+    JavaFileObject subcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.ChildComponent",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = GeneratedModule.class)",
+            "interface ChildComponent {}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface TestComponent {",
+            "  ChildComponent childComponent();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(subcomponent, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile();
+    assertAbout(javaSources())
+        .that(ImmutableList.of(subcomponent, component))
+        .processedWith(
+            new ComponentProcessor(),
+            new GeneratingProcessor(
+                "test.GeneratedModule",
+                "package test;",
+                "",
+                "import dagger.Module;",
+                "",
+                "@Module",
+                "final class GeneratedModule {}"))
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void subcomponentOmitsInheritedBindings() {
+    JavaFileObject parent =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = ParentModule.class)",
+            "interface Parent {",
+            "  Child child();",
+            "}");
+    JavaFileObject parentModule =
+        JavaFileObjects.forSourceLines(
+            "test.ParentModule",
+            "package test;",
+            "",
+            "import dagger.mapkeys.StringKey;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "import static dagger.Provides.Type.SET;",
+            "import static dagger.Provides.Type.MAP;",
+            "",
+            "@Module",
+            "class ParentModule {",
+            "  @Provides(type = SET) static Object parentObject() {",
+            "    return \"parent object\";",
+            "  }",
+            "",
+            "  @Provides(type = MAP) @StringKey(\"parent key\") Object parentKeyObject() {",
+            "    return \"parent value\";",
+            "  }",
+            "}");
+    JavaFileObject child =
+        JavaFileObjects.forSourceLines(
+            "test.Child",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "import java.util.Map;",
+            "import java.util.Set;",
+            "",
+            "@Subcomponent",
+            "interface Child {",
+            "  Set<Object> objectSet();",
+            "  Map<String, Object> objectMap();",
+            "}");
+    JavaFileObject expected =
+        JavaFileObjects.forSourceLines(
+            "test.DaggerParent",
+            "package test;",
+            "",
+            "import dagger.internal.MapFactory;",
+            "import dagger.internal.MapProviderFactory;",
+            "import dagger.internal.SetFactory;",
+            "import java.util.Map;",
+            "import java.util.Set;",
+            "import javax.annotation.Generated;",
+            "import javax.inject.Provider;",
+            "",
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            "public final class DaggerParent implements Parent {",
+            "  private Provider<Set<Object>> setOfObjectContribution1Provider;",
+            "  private Provider<Set<Object>> setOfObjectProvider;",
+            "  private Provider<Object> mapOfStringAndProviderOfObjectContribution1;",
+            "  private Provider<Map<String, Provider<Object>>>",
+            "      mapOfStringAndProviderOfObjectProvider;",
+            "",
+            "  private DaggerParent(Builder builder) {",
+            "    assert builder != null;",
+            "    initialize(builder);",
+            "  }",
+            "",
+            "  public static Builder builder() {",
+            "    return new Builder();",
+            "  }",
+            "",
+            "  public static Parent create() {",
+            "    return builder().build();",
+            "  }",
+            "",
+            "  @SuppressWarnings(\"unchecked\")",
+            "  private void initialize(final Builder builder) {",
+            "    this.setOfObjectContribution1Provider =",
+            "        ParentModule_ParentObjectFactory.create();",
+            "    this.setOfObjectProvider = SetFactory.create(setOfObjectContribution1Provider);",
+            "    this.mapOfStringAndProviderOfObjectContribution1 =",
+            "        ParentModule_ParentKeyObjectFactory.create(builder.parentModule);",
+            "    this.mapOfStringAndProviderOfObjectProvider =",
+            "        MapProviderFactory.<String, Object>builder(1)",
+            "            .put(\"parent key\", mapOfStringAndProviderOfObjectContribution1)",
+            "            .build();",
+            "  }",
+            "",
+            "  @Override",
+            "  public Child child() {",
+            "    return new ChildImpl();",
+            "  }",
+            "",
+            "  public static final class Builder {",
+            "    private ParentModule parentModule;",
+            "",
+            "    private Builder() {}",
+            "",
+            "    public Parent build() {",
+            "      if (parentModule == null) {",
+            "        this.parentModule = new ParentModule();",
+            "      }",
+            "      return new DaggerParent(this);",
+            "    }",
+            "",
+            "    public Builder parentModule(ParentModule parentModule) {",
+            "      if (parentModule == null) {",
+            "        throw new NullPointerException();",
+            "      }",
+            "      this.parentModule = parentModule;",
+            "      return this;",
+            "    }",
+            "  }",
+            "",
+            "  private final class ChildImpl implements Child {",
+            "    private Provider<Map<String, Object>> mapOfStringAndObjectProvider;",
+            "",
+            "    private ChildImpl() {",
+            "      initialize();",
+            "    }",
+            "",
+            "    @SuppressWarnings(\"unchecked\")",
+            "    private void initialize() {",
+            "      this.mapOfStringAndObjectProvider = MapFactory.create(",
+            "          DaggerParent.this.mapOfStringAndProviderOfObjectProvider);",
+            "    }",
+            "",
+            "    @Override",
+            "    public Set<Object> objectSet() {",
+            "      return DaggerParent.this.setOfObjectProvider.get();",
+            "    }",
+            "",
+            "    @Override",
+            "    public Map<String, Object> objectMap() {",
+            "      return mapOfStringAndObjectProvider.get();",
+            "    }",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(parent, parentModule, child))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
   }
 
   @Test public void testDefaultPackage() {
@@ -858,6 +1033,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.setOfStringContribution1Provider =",
         "        EmptySetModule_EmptySetFactory.create(builder.emptySetModule);",
@@ -891,7 +1067,7 @@ public class ComponentProcessorTest {
         "",
         "    public Builder emptySetModule(EmptySetModule emptySetModule) {",
         "      if (emptySetModule == null) {",
-        "        throw new NullPointerException(\"emptySetModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.emptySetModule = emptySetModule;",
         "      return this;",
@@ -899,7 +1075,7 @@ public class ComponentProcessorTest {
         "",
         "    public Builder setModule(SetModule setModule) {",
         "      if (setModule == null) {",
-        "        throw new NullPointerException(\"setModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.setModule = setModule;",
         "      return this;",
@@ -968,6 +1144,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.someInjectedTypeMembersInjector =",
         "        SomeInjectedType_MembersInjector.create(SomeInjectableType_Factory.create());",
@@ -1047,6 +1224,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.simpleComponentProvider = InstanceFactory.<SimpleComponent>create(this);",
         "    this.someInjectableTypeProvider =",
@@ -1126,6 +1304,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.someInjectedTypeMembersInjector =",
         "        SomeInjectedType_MembersInjector.create(SomeInjectableType_Factory.create());",
@@ -1203,6 +1382,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.someInjectableTypeProvider =",
         "        SomeInjectableType_Factory.create((MembersInjector) MembersInjectors.noOp());",
@@ -1292,6 +1472,7 @@ public class ComponentProcessorTest {
         "    return new Builder();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.aProvider = new Factory<A>() {",
         "      private final AComponent aComponent = builder.aComponent;",
@@ -1319,14 +1500,15 @@ public class ComponentProcessorTest {
         "",
         "    public BComponent build() {",
         "      if (aComponent == null) {",
-        "        throw new IllegalStateException(\"aComponent must be set\");",
+        "        throw new IllegalStateException(AComponent.class.getCanonicalName()",
+        "            + \" must be set\");",
         "      }",
         "      return new DaggerBComponent(this);",
         "    }",
         "",
         "    public Builder aComponent(AComponent aComponent) {",
         "      if (aComponent == null) {",
-        "        throw new NullPointerException(\"aComponent\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.aComponent = aComponent;",
         "      return this;",
@@ -1411,6 +1593,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.aProvider = test.TestModule_AFactory.create(builder.testModule);",
         "    this.aProvider1 = TestModule_AFactory.create(builder.testModule1);",
@@ -1445,7 +1628,7 @@ public class ComponentProcessorTest {
         "",
         "    public Builder testModule(test.TestModule testModule) {",
         "      if (testModule == null) {",
-        "        throw new NullPointerException(\"testModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.testModule = testModule;",
         "      return this;",
@@ -1453,7 +1636,7 @@ public class ComponentProcessorTest {
         "",
         "    public Builder testModule(TestModule testModule) {",
         "      if (testModule == null) {",
-        "        throw new NullPointerException(\"testModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.testModule1 = testModule;",
         "      return this;",
@@ -1540,6 +1723,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.bProvider = B_Factory.create(C_Factory.create());",
         "    this.aProvider = A_Factory.create(bProvider);",
@@ -1642,6 +1826,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {}",
         "",
         "  @Override",
@@ -1730,6 +1915,7 @@ public class ComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {}",
         "",
         "  @Override",
@@ -1798,7 +1984,6 @@ public class ComponentProcessorTest {
         .withErrorContaining(
             "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
-
   @Test
   public void componentImplicitlyDependsOnGeneratedType() {
     JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
@@ -1813,9 +1998,6 @@ public class ComponentProcessorTest {
         "package test;",
         "",
         "import dagger.Component;",
-        "import dagger.Lazy;",
-        "",
-        "import javax.inject.Provider;",
         "",
         "@Component",
         "interface SimpleComponent {",
@@ -1825,7 +2007,8 @@ public class ComponentProcessorTest {
         .that(ImmutableList.of(injectableTypeFile, componentFile))
         .processedWith(
             new ComponentProcessor(),
-            new GeneratingProcessor("test.GeneratedType",
+            new GeneratingProcessor(
+                "test.GeneratedType",
                 "package test;",
                 "",
                 "import javax.inject.Inject;",
@@ -1833,7 +2016,45 @@ public class ComponentProcessorTest {
                 "final class GeneratedType {",
                 "  @Inject GeneratedType() {}",
                 "}"))
-        .compilesWithoutError();
+        .compilesWithoutError()
+        .and()
+        .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
+  }
+  @Test
+  public void componentSupertypeDependsOnGeneratedType() {
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface SimpleComponent extends SimpleComponentInterface {}");
+    JavaFileObject interfaceFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleComponentInterface",
+            "package test;",
+            "",
+            "interface SimpleComponentInterface {",
+            "  GeneratedType generatedType();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(componentFile, interfaceFile))
+        .processedWith(
+            new ComponentProcessor(),
+            new GeneratingProcessor(
+                "test.GeneratedType",
+                "package test;",
+                "",
+                "import javax.inject.Inject;",
+                "",
+                "final class GeneratedType {",
+                "  @Inject GeneratedType() {}",
+                "}"))
+        .compilesWithoutError()
+        .and()
+        .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
   }
 
   @Test
@@ -1893,7 +2114,7 @@ public class ComponentProcessorTest {
          "",
          "  private DaggerSimpleComponent(Builder builder) {",
          "    assert builder != null;",
-         "    initialize();",
+         "    initialize(builder);",
          "  }",
          "",
          "  public static Builder builder() {",
@@ -1904,7 +2125,8 @@ public class ComponentProcessorTest {
          "    return builder().build();",
          "  }",
          "",
-         "  private void initialize() {",
+         "  @SuppressWarnings(\"unchecked\")",
+         "  private void initialize(final Builder builder) {",
          "    this.dProvider = new D_Factory(B_Factory.INSTANCE);",
          "  }",
          "",

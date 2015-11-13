@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 @RunWith(JUnit4.class)
@@ -137,6 +137,7 @@ public class MapBindingComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.mapOfPathEnumAndProviderOfHandlerContribution1 =",
         "        MapModuleOne_ProvideAdminHandlerFactory.create(builder.mapModuleOne);",
@@ -175,7 +176,7 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleOne(MapModuleOne mapModuleOne) {",
         "      if (mapModuleOne == null) {",
-        "        throw new NullPointerException(\"mapModuleOne\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleOne = mapModuleOne;",
         "      return this;",
@@ -183,14 +184,14 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleTwo(MapModuleTwo mapModuleTwo) {",
         "      if (mapModuleTwo == null) {",
-        "        throw new NullPointerException(\"mapModuleTwo\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleTwo = mapModuleTwo;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             enumKeyFile,
@@ -216,6 +217,7 @@ public class MapBindingComponentProcessorTest {
                 "",
                 "import dagger.Module;",
                 "import dagger.Provides;",
+                "import dagger.mapkeys.StringKey;",
                 "",
                 "@Module",
                 "final class MapModuleOne {",
@@ -232,6 +234,7 @@ public class MapBindingComponentProcessorTest {
                 "",
                 "import dagger.Module;",
                 "import dagger.Provides;",
+                "import dagger.mapkeys.StringKey;",
                 "",
                 "@Module",
                 "final class MapModuleTwo {",
@@ -239,17 +242,6 @@ public class MapBindingComponentProcessorTest {
                 "    return new LoginHandler();",
                 "  }",
                 "}");
-    JavaFileObject stringKeyFile = JavaFileObjects.forSourceLines("test.StringKey",
-        "package test;",
-        "import dagger.MapKey;",
-        "import java.lang.annotation.Retention;",
-        "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
-        "",
-        "@MapKey(unwrapValue = true)",
-        "@Retention(RUNTIME)",
-        "public @interface StringKey {",
-        "  String value();",
-        "}");
     JavaFileObject HandlerFile = JavaFileObjects.forSourceLines("test.Handler",
         "package test;",
         "",
@@ -305,6 +297,7 @@ public class MapBindingComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.mapOfStringAndProviderOfHandlerContribution1 =",
         "        MapModuleOne_ProvideAdminHandlerFactory.create(builder.mapModuleOne);",
@@ -341,7 +334,7 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleOne(MapModuleOne mapModuleOne) {",
         "      if (mapModuleOne == null) {",
-        "        throw new NullPointerException(\"mapModuleOne\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleOne = mapModuleOne;",
         "      return this;",
@@ -349,17 +342,16 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleTwo(MapModuleTwo mapModuleTwo) {",
         "      if (mapModuleTwo == null) {",
-        "        throw new NullPointerException(\"mapModuleTwo\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleTwo = mapModuleTwo;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
-            stringKeyFile,
             HandlerFile,
             LoginHandlerFile,
             AdminHandlerFile,
@@ -384,7 +376,8 @@ public class MapBindingComponentProcessorTest {
                 "",
                 "@Module",
                 "final class MapModuleOne {",
-                "  @Provides(type = MAP) @ClassKey(Integer.class) Handler provideAdminHandler() {",
+                "  @Provides(type = MAP)",
+                "  @WrappedClassKey(Integer.class) Handler provideAdminHandler() {",
                 "    return new AdminHandler();",
                 "  }",
                 "}");
@@ -400,11 +393,12 @@ public class MapBindingComponentProcessorTest {
                 "",
                 "@Module",
                 "final class MapModuleTwo {",
-                "  @Provides(type = MAP) @ClassKey(Long.class) Handler provideLoginHandler() {",
+                "  @Provides(type = MAP)",
+                "  @WrappedClassKey(Long.class) Handler provideLoginHandler() {",
                 "    return new LoginHandler();",
                 "  }",
                 "}");
-    JavaFileObject classKeyFile = JavaFileObjects.forSourceLines("test.ClassKey",
+    JavaFileObject wrappedClassKeyFile = JavaFileObjects.forSourceLines("test.WrappedClassKey",
         "package test;",
         "import dagger.MapKey;",
         "import java.lang.annotation.Retention;",
@@ -412,7 +406,7 @@ public class MapBindingComponentProcessorTest {
         "",
         "@MapKey(unwrapValue = false)",
         "@Retention(RUNTIME)",
-        "public @interface ClassKey {",
+        "public @interface WrappedClassKey {",
         "  Class<?> value();",
         "}");
     JavaFileObject HandlerFile = JavaFileObjects.forSourceLines("test.Handler",
@@ -440,7 +434,7 @@ public class MapBindingComponentProcessorTest {
         "",
         "@Component(modules = {MapModuleOne.class, MapModuleTwo.class})",
         "interface TestComponent {",
-        "  Map<ClassKey, Provider<Handler>> dispatcher();",
+        "  Map<WrappedClassKey, Provider<Handler>> dispatcher();",
         "}");
     JavaFileObject generatedComponent = JavaFileObjects.forSourceLines("test.DaggerTestComponent",
         "package test;",
@@ -452,10 +446,10 @@ public class MapBindingComponentProcessorTest {
         "",
         "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
-        "  private Provider<Handler> mapOfClassKeyAndProviderOfHandlerContribution1;",
-        "  private Provider<Handler> mapOfClassKeyAndProviderOfHandlerContribution2;",
-        "  private Provider<Map<ClassKey, Provider<Handler>>>",
-        "      mapOfClassKeyAndProviderOfHandlerProvider;",
+        "  private Provider<Handler> mapOfWrappedClassKeyAndProviderOfHandlerContribution1;",
+        "  private Provider<Handler> mapOfWrappedClassKeyAndProviderOfHandlerContribution2;",
+        "  private Provider<Map<WrappedClassKey, Provider<Handler>>>",
+        "      mapOfWrappedClassKeyAndProviderOfHandlerProvider;",
         "",
         "  private DaggerTestComponent(Builder builder) {",
         "    assert builder != null;",
@@ -470,23 +464,24 @@ public class MapBindingComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
-        "    this.mapOfClassKeyAndProviderOfHandlerContribution1 =",
+        "    this.mapOfWrappedClassKeyAndProviderOfHandlerContribution1 =",
         "        MapModuleOne_ProvideAdminHandlerFactory.create(builder.mapModuleOne);",
-        "    this.mapOfClassKeyAndProviderOfHandlerContribution2 =",
+        "    this.mapOfWrappedClassKeyAndProviderOfHandlerContribution2 =",
         "        MapModuleTwo_ProvideLoginHandlerFactory.create(builder.mapModuleTwo);",
-        "    this.mapOfClassKeyAndProviderOfHandlerProvider =",
-        "        MapProviderFactory.<ClassKey, Handler>builder(2)",
-        "            .put(ClassKeyCreator.createClassKey(Integer.class),",
-        "                mapOfClassKeyAndProviderOfHandlerContribution1)",
-        "            .put(ClassKeyCreator.createClassKey(Long.class),",
-        "                mapOfClassKeyAndProviderOfHandlerContribution2)",
+        "    this.mapOfWrappedClassKeyAndProviderOfHandlerProvider =",
+        "        MapProviderFactory.<WrappedClassKey, Handler>builder(2)",
+        "            .put(WrappedClassKeyCreator.createWrappedClassKey(Integer.class),",
+        "                mapOfWrappedClassKeyAndProviderOfHandlerContribution1)",
+        "            .put(WrappedClassKeyCreator.createWrappedClassKey(Long.class),",
+        "                mapOfWrappedClassKeyAndProviderOfHandlerContribution2)",
         "            .build();",
         "  }",
         "",
         "  @Override",
-        "  public Map<ClassKey, Provider<Handler>> dispatcher() {",
-        "    return mapOfClassKeyAndProviderOfHandlerProvider.get();",
+        "  public Map<WrappedClassKey, Provider<Handler>> dispatcher() {",
+        "    return mapOfWrappedClassKeyAndProviderOfHandlerProvider.get();",
         "  }",
         "",
         "  public static final class Builder {",
@@ -508,7 +503,7 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleOne(MapModuleOne mapModuleOne) {",
         "      if (mapModuleOne == null) {",
-        "        throw new NullPointerException(\"mapModuleOne\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleOne = mapModuleOne;",
         "      return this;",
@@ -516,17 +511,17 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleTwo(MapModuleTwo mapModuleTwo) {",
         "      if (mapModuleTwo == null) {",
-        "        throw new NullPointerException(\"mapModuleTwo\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleTwo = mapModuleTwo;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
-            classKeyFile,
+            wrappedClassKeyFile,
             HandlerFile,
             LoginHandlerFile,
             AdminHandlerFile,
@@ -642,6 +637,7 @@ public class MapBindingComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.mapOfPathEnumAndProviderOfHandlerContribution1 =",
         "        MapModuleOne_ProvideAdminHandlerFactory.create(builder.mapModuleOne);",
@@ -682,7 +678,7 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleOne(MapModuleOne mapModuleOne) {",
         "      if (mapModuleOne == null) {",
-        "        throw new NullPointerException(\"mapModuleOne\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleOne = mapModuleOne;",
         "      return this;",
@@ -690,14 +686,14 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModuleTwo(MapModuleTwo mapModuleTwo) {",
         "      if (mapModuleTwo == null) {",
-        "        throw new NullPointerException(\"mapModuleTwo\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModuleTwo = mapModuleTwo;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(ImmutableList.of(mapModuleOneFile,
             mapModuleTwoFile,
             enumKeyFile,
@@ -715,7 +711,6 @@ public class MapBindingComponentProcessorTest {
   public void injectMapWithoutMapBinding() {
     JavaFileObject mapModuleFile = JavaFileObjects.forSourceLines("test.MapModule",
         "package test;",
-        "",
         "",
         "import dagger.Module;",
         "import dagger.Provides;",
@@ -735,7 +730,6 @@ public class MapBindingComponentProcessorTest {
         "",
         "import dagger.Component;",
         "import java.util.Map;",
-        "import javax.inject.Provider;",
         "",
         "@Component(modules = {MapModule.class})",
         "interface TestComponent {",
@@ -765,6 +759,7 @@ public class MapBindingComponentProcessorTest {
         "    return builder().build();",
         "  }",
         "",
+        "  @SuppressWarnings(\"unchecked\")",
         "  private void initialize(final Builder builder) {",
         "    this.provideAMapProvider = MapModule_ProvideAMapFactory.create(builder.mapModule);",
         "  }",
@@ -789,15 +784,123 @@ public class MapBindingComponentProcessorTest {
         "",
         "    public Builder mapModule(MapModule mapModule) {",
         "      if (mapModule == null) {",
-        "        throw new NullPointerException(\"mapModule\");",
+        "        throw new NullPointerException();",
         "      }",
         "      this.mapModule = mapModule;",
         "      return this;",
         "    }",
         "  }",
         "}");
-    assert_().about(javaSources()).that(ImmutableList.of(mapModuleFile,componentFile))
+    assertAbout(javaSources()).that(ImmutableList.of(mapModuleFile,componentFile))
         .processedWith(new ComponentProcessor()).compilesWithoutError()
         .and().generatesSources(generatedComponent);
+  }
+
+  @Test
+  public void mapBindingsWithDuplicateKeys() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.MapModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.mapkeys.StringKey;",
+            "",
+            "import static dagger.Provides.Type.MAP;",
+            "",
+            "@Module",
+            "final class MapModule {",
+            "  @Provides(type = MAP) @StringKey(\"AKey\") Object provideObjectForAKey() {",
+            "    return \"one\";",
+            "  }",
+            "",
+            "  @Provides(type = MAP) @StringKey(\"AKey\") Object provideObjectForAKeyAgain() {",
+            "    return \"one again\";",
+            "  }",
+            "}");
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import java.util.Map;",
+            "import javax.inject.Provider;",
+            "",
+            "@Component(modules = {MapModule.class})",
+            "interface TestComponent {",
+            "  Map<String, Object> objects();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(module, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("The same map key is bound more than once")
+        .and()
+        .withErrorContaining("provideObjectForAKey()")
+        .and()
+        .withErrorContaining("provideObjectForAKeyAgain()")
+        .and()
+        .withErrorCount(1);
+  }
+
+  @Test
+  public void mapBindingsWithInconsistentKeyAnnotations() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.MapModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.mapkeys.StringKey;",
+            "",
+            "import static dagger.Provides.Type.MAP;",
+            "",
+            "@Module",
+            "final class MapModule {",
+            "  @Provides(type = MAP) @StringKey(\"AKey\") Object provideObjectForAKey() {",
+            "    return \"one\";",
+            "  }",
+            "",
+            "  @Provides(type = MAP) @StringKeyTwo(\"BKey\") Object provideObjectForBKey() {",
+            "    return \"two\";",
+            "  }",
+            "}");
+    JavaFileObject stringKeyTwoFile =
+        JavaFileObjects.forSourceLines(
+            "test.StringKeyTwo",
+            "package test;",
+            "",
+            "import dagger.MapKey;",
+            "",
+            "@MapKey(unwrapValue = true)",
+            "public @interface StringKeyTwo {",
+            "  String value();",
+            "}");
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import java.util.Map;",
+            "",
+            "@Component(modules = {MapModule.class})",
+            "interface TestComponent {",
+            "  Map<String, Object> objects();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(module, stringKeyTwoFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("uses more than one @MapKey annotation type")
+        .and()
+        .withErrorContaining("provideObjectForAKey()")
+        .and()
+        .withErrorContaining("provideObjectForBKey()")
+        .and()
+        .withErrorCount(1);
   }
 }

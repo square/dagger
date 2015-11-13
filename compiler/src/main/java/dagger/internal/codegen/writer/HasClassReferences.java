@@ -15,8 +15,17 @@
  */
 package dagger.internal.codegen.writer;
 
+import com.google.common.base.Function;
 import java.util.Set;
 
 public interface HasClassReferences {
   Set<ClassName> referencedClasses();
+
+  static final Function<HasClassReferences, Set<ClassName>> COMBINER =
+      new Function<HasClassReferences, Set<ClassName>>() {
+        @Override
+        public Set<ClassName> apply(HasClassReferences input) {
+          return input.referencedClasses();
+        }
+      };
 }

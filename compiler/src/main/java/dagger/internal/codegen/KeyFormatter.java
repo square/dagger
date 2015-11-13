@@ -26,7 +26,7 @@ final class KeyFormatter extends Formatter<Key> {
   @Override public String format(Key request) {
     StringBuilder builder = new StringBuilder();
     if (request.qualifier().isPresent()) {
-      builder.append(request.qualifier()); // TODO(cgruber): Use AnnotationMirrorFormatter.
+      builder.append(request.qualifier().get());
       builder.append(' ');
     }
     builder.append(request.type()); // TODO(cgruber): Use TypeMirrorFormatter.
