@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
@@ -42,9 +41,11 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 
 /**
@@ -229,6 +230,10 @@ final class InjectBindingRegistry {
     }
   }
 
+  /**
+   * Returns a {@link MembersInjectionBinding} for {@code key}. If none has been registered yet,
+   * registers one, along with all necessary members injection bindings for superclasses.
+   */
   MembersInjectionBinding getOrFindMembersInjectionBinding(Key key) {
     checkNotNull(key);
     // TODO(gak): is checking the kind enough?
@@ -237,7 +242,14 @@ final class InjectBindingRegistry {
     if (binding != null) {
       return binding;
     }
-    return registerBinding(membersInjectionBindingFactory.forInjectedType(
-        MoreTypes.asDeclared(key.type()), Optional.of(key.type())), false);
+    MembersInjectionBinding newBinding =
+        membersInjectionBindingFactory.forInjectedType(
+            asDeclared(key.type()), Optional.of(key.type()));
+    registerBinding(newBinding, false);
+    if (newBinding.parentKey().isPresent()
+        && newBinding.injectionStrategy().equals(INJECT_MEMBERS)) {
+      getOrFindMembersInjectionBinding(newBinding.parentKey().get());
+    }
+    return newBinding;
   }
 }

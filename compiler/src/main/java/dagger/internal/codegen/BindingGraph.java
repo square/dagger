@@ -67,8 +67,6 @@ import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescrip
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
@@ -385,7 +383,9 @@ abstract class BindingGraph {
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
             return ResolvedBindings.forMembersInjectionBinding(
-                bindingKey, componentDescriptor, rollUpMembersInjectionBindings(bindingKey.key()));
+                bindingKey,
+                componentDescriptor,
+                injectBindingRegistry.getOrFindMembersInjectionBinding(bindingKey.key()));
           default:
             throw new AssertionError();
         }
@@ -428,23 +428,6 @@ abstract class BindingGraph {
         return !binding.scope().isPresent()
             && dependsOnLocalMultibindings(
                 getPreviouslyResolvedBindings(request.bindingKey()).get());
-      }
-
-      private MembersInjectionBinding rollUpMembersInjectionBindings(Key key) {
-        MembersInjectionBinding membersInjectionBinding =
-            injectBindingRegistry.getOrFindMembersInjectionBinding(key);
-
-        if (membersInjectionBinding.parentInjectorRequest().isPresent()
-            && membersInjectionBinding.injectionStrategy().equals(INJECT_MEMBERS)) {
-          MembersInjectionBinding parentBinding =
-              rollUpMembersInjectionBindings(
-                  membersInjectionBinding.parentInjectorRequest().get().key());
-          if (parentBinding.injectionStrategy().equals(NO_OP)) {
-            return membersInjectionBinding.withoutParentInjectorRequest();
-          }
-        }
-
-        return membersInjectionBinding;
       }
 
       private Optional<Resolver> getOwningResolver(ContributionBinding provisionBinding) {

@@ -227,7 +227,7 @@ abstract class Key {
       return forMethod(method, keyType);
     }
 
-    // TODO(user): Reconcile this method with forProvidesMethod when Provides.Type and
+    // TODO(beder): Reconcile this method with forProvidesMethod when Provides.Type and
     // Produces.Type are no longer different.
     Key forProducesMethod(ExecutableType executableType, ExecutableElement method) {
       checkNotNull(method);

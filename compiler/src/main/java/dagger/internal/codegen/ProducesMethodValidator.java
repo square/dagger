@@ -60,7 +60,7 @@ import static javax.lang.model.type.TypeKind.VOID;
  * @author Jesse Beder
  * @since 2.0
  */
-// TODO(user): Consider unifying this with the ProvidesMethodValidator after Provides.Type and
+// TODO(beder): Consider unifying this with the ProvidesMethodValidator after Provides.Type and
 // Produces.Type are reconciled.
 final class ProducesMethodValidator {
   private final Elements elements;

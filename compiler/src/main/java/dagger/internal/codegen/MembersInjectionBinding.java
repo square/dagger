@@ -53,8 +53,7 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
- * Represents the full members injection of a particular type. This does not pay attention to
- * injected members on supertypes.
+ * Represents the full members injection of a particular type.
  *
  * @author Gregory Kick
  * @since 2.0
@@ -66,7 +65,11 @@ abstract class MembersInjectionBinding extends Binding {
   /** The set of individual sites where {@link Inject} is applied. */
   abstract ImmutableSortedSet<InjectionSite> injectionSites();
 
-  abstract Optional<DependencyRequest> parentInjectorRequest();
+  /**
+   * The {@link Key} for the non-object superclass of {@link #bindingElement()}. Absent if
+   * {@link #bindingElement()} is a direct subclass of {@link Object}. 
+   */
+  abstract Optional<Key> parentKey();
 
   enum Strategy {
     NO_OP,
@@ -75,18 +78,6 @@ abstract class MembersInjectionBinding extends Binding {
 
   Strategy injectionStrategy() {
     return injectionSites().isEmpty() ? Strategy.NO_OP : Strategy.INJECT_MEMBERS;
-  }
-
-  MembersInjectionBinding withoutParentInjectorRequest() {
-    return new AutoValue_MembersInjectionBinding(
-          key(),
-          dependencies(),
-          implicitDependencies(),
-          bindingPackage(),
-          hasNonDefaultTypeParameters(),
-          bindingElement(),
-          injectionSites(),
-          Optional.<DependencyRequest>absent());
   }
 
   @Override
@@ -199,13 +190,13 @@ abstract class MembersInjectionBinding extends Binding {
                   })
               .toSet();
 
-      Optional<DependencyRequest> parentInjectorRequest =
+      Optional<Key> parentKey =
           MoreTypes.nonObjectSuperclass(types, elements, declaredType)
               .transform(
-                  new Function<DeclaredType, DependencyRequest>() {
+                  new Function<DeclaredType, Key>() {
                     @Override
-                    public DependencyRequest apply(DeclaredType input) {
-                      return dependencyRequestFactory.forMembersInjectedType(input);
+                    public Key apply(DeclaredType superclass) {
+                      return keyFactory.forMembersInjectedType(superclass);
                     }
                   });
 
@@ -219,7 +210,7 @@ abstract class MembersInjectionBinding extends Binding {
           hasNonDefaultTypeParameters(typeElement, key.type(), types),
           typeElement,
           injectionSites,
-          parentInjectorRequest);
+          parentKey);
     }
 
     private ImmutableSortedSet<InjectionSite> getInjectionSites(DeclaredType declaredType) {

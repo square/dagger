@@ -76,7 +76,7 @@ class SourceFiles {
    * pass two providers.  Naively (if we just referenced by resolved BindingKey),
    * we would have passed a single {@code aProvider}.
    */
-  // TODO(user): Refactor these indexing methods so that the binding itself knows what sort of
+  // TODO(beder): Refactor these indexing methods so that the binding itself knows what sort of
   // binding keys and framework classes that it needs.
   static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByUnresolvedKey(
       Types types, Iterable<? extends DependencyRequest> dependencies) {
