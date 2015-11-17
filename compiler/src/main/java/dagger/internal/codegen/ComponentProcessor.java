@@ -100,7 +100,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             Module.class,
             ImmutableList.<Class<? extends Annotation>>of(Module.class),
             Provides.class);
-    ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements);
+    ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements, types);
     BuilderValidator componentBuilderValidator =
         new BuilderValidator(elements, types, ComponentDescriptor.Kind.COMPONENT);
     BuilderValidator subcomponentBuilderValidator =
@@ -118,7 +118,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             ProducerModule.class,
             ImmutableList.of(Module.class, ProducerModule.class),
             Produces.class);
-    ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements);
+    ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements, types);
     ProductionComponentValidator productionComponentValidator = new ProductionComponentValidator();
     BuilderValidator productionComponentBuilderValidator =
         new BuilderValidator(elements, types, ComponentDescriptor.Kind.PRODUCTION_COMPONENT);

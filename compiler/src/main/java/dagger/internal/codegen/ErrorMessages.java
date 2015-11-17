@@ -112,6 +112,9 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
 
+  static final String PROVIDES_METHOD_THROWS =
+      "@Provides methods may only throw unchecked exceptions";
+
   static final String PRODUCES_METHOD_RETURN_TYPE =
       "@Produces methods must either return a primitive, an array or a declared type, or a"
       + " ListenableFuture of one of those types.";
@@ -127,6 +130,9 @@ final class ErrorMessages {
 
   static final String PRODUCES_METHOD_SET_VALUES_RETURN_SET =
       "@Produces methods of type set values must return a Set or ListenableFuture of Set";
+
+  static final String PRODUCES_METHOD_THROWS =
+      "@Produces methods may only throw unchecked exceptions or exceptions subclassing Exception";
 
   static final String BINDING_METHOD_MUST_RETURN_A_VALUE =
       "@%s methods must return a value (not void).";

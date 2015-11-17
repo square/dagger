@@ -36,6 +36,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAM
 import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
 
 @RunWith(JUnit4.class)
@@ -762,6 +763,39 @@ public class ModuleFactoryGeneratorTest {
     .withErrorContaining(formatErrorMessage(BINDING_METHOD_WITH_SAME_NAME)).in(moduleFile).onLine(8)
         .and().withErrorContaining(formatErrorMessage(BINDING_METHOD_WITH_SAME_NAME))
         .in(moduleFile).onLine(12);
+  }
+
+  @Test
+  public void producesMethodThrowsChecked() {
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module",
+            "final class TestModule {",
+            "  @Provides int i() throws Exception {",
+            "    return 0;",
+            "  }",
+            "",
+            "  @Provides String s() throws Throwable {",
+            "    return \"\";",
+            "  }",
+            "}");
+    assertAbout(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(PROVIDES_METHOD_THROWS))
+        .in(moduleFile)
+        .onLine(8)
+        .and()
+        .withErrorContaining(formatErrorMessage(PROVIDES_METHOD_THROWS))
+        .in(moduleFile)
+        .onLine(12);
   }
 
   @Test

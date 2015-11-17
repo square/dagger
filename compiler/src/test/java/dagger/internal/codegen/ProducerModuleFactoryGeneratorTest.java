@@ -36,6 +36,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAM
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
 
 @RunWith(JUnit4.class)
@@ -337,6 +338,32 @@ public class ProducerModuleFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(errorMessage).in(moduleFile).onLine(8)
         .and().withErrorContaining(errorMessage).in(moduleFile).onLine(12);
+  }
+
+  @Test
+  public void producesMethodThrowsThrowable() {
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.producers.ProducerModule;",
+            "import dagger.producers.Produces;",
+            "",
+            "@ProducerModule",
+            "final class TestModule {",
+            "  @Produces int produceInt() throws Throwable {",
+            "    return 0;",
+            "  }",
+            "",
+            "}");
+    assertAbout(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(PRODUCES_METHOD_THROWS)
+        .in(moduleFile)
+        .onLine(8);
   }
 
   @Test
