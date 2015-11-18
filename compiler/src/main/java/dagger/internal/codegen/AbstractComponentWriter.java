@@ -965,7 +965,7 @@ abstract class AbstractComponentWriter {
               && !binding.bindingElement().getModifiers().contains(STATIC)) {
             parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
           }
-          parameters.addAll(getDependencyParameters(binding));
+          parameters.addAll(getDependencyParameters(binding, DependencyRequestMapper.FOR_PROVIDER));
 
           Snippet factorySnippet =
               Snippet.format(
@@ -1011,7 +1011,7 @@ abstract class AbstractComponentWriter {
           parameters.add(
               getComponentContributionSnippet(
                   graph.componentDescriptor().executorDependency().get()));
-          parameters.addAll(getProducerDependencyParameters(binding));
+          parameters.addAll(getDependencyParameters(binding, DependencyRequestMapper.FOR_PRODUCER));
 
           return Snippet.format(
               "new %s(%s)",
@@ -1035,7 +1035,8 @@ abstract class AbstractComponentWriter {
       case NO_OP:
         return Snippet.format("%s.noOp()", ClassName.fromClass(MembersInjectors.class));
       case INJECT_MEMBERS:
-        List<Snippet> parameters = getDependencyParameters(binding);
+        List<Snippet> parameters =
+            getDependencyParameters(binding, DependencyRequestMapper.FOR_PROVIDER);
         return Snippet.format(
             "%s.create(%s)",
             membersInjectorNameForType(binding.bindingElement()),
@@ -1045,7 +1046,8 @@ abstract class AbstractComponentWriter {
     }
   }
 
-  private List<Snippet> getDependencyParameters(Binding binding) {
+  private List<Snippet> getDependencyParameters(
+      Binding binding, DependencyRequestMapper dependencyRequestMapper) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     Set<Key> keysSeen = new HashSet<>();
     for (Collection<DependencyRequest> requestsForKey :
@@ -1060,8 +1062,21 @@ abstract class AbstractComponentWriter {
         }
       }
       if (!requestedBindingKeys.isEmpty()) {
+        Class<?> frameworkClass = dependencyRequestMapper.getFrameworkClass(requestsForKey);
         BindingKey key = Iterables.getOnlyElement(requestedBindingKeys);
-        parameters.add(getMemberSelect(key).getSnippetWithRawTypeCastFor(name));
+        ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);
+        Snippet frameworkSnippet = getMemberSelect(key).getSnippetWithRawTypeCastFor(name);
+        if (FrameworkField.frameworkClassForResolvedBindings(resolvedBindings)
+                .equals(Provider.class)
+            && frameworkClass.equals(Producer.class)) {
+          parameters.add(
+              Snippet.format(
+                  "%s.producerFromProvider(%s)",
+                  ClassName.fromClass(Producers.class),
+                  frameworkSnippet));
+        } else {
+          parameters.add(frameworkSnippet);
+        }
       }
     }
     return parameters.build();
@@ -1080,31 +1095,6 @@ abstract class AbstractComponentWriter {
     } else {
       return requestType;
     }
-  }
-
-  private List<Snippet> getProducerDependencyParameters(Binding binding) {
-    ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-    for (Collection<DependencyRequest> requestsForKey :
-        SourceFiles.indexDependenciesByUnresolvedKey(types, binding.implicitDependencies())
-            .asMap()
-            .values()) {
-      BindingKey key = Iterables.getOnlyElement(FluentIterable.from(requestsForKey)
-          .transform(DependencyRequest.BINDING_KEY_FUNCTION));
-      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);
-      Class<?> frameworkClass =
-          DependencyRequestMapper.FOR_PRODUCER.getFrameworkClass(requestsForKey);
-      if (FrameworkField.frameworkClassForResolvedBindings(resolvedBindings).equals(Provider.class)
-          && frameworkClass.equals(Producer.class)) {
-        parameters.add(
-            Snippet.format(
-                "%s.producerFromProvider(%s)",
-                ClassName.fromClass(Producers.class),
-                getMemberSelectSnippet(key)));
-      } else {
-        parameters.add(getMemberSelectSnippet(key));
-      }
-    }
-    return parameters.build();
   }
 
   private Snippet initializeMapBinding(Set<ContributionBinding> bindings) {

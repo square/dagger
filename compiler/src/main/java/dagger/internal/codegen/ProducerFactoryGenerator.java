@@ -176,9 +176,9 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
       computeMethodWriter
           .body()
           .addSnippet(
-              "%s %sFuture = %s;",
+              "%s %s = %s;",
               futureType,
-              name,
+              dependencyFutureName(dependency),
               dependency.kind().equals(DependencyRequest.Kind.PRODUCED)
                   ? Snippet.format(
                       "%s.createFutureProduced(%s)",
@@ -218,6 +218,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
     // TODO(gak): write a sensible toString
     return ImmutableSet.of(writer);
+  }
+
+  /** Returns a name of the variable representing this dependency's future. */
+  private static String dependencyFutureName(DependencyRequest dependency) {
+    return dependency.requestElement().getSimpleName() + "Future";
   }
 
   /** Represents the transformation of an input future by a producer method. */
@@ -312,7 +317,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
     @Override
     Snippet futureSnippet() {
-      return Snippet.format("%s", fields.get(asyncDependency.bindingKey()).name() + "Future");
+      return Snippet.format("%s", dependencyFutureName(asyncDependency));
     }
 
     @Override
@@ -363,12 +368,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
           ClassName.fromClass(Object.class),
           makeParametersSnippet(
               FluentIterable.from(asyncDependencies)
-                  .transform(DependencyRequest.BINDING_KEY_FUNCTION)
                   .transform(
-                      new Function<BindingKey, Snippet>() {
+                      new Function<DependencyRequest, Snippet>() {
                         @Override
-                        public Snippet apply(BindingKey bindingKey) {
-                          return Snippet.format("%s", fields.get(bindingKey).name() + "Future");
+                        public Snippet apply(DependencyRequest dependency) {
+                          return Snippet.format("%s", dependencyFutureName(dependency));
                         }
                       })));
     }
