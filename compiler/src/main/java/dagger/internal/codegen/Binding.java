@@ -54,9 +54,9 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 abstract class Binding {
   
   /**
-   * The subtype of this binding.
+   * A binding subtype.
    */
-  enum Type implements Predicate<Binding> {
+  enum Type {
     /** A binding with this type is a {@link ProvisionBinding}. */
     PROVISION(Provider.class),
     /** A binding with this type is a {@link MembersInjectionBinding}. */
@@ -89,14 +89,24 @@ abstract class Binding {
           throw new AssertionError();
       }
     }
-
-    @Override
-    public boolean apply(Binding binding) {
-      return this.equals(binding.bindingType());
-    }
   }
 
+  /**
+   * The subtype of this binding.
+   */
   abstract Binding.Type bindingType();
+
+  /**
+   * A predicate that passes for bindings of a given subtype.
+   */
+  static Predicate<Binding> isOfType(final Type type) {
+    return new Predicate<Binding>() {
+      @Override
+      public boolean apply(Binding binding) {
+        return binding.bindingType().equals(type);
+      }
+    };
+  }
 
   /**
    * Returns the framework class associated with this binding.

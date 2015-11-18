@@ -58,7 +58,6 @@ import javax.lang.model.util.Elements;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Sets.union;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
@@ -342,7 +341,8 @@ abstract class BindingGraph {
               }
               return ResolvedBindings.forContributionBindings(
                   bindingKey, componentDescriptor, bindings.build());
-            } else if (any(explicitMapBindings, Binding.Type.PRODUCTION)) {
+            } else if (Iterables.any(
+                explicitMapBindings, Binding.isOfType(Binding.Type.PRODUCTION))) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Producer<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Producer<V>>. */
@@ -350,7 +350,8 @@ abstract class BindingGraph {
                   bindingKey,
                   componentDescriptor,
                   productionBindingFactory.implicitMapOfProducerBinding(request));
-            } else if (any(explicitMapBindings, Binding.Type.PROVISION)) {
+            } else if (Iterables.any(
+                explicitMapBindings, Binding.isOfType(Binding.Type.PROVISION))) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Provider<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Provider<V>>. */

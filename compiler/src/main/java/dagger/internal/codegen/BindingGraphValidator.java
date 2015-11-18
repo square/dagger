@@ -74,8 +74,6 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.all;
-import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
 import static com.google.common.collect.Iterables.skip;
@@ -286,14 +284,15 @@ public class BindingGraphValidator {
         case CONTRIBUTION:
           ImmutableSet<ContributionBinding> contributionBindings =
               resolvedBinding.contributionBindings();
-          if (any(contributionBindings, Binding.Type.MEMBERS_INJECTION)) {
+          if (Iterables.any(
+              contributionBindings, Binding.isOfType(Binding.Type.MEMBERS_INJECTION))) {
             throw new IllegalArgumentException(
                 "contribution binding keys should never have members injection bindings");
           }
           if (!validateNullability(path.peek().request(), contributionBindings)) {
             return false;
           }
-          if (any(contributionBindings, Binding.Type.PRODUCTION)
+          if (Iterables.any(contributionBindings, Binding.isOfType(Binding.Type.PRODUCTION))
               && doesPathRequireProvisionOnly(path)) {
             reportProviderMayNotDependOnProducer(path);
             return false;
@@ -323,7 +322,8 @@ public class BindingGraphValidator {
           }
           break;
         case MEMBERS_INJECTION:
-          if (!all(resolvedBinding.bindings(), Binding.Type.MEMBERS_INJECTION)) {
+          if (!Iterables.all(
+              resolvedBinding.bindings(), Binding.isOfType(Binding.Type.MEMBERS_INJECTION))) {
             throw new IllegalArgumentException(
                 "members injection binding keys should never have contribution bindings");
           }
@@ -1084,7 +1084,7 @@ public class BindingGraphValidator {
     final DependencyRequest request = iterator.next().request();
     ResolvedRequest previousResolvedRequest = iterator.next();
     return FluentIterable.from(previousResolvedRequest.binding().bindings())
-        .filter(Binding.Type.PROVISION)
+        .filter(Binding.isOfType(Binding.Type.PROVISION))
         .filter(
             new Predicate<Binding>() {
               @Override

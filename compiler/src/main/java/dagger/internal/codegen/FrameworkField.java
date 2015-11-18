@@ -19,6 +19,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
@@ -29,7 +30,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
-import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
@@ -148,7 +148,8 @@ abstract class FrameworkField {
   static Class<?> frameworkClassForResolvedBindings(ResolvedBindings resolvedBindings) {
     switch (resolvedBindings.bindingKey().kind()) {
       case CONTRIBUTION:
-        return any(resolvedBindings.contributionBindings(), Binding.Type.PRODUCTION)
+        return Iterables.any(
+                resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PRODUCTION))
             ? Binding.Type.PRODUCTION.frameworkClass()
             : Binding.Type.PROVISION.frameworkClass();
       case MEMBERS_INJECTION:

@@ -83,7 +83,6 @@ import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
@@ -756,7 +755,8 @@ abstract class AbstractComponentWriter {
       parameterSnippets.add(snippet);
     }
     Class<?> factoryClass =
-        Iterables.all(resolvedBindings.contributionBindings(), Binding.Type.PROVISION)
+        Iterables.all(
+                resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PROVISION))
             ? SetFactory.class
             : Util.isSetOfProduced(resolvedBindings.bindingKey().key().type())
                 ? SetOfProducedProducer.class
@@ -775,7 +775,8 @@ abstract class AbstractComponentWriter {
   private Snippet initializeMapMultibindings(ResolvedBindings resolvedBindings) {
     ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
 
-    if (any(resolvedBindings.contributionBindings(), Binding.Type.PRODUCTION)) {
+    if (Iterables.any(
+        resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PRODUCTION))) {
       // TODO(beder): Implement producer map bindings.
       throw new IllegalStateException("producer map bindings not implemented yet");
     }
