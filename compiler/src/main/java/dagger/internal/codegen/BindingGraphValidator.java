@@ -822,19 +822,7 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      for (ContributionBinding binding :
-          Iterables.limit(resolvedBinding.contributionBindings(), DUPLICATE_SIZE_LIMIT)) {
-        builder.append('\n').append(INDENT).append(contributionBindingFormatter.format(binding));
-      }
-      int numberOfOtherBindings =
-          resolvedBinding.contributionBindings().size() - DUPLICATE_SIZE_LIMIT;
-      if (numberOfOtherBindings > 0) {
-        builder.append('\n').append(INDENT)
-            .append("and ").append(numberOfOtherBindings).append(" other");
-      }
-      if (numberOfOtherBindings > 1) {
-        builder.append('s');
-      }
+      appendBindings(builder, resolvedBinding.contributionBindings(), 1);
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
