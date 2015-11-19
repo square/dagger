@@ -95,11 +95,6 @@ import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotation
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
-import static dagger.internal.codegen.Util.getKeyTypeOfMap;
-import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
-import static dagger.internal.codegen.Util.getValueTypeOfMap;
-import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
-import static dagger.internal.codegen.Util.isMapWithProvidedValues;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static javax.tools.Diagnostic.Kind.WARNING;
 
@@ -113,6 +108,7 @@ public class BindingGraphValidator {
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
   private final KeyFormatter keyFormatter;
+  private final Key.Factory keyFactory;
 
   BindingGraphValidator(
       Types types,
@@ -122,7 +118,8 @@ public class BindingGraphValidator {
       ContributionBindingFormatter contributionBindingFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
-      KeyFormatter keyFormatter) {
+      KeyFormatter keyFormatter,
+      Key.Factory keyFactory) {
     this.types = types;
     this.injectBindingRegistry = injectBindingRegistry;
     this.scopeCycleValidationType = scopeCycleValidationType;
@@ -131,6 +128,7 @@ public class BindingGraphValidator {
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
     this.keyFormatter = keyFormatter;
+    this.keyFactory = keyFactory;
   }
 
   private class Validation {
@@ -963,11 +961,11 @@ public class BindingGraphValidator {
             return true;
 
           case INSTANCE:
-            if (isMapWithProvidedValues(dependencyRequest.key().type())) {
+            TypeMirror type = dependencyRequest.key().type();
+            if (MapType.isMap(type) && MapType.from(type).valuesAreTypeOf(Provider.class)) {
               return true;
-            } else {
-              break;
             }
+            break;
 
           default:
             break;
@@ -984,20 +982,10 @@ public class BindingGraphValidator {
      */
     private boolean isImplicitProviderMapForValueMap(
         DependencyRequest maybeProviderMapRequest, DependencyRequest maybeValueMapRequest) {
-      TypeMirror maybeProviderMapRequestType = maybeProviderMapRequest.key().type();
-      TypeMirror maybeValueMapRequestType = maybeValueMapRequest.key().type();
-      return maybeProviderMapRequest
-              .key()
-              .wrappedQualifier()
-              .equals(maybeValueMapRequest.key().wrappedQualifier())
-          && isMapWithProvidedValues(maybeProviderMapRequestType)
-          && isMapWithNonProvidedValues(maybeValueMapRequestType)
-          && types.isSameType(
-              getKeyTypeOfMap(asDeclared(maybeProviderMapRequestType)),
-              getKeyTypeOfMap(asDeclared(maybeValueMapRequestType)))
-          && types.isSameType(
-              getProvidedValueTypeOfMap(asDeclared(maybeProviderMapRequestType)),
-              getValueTypeOfMap(asDeclared(maybeValueMapRequestType)));
+      Optional<Key> implicitProviderMapKey =
+          keyFactory.implicitMapProviderKeyFrom(maybeValueMapRequest.key());
+      return implicitProviderMapKey.isPresent()
+          && implicitProviderMapKey.get().equals(maybeProviderMapRequest.key());
     }
   }
 

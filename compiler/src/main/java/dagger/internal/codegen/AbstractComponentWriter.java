@@ -52,6 +52,7 @@ import dagger.internal.codegen.writer.StringLiteral;
 import dagger.internal.codegen.writer.TypeName;
 import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.VoidName;
+import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetOfProducedProducer;
@@ -101,9 +102,6 @@ import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.indexDependenciesByUnresolvedKey;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
-import static dagger.internal.codegen.Util.getKeyTypeOfMap;
-import static dagger.internal.codegen.Util.getProvidedValueTypeOfMap;
-import static dagger.internal.codegen.Util.isMapWithNonProvidedValues;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static dagger.internal.codegen.writer.Snippet.memberSelectSnippet;
 import static dagger.internal.codegen.writer.Snippet.nullCheck;
@@ -754,11 +752,12 @@ abstract class AbstractComponentWriter {
       }
       parameterSnippets.add(snippet);
     }
+    SetType setType = SetType.from(resolvedBindings.bindingKey().key().type());
     Class<?> factoryClass =
         Iterables.all(
                 resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PROVISION))
             ? SetFactory.class
-            : Util.isSetOfProduced(resolvedBindings.bindingKey().key().type())
+            : setType.elementsAreTypeOf(Produced.class)
                 ? SetOfProducedProducer.class
                 : SetProducer.class;
     Snippet initializeSetSnippet =
@@ -783,7 +782,7 @@ abstract class AbstractComponentWriter {
     for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
       Optional<MemberSelect> multibindingContributionSnippet =
           getMultibindingContributionSnippet(binding);
-      if (!isMapWithNonProvidedValues(binding.key().type())
+      if (MapType.from(binding.key().type()).valuesAreTypeOf(Provider.class)
           && multibindingContributionSnippet.isPresent()
           && multibindingContributionSnippet.get().owningClass().equals(name)) {
         initializationSnippets.add(
@@ -1101,9 +1100,9 @@ abstract class AbstractComponentWriter {
   private Snippet initializeMapBinding(Set<ContributionBinding> bindings) {
     // Get type information from the first binding.
     ContributionBinding firstBinding = bindings.iterator().next();
-    DeclaredType mapType = asDeclared(firstBinding.key().type());
+    MapType mapType = MapType.from(asDeclared(firstBinding.key().type()));
 
-    if (isMapWithNonProvidedValues(mapType)) {
+    if (!mapType.valuesAreTypeOf(Provider.class)) {
       return Snippet.format(
           "%s.create(%s)",
           ClassName.fromClass(MapFactory.class),
@@ -1112,11 +1111,13 @@ abstract class AbstractComponentWriter {
 
     ImmutableList.Builder<dagger.internal.codegen.writer.Snippet> snippets =
         ImmutableList.builder();
-    snippets.add(Snippet.format("%s.<%s, %s>builder(%d)",
-        ClassName.fromClass(MapProviderFactory.class),
-        TypeNames.forTypeMirror(getKeyTypeOfMap(mapType)),
-        TypeNames.forTypeMirror(getProvidedValueTypeOfMap(mapType)), // V of Map<K, Provider<V>>
-        bindings.size()));
+    snippets.add(
+        Snippet.format(
+            "%s.<%s, %s>builder(%d)",
+            ClassName.fromClass(MapProviderFactory.class),
+            TypeNames.forTypeMirror(mapType.keyType()),
+            TypeNames.forTypeMirror(mapType.unwrappedValueType(Provider.class)),
+            bindings.size()));
 
     for (ContributionBinding binding : bindings) {
       snippets.add(

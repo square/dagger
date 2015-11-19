@@ -15,7 +15,6 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -93,9 +92,10 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProductionBinding binding) {
-    TypeMirror keyType = binding.productionType().equals(Type.MAP)
-        ? Util.getProvidedValueTypeOfMap(MoreTypes.asDeclared(binding.key().type()))
-        : binding.key().type();
+    TypeMirror keyType =
+        binding.productionType().equals(Type.MAP)
+            ? MapType.from(binding.key().type()).unwrappedValueType(Producer.class)
+            : binding.key().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
     TypeName futureTypeName = ParameterizedTypeName.create(
         ClassName.fromClass(ListenableFuture.class), providedTypeName);

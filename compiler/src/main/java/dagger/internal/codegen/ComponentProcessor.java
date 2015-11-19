@@ -173,7 +173,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             contributionBindingFormatter,
             methodSignatureFormatter,
             dependencyRequestFormatter,
-            keyFormatter);
+            keyFormatter,
+            keyFactory);
 
     return ImmutableList.<ProcessingStep>of(
         new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),

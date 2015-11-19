@@ -20,6 +20,7 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
+import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
@@ -52,8 +53,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.MapKeys.getMapKey;
 import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
-import static dagger.internal.codegen.Util.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.Util.wrapOptionalInEquivalence;
 import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
@@ -153,6 +152,27 @@ abstract class Key {
         .add("qualifier", qualifier().orNull())
         .add("type", type())
         .toString();
+  }
+
+  /**
+   * Wraps an {@link Optional} of a type in an {@code Optional} of a {@link Wrapper} for that type.
+   */
+  private static <T> Optional<Equivalence.Wrapper<T>> wrapOptionalInEquivalence(
+      Equivalence<T> equivalence, Optional<T> optional) {
+    return optional.isPresent()
+        ? Optional.of(equivalence.wrap(optional.get()))
+        : Optional.<Equivalence.Wrapper<T>>absent();
+  }
+
+  /**
+   * Unwraps an {@link Optional} of a {@link Wrapper} into an {@code Optional} of the underlying
+   * type.
+   */
+  private static <T> Optional<T> unwrapOptionalEquivalence(
+      Optional<Equivalence.Wrapper<T>> wrappedOptional) {
+    return wrappedOptional.isPresent()
+        ? Optional.of(wrappedOptional.get().get())
+        : Optional.<T>absent();
   }
 
   static final class Factory {
@@ -342,22 +362,20 @@ abstract class Key {
      * {@code Map<K, V>}.
      */
     private Optional<Key> maybeWrapMapValue(Key possibleMapKey, Class<?> wrappingClass) {
-      if (MoreTypes.isTypeOf(Map.class, possibleMapKey.type())) {
-        DeclaredType declaredMapType = MoreTypes.asDeclared(possibleMapKey.type());
-        TypeMirror mapValueType = Util.getValueTypeOfMap(declaredMapType);
-        if (!MoreTypes.isTypeOf(wrappingClass, mapValueType)) {
-          TypeMirror keyType = Util.getKeyTypeOfMap(declaredMapType);
+      if (MapType.isMap(possibleMapKey.type())) {
+        MapType mapType = MapType.from(possibleMapKey.type());
+        if (!mapType.valuesAreTypeOf(wrappingClass)) {
           TypeElement wrappingElement = getClassElement(wrappingClass);
           if (wrappingElement == null) {
             // This target might not be compiled with Producers, so wrappingClass might not have an
             // associated element.
             return Optional.absent();
           }
-          DeclaredType wrappedType = types.getDeclaredType(wrappingElement, mapValueType);
-          TypeMirror mapType = types.getDeclaredType(getMapElement(), keyType, wrappedType);
-          return Optional.<Key>of(new AutoValue_Key(
-              possibleMapKey.wrappedQualifier(),
-              MoreTypes.equivalence().wrap(mapType)));
+          DeclaredType wrappedValueType =
+              types.getDeclaredType(wrappingElement, mapType.valueType());
+          TypeMirror wrappedMapType =
+              types.getDeclaredType(getMapElement(), mapType.keyType(), wrappedValueType);
+          return Optional.of(possibleMapKey.withType(types, wrappedMapType));
         }
       }
       return Optional.absent();

@@ -44,6 +44,7 @@ import java.util.Map;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeParameterElement;
@@ -101,9 +102,10 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     // We don't want to write out resolved bindings -- we want to write out the generic version.
     checkState(!binding.hasNonDefaultTypeParameters());
 
-    TypeMirror keyType = binding.provisionType().equals(Type.MAP)
-        ? Util.getProvidedValueTypeOfMap(MoreTypes.asDeclared(binding.key().type()))
-        : binding.key().type();
+    TypeMirror keyType =
+        binding.provisionType().equals(Type.MAP)
+            ? MapType.from(binding.key().type()).unwrappedValueType(Provider.class)
+            : binding.key().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
