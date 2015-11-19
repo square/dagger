@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
 import dagger.internal.codegen.writer.ClassName;
@@ -31,7 +30,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 
 /**
  * A value object that represents a field used by Dagger-generated code.
@@ -91,19 +89,17 @@ abstract class FrameworkField {
     BindingKey bindingKey = resolvedBindings.bindingKey();
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
-        ImmutableSet<ContributionBinding> contributionBindings =
-            resolvedBindings.contributionBindings();
-        switch (contributionTypeFor(contributionBindings)) {
+        switch (resolvedBindings.contributionType()) {
           case SET:
           case MAP:
             return createWithTypeFromKey(
-                FrameworkField.frameworkClassForResolvedBindings(resolvedBindings),
+                frameworkClassForResolvedBindings(resolvedBindings),
                 bindingKey,
                 KeyVariableNamer.INSTANCE.apply(bindingKey.key()));
           case UNIQUE:
-            ContributionBinding binding = getOnlyElement(contributionBindings);
+            ContributionBinding binding = getOnlyElement(resolvedBindings.contributionBindings());
             return createWithTypeFromKey(
-                FrameworkField.frameworkClassForResolvedBindings(resolvedBindings),
+                frameworkClassForResolvedBindings(resolvedBindings),
                 bindingKey,
                 BINDING_ELEMENT_NAME.visit(binding.bindingElement()));
           default:

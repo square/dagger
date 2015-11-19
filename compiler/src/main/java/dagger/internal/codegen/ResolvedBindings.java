@@ -18,14 +18,19 @@ package dagger.internal.codegen;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Ordering;
+import dagger.internal.codegen.ContributionBinding.ContributionType;
+import java.util.EnumSet;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * The collection of bindings that have been resolved for a binding key.
@@ -199,15 +204,44 @@ abstract class ResolvedBindings {
    * {@code true} if this is a multibindings contribution.
    */
   boolean isMultibindings() {
-    return !contributionBindings().isEmpty()
-        && contributionTypeFor(contributionBindings()).isMultibinding();
+    return !contributionBindings().isEmpty() && contributionType().isMultibinding();
   }
 
   /**
    * {@code true} if this is a unique contribution binding.
    */
   boolean isUniqueContribution() {
-    return !contributionBindings().isEmpty()
-        && !contributionTypeFor(contributionBindings()).isMultibinding();
+    return !contributionBindings().isEmpty() && !contributionType().isMultibinding();
+  }
+
+  /**
+   * The contribution type for these bindings.
+   *
+   * @throws IllegalStateException if the bindings are not all of one contribution type
+   */
+  ContributionType contributionType() {
+    checkState(!contributionBindings().isEmpty(), "no bindings for %s", bindingKey());
+    Set<ContributionType> types = EnumSet.noneOf(ContributionType.class);
+    for (ContributionBinding binding : contributionBindings()) {
+      types.add(binding.contributionType());
+    }
+    if (types.size() > 1) {
+      throw new IllegalStateException(
+          String.format(ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types));
+    }
+    return Iterables.getOnlyElement(types);
+  }
+
+  /**
+   * The {@link #contributionBindings()}, indexed by {@link ContributionType}.
+   */
+  ImmutableListMultimap<ContributionType, ContributionBinding> contributionTypes() {
+    ImmutableListMultimap.Builder<ContributionType, ContributionBinding> builder =
+        ImmutableListMultimap.builder();
+    builder.orderKeysBy(Ordering.<ContributionType>natural());
+    for (ContributionBinding binding : contributionBindings()) {
+      builder.put(binding.contributionType(), binding);
+    }
+    return builder.build();
   }
 }

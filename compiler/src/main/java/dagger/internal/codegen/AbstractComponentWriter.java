@@ -91,7 +91,6 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
-import static dagger.internal.codegen.ContributionBinding.contributionTypeFor;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
@@ -713,7 +712,7 @@ abstract class AbstractComponentWriter {
     
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
-        switch (contributionTypeFor(resolvedBindings.contributionBindings())) {
+        switch (resolvedBindings.contributionType()) {
           case SET:
             return initializeSetMultibindings(resolvedBindings);
           case MAP:

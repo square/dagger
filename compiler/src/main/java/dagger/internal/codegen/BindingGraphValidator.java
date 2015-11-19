@@ -299,7 +299,7 @@ public class BindingGraphValidator {
             return true;
           }
           ImmutableListMultimap<ContributionType, ContributionBinding> contributionsByType =
-              ContributionBinding.contributionTypesFor(contributionBindings);
+              resolvedBinding.contributionTypes();
           if (contributionsByType.keySet().size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
@@ -845,7 +845,7 @@ public class BindingGraphValidator {
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ImmutableListMultimap<ContributionType, ContributionBinding> bindingsByType =
-          ContributionBinding.contributionTypesFor(resolvedBinding.contributionBindings());
+          resolvedBinding.contributionTypes();
       for (ContributionType type :
           Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
         builder.append(INDENT);
