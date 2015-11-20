@@ -18,12 +18,14 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Lazy;
@@ -99,6 +101,25 @@ abstract class ComponentDescriptor {
       return Optional.fromNullable(getOnlyElement(kinds, null));
     }
 
+    /**
+     * Returns the kind of an annotated element if it is annotated with one of the
+     * {@linkplain #builderAnnotationType() annotation types}.
+     *
+     * @throws IllegalArgumentException if the element is annotated with more than one of the
+     *     annotation types
+     */
+    static Optional<Kind> forAnnotatedBuilderElement(TypeElement element) {
+      Set<Kind> kinds = EnumSet.noneOf(Kind.class);
+      for (Kind kind : values()) {
+        if (MoreElements.isAnnotationPresent(element, kind.builderAnnotationType())) {
+          kinds.add(kind);
+        }
+      }
+      checkArgument(
+          kinds.size() <= 1, "%s cannot be annotated with more than one of %s", element, kinds);
+      return Optional.fromNullable(getOnlyElement(kinds, null));
+    }
+
     Kind(
         Class<? extends Annotation> annotationType,
         Class<? extends Annotation> builderType,
@@ -116,8 +137,57 @@ abstract class ComponentDescriptor {
       return builderType;
     }
 
+    ImmutableSet<ModuleDescriptor.Kind> moduleKinds() {
+      switch (this) {
+        case COMPONENT:
+        case SUBCOMPONENT:
+          return Sets.immutableEnumSet(ModuleDescriptor.Kind.MODULE);
+        case PRODUCTION_COMPONENT:
+          return Sets.immutableEnumSet(
+              ModuleDescriptor.Kind.MODULE, ModuleDescriptor.Kind.PRODUCER_MODULE);
+        default:
+          throw new AssertionError(this);
+      }
+    }
+
+    ImmutableSet<Kind> subcomponentKinds() {
+      switch (this) {
+        case COMPONENT:
+        case SUBCOMPONENT:
+          return ImmutableSet.of(SUBCOMPONENT);
+        case PRODUCTION_COMPONENT:
+          return ImmutableSet.of();
+        default:
+          throw new AssertionError();
+      }
+    }
+
     boolean isTopLevel() {
       return isTopLevel;
+    }
+
+    private static final Function<Kind, Class<? extends Annotation>> TO_ANNOTATION_TYPE =
+        new Function<Kind, Class<? extends Annotation>>() {
+          @Override
+          public Class<? extends Annotation> apply(Kind kind) {
+            return kind.annotationType();
+          }
+        };
+
+    static Function<Kind, Class<? extends Annotation>> toAnnotationType() {
+      return TO_ANNOTATION_TYPE;
+    }
+
+    private static final Function<Kind, Class<? extends Annotation>> TO_BUILDER_ANNOTATION_TYPE =
+        new Function<Kind, Class<? extends Annotation>>() {
+          @Override
+          public Class<? extends Annotation> apply(Kind kind) {
+            return kind.builderAnnotationType();
+          }
+        };
+
+    static Function<Kind, Class<? extends Annotation>> toBuilderAnnotationType() {
+      return TO_BUILDER_ANNOTATION_TYPE;
     }
   }
 
