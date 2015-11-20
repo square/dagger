@@ -70,37 +70,46 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 final class ModuleValidator {
   private final Types types;
   private final Elements elements;
+  private final Class<? extends Annotation> moduleClass;
+  private final ImmutableList<Class<? extends Annotation>> includedModuleClasses;
+  private final Class<? extends Annotation> methodClass;
   private final MethodSignatureFormatter methodSignatureFormatter;
 
   ModuleValidator(
-      Types types, Elements elements, MethodSignatureFormatter methodSignatureFormatter) {
+      Types types,
+      Elements elements,
+      MethodSignatureFormatter methodSignatureFormatter,
+      Class<? extends Annotation> moduleClass,
+      ImmutableList<Class<? extends Annotation>> includedModuleClasses,
+      Class<? extends Annotation> methodClass) {
     this.types = types;
     this.elements = elements;
+    this.moduleClass = moduleClass;
+    this.includedModuleClasses = includedModuleClasses;
+    this.methodClass = methodClass;
     this.methodSignatureFormatter = methodSignatureFormatter;
   }
 
   ValidationReport<TypeElement> validate(final TypeElement subject) {
     final ValidationReport.Builder<TypeElement> builder = ValidationReport.about(subject);
-    ModuleDescriptor.Kind moduleKind = ModuleDescriptor.Kind.forAnnotatedElement(subject).get();
 
     List<ExecutableElement> moduleMethods = ElementFilter.methodsIn(subject.getEnclosedElements());
     ListMultimap<String, ExecutableElement> allMethodsByName = ArrayListMultimap.create();
     ListMultimap<String, ExecutableElement> bindingMethodsByName = ArrayListMultimap.create();
     for (ExecutableElement moduleMethod : moduleMethods) {
-      if (isAnnotationPresent(moduleMethod, moduleKind.methodAnnotation())) {
+      if (isAnnotationPresent(moduleMethod, methodClass)) {
         bindingMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
       }
       allMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
     }
 
-    validateModuleVisibility(subject, moduleKind, builder);
-    validateMethodsWithSameName(moduleKind, builder, bindingMethodsByName);
+    validateModuleVisibility(subject, builder);
+    validateMethodsWithSameName(builder, bindingMethodsByName);
     if (subject.getKind() != ElementKind.INTERFACE) {
-      validateProvidesOverrides(
-          subject, moduleKind, builder, allMethodsByName, bindingMethodsByName);
+      validateProvidesOverrides(subject, builder, allMethodsByName, bindingMethodsByName);
     }
     validateModifiers(subject, builder);
-    validateReferencedModules(subject, moduleKind, builder);
+    validateReferencedModules(subject, builder);
 
     // TODO(gak): port the dagger 1 module validation?
     return builder.build();
@@ -116,7 +125,6 @@ final class ModuleValidator {
   }
 
   private void validateMethodsWithSameName(
-      ModuleDescriptor.Kind moduleKind,
       ValidationReport.Builder<TypeElement> builder,
       ListMultimap<String, ExecutableElement> bindingMethodsByName) {
     for (Entry<String, Collection<ExecutableElement>> entry :
@@ -124,8 +132,7 @@ final class ModuleValidator {
       if (entry.getValue().size() > 1) {
         for (ExecutableElement offendingMethod : entry.getValue()) {
           builder.addError(
-              String.format(
-                  BINDING_METHOD_WITH_SAME_NAME, moduleKind.methodAnnotation().getSimpleName()),
+              String.format(BINDING_METHOD_WITH_SAME_NAME, methodClass.getSimpleName()),
               offendingMethod);
         }
       }
@@ -133,27 +140,11 @@ final class ModuleValidator {
   }
 
   private void validateReferencedModules(
-      TypeElement subject,
-      ModuleDescriptor.Kind moduleKind,
-      ValidationReport.Builder<TypeElement> builder) {
+      TypeElement subject, ValidationReport.Builder<TypeElement> builder) {
     // Validate that all the modules we include are valid for inclusion.
-    AnnotationMirror mirror = getAnnotationMirror(subject, moduleKind.moduleAnnotation()).get();
+    AnnotationMirror mirror = getAnnotationMirror(subject, moduleClass).get();
     ImmutableList<TypeMirror> includedTypes = getModuleIncludes(mirror);
-    validateReferencedModules(subject, builder, includedTypes, ImmutableSet.of(moduleKind));
-  }
-
-  private static ImmutableSet<? extends Class<? extends Annotation>> includedModuleClasses(
-      ImmutableSet<ModuleDescriptor.Kind> validModuleKinds) {
-    return FluentIterable.from(validModuleKinds)
-        .transformAndConcat(
-            new Function<ModuleDescriptor.Kind, Set<? extends Class<? extends Annotation>>>() {
-              @Override
-              public Set<? extends Class<? extends Annotation>> apply(
-                  ModuleDescriptor.Kind moduleKind) {
-                return moduleKind.includesTypes();
-              }
-            })
-        .toSet();
+    validateReferencedModules(subject,  builder, includedTypes);
   }
 
   /**
@@ -162,11 +153,7 @@ final class ModuleValidator {
   void validateReferencedModules(
       final TypeElement subject,
       final ValidationReport.Builder<TypeElement> builder,
-      ImmutableList<TypeMirror> includedTypes,
-      ImmutableSet<ModuleDescriptor.Kind> validModuleKinds) {
-    final ImmutableSet<? extends Class<? extends Annotation>> includedModuleClasses =
-        includedModuleClasses(validModuleKinds);
-
+      ImmutableList<TypeMirror> includedTypes) {
     for (TypeMirror includedType : includedTypes) {
       includedType.accept(
           new SimpleTypeVisitor6<Void, Void>() {
@@ -228,7 +215,6 @@ final class ModuleValidator {
 
   private void validateProvidesOverrides(
       TypeElement subject,
-      ModuleDescriptor.Kind moduleKind,
       ValidationReport.Builder<TypeElement> builder,
       ListMultimap<String, ExecutableElement> allMethodsByName,
       ListMultimap<String, ExecutableElement> bindingMethodsByName) {
@@ -265,13 +251,13 @@ final class ModuleValidator {
             builder.addError(
                 String.format(
                     PROVIDES_METHOD_OVERRIDES_ANOTHER,
-                    moduleKind.methodAnnotation().getSimpleName(),
+                    methodClass.getSimpleName(),
                     methodSignatureFormatter.format(superclassMethod)),
                 providesMethod);
           }
         }
         // For each @Provides method in superclass, confirm our methods don't override it.
-        if (isAnnotationPresent(superclassMethod, moduleKind.methodAnnotation())) {
+        if (isAnnotationPresent(superclassMethod, methodClass)) {
           for (ExecutableElement method : allMethodsByName.get(name)) {
             if (!failedMethods.contains(method)
                 && elements.overrides(method, superclassMethod, subject)) {
@@ -279,7 +265,7 @@ final class ModuleValidator {
               builder.addError(
                   String.format(
                       METHOD_OVERRIDES_PROVIDES_METHOD,
-                      moduleKind.methodAnnotation().getSimpleName(),
+                      methodClass.getSimpleName(),
                       methodSignatureFormatter.format(superclassMethod)),
                   method);
             }
@@ -290,9 +276,7 @@ final class ModuleValidator {
     }
   }
 
-  private void validateModuleVisibility(
-      final TypeElement moduleElement,
-      ModuleDescriptor.Kind moduleKind,
+  private void validateModuleVisibility(final TypeElement moduleElement,
       final ValidationReport.Builder<?> reportBuilder) {
     Visibility moduleVisibility = Visibility.ofElement(moduleElement);
     if (moduleVisibility.equals(PRIVATE)) {
@@ -309,24 +293,18 @@ final class ModuleValidator {
       case MEMBER:
       case TOP_LEVEL:
         if (moduleVisibility.equals(PUBLIC)) {
-          ImmutableSet<Element> nonPublicModules =
-              FluentIterable.from(
-                      getModuleIncludes(
-                          getAnnotationMirror(moduleElement, moduleKind.moduleAnnotation()).get()))
-                  .transform(
-                      new Function<TypeMirror, Element>() {
-                        @Override
-                        public Element apply(TypeMirror input) {
-                          return types.asElement(input);
-                        }
-                      })
-                  .filter(
-                      new Predicate<Element>() {
-                        @Override
-                        public boolean apply(Element input) {
-                          return effectiveVisibilityOfElement(input).compareTo(PUBLIC) < 0;
-                        }
-                      })
+          ImmutableSet<Element> nonPublicModules = FluentIterable.from(getModuleIncludes(
+              getAnnotationMirror(moduleElement, moduleClass).get()))
+                  .transform(new Function<TypeMirror, Element>() {
+                    @Override public Element apply(TypeMirror input) {
+                      return types.asElement(input);
+                    }
+                  })
+                  .filter(new Predicate<Element>() {
+                    @Override public boolean apply(Element input) {
+                      return effectiveVisibilityOfElement(input).compareTo(PUBLIC) < 0;
+                    }
+                  })
                   .toSet();
           if (!nonPublicModules.isEmpty()) {
             reportBuilder.addError(

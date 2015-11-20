@@ -1,18 +1,14 @@
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import dagger.Module;
 import dagger.Provides;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
-import java.lang.annotation.Annotation;
-import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
@@ -23,7 +19,6 @@ import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
@@ -55,59 +50,6 @@ abstract class ModuleDescriptor {
   }
 
   abstract DefaultCreationStrategy defaultCreationStrategy();
-
-  enum Kind {
-    MODULE(
-        Module.class, Provides.class, ImmutableSet.of(Module.class)),
-    PRODUCER_MODULE(
-        ProducerModule.class,
-        Produces.class,
-        ImmutableSet.of(Module.class, ProducerModule.class));
-
-    private final Class<? extends Annotation> moduleAnnotation;
-    private final Class<? extends Annotation> methodAnnotation;
-    private final ImmutableSet<? extends Class<? extends Annotation>> includesTypes;
-
-    /**
-     * Returns the kind of an annotated element if it is annotated with one of the
-     * {@linkplain #moduleAnnotation() annotation types}.
-     *
-     * @throws IllegalArgumentException if the element is annotated with more than one of the
-     *     annotation types
-     */
-    static Optional<Kind> forAnnotatedElement(TypeElement element) {
-      Set<Kind> kinds = EnumSet.noneOf(Kind.class);
-      for (Kind kind : values()) {
-        if (MoreElements.isAnnotationPresent(element, kind.moduleAnnotation())) {
-          kinds.add(kind);
-        }
-      }
-      checkArgument(
-          kinds.size() <= 1, "%s cannot be annotated with more than one of %s", element, kinds);
-      return Optional.fromNullable(Iterables.getOnlyElement(kinds, null));
-    }
-
-    Kind(
-        Class<? extends Annotation> moduleAnnotation,
-        Class<? extends Annotation> methodAnnotation,
-        ImmutableSet<? extends Class<? extends Annotation>> includesTypes) {
-      this.moduleAnnotation = moduleAnnotation;
-      this.methodAnnotation = methodAnnotation;
-      this.includesTypes = includesTypes;
-    }
-
-    Class<? extends Annotation> moduleAnnotation() {
-      return moduleAnnotation;
-    }
-
-    Class<? extends Annotation> methodAnnotation() {
-      return methodAnnotation;
-    }
-
-    ImmutableSet<? extends Class<? extends Annotation>> includesTypes() {
-      return includesTypes;
-    }
-  }
 
   static final class Factory {
     private final Elements elements;

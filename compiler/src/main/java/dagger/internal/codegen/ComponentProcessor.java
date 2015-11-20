@@ -20,6 +20,11 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import dagger.Module;
+import dagger.Provides;
+import dagger.producers.ProducerModule;
+import dagger.producers.Produces;
+import java.lang.annotation.Annotation;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -88,17 +93,35 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         privateMemberValidationType(processingEnv).diagnosticKind().get(),
         staticMemberValidationType(processingEnv).diagnosticKind().get());
     ModuleValidator moduleValidator =
-        new ModuleValidator(types, elements, methodSignatureFormatter);
-    BuilderValidator builderValidator = new BuilderValidator(elements, types);
-    ComponentValidator subcomponentValidator =
-        ComponentValidator.createForSubcomponent(
-            elements, types, moduleValidator, builderValidator);
-    ComponentValidator componentValidator =
-        ComponentValidator.createForComponent(
-            elements, types, moduleValidator, subcomponentValidator, builderValidator);
-    MapKeyValidator mapKeyValidator = new MapKeyValidator();
+        new ModuleValidator(
+            types,
+            elements,
+            methodSignatureFormatter,
+            Module.class,
+            ImmutableList.<Class<? extends Annotation>>of(Module.class),
+            Provides.class);
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements, types);
+    BuilderValidator componentBuilderValidator =
+        new BuilderValidator(elements, types, ComponentDescriptor.Kind.COMPONENT);
+    BuilderValidator subcomponentBuilderValidator =
+        new BuilderValidator(elements, types, ComponentDescriptor.Kind.SUBCOMPONENT);
+    ComponentValidator subcomponentValidator = ComponentValidator.createForSubcomponent(elements,
+        types, moduleValidator, subcomponentBuilderValidator);
+    ComponentValidator componentValidator = ComponentValidator.createForComponent(elements, types,
+        moduleValidator, subcomponentValidator, subcomponentBuilderValidator);
+    MapKeyValidator mapKeyValidator = new MapKeyValidator();
+    ModuleValidator producerModuleValidator =
+        new ModuleValidator(
+            types,
+            elements,
+            methodSignatureFormatter,
+            ProducerModule.class,
+            ImmutableList.of(Module.class, ProducerModule.class),
+            Produces.class);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements, types);
+    ProductionComponentValidator productionComponentValidator = new ProductionComponentValidator();
+    BuilderValidator productionComponentBuilderValidator =
+        new BuilderValidator(elements, types, ComponentDescriptor.Kind.PRODUCTION_COMPONENT);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -171,11 +194,11 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             factoryGenerator),
         new ComponentProcessingStep(
-            ComponentDescriptor.Kind.COMPONENT,
             messager,
             componentValidator,
             subcomponentValidator,
-            builderValidator,
+            componentBuilderValidator,
+            subcomponentBuilderValidator,
             componentHierarchyValidator,
             bindingGraphValidator,
             componentDescriptorFactory,
@@ -183,16 +206,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             componentGenerator),
         new ProducerModuleProcessingStep(
             messager,
-            moduleValidator,
+            producerModuleValidator,
             producesMethodValidator,
             productionBindingFactory,
             producerFactoryGenerator),
-        new ComponentProcessingStep(
-            ComponentDescriptor.Kind.PRODUCTION_COMPONENT,
+        new ProductionComponentProcessingStep(
             messager,
-            componentValidator,
-            subcomponentValidator,
-            builderValidator,
+            productionComponentValidator,
+            productionComponentBuilderValidator,
             componentHierarchyValidator,
             bindingGraphValidator,
             componentDescriptorFactory,

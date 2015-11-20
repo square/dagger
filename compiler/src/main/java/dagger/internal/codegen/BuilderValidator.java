@@ -51,22 +51,21 @@ import static javax.lang.model.element.Modifier.STATIC;
 class BuilderValidator {
   private final Elements elements;
   private final Types types;
+  private final ComponentDescriptor.Kind componentType;
 
-  BuilderValidator(Elements elements, Types types) {
+  BuilderValidator(Elements elements, Types types, ComponentDescriptor.Kind componentType) {
     this.elements = elements;
     this.types = types;
+    this.componentType = componentType;
   }
 
   public ValidationReport<TypeElement> validate(TypeElement subject) {
     ValidationReport.Builder<TypeElement> builder = ValidationReport.about(subject);
 
-    ComponentDescriptor.Kind componentKind =
-        ComponentDescriptor.Kind.forAnnotatedBuilderElement(subject).get();
-
     Element componentElement = subject.getEnclosingElement();
-    ErrorMessages.ComponentBuilderMessages msgs = ErrorMessages.builderMsgsFor(componentKind);
-    Class<? extends Annotation> componentAnnotation = componentKind.annotationType();
-    Class<? extends Annotation> builderAnnotation = componentKind.builderAnnotationType();
+    ErrorMessages.ComponentBuilderMessages msgs = ErrorMessages.builderMsgsFor(componentType);
+    Class<? extends Annotation> componentAnnotation = componentType.annotationType();
+    Class<? extends Annotation> builderAnnotation = componentType.builderAnnotationType();
     checkArgument(subject.getAnnotation(builderAnnotation) != null);
 
     if (!isAnnotationPresent(componentElement, componentAnnotation)) {
