@@ -124,6 +124,7 @@ abstract class AbstractComponentWriter {
   protected final Set<JavaWriter> javaWriters = new LinkedHashSet<>();
   protected final ClassName name;
   protected final BindingGraph graph;
+  protected final ImmutableMap<ComponentDescriptor, String> subcomponentImplNames;
   private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
   private final Map<Binding, InitializationState> contributionInitializationStates =
       new HashMap<>();
@@ -154,13 +155,15 @@ abstract class AbstractComponentWriter {
       Key.Factory keyFactory,
       Diagnostic.Kind nullableValidationType,
       ClassName name,
-      BindingGraph graph) {
+      BindingGraph graph,
+      ImmutableMap<ComponentDescriptor, String> subcomponentImplNames) {
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
     this.nullableValidationType = nullableValidationType;
     this.name = name;
     this.graph = graph;
+    this.subcomponentImplNames = subcomponentImplNames;
   }
 
   protected final TypeElement componentDefinitionType() {

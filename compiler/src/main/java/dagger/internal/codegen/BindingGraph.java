@@ -139,6 +139,22 @@ abstract class BindingGraph {
         .toSet();
   }
 
+  /**
+   * Returns the {@link ComponentDescriptor}s for this component and its subcomponents.
+   */
+  ImmutableSet<ComponentDescriptor> componentDescriptors() {
+    return SUBGRAPH_TRAVERSER
+        .preOrderTraversal(this)
+        .transform(
+            new Function<BindingGraph, ComponentDescriptor>() {
+              @Override
+              public ComponentDescriptor apply(BindingGraph graph) {
+                return graph.componentDescriptor();
+              }
+            })
+        .toSet();
+  }
+
   ImmutableSet<TypeElement> availableDependencies() {
     return new ImmutableSet.Builder<TypeElement>()
         .addAll(componentDescriptor().transitiveModuleTypes())

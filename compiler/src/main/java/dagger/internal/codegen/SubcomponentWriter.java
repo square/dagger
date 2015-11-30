@@ -47,7 +47,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 /**
  * Creates the nested implementation class for a subcomponent.
  */
-class SubcomponentWriter extends AbstractComponentWriter {
+final class SubcomponentWriter extends AbstractComponentWriter {
 
   private AbstractComponentWriter parent;
   private ExecutableElement subcomponentFactoryMethod;
@@ -61,16 +61,18 @@ class SubcomponentWriter extends AbstractComponentWriter {
         parent.elements,
         parent.keyFactory,
         parent.nullableValidationType,
-        parent.name.nestedClassNamed(subcomponentSimpleName(subgraph)),
-        subgraph);
+        subcomponentName(parent, subgraph),
+        subgraph,
+        parent.subcomponentImplNames);
     this.parent = parent;
     this.subcomponentFactoryMethod = subcomponentFactoryMethod;
   }
 
-  private static String subcomponentSimpleName(BindingGraph subgraph) {
-    return subgraph.componentDescriptor().componentDefinitionType().getSimpleName() + "Impl";
+  private static ClassName subcomponentName(AbstractComponentWriter parent, BindingGraph subgraph) {
+    return parent.name.nestedClassNamed(
+        parent.subcomponentImplNames.get(subgraph.componentDescriptor()));
   }
-  
+
   @Override
   protected InitializationState getInitializationState(BindingKey bindingKey) {
     InitializationState initializationState = super.getInitializationState(bindingKey);
