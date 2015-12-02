@@ -20,6 +20,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
@@ -83,6 +84,20 @@ abstract class MembersInjectionBinding extends Binding {
   @Override
   protected Binding.Type bindingType() {
     return Binding.Type.MEMBERS_INJECTION;
+  }
+
+  /**
+   * Returns {@code true} if any of this binding's injection sites are directly on the bound type.
+   */
+  boolean hasLocalInjectionSites() {
+    return FluentIterable.from(injectionSites())
+        .anyMatch(
+            new Predicate<InjectionSite>() {
+              @Override
+              public boolean apply(InjectionSite injectionSite) {
+                return injectionSite.element().getEnclosingElement().equals(bindingElement());
+              }
+            });
   }
 
   @AutoValue
