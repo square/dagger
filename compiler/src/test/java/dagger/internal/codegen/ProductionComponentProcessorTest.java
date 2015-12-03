@@ -78,10 +78,11 @@ public class ProductionComponentProcessorTest {
         "",
         "@ProductionComponent(modules = Object.class)",
         "interface NotAComponent {}");
-    assertAbout(javaSource()).that(componentFile)
+    assertAbout(javaSource())
+        .that(componentFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining("is not annotated with @Module or @ProducerModule");
+        .withErrorContaining("is not annotated with one of @Module, @ProducerModule");
   }
 
   @Test public void simpleComponent() {
