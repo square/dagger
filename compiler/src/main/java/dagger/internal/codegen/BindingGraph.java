@@ -35,7 +35,6 @@ import dagger.Component;
 import dagger.Subcomponent;
 import dagger.internal.codegen.Binding.Type;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -58,7 +57,6 @@ import javax.lang.model.util.Elements;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Sets.union;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
@@ -305,94 +303,83 @@ abstract class BindingGraph {
       }
 
       /**
-       * Looks up the bindings associated with a given dependency request and returns them.
+       * Returns the bindings that satisfy a given dependency request.
        *
-       * <p>Requests for {@code Map<K, V>} for which there are only bindings for
-       * {@code Map<K, Provider<V>>} will resolve to a single implicit binding for the latter map
-       * (and similarly for {@link Producer}s).
+       * <p>For {@link BindingKey.Kind#CONTRIBUTION} requests, returns all of:
+       * <ul>
+       * <li>All explicit bindings for the requested key.
+       * <li>All explicit bindings for {@code Set<T>} if the requested key's type is
+       *     {@code Set<Produced<T>>}.
+       * <li>All explicit bindings for {@code Map<K, Producer<V>>} or {@code Map<K, Provider<V>>} if
+       *     the requested key's type is {@code Map<K, V>} and there are some explicit bindings
+       *     for the requested key.
+       * <li>A synthetic binding that depends on {@code Map<K, Producer<V>>} if the requested key's
+       *     type is {@code Map<K, V>} and there are some explicit bindings for
+       *     {@code Map<K, Producer<V>>} but no explicit bindings for the requested key.
+       * <li>A synthetic binding that depends on {@code Map<K, Provider<V>>} if the requested key's
+       *     type is {@code Map<K, V>} and there are some explicit bindings for
+       *     {@code Map<K, Provider<V>>} but no explicit bindings for the requested key or for
+       *     {@code Map<K, Producer<V>>}.
+       * <li>An implicit {@link Inject @Inject}-annotated constructor binding if there is one and
+       *     there are no explicit bindings or synthetic bindings.
+       * </ul>
        *
-       * <p>If there are no explicit bindings for a contribution, looks for implicit
-       * {@link Inject @Inject}-annotated constructor types.
+       * <p>For {@link BindingKey.Kind#MEMBERS_INJECTION} requests, returns the
+       * {@link MembersInjectionBinding} for the type.
        */
       ResolvedBindings lookUpBindings(DependencyRequest request) {
         BindingKey bindingKey = request.bindingKey();
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
-            // First, check for explicit keys (those from modules and components)
             ImmutableSet<ContributionBinding> explicitBindingsForKey =
-                getExplicitBindings(bindingKey.key());
+                new ImmutableSet.Builder<ContributionBinding>()
+                    // Add for explicit keys (those from modules and components).
+                    .addAll(getExplicitBindings(bindingKey.key()))
+                    // If the key is Set<Produced<T>>, then add bindings for Set<T>.
+                    .addAll(
+                        getExplicitBindings(
+                            keyFactory.implicitSetKeyFromProduced(bindingKey.key())))
+                    .build();
 
             // If the key is Map<K, V>, get its implicit binding keys, which are either
             // Map<K, Provider<V>> or Map<K, Producer<V>>, and grab their explicit bindings.
-            Optional<Key> mapProviderKey = keyFactory.implicitMapProviderKeyFrom(bindingKey.key());
-            ImmutableSet.Builder<ContributionBinding> explicitMapBindingsBuilder =
-                ImmutableSet.builder();
-            if (mapProviderKey.isPresent()) {
-              explicitMapBindingsBuilder.addAll(getExplicitBindings(mapProviderKey.get()));
-            }
+            ImmutableSet<ContributionBinding> explicitProviderMapBindings =
+                getExplicitBindings(keyFactory.implicitMapProviderKeyFrom(bindingKey.key()));
+            ImmutableSet<ContributionBinding> explicitProducerMapBindings =
+                getExplicitBindings(keyFactory.implicitMapProducerKeyFrom(bindingKey.key()));
 
-            Optional<Key> mapProducerKey = keyFactory.implicitMapProducerKeyFrom(bindingKey.key());
-            if (mapProducerKey.isPresent()) {
-              explicitMapBindingsBuilder.addAll(getExplicitBindings(mapProducerKey.get()));
-            }
-            ImmutableSet<ContributionBinding> explicitMapBindings =
-                explicitMapBindingsBuilder.build();
-
-            // If the key is Set<Produced<T>>, then we look up bindings by the alternate key Set<T>.
-            Optional<Key> setKeyFromProduced =
-                keyFactory.implicitSetKeyFromProduced(bindingKey.key());
-            ImmutableSet<ContributionBinding> explicitSetBindings =
-                setKeyFromProduced.isPresent()
-                    ? getExplicitBindings(setKeyFromProduced.get())
-                    : ImmutableSet.<ContributionBinding>of();
-
-            if (!explicitBindingsForKey.isEmpty() || !explicitSetBindings.isEmpty()) {
+            final Set<? extends ContributionBinding> resolvedContributionBindings;
+            if (!explicitBindingsForKey.isEmpty()) {
               /* If there are any explicit bindings for this key, then combine those with any
                * conflicting Map<K, Provider<V>> bindings and let the validator fail. */
-              ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> bindings =
-                  ImmutableSetMultimap.builder();
-              for (ContributionBinding binding :
-                  union(explicitBindingsForKey, union(explicitSetBindings, explicitMapBindings))) {
-                bindings.put(getOwningComponent(request, binding), binding);
-              }
-              return ResolvedBindings.forContributionBindings(
-                  bindingKey, componentDescriptor, bindings.build());
-            } else if (Iterables.any(
-                explicitMapBindings, Binding.isOfType(Binding.Type.PRODUCTION))) {
+              resolvedContributionBindings =
+                  new ImmutableSet.Builder<ContributionBinding>()
+                      .addAll(explicitBindingsForKey)
+                      .addAll(explicitProviderMapBindings)
+                      .addAll(explicitProducerMapBindings)
+                      .build();
+            } else if (!explicitProducerMapBindings.isEmpty()) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Producer<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Producer<V>>. */
-              return ResolvedBindings.forContributionBindings(
-                  bindingKey,
-                  componentDescriptor,
-                  productionBindingFactory.implicitMapOfProducerBinding(request));
-            } else if (Iterables.any(
-                explicitMapBindings, Binding.isOfType(Binding.Type.PROVISION))) {
+              resolvedContributionBindings =
+                  ImmutableSet.of(productionBindingFactory.implicitMapOfProducerBinding(request));
+            } else if (!explicitProviderMapBindings.isEmpty()) {
               /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
                * some explicit Map<K, Provider<V>> bindings, then this binding must have only the
                * implicit dependency on Map<K, Provider<V>>. */
-              return ResolvedBindings.forContributionBindings(
-                  bindingKey,
-                  componentDescriptor,
-                  provisionBindingFactory.implicitMapOfProviderBinding(request));
+              resolvedContributionBindings =
+                  ImmutableSet.of(provisionBindingFactory.implicitMapOfProviderBinding(request));
             } else {
               /* If there are no explicit bindings at all, look for an implicit @Inject-constructed
                * binding. */
-              Optional<ProvisionBinding> provisionBinding =
-                  injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key());
-              ComponentDescriptor owningComponent =
-                  provisionBinding.isPresent()
-                          && isResolvedInParent(request, provisionBinding.get())
-                          && !shouldOwnParentBinding(request, provisionBinding.get())
-                      ? getOwningResolver(provisionBinding.get()).get().componentDescriptor
-                      : componentDescriptor;
-              return ResolvedBindings.forContributionBindings(
-                  bindingKey,
-                  componentDescriptor,
-                  ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>builder()
-                      .putAll(owningComponent, provisionBinding.asSet())
-                      .build());
+              resolvedContributionBindings =
+                  injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key()).asSet();
             }
+            return ResolvedBindings.forContributionBindings(
+                bindingKey,
+                componentDescriptor,
+                indexBindingsByOwningComponent(request, resolvedContributionBindings));
 
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
@@ -403,6 +390,17 @@ abstract class BindingGraph {
           default:
             throw new AssertionError();
         }
+      }
+
+      private ImmutableSetMultimap<ComponentDescriptor, ContributionBinding>
+          indexBindingsByOwningComponent(
+              DependencyRequest request, Iterable<? extends ContributionBinding> bindings) {
+        ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> index =
+            ImmutableSetMultimap.builder();
+        for (ContributionBinding binding : bindings) {
+          index.put(getOwningComponent(request, binding), binding);
+        }
+        return index.build();
       }
 
       /**
@@ -481,6 +479,12 @@ abstract class BindingGraph {
           explicitBindingsForKey.addAll(resolver.explicitBindings.get(requestKey));
         }
         return explicitBindingsForKey.build();
+      }
+
+      private ImmutableSet<ContributionBinding> getExplicitBindings(Optional<Key> optionalKey) {
+        return optionalKey.isPresent()
+            ? getExplicitBindings(optionalKey.get())
+            : ImmutableSet.<ContributionBinding>of();
       }
 
       private Optional<ResolvedBindings> getPreviouslyResolvedBindings(
