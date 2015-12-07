@@ -88,7 +88,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
-import static dagger.internal.codegen.Binding.bindingPackageFor;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
 import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
@@ -472,7 +471,7 @@ abstract class AbstractComponentWriter {
       return;
     }
 
-    Optional<String> bindingPackage = bindingPackageFor(resolvedBindings.bindings());
+    Optional<String> bindingPackage = resolvedBindings.bindingPackage();
     boolean useRawType = bindingPackage.isPresent()
         && !bindingPackage.get().equals(name.packageName());
     if (resolvedBindings.isMultibindings()) {

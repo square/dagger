@@ -115,22 +115,6 @@ abstract class Binding {
     return bindingType().frameworkClass();
   }
 
-  static Optional<String> bindingPackageFor(Iterable<? extends Binding> bindings) {
-    ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
-    for (Binding binding : bindings) {
-      bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
-    }
-    ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
-    switch (bindingPackages.size()) {
-      case 0:
-        return Optional.absent();
-      case 1:
-        return Optional.of(bindingPackages.iterator().next());
-      default:
-        throw new IllegalArgumentException();
-    }
-  }
-
   /** The {@link Key} that is provided by this binding. */
   protected abstract Key key();
 

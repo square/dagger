@@ -244,4 +244,26 @@ abstract class ResolvedBindings {
     }
     return builder.build();
   }
+
+  /**
+   * The name of the package in which these bindings must be managed, for
+   * example if a binding references non-public types.
+   * 
+   * @throws IllegalArgumentException if the bindings must be managed in more than one package
+   */
+  Optional<String> bindingPackage() {
+    ImmutableSet.Builder<String> bindingPackagesBuilder = ImmutableSet.builder();
+    for (Binding binding : bindings()) {
+      bindingPackagesBuilder.addAll(binding.bindingPackage().asSet());
+    }
+    ImmutableSet<String> bindingPackages = bindingPackagesBuilder.build();
+    switch (bindingPackages.size()) {
+      case 0:
+        return Optional.absent();
+      case 1:
+        return Optional.of(bindingPackages.iterator().next());
+      default:
+        throw new IllegalArgumentException();
+    }
+  }
 }
