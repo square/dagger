@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
+import dagger.MembersInjector;
 import dagger.internal.codegen.ContributionBinding.ContributionType;
 import java.util.EnumSet;
 import java.util.Set;
@@ -264,6 +265,22 @@ abstract class ResolvedBindings {
         return Optional.of(bindingPackages.iterator().next());
       default:
         throw new IllegalArgumentException();
+    }
+  }
+
+  /**
+   * The framework class associated with these bindings.
+   */
+  Class<?> frameworkClass() {
+    switch (bindingKey().kind()) {
+      case CONTRIBUTION:
+        return Iterables.any(contributionBindings(), Binding.isOfType(Binding.Type.PRODUCTION))
+            ? Binding.Type.PRODUCTION.frameworkClass()
+            : Binding.Type.PROVISION.frameworkClass();
+      case MEMBERS_INJECTION:
+        return MembersInjector.class;
+      default:
+        throw new AssertionError();
     }
   }
 }

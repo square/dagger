@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
-import com.google.common.collect.Iterables;
 import dagger.MembersInjector;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
@@ -38,27 +37,21 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  * @since 2.0
  */
 @AutoValue
+// TODO(gak): Reexamine the this class and how consistently we're using it and its creation methods.
 abstract class FrameworkField {
-  // TODO(gak): reexamine the this class and how consistently we're using it and its creation
-  // methods
-  static FrameworkField createWithTypeFromKey(
-      Class<?> frameworkClass, BindingKey bindingKey, String name) {
+  static FrameworkField createWithTypeFromKey(Class<?> frameworkClass, Key key, String name) {
     String suffix = frameworkClass.getSimpleName();
-    ParameterizedTypeName frameworkType = ParameterizedTypeName.create(
-        ClassName.fromClass(frameworkClass),
-        TypeNames.forTypeMirror(bindingKey.key().type()));
-    return new AutoValue_FrameworkField(frameworkClass, frameworkType, bindingKey,
-        name.endsWith(suffix) ? name : name + suffix);
+    ParameterizedTypeName frameworkType =
+        ParameterizedTypeName.create(
+            ClassName.fromClass(frameworkClass), TypeNames.forTypeMirror(key.type()));
+    return new AutoValue_FrameworkField(
+        frameworkType, name.endsWith(suffix) ? name : name + suffix);
   }
 
-  private static FrameworkField createForMapBindingContribution(
-      Class<?> frameworkClass, BindingKey bindingKey, String name) {
-    TypeMirror mapValueType =
-        MoreTypes.asDeclared(bindingKey.key().type()).getTypeArguments().get(1);
-    return new AutoValue_FrameworkField(frameworkClass,
-        (ParameterizedTypeName) TypeNames.forTypeMirror(mapValueType),
-        bindingKey,
-        name);
+  private static FrameworkField createForMapBindingContribution(Key key, String name) {
+    TypeMirror mapValueType = MoreTypes.asDeclared(key.type()).getTypeArguments().get(1);
+    return new AutoValue_FrameworkField(
+        (ParameterizedTypeName) TypeNames.forTypeMirror(mapValueType), name);
   }
 
   static FrameworkField createForSyntheticContributionBinding(
@@ -66,8 +59,7 @@ abstract class FrameworkField {
     switch (contributionBinding.contributionType()) {
       case MAP:
         return createForMapBindingContribution(
-            contributionBinding.frameworkClass(),
-            contributionBinding.bindingKey(),
+            contributionBinding.key(),
             KeyVariableNamer.INSTANCE.apply(contributionBinding.key())
                 + "Contribution"
                 + contributionNumber);
@@ -76,7 +68,7 @@ abstract class FrameworkField {
       case UNIQUE:
         return createWithTypeFromKey(
             contributionBinding.frameworkClass(),
-            contributionBinding.bindingKey(),
+            contributionBinding.key(),
             KeyVariableNamer.INSTANCE.apply(contributionBinding.key())
                 + "Contribution"
                 + contributionNumber);
@@ -93,14 +85,14 @@ abstract class FrameworkField {
           case SET:
           case MAP:
             return createWithTypeFromKey(
-                frameworkClassForResolvedBindings(resolvedBindings),
-                bindingKey,
+                resolvedBindings.frameworkClass(),
+                bindingKey.key(),
                 KeyVariableNamer.INSTANCE.apply(bindingKey.key()));
           case UNIQUE:
             ContributionBinding binding = getOnlyElement(resolvedBindings.contributionBindings());
             return createWithTypeFromKey(
-                frameworkClassForResolvedBindings(resolvedBindings),
-                bindingKey,
+                resolvedBindings.frameworkClass(),
+                bindingKey.key(),
                 BINDING_ELEMENT_NAME.visit(binding.bindingElement()));
           default:
             throw new AssertionError();
@@ -108,7 +100,7 @@ abstract class FrameworkField {
       case MEMBERS_INJECTION:
         return createWithTypeFromKey(
             MembersInjector.class,
-            bindingKey,
+            bindingKey.key(),
             CaseFormat.UPPER_CAMEL.to(
                 CaseFormat.LOWER_CAMEL,
                 resolvedBindings
@@ -141,22 +133,6 @@ abstract class FrameworkField {
         }
       };
 
-  static Class<?> frameworkClassForResolvedBindings(ResolvedBindings resolvedBindings) {
-    switch (resolvedBindings.bindingKey().kind()) {
-      case CONTRIBUTION:
-        return Iterables.any(
-                resolvedBindings.contributionBindings(), Binding.isOfType(Binding.Type.PRODUCTION))
-            ? Binding.Type.PRODUCTION.frameworkClass()
-            : Binding.Type.PROVISION.frameworkClass();
-      case MEMBERS_INJECTION:
-        return MembersInjector.class;
-      default:
-        throw new AssertionError();
-    }
-  }
-
-  abstract Class<?> frameworkClass();
   abstract ParameterizedTypeName frameworkType();
-  abstract BindingKey bindingKey();
   abstract String name();
 }

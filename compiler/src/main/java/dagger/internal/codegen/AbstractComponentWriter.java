@@ -1067,8 +1067,7 @@ abstract class AbstractComponentWriter {
         BindingKey key = Iterables.getOnlyElement(requestedBindingKeys);
         ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);
         Snippet frameworkSnippet = getMemberSelect(key).getSnippetWithRawTypeCastFor(name);
-        if (FrameworkField.frameworkClassForResolvedBindings(resolvedBindings)
-                .equals(Provider.class)
+        if (resolvedBindings.frameworkClass().equals(Provider.class)
             && frameworkClass.equals(Producer.class)) {
           parameters.add(
               Snippet.format(

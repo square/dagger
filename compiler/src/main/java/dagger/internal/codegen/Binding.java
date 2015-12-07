@@ -118,10 +118,6 @@ abstract class Binding {
   /** The {@link Key} that is provided by this binding. */
   protected abstract Key key();
 
-  BindingKey bindingKey() {
-    return BindingKey.create(bindingType().bindingKeyKind(), key());
-  }
-
   /** Returns the {@link Element} instance that is responsible for declaring the binding. */
   abstract Element bindingElement();
 

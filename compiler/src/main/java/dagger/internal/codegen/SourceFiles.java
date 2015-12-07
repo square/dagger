@@ -147,8 +147,9 @@ class SourceFiles {
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        bindingFields.put(bindingKey,
-            FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey, name));
+        bindingFields.put(
+            bindingKey,
+            FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey.key(), name));
       } else {
         // in the event that a field is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
@@ -159,8 +160,10 @@ class SourceFiles {
           compositeNameBuilder.append("And").append(
               CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(
-            frameworkClass, bindingKey, compositeNameBuilder.toString()));
+        bindingFields.put(
+            bindingKey,
+            FrameworkField.createWithTypeFromKey(
+                frameworkClass, bindingKey.key(), compositeNameBuilder.toString()));
       }
     }
     return bindingFields.build();
