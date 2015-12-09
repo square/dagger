@@ -157,8 +157,8 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.<DeclaredType>absent(),
           Optional.<TypeElement>absent(),
           Optional.<DependencyRequest>absent(),
-          Kind.SYNTHETIC,
-          Produces.Type.MAP,
+          Kind.SYNTHETIC_MAP,
+          Produces.Type.UNIQUE,
           ImmutableList.<TypeMirror>of(),
           Optional.<DependencyRequest>absent());
     }

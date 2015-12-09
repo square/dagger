@@ -109,7 +109,7 @@ abstract class DependencyRequest {
 
   abstract Kind kind();
   abstract Key key();
-
+  
   BindingKey bindingKey() {
     switch (kind()) {
       case INSTANCE:
@@ -361,6 +361,11 @@ abstract class DependencyRequest {
             @Override
             public KindAndType visitError(ErrorType errorType, Void p) {
               throw new TypeNotPresentException(errorType.toString(), null);
+            }
+
+            @Override
+            public KindAndType visitExecutable(ExecutableType executableType, Void p) {
+              return executableType.getReturnType().accept(this, null);
             }
 
             @Override

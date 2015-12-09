@@ -49,7 +49,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @since 2.0
  */
 abstract class ContributionBinding extends Binding {
-  
+
   @Override
   Set<DependencyRequest> implicitDependencies() {
     // Optimization: If we don't need the memberInjectionRequest, don't create more objects.
@@ -88,6 +88,14 @@ abstract class ContributionBinding extends Binding {
     }
   }
   
+  static final Function<ContributionBinding, ContributionType> CONTRIBUTION_TYPE =
+      new Function<ContributionBinding, ContributionType>() {
+        @Override
+        public ContributionType apply(ContributionBinding binding) {
+          return binding.contributionType();
+        }
+      };
+  
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
 
@@ -104,7 +112,7 @@ abstract class ContributionBinding extends Binding {
    * implicitly by the framework.
    */
   boolean isSyntheticBinding() {
-    return bindingKind().equals(Kind.SYNTHETIC);
+    return bindingKind().equals(Kind.SYNTHETIC_MAP);
   }
 
   /** If this provision requires members injection, this will be the corresponding request. */
@@ -116,10 +124,10 @@ abstract class ContributionBinding extends Binding {
    */
   enum Kind {
     /**
-     * A binding that is not explicitly tied to an element, but generated implicitly by the
-     * framework.
+     * The synthetic binding for {@code Map<K, V>} that depends on either
+     * {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}.
      */
-    SYNTHETIC,
+    SYNTHETIC_MAP,
 
     // Provision kinds
 

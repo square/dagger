@@ -18,13 +18,11 @@ package dagger.internal.codegen;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
 import dagger.MembersInjector;
 import dagger.internal.codegen.ContributionBinding.ContributionType;
 import java.util.EnumSet;
@@ -231,19 +229,6 @@ abstract class ResolvedBindings {
           String.format(ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types));
     }
     return Iterables.getOnlyElement(types);
-  }
-
-  /**
-   * The {@link #contributionBindings()}, indexed by {@link ContributionType}.
-   */
-  ImmutableListMultimap<ContributionType, ContributionBinding> contributionTypes() {
-    ImmutableListMultimap.Builder<ContributionType, ContributionBinding> builder =
-        ImmutableListMultimap.builder();
-    builder.orderKeysBy(Ordering.<ContributionType>natural());
-    for (ContributionBinding binding : contributionBindings()) {
-      builder.put(binding.contributionType(), binding);
-    }
-    return builder.build();
   }
 
   /**

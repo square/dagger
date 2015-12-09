@@ -80,7 +80,6 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
 
-import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
@@ -475,26 +474,22 @@ abstract class AbstractComponentWriter {
     boolean useRawType = bindingPackage.isPresent()
         && !bindingPackage.get().equals(name.packageName());
     if (resolvedBindings.isMultibindings()) {
-      ImmutableSet<ContributionBinding> contributionBindings =
-          resolvedBindings.contributionBindings();
       // note that here we rely on the order of the resolved bindings being from parent to child
       // otherwise, the numbering wouldn't work
       int contributionNumber = 0;
-      for (ContributionBinding contributionBinding : contributionBindings) {
-        if (!contributionBinding.isSyntheticBinding()) {
-          contributionNumber++;
-          if (resolvedBindings.ownedContributionBindings().contains(contributionBinding)) {
-            FrameworkField contributionBindingField =
-                FrameworkField.createForSyntheticContributionBinding(
-                    contributionNumber, contributionBinding);
-            FieldWriter contributionField = addFrameworkField(useRawType, contributionBindingField);
+      for (ContributionBinding contributionBinding : resolvedBindings.contributionBindings()) {
+        contributionNumber++;
+        if (resolvedBindings.ownedContributionBindings().contains(contributionBinding)) {
+          FrameworkField contributionBindingField =
+              FrameworkField.createForSyntheticContributionBinding(
+                  contributionNumber, contributionBinding);
+          FieldWriter contributionField = addFrameworkField(useRawType, contributionBindingField);
 
-            ImmutableList<String> contributionSelectTokens =
-                ImmutableList.of(contributionField.name());
-            multibindingContributionSnippets.put(
-                contributionBinding,
-                MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
-          }
+          ImmutableList<String> contributionSelectTokens =
+              ImmutableList.of(contributionField.name());
+          multibindingContributionSnippets.put(
+              contributionBinding,
+              MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
         }
       }
     }
@@ -794,9 +789,7 @@ abstract class AbstractComponentWriter {
       }
     }
     initializationSnippets.add(
-        initializeMember(
-            resolvedBindings.bindingKey(),
-            initializeMapBinding(resolvedBindings.contributionBindings())));
+        initializeMember(resolvedBindings.bindingKey(), initializeMapBinding(resolvedBindings)));
 
     return Snippet.concat(initializationSnippets.build());
   }
@@ -1019,6 +1012,16 @@ abstract class AbstractComponentWriter {
               generatedClassNameForBinding(binding),
               Snippet.makeParametersSnippet(parameters));
         }
+        
+      case SYNTHETIC_MAP:
+        checkState(
+            MapType.isMap(binding.key().type()),
+            "Expected synthetic binding to be for a map: %s",
+            binding);
+        return Snippet.format(
+            "%s.create(%s)",
+            ClassName.fromClass(MapFactory.class),
+            getMemberSelectSnippet(getOnlyElement(binding.dependencies()).bindingKey()));
 
       default:
         throw new AssertionError();
@@ -1097,29 +1100,18 @@ abstract class AbstractComponentWriter {
     }
   }
 
-  private Snippet initializeMapBinding(Set<ContributionBinding> bindings) {
-    // Get type information from the first binding.
-    ContributionBinding firstBinding = bindings.iterator().next();
-    MapType mapType = MapType.from(asDeclared(firstBinding.key().type()));
-
-    if (!mapType.valuesAreTypeOf(Provider.class)) {
-      return Snippet.format(
-          "%s.create(%s)",
-          ClassName.fromClass(MapFactory.class),
-          getMemberSelectSnippet(getOnlyElement(firstBinding.dependencies()).bindingKey()));
-    }
-
-    ImmutableList.Builder<dagger.internal.codegen.writer.Snippet> snippets =
-        ImmutableList.builder();
+  private Snippet initializeMapBinding(ResolvedBindings resolvedBindings) {
+    MapType mapType = MapType.from(resolvedBindings.bindingKey().key().type());
+    ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
     snippets.add(
         Snippet.format(
             "%s.<%s, %s>builder(%d)",
             ClassName.fromClass(MapProviderFactory.class),
             TypeNames.forTypeMirror(mapType.keyType()),
             TypeNames.forTypeMirror(mapType.unwrappedValueType(Provider.class)),
-            bindings.size()));
+            resolvedBindings.contributionBindings().size()));
 
-    for (ContributionBinding binding : bindings) {
+    for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
       snippets.add(
           Snippet.format(
               "    .put(%s, %s)",

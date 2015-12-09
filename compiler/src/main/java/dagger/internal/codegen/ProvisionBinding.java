@@ -184,7 +184,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           providesAnnotation.type(),
           scope);
     }
-
+    
     ProvisionBinding implicitMapOfProviderBinding(DependencyRequest mapOfValueRequest) {
       checkNotNull(mapOfValueRequest);
       Optional<Key> implicitMapOfProviderKey =
@@ -205,8 +205,8 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<DeclaredType>absent(),
           Optional.<TypeElement>absent(),
           Optional.<DependencyRequest>absent(),
-          Kind.SYNTHETIC,
-          Provides.Type.MAP,
+          Kind.SYNTHETIC_MAP,
+          Provides.Type.UNIQUE,
           scopeOf(implicitMapOfProviderRequest.requestElement()));
     }
 

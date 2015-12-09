@@ -310,16 +310,12 @@ abstract class BindingGraph {
        * <li>All explicit bindings for the requested key.
        * <li>All explicit bindings for {@code Set<T>} if the requested key's type is
        *     {@code Set<Produced<T>>}.
-       * <li>All explicit bindings for {@code Map<K, Producer<V>>} or {@code Map<K, Provider<V>>} if
-       *     the requested key's type is {@code Map<K, V>} and there are some explicit bindings
-       *     for the requested key.
        * <li>A synthetic binding that depends on {@code Map<K, Producer<V>>} if the requested key's
        *     type is {@code Map<K, V>} and there are some explicit bindings for
-       *     {@code Map<K, Producer<V>>} but no explicit bindings for the requested key.
+       *     {@code Map<K, Producer<V>>}.
        * <li>A synthetic binding that depends on {@code Map<K, Provider<V>>} if the requested key's
        *     type is {@code Map<K, V>} and there are some explicit bindings for
-       *     {@code Map<K, Provider<V>>} but no explicit bindings for the requested key or for
-       *     {@code Map<K, Producer<V>>}.
+       *     {@code Map<K, Provider<V>>} but no explicit bindings for {@code Map<K, Producer<V>>}.
        * <li>An implicit {@link Inject @Inject}-annotated constructor binding if there is one and
        *     there are no explicit bindings or synthetic bindings.
        * </ul>
@@ -331,15 +327,13 @@ abstract class BindingGraph {
         BindingKey bindingKey = request.bindingKey();
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
-            ImmutableSet<ContributionBinding> explicitBindingsForKey =
-                new ImmutableSet.Builder<ContributionBinding>()
-                    // Add for explicit keys (those from modules and components).
-                    .addAll(getExplicitBindings(bindingKey.key()))
-                    // If the key is Set<Produced<T>>, then add bindings for Set<T>.
-                    .addAll(
-                        getExplicitBindings(
-                            keyFactory.implicitSetKeyFromProduced(bindingKey.key())))
-                    .build();
+            ImmutableSet.Builder<ContributionBinding> explicitBindingsBuilder =
+                ImmutableSet.builder();
+            // Add explicit bindings (those from modules and components).
+            explicitBindingsBuilder.addAll(getExplicitBindings(bindingKey.key()));
+            // If the key is Set<Produced<T>>, then add explicit bindings for Set<T>.
+            explicitBindingsBuilder.addAll(
+                getExplicitBindings(keyFactory.implicitSetKeyFromProduced(bindingKey.key())));
 
             // If the key is Map<K, V>, get its implicit binding keys, which are either
             // Map<K, Provider<V>> or Map<K, Producer<V>>, and grab their explicit bindings.
@@ -348,33 +342,31 @@ abstract class BindingGraph {
             ImmutableSet<ContributionBinding> explicitProducerMapBindings =
                 getExplicitBindings(keyFactory.implicitMapProducerKeyFrom(bindingKey.key()));
 
-            final Set<? extends ContributionBinding> resolvedContributionBindings;
-            if (!explicitBindingsForKey.isEmpty()) {
-              /* If there are any explicit bindings for this key, then combine those with any
-               * conflicting Map<K, Provider<V>> bindings and let the validator fail. */
-              resolvedContributionBindings =
-                  new ImmutableSet.Builder<ContributionBinding>()
-                      .addAll(explicitBindingsForKey)
-                      .addAll(explicitProviderMapBindings)
-                      .addAll(explicitProducerMapBindings)
-                      .build();
-            } else if (!explicitProducerMapBindings.isEmpty()) {
-              /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
-               * some explicit Map<K, Producer<V>> bindings, then this binding must have only the
-               * implicit dependency on Map<K, Producer<V>>. */
-              resolvedContributionBindings =
-                  ImmutableSet.of(productionBindingFactory.implicitMapOfProducerBinding(request));
+            if (!explicitProducerMapBindings.isEmpty()) {
+              /* If the binding key is Map<K, V>, and there are some explicit Map<K, Producer<V>>
+               * bindings, then add the synthetic binding that depends on Map<K, Producer<V>>. */
+              explicitBindingsBuilder.add(
+                  productionBindingFactory.implicitMapOfProducerBinding(request));
             } else if (!explicitProviderMapBindings.isEmpty()) {
-              /* If this binding is for Map<K, V> and there are no explicit Map<K, V> bindings but
-               * some explicit Map<K, Provider<V>> bindings, then this binding must have only the
-               * implicit dependency on Map<K, Provider<V>>. */
-              resolvedContributionBindings =
-                  ImmutableSet.of(provisionBindingFactory.implicitMapOfProviderBinding(request));
-            } else {
-              /* If there are no explicit bindings at all, look for an implicit @Inject-constructed
-               * binding. */
+              /* If the binding key is Map<K, V>, and there are some explicit Map<K, Provider<V>>
+               * bindings but no explicit Map<K, Producer<V>> bindings, then add the synthetic
+               * binding that depends on Map<K, Provider<V>>. */
+              explicitBindingsBuilder.add(
+                  provisionBindingFactory.implicitMapOfProviderBinding(request));
+            }
+
+            ImmutableSet<ContributionBinding> explicitBindings = explicitBindingsBuilder.build();
+
+            final Set<? extends ContributionBinding> resolvedContributionBindings;
+            if (explicitBindings.isEmpty()) {
+              /* If there are no explicit or synthetic bindings, use an implicit @Inject-
+               * constructed binding if there is one. */
               resolvedContributionBindings =
                   injectBindingRegistry.getOrFindProvisionBinding(bindingKey.key()).asSet();
+            } else {
+              /* Otherwise there is at least one binding. If the graph is invalid, the validator
+               * will report that. */
+              resolvedContributionBindings = explicitBindings;
             }
             return ResolvedBindings.forContributionBindings(
                 bindingKey,

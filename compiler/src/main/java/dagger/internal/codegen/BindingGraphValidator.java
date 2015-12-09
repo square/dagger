@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import dagger.Component;
@@ -51,6 +52,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -83,6 +85,7 @@ import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SU
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MAP;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
@@ -299,7 +302,7 @@ public class BindingGraphValidator {
             return true;
           }
           ImmutableListMultimap<ContributionType, ContributionBinding> contributionsByType =
-              resolvedBinding.contributionTypes();
+              contributionBindingsByType(resolvedBinding);
           if (contributionsByType.keySet().size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
@@ -334,6 +337,58 @@ public class BindingGraphValidator {
           throw new AssertionError();
       }
       return true;
+    }
+
+    /**
+     * Returns an object that contains all the same bindings as {@code resolvedBindings}, except
+     * that any {@link #SYNTHETIC_MAP} {@link ContributionBinding}s are replaced by the contribution
+     * bindings of their dependencies.
+     *
+     * <p>For example, if:
+     *
+     * <ul>
+     * <li>The bindings for {@code key1} are {@code A} and {@code B}.
+     * <li>{@code B} is a synthetic binding with a dependency on {@code key2}.
+     * <li>The bindings for {@code key2} are {@code C} and {@code D}.
+     * </ul>
+     *
+     * then {@code inlineSyntheticBindings(bindingsForKey1)} has bindings {@code A}, {@code C}, and
+     * {@code D}.
+     *
+     * <p>The replacement is repeated until none of the bindings are synthetic.
+     */
+    private ImmutableSet<ContributionBinding> inlineSyntheticContributions(
+        ResolvedBindings resolvedBinding) {
+      if (!Iterables.any(
+          resolvedBinding.contributionBindings(), ContributionBinding.isOfKind(SYNTHETIC_MAP))) {
+        return resolvedBinding.contributionBindings();
+      }
+
+      ImmutableSet.Builder<ContributionBinding> inlinedBindings = ImmutableSet.builder();
+
+      Queue<ContributionBinding> bindings =
+          new ArrayDeque<>(resolvedBinding.contributionBindings());
+
+      for (ContributionBinding binding = bindings.poll();
+          binding != null;
+          binding = bindings.poll()) {
+        if (binding.bindingKind().equals(SYNTHETIC_MAP)) {
+          BindingKey syntheticBindingDependency =
+              Iterables.getOnlyElement(binding.dependencies()).bindingKey();
+          ResolvedBindings syntheticBindingDependencyBindings =
+              subject.resolvedBindings().get(syntheticBindingDependency);
+          bindings.addAll(syntheticBindingDependencyBindings.contributionBindings());
+        } else {
+          inlinedBindings.add(binding);
+        }
+      }
+      return inlinedBindings.build();
+    }
+
+    private ImmutableListMultimap<ContributionType, ContributionBinding> contributionBindingsByType(
+        ResolvedBindings resolvedBinding) {
+      return Multimaps.index(
+          inlineSyntheticContributions(resolvedBinding), ContributionBinding.CONTRIBUTION_TYPE);
     }
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
@@ -822,18 +877,18 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
-      appendBindings(builder, resolvedBinding.contributionBindings(), 1);
+      appendBindings(builder, inlineSyntheticContributions(resolvedBinding), 1);
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
     private void reportMultipleBindingTypes(Deque<ResolvedRequest> path) {
-      ResolvedBindings resolvedBinding = path.peek().binding();
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
+      ResolvedBindings resolvedBinding = path.peek().binding();
       ImmutableListMultimap<ContributionType, ContributionBinding> bindingsByType =
-          resolvedBinding.contributionTypes();
+          contributionBindingsByType(resolvedBinding);
       for (ContributionType type :
           Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
         builder.append(INDENT);

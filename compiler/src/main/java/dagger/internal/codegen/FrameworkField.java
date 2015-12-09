@@ -18,7 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
-import dagger.MembersInjector;
+import dagger.internal.codegen.ContributionBinding.ContributionType;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
@@ -78,40 +78,22 @@ abstract class FrameworkField {
   }
 
   static FrameworkField createForResolvedBindings(ResolvedBindings resolvedBindings) {
+    return createWithTypeFromKey(
+        resolvedBindings.frameworkClass(),
+        resolvedBindings.bindingKey().key(),
+        frameworkFieldName(resolvedBindings));
+  }
+
+  private static String frameworkFieldName(ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
-    switch (bindingKey.kind()) {
-      case CONTRIBUTION:
-        switch (resolvedBindings.contributionType()) {
-          case SET:
-          case MAP:
-            return createWithTypeFromKey(
-                resolvedBindings.frameworkClass(),
-                bindingKey.key(),
-                KeyVariableNamer.INSTANCE.apply(bindingKey.key()));
-          case UNIQUE:
-            ContributionBinding binding = getOnlyElement(resolvedBindings.contributionBindings());
-            return createWithTypeFromKey(
-                resolvedBindings.frameworkClass(),
-                bindingKey.key(),
-                BINDING_ELEMENT_NAME.visit(binding.bindingElement()));
-          default:
-            throw new AssertionError();
-        }
-      case MEMBERS_INJECTION:
-        return createWithTypeFromKey(
-            MembersInjector.class,
-            bindingKey.key(),
-            CaseFormat.UPPER_CAMEL.to(
-                CaseFormat.LOWER_CAMEL,
-                resolvedBindings
-                    .membersInjectionBinding()
-                    .get()
-                    .bindingElement()
-                    .getSimpleName()
-                    .toString()));
-      default:
-        throw new AssertionError();
+    if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
+        && resolvedBindings.contributionType().equals(ContributionType.UNIQUE)) {
+      ContributionBinding binding = getOnlyElement(resolvedBindings.contributionBindings());
+      if (!binding.bindingKind().equals(ContributionBinding.Kind.SYNTHETIC_MAP)) {
+        return BINDING_ELEMENT_NAME.visit(binding.bindingElement());
+      }
     }
+    return KeyVariableNamer.INSTANCE.apply(bindingKey.key());
   }
 
   private static final ElementVisitor<String, Void> BINDING_ELEMENT_NAME =
