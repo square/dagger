@@ -22,7 +22,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Represents an operation to be
+ * Represents an operation whose results are memoized. Results returned by invocations of
+ * {@link #create(Object)} are memoized so that the same object is returned for multiple invocations
+ * of {@link #get(Object)} for the same key.
  */
 abstract class Memoizer<K, V> {
   private final Map<K, V> map;
