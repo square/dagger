@@ -38,6 +38,7 @@ import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class ProducerModuleFactoryGeneratorTest {
@@ -509,7 +510,7 @@ public class ProducerModuleFactoryGeneratorTest {
             "import javax.annotation.Generated;",
             "import javax.inject.Provider;",
             "",
-            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            GENERATED_ANNOTATION,
             "public final class TestModule_ProduceStringFactory extends AbstractProducer<String> {",
             "  private final TestModule module;",
             "  private final Executor executor;",

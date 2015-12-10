@@ -24,6 +24,7 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class InaccessibleTypeTest {
@@ -85,7 +86,7 @@ public class InaccessibleTypeTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+        GENERATED_ANNOTATION,
         "public final class DaggerTestComponent implements TestComponent {",
         "  @SuppressWarnings(\"rawtypes\")",
         "  private Provider nonPublicClass1Provider;",
@@ -210,7 +211,7 @@ public class InaccessibleTypeTest {
             "import dagger.MembersInjector;",
             "import javax.annotation.Generated;",
             "",
-            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
+            GENERATED_ANNOTATION,
             "public final class DaggerTestComponent implements TestComponent {",
             "  private MembersInjector<A> aMembersInjector;",
             "",
