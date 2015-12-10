@@ -64,7 +64,7 @@ public final class GraphAnalysisLoader extends Loader {
   @VisibleForTesting static TypeElement resolveType(Elements elements, String className) {
     int index = nextDollar(className, className, 0);
     if (index == -1) {
-      return elements.getTypeElement(className);
+      return getTypeElement(elements, className);
     }
     // have to test various possibilities of replacing '$' with '.' since '.' in a canonical name
     // of a nested type is replaced with '$' in the binary name.
@@ -87,7 +87,7 @@ public final class GraphAnalysisLoader extends Loader {
     sb.setCharAt(index, '.');
     int nextIndex = nextDollar(className, sb, index + 1);
     TypeElement type = nextIndex == -1
-        ? elements.getTypeElement(sb)
+        ? getTypeElement(elements, sb)
         : resolveType(elements, className, sb, nextIndex);
     if (type != null) {
       return type;
@@ -97,7 +97,7 @@ public final class GraphAnalysisLoader extends Loader {
     sb.setCharAt(index, '$');
     nextIndex = nextDollar(className, sb, index + 1);
     return nextIndex == -1
-        ? elements.getTypeElement(sb)
+        ? getTypeElement(elements, sb)
         : resolveType(elements, className, sb, nextIndex);
   }
 
@@ -119,6 +119,18 @@ public final class GraphAnalysisLoader extends Loader {
         continue;
       }
       return index;
+    }
+  }
+
+  private static TypeElement getTypeElement(Elements elements, CharSequence className) {
+    try {
+      return elements.getTypeElement(className);
+    } catch (ClassCastException e) {
+      // work-around issue in javac in Java 7 where querying for non-existent type can
+      // throw a ClassCastException
+      // TODO(jh): refer to Oracle Bug ID if/when one is assigned to bug report
+      // (Review ID: JI-9027367)
+      return null;
     }
   }
 
