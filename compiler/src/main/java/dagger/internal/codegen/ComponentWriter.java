@@ -147,6 +147,7 @@ final class ComponentWriter extends AbstractComponentWriter {
     javaWriters.add(javaWriter);
 
     ClassWriter componentWriter = javaWriter.addClass(name.simpleName());
+    componentWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getCanonicalName());
     componentWriter.addModifiers(PUBLIC, FINAL);
     componentWriter.setSupertype(componentDefinitionType());
     return componentWriter;

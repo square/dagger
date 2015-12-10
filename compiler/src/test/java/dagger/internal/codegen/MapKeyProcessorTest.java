@@ -25,7 +25,6 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class MapKeyProcessorTest {
@@ -58,7 +57,7 @@ public class MapKeyProcessorTest {
             "import com.google.auto.value.AutoAnnotation;",
             "import javax.annotation.Generated;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class PathKeyCreator {",
             "  @AutoAnnotation",
             "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
@@ -105,7 +104,7 @@ public class MapKeyProcessorTest {
             "import javax.annotation.Generated;",
             "import test.Container.PathKey",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class Container$PathKeyCreator {",
             "  @AutoAnnotation",
             "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
@@ -207,7 +206,7 @@ public class MapKeyProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Handler> mapOfPathKeyAndProviderOfHandlerContribution1;",
         "  private Provider<Handler> mapOfPathKeyAndProviderOfHandlerContribution2;",
@@ -383,7 +382,7 @@ public class MapKeyProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Handler> mapOfPathKeyAndProviderOfHandlerContribution1;",
         "  private Provider<Handler> mapOfPathKeyAndProviderOfHandlerContribution2;",

@@ -27,7 +27,6 @@ import dagger.internal.codegen.writer.TypeWriter;
 import java.io.IOException;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
-import javax.lang.model.util.Elements;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -42,11 +41,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 abstract class SourceFileGenerator<T> {
   private final Filer filer;
-  private final boolean generatedAnnotationAvailable;
 
-  SourceFileGenerator(Filer filer, Elements elements) {
+  SourceFileGenerator(Filer filer) {
     this.filer = checkNotNull(filer);
-    generatedAnnotationAvailable = elements.getTypeElement("javax.annotation.Generated") != null;
   }
 
   final void generate(T input) throws SourceFileGenerationException {
@@ -56,7 +53,6 @@ abstract class SourceFileGenerator<T> {
     try {
       ImmutableSet<JavaWriter> writers = write(generatedTypeName, input);
       for (JavaWriter javaWriter : writers) {
-        javaWriter.markGenerated(generatedAnnotationAvailable);
         try {
           javaWriter.file(filer, originatingElements);
         } catch (IOException e) {

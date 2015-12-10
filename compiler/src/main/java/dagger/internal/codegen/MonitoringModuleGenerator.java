@@ -35,7 +35,6 @@ import javax.annotation.processing.Filer;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -47,8 +46,8 @@ final class MonitoringModuleGenerator extends SourceFileGenerator<TypeElement> {
       ParameterizedTypeName.create(
           Set.class, ClassName.fromClass(ProductionComponentMonitor.Factory.class));
 
-  MonitoringModuleGenerator(Filer filer, Elements elements) {
-    super(filer, elements);
+  MonitoringModuleGenerator(Filer filer) {
+    super(filer);
   }
 
   @Override
@@ -70,6 +69,7 @@ final class MonitoringModuleGenerator extends SourceFileGenerator<TypeElement> {
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, TypeElement componentElement) {
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
     ClassWriter classWriter = writer.addClass(generatedTypeName.simpleName());
+    classWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     classWriter.annotate(Module.class);
     classWriter.addModifiers(FINAL);
 

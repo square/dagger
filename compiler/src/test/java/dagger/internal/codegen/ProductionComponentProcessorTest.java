@@ -23,7 +23,6 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class ProductionComponentProcessorTest {
@@ -147,7 +146,7 @@ public class ProductionComponentProcessorTest {
             "import test.TestClass.BModule;",
             "import test.TestClass.SimpleComponent;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class DaggerTestClass_SimpleComponent implements SimpleComponent {",
             "  private Provider<SimpleComponent> simpleComponentProvider;",
             "  private Provider<Set<Factory>> setOfFactoryContribution1Provider;",

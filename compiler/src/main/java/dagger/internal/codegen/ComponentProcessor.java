@@ -103,16 +103,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
     this.factoryGenerator =
-        new FactoryGenerator(
-            filer, elements, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
+        new FactoryGenerator(filer, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
     this.membersInjectorGenerator =
-        new MembersInjectorGenerator(filer, elements, DependencyRequestMapper.FOR_PROVIDER);
+        new MembersInjectorGenerator(filer, DependencyRequestMapper.FOR_PROVIDER);
     ComponentGenerator componentGenerator =
         new ComponentGenerator(filer, elements, types, keyFactory, nullableDiagnosticType);
     ProducerFactoryGenerator producerFactoryGenerator =
-        new ProducerFactoryGenerator(filer, elements, DependencyRequestMapper.FOR_PRODUCER);
-    MonitoringModuleGenerator monitoringModuleGenerator =
-        new MonitoringModuleGenerator(filer, elements);
+        new ProducerFactoryGenerator(filer, DependencyRequestMapper.FOR_PRODUCER);
+    MonitoringModuleGenerator monitoringModuleGenerator = new MonitoringModuleGenerator(filer);
 
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(elements, keyFactory);
@@ -141,7 +139,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             productionBindingFactory);
 
-    MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer, elements);
+    MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer);
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(

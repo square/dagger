@@ -49,7 +49,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -76,12 +75,9 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   private final DependencyRequestMapper dependencyRequestMapper;
   private final Diagnostic.Kind nullableValidationType;
 
-  FactoryGenerator(
-      Filer filer,
-      Elements elements,
-      DependencyRequestMapper dependencyRequestMapper,
+  FactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper,
       Diagnostic.Kind nullableValidationType) {
-    super(filer, elements);
+    super(filer);
     this.dependencyRequestMapper = dependencyRequestMapper;
     this.nullableValidationType = nullableValidationType;
   }
@@ -153,6 +149,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         throw new AssertionError();
     }
 
+    factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     factoryWriter.addModifiers(PUBLIC);
     factoryWriter.addImplementedType(
         ParameterizedTypeName.create(ClassName.fromClass(Factory.class), providedTypeName));

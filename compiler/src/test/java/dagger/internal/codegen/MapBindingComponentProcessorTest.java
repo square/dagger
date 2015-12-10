@@ -25,7 +25,6 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class MapBindingComponentProcessorTest {
@@ -118,7 +117,7 @@ public class MapBindingComponentProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Handler> mapOfPathEnumAndProviderOfHandlerContribution1;",
         "  private Provider<Handler> mapOfPathEnumAndProviderOfHandlerContribution2;",
@@ -278,7 +277,7 @@ public class MapBindingComponentProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Handler> mapOfStringAndProviderOfHandlerContribution1;",
         "  private Provider<Handler> mapOfStringAndProviderOfHandlerContribution2;",
@@ -445,7 +444,7 @@ public class MapBindingComponentProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Handler> mapOfWrappedClassKeyAndProviderOfHandlerContribution1;",
         "  private Provider<Handler> mapOfWrappedClassKeyAndProviderOfHandlerContribution2;",
@@ -617,7 +616,7 @@ public class MapBindingComponentProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Handler> mapOfPathEnumAndProviderOfHandlerContribution1;",
         "  private Provider<Handler> mapOfPathEnumAndProviderOfHandlerContribution2;",
@@ -743,7 +742,7 @@ public class MapBindingComponentProcessorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class DaggerTestComponent implements TestComponent {",
         "  private Provider<Map<String, String>> provideAMapProvider;",
         "",

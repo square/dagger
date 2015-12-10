@@ -38,7 +38,6 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
@@ -374,7 +373,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -420,7 +419,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -461,7 +460,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -545,7 +544,7 @@ public class ModuleFactoryGeneratorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideObjectsFactory implements Factory<List<Object>> {",
         "  private final TestModule module;",
         "  private final Provider<Object> aProvider;",
@@ -616,7 +615,7 @@ public class ModuleFactoryGeneratorTest {
         "import java.util.Set;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideStringFactory implements Factory<Set<String>> {",
         "  private final TestModule module;",
         "",
@@ -667,7 +666,7 @@ public class ModuleFactoryGeneratorTest {
         "import java.util.Set;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideWildcardListFactory implements "
             + "Factory<Set<List<List<?>>>> {",
         "  private final TestModule module;",
@@ -714,7 +713,7 @@ public class ModuleFactoryGeneratorTest {
         "import java.util.Set;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class TestModule_ProvideStringsFactory implements Factory<Set<String>> {",
         "  private final TestModule module;",
         "",
@@ -988,7 +987,7 @@ public class ModuleFactoryGeneratorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class ParentModule_ProvideListBFactory<A extends CharSequence,",
         "    B, C extends Number & Comparable<C>> implements Factory<List<B>> {",
         "  private final ParentModule<A, B, C> module;",
@@ -1023,7 +1022,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class ChildNumberModule_ProvideNumberFactory implements Factory<Number> {",
         "  private final ChildNumberModule module;",
         "",
@@ -1052,7 +1051,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION,
+        "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
         "public final class ChildIntegerModule_ProvideIntegerFactory",
         "    implements Factory<Integer> {",
         "  private final ChildIntegerModule module;",

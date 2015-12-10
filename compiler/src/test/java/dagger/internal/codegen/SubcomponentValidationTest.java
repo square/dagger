@@ -24,7 +24,6 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public final class SubcomponentValidationTest {
@@ -348,7 +347,7 @@ public final class SubcomponentValidationTest {
             "import javax.annotation.Generated;",
             "import javax.inject.Provider;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class DaggerParentComponent implements ParentComponent {",
             "  private MembersInjector<Dep1> dep1MembersInjector;",
             "  private Provider<Dep1> dep1Provider;",
@@ -512,7 +511,7 @@ public final class SubcomponentValidationTest {
             "import test.Bar.Sub;",
             "import test.Foo;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class DaggerParentComponent implements ParentComponent {",
             "  private DaggerParentComponent(Builder builder) {",
             "    assert builder != null;",
@@ -612,7 +611,7 @@ public final class SubcomponentValidationTest {
             "import javax.annotation.Generated;",
             "import test.deep.many.levels.that.match.test.Sub;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class DaggerParentComponent implements ParentComponent {",
             "  private DaggerParentComponent(Builder builder) {",
             "    assert builder != null;",
@@ -706,7 +705,7 @@ public final class SubcomponentValidationTest {
             "import top1.a.b.c.d.E.F.Sub;",
             "import top2.a.b.c.d.E.F;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class DaggerParentComponent implements ParentComponent {",
             "  private DaggerParentComponent(Builder builder) {",
             "    assert builder != null;",
@@ -782,7 +781,7 @@ public final class SubcomponentValidationTest {
             "import javax.annotation.Generated;",
             "import test.Foo.C;",
             "",
-            GENERATED_ANNOTATION,
+            "@Generated(\"dagger.internal.codegen.ComponentProcessor\")",
             "public final class DaggerC implements test.C {",
             "  private DaggerC(Builder builder) {",
             "    assert builder != null;",
