@@ -51,6 +51,7 @@ import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
@@ -70,8 +71,9 @@ import static javax.lang.model.element.Modifier.STATIC;
 final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBinding> {
   private final DependencyRequestMapper dependencyRequestMapper;
 
-  ProducerFactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper) {
-    super(filer);
+  ProducerFactoryGenerator(
+      Filer filer, Elements elements, DependencyRequestMapper dependencyRequestMapper) {
+    super(filer, elements);
     this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
@@ -133,7 +135,6 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
         .addSnippet("assert executor != null;")
         .addSnippet("this.executor = executor;");
 
-    factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     factoryWriter.addModifiers(PUBLIC);
     factoryWriter.addModifiers(FINAL);
     factoryWriter.setSuperclass(

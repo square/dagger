@@ -32,13 +32,13 @@ import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.TypeWriter;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
 import static dagger.internal.codegen.MapKeys.getMapKeyCreatorClassName;
@@ -90,8 +90,8 @@ final class MapKeyGenerator extends SourceFileGenerator<MapKeyCreatorSpecificati
     }
   }
 
-  MapKeyGenerator(Filer filer) {
-    super(filer);
+  MapKeyGenerator(Filer filer, Elements elements) {
+    super(filer, elements);
   }
 
   @Override
@@ -115,7 +115,6 @@ final class MapKeyGenerator extends SourceFileGenerator<MapKeyCreatorSpecificati
       ClassName generatedTypeName, MapKeyCreatorSpecification mapKeyCreatorType) {
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
     TypeWriter mapKeyCreatorWriter = writer.addClass(generatedTypeName.simpleName());
-    mapKeyCreatorWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     mapKeyCreatorWriter.addModifiers(PUBLIC, FINAL);
 
     for (TypeElement annotationElement :
