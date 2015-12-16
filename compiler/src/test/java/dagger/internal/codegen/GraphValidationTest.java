@@ -476,7 +476,7 @@ public class GraphValidationTest {
         .compilesWithoutError();
         //.compilesWithoutWarning(); //TODO(cgruber)
   }
-  
+
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -560,7 +560,7 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(24);
   }
-  
+
   @Test public void duplicateExplicitBindings_MultipleProvisionTypes() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -631,7 +631,7 @@ public class GraphValidationTest {
         .withErrorContaining(expectedSetError).in(component).onLine(43)
         .and().withErrorContaining(expectedMapError).in(component).onLine(44);
   }
-  
+
   @Test public void duplicateBindings_TruncateAfterLimit() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -1139,5 +1139,149 @@ public class GraphValidationTest {
         .withErrorContaining(mediumErrorMessage).in(mediumLifetime)
         .and()
         .withErrorContaining(shortErrorMessage).in(shortLifetime);
+  }
+
+  @Test
+  @Ignore("This bug should be fixed")
+  public void subcomponentBindingConflictsWithParent() {
+    JavaFileObject parentChildConflict =
+        JavaFileObjects.forSourceLines(
+            "test.ParentChildConflict",
+            "package test;",
+            "",
+            "import javax.inject.Qualifier;",
+            "",
+            "@Qualifier @interface ParentChildConflict {}");
+    JavaFileObject parentGrandchildConflict =
+        JavaFileObjects.forSourceLines(
+            "test.ParentGrandchildConflict",
+            "package test;",
+            "",
+            "import javax.inject.Qualifier;",
+            "",
+            "@Qualifier @interface ParentGrandchildConflict {}");
+    JavaFileObject childGrandchildConflict =
+        JavaFileObjects.forSourceLines(
+            "test.ChildGrandchildConflict",
+            "package test;",
+            "",
+            "import javax.inject.Qualifier;",
+            "",
+            "@Qualifier @interface ChildGrandchildConflict {}");
+    JavaFileObject parent =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Component(modules = Parent.ParentModule.class)",
+            "interface Parent {",
+            "  @ParentChildConflict Object object();",
+            "  @ParentGrandchildConflict Object object();",
+            "",
+            "  Child child();",
+            "",
+            "  @Module",
+            "  static class ParentModule {",
+            "    @Provides @ParentChildConflict static Object parentChildConflict() {",
+            "      return \"parent\";",
+            "    }",
+            "",
+            "    @Provides @ParentChildConflict static Object parentGrandchildConflict() {",
+            "      return \"parent\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject child =
+        JavaFileObjects.forSourceLines(
+            "test.Child",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = Child.ChildModule.class)",
+            "interface Child {",
+            "  @ParentChildConflict Object object();",
+            "  @ChildGrandchildConflict Object object();",
+            "",
+            "  Grandchild grandchild();",
+            "",
+            "  @Module",
+            "  static class ChildModule {",
+            "    @Provides @ParentChildConflict static Object parentChildConflict() {",
+            "      return \"child\";",
+            "    }",
+            "",
+            "    @Provides @ChildGrandchildConflict static Object childGrandchildConflict() {",
+            "      return \"child\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject grandchild =
+        JavaFileObjects.forSourceLines(
+            "test.Grandchild",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = Grandchild.GrandchildModule.class)",
+            "interface Grandchild {",
+            "  Object object();",
+            "",
+            "  @Module",
+            "  static class GrandchildModule {",
+            "    @Provides @ParentGrandchildConflict static Object parentGrandchildConflict() {",
+            "      return \"grandchild\";",
+            "    }",
+            "",
+            "    @Provides @ChildGrandchildConflict static Object childGrandchildConflict() {",
+            "      return \"grandchild\";",
+            "    }",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(
+            ImmutableList.of(
+                parentChildConflict,
+                parentGrandchildConflict,
+                childGrandchildConflict,
+                parent,
+                child,
+                grandchild))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@ParentChildConflict Object is rebound in test.Child:\n"
+                + "      @Provides @ParentChildConflict Object"
+                + " test.Parent.ParentModule.parentChildConflict()\n"
+                + "      @Provides @ParentChildConflict Object"
+                + " test.Child.ChildModule.parentChildConflict()\n")
+        .in(parent)
+        .onLine(12)
+        .and()
+        .withErrorContaining(
+            "@ParentGrandchildConflict Object is rebound in test.Grandchild:\n"
+                + "      @Provides @ParentGrandchildConflict Object"
+                + " test.Parent.ParentModule.parentGrandchildConflict()\n"
+                + "      @Provides @ParentGrandchildConflict Object"
+                + " test.Grandchild.GrandchildModule.parentGrandchildConflict()\n")
+        .in(parent)
+        .onLine(12)
+        .and()
+        .withErrorContaining(
+            "@ChildGrandchildConflict Object is rebound in test.Grandchild:\n"
+                + "      @Provides @ChildGrandchildConflict Object"
+                + " test.Child.ChildModule.childGrandchildConflict()\n"
+                + "      @Provides @ChildGrandchildConflict Object"
+                + " test.Grandchild.GrandchildModule.childGrandchildConflict()\n")
+        .in(child)
+        .onLine(12);
   }
 }
