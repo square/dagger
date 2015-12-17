@@ -71,7 +71,7 @@ final class InjectBindingRegistry {
       for (B binding = bindingsRequiringGeneration.poll();
           binding != null;
           binding = bindingsRequiringGeneration.poll()) {
-        checkState(!binding.hasNonDefaultTypeParameters());
+        checkState(!binding.unresolved().isPresent());
         generator.generate(binding);
         materializedBindingKeys.add(binding.key());
       }
@@ -109,7 +109,7 @@ final class InjectBindingRegistry {
 
     /** Returns true if the binding needs to be generated. */
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
-      return !binding.hasNonDefaultTypeParameters()
+      return !binding.unresolved().isPresent()
           && elements.getTypeElement(factoryName.canonicalName()) == null
           && !materializedBindingKeys.contains(binding.key())
           && !bindingsRequiringGeneration.contains(binding);
@@ -120,7 +120,7 @@ final class InjectBindingRegistry {
     private void tryToCacheBinding(B binding) {
       // We only cache resolved bindings or unresolved bindings w/o type arguments.
       // Unresolved bindings w/ type arguments aren't valid for the object graph.
-      if (binding.hasNonDefaultTypeParameters()
+      if (binding.unresolved().isPresent()
           || binding.bindingTypeElement().getTypeParameters().isEmpty()) {
         Key key = binding.key();
         Binding previousValue = bindingsByKey.put(key, binding);
@@ -174,9 +174,9 @@ final class InjectBindingRegistry {
       ProvisionBinding binding, boolean warnIfNotAlreadyGenerated) {
     ClassName factoryName = generatedClassNameForBinding(binding);
     provisionBindings.tryRegisterBinding(binding, factoryName, warnIfNotAlreadyGenerated);
-    if (binding.hasNonDefaultTypeParameters()) {
+    if (binding.unresolved().isPresent()) {
       provisionBindings.tryToGenerateBinding(
-          provisionBindingFactory.unresolve(binding), factoryName, warnIfNotAlreadyGenerated);
+          binding.unresolved().get(), factoryName, warnIfNotAlreadyGenerated);
     }
     return binding;
   }
@@ -204,11 +204,9 @@ final class InjectBindingRegistry {
     ClassName membersInjectorName = generatedClassNameForBinding(binding);
     membersInjectionBindings.tryRegisterBinding(
         binding, membersInjectorName, warnIfNotAlreadyGenerated);
-    if (binding.hasNonDefaultTypeParameters()) {
+    if (binding.unresolved().isPresent()) {
       membersInjectionBindings.tryToGenerateBinding(
-          membersInjectionBindingFactory.unresolve(binding),
-          membersInjectorName,
-          warnIfNotAlreadyGenerated);
+          binding.unresolved().get(), membersInjectorName, warnIfNotAlreadyGenerated);
     }
     return binding;
   }

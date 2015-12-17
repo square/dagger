@@ -62,10 +62,18 @@ import static javax.lang.model.element.Modifier.STATIC;
 @AutoValue
 abstract class MembersInjectionBinding extends Binding {
   @Override
+  abstract Optional<MembersInjectionBinding> unresolved();
+
+  @Override
   TypeElement bindingElement() {
     return MoreElements.asType(super.bindingElement());
   }
-        
+
+  @Override
+  Set<DependencyRequest> implicitDependencies() {
+    return dependencies();
+  }
+
   /** The set of individual sites where {@link Inject} is applied. */
   abstract ImmutableSortedSet<InjectionSite> injectionSites();
 
@@ -166,13 +174,6 @@ abstract class MembersInjectionBinding extends Binding {
                   containingType, fieldElement, resolved)));
     }
 
-    /** Returns an unresolved version of this binding. */
-    MembersInjectionBinding unresolve(MembersInjectionBinding binding) {
-      checkState(binding.hasNonDefaultTypeParameters());
-      DeclaredType unresolved = MoreTypes.asDeclared(binding.bindingElement().asType());
-      return forInjectedType(unresolved, Optional.<TypeMirror>absent());
-    }
-
     /** Returns true if the type has some injected members in itself or any of its super classes. */
     boolean hasInjectedMembers(DeclaredType declaredType) {
       return !getInjectionSites(declaredType).isEmpty();
@@ -224,9 +225,12 @@ abstract class MembersInjectionBinding extends Binding {
           SourceElement.forElement(typeElement),
           key,
           dependencies,
-          dependencies,
           findBindingPackage(key),
-          hasNonDefaultTypeParameters(typeElement, key.type(), types),
+          hasNonDefaultTypeParameters(typeElement, key.type(), types)
+              ? Optional.of(
+                  forInjectedType(
+                      MoreTypes.asDeclared(typeElement.asType()), Optional.<TypeMirror>absent()))
+              : Optional.<MembersInjectionBinding>absent(),
           injectionSites,
           parentKey);
     }

@@ -108,8 +108,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     constructorWriter.addModifiers(PUBLIC);
 
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(
-            dependencyRequestMapper, binding.implicitDependencies());
+        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
 
     constructorWriter
         .body()

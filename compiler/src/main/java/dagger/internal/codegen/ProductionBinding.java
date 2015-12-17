@@ -50,7 +50,12 @@ abstract class ProductionBinding extends ContributionBinding {
   public BindingType bindingType() {
     return BindingType.PRODUCTION;
   }
-  
+
+  @Override
+  Optional<ProductionBinding> unresolved() {
+    return Optional.absent();
+  }
+
   @Override
   Provides.Type provisionType() {
     return Provides.Type.valueOf(productionType().name());
@@ -113,7 +118,6 @@ abstract class ProductionBinding extends ContributionBinding {
           key,
           dependencies,
           findBindingPackage(key),
-          false,
           ConfigurationAnnotations.getNullableType(producesMethod),
           Optional.<DependencyRequest>absent(),
           kind,
@@ -136,7 +140,6 @@ abstract class ProductionBinding extends ContributionBinding {
           mapOfValueRequest.key(),
           ImmutableSet.of(implicitMapOfProducerRequest),
           findBindingPackage(mapOfValueRequest.key()),
-          false,
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SYNTHETIC_MAP,
@@ -155,7 +158,6 @@ abstract class ProductionBinding extends ContributionBinding {
           keyFactory.forProductionComponentMethod(componentMethod),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
-          false,
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.COMPONENT_PRODUCTION,

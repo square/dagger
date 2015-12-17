@@ -116,7 +116,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     Set<String> delegateMethods = new HashSet<>();
 
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.hasNonDefaultTypeParameters()); 
+    checkState(!binding.unresolved().isPresent());
 
     TypeName injectedTypeName = TypeNames.forTypeMirror(binding.key().type());
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
@@ -144,8 +144,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         "}"));
 
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(
-            dependencyRequestMapper, ImmutableSet.copyOf(binding.dependencies()));
+        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
 
     ImmutableMap.Builder<BindingKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();

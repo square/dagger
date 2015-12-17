@@ -59,14 +59,11 @@ import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
@@ -800,7 +797,7 @@ abstract class AbstractComponentWriter {
 
     ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
     if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
-      initializationSnippets.add(initializeDelegateFactories(binding));
+      initializationSnippets.add(initializeDelegateFactoriesForUninitializedDependencies(binding));
       initializationSnippets.add(
           initializeMember(
               resolvedBindings.bindingKey(), initializeFactoryForContributionBinding(binding)));
@@ -814,7 +811,7 @@ abstract class AbstractComponentWriter {
 
     MembersInjectionBinding binding = resolvedBindings.membersInjectionBinding().get();
     if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
-      initializationSnippets.add(initializeDelegateFactories(binding));
+      initializationSnippets.add(initializeDelegateFactoriesForUninitializedDependencies(binding));
       initializationSnippets.add(
           initializeMember(
               resolvedBindings.bindingKey(), initializeMembersInjectorForBinding(binding)));
@@ -823,16 +820,17 @@ abstract class AbstractComponentWriter {
     return Snippet.concat(initializationSnippets.build());
   }
 
-  private Snippet initializeDelegateFactories(Binding binding) {
+  /**
+   * Initializes delegate factories for any dependencies of {@code binding} that are uninitialized
+   * because of a dependency cycle.
+   */
+  private Snippet initializeDelegateFactoriesForUninitializedDependencies(Binding binding) {
     ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
 
-    for (Collection<DependencyRequest> requestsForKey :
-        indexDependenciesByUnresolvedKey(types, binding.dependencies()).asMap().values()) {
-      BindingKey dependencyKey =
-          Iterables.getOnlyElement(
-              FluentIterable.from(requestsForKey)
-                  .transform(DependencyRequest.BINDING_KEY_FUNCTION)
-                  .toSet());
+    for (BindingKey dependencyKey :
+        FluentIterable.from(binding.implicitDependencies())
+            .transform(DependencyRequest.BINDING_KEY_FUNCTION)
+            .toSet()) {
       if (!getMemberSelect(dependencyKey).staticMember()
           && getInitializationState(dependencyKey).equals(UNINITIALIZED)) {
         initializationSnippets.add(
@@ -960,7 +958,8 @@ abstract class AbstractComponentWriter {
               && !binding.bindingElement().getModifiers().contains(STATIC)) {
             parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
           }
-          parameters.addAll(getDependencyParameters(binding, DependencyRequestMapper.FOR_PROVIDER));
+          parameters.addAll(
+              getDependencyParameterSnippets(binding, DependencyRequestMapper.FOR_PROVIDER));
 
           Snippet factorySnippet =
               Snippet.format(
@@ -1006,7 +1005,8 @@ abstract class AbstractComponentWriter {
           parameters.add(
               getComponentContributionSnippet(
                   graph.componentDescriptor().executorDependency().get()));
-          parameters.addAll(getDependencyParameters(binding, DependencyRequestMapper.FOR_PRODUCER));
+          parameters.addAll(
+              getDependencyParameterSnippets(binding, DependencyRequestMapper.FOR_PRODUCER));
 
           return Snippet.format(
               "new %s(%s)",
@@ -1041,7 +1041,7 @@ abstract class AbstractComponentWriter {
         return Snippet.format("%s.noOp()", ClassName.fromClass(MembersInjectors.class));
       case INJECT_MEMBERS:
         List<Snippet> parameters =
-            getDependencyParameters(binding, DependencyRequestMapper.FOR_PROVIDER);
+            getDependencyParameterSnippets(binding, DependencyRequestMapper.FOR_PROVIDER);
         return Snippet.format(
             "%s.create(%s)",
             membersInjectorNameForType(binding.bindingElement()),
@@ -1051,54 +1051,35 @@ abstract class AbstractComponentWriter {
     }
   }
 
-  private List<Snippet> getDependencyParameters(
+  /**
+   * The snippets that represent factory arguments for the dependencies of a binding.
+   */
+  private List<Snippet> getDependencyParameterSnippets(
       Binding binding, DependencyRequestMapper dependencyRequestMapper) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-    Set<Key> keysSeen = new HashSet<>();
-    for (Collection<DependencyRequest> requestsForKey :
-        indexDependenciesByUnresolvedKey(types, binding.implicitDependencies()).asMap().values()) {
-      Set<BindingKey> requestedBindingKeys = new HashSet<>();
-      for (DependencyRequest dependencyRequest : requestsForKey) {
-        Element requestElement = dependencyRequest.requestElement();
-        TypeMirror typeMirror = typeMirrorAsMemberOf(binding.bindingTypeElement(), requestElement);
-        Key key = keyFactory.forQualifiedType(dependencyRequest.key().qualifier(), typeMirror);
-        if (keysSeen.add(key)) {
-          requestedBindingKeys.add(dependencyRequest.bindingKey());
-        }
-      }
-      if (!requestedBindingKeys.isEmpty()) {
-        Class<?> frameworkClass = dependencyRequestMapper.getFrameworkClass(requestsForKey);
-        BindingKey key = Iterables.getOnlyElement(requestedBindingKeys);
-        ResolvedBindings resolvedBindings = graph.resolvedBindings().get(key);
-        Snippet frameworkSnippet = getMemberSelect(key).getSnippetWithRawTypeCastFor(name);
-        if (resolvedBindings.frameworkClass().equals(Provider.class)
-            && frameworkClass.equals(Producer.class)) {
-          parameters.add(
-              Snippet.format(
-                  "%s.producerFromProvider(%s)",
-                  ClassName.fromClass(Producers.class),
-                  frameworkSnippet));
-        } else {
-          parameters.add(frameworkSnippet);
-        }
+    for (Collection<DependencyRequest> dependencyRequestsForUnresolvedKey :
+        indexDependenciesByUnresolvedKey(binding).asMap().values()) {
+      BindingKey requestedKey =
+          Iterables.getOnlyElement(
+              FluentIterable.from(dependencyRequestsForUnresolvedKey)
+                  .transform(DependencyRequest.BINDING_KEY_FUNCTION)
+                  .toSet());
+      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
+      Snippet frameworkSnippet = getMemberSelect(requestedKey).getSnippetWithRawTypeCastFor(name);
+      if (resolvedBindings.frameworkClass().equals(Provider.class)
+          && dependencyRequestMapper
+              .getFrameworkClass(dependencyRequestsForUnresolvedKey)
+              .equals(Producer.class)) {
+        parameters.add(
+            Snippet.format(
+                "%s.producerFromProvider(%s)",
+                ClassName.fromClass(Producers.class),
+                frameworkSnippet));
+      } else {
+        parameters.add(frameworkSnippet);
       }
     }
     return parameters.build();
-  }
-
-  // TODO(dpb): Investigate use of asMemberOf here. Why aren't the dependency requests already
-  // resolved?
-  private TypeMirror typeMirrorAsMemberOf(TypeElement bindingTypeElement, Element requestElement) {
-    TypeMirror requestType = requestElement.asType();
-    if (requestType.getKind() == TypeKind.TYPEVAR) {
-      return types.asMemberOf(
-          MoreTypes.asDeclared(bindingTypeElement.asType()),
-          (requestElement.getKind() == ElementKind.PARAMETER)
-              ? MoreTypes.asElement(requestType)
-              : requestElement);
-    } else {
-      return requestType;
-    }
   }
 
   private Snippet initializeMapBinding(ResolvedBindings resolvedBindings) {

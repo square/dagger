@@ -54,12 +54,15 @@ import static javax.lang.model.element.ElementKind.METHOD;
  */
 @AutoValue
 abstract class ProvisionBinding extends ContributionBinding {
-  
+
   @Override
   public BindingType bindingType() {
     return BindingType.PROVISION;
   }
-  
+
+  @Override
+  abstract Optional<ProvisionBinding> unresolved();
+
   @Override
   abstract Scope scope();
   
@@ -75,13 +78,6 @@ abstract class ProvisionBinding extends ContributionBinding {
       this.types = types;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;
-    }
-
-    /** Returns an unresolved version of this binding. */
-    ProvisionBinding unresolve(ProvisionBinding binding) {
-      checkState(binding.hasNonDefaultTypeParameters());
-      return forInjectConstructor((ExecutableElement) binding.bindingElement(),
-          Optional.<TypeMirror>absent());
     }
 
     /**
@@ -128,11 +124,13 @@ abstract class ProvisionBinding extends ContributionBinding {
           key,
           dependencies,
           findBindingPackage(key),
-          hasNonDefaultTypeParameters(bindingTypeElement, key.type(), types),
           Optional.<DeclaredType>absent(),
           membersInjectionRequest,
           Kind.INJECTION,
           Provides.Type.UNIQUE,
+          hasNonDefaultTypeParameters(bindingTypeElement, key.type(), types)
+              ? Optional.of(forInjectConstructor(constructorElement, Optional.<TypeMirror>absent()))
+              : Optional.<ProvisionBinding>absent(),
           scope);
     }
 
@@ -175,11 +173,11 @@ abstract class ProvisionBinding extends ContributionBinding {
           key,
           dependencies,
           findBindingPackage(key),
-          false /* no non-default parameter types */,
           ConfigurationAnnotations.getNullableType(providesMethod),
           Optional.<DependencyRequest>absent(),
           Kind.PROVISION,
           providesAnnotation.type(),
+          Optional.<ProvisionBinding>absent(),
           scope);
     }
     
@@ -199,11 +197,11 @@ abstract class ProvisionBinding extends ContributionBinding {
           mapOfValueRequest.key(),
           ImmutableSet.of(implicitMapOfProviderRequest),
           findBindingPackage(mapOfValueRequest.key()),
-          false /* no non-default parameter types */,
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SYNTHETIC_MAP,
           Provides.Type.UNIQUE,
+          Optional.<ProvisionBinding>absent(),
           scopeOf(implicitMapOfProviderRequest.requestElement()));
     }
 
@@ -214,11 +212,11 @@ abstract class ProvisionBinding extends ContributionBinding {
           keyFactory.forComponent(componentDefinitionType.asType()),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
-          false /* no non-default parameter types */,
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
+          Optional.<ProvisionBinding>absent(),
           Scope.unscoped());
     }
 
@@ -232,11 +230,11 @@ abstract class ProvisionBinding extends ContributionBinding {
           keyFactory.forComponentMethod(componentMethod),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
-          false /* no non-default parameter types */,
           ConfigurationAnnotations.getNullableType(componentMethod),
           Optional.<DependencyRequest>absent(),
           Kind.COMPONENT_PROVISION,
           Provides.Type.UNIQUE,
+          Optional.<ProvisionBinding>absent(),
           scope);
     }
 
@@ -251,11 +249,11 @@ abstract class ProvisionBinding extends ContributionBinding {
           keyFactory.forSubcomponentBuilderMethod(subcomponentBuilderMethod, declaredContainer),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
-          false /* no non-default parameter types */,
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SUBCOMPONENT_BUILDER,
           Provides.Type.UNIQUE,
+          Optional.<ProvisionBinding>absent(),
           Scope.unscoped());
     }
   }

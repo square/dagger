@@ -142,10 +142,11 @@ abstract class Binding implements HasBindingType, HasKey, HasSourceElement {
   }
 
   /**
-   * Returns true if this is a binding for a key that has a different type parameter list than the
-   * element it's providing.
+   * if this binding's key's type parameters are different from those of the
+   * {@link #bindingTypeElement()}, this is the binding for the {@link #bindingTypeElement()}'s
+   * unresolved type.
    */
-  abstract boolean hasNonDefaultTypeParameters();
+  abstract Optional<? extends Binding> unresolved();
 
   /**
    * The scope of this binding.
