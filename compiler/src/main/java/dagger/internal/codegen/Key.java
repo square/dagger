@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
+import dagger.Multibindings;
 import dagger.Provides;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
@@ -291,6 +292,28 @@ abstract class Key {
               method,
               Optional.<Provides.Type>absent(),
               Optional.of(producesAnnotation.type()));
+      return forMethod(method, keyType);
+    }
+    
+    /**
+     * Returns the key for a method in a {@link Multibindings @Multibindings} interface.
+     *
+     * The key's type is either {@code Set<T>} or {@code Map<K, F<V>>}, where {@code F} is either
+     * {@link Provider} or {@link Producer}, depending on {@code bindingType}.
+     */
+    Key forMultibindingsMethod(
+        BindingType bindingType, ExecutableType executableType, ExecutableElement method) {
+      checkArgument(method.getKind().equals(METHOD), "%s must be a method", method);
+      TypeElement factoryType =
+          elements.getTypeElement(bindingType.frameworkClass().getCanonicalName());
+      TypeMirror returnType = normalize(types, executableType.getReturnType());
+      TypeMirror keyType =
+          MapType.isMap(returnType)
+              ? mapOfFrameworkType(
+                  MapType.from(returnType).keyType(),
+                  factoryType,
+                  MapType.from(returnType).valueType())
+              : returnType;
       return forMethod(method, keyType);
     }
 

@@ -102,6 +102,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
+    MultibindingsValidator multibindingsValidator =
+        new MultibindingsValidator(elements, keyFactory, keyFormatter, methodSignatureFormatter);
+
     this.factoryGenerator =
         new FactoryGenerator(
             filer, elements, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
@@ -120,6 +123,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
     ProductionBinding.Factory productionBindingFactory =
         new ProductionBinding.Factory(types, keyFactory, dependencyRequestFactory);
+    MultibindingDeclaration.Factory multibindingDeclarationFactory =
+        new MultibindingDeclaration.Factory(elements, types, keyFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
@@ -127,8 +132,12 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     this.injectBindingRegistry = new InjectBindingRegistry(
         elements, types, messager, provisionBindingFactory, membersInjectionBindingFactory);
 
-    ModuleDescriptor.Factory moduleDescriptorFactory = new ModuleDescriptor.Factory(
-        elements, provisionBindingFactory, productionBindingFactory);
+    ModuleDescriptor.Factory moduleDescriptorFactory =
+        new ModuleDescriptor.Factory(
+            elements,
+            provisionBindingFactory,
+            productionBindingFactory,
+            multibindingDeclarationFactory);
 
     ComponentDescriptor.Factory componentDescriptorFactory = new ComponentDescriptor.Factory(
         elements, types, dependencyRequestFactory, moduleDescriptorFactory);
@@ -166,6 +175,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             membersInjectionBindingFactory,
             injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
+        new MultibindingsProcessingStep(messager, multibindingsValidator),
         new ModuleProcessingStep(
             messager,
             moduleValidator,

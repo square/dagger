@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2015 Google, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
@@ -8,6 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.Module;
+import dagger.Multibindings;
 import dagger.Provides;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
@@ -30,6 +46,7 @@ import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.NONE;
 import static javax.lang.model.util.ElementFilter.methodsIn;
+import static javax.lang.model.util.ElementFilter.typesIn;
 
 @AutoValue
 abstract class ModuleDescriptor {
@@ -48,6 +65,11 @@ abstract class ModuleDescriptor {
   abstract ImmutableSet<ModuleDescriptor> includedModules();
 
   abstract ImmutableSet<ContributionBinding> bindings();
+  
+  /**
+   * The multibinding declarations contained in this module.
+   */
+  abstract ImmutableSet<MultibindingDeclaration> multibindingDeclarations();
 
   enum DefaultCreationStrategy {
     PASSED,
@@ -113,14 +135,17 @@ abstract class ModuleDescriptor {
     private final Elements elements;
     private final ProvisionBinding.Factory provisionBindingFactory;
     private final ProductionBinding.Factory productionBindingFactory;
+    private final MultibindingDeclaration.Factory multibindingDeclarationFactory;
 
     Factory(
         Elements elements,
         ProvisionBinding.Factory provisionBindingFactory,
-        ProductionBinding.Factory productionBindingFactory) {
+        ProductionBinding.Factory productionBindingFactory,
+        MultibindingDeclaration.Factory multibindingDeclarationFactory) {
       this.elements = elements;
       this.provisionBindingFactory = provisionBindingFactory;
       this.productionBindingFactory = productionBindingFactory;
+      this.multibindingDeclarationFactory = multibindingDeclarationFactory;
     }
 
     ModuleDescriptor create(TypeElement moduleElement) {
@@ -137,6 +162,15 @@ abstract class ModuleDescriptor {
               productionBindingFactory.forProducesMethod(moduleMethod, moduleElement.asType()));
         }
       }
+      
+      ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
+          ImmutableSet.builder();
+      for (TypeElement memberType : typesIn(elements.getAllMembers(moduleElement))) {
+        if (isAnnotationPresent(memberType, Multibindings.class)) {
+          multibindingDeclarations.addAll(
+              multibindingDeclarationFactory.forDeclaredInterface(memberType));
+        }
+      }
 
       DefaultCreationStrategy defaultCreationStrategy =
           (componentCanMakeNewInstances(moduleElement)
@@ -150,6 +184,7 @@ abstract class ModuleDescriptor {
           ImmutableSet.copyOf(
               collectIncludedModules(new LinkedHashSet<ModuleDescriptor>(), moduleElement)),
           bindings.build(),
+          multibindingDeclarations.build(),
           defaultCreationStrategy);
     }
 

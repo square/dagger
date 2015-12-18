@@ -40,6 +40,7 @@ import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
+import dagger.internal.codegen.SourceElement.HasSourceElement;
 import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -275,7 +276,7 @@ public class BindingGraphValidator {
      */
     private boolean validateResolvedBinding(
         Deque<ResolvedRequest> path, ResolvedBindings resolvedBinding) {
-      if (resolvedBinding.bindings().isEmpty()) {
+      if (resolvedBinding.isEmpty()) {
         reportMissingBinding(path);
         return false;
       }
@@ -298,14 +299,14 @@ public class BindingGraphValidator {
             reportProviderMayNotDependOnProducer(path);
             return false;
           }
-          if (contributionBindings.size() <= 1) {
-            return true;
-          }
           ImmutableSet<ContributionType> contributionTypes =
-              contributionBindingsByType(resolvedBinding).keySet();
+              declarationsByType(resolvedBinding).keySet();
           if (contributionTypes.size() > 1) {
             reportMultipleBindingTypes(path);
             return false;
+          }
+          if (contributionBindings.size() <= 1) {
+            return true;
           }
           switch (getOnlyElement(contributionTypes)) {
             case UNIQUE:
@@ -343,52 +344,67 @@ public class BindingGraphValidator {
     /**
      * Returns an object that contains all the same bindings as {@code resolvedBindings}, except
      * that any {@link #SYNTHETIC_MAP} {@link ContributionBinding}s are replaced by the contribution
-     * bindings of their dependencies.
+     * bindings and multibinding declarations of their dependencies.
      *
      * <p>For example, if:
      *
      * <ul>
-     * <li>The bindings for {@code key1} are {@code A} and {@code B}.
+     * <li>The bindings for {@code key1} are {@code A} and {@code B}, with multibinding declaration
+     *     {@code X}.
      * <li>{@code B} is a synthetic binding with a dependency on {@code key2}.
-     * <li>The bindings for {@code key2} are {@code C} and {@code D}.
+     * <li>The bindings for {@code key2} are {@code C} and {@code D}, with multibinding declaration
+     *     {@code Y}.
      * </ul>
      *
      * then {@code inlineSyntheticBindings(bindingsForKey1)} has bindings {@code A}, {@code C}, and
-     * {@code D}.
+     * {@code D}, with multibinding declarations {@code X} and {@code Y}.
      *
      * <p>The replacement is repeated until none of the bindings are synthetic.
      */
-    private ImmutableSet<ContributionBinding> inlineSyntheticContributions(
-        ResolvedBindings resolvedBinding) {
+    private ResolvedBindings inlineSyntheticContributions(ResolvedBindings resolvedBinding) {
       if (!Iterables.any(
           resolvedBinding.contributionBindings(), ContributionBinding.isOfKind(SYNTHETIC_MAP))) {
-        return resolvedBinding.contributionBindings();
+        return resolvedBinding;
       }
+      
+      ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> contributions =
+          ImmutableSetMultimap.builder();
+      ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
+          ImmutableSet.builder();
 
-      ImmutableSet.Builder<ContributionBinding> inlinedBindings = ImmutableSet.builder();
+      Queue<Map.Entry<ComponentDescriptor, ContributionBinding>> contributionQueue =
+          new ArrayDeque<>(resolvedBinding.allContributionBindings().entries());
 
-      Queue<ContributionBinding> bindings =
-          new ArrayDeque<>(resolvedBinding.contributionBindings());
-
-      for (ContributionBinding binding = bindings.poll();
-          binding != null;
-          binding = bindings.poll()) {
+      for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry =
+              contributionQueue.poll();
+          bindingEntry != null;
+          bindingEntry = contributionQueue.poll()) {
+        ContributionBinding binding = bindingEntry.getValue();
         if (binding.bindingKind().equals(SYNTHETIC_MAP)) {
           BindingKey syntheticBindingDependency =
-              Iterables.getOnlyElement(binding.dependencies()).bindingKey();
-          ResolvedBindings syntheticBindingDependencyBindings =
+              getOnlyElement(binding.dependencies()).bindingKey();
+          ResolvedBindings dependencyBindings =
               subject.resolvedBindings().get(syntheticBindingDependency);
-          bindings.addAll(syntheticBindingDependencyBindings.contributionBindings());
+          multibindingDeclarations.addAll(dependencyBindings.multibindingDeclarations());
+          contributionQueue.addAll(dependencyBindings.allContributionBindings().entries());
         } else {
-          inlinedBindings.add(binding);
+          contributions.put(bindingEntry);
         }
       }
-      return inlinedBindings.build();
+      return ResolvedBindings.forContributionBindings(
+          resolvedBinding.bindingKey(),
+          resolvedBinding.owningComponent(),
+          contributions.build(),
+          multibindingDeclarations.build());
     }
 
-    private ImmutableListMultimap<ContributionType, ContributionBinding> contributionBindingsByType(
+    private ImmutableListMultimap<ContributionType, HasSourceElement> declarationsByType(
         ResolvedBindings resolvedBinding) {
-      return indexByContributionType(inlineSyntheticContributions(resolvedBinding));
+      ResolvedBindings inlined = inlineSyntheticContributions(resolvedBinding);
+      return new ImmutableListMultimap.Builder<ContributionType, HasSourceElement>()
+          .putAll(indexByContributionType(inlined.contributionBindings()))
+          .putAll(indexByContributionType(inlined.multibindingDeclarations()))
+          .build();
     }
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
@@ -878,7 +894,10 @@ public class BindingGraphValidator {
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
       hasSourceElementFormatter.formatIndentedList(
-          builder, inlineSyntheticContributions(resolvedBinding), 1, DUPLICATE_SIZE_LIMIT);
+          builder,
+          inlineSyntheticContributions(resolvedBinding).contributionBindings(),
+          1,
+          DUPLICATE_SIZE_LIMIT);
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
@@ -888,15 +907,15 @@ public class BindingGraphValidator {
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ResolvedBindings resolvedBinding = path.peek().binding();
-      ImmutableListMultimap<ContributionType, ContributionBinding> bindingsByType =
-          contributionBindingsByType(resolvedBinding);
+      ImmutableListMultimap<ContributionType, HasSourceElement> declarationsByType =
+          declarationsByType(resolvedBinding);
       for (ContributionType type :
-          Ordering.natural().immutableSortedCopy(bindingsByType.keySet())) {
+          Ordering.natural().immutableSortedCopy(declarationsByType.keySet())) {
         builder.append(INDENT);
         builder.append(formatContributionType(type));
-        builder.append(" bindings:");
+        builder.append(" bindings and declarations:");
         hasSourceElementFormatter.formatIndentedList(
-            builder, bindingsByType.get(type), 2, DUPLICATE_SIZE_LIMIT);
+            builder, declarationsByType.get(type), 2, DUPLICATE_SIZE_LIMIT);
         builder.append('\n');
       }
       reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());

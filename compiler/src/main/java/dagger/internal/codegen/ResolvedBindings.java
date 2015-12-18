@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -27,9 +28,11 @@ import dagger.MembersInjector;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
+import dagger.internal.codegen.SourceElement.HasSourceElement;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT;
@@ -75,6 +78,12 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
   
   /**
+   * The multibinding declarations for {@link #bindingKey()}. If {@link #bindingKey()}'s kind is not
+   * {@link BindingKey.Kind#CONTRIBUTION}, this is empty.
+   */
+  abstract ImmutableSet<MultibindingDeclaration> multibindingDeclarations();
+  
+  /**
    * All bindings for {@link #bindingKey()}, regardless of in which component they were resolved.
    */
   ImmutableSet<? extends Binding> bindings() {
@@ -88,6 +97,13 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
       default:
         throw new AssertionError(bindingKey());
     }
+  }
+
+  /**
+   * {@code true} if there are no {@link #bindings()} or {@link #multibindingDeclarations()}.
+   */
+  boolean isEmpty() {
+    return bindings().isEmpty() && multibindingDeclarations().isEmpty();
   }
 
   /**
@@ -148,13 +164,15 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   static ResolvedBindings forContributionBindings(
       BindingKey bindingKey,
       ComponentDescriptor owningComponent,
-      Multimap<ComponentDescriptor, ? extends ContributionBinding> contributionBindings) {
+      Multimap<ComponentDescriptor, ? extends ContributionBinding> contributionBindings,
+      Iterable<MultibindingDeclaration> multibindings) {
     checkArgument(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION));
     return new AutoValue_ResolvedBindings(
         bindingKey,
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>copyOf(contributionBindings),
-        ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of());
+        ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of(),
+        ImmutableSet.copyOf(multibindings));
   }
 
   /**
@@ -169,7 +187,8 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>builder()
             .putAll(owningComponent, ownedContributionBindings)
-            .build());
+            .build(),
+        ImmutableSet.<MultibindingDeclaration>of());
   }
 
   /**
@@ -184,7 +203,8 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         bindingKey,
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>of(),
-        ImmutableMap.of(owningComponent, ownedMembersInjectionBinding));
+        ImmutableMap.of(owningComponent, ownedMembersInjectionBinding),
+        ImmutableSet.<MultibindingDeclaration>of());
   }
 
   /**
@@ -195,7 +215,8 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         bindingKey,
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>of(),
-        ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of());
+        ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of(),
+        ImmutableSet.<MultibindingDeclaration>of());
   }
 
   /**
@@ -204,14 +225,19 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
    */
   ResolvedBindings asInheritedIn(ComponentDescriptor owningComponent) {
     return new AutoValue_ResolvedBindings(
-        bindingKey(), owningComponent, allContributionBindings(), allMembersInjectionBindings());
+        bindingKey(),
+        owningComponent,
+        allContributionBindings(),
+        allMembersInjectionBindings(),
+        multibindingDeclarations());
   }
 
   /**
    * {@code true} if this is a multibindings contribution.
    */
   boolean isMultibindings() {
-    return !contributionBindings().isEmpty() && contributionType().isMultibinding();
+    return !(contributionBindings().isEmpty() && multibindingDeclarations().isEmpty())
+        && contributionType().isMultibinding();
   }
 
   /**
@@ -222,15 +248,17 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
-   * The binding type for all {@link #bindings()}.
+   * The binding type for all {@link #bindings()} and {@link #multibindingDeclarations()}.
    *
-   * @throws IllegalStateException if {@link #bindings()} is empty or the binding types conflict
+   * @throws IllegalStateException if {@link #isEmpty()} or the binding types conflict
    */
   @Override
   public BindingType bindingType() {
+    checkState(!isEmpty(), "empty bindings for %s", bindingKey());
     ImmutableSet<BindingType> bindingTypes =
-        FluentIterable.from(bindings()).transform(BindingType.BINDING_TYPE).toSet();
-    checkState(!bindingTypes.isEmpty(), "no bindings for %s", bindingKey());
+        FluentIterable.from(concat(bindings(), multibindingDeclarations()))
+            .transform(BindingType.BINDING_TYPE)
+            .toSet();
     checkState(bindingTypes.size() == 1, "conflicting binding types: %s", this);
     return getOnlyElement(bindingTypes);
   }
@@ -238,14 +266,34 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   /**
    * The contribution type for these bindings.
    *
-   * @throws IllegalStateException if the bindings are not all of one contribution type
+   * @throws IllegalStateException if {@link #isEmpty()} or the contribution types conflict
    */
   @Override
   public ContributionType contributionType() {
-    ImmutableSet<ContributionType> types = indexByContributionType(contributionBindings()).keySet();
-    checkState(!types.isEmpty(), "no bindings for %s", bindingKey());
+    ImmutableSet<ContributionType> types = contributionTypes();
+    checkState(!types.isEmpty(), "no bindings or declarations for %s", bindingKey());
     checkState(types.size() == 1, MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types);
     return getOnlyElement(types);
+  }
+
+  /**
+   * The contribution types represented by {@link #contributionBindings()} and
+   * {@link #multibindingDeclarations()}.
+   */
+  ImmutableSet<ContributionType> contributionTypes() {
+    return bindingsAndDeclarationsByContributionType().keySet();
+  }
+
+  /**
+   * The {@link #contributionBindings()} and {@link #multibindingDeclarations()}, indexed by
+   * {@link ContributionType}.
+   */
+  ImmutableListMultimap<ContributionType, HasSourceElement>
+      bindingsAndDeclarationsByContributionType() {
+    return new ImmutableListMultimap.Builder<ContributionType, HasSourceElement>()
+        .putAll(indexByContributionType(contributionBindings()))
+        .putAll(indexByContributionType(multibindingDeclarations()))
+        .build();
   }
 
   /**

@@ -454,16 +454,17 @@ abstract class AbstractComponentWriter {
 
   private void addField(ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
-
-    // No field needed if there are no owned bindings.
-    if (resolvedBindings.ownedBindings().isEmpty()) {
-      return;
-    }
     
-    // No field needed for bindings with no dependencies or state.
+    // If the binding can be satisfied with a static method call without dependencies or state,
+    // no field is necessary.
     Optional<MemberSelect> staticMemberSelect = staticMemberSelect(resolvedBindings);
     if (staticMemberSelect.isPresent()) {
       memberSelectSnippets.put(bindingKey, staticMemberSelect.get());
+      return;
+    }
+    
+    // No field needed if there are no owned bindings.
+    if (resolvedBindings.ownedBindings().isEmpty()) {
       return;
     }
 
@@ -527,6 +528,20 @@ abstract class AbstractComponentWriter {
   private Optional<MemberSelect> staticMemberSelect(ResolvedBindings resolvedBindings) {
     switch (resolvedBindings.bindingKey().kind()) {
       case CONTRIBUTION:
+        if (resolvedBindings.isMultibindings()
+            && resolvedBindings.contributionBindings().isEmpty()) {
+          switch (resolvedBindings.contributionType()) {
+            case MAP:
+              return Optional.of(emptyMapProviderFactoryStaticMemberSelect());
+
+            case SET:
+              return Optional.of(emptySetFactoryStaticMemberSelect(resolvedBindings));
+
+            case UNIQUE:
+            default:
+              throw new AssertionError("Multibindings must be map or set, not " + resolvedBindings);
+          }
+        }
         if (resolvedBindings.contributionBindings().size() != 1) {
           return Optional.absent();
         }
@@ -561,6 +576,48 @@ abstract class AbstractComponentWriter {
         throw new AssertionError();
     }
     return Optional.absent();
+  }
+
+  /**
+   * A static member select for a call to {@link MapProviderFactory#empty()}.
+   */
+  private MemberSelect emptyMapProviderFactoryStaticMemberSelect() {
+    return staticMethodInvocationWithCast(
+        ClassName.fromClass(MapProviderFactory.class),
+        Snippet.format("empty()"),
+        ClassName.fromClass(MapProviderFactory.class));
+  }
+
+  /**
+   * A static member select for a call to {@code F.create()} where {@code F} is either
+   * {@link SetFactory}, {@link SetProducer}, or {@link SetOfProducedProducer}, depending on the
+   * set bindings.
+   */
+  private MemberSelect emptySetFactoryStaticMemberSelect(ResolvedBindings setBindings) {
+    ClassName setFactoryClassName = setFactoryClassName(setBindings);
+    return staticMethodInvocationWithCast(
+        setFactoryClassName, Snippet.format("create()"), setFactoryClassName);
+  }
+
+  /**
+   * Returns a {@link Set} factory class name appropriate for the set bindings.
+   *
+   * <ul>
+   * <li>{@link SetFactory} for provision bindings.
+   * <li>{@link SetProducer} for production bindings for {@code Set<T>}.
+   * <li>{@link SetOfProducedProducer} for production bindings for {@code Set<Produced<T>>}.
+   * </ul>
+   */
+  private ClassName setFactoryClassName(ResolvedBindings setBindings) {
+    if (setBindings.bindingType().equals(BindingType.PROVISION)) {
+      return ClassName.fromClass(SetFactory.class);
+    } else {
+      SetType setType = SetType.from(setBindings.bindingKey().key().type());
+      return ClassName.fromClass(
+          setType.elementsAreTypeOf(Produced.class)
+              ? SetOfProducedProducer.class
+              : SetProducer.class);
+    }
   }
 
   private void implementInterfaceMethods() {
@@ -745,19 +802,10 @@ abstract class AbstractComponentWriter {
       }
       parameterSnippets.add(snippet);
     }
-    SetType setType = SetType.from(resolvedBindings.bindingKey().key().type());
-    Class<?> factoryClass =
-        Iterables.all(
-                resolvedBindings.contributionBindings(),
-                BindingType.isOfType(BindingType.PROVISION))
-            ? SetFactory.class
-            : setType.elementsAreTypeOf(Produced.class)
-                ? SetOfProducedProducer.class
-                : SetProducer.class;
     Snippet initializeSetSnippet =
         Snippet.format(
             "%s.create(%s)",
-            ClassName.fromClass(factoryClass),
+            setFactoryClassName(resolvedBindings),
             makeParametersSnippet(parameterSnippets.build()));
     initializationSnippets.add(
         initializeMember(resolvedBindings.bindingKey(), initializeSetSnippet));
@@ -1022,7 +1070,8 @@ abstract class AbstractComponentWriter {
         return Snippet.format(
             "%s.create(%s)",
             ClassName.fromClass(MapFactory.class),
-            getMemberSelectSnippet(getOnlyElement(binding.dependencies()).bindingKey()));
+            getMemberSelect(getOnlyElement(binding.dependencies()).bindingKey())
+                .getSnippetWithRawTypeCastFor(name));
 
       default:
         throw new AssertionError();
