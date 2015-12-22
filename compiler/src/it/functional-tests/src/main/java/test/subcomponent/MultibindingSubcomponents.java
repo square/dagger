@@ -109,8 +109,9 @@ final class MultibindingSubcomponents {
     }
 
     @Provides(type = SET)
-    static RequiresMultibindings<BoundInParentAndChild> requiresMultibindingsInParentAndChild(
-        RequiresMultibindings<BoundInParentAndChild> requiresMultibindingsInParentAndChild) {
+    static RequiresMultibindings<BoundInParentAndChild>
+        requiresMultibindingsInParentAndChildElement(
+            RequiresMultibindings<BoundInParentAndChild> requiresMultibindingsInParentAndChild) {
       return requiresMultibindingsInParentAndChild;
     }
   }

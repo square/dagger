@@ -55,6 +55,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
@@ -282,6 +283,9 @@ abstract class BindingGraph {
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
       final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
           CacheBuilder.newBuilder().<BindingKey, Boolean>build();
+      final Cache<Binding, Boolean> bindingDependsOnLocalMultibindingsCache =
+          CacheBuilder.newBuilder().<Binding, Boolean>build();
+
       Resolver(
           Optional<Resolver> parentResolver,
           ComponentDescriptor componentDescriptor,
@@ -411,20 +415,25 @@ abstract class BindingGraph {
       }
 
       /**
-       * If {@code binding} should be owned by a parent component, resolves the binding in that
-       * component's resolver and returns that component. Otherwise returns the component for this
-       * resolver.
+       * Returns the component that "owns" {@code binding}.
+       *
+       * <p>If {@code binding} is bound in an ancestor component, resolves {@code request} in that
+       * component. Returns the ancestor component in which it is bound, unless {@code binding}
+       * depends on local multibindings, in which case returns this component.
+       *
+       * <p>If {@code binding} is not bound in an ancestor component, simply returns this component.
        */
       private ComponentDescriptor getOwningComponent(
           DependencyRequest request, ContributionBinding binding) {
-        return isResolvedInParent(request, binding) && !shouldOwnParentBinding(request, binding)
+        return isResolvedInParent(request, binding)
+                && !new MultibindingDependencies().dependsOnLocalMultibindings(binding)
             ? getOwningResolver(binding).get().componentDescriptor
             : componentDescriptor;
       }
 
       /**
-       * Returns {@code true} if {@code binding} is owned by a parent resolver. If so, calls
-       * {@link #resolve(DependencyRequest) resolve(request)} on that resolver.
+       * Returns {@code true} if {@code binding} is owned by an ancestor. If so, calls
+       * {@link #resolve(DependencyRequest) resolve(request)} on that component's resolver.
        */
       private boolean isResolvedInParent(DependencyRequest request, ContributionBinding binding) {
         Optional<Resolver> owningResolver = getOwningResolver(binding);
@@ -436,29 +445,16 @@ abstract class BindingGraph {
         }
       }
 
-      /**
-       * Returns {@code true} if {@code binding}, which was previously resolved by a parent
-       * resolver, should be moved into this resolver's bindings for {@code request} because it is
-       * unscoped and {@linkplain #dependsOnLocalMultibindings(ResolvedBindings) depends on local
-       * multibindings}, or {@code false} if it can satisfy {@code request} as an inherited binding.
-       */
-      private boolean shouldOwnParentBinding(
-          DependencyRequest request, ContributionBinding binding) {
-        return !binding.scope().isPresent()
-            && dependsOnLocalMultibindings(
-                getPreviouslyResolvedBindings(request.bindingKey()).get());
-      }
-
-      private Optional<Resolver> getOwningResolver(ContributionBinding provisionBinding) {
+      private Optional<Resolver> getOwningResolver(ContributionBinding binding) {
         for (Resolver requestResolver : getResolverLineage().reverse()) {
-          if (requestResolver.explicitBindingsSet.contains(provisionBinding)) {
+          if (requestResolver.explicitBindingsSet.contains(binding)) {
             return Optional.of(requestResolver);
           }
         }
 
         // look for scope separately.  we do this for the case where @Singleton can appear twice
         // in the † compatibility mode
-        Scope bindingScope = provisionBinding.scope();
+        Scope bindingScope = binding.scope();
         if (bindingScope.isPresent()) {
           for (Resolver requestResolver : getResolverLineage().reverse()) {
             if (bindingScope.equals(requestResolver.componentDescriptor.scope())) {
@@ -549,10 +545,8 @@ abstract class BindingGraph {
         // have to resolve it in this subcomponent so that it sees the local contributions. If it
         // does not, then we can stop resolving it in this subcomponent and rely on the
         // supercomponent resolution.
-        Optional<ResolvedBindings> bindingsPreviouslyResolvedInParent =
-            getPreviouslyResolvedBindings(bindingKey);
-        if (bindingsPreviouslyResolvedInParent.isPresent()
-            && !dependsOnLocalMultibindings(bindingsPreviouslyResolvedInParent.get())) {
+        if (getPreviouslyResolvedBindings(bindingKey).isPresent()
+            && !new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)) {
           return;
         }
 
@@ -568,59 +562,6 @@ abstract class BindingGraph {
         } finally {
           cycleStack.pop();
         }
-      }
-
-      /**
-       * Returns {@code true} if {@code previouslyResolvedBindings} is multibindings with
-       * contributions declared within this (sub)component's modules, or if any of its unscoped
-       * provision-dependencies depend on such local multibindings.
-       *
-       * <p>We don't care about scoped dependencies or production bindings because they will never
-       * depend on multibindings with contributions from subcomponents.
-       */
-      private boolean dependsOnLocalMultibindings(ResolvedBindings previouslyResolvedBindings) {
-        return dependsOnLocalMultibindings(previouslyResolvedBindings, new HashSet<BindingKey>());
-      }
-
-      private boolean dependsOnLocalMultibindings(
-          final ResolvedBindings previouslyResolvedBindings, final Set<BindingKey> cycleChecker) {
-        // Don't recur infinitely if there are valid cycles in the dependency graph.
-        if (!cycleChecker.add(previouslyResolvedBindings.bindingKey())) {
-          return false;
-        }
-        try {
-          return dependsOnLocalMultibindingsCache.get(
-              previouslyResolvedBindings.bindingKey(),
-              new Callable<Boolean>() {
-                @Override
-                public Boolean call() {
-                  if (previouslyResolvedBindings.isMultibindings()
-                      && hasLocalContributions(previouslyResolvedBindings)) {
-                    return true;
-                  }
-
-                  for (Binding binding : previouslyResolvedBindings.bindings()) {
-                    if (!binding.scope().isPresent()
-                        && !binding.bindingType().equals(BindingType.PRODUCTION)) {
-                      for (DependencyRequest dependency : binding.implicitDependencies()) {
-                        if (dependsOnLocalMultibindings(
-                            getPreviouslyResolvedBindings(dependency.bindingKey()).get(),
-                            cycleChecker)) {
-                          return true;
-                        }
-                      }
-                    }
-                  }
-                  return false;
-                }
-              });
-        } catch (ExecutionException e) {
-          throw new AssertionError(e);
-        }
-      }
-
-      private boolean hasLocalContributions(ResolvedBindings resolvedBindings) {
-        return !explicitBindings.get(resolvedBindings.bindingKey().key()).isEmpty();
       }
 
       ImmutableMap<BindingKey, ResolvedBindings> getResolvedBindings() {
@@ -654,6 +595,94 @@ abstract class BindingGraph {
         return Sets.difference(componentDescriptor.transitiveModules(), getInheritedModules())
             .immutableCopy();
       }
+
+      private final class MultibindingDependencies {
+        private final Set<BindingKey> cycleChecker = new HashSet<>();
+
+        /**
+         * Returns {@code true} if {@code bindingKey} previously resolved to multibindings with
+         * contributions declared within this component's modules, or if any of its unscoped
+         * dependencies depend on such local multibindings.
+         *
+         * <p>We don't care about scoped dependencies because they will never depend on
+         * multibindings with contributions from subcomponents.
+         *
+         * @throws IllegalArgumentException if {@link #getPreviouslyResolvedBindings(BindingKey)} is
+         *     absent
+         */
+        boolean dependsOnLocalMultibindings(final BindingKey bindingKey) {
+          checkArgument(
+              getPreviouslyResolvedBindings(bindingKey).isPresent(),
+              "no previously resolved bindings in %s for %s",
+              Resolver.this,
+              bindingKey);
+          // Don't recur infinitely if there are valid cycles in the dependency graph.
+          if (!cycleChecker.add(bindingKey)) {
+            return false;
+          }
+          try {
+            return dependsOnLocalMultibindingsCache.get(
+                bindingKey,
+                new Callable<Boolean>() {
+                  @Override
+                  public Boolean call() {
+                    ResolvedBindings previouslyResolvedBindings =
+                        getPreviouslyResolvedBindings(bindingKey).get();
+                    if (isMultibindingsWithLocalContributions(previouslyResolvedBindings)) {
+                      return true;
+                    }
+
+                    for (Binding binding : previouslyResolvedBindings.bindings()) {
+                      if (dependsOnLocalMultibindings(binding)) {
+                        return true;
+                      }
+                    }
+                    return false;
+                  }
+                });
+          } catch (ExecutionException e) {
+            throw new AssertionError(e);
+          }
+        }
+
+        /**
+         * Returns {@code true} if {@code binding} is unscoped and depends on multibindings with
+         * contributions declared within this component's modules, or if any of its unscoped
+         * dependencies depend on such local multibindings.
+         *
+         * <p>We don't care about scoped dependencies because they will never depend on
+         * multibindings with contributions from subcomponents.
+         */
+        boolean dependsOnLocalMultibindings(final Binding binding) {
+          try {
+            return bindingDependsOnLocalMultibindingsCache.get(
+                binding,
+                new Callable<Boolean>() {
+                  @Override
+                  public Boolean call() {
+                    if (!binding.scope().isPresent()
+                        // TODO(beder): Figure out what happens with production subcomponents.
+                        && !binding.bindingType().equals(BindingType.PRODUCTION)) {
+                      for (DependencyRequest dependency : binding.implicitDependencies()) {
+                        if (dependsOnLocalMultibindings(dependency.bindingKey())) {
+                          return true;
+                        }
+                      }
+                    }
+                    return false;
+                  }
+                });
+          } catch (ExecutionException e) {
+            throw new AssertionError(e);
+          }
+        }
+
+        private boolean isMultibindingsWithLocalContributions(ResolvedBindings resolvedBindings) {
+          return resolvedBindings.isMultibindings()
+              && explicitBindings.containsKey(resolvedBindings.key());
+        }
+      }
+
     }
   }
 }
