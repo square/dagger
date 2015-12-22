@@ -100,13 +100,12 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInChild())
         .isEqualTo(BOUND_IN_CHILD);
 
-    // TODO(b/26145104)
-    // assertThat(
-    //         parentWithoutProvisionHasChildWithoutProvision
-    //             .childWithoutProvision()
-    //             .grandchild()
-    //             .setOfRequiresMultibindingsInParentAndChild())
-    //     .containsExactly(BOUND_IN_PARENT_AND_CHILD);
+    assertThat(
+            parentWithoutProvisionHasChildWithoutProvision
+                .childWithoutProvision()
+                .grandchild()
+                .setOfRequiresMultibindingsInParentAndChild())
+        .containsExactly(BOUND_IN_PARENT_AND_CHILD);
   }
 
   @Test
@@ -166,21 +165,19 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInChild())
         .isEqualTo(BOUND_IN_CHILD);
 
-    // TODO(b/26145104)
-    // assertThat(
-    //         parentWithProvisionHasChildWithoutProvision
-    //             .childWithoutProvision()
-    //             .grandchild()
-    //             .requiresMultibindingsBoundInParentAndChild())
-    //     .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
+    assertThat(
+            parentWithProvisionHasChildWithoutProvision
+                .childWithoutProvision()
+                .grandchild()
+                .requiresMultibindingsBoundInParentAndChild())
+        .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
 
-    // TODO(b/26145104)
-    // assertThat(
-    //         parentWithProvisionHasChildWithoutProvision
-    //             .childWithoutProvision()
-    //             .grandchild()
-    //             .setOfRequiresMultibindingsInParentAndChild())
-    //     .containsExactly(BOUND_IN_PARENT_AND_CHILD);
+    assertThat(
+            parentWithProvisionHasChildWithoutProvision
+                .childWithoutProvision()
+                .grandchild()
+                .setOfRequiresMultibindingsInParentAndChild())
+        .containsExactly(BOUND_IN_PARENT_AND_CHILD);
   }
 
   @Test
