@@ -417,9 +417,9 @@ abstract class BindingGraph {
       /**
        * Returns the component that "owns" {@code binding}.
        *
-       * <p>If {@code binding} is bound in an ancestor component, resolves {@code request} in this
-       * component's parent. Returns the ancestor component in which it is bound, unless
-       * {@code binding} depends on local multibindings, in which case returns this component.
+       * <p>If {@code binding} is bound in an ancestor component, resolves {@code request} in that
+       * component. Returns the ancestor component in which it is bound, unless {@code binding}
+       * depends on local multibindings, in which case returns this component.
        *
        * <p>If {@code binding} is not bound in an ancestor component, simply returns this component.
        */
@@ -432,15 +432,13 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns {@code true} if {@code binding} is owned by an ancestor. If so,
-       * {@linkplain #resolve(DependencyRequest) resolves} the request in this component's parent.
-       * Don't resolve directly in the owning component in case it depends on multibindings in any
-       * of its descendants.
+       * Returns {@code true} if {@code binding} is owned by an ancestor. If so, calls
+       * {@link #resolve(DependencyRequest) resolve(request)} on that component's resolver.
        */
       private boolean isResolvedInParent(DependencyRequest request, ContributionBinding binding) {
         Optional<Resolver> owningResolver = getOwningResolver(binding);
         if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
-          parentResolver.get().resolve(request);
+          owningResolver.get().resolve(request);
           return true;
         } else {
           return false;
@@ -684,6 +682,7 @@ abstract class BindingGraph {
               && explicitBindings.containsKey(resolvedBindings.key());
         }
       }
+
     }
   }
 }
