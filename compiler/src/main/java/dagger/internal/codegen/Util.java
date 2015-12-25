@@ -314,7 +314,7 @@ final class Util {
     }
   }
 
-  private static TypeName box(PrimitiveType primitiveType) {
+  static TypeName box(PrimitiveType primitiveType) {
     switch (primitiveType.getKind()) {
       case BYTE:
         return ClassName.get(Byte.class);

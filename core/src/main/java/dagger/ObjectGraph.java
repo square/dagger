@@ -163,7 +163,7 @@ public abstract class ObjectGraph {
       return object;
     }
 
-    private static ObjectGraph makeGraph(DaggerObjectGraph base, Loader plugin, Object... modules) {
+    static ObjectGraph makeGraph(DaggerObjectGraph base, Loader plugin, Object... modules) {
       Map<String, Class<?>> injectableTypes = new LinkedHashMap<String, Class<?>>();
       Map<Class<?>, StaticInjection> staticInjections
           = new LinkedHashMap<Class<?>, StaticInjection>();

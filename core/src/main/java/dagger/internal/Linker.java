@@ -28,7 +28,7 @@ import java.util.Set;
  * Links bindings to their dependencies.
  */
 public final class Linker {
-  private static final Object UNINITIALIZED = new Object();
+  static final Object UNINITIALIZED = new Object();
 
   /**
    * The base {@code Linker} which will be consulted to satisfy bindings not
@@ -348,7 +348,7 @@ public final class Linker {
     private final Binding<T> binding;
     private volatile Object onlyInstance = UNINITIALIZED;
 
-    private SingletonBinding(Binding<T> binding) {
+    SingletonBinding(Binding<T> binding) {
       super(binding.provideKey, binding.membersKey, true, binding.requiredBy);
       this.binding = binding;
     }
@@ -449,7 +449,7 @@ public final class Linker {
     final String deferredKey;
     final boolean mustHaveInjections;
 
-    private DeferredBinding(String deferredKey, ClassLoader classLoader, Object requiredBy,
+    DeferredBinding(String deferredKey, ClassLoader classLoader, Object requiredBy,
         boolean mustHaveInjections) {
       super(null, null, false, requiredBy);
       this.deferredKey = deferredKey;

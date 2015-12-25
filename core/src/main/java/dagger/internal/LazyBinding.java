@@ -23,13 +23,13 @@ import dagger.Lazy;
  */
 final class LazyBinding<T> extends Binding<Lazy<T>> {
 
-  private final static Object NOT_PRESENT = new Object();
+  final static Object NOT_PRESENT = new Object();
 
   private final String lazyKey;
   private final ClassLoader loader;
-  private Binding<T> delegate;
+  Binding<T> delegate;
 
-  public LazyBinding(String key, Object requiredBy, ClassLoader loader, String lazyKey) {
+  LazyBinding(String key, Object requiredBy, ClassLoader loader, String lazyKey) {
     super(key, null, false, requiredBy);
     this.loader = loader;
     this.lazyKey = lazyKey;
