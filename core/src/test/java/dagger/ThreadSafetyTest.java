@@ -48,6 +48,8 @@ public final class ThreadSafetyTest {
 
   static class LazyEntryPoint {
     @Inject Lazy<Integer> lazy;
+
+    @Inject LazyEntryPoint() {}
   }
 
   @Module(injects = { Long.class, LazyEntryPoint.class })

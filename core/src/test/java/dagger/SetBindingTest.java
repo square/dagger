@@ -307,6 +307,9 @@ public final class SetBindingTest {
 
   static class Logger {
     @Inject Set<LogSink> loggers;
+
+    @Inject Logger() {}
+
     public void log(String text, Throwable error) {
       LogMessage m = new LogMessage(text, error);
       for (LogSink sink : loggers) {

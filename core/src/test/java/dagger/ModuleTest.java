@@ -31,6 +31,8 @@ import static org.junit.Assert.fail;
 public final class ModuleTest {
   static class TestEntryPoint {
     @Inject String s;
+
+    @Inject TestEntryPoint() {}
   }
 
   @Module(injects = TestEntryPoint.class)
@@ -137,7 +139,11 @@ public final class ModuleTest {
 
   static class A {}
 
-  static class B { @Inject A a; }
+  static class B {
+    @Inject A a;
+
+    @Inject B() {}
+  }
 
   @Module(injects = A.class) public static class TestModuleA {
     @Provides A a() { return new A(); }

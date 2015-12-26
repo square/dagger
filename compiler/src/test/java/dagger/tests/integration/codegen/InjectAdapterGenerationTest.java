@@ -117,6 +117,101 @@ public final class InjectAdapterGenerationTest {
 
   }
 
+  @Test public void injectsNoCtorCannotBeCreated() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Basic", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import javax.inject.Inject;",
+        "class Basic {",
+        "  @Inject A a;",
+        "  static class A { @Inject A() { } }",
+        "  @Module(injects = Basic.class)",
+        "  static class BasicModule { }",
+        "}"));
+
+    JavaFileObject expectedInjectAdapter =
+        JavaFileObjects.forSourceString("Basic$$InjectAdapter", Joiner.on("\n").join(
+            "import dagger.internal.Binding;",
+            "import dagger.internal.Linker;",
+            "import java.lang.Override;",
+            "import java.lang.SuppressWarnings;",
+            "import java.util.Set;",
+            "public final class Basic$$InjectAdapter extends Binding<Basic> {",
+            "  private Binding<Basic.A> a;",
+            "  public Basic$$InjectAdapter() {",
+            "    super(null, \"members/Basic\", NOT_SINGLETON, Basic.class);",
+            "  }",
+            "  @Override",
+            "  @SuppressWarnings(\"unchecked\")",
+            "  public void attach(Linker linker) {",
+            "    a = (Binding<Basic.A> linker.requestBinding(\"Basic$A\", Basic.class, getClass().getClassLoader());",
+            "  }",
+            "  @Override",
+            "  public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {",
+            "    injectMembersBindings.add(a);",
+            "  }",
+            "  @Override",
+            "  public void injectMembers(Basic object) {",
+            "    object.a = a.get();",
+            "  }",
+            "}"));
+
+    ASSERT.about(javaSource()).that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError().and()
+        .generatesSources(expectedInjectAdapter);
+  }
+
+  @Test public void injectsWithCtorCanBeCreated() {
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Basic", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import javax.inject.Inject;",
+        "class Basic {",
+        "  @Inject A a;",
+        "  @Inject Basic() { }",
+        "  static class A { @Inject A() { } }",
+        "  @Module(injects = Basic.class)",
+        "  static class BasicModule { }",
+        "}"));
+
+    JavaFileObject expectedInjectAdapter =
+        JavaFileObjects.forSourceString("Basic$$InjectAdapter", Joiner.on("\n").join(
+            "import dagger.internal.Binding;",
+            "import dagger.internal.Linker;",
+            "import java.lang.Override;",
+            "import java.lang.SuppressWarnings;",
+            "import java.util.Set;",
+            "public final class Basic$$InjectAdapter extends Binding<Basic> {",
+            "  private Binding<Basic.A> a;",
+            "  public Basic$$InjectAdapter() {",
+            "    super(\"Basic\", \"members/Basic\", NOT_SINGLETON, Basic.class);",
+            "  }",
+            "  @Override",
+            "  @SuppressWarnings(\"unchecked\")",
+            "  public void attach(Linker linker) {",
+            "    a = (Binding<Basic.A> linker.requestBinding(\"Basic$A\", Basic.class, getClass().getClassLoader());",
+            "  }",
+            "  @Override",
+            "  public void getDependencies(Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {",
+            "    injectMembersBindings.add(a);",
+            "  }",
+            "  @Override",
+            "  public Basic get() {",
+            "    Basic result = new Basic();",
+            "    injectMembers(result);",
+            "    return result;",
+            "  }",
+            "  @Override",
+            "  public void injectMembers(Basic object) {",
+            "    object.a = a.get();",
+            "  }",
+            "}"));
+
+    ASSERT.about(javaSource()).that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError().and()
+        .generatesSources(expectedInjectAdapter);
+  }
+
   @Test public void injectStaticFails() {
     JavaFileObject sourceFile = JavaFileObjects.forSourceString("Basic", Joiner.on("\n").join(
         "import dagger.Module;",

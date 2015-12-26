@@ -52,10 +52,8 @@ import static dagger.internal.codegen.Util.adapterName;
 import static dagger.internal.codegen.Util.bindingOf;
 import static dagger.internal.codegen.Util.elementToString;
 import static dagger.internal.codegen.Util.getApplicationSupertype;
-import static dagger.internal.codegen.Util.getNoArgsConstructor;
 import static dagger.internal.codegen.Util.getPackage;
 import static dagger.internal.codegen.Util.injectableType;
-import static dagger.internal.codegen.Util.isCallableConstructor;
 import static dagger.internal.codegen.Util.rawTypeToString;
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -212,13 +210,6 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
           // TODO(tbroyer): pass annotation information
           error("Cannot inject " + elementToString(member), member);
           break;
-      }
-    }
-
-    if (constructor == null && !isAbstract) {
-      constructor = getNoArgsConstructor(type);
-      if (constructor != null && !isCallableConstructor(constructor)) {
-        constructor = null;
       }
     }
 

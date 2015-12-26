@@ -30,6 +30,8 @@ public final class ExtensionWithStateTest {
 
   static class B {
     @Inject A a;
+
+    @Inject B() {}
   }
 
   @Module(

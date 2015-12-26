@@ -69,6 +69,6 @@ public final class FailoverLoader extends Loader {
     if (type.isInterface()) {
       return null; // Short-circuit since we can't build reflective bindings for interfaces.
     }
-    return ReflectiveAtInjectBinding.create(type, mustHaveInjections);
+    return ReflectiveAtInjectBinding.create(type);
   }
 }

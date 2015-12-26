@@ -205,6 +205,8 @@ public final class InjectionTest {
   public static class L {
     @Inject @Named("one") F f;
     @Inject Provider<L> lProvider;
+
+    @Inject L() {}
   }
 
   @Test public void singletonInGraph() {
@@ -238,6 +240,8 @@ public final class InjectionTest {
     @Inject F f1;
     @Inject F f2;
     @Inject Provider<F> fProvider;
+
+    @Inject N() {}
   }
 
   @Test public void noJitBindingsForAnnotations() {
@@ -566,6 +570,9 @@ public final class InjectionTest {
 
   static class ExtendsParameterizedType extends AbstractList<Integer> {
     @Inject String string;
+
+    @Inject ExtendsParameterizedType() {}
+
     @Override public Integer get(int i) {
       throw new AssertionError();
     }
@@ -866,6 +873,8 @@ public final class InjectionTest {
 
   static class SingletonLinkedFromExtension {
     @Inject C c; // Singleton.
+
+    @Inject SingletonLinkedFromExtension() {}
   }
 
   @Module(complete = false, injects = C.class)

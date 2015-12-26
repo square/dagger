@@ -219,7 +219,7 @@ public final class ModuleAdapterGenerationTest {
             "    extends Binding<Field.B> {",
             "  private Binding<String> name;", // For field.
             "  public Field$B$$InjectAdapter() {",
-            "    super(\"Field$B\", \"members/Field$B\", NOT_SINGLETON, Field.B.class);",
+            "    super(null, \"members/Field$B\", NOT_SINGLETON, Field.B.class);",
             "  }",
             "  @Override @SuppressWarnings(\"unchecked\")",
             "  public void attach(Linker linker) {",
@@ -229,11 +229,6 @@ public final class ModuleAdapterGenerationTest {
             "  @Override public void getDependencies(",
             "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {",
             "    injectMembersBindings.add(name);", // Name is added to dependencies.
-            "  }",
-            "  @Override public Field.B get() {",
-            "    Field.B result = new Field.B();",
-            "    injectMembers(result);",
-            "    return result;",
             "  }",
             "  @Override public void injectMembers(Field.B object) {",
             "    object.name = name.get();", // Inject field.
