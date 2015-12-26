@@ -51,7 +51,6 @@ public @interface Module {
    * </ul>
    */
   Class<?>[] injects() default { };
-  Class<?>[] staticInjections() default { };
 
   /**
    * True if {@code @Provides} methods from this module are permitted to

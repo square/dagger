@@ -79,22 +79,6 @@ public final class LazyInjectionTest {
     }
   }
 
-  @Test public void getLazyDoesNotCauseStaticsToBeLoaded() {
-    @Module(staticInjections = LazyInjectStatics.class)
-    class TestModule {
-    }
-
-    ObjectGraph.createWith(new TestingLoader(), new TestModule());
-    assertThat(LazyInjectStaticsLoaded).isFalse();
-  }
-
-  private static boolean LazyInjectStaticsLoaded = false;
-  static class LazyInjectStatics {
-    static {
-      LazyInjectStaticsLoaded = true;
-    }
-  }
-
   @Test public void lazyInjectionRequiresProvidesMethod() {
     class TestEntryPoint {
       @Inject String injected;

@@ -232,7 +232,6 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
    */
   private JavaFile generateModuleAdapter(TypeElement type,
       Map<String, Object> module, List<ExecutableElement> providerMethods) {
-    Object[] staticInjections = (Object[]) module.get("staticInjections");
     Object[] injects = (Object[]) module.get("injects");
     Object[] includes = (Object[]) module.get("includes");
     boolean overrides = (Boolean) module.get("overrides");
@@ -252,17 +251,13 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
         .addModifiers(PRIVATE, STATIC, FINAL)
         .initializer("$L", injectsInitializer(injects))
         .build());
-    adapterBuilder.addField(FieldSpec.builder(ARRAY_OF_CLASS, "STATIC_INJECTIONS")
-        .addModifiers(PRIVATE, STATIC, FINAL)
-        .initializer("$L", staticInjectionsInitializer(staticInjections))
-        .build());
     adapterBuilder.addField(FieldSpec.builder(ARRAY_OF_CLASS, "INCLUDES")
         .addModifiers(PRIVATE, STATIC, FINAL)
         .initializer("$L", includesInitializer(type, includes))
         .build());
     adapterBuilder.addMethod(MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
-        .addStatement("super($T.class, INJECTS, STATIC_INJECTIONS, $L /*overrides*/, "
+        .addStatement("super($T.class, INJECTS, $L /*overrides*/, "
                 + "INCLUDES, $L /*complete*/, $L /*library*/)",
             type.asType(), overrides, complete, library)
         .build());
@@ -342,16 +337,6 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
           ? GeneratorKeys.get(typeMirror)
           : GeneratorKeys.rawMembersKey(typeMirror);
       result.add("$S, ", key);
-    }
-    result.add("}");
-    return result.build();
-  }
-
-  private CodeBlock staticInjectionsInitializer(Object[] staticInjections) {
-    CodeBlock.Builder result = CodeBlock.builder()
-        .add("{ ");
-    for (Object staticInjection : staticInjections) {
-      result.add("$T.class, ", staticInjection);
     }
     result.add("}");
     return result.build();

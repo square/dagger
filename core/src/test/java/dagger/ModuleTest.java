@@ -54,24 +54,6 @@ public final class ModuleTest {
     @Inject static String s;
   }
 
-  @Module(staticInjections = TestStaticInjection.class)
-  static class ModuleWithStaticInjection {
-  }
-
-  @Test public void childModuleWithStaticInjection() {
-    @Module(includes = ModuleWithStaticInjection.class)
-    class TestModule {
-      @Provides String provideString() {
-        return "injected";
-      }
-    }
-
-    ObjectGraph objectGraph = ObjectGraph.createWith(new TestingLoader(), new TestModule());
-    TestStaticInjection.s = null;
-    objectGraph.injectStatics();
-    assertThat(TestStaticInjection.s).isEqualTo("injected");
-  }
-
   @Module
   static class ModuleWithBinding {
     @Provides String provideString() {
