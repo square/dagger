@@ -18,11 +18,9 @@ package dagger.internal;
 
 
 import dagger.internal.loaders.ReflectiveAtInjectBinding;
-import dagger.internal.loaders.ReflectiveStaticInjection;
 
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
 import static dagger.internal.loaders.GeneratedAdapters.MODULE_ADAPTER_SUFFIX;
-import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
 
 /**
  * Handles loading/finding of modules, injection bindings, and static injections by use of a
@@ -72,14 +70,5 @@ public final class FailoverLoader extends Loader {
       return null; // Short-circuit since we can't build reflective bindings for interfaces.
     }
     return ReflectiveAtInjectBinding.create(type, mustHaveInjections);
-  }
-
-  @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
-    StaticInjection result = instantiate(
-          injectedClass.getName().concat(STATIC_INJECTION_SUFFIX), injectedClass.getClassLoader());
-    if (result != null) {
-      return result;
-    }
-    return ReflectiveStaticInjection.create(injectedClass);
   }
 }

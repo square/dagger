@@ -54,11 +54,6 @@ public abstract class Loader {
   public abstract <T> ModuleAdapter<T> getModuleAdapter(Class<T> moduleClass);
 
   /**
-   * Returns the static injection for {@code injectedClass}.
-   */
-  public abstract StaticInjection getStaticInjection(Class<?> injectedClass);
-
-  /**
    * Loads a class from a {@code ClassLoader}-specific cache if it's already there, or
    * loads it from the given {@code ClassLoader} and caching it for future requests.  Failures
    * to load are also cached using the Void.class type.  A null {@code ClassLoader} is assumed
