@@ -23,18 +23,16 @@ package dagger.internal;
 public abstract class ModuleAdapter<T> {
   public final Class<T> moduleClass;
   public final String[] injectableTypes;
-  public final Class<?>[] staticInjections;
   public final boolean overrides;
   public final Class<?>[] includes;
   public final boolean complete;
   public final boolean library;
 
   protected ModuleAdapter(Class<T> moduleClass, String[] injectableTypes,
-      Class<?>[] staticInjections, boolean overrides, Class<?>[] includes, boolean complete,
+      boolean overrides, Class<?>[] includes, boolean complete,
       boolean library) {
     this.moduleClass = moduleClass;
     this.injectableTypes = injectableTypes;
-    this.staticInjections = staticInjections;
     this.overrides = overrides;
     this.includes = includes;
     this.complete = complete;

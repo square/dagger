@@ -164,8 +164,6 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
       boolean ignoreCompletenessErrors) {
     Map<String, TypeElement> allModules = new LinkedHashMap<String, TypeElement>();
     collectIncludesRecursively(rootModule, allModules, new LinkedList<String>());
-    ArrayList<GraphAnalysisStaticInjection> staticInjections =
-        new ArrayList<GraphAnalysisStaticInjection>();
 
     Linker.ErrorHandler errorHandler = ignoreCompletenessErrors ? Linker.ErrorHandler.NULL
         : new GraphAnalysisErrorHandler(processingEnv, rootModule.getQualifiedName().toString());
@@ -201,13 +199,6 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
               : GeneratorKeys.rawMembersKey(injectableType);
           linker.requestBinding(key, module.getQualifiedName().toString(),
               getClass().getClassLoader(), false, true);
-        }
-
-        // Gather the static injections.
-        for (Object staticInjection : (Object[]) annotation.get("staticInjections")) {
-          TypeMirror staticInjectionTypeMirror = (TypeMirror) staticInjection;
-          Element element = processingEnv.getTypeUtils().asElement(staticInjectionTypeMirror);
-          staticInjections.add(new GraphAnalysisStaticInjection(element));
         }
 
         // Gather the enclosed @Provides methods.
@@ -264,9 +255,6 @@ public final class GraphAnalysisProcessor extends AbstractProcessor {
 
       linker.installBindings(baseBindings);
       linker.installBindings(overrideBindings);
-      for (GraphAnalysisStaticInjection staticInjection : staticInjections) {
-        staticInjection.attach(linker);
-      }
 
       // Link the bindings. This will traverse the dependency graph, and report
       // errors if any dependencies are missing.

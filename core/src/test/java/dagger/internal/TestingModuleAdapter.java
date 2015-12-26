@@ -34,7 +34,6 @@ public class TestingModuleAdapter<M> extends ModuleAdapter<M> {
     super(
         moduleClass,
         injectableTypesToKeys(annotation.injects()),
-        annotation.staticInjections(),
         annotation.overrides(),
         annotation.includes(),
         annotation.complete(),
