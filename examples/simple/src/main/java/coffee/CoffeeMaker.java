@@ -7,6 +7,10 @@ class CoffeeMaker {
   @Inject Lazy<Heater> heater; // Don't want to create a possibly costly heater until we need it.
   @Inject Pump pump;
 
+  @Inject CoffeeMaker() {
+    // @Inject-annotated constructor required for Dagger to create this type.
+  }
+
   public void brew() {
     heater.get().on();
     pump.pump();

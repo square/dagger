@@ -36,18 +36,24 @@ public final class ExtensionTest {
 
   static class B {
     @Inject A a;
+
+    @Inject B() {}
   }
 
   @Singleton
   static class C {
     @Inject A a;
     @Inject B b;
+
+    @Inject C() {}
   }
 
   static class D {
     @Inject A a;
     @Inject B b;
     @Inject C c;
+
+    @Inject D() {}
   }
 
   @Module(injects = { A.class, B.class }) static class RootModule { }

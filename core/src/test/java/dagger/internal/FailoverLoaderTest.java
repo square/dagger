@@ -25,6 +25,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import static org.fest.assertions.Assertions.assertThat;
+import static org.junit.Assert.fail;
 
 /**
  * A test case to deal with fall-back to reflection where the concrete type has been generated
@@ -53,5 +54,16 @@ public final class FailoverLoaderTest {
     Entry$Point entryPoint = new Entry$Point();
     ObjectGraph.create(new TestModule()).inject(entryPoint);
     assertThat(entryPoint.a).isEqualTo("a");
+  }
+
+  @Test public void noInstantiationWithoutInjectConstructorWithUnGeneratedCode() {
+    ObjectGraph og = ObjectGraph.create(new TestModule());
+    try {
+      og.get(Entry$Point.class);
+      fail();
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage(
+          "Unable to create binding for dagger.internal.FailoverLoaderTest$Entry$Point");
+    }
   }
 }

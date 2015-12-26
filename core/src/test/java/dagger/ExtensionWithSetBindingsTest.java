@@ -38,11 +38,15 @@ public final class ExtensionWithSetBindingsTest {
   @Singleton
   static class RealSingleton {
     @Inject Set<Integer> ints;
+
+    @Inject RealSingleton() {}
   }
 
   @Singleton
   static class Main {
     @Inject Set<Integer> ints;
+
+    @Inject Main() {}
   }
 
   @Module(injects = RealSingleton.class)

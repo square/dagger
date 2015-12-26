@@ -36,6 +36,8 @@ public final class PrimitiveInjectionTest {
     @Inject long[] longArray;
     @Inject float[] floatArray;
     @Inject double[] doubleArray;
+
+    @Inject ArrayInjectable() {}
   }
 
   @Module(injects = ArrayInjectable.class)

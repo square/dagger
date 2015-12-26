@@ -141,7 +141,7 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     return provideKey != null ? provideKey : membersKey;
   }
 
-  public static <T> Binding<T> create(Class<T> type, boolean mustHaveInjections) {
+  public static <T> Binding<T> create(Class<T> type) {
     boolean singleton = type.isAnnotationPresent(Singleton.class);
     List<String> keys = new ArrayList<String>();
 
@@ -161,9 +161,7 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
       }
     }
 
-    // Look up @Inject-annotated constructors. If there's no @Inject-annotated
-    // constructor, use a default public constructor if the class has other
-    // injections. Otherwise treat the class as non-injectable.
+    // Look up @Inject-annotated constructors. Otherwise treat the class as non-injectable.
     Constructor<T> injectedConstructor = null;
     for (Constructor<T> constructor : getConstructorsForType(type)) {
       if (!constructor.isAnnotationPresent(Inject.class)) {
@@ -173,17 +171,6 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
         throw new InvalidBindingException(type.getName(), "has too many injectable constructors");
       }
       injectedConstructor = constructor;
-    }
-    if (injectedConstructor == null) {
-      if (!injectedFields.isEmpty()) {
-        try {
-          injectedConstructor = type.getDeclaredConstructor();
-        } catch (NoSuchMethodException ignored) {
-        }
-      } else if (mustHaveInjections) {
-        throw new InvalidBindingException(type.getName(),
-            "has no injectable members. Do you want to add an injectable constructor?");
-      }
     }
 
     int parameterCount;
