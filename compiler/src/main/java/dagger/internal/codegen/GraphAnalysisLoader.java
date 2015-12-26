@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import dagger.internal.Binding;
 import dagger.internal.Loader;
 import dagger.internal.ModuleAdapter;
-import dagger.internal.StaticInjection;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
@@ -135,10 +134,6 @@ public final class GraphAnalysisLoader extends Loader {
   }
 
   @Override public <T> ModuleAdapter<T> getModuleAdapter(Class<T> moduleClass) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
     throw new UnsupportedOperationException();
   }
 }
