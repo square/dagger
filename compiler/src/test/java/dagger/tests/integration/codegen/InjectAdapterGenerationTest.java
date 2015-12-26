@@ -68,9 +68,8 @@ public final class InjectAdapterGenerationTest {
         JavaFileObjects.forSourceString("Basic$A$$InjectAdapter", Joiner.on("\n").join(
             "import dagger.internal.Binding;",
             "import java.lang.Override;",
-            "import javax.inject.Provider;",
             "public final class Basic$A$$InjectAdapter",
-            "    extends Binding<Basic.A> implements Provider<Basic.A> {",
+            "    extends Binding<Basic.A> {",
             "  public Basic$A$$InjectAdapter() {",
             "    super(\"Basic$A\", \"members/Basic$A\", NOT_SINGLETON, Basic.A.class);",
             "  }",
@@ -84,9 +83,8 @@ public final class InjectAdapterGenerationTest {
         JavaFileObjects.forSourceString("Basic$Foo$Bar$$InjectAdapter", Joiner.on("\n").join(
             "import dagger.internal.Binding;",
             "import java.lang.Override;",
-            "import javax.inject.Provider;",
             "public final class Basic$Foo$Bar$$InjectAdapter",
-            "    extends Binding<Basic.Foo$Bar> implements Provider<Basic.Foo$Bar> {",
+            "    extends Binding<Basic.Foo$Bar> {",
             "  public Basic$Foo$Bar$$InjectAdapter() {",
             "    super(\"Basic$Foo$Bar\", \"members/Basic$Foo$Bar\",",
             "        NOT_SINGLETON, Basic.Foo$Bar.class);",
@@ -101,9 +99,8 @@ public final class InjectAdapterGenerationTest {
         JavaFileObjects.forSourceString("Basic$Foo$Bar$Baz$$InjectAdapter", Joiner.on("\n").join(
             "import dagger.internal.Binding;",
             "import java.lang.Override;",
-            "import javax.inject.Provider;",
             "public final class Basic$Foo$Bar$Baz$$InjectAdapter",
-            "    extends Binding<Basic.Foo$Bar.Baz> implements Provider<Basic.Foo$Bar.Baz> {",
+            "    extends Binding<Basic.Foo$Bar.Baz> {",
             "  public Basic$Foo$Bar$Baz$$InjectAdapter() {",
             "    super(\"Basic$Foo$Bar$Baz\", \"members/Basic$Foo$Bar$Baz\",",
             "        NOT_SINGLETON, Basic.Foo$Bar.Baz.class);",

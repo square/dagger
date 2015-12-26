@@ -65,7 +65,6 @@ public final class ModuleAdapterGenerationTest {
         "import java.lang.Class;",
         "import java.lang.Override;",
         "import java.lang.String;",
-        "import javax.inject.Provider;",
         "public final class Field$AModule$$ModuleAdapter",
         "    extends ModuleAdapter<Field.AModule> {",
         "  private static final String[] INJECTS = ",
@@ -83,7 +82,7 @@ public final class ModuleAdapterGenerationTest {
         "        new NameProvidesAdapter(module));", // eager new!
         "  }",
         "  public static final class NameProvidesAdapter", // corresponds to method name
-        "      extends ProvidesBinding<String> implements Provider<String> {",
+        "      extends ProvidesBinding<String> {",
         "    private final Field.AModule module;",
         "    public NameProvidesAdapter(Field.AModule module) {",
         "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");",
@@ -104,9 +103,8 @@ public final class ModuleAdapterGenerationTest {
             "import java.lang.String;",
             "import java.lang.SuppressWarnings;",
             "import java.util.Set;",
-            "import javax.inject.Provider;",
             "public final class Field$A$$InjectAdapter",
-            "    extends Binding<Field.A> implements Provider<Field.A> {",
+            "    extends Binding<Field.A> {",
             "  private Binding<String> name;", // for ctor
             "  public Field$A$$InjectAdapter() {",
             "    super(\"Field$A\", \"members/Field$A\", NOT_SINGLETON, Field.A.class);",
@@ -153,7 +151,6 @@ public final class ModuleAdapterGenerationTest {
         "import java.lang.Class;",
         "import java.lang.Override;",
         "import java.lang.String;",
-        "import javax.inject.Provider;",
         "public final class Field$AModule$$ModuleAdapter extends ModuleAdapter<Field.AModule> {",
         "  private static final String[] INJECTS = ",
         "      {\"members/Field$A\", \"members/java.lang.String\", \"members/Field$B\"};",
@@ -170,7 +167,7 @@ public final class ModuleAdapterGenerationTest {
         "        new NameProvidesAdapter(module));", // eager new!
         "  }",
         "  public static final class NameProvidesAdapter", // corresponds to method name
-        "      extends ProvidesBinding<String> implements Provider<String> {",
+        "      extends ProvidesBinding<String> {",
         "    private final Field.AModule module;",
         "    public NameProvidesAdapter(Field.AModule module) {",
         "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");",
@@ -191,9 +188,8 @@ public final class ModuleAdapterGenerationTest {
             "import java.lang.String;",
             "import java.lang.SuppressWarnings;",
             "import java.util.Set;",
-            "import javax.inject.Provider;",
             "public final class Field$A$$InjectAdapter",
-            "    extends Binding<Field.A> implements Provider<Field.A> {",
+            "    extends Binding<Field.A> {",
             "  private Binding<String> name;", // For Constructor.
             "  public Field$A$$InjectAdapter() {",
             "    super(\"Field$A\", \"members/Field$A\", NOT_SINGLETON, Field.A.class);",
@@ -215,16 +211,14 @@ public final class ModuleAdapterGenerationTest {
 
     JavaFileObject expectedInjectAdapterB =
         JavaFileObjects.forSourceString("Field$B$$InjectAdapter", Joiner.on("\n").join(
-            "import dagger.MembersInjector;",
             "import dagger.internal.Binding;",
             "import dagger.internal.Linker;",
             "import java.lang.Override;",
             "import java.lang.String;",
             "import java.lang.SuppressWarnings;",
             "import java.util.Set;",
-            "import javax.inject.Provider;",
             "public final class Field$B$$InjectAdapter",
-            "    extends Binding<Field.B> implements Provider<Field.B>, MembersInjector<Field.B> {",
+            "    extends Binding<Field.B> {",
             "  private Binding<String> name;", // For field.
             "  public Field$B$$InjectAdapter() {",
             "    super(\"Field$B\", \"members/Field$B\", NOT_SINGLETON, Field.B.class);",

@@ -410,8 +410,7 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     TypeSpec.Builder result = TypeSpec.classBuilder(className.simpleName())
         .addJavadoc("$L", bindingTypeDocs(returnType, false, false, dependent))
         .addModifiers(PUBLIC, STATIC, FINAL)
-        .superclass(ParameterizedTypeName.get(ClassName.get(ProvidesBinding.class), returnType))
-        .addSuperinterface(ParameterizedTypeName.get(ClassName.get(Provider.class), returnType));
+        .superclass(ParameterizedTypeName.get(ClassName.get(ProvidesBinding.class), returnType));
 
     result.addField(moduleClassName, "module", PRIVATE, FINAL);
     for (Element parameter : parameters) {
