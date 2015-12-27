@@ -159,10 +159,5 @@ public abstract class Binding<T> implements Provider<T>, MembersInjector<T> {
       super(error);
       this.type = type;
     }
-
-    public InvalidBindingException(String type, String error, Throwable cause) {
-      super("Binding for " + type + " was invalid: " + error, cause);
-      this.type = type;
-    }
   }
 }
