@@ -16,12 +16,13 @@
 package dagger.internal;
 
 import dagger.internal.Binding.InvalidBindingException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 
 /**
@@ -38,7 +39,7 @@ public final class Linker {
   private final Linker base;
 
   /** Bindings requiring a call to attach(). May contain deferred bindings. */
-  private final Queue<Binding<?>> toLink = new ArrayQueue<Binding<?>>();
+  private final Deque<Binding<?>> toLink = new ArrayDeque<Binding<?>>();
 
   /** True unless calls to requestBinding() were unable to satisfy the binding. */
   private boolean attachSuccess = true;
