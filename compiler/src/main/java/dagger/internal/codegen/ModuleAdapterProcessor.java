@@ -238,6 +238,15 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     boolean complete = (Boolean) module.get("complete");
     boolean library = (Boolean) module.get("library");
 
+    List<Object> duplicateInjects = extractDuplicates(injects);
+    if (!duplicateInjects.isEmpty()) {
+      error("'injects' list contains duplicate entries: " + duplicateInjects, type);
+    }
+    List<Object> duplicateIncludes = extractDuplicates(includes);
+    if (!duplicateIncludes.isEmpty()) {
+      error("'includes' list contains duplicate entries: " + duplicateIncludes, type);
+    }
+
     ClassName moduleClassName = ClassName.get(type);
     ClassName adapterClassName = Util.adapterName(moduleClassName, MODULE_ADAPTER_SUFFIX);
 
@@ -326,6 +335,15 @@ public final class ModuleAdapterProcessor extends AbstractProcessor {
     return JavaFile.builder(adapterClassName.packageName(), adapterBuilder.build())
         .addFileComment(AdapterJavadocs.GENERATED_BY_DAGGER)
         .build();
+  }
+
+  private static List<Object> extractDuplicates(Object[] items) {
+    List<Object> itemsList = Arrays.asList(items);
+    List<Object> duplicateItems = new ArrayList<Object>(itemsList);
+    for (Object item : new LinkedHashSet<Object>(itemsList)) {
+      duplicateItems.remove(item); // Not using removeAll since we only want one element removed.
+    }
+    return duplicateItems;
   }
 
   private CodeBlock injectsInitializer(Object[] injects) {

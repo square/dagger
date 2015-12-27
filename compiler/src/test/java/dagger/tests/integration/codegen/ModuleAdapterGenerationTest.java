@@ -245,7 +245,6 @@ public final class ModuleAdapterGenerationTest {
         .generatesSources(expectedModuleAdapter, expectedInjectAdapterA, expectedInjectAdapterB);
   }
 
-
   @Test public void providesHasParameterNamedModule() {
     JavaFileObject a = JavaFileObjects.forSourceString("A", Joiner.on("\n").join(
         "import javax.inject.Inject;",
@@ -265,4 +264,38 @@ public final class ModuleAdapterGenerationTest {
         .compilesWithoutError();
   }
 
+  @Test public void duplicateInjectsFails() {
+    JavaFileObject module = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "class A {}",
+        "@Module(injects = { A.class, A.class })",
+        "class BModule { }"));
+
+    ASSERT.about(javaSource())
+        .that(module)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining("'injects' list contains duplicate entries: [A]")
+        .in(module).onLine(6);
+  }
+
+  @Test public void duplicateIncludesFails() {
+    JavaFileObject module = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import javax.inject.Inject;",
+        "@Module",
+        "class AModule {}",
+        "@Module(includes = { AModule.class, AModule.class })",
+        "class BModule { }"));
+
+    ASSERT.about(javaSource())
+        .that(module)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining("'includes' list contains duplicate entries: [AModule]")
+        .in(module).onLine(7);
+  }
 }
