@@ -28,8 +28,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static dagger.Provides.Type.SET;
-import static org.fest.assertions.Assertions.assertThat;
 
 @RunWith(JUnit4.class)
 public final class KeysTest {

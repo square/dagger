@@ -24,7 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public final class SimpleInjectionTest {
@@ -52,18 +52,18 @@ public final class SimpleInjectionTest {
   @Test public void memberInject_WithoutProvidesMethod() {
     Foo foo = new Foo();
     ObjectGraph.create(FooModule.class).inject(foo);
-    ASSERT.that(foo.blah).equals("blah");
+    assertThat(foo.blah).isEqualTo("blah");
   }
 
   @Test public void membersInject_WithProvidesMethod() {
     Foo foo = new Foo();
     ObjectGraph.create(ProvidingFooModule.class).inject(foo);
-    ASSERT.that(foo.blah).equals("blah");
+    assertThat(foo.blah).isEqualTo("blah");
   }
 
   @Test public void get_WithProvidesMethod() {
     Foo foo = ObjectGraph.create(ProvidingFooModule.class).get(Foo.class);
-    ASSERT.that(foo.blah).equals("blah");
+    assertThat(foo.blah).isEqualTo("blah");
   }
 
   static class Bar { }
@@ -84,7 +84,7 @@ public final class SimpleInjectionTest {
 
   @Test public void membersInject_WithProvidedNonInjectable() {
     Bar bar = ObjectGraph.create(ProvidingBarModule.class).get(Bar.class);
-    ASSERT.that(bar).isNotNull();
+    assertThat(bar).isNotNull();
   }
 
 }

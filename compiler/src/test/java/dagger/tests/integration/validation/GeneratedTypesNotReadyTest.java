@@ -35,7 +35,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assertAbout;
 
 /**
  * Tests that the annotation processor(s) will properly handle the case where
@@ -44,69 +44,77 @@ import static org.truth0.Truth.ASSERT;
  */
 @RunWith(JUnit4.class)
 public class GeneratedTypesNotReadyTest {
-  private final JavaFileObject foo = JavaFileObjects.forSourceString("Foo", Joiner.on("\n").join(
-      "package myPackage;",
-      "public interface Foo {}"
-  ));
-  private final JavaFileObject main = JavaFileObjects.forSourceString("Main", Joiner.on("\n").join(
-      "import javax.inject.Inject;",
-      "import myPackage.Foo;",
-      "class Main {",
-      "  @Inject Foo f;",
-      "}"));
+  private final JavaFileObject foo = JavaFileObjects.forSourceString("Foo", ""
+      + "package myPackage;\n"
+      + "public interface Foo {}\n"
+  );
+  private final JavaFileObject main = JavaFileObjects.forSourceString("Main", ""
+      + "import javax.inject.Inject;\n"
+      + "import myPackage.Foo;\n"
+      + "class Main {\n"
+      + "  @Inject Foo f;\n"
+      + "}\n"
+  );
 
   @Test public void withstandsMissingTypeReferencedInInjects() {
     // TODO(cgruber): remove Foo (interface) from this when injects= analysis is fixed.
-    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import myPackage.Foo;",
-        "@Module(injects = { Main.class, myPackage.FooImpl.class })",
-        "class FooModule {",
-        "  @Provides Foo provideFoo(myPackage.FooImpl impl) {",
-        "    return impl;",
-        "  }",
-        "}"));
+    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import myPackage.Foo;\n"
+        + "@Module(injects = { Main.class, myPackage.FooImpl.class })\n"
+        + "class FooModule {\n"
+        + "  @Provides Foo provideFoo(myPackage.FooImpl impl) {\n"
+        + "    return impl;\n"
+        + "  }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSources()).that(asList(foo, main, module))
+    assertAbout(javaSources())
+        .that(asList(foo, main, module))
         .processedWith(concat(asList(new FooImplGenerator()), daggerProcessors()))
         .compilesWithoutError();
   }
 
   @Test public void withstandsMissingTypeReferencedInsideModule() {
-    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import myPackage.Foo;",
-        "@Module(injects = { Main.class })",
-        "class FooModule {",
-        "  @Provides Foo provideFoo(myPackage.FooImpl impl) {",
-        "    return impl;",
-        "  }",
-        "}"));
+    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import myPackage.Foo;\n"
+        + "@Module(injects = { Main.class })\n"
+        + "class FooModule {\n"
+        + "  @Provides Foo provideFoo(myPackage.FooImpl impl) {\n"
+        + "    return impl;\n"
+        + "  }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assertAbout(javaSources())
+        .that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .compilesWithoutError();
   }
 
   @Test public void withstandsMissingTypeReferencedByProvidesReturnType() {
-    JavaFileObject main = JavaFileObjects.forSourceString("Main", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "class Main {",
-        "  @Inject myPackage.FooImpl f;",
-        "}"));
-    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "@Module(injects = { Main.class })",
-        "class FooModule {",
-        "  @Provides myPackage.FooImpl provideFoo() {",
-        "    return new myPackage.FooImpl();",
-        "  }",
-        "}"));
+    JavaFileObject main = JavaFileObjects.forSourceString("Main", ""
+        + "import javax.inject.Inject;\n"
+        + "class Main {\n"
+        + "  @Inject myPackage.FooImpl f;\n"
+        + "}\n"
+    );
+    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "@Module(injects = { Main.class })\n"
+        + "class FooModule {\n"
+        + "  @Provides myPackage.FooImpl provideFoo() {\n"
+        + "    return new myPackage.FooImpl();\n"
+        + "  }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assertAbout(javaSources())
+        .that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .compilesWithoutError();
   }
@@ -127,46 +135,53 @@ public class GeneratedTypesNotReadyTest {
         "  }",
         "}"));
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assertAbout(javaSources())
+        .that(asList(foo, module, main))
         .processedWith(new FooImplGenerator())
         .compilesWithoutError();
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assertAbout(javaSources())
+        .that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .failsToCompile()
         .withErrorContaining("Could not find types required by provides methods for [FooModule]");
   }
 
   @Test public void withstandsMissingTypeReferencedInTransitiveJITDependency() {
-    JavaFileObject main = JavaFileObjects.forSourceString("Main", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "import myPackage.FooImpl;",
-        "class Main {",
-        "  @Inject FooImpl f;",
-        "}"));
-    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "@Module(injects = { Main.class })",
-        "class FooModule {",
-        "}"));
+    JavaFileObject main = JavaFileObjects.forSourceString("Main", ""
+        + "import javax.inject.Inject;\n"
+        + "import myPackage.FooImpl;\n"
+        + "class Main {\n"
+        + "  @Inject FooImpl f;\n"
+        + "}\n"
+    );
+    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "@Module(injects = { Main.class })\n"
+        + "class FooModule {\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    assertAbout(javaSources())
+        .that(asList(foo, module, main))
         .processedWith(concat(daggerProcessors(), asList(new FooImplGenerator())))
         .compilesWithoutError();
   }
 
   @Test public void verifyFooImplGeneratorIsCompilingWithoutDagger() {
-    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import myPackage.Foo;",
-        "@Module(injects = { Main.class })",
-        "class FooModule {",
-        "  @Provides Foo provideFoo(myPackage.FooImpl impl) {",
-        "    return impl;",
-        "  }",
-        "}"));
-    ASSERT.about(javaSources()).that(asList(foo, module, main))
+    JavaFileObject module = JavaFileObjects.forSourceString("FooModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import myPackage.Foo;\n"
+        + "@Module(injects = { Main.class })\n"
+        + "class FooModule {\n"
+        + "  @Provides Foo provideFoo(myPackage.FooImpl impl) {\n"
+        + "    return impl;\n"
+        + "  }\n"
+        + "}\n"
+    );
+    assertAbout(javaSources())
+        .that(asList(foo, module, main))
         .processedWith(new FooImplGenerator())
         .compilesWithoutError();
   }
@@ -179,21 +194,23 @@ public class GeneratedTypesNotReadyTest {
         try {
           JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile("FooImpl");
           Writer writer = sourceFile.openWriter();
-          writer.write(Joiner.on("\n").join(
-              "package myPackage;",
-              "import javax.inject.Inject;",
-              "public final class FooImpl implements Foo {",
-              "  @Inject public FooImpl() { }",
-              "}"));
+          writer.write(""
+              + "package myPackage;\n"
+              + "import javax.inject.Inject;\n"
+              + "public final class FooImpl implements Foo {\n"
+              + "  @Inject public FooImpl() { }\n"
+              + "}\n"
+          );
           writer.close();
           sourceFile = processingEnv.getFiler().createSourceFile("FooImpl2");
           writer = sourceFile.openWriter();
-          writer.write(Joiner.on("\n").join(
-              "package myPackage;",
-              "import javax.inject.Inject;",
-              "public final class FooImpl2<T> implements Foo {",
-              "  @Inject public FooImpl2() { }",
-              "}"));
+          writer.write(""
+              + "package myPackage;\n"
+              + "import javax.inject.Inject;\n"
+              + "public final class FooImpl2<T> implements Foo {\n"
+              + "  @Inject public FooImpl2() { }\n"
+              + "}\n"
+          );
           writer.close();
           written = true;
         } catch (IOException e) {

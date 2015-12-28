@@ -16,64 +16,65 @@
  */
 package dagger.tests.integration.validation;
 
-import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class CyclicDependencyTest {
 
   @Test public void cyclicDepsWithInjectables() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("CyclicDeps", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import javax.inject.Inject;",
-        "class CyclicDeps {",
-        "  static class Foo {",
-        "    @Inject Foo(Bar b) { }",
-        "  }",
-        "  static class Bar {",
-        "    @Inject Bar(Blah b) { }",
-        "  }",
-        "  static class Blah {",
-        "    @Inject Blah(Foo f) { }",
-        "  }",
-        "  static class EntryPoint {",
-        "    @Inject Foo f;",
-        "  }",
-        "  @Module(injects = EntryPoint.class)",
-        "  static class TestModule { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("CyclicDeps", ""
+        + "import dagger.Module;\n"
+        + "import javax.inject.Inject;\n"
+        + "class CyclicDeps {\n"
+        + "  static class Foo {\n"
+        + "    @Inject Foo(Bar b) { }\n"
+        + "  }\n"
+        + "  static class Bar {\n"
+        + "    @Inject Bar(Blah b) { }\n"
+        + "  }\n"
+        + "  static class Blah {\n"
+        + "    @Inject Blah(Foo f) { }\n"
+        + "  }\n"
+        + "  static class EntryPoint {\n"
+        + "    @Inject Foo f;\n"
+        + "  }\n"
+        + "  @Module(injects = EntryPoint.class)\n"
+        + "  static class TestModule { }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
+    assertAbout(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining("Dependency cycle:").in(sourceFile).onLine(17);
   }
 
   @Test public void cyclicDepsWithProvidesMethods() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("CyclicDeps", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "class CyclicDeps {",
-        "  static class A { }",
-        "  static class B { }",
-        "  static class C { }",
-        "  static class D { }",
-        "  @Module(injects = D.class)",
-        "  static class CyclicModule {",
-        "    @Provides A a(D d) { return null; }",
-        "    @Provides B b(A a) { return null; }",
-        "    @Provides C c(B b) { return null; }",
-        "    @Provides D d(C c) { return null; }",
-        "  }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("CyclicDeps", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "class CyclicDeps {\n"
+        + "  static class A { }\n"
+        + "  static class B { }\n"
+        + "  static class C { }\n"
+        + "  static class D { }\n"
+        + "  @Module(injects = D.class)\n"
+        + "  static class CyclicModule {\n"
+        + "    @Provides A a(D d) { return null; }\n"
+        + "    @Provides B b(A a) { return null; }\n"
+        + "    @Provides C c(B b) { return null; }\n"
+        + "    @Provides D d(C c) { return null; }\n"
+        + "  }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
+    assertAbout(javaSource()).that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
         .withErrorContaining("Dependency cycle:").in(sourceFile).onLine(9);
   }
 

@@ -24,7 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static org.fest.assertions.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public final class PrimitiveInjectionTest {
@@ -58,7 +58,7 @@ public final class PrimitiveInjectionTest {
     assertThat(result.booleanArray).isEqualTo(new boolean[] { true });
     assertThat(result.charArray).isEqualTo(new char[] { Character.MAX_VALUE });
     assertThat(result.longArray).isEqualTo(new long[] { Long.MAX_VALUE });
-    assertThat(result.floatArray).isEqualTo(new float[] { Float.MAX_VALUE });
-    assertThat(result.doubleArray).isEqualTo(new double[] { Double.MAX_VALUE });
+    assertThat(result.floatArray).hasValuesWithin(0).of(new float[] { Float.MAX_VALUE });
+    assertThat(result.doubleArray).hasValuesWithin(0).of(new double[] { Double.MAX_VALUE });
   }
 }

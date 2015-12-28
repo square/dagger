@@ -31,10 +31,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static dagger.Provides.Type.SET;
 import static dagger.Provides.Type.SET_VALUES;
 import static java.util.Collections.emptySet;
-import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -222,7 +222,7 @@ public final class SetBindingTest {
     }
 
     TestEntryPoint ep = injectWithModule(new TestEntryPoint(), new TestModule());
-    assertThat(ep.strings).containsOnly("a", "b");
+    assertThat(ep.strings).containsExactly("a", "b");
   }
 
   @Test public void validateSetBinding() {

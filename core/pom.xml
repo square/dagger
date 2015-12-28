@@ -39,8 +39,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.easytesting</groupId>
-      <artifactId>fest-assert</artifactId>
+      <groupId>com.google.truth</groupId>
+      <artifactId>truth</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
