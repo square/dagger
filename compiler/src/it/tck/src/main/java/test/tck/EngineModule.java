@@ -15,17 +15,20 @@
  */
 package test.tck;
 
+import dagger.MembersInjector;
 import dagger.Module;
 import dagger.Provides;
-import org.atinject.tck.auto.Drivers;
-import org.atinject.tck.auto.DriversSeat;
-import org.atinject.tck.auto.Seat;
+import org.atinject.tck.auto.Engine;
+import org.atinject.tck.auto.V8Engine;
 
 @Module
-class SeatModule {
+public class EngineModule {
   @Provides
-  @Drivers
-  Seat provideSeat(DriversSeat seat) {
-    return seat;
+  static Engine provideEngine(MembersInjector<V8Engine> injector) {
+    // This is provided because V8Engine has no @Inject constructor and Dagger requires an @Inject
+    // constructor, however this is a TCK supplied class that we prefer to leave unmodified.
+    V8Engine engine = new V8Engine();
+    injector.injectMembers(engine);
+    return engine;
   }
 }

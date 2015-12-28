@@ -22,7 +22,7 @@ import org.atinject.tck.auto.FuelTank;
 @Module
 class FuelTankModule {
   @Provides
-  FuelTank provideFuelTank() {
+  static FuelTank provideFuelTank() {
     return new FuelTank();
   }
 }

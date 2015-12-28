@@ -17,15 +17,15 @@ package test.tck;
 
 import dagger.Module;
 import dagger.Provides;
-import org.atinject.tck.auto.Tire;
-import org.atinject.tck.auto.accessories.SpareTire;
-import javax.inject.Named;
+import org.atinject.tck.auto.Drivers;
+import org.atinject.tck.auto.DriversSeat;
+import org.atinject.tck.auto.Seat;
 
 @Module
-class TireModule {
+class SeatModule {
   @Provides
-  @Named("spare")
-  Tire provideTire(SpareTire sparetire) {
-    return sparetire;
+  @Drivers
+  static Seat provideSeat(DriversSeat seat) {
+    return seat;
   }
 }

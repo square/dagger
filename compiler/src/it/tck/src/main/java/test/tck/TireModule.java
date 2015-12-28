@@ -17,13 +17,15 @@ package test.tck;
 
 import dagger.Module;
 import dagger.Provides;
-import org.atinject.tck.auto.Car;
-import org.atinject.tck.auto.Convertible;
+import org.atinject.tck.auto.Tire;
+import org.atinject.tck.auto.accessories.SpareTire;
+import javax.inject.Named;
 
 @Module
-class CarModule {
+class TireModule {
   @Provides
-  Car provideConvertible(Convertible convertible) {
-    return convertible;
+  @Named("spare")
+  static Tire provideTire(SpareTire sparetire) {
+    return sparetire;
   }
 }
