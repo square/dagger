@@ -16,39 +16,42 @@
  */
 package dagger.tests.integration.validation;
 
-import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public class SimpleMissingDependencyTest {
 
   @Test public void missingDependency() {
-    JavaFileObject file = JavaFileObjects.forSourceString("MissingDep", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import javax.inject.Inject;",
-        "class MissingDep {",
-        "  @Inject Dependency dep;",
-        "  static interface Dependency {",
-        "    void doit();",
-        "  }",
-        "  @Module(injects = MissingDep.class)",
-        "  static class DaModule {",
-        "    /* missing */ // @Provides Dependency a() { return new Dependency(); }",
-        "  }",
-        "}"));
+    JavaFileObject file = JavaFileObjects.forSourceString("MissingDep", ""
+        + "import dagger.Module;\n"
+        + "import javax.inject.Inject;\n"
+        + "class MissingDep {\n"
+        + "  @Inject Dependency dep;\n"
+        + "  static interface Dependency {\n"
+        + "    void doit();\n"
+        + "  }\n"
+        + "  @Module(injects = MissingDep.class)\n"
+        + "  static class DaModule {\n"
+        + "    /* missing */ // @Provides Dependency a() { return new Dependency(); }\n"
+        + "  }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource())
-        .that(file).processedWith(daggerProcessors())
+    assertAbout(javaSource())
+        .that(file)
+        .processedWith(daggerProcessors())
         .failsToCompile()
-        .withErrorContaining("MissingDep$Dependency could not be bound").in(file).onLine(9).and()
-        .withErrorContaining("required by MissingDep for MissingDep.DaModule").in(file).onLine(9);
+        .withErrorContaining("MissingDep$Dependency could not be bound")
+        .in(file).onLine(9).and()
+        .withErrorContaining("required by MissingDep for MissingDep.DaModule")
+        .in(file).onLine(9);
   }
 }

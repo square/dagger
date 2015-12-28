@@ -57,11 +57,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.easytesting</groupId>
-      <artifactId>fest-assert</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>
@@ -74,7 +69,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.truth0</groupId>
+      <groupId>com.google.truth</groupId>
       <artifactId>truth</artifactId>
       <scope>test</scope>
     </dependency>

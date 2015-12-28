@@ -24,8 +24,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static junit.framework.Assert.fail;
-import static org.fest.assertions.Assertions.assertThat;
 
 @RunWith(JUnit4.class)
 public final class FailureModeErrorsTest {

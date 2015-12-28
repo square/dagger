@@ -32,7 +32,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static org.fest.assertions.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Test Singleton and Lazy bindings for thread-safety.
@@ -87,7 +87,7 @@ public final class ThreadSafetyTest {
     latch.countDown();
     for (Future<Long> future : futures) {
       assertThat(future.get(1, TimeUnit.SECONDS))
-          .overridingErrorMessage("Lock failure - count should never increment")
+          .named("Lock failure - count should never increment")
           .isEqualTo(0);
     }
   }
@@ -108,7 +108,7 @@ public final class ThreadSafetyTest {
     latch.countDown();
     for (Future<Integer> future : futures) {
       assertThat(future.get(1, TimeUnit.SECONDS))
-          .overridingErrorMessage("Lock failure - count should never increment")
+          .named("Lock failure - count should never increment")
           .isEqualTo(0);
     }
   }

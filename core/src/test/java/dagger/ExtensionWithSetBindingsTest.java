@@ -25,8 +25,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static dagger.Provides.Type.SET;
-import static org.fest.assertions.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -70,16 +70,16 @@ public final class ExtensionWithSetBindingsTest {
   @Test public void basicInjectionWithExtension() {
     ObjectGraph root = ObjectGraph.createWith(new TestingLoader(), new RootModule());
     RealSingleton rs = root.get(RealSingleton.class);
-    assertThat(rs.ints).containsOnly(0, 1);
+    assertThat(rs.ints).containsExactly(0, 1);
 
     ObjectGraph extension = root.plus(new ExtensionModule());
     Main main = extension.get(Main.class);
-    assertThat(main.ints).containsOnly(0, 1, 2, 3);
+    assertThat(main.ints).containsExactly(0, 1, 2, 3);
 
     // Second time around.
     ObjectGraph extension2 = root.plus(new ExtensionModule());
     Main main2 = extension2.get(Main.class);
-    assertThat(main2.ints).containsOnly(0, 1, 4, 5);
+    assertThat(main2.ints).containsExactly(0, 1, 4, 5);
   }
 
   @Module(includes = ExtensionModule.class, overrides = true)

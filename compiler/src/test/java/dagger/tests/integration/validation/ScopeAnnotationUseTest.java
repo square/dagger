@@ -16,18 +16,17 @@
  */
 package dagger.tests.integration.validation;
 
-import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
 
 /**
  * Integration tests for the validation processors related to the use
@@ -45,208 +44,260 @@ public class ScopeAnnotationUseTest {
   //    "Dagger will ignore scoping annotations on methods that are not @Provides methods:";
 
   @Test public void compileSucceedsScopeOnConcreteType() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "import javax.inject.Singleton;",
-        "@Singleton",
-        "class Test {",
-        "  @Inject public Test() { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import javax.inject.Inject;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Singleton\n"
+        + "class Test {\n"
+        + "  @Inject public Test() { }\n"
+        + "}\n"
+    );
 
     // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
         //.and().hasNoWarnings();
   }
 
   @Test public void compileSucceedsScopeOnProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Singleton;",
-        "@Module(library = true, injects = String.class)",
-        "class Test {",
-        "  @Provides @Singleton public String provideString() { return \"\"; }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Module(library = true, injects = String.class)\n"
+        + "class Test {\n"
+        + "  @Provides @Singleton public String provideString() { return \"\"; }\n"
+        + "}\n"
+    );
 
     // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
         //.and().hasNoWarnings();
   }
 
   @Test public void compileSucceedsWithScopedSuppressedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @SuppressWarnings(\"scoping\")",
-        "  @Singleton void method() { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @SuppressWarnings(\"scoping\")\n"
+        + "  @Singleton void method() { }\n"
+        + "}\n"
+    );
 
     // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
         //.and().hasNoWarnings();
   }
 
   @Test public void compileSucceedsWithScopedMultiplySuppressedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @SuppressWarnings({\"blah\", \"scoping\", \"foo\"})",
-        "  @Singleton void method() { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @SuppressWarnings({\"blah\", \"scoping\", \"foo\"})\n"
+        + "  @Singleton void method() { }\n"
+        + "}\n"
+    );
 
     // TODO(cgruber): uncomment when http://github.com/google/compile-testing has hasNoWarnings()
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
         //.and().hasNoWarnings();
   }
 
   @Test public void compileWarnsWithScopedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @Singleton void method() { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @Singleton void method() { }\n"
+        + "}\n"
+    );
 
     // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
         //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(3).atColumn(49).and()
         //.withWarningContaining("Test.method()").in(sourceFile).onLine(3).atColumn(49);
   }
 
   @Test public void compileWarnsWithScopedIncorrectlySuppressedNonProvidesMethod() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @SuppressWarnings(\"some string other than 'scoping'\")",
-        "  @Singleton void method() { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @SuppressWarnings(\"some string other than 'scoping'\")\n"
+        + "  @Singleton void method() { }\n"
+        + "}\n"
+    );
 
     // TODO(cgruber): uncomment when http://github.com/google/compile-testing supports warnings.
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).compilesWithoutError();
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
         //.withWarningContaining(MISUSED_SCOPE_TEXT).in(sourceFile).onLine(4).atColumn(49).and()
         //.withWarningContaining("Test.method()").in(sourceFile).onLine(4).atColumn(49);
   }
 
   @Test public void compileFailsWithScopeOnInterface() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @Module(injects = TestType.class) class TestModule { }",
-        "  @Singleton interface TestType { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @Module(injects = TestType.class) class TestModule { }\n"
+        + "  @Singleton interface TestType { }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile).onLine(5).atColumn(14).and()
-        .withErrorContaining("Test.TestType").in(sourceFile).onLine(5).atColumn(14);
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile)
+        .onLine(5).atColumn(14).and()
+        .withErrorContaining("Test.TestType")
+        .in(sourceFile).onLine(5).atColumn(14);
   }
 
   @Test public void compileFailsWithScopeOnAbstractClass() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @Module(injects = TestType.class) class TestModule { }",
-        "  @Singleton abstract class TestType { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @Module(injects = TestType.class) class TestModule { }\n"
+        + "  @Singleton abstract class TestType { }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile).onLine(5).atColumn(23).and()
-        .withErrorContaining("Test.TestType").in(sourceFile).onLine(5).atColumn(23);
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining(ABSTRACTION_SCOPING_TEXT)
+        .in(sourceFile).onLine(5).atColumn(23).and()
+        .withErrorContaining("Test.TestType")
+        .in(sourceFile).onLine(5).atColumn(23);
   }
 
   @Test public void compileFailsWithScopeOnField() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import javax.inject.Inject;",
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @Singleton String field;",
-        "  @Inject public Test() { }",
-        "  @Module(injects = Test.class) class TestModule { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import javax.inject.Inject;\n"
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @Singleton String field;\n"
+        + "  @Inject public Test() { }\n"
+        + "  @Module(injects = Test.class) class TestModule { }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile).onLine(5).atColumn(21).and()
-        .withErrorContaining("Test.field").in(sourceFile).onLine(5).atColumn(21);
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining(ABSTRACTION_SCOPING_TEXT)
+        .in(sourceFile).onLine(5).atColumn(21).and()
+        .withErrorContaining("Test.field")
+        .in(sourceFile).onLine(5).atColumn(21);
   }
 
   @Test public void compileFailsWithScopeOnMethodParameter() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Singleton;",
-        "@Module(library = true, injects = String.class)",
-        "class Test {",
-        "  @Provides int provideInteger() { return 0; }",
-        "  @Provides String provideString(@Singleton int intParam) { return \"\"; }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Module(library = true, injects = String.class)\n"
+        + "class Test {\n"
+        + "  @Provides int provideInteger() { return 0; }\n"
+        + "  @Provides String provideString(@Singleton int intParam) { return \"\"; }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile).onLine(7).atColumn(49).and()
-        .withErrorContaining("intParam").in(sourceFile).onLine(7).atColumn(49);
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining(ABSTRACTION_SCOPING_TEXT)
+        .in(sourceFile).onLine(7).atColumn(49).and()
+        .withErrorContaining("intParam")
+        .in(sourceFile).onLine(7).atColumn(49);
   }
 
   @Test public void compileFailsWithMultipleScopeAnnotations() {
-    JavaFileObject annotation = JavaFileObjects.forSourceString("MyScope", Joiner.on("\n").join(
-        "import java.lang.annotation.Retention;",
-        "import javax.inject.Scope;",
-        "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
-        "@Scope @Retention(RUNTIME) public @interface MyScope { }"));
+    JavaFileObject annotation = JavaFileObjects.forSourceString("MyScope", ""
+        + "import java.lang.annotation.Retention;\n"
+        + "import javax.inject.Scope;\n"
+        + "import static java.lang.annotation.RetentionPolicy.RUNTIME;\n"
+        + "@Scope @Retention(RUNTIME)\n"
+        + "public @interface MyScope { }\n"
+    );
 
-    JavaFileObject module = JavaFileObjects.forSourceString("MyModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Singleton;",
-        "@Module(library = true, injects = Injectable.class)",
-        "class MyModule {",
-        "  @Provides @Singleton @MyScope String method() { return \"\"; }",
-        "}"));
+    JavaFileObject module = JavaFileObjects.forSourceString("MyModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Module(library = true, injects = Injectable.class)\n"
+        + "class MyModule {\n"
+        + "  @Provides @Singleton @MyScope String method() { return \"\"; }\n"
+        + "}\n"
+    );
 
-    JavaFileObject injectable = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "import javax.inject.Singleton;",
-        "@Singleton @MyScope",
-        "class Injectable {",
-        "  @Inject String string;",
-        "}"));
+    JavaFileObject injectable = JavaFileObjects.forSourceString("Test", ""
+        + "import javax.inject.Inject;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Singleton @MyScope\n"
+        + "class Injectable {\n"
+        + "  @Inject String string;\n"
+        + "}\n"
+    );
 
     String error = "Only one scoping annotation is allowed per element: ";
 
-    ASSERT.about(javaSources()).that(asList(annotation, module, injectable))
-        .processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining(error + "MyModule.method()").in(module).onLine(6).atColumn(40).and()
-        .withErrorContaining(error + "Injectable").in(injectable).onLine(4).atColumn(1);
+    assertAbout(javaSources())
+        .that(asList(annotation, module, injectable))
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining(error + "MyModule.method()")
+        .in(module).onLine(6).atColumn(40).and()
+        .withErrorContaining(error + "Injectable")
+        .in(injectable).onLine(4).atColumn(1);
   }
 
   @Test public void compileFailsWithScopeOnConstructor() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import javax.inject.Inject;",
-        "import javax.inject.Singleton;",
-        "class Test {",
-        "  @Singleton @Inject public Test() { }",
-        "  @Module(injects = Test.class) class TestModule { }",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import javax.inject.Inject;\n"
+        + "import javax.inject.Singleton;\n"
+        + "class Test {\n"
+        + "  @Singleton @Inject public Test() { }\n"
+        + "  @Module(injects = Test.class) class TestModule { }\n"
+        + "}\n"
+    );
 
    String singletonErrorText = ""
         + "Singleton annotations have no effect on constructors. "
         + "Did you mean to annotate the class?";
 
-    ASSERT.about(javaSource())
-        .that(sourceFile).processedWith(daggerProcessors()).failsToCompile()
-        .withErrorContaining(ABSTRACTION_SCOPING_TEXT).in(sourceFile).onLine(5).atColumn(29).and()
-        .withErrorContaining("Test.Test()").in(sourceFile).onLine(5).atColumn(29).and()
-        .withErrorContaining(singletonErrorText).in(sourceFile).onLine(6).atColumn(33);
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
+        .withErrorContaining(ABSTRACTION_SCOPING_TEXT)
+        .in(sourceFile).onLine(5).atColumn(29).and()
+        .withErrorContaining("Test.Test()")
+        .in(sourceFile).onLine(5).atColumn(29).and()
+        .withErrorContaining(singletonErrorText)
+        .in(sourceFile).onLine(6).atColumn(33);
   }
 }
 

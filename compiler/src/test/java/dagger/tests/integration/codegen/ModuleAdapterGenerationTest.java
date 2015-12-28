@@ -16,18 +16,17 @@
  */
 package dagger.tests.integration.codegen;
 
-import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public final class ModuleAdapterGenerationTest {
@@ -47,83 +46,88 @@ public final class ModuleAdapterGenerationTest {
    * </ul>
    */
   @Test public void providerForCtorInjection() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Field", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Inject;",
-        "class Field {",
-        "  static class A { final String name; @Inject A(String name) { this.name = name; }}",
-        "  @Module(injects = { A.class, String.class })",
-        "  static class AModule { @Provides String name() { return \"foo\"; }}",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Field", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Inject;\n"
+        + "class Field {\n"
+        + "  static class A { final String name; @Inject A(String name) { this.name = name; }}\n"
+        + "  @Module(injects = { A.class, String.class })\n"
+        + "  static class AModule { @Provides String name() { return \"foo\"; }}\n"
+        + "}\n"
+    );
 
     JavaFileObject expectedModuleAdapter =
-        JavaFileObjects.forSourceString("Field$AModule$$ModuleAdapter", Joiner.on("\n").join(
-        "import dagger.internal.BindingsGroup;",
-        "import dagger.internal.ModuleAdapter;",
-        "import dagger.internal.ProvidesBinding;",
-        "import java.lang.Class;",
-        "import java.lang.Override;",
-        "import java.lang.String;",
-        "public final class Field$AModule$$ModuleAdapter",
-        "    extends ModuleAdapter<Field.AModule> {",
-        "  private static final String[] INJECTS = ",
-        "      {\"members/Field$A\", \"members/java.lang.String\"};",
-        "  private static final Class<?>[] INCLUDES = {};",
-        "  public Field$AModule$$ModuleAdapter() {",
-        "    super(Field.AModule.class, INJECTS, false, INCLUDES, true, false);",
-        "  }",
-        "  @Override public Field.AModule newModule() {",
-        "    return new Field.AModule();",
-        "  }",
-        "  @Override public void getBindings(BindingsGroup bindings, Field.AModule module) {",
-        "    bindings.contributeProvidesBinding(\"java.lang.String\",",
-        "        new NameProvidesAdapter(module));", // eager new!
-        "  }",
-        "  public static final class NameProvidesAdapter", // corresponds to method name
-        "      extends ProvidesBinding<String> {",
-        "    private final Field.AModule module;",
-        "    public NameProvidesAdapter(Field.AModule module) {",
-        "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");",
-        "      this.module = module;",
-        "      setLibrary(false);",
-        "    }",
-        "    @Override public String get() {",
-        "      return module.name();", // corresponds to @Provides method
-        "    }",
-        "  }",
-        "}"));
+        JavaFileObjects.forSourceString("Field$AModule$$ModuleAdapter", ""
+            + "import dagger.internal.BindingsGroup;\n"
+            + "import dagger.internal.ModuleAdapter;\n"
+            + "import dagger.internal.ProvidesBinding;\n"
+            + "import java.lang.Class;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.String;\n"
+            + "public final class Field$AModule$$ModuleAdapter\n"
+            + "    extends ModuleAdapter<Field.AModule> {\n"
+            + "  private static final String[] INJECTS = \n"
+            + "      {\"members/Field$A\", \"members/java.lang.String\"};\n"
+            + "  private static final Class<?>[] INCLUDES = {};\n"
+            + "  public Field$AModule$$ModuleAdapter() {\n"
+            + "    super(Field.AModule.class, INJECTS, false, INCLUDES, true, false);\n"
+            + "  }\n"
+            + "  @Override public Field.AModule newModule() {\n"
+            + "    return new Field.AModule();\n"
+            + "  }\n"
+            + "  @Override public void getBindings(BindingsGroup bindings, Field.AModule module) {\n"
+            + "    bindings.contributeProvidesBinding(\"java.lang.String\",\n"
+            + "        new NameProvidesAdapter(module));\n" // eager new!
+            + "  }\n"
+            + "  public static final class NameProvidesAdapter\n" // corresponds to method name
+            + "      extends ProvidesBinding<String> {\n"
+            + "    private final Field.AModule module;\n"
+            + "    public NameProvidesAdapter(Field.AModule module) {\n"
+            + "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");\n"
+            + "      this.module = module;\n"
+            + "      setLibrary(false);\n"
+            + "    }\n"
+            + "    @Override public String get() {\n"
+            + "      return module.name();\n" // corresponds to @Provides method
+            + "    }\n"
+            + "  }\n"
+            + "}\n"
+        );
 
     JavaFileObject expectedInjectAdapter =
-        JavaFileObjects.forSourceString("Field$A$$InjectAdapter", Joiner.on("\n").join(
-            "import dagger.internal.Binding;",
-            "import dagger.internal.Linker;",
-            "import java.lang.Override;",
-            "import java.lang.String;",
-            "import java.lang.SuppressWarnings;",
-            "import java.util.Set;",
-            "public final class Field$A$$InjectAdapter",
-            "    extends Binding<Field.A> {",
-            "  private Binding<String> name;", // for ctor
-            "  public Field$A$$InjectAdapter() {",
-            "    super(\"Field$A\", \"members/Field$A\", NOT_SINGLETON, Field.A.class);",
-            "  }",
-            "  @Override @SuppressWarnings(\"unchecked\")",
-            "  public void attach(Linker linker) {",
-            "    name = (Binding<String>)linker.requestBinding(", // binding key is not a class
-            "      \"java.lang.String\", Field.A.class, getClass().getClassLoader());",
-            "  }",
-            "  @Override public void getDependencies(",
-            "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {",
-            "    getBindings.add(name);", // name is added to dependencies
-            "  }",
-            "  @Override public Field.A get() {",
-            "    Field.A result = new Field.A(name.get());", // adds ctor param
-            "    return result;",
-            "  }",
-            "}"));
+        JavaFileObjects.forSourceString("Field$A$$InjectAdapter", ""
+            + "import dagger.internal.Binding;\n"
+            + "import dagger.internal.Linker;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.String;\n"
+            + "import java.lang.SuppressWarnings;\n"
+            + "import java.util.Set;\n"
+            + "public final class Field$A$$InjectAdapter\n"
+            + "    extends Binding<Field.A> {\n"
+            + "  private Binding<String> name;\n" // for ctor
+            + "  public Field$A$$InjectAdapter() {\n"
+            + "    super(\"Field$A\", \"members/Field$A\", NOT_SINGLETON, Field.A.class);\n"
+            + "  }\n"
+            + "  @Override @SuppressWarnings(\"unchecked\")\n"
+            + "  public void attach(Linker linker) {\n"
+            + "    name = (Binding<String>)linker.requestBinding(\n" // binding key is not a class
+            + "      \"java.lang.String\", Field.A.class, getClass().getClassLoader());\n"
+            + "  }\n"
+            + "  @Override public void getDependencies(\n"
+            + "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {\n"
+            + "    getBindings.add(name);\n" // name is added to dependencies
+            + "  }\n"
+            + "  @Override public Field.A get() {\n"
+            + "    Field.A result = new Field.A(name.get());\n" // adds ctor param
+            + "    return result;\n"
+            + "  }\n"
+            + "}\n"
+        );
 
-    ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors())
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
         .compilesWithoutError()
         .and()
         .generatesSources(expectedModuleAdapter, expectedInjectAdapter);
@@ -131,149 +135,169 @@ public final class ModuleAdapterGenerationTest {
   }
 
   @Test public void injectsMembersInjectedAndProvidedAndConstructedTypes() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Field", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Inject;",
-        "class Field {",
-        "  static class A { final String name; @Inject A(String name) { this.name = name; }}",
-        "  static class B { @Inject String name; }",
-        "  @Module(injects = { A.class, String.class, B.class })",
-        "  static class AModule { @Provides String name() { return \"foo\"; }}",
-        "}"));
+    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Field", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Inject;\n"
+        + "class Field {\n"
+        + "  static class A { final String name; @Inject A(String name) { this.name = name; }}\n"
+        + "  static class B { @Inject String name; }\n"
+        + "  @Module(injects = { A.class, String.class, B.class })\n"
+        + "  static class AModule { @Provides String name() { return \"foo\"; }}\n"
+        + "}\n"
+    );
 
     JavaFileObject expectedModuleAdapter =
-        JavaFileObjects.forSourceString("Field$AModule$$ModuleAdapter", Joiner.on("\n").join(
-        "import dagger.internal.BindingsGroup;",
-        "import dagger.internal.ModuleAdapter;",
-        "import dagger.internal.ProvidesBinding;",
-        "import java.lang.Class;",
-        "import java.lang.Override;",
-        "import java.lang.String;",
-        "public final class Field$AModule$$ModuleAdapter extends ModuleAdapter<Field.AModule> {",
-        "  private static final String[] INJECTS = ",
-        "      {\"members/Field$A\", \"members/java.lang.String\", \"members/Field$B\"};",
-        "  private static final Class<?>[] INCLUDES = {};",
-        "  public Field$AModule$$ModuleAdapter() {",
-        "    super(Field.AModule.class, INJECTS, false, INCLUDES, true, false);",
-        "  }",
-        "  @Override public Field.AModule newModule() {",
-        "    return new Field.AModule();",
-        "  }",
-        "  @Override public void getBindings(BindingsGroup bindings, Field.AModule module) {",
-        "    bindings.contributeProvidesBinding(\"java.lang.String\",",
-        "        new NameProvidesAdapter(module));", // eager new!
-        "  }",
-        "  public static final class NameProvidesAdapter", // corresponds to method name
-        "      extends ProvidesBinding<String> {",
-        "    private final Field.AModule module;",
-        "    public NameProvidesAdapter(Field.AModule module) {",
-        "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");",
-        "      this.module = module;",
-        "      setLibrary(false);",
-        "    }",
-        "    @Override public String get() {",
-        "      return module.name();", // corresponds to @Provides method
-        "    }",
-        "  }",
-        "}"));
+        JavaFileObjects.forSourceString("Field$AModule$$ModuleAdapter", ""
+            + "import dagger.internal.BindingsGroup;\n"
+            + "import dagger.internal.ModuleAdapter;\n"
+            + "import dagger.internal.ProvidesBinding;\n"
+            + "import java.lang.Class;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.String;\n"
+            + "public final class Field$AModule$$ModuleAdapter extends ModuleAdapter<Field.AModule> {\n"
+            + "  private static final String[] INJECTS = \n"
+            + "      {\"members/Field$A\", \"members/java.lang.String\", \"members/Field$B\"};\n"
+            + "  private static final Class<?>[] INCLUDES = {};\n"
+            + "  public Field$AModule$$ModuleAdapter() {\n"
+            + "    super(Field.AModule.class, INJECTS, false, INCLUDES, true, false);\n"
+            + "  }\n"
+            + "  @Override public Field.AModule newModule() {\n"
+            + "    return new Field.AModule();\n"
+            + "  }\n"
+            + "  @Override public void getBindings(BindingsGroup bindings, Field.AModule module) {\n"
+            + "    bindings.contributeProvidesBinding(\"java.lang.String\",\n"
+            + "        new NameProvidesAdapter(module));\n" // eager new!
+            + "  }\n"
+            + "  public static final class NameProvidesAdapter\n" // corresponds to method name
+            + "      extends ProvidesBinding<String> {\n"
+            + "    private final Field.AModule module;\n"
+            + "    public NameProvidesAdapter(Field.AModule module) {\n"
+            + "      super(\"java.lang.String\", NOT_SINGLETON, \"Field.AModule\", \"name\");\n"
+            + "      this.module = module;\n"
+            + "      setLibrary(false);\n"
+            + "    }\n"
+            + "    @Override public String get() {\n"
+            + "      return module.name();\n" // corresponds to @Provides method
+            + "    }\n"
+            + "  }\n"
+            + "}\n"
+        );
 
     JavaFileObject expectedInjectAdapterA =
-        JavaFileObjects.forSourceString("Field$A$$InjectAdapter", Joiner.on("\n").join(
-            "import dagger.internal.Binding;",
-            "import dagger.internal.Linker;",
-            "import java.lang.Override;",
-            "import java.lang.String;",
-            "import java.lang.SuppressWarnings;",
-            "import java.util.Set;",
-            "public final class Field$A$$InjectAdapter",
-            "    extends Binding<Field.A> {",
-            "  private Binding<String> name;", // For Constructor.
-            "  public Field$A$$InjectAdapter() {",
-            "    super(\"Field$A\", \"members/Field$A\", NOT_SINGLETON, Field.A.class);",
-            "  }",
-            "  @Override @SuppressWarnings(\"unchecked\")",
-            "  public void attach(Linker linker) {",
-            "    name = (Binding<String>)linker.requestBinding(",
-            "      \"java.lang.String\", Field.A.class, getClass().getClassLoader());",
-            "  }",
-            "  @Override public void getDependencies(",
-            "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {",
-            "    getBindings.add(name);", // Name is added to dependencies.
-            "  }",
-            "  @Override public Field.A get() {",
-            "    Field.A result = new Field.A(name.get());", // Adds constructor parameter.
-            "    return result;",
-            "  }",
-            "}"));
+        JavaFileObjects.forSourceString("Field$A$$InjectAdapter", ""
+            + "import dagger.internal.Binding;\n"
+            + "import dagger.internal.Linker;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.String;\n"
+            + "import java.lang.SuppressWarnings;\n"
+            + "import java.util.Set;\n"
+            + "public final class Field$A$$InjectAdapter\n"
+            + "    extends Binding<Field.A> {\n"
+            + "  private Binding<String> name;\n" // For Constructor.
+            + "  public Field$A$$InjectAdapter() {\n"
+            + "    super(\"Field$A\", \"members/Field$A\", NOT_SINGLETON, Field.A.class);\n"
+            + "  }\n"
+            + "  @Override @SuppressWarnings(\"unchecked\")\n"
+            + "  public void attach(Linker linker) {\n"
+            + "    name = (Binding<String>)linker.requestBinding(\n"
+            + "      \"java.lang.String\", Field.A.class, getClass().getClassLoader());\n"
+            + "  }\n"
+            + "  @Override public void getDependencies(\n"
+            + "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {\n"
+            + "    getBindings.add(name);\n" // Name is added to dependencies.
+            + "  }\n"
+            + "  @Override public Field.A get() {\n"
+            + "    Field.A result = new Field.A(name.get());\n" // Adds constructor parameter.
+            + "    return result;\n"
+            + "  }\n"
+            + "}\n"
+        );
 
     JavaFileObject expectedInjectAdapterB =
-        JavaFileObjects.forSourceString("Field$B$$InjectAdapter", Joiner.on("\n").join(
-            "import dagger.internal.Binding;",
-            "import dagger.internal.Linker;",
-            "import java.lang.Override;",
-            "import java.lang.String;",
-            "import java.lang.SuppressWarnings;",
-            "import java.util.Set;",
-            "public final class Field$B$$InjectAdapter",
-            "    extends Binding<Field.B> {",
-            "  private Binding<String> name;", // For field.
-            "  public Field$B$$InjectAdapter() {",
-            "    super(\"Field$B\", \"members/Field$B\", NOT_SINGLETON, Field.B.class);",
-            "  }",
-            "  @Override @SuppressWarnings(\"unchecked\")",
-            "  public void attach(Linker linker) {",
-            "    name = (Binding<String>)linker.requestBinding(",
-            "      \"java.lang.String\", Field.B.class, getClass().getClassLoader());",
-            "  }",
-            "  @Override public void getDependencies(",
-            "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {",
-            "    injectMembersBindings.add(name);", // Name is added to dependencies.
-            "  }",
-            "  @Override public Field.B get() {",
-            "    Field.B result = new Field.B();",
-            "    injectMembers(result);",
-            "    return result;",
-            "  }",
-            "  @Override public void injectMembers(Field.B object) {",
-            "    object.name = name.get();", // Inject field.
-            "  }",
-            "}"));
-    ASSERT.about(javaSource()).that(sourceFile).processedWith(daggerProcessors())
+        JavaFileObjects.forSourceString("Field$B$$InjectAdapter", ""
+            + "import dagger.internal.Binding;\n"
+            + "import dagger.internal.Linker;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.String;\n"
+            + "import java.lang.SuppressWarnings;\n"
+            + "import java.util.Set;\n"
+            + "public final class Field$B$$InjectAdapter\n"
+            + "    extends Binding<Field.B> {\n"
+            + "  private Binding<String> name;\n" // For field.
+            + "  public Field$B$$InjectAdapter() {\n"
+            + "    super(\"Field$B\", \"members/Field$B\", NOT_SINGLETON, Field.B.class);\n"
+            + "  }\n"
+            + "  @Override @SuppressWarnings(\"unchecked\")\n"
+            + "  public void attach(Linker linker) {\n"
+            + "    name = (Binding<String>)linker.requestBinding(\n"
+            + "      \"java.lang.String\", Field.B.class, getClass().getClassLoader());\n"
+            + "  }\n"
+            + "  @Override public void getDependencies(\n"
+            + "      Set<Binding<?>> getBindings, Set<Binding<?>> injectMembersBindings) {\n"
+            + "    injectMembersBindings.add(name);\n" // Name is added to dependencies.
+            + "  }\n"
+            + "  @Override public Field.B get() {\n"
+            + "    Field.B result = new Field.B();\n"
+            + "    injectMembers(result);\n"
+            + "    return result;\n"
+            + "  }\n"
+            + "  @Override public void injectMembers(Field.B object) {\n"
+            + "    object.name = name.get();\n" // Inject field.
+            + "  }\n"
+            + "}\n"
+        );
+    assertAbout(javaSource())
+        .that(sourceFile)
+        .processedWith(daggerProcessors())
         .compilesWithoutError()
         .and()
         .generatesSources(expectedModuleAdapter, expectedInjectAdapterA, expectedInjectAdapterB);
   }
 
   @Test public void providesHasParameterNamedModule() {
-    JavaFileObject a = JavaFileObjects.forSourceString("A", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "class A { @Inject A(){ }}"));
-    JavaFileObject b = JavaFileObjects.forSourceString("B", Joiner.on("\n").join(
-        "import javax.inject.Inject;",
-        "class B { @Inject B(){ }}"));
+    JavaFileObject a = JavaFileObjects.forSourceString("A", ""
+        + "import javax.inject.Inject;\n"
+        + "class A {\n"
+        + "  @Inject A(){ }\n"
+        + "}\n"
+    );
+    JavaFileObject b = JavaFileObjects.forSourceString("B", ""
+        + "import javax.inject.Inject;\n"
+        + "class B {\n"
+        + "  @Inject B(){ }\n"
+        + "}\n"
+    );
 
-    JavaFileObject module = JavaFileObjects.forSourceString("BModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Inject;",
-        "@Module(injects = B.class)",
-        "class BModule { @Provides B b(A module) { return new B(); }}"));
+    JavaFileObject module = JavaFileObjects.forSourceString("BModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Inject;\n"
+        + "@Module(injects = B.class)\n"
+        + "class BModule {\n"
+        + "  @Provides B b(A module) {\n"
+        + "    return new B();\n"
+        + "  }\n"
+        + "}\n"
+    );
 
-    ASSERT.about(javaSources()).that(asList(a, b, module)).processedWith(daggerProcessors())
+    assertAbout(javaSources())
+        .that(asList(a, b, module))
+        .processedWith(daggerProcessors())
         .compilesWithoutError();
   }
 
   @Test public void duplicateInjectsFails() {
-    JavaFileObject module = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Inject;",
-        "class A {}",
-        "@Module(injects = { A.class, A.class })",
-        "class BModule { }"));
+    JavaFileObject module = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Inject;\n"
+        + "class A {}\n"
+        + "@Module(injects = { A.class, A.class })\n"
+        + "class BModule { }\n"
+    );
 
-    ASSERT.about(javaSource())
+    assertAbout(javaSource())
         .that(module)
         .processedWith(daggerProcessors())
         .failsToCompile()
@@ -282,16 +306,17 @@ public final class ModuleAdapterGenerationTest {
   }
 
   @Test public void duplicateIncludesFails() {
-    JavaFileObject module = JavaFileObjects.forSourceString("Test", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Inject;",
-        "@Module",
-        "class AModule {}",
-        "@Module(includes = { AModule.class, AModule.class })",
-        "class BModule { }"));
+    JavaFileObject module = JavaFileObjects.forSourceString("Test", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Inject;\n"
+        + "@Module\n"
+        + "class AModule {}\n"
+        + "@Module(includes = { AModule.class, AModule.class })\n"
+        + "class BModule { }\n"
+    );
 
-    ASSERT.about(javaSource())
+    assertAbout(javaSource())
         .that(module)
         .processedWith(daggerProcessors())
         .failsToCompile()

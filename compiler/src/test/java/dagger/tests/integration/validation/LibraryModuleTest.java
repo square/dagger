@@ -16,7 +16,6 @@
  */
 package dagger.tests.integration.validation;
 
-import com.google.common.base.Joiner;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
@@ -24,40 +23,47 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.tests.integration.ProcessorTestUtils.daggerProcessors;
-import static org.truth0.Truth.ASSERT;
 
 @RunWith(JUnit4.class)
 public final class LibraryModuleTest {
   @Test public void unusedProviderMethodsPassOnLibrary() {
-    JavaFileObject source = JavaFileObjects.forSourceString("Library", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import java.lang.Override;",
-        "@Module(library = true)",
-        "class TestModule {",
-        "  @Provides String string() {",
-        "    return \"string\";",
-        "  }",
-        "}"));
-    ASSERT.about(javaSource())
-        .that(source).processedWith(daggerProcessors()).compilesWithoutError();
+    JavaFileObject source = JavaFileObjects.forSourceString("Library", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import java.lang.Override;\n"
+        + "@Module(library = true)\n"
+        + "class TestModule {\n"
+        + "  @Provides String string() {\n"
+        + "    return \"string\";\n"
+        + "  }\n"
+        + "}\n"
+    );
+    assertAbout(javaSource())
+        .that(source)
+        .processedWith(daggerProcessors())
+        .compilesWithoutError();
   }
 
   @Test public void unusedProviderMethodsFailOnNonLibrary() {
-    JavaFileObject source = JavaFileObjects.forSourceString("Library", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import java.lang.Override;",
-        "@Module(library = false)",
-        "class TestModule {",
-        "  @Provides String string() {",
-        "    return \"string\";",
-        "  }",
-        "}"));
-    ASSERT.about(javaSource()).that(source).processedWith(daggerProcessors()).failsToCompile()
+    JavaFileObject source = JavaFileObjects.forSourceString("Library", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import java.lang.Override;\n"
+        + "@Module(library = false)\n"
+        + "class TestModule {\n"
+        + "  @Provides String string() {\n"
+        + "    return \"string\";\n"
+        + "  }\n"
+        + "}\n"
+    );
+    assertAbout(javaSource())
+        .that(source)
+        .processedWith(daggerProcessors())
+        .failsToCompile()
         .withErrorContaining("Graph validation failed:").in(source).onLine(5).and()
         .withErrorContaining("You have these unused @Provider methods:").in(source).onLine(5).and()
         .withErrorContaining("1. TestModule.string()").in(source).onLine(5).and()
@@ -66,34 +72,38 @@ public final class LibraryModuleTest {
 
   @Test public void injectsOfInterfaceMakesProvidesBindingNotAnOrphan() {
     JavaFileObject foo = JavaFileObjects.forSourceString("Foo", "interface Foo {}");
-    JavaFileObject module = JavaFileObjects.forSourceString("TestModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Singleton;",
-        "@Module(injects = Foo.class, library = false)",
-        "class TestModule {",
-        "  @Singleton @Provides Foo provideFoo() {",
-        "    return new Foo() {};",
-        "  }",
-        "}"));
-    ASSERT.about(javaSources()).that(Arrays.asList(foo, module))
+    JavaFileObject module = JavaFileObjects.forSourceString("TestModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Module(injects = Foo.class, library = false)\n"
+        + "class TestModule {\n"
+        + "  @Singleton @Provides Foo provideFoo() {\n"
+        + "    return new Foo() {};\n"
+        + "  }\n"
+        + "}\n"
+    );
+    assertAbout(javaSources())
+        .that(Arrays.asList(foo, module))
         .processedWith(daggerProcessors())
         .compilesWithoutError();
   }
 
   @Test public void injectsOfClassMakesProvidesBindingNotAnOrphan() {
     JavaFileObject foo = JavaFileObjects.forSourceString("Foo", "class Foo {}");
-    JavaFileObject module = JavaFileObjects.forSourceString("TestModule", Joiner.on("\n").join(
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import javax.inject.Singleton;",
-        "@Module(injects = Foo.class, library = false)",
-        "class TestModule {",
-        "  @Singleton @Provides Foo provideFoo() {",
-        "    return new Foo() {};",
-        "  }",
-        "}"));
-    ASSERT.about(javaSources()).that(Arrays.asList(foo, module))
+    JavaFileObject module = JavaFileObjects.forSourceString("TestModule", ""
+        + "import dagger.Module;\n"
+        + "import dagger.Provides;\n"
+        + "import javax.inject.Singleton;\n"
+        + "@Module(injects = Foo.class, library = false)\n"
+        + "class TestModule {\n"
+        + "  @Singleton @Provides Foo provideFoo() {\n"
+        + "    return new Foo() {};\n"
+        + "  }\n"
+        + "}\n"
+    );
+    assertAbout(javaSources())
+        .that(Arrays.asList(foo, module))
         .processedWith(daggerProcessors())
         .compilesWithoutError();
   }
