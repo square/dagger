@@ -13,27 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.tck;
 
-import java.util.Map;
-import java.util.Set;
-import javax.inject.Inject;
+import dagger.Module;
+import dagger.Provides;
+import org.atinject.tck.auto.Car;
+import org.atinject.tck.auto.Convertible;
 
-class RequiresMultiboundStrings {
-  private final Set<String> setOfStrings;
-  private final Map<String, String> mapOfStrings;
-
-  @Inject
-  RequiresMultiboundStrings(Set<String> setOfStrings, Map<String, String> mapOfStrings) {
-    this.setOfStrings = setOfStrings;
-    this.mapOfStrings = mapOfStrings;
-  }
-
-  Set<String> setOfStrings() {
-    return setOfStrings;
-  }
-
-  Map<String, String> mapOfStrings() {
-    return mapOfStrings;
+@Module
+class CarModule {
+  @Provides
+  static Car provideConvertible(Convertible convertible) {
+    return convertible;
   }
 }

@@ -21,8 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import dagger.MembersInjector;
-import dagger.Provides.Type;
 import dagger.internal.Factory;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
@@ -44,10 +42,12 @@ import java.util.Map;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -74,9 +74,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   private final DependencyRequestMapper dependencyRequestMapper;
   private final Diagnostic.Kind nullableValidationType;
 
-  FactoryGenerator(Filer filer, DependencyRequestMapper dependencyRequestMapper,
+  FactoryGenerator(
+      Filer filer,
+      Elements elements,
+      DependencyRequestMapper dependencyRequestMapper,
       Diagnostic.Kind nullableValidationType) {
-    super(filer);
+    super(filer, elements);
     this.dependencyRequestMapper = dependencyRequestMapper;
     this.nullableValidationType = nullableValidationType;
   }
@@ -99,11 +102,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   @Override
   ImmutableSet<JavaWriter> write(ClassName generatedTypeName, ProvisionBinding binding) {
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.hasNonDefaultTypeParameters());
+    checkState(!binding.unresolved().isPresent());
 
-    TypeMirror keyType = binding.provisionType().equals(Type.MAP)
-        ? Util.getProvidedValueTypeOfMap(MoreTypes.asDeclared(binding.key().type()))
-        : binding.key().type();
+    TypeMirror keyType =
+        binding.contributionType().equals(ContributionType.MAP)
+            ? MapType.from(binding.key().type()).unwrappedValueType(Provider.class)
+            : binding.key().type();
     TypeName providedTypeName = TypeNames.forTypeMirror(keyType);
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
 
@@ -147,7 +151,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         throw new AssertionError();
     }
 
-    factoryWriter.annotate(Generated.class).setValue(ComponentProcessor.class.getName());
     factoryWriter.addModifiers(PUBLIC);
     factoryWriter.addImplementedType(
         ParameterizedTypeName.create(ClassName.fromClass(Factory.class), providedTypeName));
@@ -156,19 +159,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     getMethodWriter.annotate(Override.class);
     getMethodWriter.addModifiers(PUBLIC);
 
-    if (binding.membersInjectionRequest().isPresent()) {
-      ParameterizedTypeName membersInjectorType = ParameterizedTypeName.create(
-          MembersInjector.class, providedTypeName);
-      factoryWriter.addField(membersInjectorType, "membersInjector").addModifiers(PRIVATE, FINAL);
-      constructorWriter.get().addParameter(membersInjectorType, "membersInjector");
-      constructorWriter.get().body()
-          .addSnippet("assert membersInjector != null;")
-          .addSnippet("this.membersInjector = membersInjector;");
-    }
-
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(
-            dependencyRequestMapper, binding.dependencies());
+        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
 
     for (FrameworkField bindingField : fields.values()) {
       TypeName fieldType = bindingField.frameworkType();
@@ -265,7 +257,11 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     } else if (binding.membersInjectionRequest().isPresent()) {
       getMethodWriter.body().addSnippet("%1$s instance = new %1$s(%2$s);",
           providedTypeName, parametersSnippet);
-      getMethodWriter.body().addSnippet("membersInjector.injectMembers(instance);");
+      getMethodWriter
+          .body()
+          .addSnippet(
+              "%s.injectMembers(instance);",
+              fields.get(binding.membersInjectionRequest().get().bindingKey()).name());
       getMethodWriter.body().addSnippet("return instance;");
     } else {
       getMethodWriter.body()

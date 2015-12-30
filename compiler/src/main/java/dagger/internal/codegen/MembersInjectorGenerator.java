@@ -55,6 +55,7 @@ import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeVisitor;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor7;
 
 import static com.google.auto.common.MoreElements.getPackage;
@@ -79,9 +80,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   private final DependencyRequestMapper dependencyRequestMapper;
 
   MembersInjectorGenerator(
-      Filer filer,
-      DependencyRequestMapper dependencyRequestMapper) {
-    super(filer);
+      Filer filer, Elements elements, DependencyRequestMapper dependencyRequestMapper) {
+    super(filer, elements);
     this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
@@ -116,7 +116,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     Set<String> delegateMethods = new HashSet<>();
 
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.hasNonDefaultTypeParameters()); 
+    checkState(!binding.unresolved().isPresent());
 
     TypeName injectedTypeName = TypeNames.forTypeMirror(binding.key().type());
     JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
@@ -127,8 +127,6 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       typeParameters.add(TypeVariableName.fromTypeParameterElement(typeParameter));
     }
     injectorWriter.addTypeParameters(typeParameters);
-    injectorWriter.annotate(Generated.class)
-        .setValue(ComponentProcessor.class.getCanonicalName());
     injectorWriter.addModifiers(PUBLIC, FINAL);
     TypeName implementedType =
         ParameterizedTypeName.create(MembersInjector.class, injectedTypeName);
@@ -146,8 +144,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
         "}"));
 
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(
-            dependencyRequestMapper, ImmutableSet.copyOf(binding.dependencies()));
+        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
 
     ImmutableMap.Builder<BindingKey, FieldWriter> dependencyFieldsBuilder =
         ImmutableMap.builder();

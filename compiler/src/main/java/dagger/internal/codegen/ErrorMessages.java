@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import dagger.Multibindings;
 import dagger.Provides;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -112,6 +113,9 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array or a declared type.";
 
+  static final String PROVIDES_METHOD_THROWS =
+      "@Provides methods may only throw unchecked exceptions";
+
   static final String PRODUCES_METHOD_RETURN_TYPE =
       "@Produces methods must either return a primitive, an array or a declared type, or a"
       + " ListenableFuture of one of those types.";
@@ -127,6 +131,9 @@ final class ErrorMessages {
 
   static final String PRODUCES_METHOD_SET_VALUES_RETURN_SET =
       "@Produces methods of type set values must return a Set or ListenableFuture of Set";
+
+  static final String PRODUCES_METHOD_THROWS =
+      "@Produces methods may only throw unchecked exceptions or exceptions subclassing Exception";
 
   static final String BINDING_METHOD_MUST_RETURN_A_VALUE =
       "@%s methods must return a value (not void).";
@@ -189,7 +196,7 @@ final class ErrorMessages {
       "More than one binding present of different types %s";
 
   static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
-      "%s has incompatible bindings:\n";
+      "%s has incompatible bindings or declarations:\n";
 
   static final String PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =
       "%s is a provision entry-point, which cannot depend on a production.";
@@ -385,6 +392,30 @@ final class ErrorMessages {
       return s.replaceAll("component", "production component")
           .replaceAll("Component", "ProductionComponent");
     }
+  }
+
+  /** Error messages related to {@link Multibindings @Multibindings}. */
+  static final class MultibindingsMessages {
+    static final String MUST_BE_INTERFACE = "@Multibindings can be applied only to interfaces";
+
+    static final String MUST_NOT_HAVE_TYPE_PARAMETERS =
+        "@Multibindings types must not have type parameters";
+
+    static final String MUST_BE_IN_MODULE =
+        "@Multibindings types must be nested within a @Module or @ProducerModule";
+
+    static final String METHOD_MUST_RETURN_MAP_OR_SET =
+        "@Multibindings methods must return Map<K, V> or Set<T>";
+
+    static final String TOO_MANY_QUALIFIERS =
+        "Cannot use more than one @Qualifier on a method in an @Multibindings type";
+
+    static String tooManyMethodsForKey(String formattedKey) {
+      return String.format(
+          "Too many @Multibindings methods for %s", stripCommonTypePrefixes(formattedKey));
+    }
+
+    private MultibindingsMessages() {}
   }
 
   /**

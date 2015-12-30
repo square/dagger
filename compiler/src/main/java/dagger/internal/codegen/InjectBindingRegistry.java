@@ -16,7 +16,6 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
@@ -29,23 +28,24 @@ import dagger.Provides;
 import dagger.internal.codegen.writer.ClassName;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members
@@ -71,7 +71,7 @@ final class InjectBindingRegistry {
       for (B binding = bindingsRequiringGeneration.poll();
           binding != null;
           binding = bindingsRequiringGeneration.poll()) {
-        checkState(!binding.hasNonDefaultTypeParameters());
+        checkState(!binding.unresolved().isPresent());
         generator.generate(binding);
         materializedBindingKeys.add(binding.key());
       }
@@ -86,19 +86,19 @@ final class InjectBindingRegistry {
     }
 
     /** Caches the binding and generates it if it needs generation. */
-    void tryRegisterBinding(B binding, ClassName factoryName, boolean explicit) {
+    void tryRegisterBinding(B binding, ClassName factoryName, boolean warnIfNotAlreadyGenerated) {
       tryToCacheBinding(binding);
-      tryToGenerateBinding(binding, factoryName, explicit);
+      tryToGenerateBinding(binding, factoryName, warnIfNotAlreadyGenerated);
     }
 
     /**
      * Tries to generate a binding, not generating if it already is generated. For resolved
      * bindings, this will try to generate the unresolved version of the binding.
      */
-    void tryToGenerateBinding(B binding, ClassName factoryName, boolean explicit) {
+    void tryToGenerateBinding(B binding, ClassName factoryName, boolean warnIfNotAlreadyGenerated) {
       if (shouldGenerateBinding(binding, factoryName)) {
         bindingsRequiringGeneration.offer(binding);
-        if (!explicit) {
+        if (warnIfNotAlreadyGenerated) {
           messager.printMessage(Kind.NOTE, String.format(
               "Generating a MembersInjector or Factory for %s. "
                     + "Prefer to run the dagger processor over that class instead.",
@@ -109,7 +109,7 @@ final class InjectBindingRegistry {
 
     /** Returns true if the binding needs to be generated. */
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
-      return !binding.hasNonDefaultTypeParameters()
+      return !binding.unresolved().isPresent()
           && elements.getTypeElement(factoryName.canonicalName()) == null
           && !materializedBindingKeys.contains(binding.key())
           && !bindingsRequiringGeneration.contains(binding);
@@ -120,7 +120,7 @@ final class InjectBindingRegistry {
     private void tryToCacheBinding(B binding) {
       // We only cache resolved bindings or unresolved bindings w/o type arguments.
       // Unresolved bindings w/ type arguments aren't valid for the object graph.
-      if (binding.hasNonDefaultTypeParameters()
+      if (binding.unresolved().isPresent()
           || binding.bindingTypeElement().getTypeParameters().isEmpty()) {
         Key key = binding.key();
         Binding previousValue = bindingsByKey.put(key, binding);
@@ -159,38 +159,54 @@ final class InjectBindingRegistry {
   }
 
   ProvisionBinding registerBinding(ProvisionBinding binding) {
-    return registerBinding(binding, true);
+    return registerBinding(binding, false);
   }
 
   MembersInjectionBinding registerBinding(MembersInjectionBinding binding) {
-    return registerBinding(binding, true);
+    return registerBinding(binding, false);
   }
 
   /**
-   * Registers the binding for generation & later lookup. If the binding is resolved, we also
+   * Registers the binding for generation and later lookup. If the binding is resolved, we also
    * attempt to register an unresolved version of it.
    */
-  private ProvisionBinding registerBinding(ProvisionBinding binding, boolean explicit) {
+  private ProvisionBinding registerBinding(
+      ProvisionBinding binding, boolean warnIfNotAlreadyGenerated) {
     ClassName factoryName = generatedClassNameForBinding(binding);
-    provisionBindings.tryRegisterBinding(binding, factoryName, explicit);
-    if (binding.hasNonDefaultTypeParameters()) {
-      provisionBindings.tryToGenerateBinding(provisionBindingFactory.unresolve(binding),
-          factoryName, explicit);
+    provisionBindings.tryRegisterBinding(binding, factoryName, warnIfNotAlreadyGenerated);
+    if (binding.unresolved().isPresent()) {
+      provisionBindings.tryToGenerateBinding(
+          binding.unresolved().get(), factoryName, warnIfNotAlreadyGenerated);
     }
     return binding;
   }
 
   /**
-   * Registers the binding for generation & later lookup. If the binding is resolved, we also
+   * Registers the binding for generation and later lookup. If the binding is resolved, we also
    * attempt to register an unresolved version of it.
    */
   private MembersInjectionBinding registerBinding(
-      MembersInjectionBinding binding, boolean explicit) {
+      MembersInjectionBinding binding, boolean warnIfNotAlreadyGenerated) {
+    /*
+     * We generate MembersInjector classes for types with @Inject constructors only if they have any
+     * injection sites.
+     *
+     * We generate MembersInjector classes for types without @Inject constructors only if they have
+     * local (non-inherited) injection sites.
+     *
+     * Warn only when registering bindings post-hoc for those types.
+     */
+    warnIfNotAlreadyGenerated =
+        warnIfNotAlreadyGenerated
+            && (!injectedConstructors(binding.bindingElement()).isEmpty()
+                ? !binding.injectionSites().isEmpty()
+                : binding.hasLocalInjectionSites());
     ClassName membersInjectorName = generatedClassNameForBinding(binding);
-    membersInjectionBindings.tryRegisterBinding(binding, membersInjectorName, explicit);
-    if (binding.hasNonDefaultTypeParameters()) {
+    membersInjectionBindings.tryRegisterBinding(
+        binding, membersInjectorName, warnIfNotAlreadyGenerated);
+    if (binding.unresolved().isPresent()) {
       membersInjectionBindings.tryToGenerateBinding(
-          membersInjectionBindingFactory.unresolve(binding), membersInjectorName, explicit);
+          binding.unresolved().get(), membersInjectorName, warnIfNotAlreadyGenerated);
     }
     return binding;
   }
@@ -207,28 +223,38 @@ final class InjectBindingRegistry {
 
     // ok, let's see if we can find an @Inject constructor
     TypeElement element = MoreElements.asType(types.asElement(key.type()));
-    List<ExecutableElement> constructors =
-        ElementFilter.constructorsIn(element.getEnclosedElements());
-    ImmutableSet<ExecutableElement> injectConstructors = FluentIterable.from(constructors)
-        .filter(new Predicate<ExecutableElement>() {
-          @Override public boolean apply(ExecutableElement input) {
-            return isAnnotationPresent(input, Inject.class);
-          }
-        }).toSet();
+    ImmutableSet<ExecutableElement> injectConstructors = injectedConstructors(element);
     switch (injectConstructors.size()) {
       case 0:
         // No constructor found.
         return Optional.absent();
       case 1:
-        ProvisionBinding constructorBinding = provisionBindingFactory.forInjectConstructor(
-            Iterables.getOnlyElement(injectConstructors), Optional.of(key.type()));
-        return Optional.of(registerBinding(constructorBinding, false));
+        ProvisionBinding constructorBinding =
+            provisionBindingFactory.forInjectConstructor(
+                Iterables.getOnlyElement(injectConstructors), Optional.of(key.type()));
+        return Optional.of(registerBinding(constructorBinding, true));
       default:
         throw new IllegalStateException("Found multiple @Inject constructors: "
             + injectConstructors);
     }
   }
 
+  private ImmutableSet<ExecutableElement> injectedConstructors(TypeElement element) {
+    return FluentIterable.from(constructorsIn(element.getEnclosedElements()))
+        .filter(
+            new Predicate<ExecutableElement>() {
+              @Override
+              public boolean apply(ExecutableElement constructor) {
+                return isAnnotationPresent(constructor, Inject.class);
+              }
+            })
+        .toSet();
+  }
+
+  /**
+   * Returns a {@link MembersInjectionBinding} for {@code key}. If none has been registered yet,
+   * registers one, along with all necessary members injection bindings for superclasses.
+   */
   MembersInjectionBinding getOrFindMembersInjectionBinding(Key key) {
     checkNotNull(key);
     // TODO(gak): is checking the kind enough?
@@ -237,7 +263,14 @@ final class InjectBindingRegistry {
     if (binding != null) {
       return binding;
     }
-    return registerBinding(membersInjectionBindingFactory.forInjectedType(
-        MoreTypes.asDeclared(key.type()), Optional.of(key.type())), false);
+    MembersInjectionBinding newBinding =
+        membersInjectionBindingFactory.forInjectedType(
+            asDeclared(key.type()), Optional.of(key.type()));
+    registerBinding(newBinding, true);
+    if (newBinding.parentKey().isPresent()
+        && newBinding.injectionStrategy().equals(INJECT_MEMBERS)) {
+      getOrFindMembersInjectionBinding(newBinding.parentKey().get());
+    }
+    return newBinding;
   }
 }

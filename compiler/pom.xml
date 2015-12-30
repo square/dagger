@@ -66,8 +66,8 @@
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
-      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
       <version>1.0</version>
+      <scope>provided</scope> <!-- to leave out of the all-deps jar -->
     </dependency>
 
     <dependency>
@@ -160,6 +160,7 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.3</version>
         <executions>

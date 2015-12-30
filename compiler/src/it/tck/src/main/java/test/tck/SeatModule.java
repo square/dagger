@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package test.tck;
 
-import java.util.Set;
-import javax.inject.Inject;
+import dagger.Module;
+import dagger.Provides;
+import org.atinject.tck.auto.Drivers;
+import org.atinject.tck.auto.DriversSeat;
+import org.atinject.tck.auto.Seat;
 
-class RequiresMultibindingsInChild extends RequiresMultibindingsInParent {
-
-  @Inject
-  RequiresMultibindingsInChild(
-      RequiresMultiboundObjects requiresMultiboundObjects,
-      RequiresMultiboundStrings requiresMultiboundStrings,
-      Set<RequiresMultiboundObjects> setOfRequiresMultiboundObjects) {
-    super(requiresMultiboundObjects, requiresMultiboundStrings, setOfRequiresMultiboundObjects);
+@Module
+class SeatModule {
+  @Provides
+  @Drivers
+  static Seat provideSeat(DriversSeat seat) {
+    return seat;
   }
 }

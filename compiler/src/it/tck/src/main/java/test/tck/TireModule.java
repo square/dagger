@@ -25,7 +25,7 @@ import javax.inject.Named;
 class TireModule {
   @Provides
   @Named("spare")
-  Tire provideTire(SpareTire sparetire) {
+  static Tire provideTire(SpareTire sparetire) {
     return sparetire;
   }
 }

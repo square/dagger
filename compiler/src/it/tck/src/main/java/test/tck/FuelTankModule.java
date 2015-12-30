@@ -17,15 +17,12 @@ package test.tck;
 
 import dagger.Module;
 import dagger.Provides;
-import org.atinject.tck.auto.Drivers;
-import org.atinject.tck.auto.DriversSeat;
-import org.atinject.tck.auto.Seat;
+import org.atinject.tck.auto.FuelTank;
 
 @Module
-class SeatModule {
+class FuelTankModule {
   @Provides
-  @Drivers
-  Seat provideSeat(DriversSeat seat) {
-    return seat;
+  static FuelTank provideFuelTank() {
+    return new FuelTank();
   }
 }

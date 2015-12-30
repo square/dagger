@@ -14,6 +14,8 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import dagger.internal.DoubleCheckLazy;
 import dagger.internal.codegen.writer.ClassName;
@@ -32,10 +35,10 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -66,71 +69,77 @@ class SourceFiles {
   };
 
   /**
-   * A variant of {@link #indexDependenciesByKey} that maps from unresolved keys
-   * to requests.  This is used when generating component's initialize()
-   * methods (and in members injectors) in order to instantiate dependent
-   * providers.  Consider a generic type of {@code Foo<T>} with a constructor
-   * of {@code Foo(T t, T t1, A a, A a1)}.  That will be collapsed to a factory
-   * taking a {@code Provider<T> tProvider, Provider<A> aProvider}. However,
-   * if it was referenced as {@code Foo<A>}, we need to make sure we still
-   * pass two providers.  Naively (if we just referenced by resolved BindingKey),
-   * we would have passed a single {@code aProvider}.
+   * Groups {@code binding}'s implicit dependencies by their binding key, using the dependency keys
+   * from the {@link Binding#unresolved()} binding if it exists.
+   *
+   * <p>Consider a generic type {@code Foo<T>} with a constructor {@code Foo(T t, T t1, A a, A a1)}.
+   * Its factory's {@code create} method should take only two parameters:
+   * {@code create(Provider<T> tProvider, Provider<A> aProvider)}. However, if the component
+   * initializes a factory for {@code Foo<A>}, it really has only one dependency:
+   * both arguments should be the same {@code Provider<A>}. In order to get the right number of
+   * arguments, we have to index resolved binding's dependencies by their keys in the unresolved
+   * version of the binding.
    */
-  // TODO(user): Refactor these indexing methods so that the binding itself knows what sort of
-  // binding keys and framework classes that it needs.
+  // TODO(dpb): Move this to DependencyRequest.
   static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByUnresolvedKey(
-      Types types, Iterable<? extends DependencyRequest> dependencies) {
-    ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>()
-            .orderValuesBy(DEPENDENCY_ORDERING);
-    for (DependencyRequest dependency : dependencies) {
-      BindingKey resolved = dependency.bindingKey();
-      // To get the proper unresolved type, we have to extract the proper type from the
-      // request type again (because we're looking at the actual element's type).
-      TypeMirror unresolvedType =
-          DependencyRequest.Factory.extractKindAndType(dependency.requestElement().asType()).type();
-      BindingKey unresolved =
-          BindingKey.create(resolved.kind(), resolved.key().withType(types, unresolvedType));
-      dependenciesByKeyBuilder.put(unresolved, dependency);
+      Binding binding) {
+    // If the binding is already fully resolved, just index the dependencies by binding key.
+    if (!binding.unresolved().isPresent()) {
+      return indexDependenciesByKey(binding, Functions.<DependencyRequest>identity());
     }
-    return dependenciesByKeyBuilder.build();
+    
+    // Index the unresolved dependencies, replacing each one with its resolved version by looking it
+    // up by request element.
+    final ImmutableMap<Element, DependencyRequest> resolvedDependencies =
+        Maps.uniqueIndex(
+            binding.implicitDependencies(),
+            new Function<DependencyRequest, Element>() {
+              @Override
+              public Element apply(DependencyRequest dependencyRequest) {
+                return dependencyRequest.requestElement();
+              }
+            });
+    return indexDependenciesByKey(
+        binding.unresolved().get(),
+        new Function<DependencyRequest, DependencyRequest>() {
+          @Override
+          public DependencyRequest apply(DependencyRequest unresolvedRequest) {
+            return resolvedDependencies.get(unresolvedRequest.requestElement());
+          }
+        });
   }
 
   /**
-   * Allows dependency requests to be grouped by the key they're requesting.
-   * This is used by factory generation in order to minimize the number of parameters
-   * required in the case where a given key is requested more than once.  This expects
-   * unresolved dependency requests, otherwise we may generate factories based on
-   * a particular usage of a class as opposed to the generic types of the class.
+   * Groups a binding's dependency requests by their binding key.
+   *
+   * @param transformer applied to each dependency before inserting into the multimap
    */
-  static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByKey(
-      Iterable<? extends DependencyRequest> dependencies) {
+  private static ImmutableSetMultimap<BindingKey, DependencyRequest> indexDependenciesByKey(
+      Binding binding, Function<DependencyRequest, DependencyRequest> transformer) {
     ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
-        new ImmutableSetMultimap.Builder<BindingKey, DependencyRequest>()
-            .orderValuesBy(DEPENDENCY_ORDERING);
-    for (DependencyRequest dependency : dependencies) {
-      dependenciesByKeyBuilder.put(dependency.bindingKey(), dependency);
+        ImmutableSetMultimap.builder();
+    for (DependencyRequest dependency : binding.implicitDependencies()) {
+      dependenciesByKeyBuilder.put(dependency.bindingKey(), transformer.apply(dependency));
     }
-    return dependenciesByKeyBuilder.build();
+    return dependenciesByKeyBuilder.orderValuesBy(DEPENDENCY_ORDERING).build();
   }
 
   /**
-   * This method generates names and keys for the framework classes necessary for all of the
-   * bindings. It is responsible for the following:
+   * Generates names and keys for the factory class fields needed to hold the framework classes for
+   * all of the dependencies of {@code binding}. It is responsible for choosing a name that
+   *
    * <ul>
-   * <li>Choosing a name that associates the binding with all of the dependency requests for this
-   * type.
-   * <li>Choosing a name that is <i>probably</i> associated with the type being bound.
-   * <li>Ensuring that no two bindings end up with the same name.
+   * <li>represents all of the dependency requests for this key
+   * <li>is <i>probably</i> associated with the type being bound
+   * <li>is unique within the class
    * </ul>
    *
-   * @return Returns the mapping from {@link BindingKey} to field, sorted by the name of the field.
+   * @param binding must be an unresolved binding (type parameters must match its type element's)
    */
   static ImmutableMap<BindingKey, FrameworkField> generateBindingFieldsForDependencies(
-      DependencyRequestMapper dependencyRequestMapper,
-      Iterable<? extends DependencyRequest> dependencies) {
+      DependencyRequestMapper dependencyRequestMapper, Binding binding) {
     ImmutableSetMultimap<BindingKey, DependencyRequest> dependenciesByKey =
-        indexDependenciesByKey(dependencies);
+        indexDependenciesByUnresolvedKey(binding);
     Map<BindingKey, Collection<DependencyRequest>> dependenciesByKeyMap =
         dependenciesByKey.asMap();
     ImmutableMap.Builder<BindingKey, FrameworkField> bindingFields = ImmutableMap.builder();
@@ -143,12 +152,13 @@ class SourceFiles {
       // collect together all of the names that we would want to call the provider
       ImmutableSet<String> dependencyNames =
           FluentIterable.from(requests).transform(new DependencyVariableNamer()).toSet();
-
+    
       if (dependencyNames.size() == 1) {
         // if there's only one name, great! use it!
         String name = Iterables.getOnlyElement(dependencyNames);
-        bindingFields.put(bindingKey,
-            FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey, name));
+        bindingFields.put(
+            bindingKey,
+            FrameworkField.createWithTypeFromKey(frameworkClass, bindingKey.key(), name));
       } else {
         // in the event that a field is being used for a bunch of deps with different names,
         // add all the names together with "And"s in the middle. E.g.: stringAndS
@@ -159,8 +169,10 @@ class SourceFiles {
           compositeNameBuilder.append("And").append(
               CaseFormat.LOWER_CAMEL.to(UPPER_CAMEL, namesIterator.next()));
         }
-        bindingFields.put(bindingKey, FrameworkField.createWithTypeFromKey(
-            frameworkClass, bindingKey, compositeNameBuilder.toString()));
+        bindingFields.put(
+            bindingKey,
+            FrameworkField.createWithTypeFromKey(
+                frameworkClass, bindingKey.key(), compositeNameBuilder.toString()));
       }
     }
     return bindingFields.build();

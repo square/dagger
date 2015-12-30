@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.subcomponent;
+package dagger.internal.codegen;
 
-import dagger.Component;
-
-@Component(modules = ParentMultibindingModule.class)
-interface ParentComponentWithoutMultibindings {
-  ChildComponentWithMultibindings childComponent();
+/**
+ * Common lines outputted during code generation.
+ */
+public final class GeneratedLines {
+  public static final String GENERATED_ANNOTATION =
+      "@Generated("
+          + "comments = \"https://google.github.io/dagger\", "
+          + "value = \"dagger.internal.codegen.ComponentProcessor\")";
 }

@@ -49,7 +49,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
       Types types,
       Key.Factory keyFactory,
       Diagnostic.Kind nullableValidationType) {
-    super(filer);
+    super(filer, elements);
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
