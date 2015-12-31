@@ -20,7 +20,6 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
-import dagger.internal.codegen.ComponentGenerator.MemberSelect;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.FieldWriter;
@@ -40,6 +39,7 @@ import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.difference;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
+import static dagger.internal.codegen.MemberSelect.localField;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -183,8 +183,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
             .addSnippet("  throw new NullPointerException();")
             .addSnippet("}");
         constructorWriter.body().addSnippet("this.%1$s = %1$s;", actualModuleName);
-        MemberSelect moduleSelect =
-            MemberSelect.instanceSelect(name, Snippet.format(actualModuleName));
+        MemberSelect moduleSelect = localField(name, actualModuleName);
         componentContributionFields.put(moduleTypeElement, moduleSelect);
         subcomponentConstructorParameters.add(Snippet.format("%s", moduleVariable.getSimpleName()));
       }
@@ -192,7 +191,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
 
     Set<TypeElement> uninitializedModules =
         difference(graph.componentRequirements(), componentContributionFields.keySet());
-    
+
     for (TypeElement moduleType : uninitializedModules) {
       String preferredModuleName =
           CaseFormat.UPPER_CAMEL.to(LOWER_CAMEL, moduleType.getSimpleName().toString());
@@ -201,8 +200,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
       String actualModuleName = contributionField.name();
       constructorWriter.body().addSnippet("this.%s = new %s();",
           actualModuleName, ClassName.fromTypeElement(moduleType));
-      MemberSelect moduleSelect =
-          MemberSelect.instanceSelect(name, Snippet.format(actualModuleName));
+      MemberSelect moduleSelect = localField(name, actualModuleName);
       componentContributionFields.put(moduleType, moduleSelect);
     }
 

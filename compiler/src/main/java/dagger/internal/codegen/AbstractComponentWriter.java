@@ -28,7 +28,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.MembersInjector;
 import dagger.internal.DelegateFactory;
 import dagger.internal.Factory;
 import dagger.internal.InstanceFactory;
@@ -39,7 +38,6 @@ import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.internal.codegen.ComponentGenerator.MemberSelect;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -84,12 +82,15 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
-import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticMethodInvocationWithCast;
-import static dagger.internal.codegen.ComponentGenerator.MemberSelect.staticSelect;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
+import static dagger.internal.codegen.MemberSelect.emptyMapProviderFactory;
+import static dagger.internal.codegen.MemberSelect.emptySetProvider;
+import static dagger.internal.codegen.MemberSelect.localField;
+import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
+import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
@@ -97,7 +98,6 @@ import static dagger.internal.codegen.SourceFiles.indexDependenciesByUnresolvedK
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
-import static dagger.internal.codegen.writer.Snippet.memberSelectSnippet;
 import static dagger.internal.codegen.writer.Snippet.nullCheck;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -203,7 +203,7 @@ abstract class AbstractComponentWriter {
               "this.%s = builder.%s;",
               componentField.name(),
               builderFields.get(contributionType).name());
-      fieldSelect = MemberSelect.instanceSelect(name, Snippet.format("%s", componentField.name()));
+      fieldSelect = localField(name, componentField.name());
       componentContributionFields.put(contributionType, fieldSelect);
     }
     return Optional.of(fieldSelect.getSnippetFor(name));
@@ -454,7 +454,7 @@ abstract class AbstractComponentWriter {
 
   private void addField(ResolvedBindings resolvedBindings) {
     BindingKey bindingKey = resolvedBindings.bindingKey();
-    
+
     // If the binding can be satisfied with a static method call without dependencies or state,
     // no field is necessary.
     Optional<MemberSelect> staticMemberSelect = staticMemberSelect(resolvedBindings);
@@ -462,7 +462,7 @@ abstract class AbstractComponentWriter {
       memberSelectSnippets.put(bindingKey, staticMemberSelect.get());
       return;
     }
-    
+
     // No field needed if there are no owned bindings.
     if (resolvedBindings.ownedBindings().isEmpty()) {
       return;
@@ -483,11 +483,9 @@ abstract class AbstractComponentWriter {
                   contributionNumber, contributionBinding);
           FieldWriter contributionField = addFrameworkField(useRawType, contributionBindingField);
 
-          ImmutableList<String> contributionSelectTokens =
-              ImmutableList.of(contributionField.name());
           multibindingContributionSnippets.put(
               contributionBinding,
-              MemberSelect.instanceSelect(name, memberSelectSnippet(contributionSelectTokens)));
+              localField(name, contributionField.name()));
         }
       }
     }
@@ -495,13 +493,9 @@ abstract class AbstractComponentWriter {
     FrameworkField bindingField = FrameworkField.createForResolvedBindings(resolvedBindings);
     FieldWriter frameworkField = addFrameworkField(useRawType, bindingField);
 
-    ImmutableList<String> memberSelectTokens =
-        new ImmutableList.Builder<String>()
-            .add(frameworkField.name())
-            .build();
     memberSelectSnippets.put(
         bindingKey,
-        MemberSelect.instanceSelect(name, Snippet.memberSelectSnippet(memberSelectTokens)));
+        localField(name, frameworkField.name()));
   }
 
   private FieldWriter addFrameworkField(boolean useRawType,
@@ -532,7 +526,8 @@ abstract class AbstractComponentWriter {
             && resolvedBindings.contributionBindings().isEmpty()) {
           switch (resolvedBindings.contributionType()) {
             case MAP:
-              return Optional.of(emptyMapProviderFactoryStaticMemberSelect());
+              return Optional.of(emptyMapProviderFactory(
+                  MapType.from(resolvedBindings.key().type())));
 
             case SET:
               return Optional.of(emptySetFactoryStaticMemberSelect(resolvedBindings));
@@ -554,7 +549,7 @@ abstract class AbstractComponentWriter {
         if (contributionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
             && !contributionBinding.scope().isPresent()) {
           return Optional.of(
-              staticSelect(
+              staticMethod(
                   generatedClassNameForBinding(contributionBinding), Snippet.format("create()")));
         }
         break;
@@ -564,11 +559,7 @@ abstract class AbstractComponentWriter {
             resolvedBindings.membersInjectionBinding();
         if (membersInjectionBinding.isPresent()
             && membersInjectionBinding.get().injectionStrategy().equals(NO_OP)) {
-          return Optional.of(
-              staticMethodInvocationWithCast(
-                  ClassName.fromClass(MembersInjectors.class),
-                  Snippet.format("noOp()"),
-                  ClassName.fromClass(MembersInjector.class)));
+          return Optional.of(noOpMembersInjector(membersInjectionBinding.get().key().type()));
         }
         break;
 
@@ -579,24 +570,14 @@ abstract class AbstractComponentWriter {
   }
 
   /**
-   * A static member select for a call to {@link MapProviderFactory#empty()}.
-   */
-  private MemberSelect emptyMapProviderFactoryStaticMemberSelect() {
-    return staticMethodInvocationWithCast(
-        ClassName.fromClass(MapProviderFactory.class),
-        Snippet.format("empty()"),
-        ClassName.fromClass(MapProviderFactory.class));
-  }
-
-  /**
    * A static member select for a call to {@code F.create()} where {@code F} is either
    * {@link SetFactory}, {@link SetProducer}, or {@link SetOfProducedProducer}, depending on the
    * set bindings.
    */
   private MemberSelect emptySetFactoryStaticMemberSelect(ResolvedBindings setBindings) {
     ClassName setFactoryClassName = setFactoryClassName(setBindings);
-    return staticMethodInvocationWithCast(
-        setFactoryClassName, Snippet.format("create()"), setFactoryClassName);
+    return emptySetProvider(setFactoryClassName,
+        SetType.from(setBindings.bindingKey().key().type()));
   }
 
   /**
@@ -755,12 +736,12 @@ abstract class AbstractComponentWriter {
    */
   private Snippet initializeFrameworkType(BindingKey bindingKey) {
     ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-    
+
     // There's no field for inherited bindings.
     if (resolvedBindings.ownedBindings().isEmpty()) {
       return Snippet.format("");
     }
-    
+
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
         switch (resolvedBindings.contributionType()) {
@@ -996,7 +977,7 @@ abstract class AbstractComponentWriter {
             /* 1 */ ClassName.fromClass(Factory.class),
             /* 2 */ bindingKeyTypeName,
             /* 3 */ binding.bindingElement().getSimpleName().toString());
-        
+
       case INJECTION:
       case PROVISION:
         {
@@ -1061,7 +1042,7 @@ abstract class AbstractComponentWriter {
               generatedClassNameForBinding(binding),
               Snippet.makeParametersSnippet(parameters));
         }
-        
+
       case SYNTHETIC_MAP:
         checkState(
             MapType.isMap(binding.key().type()),
@@ -1071,7 +1052,7 @@ abstract class AbstractComponentWriter {
             "%s.create(%s)",
             ClassName.fromClass(MapFactory.class),
             getMemberSelect(getOnlyElement(binding.dependencies()).bindingKey())
-                .getSnippetWithRawTypeCastFor(name));
+                .getSnippetFor(name));
 
       default:
         throw new AssertionError();
@@ -1114,7 +1095,7 @@ abstract class AbstractComponentWriter {
                   .transform(DependencyRequest.BINDING_KEY_FUNCTION)
                   .toSet());
       ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
-      Snippet frameworkSnippet = getMemberSelect(requestedKey).getSnippetWithRawTypeCastFor(name);
+      Snippet frameworkSnippet = getMemberSelect(requestedKey).getSnippetFor(name);
       if (resolvedBindings.frameworkClass().equals(Provider.class)
           && dependencyRequestMapper
               .getFrameworkClass(dependencyRequestsForUnresolvedKey)
