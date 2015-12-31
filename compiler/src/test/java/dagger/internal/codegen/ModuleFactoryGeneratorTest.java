@@ -1102,4 +1102,44 @@ public class ModuleFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS);
   }
+
+  @Test public void providerDependsOnProduced() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import dagger.producers.Producer;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String provideString(Producer<Integer> producer) {",
+        "    return \"foo\";",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Producer may only be injected in @Produces methods");
+  }
+
+  @Test public void providerDependsOnProducer() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import dagger.producers.Produced;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides String provideString(Produced<Integer> produced) {",
+        "    return \"foo\";",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Produced may only be injected in @Produces methods");
+  }
 }

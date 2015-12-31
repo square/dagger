@@ -15,11 +15,13 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import dagger.Multibindings;
 import dagger.Provides;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * The collection of error messages to be reported back to users.
@@ -216,6 +218,15 @@ final class ErrorMessages {
 
   static final String REQUIRES_PROVIDER_OR_PRODUCER_FORMAT =
       "%s cannot be provided without an @Provides- or @Produces-annotated method.";
+
+  private static final String PROVISION_MAY_NOT_DEPEND_ON_PRODUCER_TYPE_FORMAT =
+      "%s may only be injected in @Produces methods.";
+
+  static String provisionMayNotDependOnProducerType(TypeMirror type) {
+    return String.format(
+        PROVISION_MAY_NOT_DEPEND_ON_PRODUCER_TYPE_FORMAT,
+        MoreTypes.asTypeElement(type).getSimpleName());
+  }
 
   static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
       "This type supports members injection but cannot be implicitly provided.";

@@ -25,6 +25,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -46,6 +47,7 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
+import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
 import static dagger.internal.codegen.MapKeys.getMapKeys;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -115,6 +117,12 @@ final class ProvidesMethodValidator {
           && !types.isSubtype(thrownType, errorType)) {
         builder.addError(PROVIDES_METHOD_THROWS, providesMethodElement);
         break;
+      }
+    }
+
+    for (VariableElement parameter : providesMethodElement.getParameters()) {
+      if (FrameworkTypes.isProducerType(parameter.asType())) {
+        builder.addError(provisionMayNotDependOnProducerType(parameter.asType()), parameter);
       }
     }
 

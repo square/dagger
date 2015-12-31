@@ -704,6 +704,102 @@ public final class InjectConstructorFactoryGeneratorTest {
         .withErrorContaining(MULTIPLE_QUALIFIERS).in(file).onLine(6);
   }
 
+  @Test public void injectConstructorDependsOnProduced() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import dagger.producers.Produced;",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A(Produced<String> str) {}",
+        "}");
+    assertAbout(javaSource()).that(aFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Produced may only be injected in @Produces methods");
+  }
+
+  @Test public void injectConstructorDependsOnProducer() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import dagger.producers.Producer;",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject A(Producer<String> str) {}",
+        "}");
+    assertAbout(javaSource()).that(aFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Producer may only be injected in @Produces methods");
+  }
+
+  @Test public void injectFieldDependsOnProduced() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import dagger.producers.Produced;",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject Produced<String> str;",
+        "}");
+    assertAbout(javaSource()).that(aFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Produced may only be injected in @Produces methods");
+  }
+
+  @Test public void injectFieldDependsOnProducer() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import dagger.producers.Producer;",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject Producer<String> str;",
+        "}");
+    assertAbout(javaSource()).that(aFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Producer may only be injected in @Produces methods");
+  }
+
+  @Test public void injectMethodDependsOnProduced() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import dagger.producers.Produced;",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject void inject(Produced<String> str) {}",
+        "}");
+    assertAbout(javaSource()).that(aFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Produced may only be injected in @Produces methods");
+  }
+
+  @Test public void injectMethodDependsOnProducer() {
+    JavaFileObject aFile = JavaFileObjects.forSourceLines("test.A",
+        "package test;",
+        "",
+        "import dagger.producers.Producer;",
+        "import javax.inject.Inject;",
+        "",
+        "final class A {",
+        "  @Inject void inject(Producer<String> str) {}",
+        "}");
+    assertAbout(javaSource()).that(aFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("Producer may only be injected in @Produces methods");
+  }
+
   @Test public void injectConstructor() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.InjectConstructor",
         "package test;",
