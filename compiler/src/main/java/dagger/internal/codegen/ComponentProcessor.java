@@ -87,6 +87,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     InjectMethodValidator injectMethodValidator = new InjectMethodValidator(
         privateMemberValidationType(processingEnv).diagnosticKind().get(),
         staticMemberValidationType(processingEnv).diagnosticKind().get());
+    MembersInjectedTypeValidator membersInjectedTypeValidator =
+        new MembersInjectedTypeValidator(injectFieldValidator, injectMethodValidator);
     ModuleValidator moduleValidator =
         new ModuleValidator(types, elements, methodSignatureFormatter);
     BuilderValidator builderValidator = new BuilderValidator(elements, types);
@@ -129,8 +131,16 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
-    this.injectBindingRegistry = new InjectBindingRegistry(
-        elements, types, messager, provisionBindingFactory, membersInjectionBindingFactory);
+    this.injectBindingRegistry =
+        new InjectBindingRegistry(
+            elements,
+            types,
+            messager,
+            injectConstructorValidator,
+            membersInjectedTypeValidator,
+            keyFactory,
+            provisionBindingFactory,
+            membersInjectionBindingFactory);
 
     ModuleDescriptor.Factory moduleDescriptorFactory =
         new ModuleDescriptor.Factory(
@@ -166,14 +176,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
 
     return ImmutableList.of(
         new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
-        new InjectProcessingStep(
-            messager,
-            injectConstructorValidator,
-            injectFieldValidator,
-            injectMethodValidator,
-            provisionBindingFactory,
-            membersInjectionBindingFactory,
-            injectBindingRegistry),
+        new InjectProcessingStep(injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
         new MultibindingsProcessingStep(messager, multibindingsValidator),
         new ModuleProcessingStep(

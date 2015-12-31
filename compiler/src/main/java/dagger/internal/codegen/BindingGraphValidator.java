@@ -865,10 +865,13 @@ public class BindingGraphValidator {
               ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
               : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
       errorMessage.append(String.format(requiresErrorMessageFormat, keyFormatter.format(key)));
-      if (key.isValidMembersInjectionKey()
-          && !injectBindingRegistry.getOrFindMembersInjectionBinding(key).injectionSites()
-              .isEmpty()) {
-        errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
+      if (key.isValidMembersInjectionKey()) {
+        Optional<MembersInjectionBinding> membersInjectionBinding =
+            injectBindingRegistry.getOrFindMembersInjectionBinding(key);
+        if (membersInjectionBinding.isPresent()
+            && !membersInjectionBinding.get().injectionSites().isEmpty()) {
+          errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
+        }
       }
       ImmutableList<String> printableDependencyPath =
           FluentIterable.from(path)

@@ -394,10 +394,12 @@ abstract class BindingGraph {
 
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
-            return ResolvedBindings.forMembersInjectionBinding(
-                bindingKey,
-                componentDescriptor,
-                injectBindingRegistry.getOrFindMembersInjectionBinding(bindingKey.key()));
+            Optional<MembersInjectionBinding> binding =
+                injectBindingRegistry.getOrFindMembersInjectionBinding(bindingKey.key());
+            return binding.isPresent()
+                ? ResolvedBindings.forMembersInjectionBinding(
+                    bindingKey, componentDescriptor, binding.get())
+                : ResolvedBindings.noBindings(bindingKey, componentDescriptor);
           default:
             throw new AssertionError();
         }

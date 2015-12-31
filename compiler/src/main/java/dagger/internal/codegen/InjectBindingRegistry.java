@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
@@ -34,12 +35,13 @@ import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,6 +61,9 @@ final class InjectBindingRegistry {
   private final Elements elements;
   private final Types types;
   private final Messager messager;
+  private final InjectConstructorValidator injectConstructorValidator;
+  private final MembersInjectedTypeValidator membersInjectedTypeValidator;
+  private final Key.Factory keyFactory;
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
 
@@ -76,7 +81,7 @@ final class InjectBindingRegistry {
         materializedBindingKeys.add(binding.key());
       }
       // Because Elements instantiated across processing rounds are not guaranteed to be equals() to
-      // the logically same element, clear the cache after generating 
+      // the logically same element, clear the cache after generating
       bindingsByKey.clear();
     }
 
@@ -86,17 +91,17 @@ final class InjectBindingRegistry {
     }
 
     /** Caches the binding and generates it if it needs generation. */
-    void tryRegisterBinding(B binding, ClassName factoryName, boolean warnIfNotAlreadyGenerated) {
+    void tryRegisterBinding(B binding, boolean warnIfNotAlreadyGenerated) {
       tryToCacheBinding(binding);
-      tryToGenerateBinding(binding, factoryName, warnIfNotAlreadyGenerated);
+      tryToGenerateBinding(binding, warnIfNotAlreadyGenerated);
     }
 
     /**
      * Tries to generate a binding, not generating if it already is generated. For resolved
      * bindings, this will try to generate the unresolved version of the binding.
      */
-    void tryToGenerateBinding(B binding, ClassName factoryName, boolean warnIfNotAlreadyGenerated) {
-      if (shouldGenerateBinding(binding, factoryName)) {
+    void tryToGenerateBinding(B binding, boolean warnIfNotAlreadyGenerated) {
+      if (shouldGenerateBinding(binding, generatedClassNameForBinding(binding))) {
         bindingsRequiringGeneration.offer(binding);
         if (warnIfNotAlreadyGenerated) {
           messager.printMessage(Kind.NOTE, String.format(
@@ -135,14 +140,21 @@ final class InjectBindingRegistry {
   private final BindingsCollection<MembersInjectionBinding> membersInjectionBindings =
       new BindingsCollection<>();
 
-  InjectBindingRegistry(Elements elements,
+  InjectBindingRegistry(
+      Elements elements,
       Types types,
       Messager messager,
+      InjectConstructorValidator injectConstructorValidator,
+      MembersInjectedTypeValidator membersInjectedTypeValidator,
+      Key.Factory keyFactory,
       ProvisionBinding.Factory provisionBindingFactory,
       MembersInjectionBinding.Factory membersInjectionBindingFactory) {
     this.elements = elements;
     this.types = types;
     this.messager = messager;
+    this.injectConstructorValidator = injectConstructorValidator;
+    this.membersInjectedTypeValidator = membersInjectedTypeValidator;
+    this.keyFactory = keyFactory;
     this.provisionBindingFactory = provisionBindingFactory;
     this.membersInjectionBindingFactory = membersInjectionBindingFactory;
   }
@@ -158,25 +170,15 @@ final class InjectBindingRegistry {
     membersInjectionBindings.generateBindings(membersInjectorGenerator);
   }
 
-  ProvisionBinding registerBinding(ProvisionBinding binding) {
-    return registerBinding(binding, false);
-  }
-
-  MembersInjectionBinding registerBinding(MembersInjectionBinding binding) {
-    return registerBinding(binding, false);
-  }
-
   /**
    * Registers the binding for generation and later lookup. If the binding is resolved, we also
    * attempt to register an unresolved version of it.
    */
   private ProvisionBinding registerBinding(
       ProvisionBinding binding, boolean warnIfNotAlreadyGenerated) {
-    ClassName factoryName = generatedClassNameForBinding(binding);
-    provisionBindings.tryRegisterBinding(binding, factoryName, warnIfNotAlreadyGenerated);
+    provisionBindings.tryRegisterBinding(binding, warnIfNotAlreadyGenerated);
     if (binding.unresolved().isPresent()) {
-      provisionBindings.tryToGenerateBinding(
-          binding.unresolved().get(), factoryName, warnIfNotAlreadyGenerated);
+      provisionBindings.tryToGenerateBinding(binding.unresolved().get(), warnIfNotAlreadyGenerated);
     }
     return binding;
   }
@@ -201,14 +203,71 @@ final class InjectBindingRegistry {
             && (!injectedConstructors(binding.bindingElement()).isEmpty()
                 ? !binding.injectionSites().isEmpty()
                 : binding.hasLocalInjectionSites());
-    ClassName membersInjectorName = generatedClassNameForBinding(binding);
-    membersInjectionBindings.tryRegisterBinding(
-        binding, membersInjectorName, warnIfNotAlreadyGenerated);
+    membersInjectionBindings.tryRegisterBinding(binding, warnIfNotAlreadyGenerated);
     if (binding.unresolved().isPresent()) {
       membersInjectionBindings.tryToGenerateBinding(
-          binding.unresolved().get(), membersInjectorName, warnIfNotAlreadyGenerated);
+          binding.unresolved().get(), warnIfNotAlreadyGenerated);
     }
     return binding;
+  }
+
+  Optional<ProvisionBinding> tryRegisterConstructor(ExecutableElement constructorElement) {
+    return tryRegisterConstructor(constructorElement, Optional.<TypeMirror>absent(), false);
+  }
+
+  private Optional<ProvisionBinding> tryRegisterConstructor(
+      ExecutableElement constructorElement,
+      Optional<TypeMirror> resolvedType,
+      boolean warnIfNotAlreadyGenerated) {
+    TypeElement typeElement = MoreElements.asType(constructorElement.getEnclosingElement());
+    DeclaredType type = MoreTypes.asDeclared(typeElement.asType());
+    Key key = keyFactory.forInjectConstructorWithResolvedType(type);
+    ProvisionBinding cachedBinding = provisionBindings.getBinding(key);
+    if (cachedBinding != null) {
+      return Optional.of(cachedBinding);
+    }
+
+    ValidationReport<TypeElement> report = injectConstructorValidator.validate(constructorElement);
+    report.printMessagesTo(messager);
+    if (report.isClean()) {
+      ProvisionBinding binding =
+          provisionBindingFactory.forInjectConstructor(constructorElement, resolvedType);
+      registerBinding(binding, warnIfNotAlreadyGenerated);
+      if (membersInjectionBindingFactory.hasInjectedMembers(type)) {
+        tryRegisterMembersInjectedType(typeElement, resolvedType, warnIfNotAlreadyGenerated);
+      }
+      return Optional.of(binding);
+    }
+    return Optional.absent();
+  }
+
+  Optional<MembersInjectionBinding> tryRegisterMembersInjectedType(TypeElement typeElement) {
+    return tryRegisterMembersInjectedType(typeElement, Optional.<TypeMirror>absent(), false);
+  }
+
+  private Optional<MembersInjectionBinding> tryRegisterMembersInjectedType(
+      TypeElement typeElement,
+      Optional<TypeMirror> resolvedType,
+      boolean warnIfNotAlreadyGenerated) {
+    DeclaredType type = MoreTypes.asDeclared(typeElement.asType());
+    Key key = keyFactory.forInjectConstructorWithResolvedType(type);
+    MembersInjectionBinding cachedBinding = membersInjectionBindings.getBinding(key);
+    if (cachedBinding != null) {
+      return Optional.of(cachedBinding);
+    }
+
+    ValidationReport<TypeElement> report = membersInjectedTypeValidator.validate(typeElement);
+    report.printMessagesTo(messager);
+    if (report.isClean()) {
+      MembersInjectionBinding binding =
+          membersInjectionBindingFactory.forInjectedType(type, resolvedType);
+      registerBinding(binding, warnIfNotAlreadyGenerated);
+      if (binding.parentKey().isPresent() && binding.injectionStrategy().equals(INJECT_MEMBERS)) {
+        getOrFindMembersInjectionBinding(binding.parentKey().get());
+      }
+      return Optional.of(binding);
+    }
+    return Optional.absent();
   }
 
   Optional<ProvisionBinding> getOrFindProvisionBinding(Key key) {
@@ -229,10 +288,8 @@ final class InjectBindingRegistry {
         // No constructor found.
         return Optional.absent();
       case 1:
-        ProvisionBinding constructorBinding =
-            provisionBindingFactory.forInjectConstructor(
-                Iterables.getOnlyElement(injectConstructors), Optional.of(key.type()));
-        return Optional.of(registerBinding(constructorBinding, true));
+        return tryRegisterConstructor(
+            Iterables.getOnlyElement(injectConstructors), Optional.of(key.type()), true);
       default:
         throw new IllegalStateException("Found multiple @Inject constructors: "
             + injectConstructors);
@@ -255,22 +312,17 @@ final class InjectBindingRegistry {
    * Returns a {@link MembersInjectionBinding} for {@code key}. If none has been registered yet,
    * registers one, along with all necessary members injection bindings for superclasses.
    */
-  MembersInjectionBinding getOrFindMembersInjectionBinding(Key key) {
+  Optional<MembersInjectionBinding> getOrFindMembersInjectionBinding(Key key) {
     checkNotNull(key);
     // TODO(gak): is checking the kind enough?
     checkArgument(key.isValidMembersInjectionKey());
     MembersInjectionBinding binding = membersInjectionBindings.getBinding(key);
     if (binding != null) {
-      return binding;
+      return Optional.of(binding);
     }
-    MembersInjectionBinding newBinding =
-        membersInjectionBindingFactory.forInjectedType(
-            asDeclared(key.type()), Optional.of(key.type()));
-    registerBinding(newBinding, true);
-    if (newBinding.parentKey().isPresent()
-        && newBinding.injectionStrategy().equals(INJECT_MEMBERS)) {
-      getOrFindMembersInjectionBinding(newBinding.parentKey().get());
-    }
+    Optional<MembersInjectionBinding> newBinding =
+        tryRegisterMembersInjectedType(
+            MoreTypes.asTypeElement(key.type()), Optional.of(key.type()), true);
     return newBinding;
   }
 }
