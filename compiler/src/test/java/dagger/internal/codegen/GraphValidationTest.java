@@ -1223,7 +1223,7 @@ public class GraphValidationTest {
   }
 
   @Test
-  @Ignore("This bug should be fixed")
+  @Ignore
   public void subcomponentBindingConflictsWithParent() {
     JavaFileObject parentChildConflict =
         JavaFileObjects.forSourceLines(
@@ -1260,8 +1260,8 @@ public class GraphValidationTest {
             "",
             "@Component(modules = Parent.ParentModule.class)",
             "interface Parent {",
-            "  @ParentChildConflict Object object();",
-            "  @ParentGrandchildConflict Object object();",
+            "  @ParentChildConflict Object parentChildConflict();",
+            "  @ParentGrandchildConflict Object parentGrandchildConflict();",
             "",
             "  Child child();",
             "",
@@ -1271,7 +1271,7 @@ public class GraphValidationTest {
             "      return \"parent\";",
             "    }",
             "",
-            "    @Provides @ParentChildConflict static Object parentGrandchildConflict() {",
+            "    @Provides @ParentGrandchildConflict static Object parentGrandchildConflict() {",
             "      return \"parent\";",
             "    }",
             "  }",
@@ -1287,8 +1287,8 @@ public class GraphValidationTest {
             "",
             "@Subcomponent(modules = Child.ChildModule.class)",
             "interface Child {",
-            "  @ParentChildConflict Object object();",
-            "  @ChildGrandchildConflict Object object();",
+            "  @ParentChildConflict Object parentChildConflict();",
+            "  @ChildGrandchildConflict Object childGrandchildConflict();",
             "",
             "  Grandchild grandchild();",
             "",
@@ -1314,7 +1314,9 @@ public class GraphValidationTest {
             "",
             "@Subcomponent(modules = Grandchild.GrandchildModule.class)",
             "interface Grandchild {",
-            "  Object object();",
+            "  @ParentChildConflict Object parentChildConflict();",
+            "  @ParentGrandchildConflict Object parentGrandchildConflict();",
+            "  @ChildGrandchildConflict Object childGrandchildConflict();",
             "",
             "  @Module",
             "  static class GrandchildModule {",
