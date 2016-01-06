@@ -16,6 +16,8 @@ package dagger.internal.codegen;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +27,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import com.squareup.javapoet.CodeBlock;
 import dagger.internal.DoubleCheckLazy;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
@@ -50,6 +53,9 @@ import static com.google.common.base.Preconditions.checkArgument;
  * @since 2.0
  */
 class SourceFiles {
+
+  private static final Joiner CLASS_FILE_NAME_JOINER = Joiner.on('$');
+
   /**
    * Sorts {@link DependencyRequest} instances in an order likely to reflect their logical
    * importance.
@@ -195,7 +201,27 @@ class SourceFiles {
         throw new AssertionError();
     }
   }
-  
+
+  static CodeBlock frameworkTypeUsageStatement(
+      CodeBlock frameworkTypeMemberSelect, DependencyRequest.Kind dependencyKind) {
+    switch (dependencyKind) {
+      case LAZY:
+        return CodeBlocks.format(
+            "$T.create($L)",
+            com.squareup.javapoet.ClassName.get(DoubleCheckLazy.class),
+            frameworkTypeMemberSelect);
+      case INSTANCE:
+      case FUTURE:
+        return CodeBlocks.format("$L.get()", frameworkTypeMemberSelect);
+      case PROVIDER:
+      case PRODUCER:
+      case MEMBERS_INJECTOR:
+        return CodeBlocks.format("$L", frameworkTypeMemberSelect);
+      default:
+        throw new AssertionError();
+    }
+  }
+
   /**
    * Returns the generated factory or members injector name for a binding.
    */
@@ -238,51 +264,117 @@ class SourceFiles {
   static TypeName parameterizedGeneratedTypeNameForBinding(Binding binding) {
     return generatedClassNameForBinding(binding).withTypeParameters(bindingTypeParameters(binding));
   }
-  
-  private static ImmutableList<TypeName> bindingTypeParameters(Binding binding)
+
+  /**
+   * Returns the generated factory or members injector name for a binding.
+   */
+  static com.squareup.javapoet.ClassName javapoetGeneratedClassNameForBinding(Binding binding) {
+    switch (binding.bindingType()) {
+      case PROVISION:
+      case PRODUCTION:
+        ContributionBinding contribution = (ContributionBinding) binding;
+        checkArgument(!contribution.isSyntheticBinding());
+        com.squareup.javapoet.ClassName enclosingClassName =
+            com.squareup.javapoet.ClassName.get(contribution.bindingTypeElement());
+        switch (contribution.bindingKind()) {
+          case INJECTION:
+          case PROVISION:
+          case IMMEDIATE:
+          case FUTURE_PRODUCTION:
+            return enclosingClassName
+                .topLevelClassName()
+                .peerClass(
+                    classFileName(enclosingClassName)
+                        + "_"
+                        + factoryPrefix(contribution)
+                        + "Factory");
+
+          default:
+            throw new AssertionError();
+        }
+
+      case MEMBERS_INJECTION:
+        return javapoetMembersInjectorNameForType(binding.bindingTypeElement());
+
+      default:
+        throw new AssertionError();
+    }
+  }
+
+  static com.squareup.javapoet.TypeName javapoetParameterizedGeneratedTypeNameForBinding(
+      Binding binding) {
+    com.squareup.javapoet.ClassName className = javapoetGeneratedClassNameForBinding(binding);
+    ImmutableList<com.squareup.javapoet.TypeName> typeParameters =
+        javapoetBindingTypeParameters(binding);
+    if (typeParameters.isEmpty()) {
+      return className;
+    } else {
+      return com.squareup.javapoet.ParameterizedTypeName.get(
+          className,
+          FluentIterable.from(typeParameters).toArray(com.squareup.javapoet.TypeName.class));
+    }
+  }
+
+  private static Optional<TypeMirror> typeMirrorForBindingTypeParameters(Binding binding)
       throws AssertionError {
-    TypeMirror bindingType;
     switch (binding.bindingType()) {
       case PROVISION:
       case PRODUCTION:
         ContributionBinding contributionBinding = (ContributionBinding) binding;
         if (contributionBinding.contributionType().isMultibinding()) {
-          return ImmutableList.of();
+          return Optional.absent();
         }
         switch (contributionBinding.bindingKind()) {
           case INJECTION:
-            bindingType = contributionBinding.key().type();
-            break;
-            
+            return Optional.of(contributionBinding.key().type());
+
           case PROVISION:
             // For provision bindings, we parameterize creation on the types of
             // the module, not the types of the binding.
             // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
             // The binding is just parameterized on <B>, but we need all of <A, B, C>.
-            bindingType = contributionBinding.bindingTypeElement().asType();
-            break;
-            
+            return Optional.of(contributionBinding.bindingTypeElement().asType());
+
           case IMMEDIATE:
           case FUTURE_PRODUCTION:
             // TODO(beder): Can these be treated just like PROVISION?
             throw new UnsupportedOperationException();
             
           default:
-            return ImmutableList.of();
+            return Optional.absent();
         }
-        break;
 
       case MEMBERS_INJECTION:
-        bindingType = binding.key().type();
-        break;
+        return Optional.of(binding.key().type());
 
       default:
         throw new AssertionError();
     }
-    TypeName bindingTypeName = TypeNames.forTypeMirror(bindingType);
+  }
+
+  private static ImmutableList<TypeName> bindingTypeParameters(Binding binding) {
+    Optional<TypeMirror> typeMirror = typeMirrorForBindingTypeParameters(binding);
+    if (!typeMirror.isPresent()) {
+      return ImmutableList.of();
+    }
+    TypeName bindingTypeName = TypeNames.forTypeMirror(typeMirror.get());
     return bindingTypeName instanceof ParameterizedTypeName
         ? ((ParameterizedTypeName) bindingTypeName).parameters()
         : ImmutableList.<TypeName>of();
+  }
+
+  private static ImmutableList<com.squareup.javapoet.TypeName> javapoetBindingTypeParameters(
+      Binding binding) {
+    Optional<TypeMirror> typeMirror = typeMirrorForBindingTypeParameters(binding);
+    if (!typeMirror.isPresent()) {
+      return ImmutableList.of();
+    }
+    com.squareup.javapoet.TypeName bindingTypeName =
+        com.squareup.javapoet.TypeName.get(typeMirror.get());
+    return bindingTypeName instanceof com.squareup.javapoet.ParameterizedTypeName
+        ? ImmutableList.copyOf(
+            ((com.squareup.javapoet.ParameterizedTypeName) bindingTypeName).typeArguments)
+        : ImmutableList.<com.squareup.javapoet.TypeName>of();
   }
   
   static ClassName membersInjectorNameForType(TypeElement typeElement) {
@@ -290,6 +382,19 @@ class SourceFiles {
     return injectedClassName
         .topLevelClassName()
         .peerNamed(injectedClassName.classFileName() + "_MembersInjector");
+  }
+
+  static com.squareup.javapoet.ClassName javapoetMembersInjectorNameForType(
+      TypeElement typeElement) {
+    com.squareup.javapoet.ClassName injectedClassName =
+        com.squareup.javapoet.ClassName.get(typeElement);
+    return injectedClassName
+        .topLevelClassName()
+        .peerClass(classFileName(injectedClassName) + "_MembersInjector");
+  }
+
+  static String classFileName(com.squareup.javapoet.ClassName className) {
+    return CLASS_FILE_NAME_JOINER.join(className.simpleNames());
   }
 
   static ClassName generatedMonitoringModuleName(TypeElement componentElement) {

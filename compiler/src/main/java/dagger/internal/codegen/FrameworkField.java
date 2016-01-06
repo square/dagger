@@ -23,6 +23,7 @@ import dagger.internal.codegen.writer.TypeNames;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -41,13 +42,19 @@ abstract class FrameworkField {
     ParameterizedTypeName frameworkType =
         ParameterizedTypeName.create(
             ClassName.fromClass(frameworkClass), TypeNames.forTypeMirror(key.type()));
+    com.squareup.javapoet.ParameterizedTypeName javapoetFrameworkType =
+        com.squareup.javapoet.ParameterizedTypeName.get(
+            com.squareup.javapoet.ClassName.get(frameworkClass),
+            com.squareup.javapoet.TypeName.get(key.type()));
     return new AutoValue_FrameworkField(
-        frameworkType, name.endsWith(suffix) ? name : name + suffix);
+        javapoetFrameworkType, frameworkType, name.endsWith(suffix) ? name : name + suffix);
   }
 
   private static FrameworkField createForMapBindingContribution(Key key, String name) {
+    TypeMirror type = MapType.from(key.type()).valueType();
     return new AutoValue_FrameworkField(
-        (ParameterizedTypeName) TypeNames.forTypeMirror(MapType.from(key.type()).valueType()),
+        (com.squareup.javapoet.ParameterizedTypeName) com.squareup.javapoet.TypeName.get(type),
+        (ParameterizedTypeName) TypeNames.forTypeMirror(type),
         name);
   }
 
@@ -112,6 +119,7 @@ abstract class FrameworkField {
         }
       };
 
+  abstract com.squareup.javapoet.ParameterizedTypeName javapoetFrameworkType();
   abstract ParameterizedTypeName frameworkType();
   abstract String name();
 }

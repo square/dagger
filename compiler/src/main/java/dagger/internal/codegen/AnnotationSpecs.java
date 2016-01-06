@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2016 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,16 @@
  */
 package dagger.internal.codegen;
 
-/**
- * Common lines outputted during code generation.
- */
-public final class GeneratedLines {
-  public static final String GENERATED_ANNOTATION =
-      "@Generated("
-          + "comments = \"https://google.github.io/dagger\", "
-          + "value = \"dagger.internal.codegen.ComponentProcessor\")";
+import com.squareup.javapoet.AnnotationSpec;
 
-  public static final String GENERATED_ANNOTATION_JAVAPOET =
-      "@Generated("
-          + "value = \"dagger.internal.codegen.ComponentProcessor\", "
-          + "comments = \"https://google.github.io/dagger\")";
+final class AnnotationSpecs {
+
+  static final AnnotationSpec SUPPRESS_WARNINGS_UNCHECKED = suppressWarnings("unchecked");
+  static final AnnotationSpec SUPPRESS_WARNINGS_RAWTYPES = suppressWarnings("rawtypes");
+
+  private static AnnotationSpec suppressWarnings(String value) {
+    return AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", value).build();
+  }
+
+  private AnnotationSpecs() {}
 }
