@@ -54,6 +54,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.type.TypeKind.ARRAY;
 import static javax.lang.model.type.TypeKind.DECLARED;
+import static javax.lang.model.type.TypeKind.TYPEVAR;
 import static javax.lang.model.type.TypeKind.VOID;
 
 import javax.lang.model.util.Types;
@@ -202,7 +203,10 @@ final class ProvidesMethodValidator {
   private void validateKeyType(ValidationReport.Builder<? extends Element> reportBuilder,
       TypeMirror type) {
     TypeKind kind = type.getKind();
-    if (!(kind.isPrimitive() || kind.equals(DECLARED) || kind.equals(ARRAY))) {
+    if (!(kind.isPrimitive()
+        || kind.equals(DECLARED)
+        || kind.equals(ARRAY)
+        || kind.equals(TYPEVAR))) {
       reportBuilder.addError(PROVIDES_METHOD_RETURN_TYPE, reportBuilder.getSubject());
     }
   }

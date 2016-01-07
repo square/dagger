@@ -321,9 +321,6 @@ class SourceFiles {
       case PROVISION:
       case PRODUCTION:
         ContributionBinding contributionBinding = (ContributionBinding) binding;
-        if (contributionBinding.contributionType().isMultibinding()) {
-          return Optional.absent();
-        }
         switch (contributionBinding.bindingKind()) {
           case INJECTION:
             return Optional.of(contributionBinding.key().type());
