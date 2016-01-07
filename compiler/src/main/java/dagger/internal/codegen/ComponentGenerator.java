@@ -19,6 +19,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import dagger.Component;
 import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.ClassWriter;
+import dagger.internal.codegen.writer.FieldWriter;
 import dagger.internal.codegen.writer.JavaWriter;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
@@ -32,7 +34,7 @@ import javax.tools.Diagnostic;
  * @author Gregory Kick
  * @since 2.0
  */
-final class ComponentGenerator extends JavaWriterSourceFileGenerator<BindingGraph> {
+final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
   private final Types types;
   private final Elements elements;
   private final Key.Factory keyFactory;

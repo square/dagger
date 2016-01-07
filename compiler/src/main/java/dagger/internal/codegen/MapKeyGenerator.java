@@ -53,7 +53,7 @@ import static javax.lang.model.util.ElementFilter.methodsIn;
  *
  * @since 2.0
  */
-final class MapKeyGenerator extends JavaWriterSourceFileGenerator<MapKeyCreatorSpecification> {
+final class MapKeyGenerator extends SourceFileGenerator<MapKeyCreatorSpecification> {
 
   /**
    * Specification of the {@link MapKey} annotation and the annotation type to generate.

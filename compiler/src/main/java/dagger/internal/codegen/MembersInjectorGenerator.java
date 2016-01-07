@@ -17,28 +17,36 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.TypeVariableName;
 import dagger.MembersInjector;
 import dagger.internal.codegen.MembersInjectionBinding.InjectionSite;
+import dagger.internal.codegen.writer.ClassName;
+import dagger.internal.codegen.writer.ClassWriter;
+import dagger.internal.codegen.writer.ConstructorWriter;
+import dagger.internal.codegen.writer.FieldWriter;
+import dagger.internal.codegen.writer.JavaWriter;
+import dagger.internal.codegen.writer.MethodWriter;
+import dagger.internal.codegen.writer.Modifiable;
+import dagger.internal.codegen.writer.ParameterizedTypeName;
+import dagger.internal.codegen.writer.Snippet;
+import dagger.internal.codegen.writer.TypeName;
+import dagger.internal.codegen.writer.TypeNames;
+import dagger.internal.codegen.writer.TypeVariableName;
+import dagger.internal.codegen.writer.VariableWriter;
+import dagger.internal.codegen.writer.VoidName;
 import dagger.producers.Producer;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
@@ -53,12 +61,10 @@ import javax.lang.model.util.SimpleTypeVisitor7;
 import static com.google.auto.common.MoreElements.getPackage;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.javapoetMembersInjectorNameForType;
-import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
+import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
+import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -70,7 +76,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @author Gregory Kick
  * @since 2.0
  */
-final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<MembersInjectionBinding> {
+final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectionBinding> {
   private final DependencyRequestMapper dependencyRequestMapper;
 
   MembersInjectorGenerator(
@@ -81,70 +87,74 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
 
   @Override
   ClassName nameGeneratedType(MembersInjectionBinding binding) {
-    return javapoetMembersInjectorNameForType(binding.bindingElement());
+    return membersInjectorNameForType(binding.bindingElement());
+  }
+
+  @Override
+  Iterable<? extends Element> getOriginatingElements(
+      MembersInjectionBinding binding) {
+    return FluentIterable.from(binding.injectionSites())
+        .transform(new Function<InjectionSite, Element>() {
+          @Override public Element apply(InjectionSite injectionSite) {
+            return injectionSite.element();
+          }
+        })
+        .toSet();
   }
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(MembersInjectionBinding binding) {
     return Optional.of(binding.bindingElement());
   }
-
+  
   @Override
-  Optional<TypeSpec.Builder> write(ClassName generatedTypeName, MembersInjectionBinding binding) {
+  ImmutableSet<JavaWriter> write(ClassName generatedTypeName, MembersInjectionBinding binding) {
     // Empty members injection bindings are special and don't need source files.
     if (binding.injectionSites().isEmpty()) {
-      return Optional.absent();
+      return ImmutableSet.of();
     }
+    Set<String> delegateMethods = new HashSet<>();
+
     // We don't want to write out resolved bindings -- we want to write out the generic version.
     checkState(!binding.unresolved().isPresent());
 
+    TypeName injectedTypeName = TypeNames.forTypeMirror(binding.key().type());
+    JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
+
+    ClassWriter injectorWriter = writer.addClass(generatedTypeName.simpleName());
     List<TypeVariableName> typeParameters = Lists.newArrayList();
     for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
-      typeParameters.add(TypeVariableName.get(typeParameter));
+      typeParameters.add(TypeVariableName.fromTypeParameterElement(typeParameter));
     }
-
-    TypeSpec.Builder injectorTypeBuilder =
-        TypeSpec.classBuilder(generatedTypeName.simpleName())
-            .addModifiers(PUBLIC, FINAL)
-            .addTypeVariables(typeParameters);
-
-    TypeName injectedTypeName = TypeName.get(binding.key().type());
+    injectorWriter.addTypeParameters(typeParameters);
+    injectorWriter.addModifiers(PUBLIC, FINAL);
     TypeName implementedType =
-        ParameterizedTypeName.get(ClassName.get(MembersInjector.class), injectedTypeName);
-    injectorTypeBuilder.addSuperinterface(implementedType);
+        ParameterizedTypeName.create(MembersInjector.class, injectedTypeName);
+    injectorWriter.addImplementedType(implementedType);
 
-    MethodSpec.Builder injectMembersBuilder =
-        MethodSpec.methodBuilder("injectMembers")
-            .returns(TypeName.VOID)
-            .addModifiers(PUBLIC)
-            .addAnnotation(Override.class)
-            .addParameter(injectedTypeName, "instance")
-            .addCode("if (instance == null) {")
-            .addStatement(
-                "throw new $T($S)",
-                NullPointerException.class,
-                "Cannot inject members into a null reference")
-            .addCode("}");
+    ConstructorWriter constructorWriter = injectorWriter.addConstructor();
+    constructorWriter.addModifiers(PUBLIC);
+    MethodWriter injectMembersWriter = injectorWriter.addMethod(VoidName.VOID, "injectMembers");
+    injectMembersWriter.addModifiers(PUBLIC);
+    injectMembersWriter.annotate(Override.class);
+    injectMembersWriter.addParameter(injectedTypeName, "instance");
+    injectMembersWriter.body().addSnippet(Joiner.on('\n').join(
+        "if (instance == null) {",
+        "  throw new NullPointerException(\"Cannot inject members into a null reference\");",
+        "}"));
 
     ImmutableMap<BindingKey, FrameworkField> fields =
         SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
 
-    ImmutableMap.Builder<BindingKey, FieldSpec> dependencyFieldsBuilder = ImmutableMap.builder();
-
-    MethodSpec.Builder constructorBuilder = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
-
+    ImmutableMap.Builder<BindingKey, FieldWriter> dependencyFieldsBuilder =
+        ImmutableMap.builder();
+    
     // We use a static create method so that generated components can avoid having
     // to refer to the generic types of the factory.
     // (Otherwise they may have visibility problems referring to the types.)
-    MethodSpec.Builder createMethodBuilder =
-        MethodSpec.methodBuilder("create")
-            .returns(implementedType)
-            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addTypeVariables(typeParameters);
-
-    createMethodBuilder.addCode(
-        "return new $T(", javapoetParameterizedGeneratedTypeNameForBinding(binding));
-    ImmutableList.Builder<CodeBlock> constructorInvocationParameters = ImmutableList.builder();
+    MethodWriter createMethodWriter = injectorWriter.addMethod(implementedType, "create");
+    createMethodWriter.addTypeParameters(typeParameters);
+    createMethodWriter.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
     boolean usesRawFrameworkTypes = false;
     for (Entry<BindingKey, FrameworkField> fieldEntry : fields.entrySet()) {
@@ -156,69 +166,67 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       boolean useRawFrameworkType =
           !VISIBLE_TO_MEMBERS_INJECTOR.visit(bindingKey.key().type(), binding);
 
-      String fieldName = bindingField.name();
-      TypeName fieldType =
-          useRawFrameworkType
-              ? bindingField.javapoetFrameworkType().rawType
-              : bindingField.javapoetFrameworkType();
-      FieldSpec.Builder fieldBuilder = FieldSpec.builder(fieldType, fieldName, PRIVATE, FINAL);
-      ParameterSpec.Builder parameterBuilder = ParameterSpec.builder(fieldType, fieldName);
+      FieldWriter field =
+          injectorWriter.addField(
+              useRawFrameworkType
+                  ? bindingField.frameworkType().type()
+                  : bindingField.frameworkType(),
+              bindingField.name());
+
+      field.addModifiers(PRIVATE, FINAL);
+      VariableWriter constructorParameter =
+          constructorWriter.addParameter(field.type(), field.name());
+      VariableWriter createMethodParameter =
+          createMethodWriter.addParameter(constructorParameter.type(), constructorParameter.name());
 
       // If we're using the raw type for the field, then suppress the injectMembers method's
       // unchecked-type warning and the field's and the constructor and create-method's
       // parameters' raw-type warnings.
       if (useRawFrameworkType) {
         usesRawFrameworkTypes = true;
-        fieldBuilder.addAnnotation(SUPPRESS_WARNINGS_RAWTYPES);
-        parameterBuilder.addAnnotation(SUPPRESS_WARNINGS_RAWTYPES);
+        suppressRawTypesWarning(field);
+        suppressRawTypesWarning(constructorParameter);
+        suppressRawTypesWarning(createMethodParameter);
       }
-      constructorBuilder.addParameter(parameterBuilder.build());
-      createMethodBuilder.addParameter(parameterBuilder.build());
 
-      FieldSpec field = fieldBuilder.build();
-      injectorTypeBuilder.addField(field);
-      constructorBuilder.addStatement("assert $N != null", field);
-      constructorBuilder.addStatement("this.$N = $N", field, field);
+      constructorWriter.body().addSnippet("assert %s != null;", field.name());
+      constructorWriter.body().addSnippet("this.%1$s = %1$s;", field.name());
       dependencyFieldsBuilder.put(bindingKey, field);
-      constructorInvocationParameters.add(CodeBlocks.format("$N", field));
     }
-    createMethodBuilder.addCode(CodeBlocks.join(constructorInvocationParameters.build(), ", "));
-    createMethodBuilder.addCode(");");
 
-    injectorTypeBuilder.addMethod(constructorBuilder.build());
-    injectorTypeBuilder.addMethod(createMethodBuilder.build());
+    createMethodWriter
+        .body()
+        .addSnippet(
+            "  return new %s(%s);",
+            parameterizedGeneratedTypeNameForBinding(binding),
+            Joiner.on(", ").join(constructorWriter.parameters().keySet()));
 
-    Set<String> delegateMethods = new HashSet<>();
-    ImmutableMap<BindingKey, FieldSpec> dependencyFields = dependencyFieldsBuilder.build();
-    List<MethodSpec> injectMethodsForSubclasses = new ArrayList<>();
+    ImmutableMap<BindingKey, FieldWriter> dependencyFields = dependencyFieldsBuilder.build();
     for (InjectionSite injectionSite : binding.injectionSites()) {
-      injectMembersBuilder.addCode(
-          visibleToMembersInjector(binding, injectionSite.element())
-              ? directInjectMemberCodeBlock(binding, dependencyFields, injectionSite)
-              : delegateInjectMemberCodeBlock(dependencyFields, injectionSite));
+      injectMembersWriter
+          .body()
+          .addSnippet(
+              visibleToMembersInjector(binding, injectionSite.element())
+                  ? directInjectMemberSnippet(binding, dependencyFields, injectionSite)
+                  : delegateInjectMemberSnippet(dependencyFields, injectionSite));
       if (!injectionSite.element().getModifiers().contains(PUBLIC)
           && injectionSite.element().getEnclosingElement().equals(binding.bindingElement())
           && delegateMethods.add(injectionSiteDelegateMethodName(injectionSite.element()))) {
-        injectMethodsForSubclasses.add(
-            injectorMethodForSubclasses(
-                dependencyFields,
-                typeParameters,
-                injectedTypeName,
-                injectionSite.element(),
-                injectionSite.dependencies()));
+        writeInjectorMethodForSubclasses(
+            injectorWriter,
+            dependencyFields,
+            typeParameters,
+            injectedTypeName,
+            injectionSite.element(),
+            injectionSite.dependencies());
       }
     }
-
+    
     if (usesRawFrameworkTypes) {
-      injectMembersBuilder.addAnnotation(SUPPRESS_WARNINGS_UNCHECKED);
+      injectMembersWriter.annotate(SuppressWarnings.class).setValue("unchecked");
     }
 
-    injectorTypeBuilder.addMethod(injectMembersBuilder.build());
-    for (MethodSpec methodSpec : injectMethodsForSubclasses) {
-      injectorTypeBuilder.addMethod(methodSpec);
-    }
-
-    return Optional.of(injectorTypeBuilder);
+    return ImmutableSet.of(writer);
   }
 
   /**
@@ -233,72 +241,65 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
   }
 
   /**
-   * Returns a code block that directly injects the instance's field or method.
+   * Returns a snippet that directly injects the instance's field or method.
    */
-  private CodeBlock directInjectMemberCodeBlock(
+  private Snippet directInjectMemberSnippet(
       MembersInjectionBinding binding,
-      ImmutableMap<BindingKey, FieldSpec> dependencyFields,
+      ImmutableMap<BindingKey, FieldWriter> dependencyFields,
       InjectionSite injectionSite) {
-    return CodeBlocks.format(
-        injectionSite.element().getKind().isField() ? "$L.$L = $L;" : "$L.$L($L);",
-        getInstanceCodeBlockWithPotentialCast(
+    return Snippet.format(
+        injectionSite.element().getKind().isField() ? "%s.%s = %s;" : "%s.%s(%s);",
+        getInstanceSnippetWithPotentialCast(
             injectionSite.element().getEnclosingElement(), binding.bindingElement()),
         injectionSite.element().getSimpleName(),
-        makeParametersCodeBlock(
-            parameterCodeBlocks(dependencyFields, injectionSite.dependencies(), true)));
+        makeParametersSnippet(
+            parameterSnippets(dependencyFields, injectionSite.dependencies(), true)));
   }
 
   /**
-   * Returns a code block that injects the instance's field or method by calling a static method on
-   * the parent MembersInjector class.
+   * Returns a snippet that injects the instance's field or method by calling a static method on the
+   * parent members injector class.
    */
-  private CodeBlock delegateInjectMemberCodeBlock(
-      ImmutableMap<BindingKey, FieldSpec> dependencyFields, InjectionSite injectionSite) {
-    return CodeBlocks.format(
-        "$L.$L($L);",
-        javapoetMembersInjectorNameForType(
+  private Snippet delegateInjectMemberSnippet(
+      ImmutableMap<BindingKey, FieldWriter> dependencyFields, InjectionSite injectionSite) {
+    return Snippet.format(
+        "%s.%s(%s);",
+        membersInjectorNameForType(
             MoreElements.asType(injectionSite.element().getEnclosingElement())),
         injectionSiteDelegateMethodName(injectionSite.element()),
-        makeParametersCodeBlock(
-            new ImmutableList.Builder<CodeBlock>()
-                .add(CodeBlocks.format("instance"))
-                .addAll(parameterCodeBlocks(dependencyFields, injectionSite.dependencies(), false))
+        makeParametersSnippet(
+            new ImmutableList.Builder<Snippet>()
+                .add(Snippet.format("instance"))
+                .addAll(parameterSnippets(dependencyFields, injectionSite.dependencies(), false))
                 .build()));
   }
 
   /**
    * Returns the parameters for injecting a member.
    *
-   * @param passValue if {@code true}, each parameter code block will be the result of converting
-   *     the field from the framework type ({@link Provider}, {@link Producer}, etc.) to the real
-   *     value; if {@code false}, each parameter code block will be just the field
+   * @param passValue if {@code true}, each parameter snippet will be the result of converting the
+   *     field from the framework type ({@link Provider}, {@link Producer}, etc.) to the real value;
+   *     if {@code false}, each parameter snippet will be just the field
    */
-  private ImmutableList<CodeBlock> parameterCodeBlocks(
-      ImmutableMap<BindingKey, FieldSpec> dependencyFields,
+  private ImmutableList<Snippet> parameterSnippets(
+      ImmutableMap<BindingKey, FieldWriter> dependencyFields,
       ImmutableSet<DependencyRequest> dependencies,
       boolean passValue) {
-    ImmutableList.Builder<CodeBlock> parameters = ImmutableList.builder();
+    ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (DependencyRequest dependency : dependencies) {
-      CodeBlock fieldCodeBlock =
-          CodeBlocks.format("$L", dependencyFields.get(dependency.bindingKey()).name);
+      Snippet fieldSnippet =
+          Snippet.format("%s", dependencyFields.get(dependency.bindingKey()).name());
       parameters.add(
-          passValue
-              ? frameworkTypeUsageStatement(fieldCodeBlock, dependency.kind())
-              : fieldCodeBlock);
+          passValue ? frameworkTypeUsageStatement(fieldSnippet, dependency.kind()) : fieldSnippet);
     }
     return parameters.build();
   }
 
-  private CodeBlock getInstanceCodeBlockWithPotentialCast(
+  private Snippet getInstanceSnippetWithPotentialCast(
       Element injectionSiteElement, Element bindingElement) {
-    if (injectionSiteElement.equals(bindingElement)) {
-      return CodeBlocks.format("instance");
-    }
-    TypeName injectionSiteName = TypeName.get(injectionSiteElement.asType());
-    if (injectionSiteName instanceof ParameterizedTypeName) {
-      injectionSiteName = ((ParameterizedTypeName) injectionSiteName).rawType;
-    }
-    return CodeBlocks.format("(($T) instance)", injectionSiteName);
+    return (injectionSiteElement.equals(bindingElement))
+        ? Snippet.format("instance")
+        : Snippet.format("((%s)instance)", injectionSiteElement);
   }
 
   private String injectionSiteDelegateMethodName(Element injectionSiteElement) {
@@ -307,42 +308,44 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
             CaseFormat.UPPER_CAMEL, injectionSiteElement.getSimpleName().toString());
   }
 
-  private MethodSpec injectorMethodForSubclasses(
-      ImmutableMap<BindingKey, FieldSpec> dependencyFields,
+  private void writeInjectorMethodForSubclasses(
+      ClassWriter injectorWriter,
+      ImmutableMap<BindingKey, FieldWriter> dependencyFields,
       List<TypeVariableName> typeParameters,
       TypeName injectedTypeName,
       Element injectionElement,
       ImmutableSet<DependencyRequest> dependencies) {
-    MethodSpec.Builder methodBuilder =
-        MethodSpec.methodBuilder(injectionSiteDelegateMethodName(injectionElement))
-            .addModifiers(PUBLIC, STATIC)
-            .addParameter(injectedTypeName, "instance")
-            .addTypeVariables(typeParameters);
-    ImmutableList.Builder<CodeBlock> providedParameters = ImmutableList.builder();
+    MethodWriter methodWriter =
+        injectorWriter.addMethod(VoidName.VOID, injectionSiteDelegateMethodName(injectionElement));
+    methodWriter.addModifiers(PUBLIC, STATIC);
+    methodWriter.addParameter(injectedTypeName, "instance");
+    methodWriter.addTypeParameters(typeParameters);
+    ImmutableList.Builder<Snippet> providedParameters = ImmutableList.builder();
     Set<String> parameterNames = new HashSet<>();
     for (DependencyRequest dependency : dependencies) {
-      FieldSpec field = dependencyFields.get(dependency.bindingKey());
-      ParameterSpec parameter =
-          ParameterSpec.builder(
-                  field.type,
-                  staticInjectMethodDependencyParameterName(parameterNames, dependency, field))
-              .build();
-      methodBuilder.addParameter(parameter);
+      FieldWriter field = dependencyFields.get(dependency.bindingKey());
+      VariableWriter parameter =
+          methodWriter.addParameter(
+              field.type(),
+              staticInjectMethodDependencyParameterName(parameterNames, dependency, field));
       providedParameters.add(
-          frameworkTypeUsageStatement(CodeBlocks.format("$N", parameter), dependency.kind()));
+          frameworkTypeUsageStatement(Snippet.format("%s", parameter.name()), dependency.kind()));
     }
     if (injectionElement.getKind().isField()) {
-      methodBuilder.addStatement(
-          "instance.$L = $L",
-          injectionElement.getSimpleName(),
-          getOnlyElement(providedParameters.build()));
+      methodWriter
+          .body()
+          .addSnippet(
+              "instance.%s = %s;",
+              injectionElement.getSimpleName(),
+              getOnlyElement(providedParameters.build()));
     } else {
-      methodBuilder.addStatement(
-          "instance.$L($L)",
-          injectionElement.getSimpleName(),
-          makeParametersCodeBlock(providedParameters.build()));
+      methodWriter
+          .body()
+          .addSnippet(
+              "instance.%s(%s);",
+              injectionElement.getSimpleName(),
+              makeParametersSnippet(providedParameters.build()));
     }
-    return methodBuilder.build();
   }
 
   /**
@@ -353,14 +356,14 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
    * @param field the field used to hold the framework type for the dependency
    */
   private String staticInjectMethodDependencyParameterName(
-      Set<String> parameterNames, DependencyRequest dependency, FieldSpec field) {
+      Set<String> parameterNames, DependencyRequest dependency, FieldWriter field) {
     StringBuilder parameterName =
         new StringBuilder(dependency.requestElement().getSimpleName().toString());
     switch (dependency.kind()) {
       case LAZY:
       case INSTANCE:
       case FUTURE:
-        String suffix = ((ParameterizedTypeName) field.type).rawType.simpleName();
+        String suffix = ((ParameterizedTypeName) field.type()).type().simpleName();
         if (parameterName.length() <= suffix.length()
             || !parameterName.substring(parameterName.length() - suffix.length()).equals(suffix)) {
           parameterName.append(suffix);
@@ -375,6 +378,10 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       parameterName.replace(baseLength, parameterName.length(), String.valueOf(i));
     }
     return parameterName.toString();
+  }
+
+  private void suppressRawTypesWarning(Modifiable modifiable) {
+    modifiable.annotate(SuppressWarnings.class).setValue("rawtypes");
   }
 
   private static final TypeVisitor<Boolean, MembersInjectionBinding> VISIBLE_TO_MEMBERS_INJECTOR =

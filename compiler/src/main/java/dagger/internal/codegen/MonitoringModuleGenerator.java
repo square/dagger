@@ -42,7 +42,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.FINAL;
 
 /** Generates a monitoring module for use with production components. */
-final class MonitoringModuleGenerator extends JavaWriterSourceFileGenerator<TypeElement> {
+final class MonitoringModuleGenerator extends SourceFileGenerator<TypeElement> {
   private static final TypeName SET_OF_FACTORIES =
       ParameterizedTypeName.create(
           Set.class, ClassName.fromClass(ProductionComponentMonitor.Factory.class));

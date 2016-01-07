@@ -68,7 +68,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @author Jesse Beder
  * @since 2.0
  */
-final class ProducerFactoryGenerator extends JavaWriterSourceFileGenerator<ProductionBinding> {
+final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBinding> {
   private final DependencyRequestMapper dependencyRequestMapper;
 
   ProducerFactoryGenerator(
