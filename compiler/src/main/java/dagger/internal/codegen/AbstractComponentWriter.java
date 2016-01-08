@@ -52,6 +52,8 @@ import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.VoidName;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import dagger.producers.internal.MapOfProducerProducer;
+import dagger.producers.internal.MapProducer;
 import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
@@ -796,17 +798,10 @@ abstract class AbstractComponentWriter {
 
   private Snippet initializeMapMultibindings(ResolvedBindings resolvedBindings) {
     ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
-
-    if (Iterables.any(
-        resolvedBindings.contributionBindings(), BindingType.isOfType(BindingType.PRODUCTION))) {
-      // TODO(beder): Implement producer map bindings.
-      throw new IllegalStateException("producer map bindings not implemented yet");
-    }
     for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
       Optional<MemberSelect> multibindingContributionSnippet =
           getMultibindingContributionSnippet(binding);
-      if (MapType.from(binding.key().type()).valuesAreTypeOf(Provider.class)
-          && multibindingContributionSnippet.isPresent()
+      if (multibindingContributionSnippet.isPresent()
           && multibindingContributionSnippet.get().owningClass().equals(name)) {
         initializationSnippets.add(
             Snippet.format(
@@ -1048,9 +1043,20 @@ abstract class AbstractComponentWriter {
             MapType.isMap(binding.key().type()),
             "Expected synthetic binding to be for a map: %s",
             binding);
+        final ClassName contributionClassName;
+        switch (binding.bindingType()) {
+          case PRODUCTION:
+            contributionClassName = ClassName.fromClass(MapProducer.class);
+            break;
+          case PROVISION:
+            contributionClassName = ClassName.fromClass(MapFactory.class);
+            break;
+          default:
+            throw new AssertionError();
+        }
         return Snippet.format(
             "%s.create(%s)",
-            ClassName.fromClass(MapFactory.class),
+            contributionClassName,
             getMemberSelect(getOnlyElement(binding.dependencies()).bindingKey())
                 .getSnippetFor(name));
 
@@ -1114,13 +1120,19 @@ abstract class AbstractComponentWriter {
 
   private Snippet initializeMapBinding(ResolvedBindings resolvedBindings) {
     MapType mapType = MapType.from(resolvedBindings.bindingKey().key().type());
+    boolean hasProductionContribution =
+        Iterables.any(
+            resolvedBindings.contributionBindings(), BindingType.isOfType(BindingType.PRODUCTION));
     ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
     snippets.add(
         Snippet.format(
             "%s.<%s, %s>builder(%d)",
-            ClassName.fromClass(MapProviderFactory.class),
+            ClassName.fromClass(
+                hasProductionContribution ? MapOfProducerProducer.class : MapProviderFactory.class),
             TypeNames.forTypeMirror(mapType.keyType()),
-            TypeNames.forTypeMirror(mapType.unwrappedValueType(Provider.class)),
+            TypeNames.forTypeMirror(
+                mapType.unwrappedValueType(
+                    hasProductionContribution ? Producer.class : Provider.class)),
             resolvedBindings.contributionBindings().size()));
 
     for (ContributionBinding binding : resolvedBindings.contributionBindings()) {

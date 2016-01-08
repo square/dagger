@@ -27,7 +27,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.Provides.Type;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ClassWriter;
 import dagger.internal.codegen.writer.ConstructorWriter;
@@ -41,13 +40,13 @@ import dagger.internal.codegen.writer.TypeNames;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Produces;
+import dagger.producers.Produces.Type;
 import dagger.producers.internal.AbstractProducer;
 import dagger.producers.internal.Producers;
 import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import java.util.List;
 import java.util.concurrent.Executor;
-import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
@@ -207,7 +206,8 @@ final class ProducerFactoryGenerator extends JavaWriterSourceFileGenerator<Produ
             futureTypeName,
             futureTransform.applyArgName(),
             getThrowsClause(binding.thrownTypes()),
-            getInvocationSnippet(!returnsFuture, binding, futureTransform.parameterSnippets()));
+            getInvocationSnippet(
+                !returnsFuture, binding, providedTypeName, futureTransform.parameterSnippets()));
     computeMethodWriter
         .body()
         .addSnippet(
@@ -450,10 +450,14 @@ final class ProducerFactoryGenerator extends JavaWriterSourceFileGenerator<Produ
    * @param wrapWithFuture If true, wraps the result of the call to the producer method
    *        in an immediate future.
    * @param binding The binding to generate the invocation snippet for.
+   * @param providedTypeName The type name that should be provided by this producer.
    * @param parameterSnippets The snippets for all the parameters to the producer method.
    */
   private Snippet getInvocationSnippet(
-      boolean wrapWithFuture, ProductionBinding binding, ImmutableList<Snippet> parameterSnippets) {
+      boolean wrapWithFuture,
+      ProductionBinding binding,
+      TypeName providedTypeName,
+      ImmutableList<Snippet> parameterSnippets) {
      Snippet moduleSnippet = Snippet.format("%s.%s(%s)",
         binding.bindingElement().getModifiers().contains(STATIC)
             ? ClassName.fromTypeElement(binding.bindingTypeElement())
@@ -487,7 +491,7 @@ final class ProducerFactoryGenerator extends JavaWriterSourceFileGenerator<Produ
             ? Snippet.format(
                 "%s.<%s>immediateFuture(%s)",
                 ClassName.fromClass(Futures.class),
-                TypeNames.forTypeMirror(binding.key().type()),
+                providedTypeName,
                 valueSnippet)
             : valueSnippet;
     return Snippet.format(
