@@ -61,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
@@ -220,7 +221,8 @@ abstract class BindingGraph {
       // Bindings for subcomponent builders.
       for (ComponentMethodDescriptor subcomponentMethodDescriptor :
           Iterables.filter(
-              componentDescriptor.subcomponents().keySet(), isOfKind(SUBCOMPONENT_BUILDER))) {
+              componentDescriptor.subcomponents().keySet(),
+              isOfKind(SUBCOMPONENT_BUILDER, PRODUCTION_SUBCOMPONENT_BUILDER))) {
         explicitBindingsBuilder.add(
             provisionBindingFactory.forSubcomponentBuilderMethod(
                 subcomponentMethodDescriptor.methodElement(),

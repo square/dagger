@@ -28,6 +28,7 @@ import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.Factory;
 import dagger.internal.codegen.ComponentValidator.ComponentValidationReport;
 import dagger.producers.ProductionComponent;
+import dagger.producers.ProductionSubcomponent;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.Set;
@@ -85,7 +86,9 @@ final class ComponentProcessingStep implements ProcessingStep {
         ProductionComponent.class,
         ProductionComponent.Builder.class,
         Subcomponent.class,
-        Subcomponent.Builder.class);
+        Subcomponent.Builder.class,
+        ProductionSubcomponent.class,
+        ProductionSubcomponent.Builder.class);
   }
 
   @Override

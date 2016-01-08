@@ -80,6 +80,7 @@ import static com.google.common.collect.Iterables.indexOf;
 import static com.google.common.collect.Iterables.skip;
 import static com.google.common.collect.Maps.filterKeys;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
@@ -174,7 +175,9 @@ public class BindingGraphValidator {
       }
       
       for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> entry :
-          filterKeys(subject.componentDescriptor().subcomponents(), isOfKind(SUBCOMPONENT))
+          filterKeys(
+                  subject.componentDescriptor().subcomponents(),
+                  isOfKind(SUBCOMPONENT, PRODUCTION_SUBCOMPONENT))
               .entrySet()) {
         validateSubcomponentFactoryMethod(
             entry.getKey().methodElement(), entry.getValue().componentDefinitionType());
