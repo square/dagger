@@ -15,7 +15,9 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Function;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.ParameterSpec;
 import java.util.Iterator;
 
 final class CodeBlocks {
@@ -40,6 +42,14 @@ final class CodeBlocks {
     }
     return builder.build();
   }
+
+  static Function<ParameterSpec, CodeBlock> PARAMETER_NAME =
+      new Function<ParameterSpec, CodeBlock>() {
+          @Override
+          public CodeBlock apply(ParameterSpec input) {
+            return CodeBlocks.format("$N", input);
+          }
+      };
 
   private CodeBlocks() {}
 }

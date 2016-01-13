@@ -28,12 +28,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.TypeVariableName;
 import dagger.internal.DoubleCheckLazy;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
-import dagger.internal.codegen.writer.TypeNames;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
@@ -41,6 +41,7 @@ import java.util.Map.Entry;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
@@ -207,9 +208,7 @@ class SourceFiles {
     switch (dependencyKind) {
       case LAZY:
         return CodeBlocks.format(
-            "$T.create($L)",
-            com.squareup.javapoet.ClassName.get(DoubleCheckLazy.class),
-            frameworkTypeMemberSelect);
+            "$T.create($L)", TypeNames.DOUBLE_CHECK_LAZY, frameworkTypeMemberSelect);
       case INSTANCE:
       case FUTURE:
         return CodeBlocks.format("$L.get()", frameworkTypeMemberSelect);
@@ -354,13 +353,13 @@ class SourceFiles {
     if (!typeMirror.isPresent()) {
       return ImmutableList.of();
     }
-    TypeName bindingTypeName = TypeNames.forTypeMirror(typeMirror.get());
+    TypeName bindingTypeName = dagger.internal.codegen.writer.TypeNames.forTypeMirror(typeMirror.get());
     return bindingTypeName instanceof ParameterizedTypeName
         ? ((ParameterizedTypeName) bindingTypeName).parameters()
         : ImmutableList.<TypeName>of();
   }
 
-  private static ImmutableList<com.squareup.javapoet.TypeName> javapoetBindingTypeParameters(
+  static ImmutableList<com.squareup.javapoet.TypeName> javapoetBindingTypeParameters(
       Binding binding) {
     Optional<TypeMirror> typeMirror = typeMirrorForBindingTypeParameters(binding);
     if (!typeMirror.isPresent()) {
@@ -415,6 +414,14 @@ class SourceFiles {
       default:
         throw new IllegalArgumentException();
     }
+  }
+
+  static ImmutableList<TypeVariableName> bindingTypeElementTypeVariableNames(Binding binding) {
+    ImmutableList.Builder<TypeVariableName> builder = ImmutableList.builder();
+    for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
+      builder.add(TypeVariableName.get(typeParameter));
+    }
+    return builder.build();
   }
 
   private SourceFiles() {}

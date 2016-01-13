@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -43,7 +42,6 @@ import javax.annotation.processing.Filer;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeVisitor;
@@ -55,6 +53,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.TypeNames.membersInjectorOf;
+import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.javapoetMembersInjectorNameForType;
 import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
@@ -98,19 +98,14 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
     // We don't want to write out resolved bindings -- we want to write out the generic version.
     checkState(!binding.unresolved().isPresent());
 
-    List<TypeVariableName> typeParameters = Lists.newArrayList();
-    for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
-      typeParameters.add(TypeVariableName.get(typeParameter));
-    }
-
+    ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
     TypeSpec.Builder injectorTypeBuilder =
         TypeSpec.classBuilder(generatedTypeName.simpleName())
             .addModifiers(PUBLIC, FINAL)
             .addTypeVariables(typeParameters);
 
     TypeName injectedTypeName = TypeName.get(binding.key().type());
-    TypeName implementedType =
-        ParameterizedTypeName.get(ClassName.get(MembersInjector.class), injectedTypeName);
+    TypeName implementedType = membersInjectorOf(injectedTypeName);
     injectorTypeBuilder.addSuperinterface(implementedType);
 
     MethodSpec.Builder injectMembersBuilder =
