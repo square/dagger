@@ -26,6 +26,7 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION_JAVAPOET;
 
 @RunWith(JUnit4.class)
 public class MapKeyProcessorTest {
@@ -58,7 +59,7 @@ public class MapKeyProcessorTest {
             "import com.google.auto.value.AutoAnnotation;",
             "import javax.annotation.Generated;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_ANNOTATION_JAVAPOET,
             "public final class PathKeyCreator {",
             "  @AutoAnnotation",
             "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
@@ -103,12 +104,12 @@ public class MapKeyProcessorTest {
             "",
             "import com.google.auto.value.AutoAnnotation;",
             "import javax.annotation.Generated;",
-            "import test.Container.PathKey",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_ANNOTATION_JAVAPOET,
             "public final class Container$PathKeyCreator {",
             "  @AutoAnnotation",
-            "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
+            "  public static Container.PathKey createPathKey("
+                + "PathEnum value, String relativePath) {",
             "    return new AutoAnnotation_Container$PathKeyCreator_createPathKey(",
             "        value, relativePath);",
             "  }",
