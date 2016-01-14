@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -34,8 +35,11 @@ import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeName;
+import dagger.internal.codegen.writer.TypeNames;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.lang.model.element.Element;
@@ -46,6 +50,7 @@ import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK_LAZY;
 
 /**
  * Utilities for generating files.
@@ -208,7 +213,7 @@ class SourceFiles {
     switch (dependencyKind) {
       case LAZY:
         return CodeBlocks.format(
-            "$T.create($L)", TypeNames.DOUBLE_CHECK_LAZY, frameworkTypeMemberSelect);
+            "$T.create($L)", DOUBLE_CHECK_LAZY, frameworkTypeMemberSelect);
       case INSTANCE:
       case FUTURE:
         return CodeBlocks.format("$L.get()", frameworkTypeMemberSelect);
@@ -382,22 +387,24 @@ class SourceFiles {
 
   static com.squareup.javapoet.ClassName javapoetMembersInjectorNameForType(
       TypeElement typeElement) {
-    com.squareup.javapoet.ClassName injectedClassName =
-        com.squareup.javapoet.ClassName.get(typeElement);
-    return injectedClassName
-        .topLevelClassName()
-        .peerClass(classFileName(injectedClassName) + "_MembersInjector");
+    return siblingClassName(typeElement,  "_MembersInjector");
   }
 
   static String classFileName(com.squareup.javapoet.ClassName className) {
     return CLASS_FILE_NAME_JOINER.join(className.simpleNames());
   }
 
-  static ClassName generatedMonitoringModuleName(TypeElement componentElement) {
-    ClassName componentName = ClassName.fromTypeElement(componentElement);
-    return componentName
-        .topLevelClassName()
-        .peerNamed(componentName.classFileName() + "_MonitoringModule");
+  static com.squareup.javapoet.ClassName generatedMonitoringModuleName(
+      TypeElement componentElement) {
+    return siblingClassName(componentElement, "_MonitoringModule");
+  }
+
+  // TODO(ronshapiro): when JavaPoet migration is complete, replace the duplicated code which could
+  // use this.
+  private static com.squareup.javapoet.ClassName siblingClassName(
+      TypeElement typeElement, String suffix) {
+    com.squareup.javapoet.ClassName className = com.squareup.javapoet.ClassName.get(typeElement);
+    return className.topLevelClassName().peerClass(classFileName(className) + suffix);
   }
 
   private static String factoryPrefix(ContributionBinding binding) {

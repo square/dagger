@@ -17,35 +17,30 @@ package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.TypeSpec;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ClassWriter;
-import dagger.internal.codegen.writer.FieldWriter;
-import dagger.internal.codegen.writer.JavaWriter;
-import dagger.internal.codegen.writer.MethodWriter;
-import dagger.internal.codegen.writer.ParameterizedTypeName;
-import dagger.internal.codegen.writer.TypeName;
 import dagger.producers.monitoring.ProductionComponentMonitor;
 import dagger.producers.monitoring.internal.MonitorCache;
 
-import java.util.Set;
-import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
-import javax.inject.Provider;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 
+import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.TypeSpec.classBuilder;
+import static dagger.internal.codegen.AnnotationSpecs.PROVIDES_SET_VALUES;
+import static dagger.internal.codegen.TypeNames.SET_OF_FACTORIES;
+import static dagger.internal.codegen.TypeNames.providerOf;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.FINAL;
 
 /** Generates a monitoring module for use with production components. */
-final class MonitoringModuleGenerator extends JavaWriterSourceFileGenerator<TypeElement> {
-  private static final TypeName SET_OF_FACTORIES =
-      ParameterizedTypeName.create(
-          Set.class, ClassName.fromClass(ProductionComponentMonitor.Factory.class));
+final class MonitoringModuleGenerator extends JavaPoetSourceFileGenerator<TypeElement> {
 
   MonitoringModuleGenerator(Filer filer, Elements elements) {
     super(filer, elements);
@@ -57,43 +52,40 @@ final class MonitoringModuleGenerator extends JavaWriterSourceFileGenerator<Type
   }
 
   @Override
-  Iterable<? extends Element> getOriginatingElements(TypeElement componentElement) {
-    return ImmutableSet.of(componentElement);
-  }
-
-  @Override
   Optional<? extends Element> getElementForErrorReporting(TypeElement componentElement) {
     return Optional.of(componentElement);
   }
 
   @Override
-  ImmutableSet<JavaWriter> write(ClassName generatedTypeName, TypeElement componentElement) {
-    JavaWriter writer = JavaWriter.inPackage(generatedTypeName.packageName());
-    ClassWriter classWriter = writer.addClass(generatedTypeName.simpleName());
-    classWriter.annotate(Module.class);
-    classWriter.addModifiers(FINAL);
+  Optional<TypeSpec.Builder> write(ClassName generatedTypeName, TypeElement componentElement) {
+    return Optional.of(
+        classBuilder(generatedTypeName.simpleName())
+            .addAnnotation(Module.class)
+            .addModifiers(FINAL)
 
-    // TODO(beder): Replace this default set binding with EmptyCollections when it exists.
-    MethodWriter emptySetBindingMethod =
-        classWriter.addMethod(SET_OF_FACTORIES, "defaultSetOfFactories");
-    emptySetBindingMethod.addModifiers(STATIC);
-    emptySetBindingMethod.annotate(Provides.class).setMember("type", Provides.Type.SET_VALUES);
-    emptySetBindingMethod
-        .body()
-        .addSnippet("return %s.of();", ClassName.fromClass(ImmutableSet.class));
+            // TODO(beder): Replace this default set binding with EmptyCollections when it exists.
+            .addMethod(
+                methodBuilder("defaultSetOfFactories")
+                    .returns(SET_OF_FACTORIES)
+                    .addModifiers(STATIC)
+                    .addAnnotation(PROVIDES_SET_VALUES)
+                    .addStatement("return $T.of()", ClassName.get(ImmutableSet.class))
+                    .build())
 
-    FieldWriter providerField = classWriter.addField(MonitorCache.class, "monitorCache");
-    providerField.addModifiers(PRIVATE, FINAL);
-    providerField.setInitializer("new %s()", ClassName.fromClass(MonitorCache.class));
-    MethodWriter monitorMethod = classWriter.addMethod(ProductionComponentMonitor.class, "monitor");
-    monitorMethod.annotate(Provides.class);
-    monitorMethod.addParameter(
-        ParameterizedTypeName.create(Provider.class, ClassName.fromTypeElement(componentElement)),
-        "component");
-    monitorMethod.addParameter(
-        ParameterizedTypeName.create(Provider.class, SET_OF_FACTORIES), "factories");
-    monitorMethod.body().addSnippet("return monitorCache.monitor(component, factories);");
+            .addField(
+                FieldSpec.builder(MonitorCache.class, "monitorCache", PRIVATE, FINAL)
+                    .initializer("new $T()", MonitorCache.class)
+                    .build())
 
-    return ImmutableSet.of(writer);
+            .addMethod(
+                methodBuilder("monitor")
+                    .returns(ProductionComponentMonitor.class)
+                    .addAnnotation(Provides.class)
+                    .addParameter(
+                        providerOf(ClassName.get(componentElement.asType())),
+                        "component")
+                    .addParameter(providerOf(SET_OF_FACTORIES), "factories")
+                    .addStatement("return monitorCache.monitor(component, factories)")
+                    .build()));
   }
 }

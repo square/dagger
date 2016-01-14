@@ -16,6 +16,8 @@
 package dagger.internal.codegen;
 
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ClassName;
+import dagger.Provides;
 
 final class AnnotationSpecs {
 
@@ -25,6 +27,11 @@ final class AnnotationSpecs {
   private static AnnotationSpec suppressWarnings(String value) {
     return AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", value).build();
   }
+
+  static final AnnotationSpec PROVIDES_SET_VALUES =
+      AnnotationSpec.builder(Provides.class)
+          .addMember("type", "$T.SET_VALUES", ClassName.get(Provides.Type.class))
+          .build();
 
   private AnnotationSpecs() {}
 }

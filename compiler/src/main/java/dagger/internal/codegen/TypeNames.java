@@ -21,15 +21,26 @@ import com.squareup.javapoet.TypeName;
 import dagger.MembersInjector;
 import dagger.internal.DoubleCheckLazy;
 import dagger.internal.Factory;
+import dagger.producers.monitoring.ProductionComponentMonitor;
+import java.util.Set;
+import javax.inject.Provider;
 
 /**
  * Common names and convenience methods for JavaPoet {@link TypeName} usage.
  */
 final class TypeNames {
 
+  static final TypeName SET_OF_FACTORIES =
+      ParameterizedTypeName.get(
+          ClassName.get(Set.class), ClassName.get(ProductionComponentMonitor.Factory.class));
+  static final ClassName PROVIDER = ClassName.get(Provider.class);
   static final ClassName DOUBLE_CHECK_LAZY = ClassName.get(DoubleCheckLazy.class);
   static final ClassName FACTORY = ClassName.get(Factory.class);
   static final ClassName MEMBERS_INJECTOR = ClassName.get(MembersInjector.class);
+
+  static ParameterizedTypeName providerOf(TypeName typeName) {
+    return ParameterizedTypeName.get(PROVIDER, typeName);
+  }
 
   static ParameterizedTypeName membersInjectorOf(TypeName membersInjectorType) {
     return ParameterizedTypeName.get(MEMBERS_INJECTOR, membersInjectorType);
