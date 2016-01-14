@@ -30,6 +30,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import dagger.internal.Factory;
+import dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.processing.Filer;
@@ -48,6 +49,8 @@ import static com.squareup.javapoet.TypeSpec.enumBuilder;
 import static dagger.Provides.Type.SET;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.TypeNames.factoryOf;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
@@ -111,12 +114,16 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
     ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
     ImmutableMap<BindingKey, FrameworkField> fields =
         generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
+    boolean useRawType =
+        binding.factoryCreationStrategy() == ENUM_INSTANCE
+            && binding.bindingKind() == INJECTION
+            && !typeParameters.isEmpty();
     switch (binding.factoryCreationStrategy()) {
       case ENUM_INSTANCE:
         factoryBuilder = enumBuilder(generatedTypeName.simpleName()).addEnumConstant("INSTANCE");
         // If we have type parameters, then remove the parameters from our providedTypeName,
         // since we'll be implementing an erased version of it.
-        if (!typeParameters.isEmpty()) {
+        if (useRawType) {
           factoryBuilder.addAnnotation(SUPPRESS_WARNINGS_RAWTYPES);
           // TODO(ronshapiro): instead of reassigning, introduce an optional/second parameter
           providedTypeName = ((ParameterizedTypeName) providedTypeName).rawType;
@@ -165,15 +172,18 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
         MethodSpec.Builder createMethodBuilder =
             methodBuilder("create")
                 .addModifiers(PUBLIC, STATIC)
-                .addTypeVariables(typeParameters)
                 .returns(parameterizedFactoryName);
+        if (binding.factoryCreationStrategy() != ENUM_INSTANCE
+            || binding.bindingKind() == INJECTION) {
+          createMethodBuilder.addTypeVariables(typeParameters);
+        }
         List<ParameterSpec> params =
             constructorBuilder.isPresent()
                 ? constructorBuilder.get().build().parameters : ImmutableList.<ParameterSpec>of();
         createMethodBuilder.addParameters(params);
         switch (binding.factoryCreationStrategy()) {
           case ENUM_INSTANCE:
-            if (typeParameters.isEmpty()) {
+            if (!useRawType) {
               createMethodBuilder.addStatement("return INSTANCE");
             } else {
               // We use an unsafe cast here because the types are different.
