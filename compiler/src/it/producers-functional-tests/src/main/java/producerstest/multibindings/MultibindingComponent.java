@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2016 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package producerstest;
+package producerstest.multibindings;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produced;
@@ -21,8 +21,8 @@ import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
 import java.util.Map;
 import java.util.Set;
-import producerstest.MultibindingProducerModule.PossiblyThrowingMap;
-import producerstest.MultibindingProducerModule.PossiblyThrowingSet;
+import producerstest.multibindings.Qualifiers.PossiblyThrowingMap;
+import producerstest.multibindings.Qualifiers.PossiblyThrowingSet;
 
 @ProductionComponent(modules = MultibindingProducerModule.class)
 interface MultibindingComponent {
@@ -36,11 +36,16 @@ interface MultibindingComponent {
 
   ListenableFuture<Map<Integer, String>> map();
 
-  ListenableFuture<Map<Integer, Producer<String>>> mapOfProducers();
+  ListenableFuture<Map<Integer, Producer<String>>> mapOfProducer();
+
+  ListenableFuture<Map<Integer, Produced<String>>> mapOfProduced();
 
   @PossiblyThrowingMap
   ListenableFuture<Map<Integer, String>> possiblyThrowingMap();
 
   @PossiblyThrowingMap
-  ListenableFuture<Map<Integer, Producer<String>>> possiblyThrowingMapOfProducers();
+  ListenableFuture<Map<Integer, Producer<String>>> possiblyThrowingMapOfProducer();
+
+  @PossiblyThrowingMap
+  ListenableFuture<Map<Integer, Produced<String>>> possiblyThrowingMapOfProduced();
 }

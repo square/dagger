@@ -52,6 +52,7 @@ import dagger.internal.codegen.writer.TypeNames;
 import dagger.internal.codegen.writer.VoidName;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import dagger.producers.internal.MapOfProducedProducer;
 import dagger.producers.internal.MapOfProducerProducer;
 import dagger.producers.internal.MapProducer;
 import dagger.producers.internal.Producers;
@@ -1047,7 +1048,11 @@ abstract class AbstractComponentWriter {
         final ClassName contributionClassName;
         switch (binding.bindingType()) {
           case PRODUCTION:
-            contributionClassName = ClassName.fromClass(MapProducer.class);
+            if (MapType.from(binding.key().type()).valuesAreTypeOf(Produced.class)) {
+              contributionClassName = ClassName.fromClass(MapOfProducedProducer.class);
+            } else {
+              contributionClassName = ClassName.fromClass(MapProducer.class);
+            }
             break;
           case PROVISION:
             contributionClassName = ClassName.fromClass(MapFactory.class);
