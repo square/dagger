@@ -93,7 +93,8 @@ public abstract class ProducerMonitor {
   public void methodStarting() {}
 
   /**
-   * Called when the producer method has finished executing.
+   * Called when the producer method has finished executing. This will be called from the same
+   * thread as {@link #methodStarting()}.
    *
    * <p>When multiple monitors are installed, calls to this method will be in the reverse order from
    * calls to {@link #requested()}.
