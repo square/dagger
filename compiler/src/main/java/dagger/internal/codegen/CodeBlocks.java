@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterSpec;
 import java.util.Iterator;
+import javax.lang.model.type.TypeMirror;
 
 final class CodeBlocks {
 
@@ -42,6 +43,14 @@ final class CodeBlocks {
     }
     return builder.build();
   }
+
+  static final Function<TypeMirror, CodeBlock> TYPE_MIRROR_TO_CODE_BLOCK =
+      new Function<TypeMirror, CodeBlock>() {
+        @Override
+        public CodeBlock apply(TypeMirror typeMirror) {
+          return CodeBlocks.format("$T", typeMirror);
+        }
+      };
 
   static Function<ParameterSpec, CodeBlock> PARAMETER_NAME =
       new Function<ParameterSpec, CodeBlock>() {
