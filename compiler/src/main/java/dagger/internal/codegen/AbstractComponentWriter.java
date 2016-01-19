@@ -703,7 +703,7 @@ abstract class AbstractComponentWriter {
   private void initializeFrameworkTypes() {
     ImmutableList.Builder<Snippet> snippetsBuilder = ImmutableList.builder();
     for (BindingKey bindingKey : graph.resolvedBindings().keySet()) {
-      snippetsBuilder.add(initializeFrameworkType(bindingKey));
+      snippetsBuilder.addAll(initializeFrameworkType(bindingKey).asSet());
     }
     ImmutableList<Snippet> snippets = snippetsBuilder.build();
 
@@ -736,21 +736,21 @@ abstract class AbstractComponentWriter {
    * any place in any order.  By requiring a single snippet (often of concatenated snippets) we
    * ensure that things like local variables always behave as expected by the initialization logic.
    */
-  private Snippet initializeFrameworkType(BindingKey bindingKey) {
+  private Optional<Snippet> initializeFrameworkType(BindingKey bindingKey) {
     ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
 
     // There's no field for inherited bindings.
     if (resolvedBindings.ownedBindings().isEmpty()) {
-      return Snippet.format("");
+      return Optional.absent();
     }
 
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
         switch (resolvedBindings.contributionType()) {
           case SET:
-            return initializeSetMultibindings(resolvedBindings);
+            return Optional.of(initializeSetMultibindings(resolvedBindings));
           case MAP:
-            return initializeMapMultibindings(resolvedBindings);
+            return Optional.of(initializeMapMultibindings(resolvedBindings));
           case UNIQUE:
             return initializeUniqueContributionBinding(resolvedBindings);
           default:
@@ -816,32 +816,33 @@ abstract class AbstractComponentWriter {
     return Snippet.concat(initializationSnippets.build());
   }
 
-  private Snippet initializeUniqueContributionBinding(ResolvedBindings resolvedBindings) {
-    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
-
+  private Optional<Snippet> initializeUniqueContributionBinding(ResolvedBindings resolvedBindings) {
     ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
-    if (!binding.factoryCreationStrategy().equals(ENUM_INSTANCE) || binding.scope().isPresent()) {
-      initializationSnippets.add(initializeDelegateFactoriesForUninitializedDependencies(binding));
-      initializationSnippets.add(
-          initializeMember(
-              resolvedBindings.bindingKey(), initializeFactoryForContributionBinding(binding)));
+    if (binding.factoryCreationStrategy().equals(ENUM_INSTANCE) && !binding.scope().isPresent()) {
+      return Optional.absent();
     }
 
-    return Snippet.concat(initializationSnippets.build());
+    return Optional.of(
+        Snippet.concat(
+            ImmutableList.of(
+                initializeDelegateFactoriesForUninitializedDependencies(binding),
+                initializeMember(
+                    resolvedBindings.bindingKey(),
+                    initializeFactoryForContributionBinding(binding)))));
   }
 
-  private Snippet initializeMembersInjectionBinding(ResolvedBindings resolvedBindings) {
-    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
-
+  private Optional<Snippet> initializeMembersInjectionBinding(ResolvedBindings resolvedBindings) {
     MembersInjectionBinding binding = resolvedBindings.membersInjectionBinding().get();
-    if (!binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
-      initializationSnippets.add(initializeDelegateFactoriesForUninitializedDependencies(binding));
-      initializationSnippets.add(
-          initializeMember(
-              resolvedBindings.bindingKey(), initializeMembersInjectorForBinding(binding)));
+    if (binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
+      return Optional.absent();
     }
 
-    return Snippet.concat(initializationSnippets.build());
+    return Optional.of(
+        Snippet.concat(
+            ImmutableList.of(
+                initializeDelegateFactoriesForUninitializedDependencies(binding),
+                initializeMember(
+                    resolvedBindings.bindingKey(), initializeMembersInjectorForBinding(binding)))));
   }
 
   /**
