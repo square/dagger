@@ -533,7 +533,7 @@ public class ProducerModuleFactoryGeneratorTest {
             "",
             "  @Override protected ListenableFuture<String> compute(",
             "      final ProducerMonitor monitor) {",
-            "    return Futures.transform(",
+            "    return Futures.transformAsync(",
             "      Futures.<Void>immediateFuture(null),",
             "      new AsyncFunction<Void, String>() {",
             "        @Override public ListenableFuture<String> apply(Void ignoredVoidArg) {",

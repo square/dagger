@@ -184,7 +184,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
             getInvocationCodeBlock(
                 !returnsFuture, binding, providedTypeName, futureTransform.parameterCodeBlocks()));
     computeMethodBuilder.addStatement(
-        "return $T.transform($L, $L, executor)",
+        "return $T.transformAsync($L, $L, executor)",
         FUTURES, futureTransform.futureCodeBlock(), transformCodeBlock);
 
     factoryBuilder.addMethod(constructorBuilder.build());
