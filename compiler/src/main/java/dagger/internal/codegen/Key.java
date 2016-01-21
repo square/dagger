@@ -401,10 +401,39 @@ abstract class Key {
     /**
      * Optionally extract a {@link Key} for the underlying production binding(s) if such a
      * valid key can be inferred from the given key.  Specifically, if the key represents a
-     * {@link Map}{@code <K, V>}, a key of {@code Map<K, Producer<V>>} will be returned.
+     * {@link Map}{@code <K, V>} or {@code Map<K, Produced<V>>}, a key of
+     * {@code Map<K, Producer<V>>} will be returned.
      */
     Optional<Key> implicitMapProducerKeyFrom(Key possibleMapKey) {
-      return maybeWrapMapValue(possibleMapKey, Producer.class);
+      return maybeRewrapMapValue(possibleMapKey, Produced.class, Producer.class)
+          .or(maybeWrapMapValue(possibleMapKey, Producer.class));
+    }
+
+    /**
+     * Returns a key of {@link Map}{@code <K, NewWrappingClass<V>>} if the input key represents a
+     * {@code Map<K, CurrentWrappingClass<V>>}.
+     */
+    private Optional<Key> maybeRewrapMapValue(
+        Key possibleMapKey, Class<?> currentWrappingClass, Class<?> newWrappingClass) {
+      checkArgument(!currentWrappingClass.equals(newWrappingClass));
+      if (MapType.isMap(possibleMapKey.type())) {
+        MapType mapType = MapType.from(possibleMapKey.type());
+        if (mapType.valuesAreTypeOf(currentWrappingClass)) {
+          TypeElement wrappingElement = getClassElement(newWrappingClass);
+          if (wrappingElement == null) {
+            // This target might not be compiled with Producers, so wrappingClass might not have an
+            // associated element.
+            return Optional.absent();
+          }
+          DeclaredType wrappedValueType =
+              types.getDeclaredType(
+                  wrappingElement, mapType.unwrappedValueType(currentWrappingClass));
+          TypeMirror wrappedMapType =
+              types.getDeclaredType(getMapElement(), mapType.keyType(), wrappedValueType);
+          return Optional.of(possibleMapKey.withType(types, wrappedMapType));
+        }
+      }
+      return Optional.absent();
     }
 
     /**

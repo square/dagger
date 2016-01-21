@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
+import dagger.Provides;
 import dagger.internal.codegen.writer.StringLiteral;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -767,7 +768,7 @@ public class ModuleFactoryGeneratorTest {
   }
 
   @Test
-  public void producesMethodThrowsChecked() {
+  public void providesMethodThrowsChecked() {
     JavaFileObject moduleFile =
         JavaFileObjects.forSourceLines(
             "test.TestModule",
@@ -1169,6 +1170,96 @@ public class ModuleFactoryGeneratorTest {
         .and()
         .generatesSources(
             listBFactory, bElementFactory, bEntryFactory, numberFactory, integerFactory);
+  }
+
+  @Test public void parameterizedModuleWithStaticProvidesMethodOfGenericType() {
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.ParameterizedModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import java.util.List;",
+            "import java.util.ArrayList;",
+            "import java.util.Map;",
+            "import java.util.HashMap;",
+            "",
+            "@Module abstract class ParameterizedModule<T> {",
+            "  @Provides List<T> provideListT() {",
+            "    return new ArrayList<>();",
+            "  }",
+            "",
+            "  @Provides static Map<String, Number> provideMapStringNumber() {",
+            "    return new HashMap<>();",
+            "  }",
+            "",
+            "  @Provides static Object provideNonGenericType() {",
+            "    return new Object();",
+            "  }",
+            "}");
+
+    JavaFileObject provideMapStringNumberFactory =
+        JavaFileObjects.forSourceLines(
+            "test.ParameterizedModule_ProvideMapStringNumberFactory;",
+            "package test;",
+            "",
+            "import dagger.internal.Factory;",
+            "import java.util.Map;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION_JAVAPOET,
+            "public enum ParameterizedModule_ProvideMapStringNumberFactory",
+            "    implements Factory<Map<String, Number>> {",
+            "  INSTANCE;",
+            "",
+            "  @Override",
+            "  public Map<String, Number> get() {",
+            "    Map<String, Number> provided = ParameterizedModule.provideMapStringNumber();",
+            "    if (provided == null) {",
+            "      throw new NullPointerException(" + NPE_LITERAL + ");",
+            "    }",
+            "    return provided;",
+            "  }",
+            "",
+            "  public static Factory<Map<String, Number>> create() {",
+            "    return INSTANCE;",
+            "  }",
+            "}");
+
+    JavaFileObject provideNonGenericTypeFactory =
+        JavaFileObjects.forSourceLines(
+            "test.ParameterizedModule_ProvideNonGenericTypeFactory;",
+            "package test;",
+            "",
+            "import dagger.internal.Factory;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION_JAVAPOET,
+            "public enum ParameterizedModule_ProvideNonGenericTypeFactory",
+            "    implements Factory<Object> {",
+            "  INSTANCE;",
+            "",
+            "  @Override",
+            "  public Object get() {",
+            "    Object provided = ParameterizedModule.provideNonGenericType();",
+            "    if (provided == null) {",
+            "      throw new NullPointerException(" + NPE_LITERAL + ");",
+            "    }",
+            "    return provided;",
+            "  }",
+            "",
+            "  public static Factory<Object> create() {",
+            "    return INSTANCE;",
+            "  }",
+            "}");
+
+    assertAbout(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(provideMapStringNumberFactory, provideNonGenericTypeFactory);
   }
 
   @Test public void providesMethodMultipleQualifiers() {

@@ -40,6 +40,7 @@ import javax.lang.model.util.Elements;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
@@ -149,7 +150,11 @@ abstract class ModuleDescriptor {
     }
 
     ModuleDescriptor create(TypeElement moduleElement) {
-      AnnotationMirror moduleAnnotation = getModuleAnnotation(moduleElement).get();
+      Optional<AnnotationMirror> probableModuleAnnotation = getModuleAnnotation(moduleElement);
+      checkState(probableModuleAnnotation.isPresent(),
+          "%s did not have an AnnotationMirror for @Module",
+          moduleElement.getQualifiedName());
+      AnnotationMirror moduleAnnotation = probableModuleAnnotation.get();
 
       ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
       for (ExecutableElement moduleMethod : methodsIn(elements.getAllMembers(moduleElement))) {

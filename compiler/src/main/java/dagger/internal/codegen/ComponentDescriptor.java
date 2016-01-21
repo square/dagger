@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.squareup.javapoet.ClassName;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MembersInjector;
@@ -582,8 +583,9 @@ abstract class ComponentDescriptor {
      *     processor to retry in a later processing round.
      */
     private ModuleDescriptor descriptorForMonitoringModule(TypeElement componentDefinitionType) {
-      String generatedMonitorModuleName =
-          SourceFiles.generatedMonitoringModuleName(componentDefinitionType).canonicalName();
+      ClassName monitoringModuleName =
+          SourceFiles.generatedMonitoringModuleName(componentDefinitionType);
+      String generatedMonitorModuleName = monitoringModuleName.toString();
       TypeElement monitoringModule = elements.getTypeElement(generatedMonitorModuleName);
       if (monitoringModule == null) {
         throw new TypeNotPresentException(generatedMonitorModuleName, null);

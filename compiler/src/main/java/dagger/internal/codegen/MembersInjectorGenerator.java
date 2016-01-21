@@ -51,6 +51,9 @@ import javax.lang.model.util.SimpleTypeVisitor7;
 import static com.google.auto.common.MoreElements.getPackage;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.squareup.javapoet.MethodSpec.constructorBuilder;
+import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.TypeNames.membersInjectorOf;
@@ -100,7 +103,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
 
     ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
     TypeSpec.Builder injectorTypeBuilder =
-        TypeSpec.classBuilder(generatedTypeName.simpleName())
+        classBuilder(generatedTypeName.simpleName())
             .addModifiers(PUBLIC, FINAL)
             .addTypeVariables(typeParameters);
 
@@ -109,7 +112,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
     injectorTypeBuilder.addSuperinterface(implementedType);
 
     MethodSpec.Builder injectMembersBuilder =
-        MethodSpec.methodBuilder("injectMembers")
+        methodBuilder("injectMembers")
             .returns(TypeName.VOID)
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
@@ -126,13 +129,13 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
 
     ImmutableMap.Builder<BindingKey, FieldSpec> dependencyFieldsBuilder = ImmutableMap.builder();
 
-    MethodSpec.Builder constructorBuilder = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
+    MethodSpec.Builder constructorBuilder = constructorBuilder().addModifiers(PUBLIC);
 
     // We use a static create method so that generated components can avoid having
     // to refer to the generic types of the factory.
     // (Otherwise they may have visibility problems referring to the types.)
     MethodSpec.Builder createMethodBuilder =
-        MethodSpec.methodBuilder("create")
+        methodBuilder("create")
             .returns(implementedType)
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addTypeVariables(typeParameters);
@@ -310,7 +313,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       Element injectionElement,
       ImmutableSet<DependencyRequest> dependencies) {
     MethodSpec.Builder methodBuilder =
-        MethodSpec.methodBuilder(injectionSiteDelegateMethodName(injectionElement))
+        methodBuilder(injectionSiteDelegateMethodName(injectionElement))
             .addModifiers(PUBLIC, STATIC)
             .addParameter(injectedTypeName, "instance")
             .addTypeVariables(typeParameters);
