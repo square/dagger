@@ -52,7 +52,7 @@ public final class MonitorCache {
             result = monitor = factory.create(componentProvider.get());
           } catch (RuntimeException e) {
             logger.log(Level.SEVERE, "RuntimeException while constructing monitor factories.", e);
-            result = monitor = Monitors.noOpProductionComponentMonitor();
+            result = monitor = ProductionComponentMonitor.noOp();
           }
         }
       }

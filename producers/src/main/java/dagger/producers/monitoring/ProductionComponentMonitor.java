@@ -45,12 +45,38 @@ import dagger.producers.ProductionComponent;
  *
  * @author Jesse Beder
  */
-public interface ProductionComponentMonitor {
+public abstract class ProductionComponentMonitor {
   /** Returns a monitor for an individual {@linkplain Produces producer method}. */
-  ProducerMonitor producerMonitorFor(ProducerToken token);
+  public abstract ProducerMonitor producerMonitorFor(ProducerToken token);
 
-  public interface Factory {
+  private static final ProductionComponentMonitor NO_OP =
+      new ProductionComponentMonitor() {
+        @Override
+        public ProducerMonitor producerMonitorFor(ProducerToken token) {
+          return ProducerMonitor.noOp();
+        }
+      };
+
+  /** Returns a monitor that does no monitoring. */
+  public static ProductionComponentMonitor noOp() {
+    return NO_OP;
+  }
+
+  public abstract static class Factory {
     /** Creates a component-specific monitor when the component is created. */
-    ProductionComponentMonitor create(Object component);
+    public abstract ProductionComponentMonitor create(Object component);
+
+    private static final Factory NO_OP =
+        new Factory() {
+          @Override
+          public ProductionComponentMonitor create(Object component) {
+            return ProductionComponentMonitor.noOp();
+          }
+        };
+
+    /** Returns a factory that returns no-op monitors. */
+    public static Factory noOp() {
+      return NO_OP;
+    }
   }
 }

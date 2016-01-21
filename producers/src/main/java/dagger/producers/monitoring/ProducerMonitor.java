@@ -136,4 +136,17 @@ public abstract class ProducerMonitor {
           }
         });
   }
+
+  private static final ProducerMonitor NO_OP =
+      new ProducerMonitor() {
+        @Override
+        public <T> void addCallbackTo(ListenableFuture<T> future) {
+          // overridden to avoid adding a do-nothing callback
+        }
+      };
+
+  /** Returns a monitor that does no monitoring. */
+  public static ProducerMonitor noOp() {
+    return NO_OP;
+  }
 }

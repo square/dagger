@@ -150,7 +150,7 @@ public final class MonitoringTest {
     }
   }
 
-  private static final class FakeProductionComponentMonitor implements ProductionComponentMonitor {
+  private static final class FakeProductionComponentMonitor extends ProductionComponentMonitor {
     final Map<ProducerToken, ProducerMonitor> monitors = new LinkedHashMap<>();
 
     @Override

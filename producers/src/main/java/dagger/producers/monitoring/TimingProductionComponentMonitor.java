@@ -25,7 +25,7 @@ import com.google.common.base.Ticker;
  * <p>This assumes that the given recorders do not throw or return null; for example, by using
  * {@link TimingRecorders#delegatingProductionComponentTimingRecorderFactory}.
  */
-final class TimingProductionComponentMonitor implements ProductionComponentMonitor {
+final class TimingProductionComponentMonitor extends ProductionComponentMonitor {
   private final ProductionComponentTimingRecorder recorder;
   private final Ticker ticker;
   private final Stopwatch stopwatch;
@@ -41,7 +41,7 @@ final class TimingProductionComponentMonitor implements ProductionComponentMonit
     return new TimingProducerMonitor(recorder.producerTimingRecorderFor(token), ticker, stopwatch);
   }
 
-  static final class Factory implements ProductionComponentMonitor.Factory {
+  static final class Factory extends ProductionComponentMonitor.Factory {
     private final ProductionComponentTimingRecorder.Factory recorderFactory;
     private final Ticker ticker;
 
