@@ -603,7 +603,7 @@ abstract class BindingGraph {
       }
 
       private final class MultibindingDependencies {
-        private final Set<BindingKey> cycleChecker = new HashSet<>();
+        private final Set<Object> cycleChecker = new HashSet<>();
 
         /**
          * Returns {@code true} if {@code bindingKey} previously resolved to multibindings with
@@ -660,6 +660,9 @@ abstract class BindingGraph {
          * multibindings with contributions from subcomponents.
          */
         boolean dependsOnLocalMultibindings(final Binding binding) {
+          if (!cycleChecker.add(binding)) {
+            return false;
+          }
           try {
             return bindingDependsOnLocalMultibindingsCache.get(
                 binding,
