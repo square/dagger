@@ -17,6 +17,7 @@ package dagger.producers.monitoring;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
+import dagger.internal.Beta;
 
 /**
  * A monitor that measures the timing of the execution of a production component, and logs those
@@ -25,7 +26,9 @@ import com.google.common.base.Ticker;
  * <p>This assumes that the given recorders do not throw or return null; for example, by using
  * {@link TimingRecorders#delegatingProductionComponentTimingRecorderFactory}.
  */
-final class TimingProductionComponentMonitor extends ProductionComponentMonitor {
+// TODO(beder): Reduce the visibility of this class to package-private.
+@Beta
+public final class TimingProductionComponentMonitor extends ProductionComponentMonitor {
   private final ProductionComponentTimingRecorder recorder;
   private final Ticker ticker;
   private final Stopwatch stopwatch;
@@ -41,11 +44,11 @@ final class TimingProductionComponentMonitor extends ProductionComponentMonitor 
     return new TimingProducerMonitor(recorder.producerTimingRecorderFor(token), ticker, stopwatch);
   }
 
-  static final class Factory extends ProductionComponentMonitor.Factory {
+  public static final class Factory extends ProductionComponentMonitor.Factory {
     private final ProductionComponentTimingRecorder.Factory recorderFactory;
     private final Ticker ticker;
 
-    Factory(ProductionComponentTimingRecorder.Factory recorderFactory) {
+    public Factory(ProductionComponentTimingRecorder.Factory recorderFactory) {
       this(recorderFactory, Ticker.systemTicker());
     }
 
