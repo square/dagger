@@ -30,7 +30,6 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import dagger.internal.Factory;
-import dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.processing.Filer;
@@ -49,10 +48,9 @@ import static com.squareup.javapoet.TypeSpec.enumBuilder;
 import static dagger.Provides.Type.SET;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.TypeNames.factoryOf;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
@@ -60,6 +58,7 @@ import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateBindingFieldsForDependencies;
 import static dagger.internal.codegen.SourceFiles.javapoetGeneratedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
+import static dagger.internal.codegen.TypeNames.factoryOf;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -74,16 +73,13 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBinding> {
 
-  private final DependencyRequestMapper dependencyRequestMapper;
   private final Diagnostic.Kind nullableValidationType;
 
   FactoryGenerator(
       Filer filer,
       Elements elements,
-      DependencyRequestMapper dependencyRequestMapper,
       Diagnostic.Kind nullableValidationType) {
     super(filer, elements);
-    this.dependencyRequestMapper = dependencyRequestMapper;
     this.nullableValidationType = nullableValidationType;
   }
 
@@ -112,8 +108,7 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
     TypeSpec.Builder factoryBuilder;
     Optional<MethodSpec.Builder> constructorBuilder = Optional.absent();
     ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
-    ImmutableMap<BindingKey, FrameworkField> fields =
-        generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
+    ImmutableMap<BindingKey, FrameworkField> fields = generateBindingFieldsForDependencies(binding);
     boolean useRawType =
         binding.factoryCreationStrategy() == ENUM_INSTANCE
             && binding.bindingKind() == INJECTION

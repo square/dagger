@@ -94,4 +94,8 @@ abstract class DependencyRequestMapper {
   }
 
   static final DependencyRequestMapper FOR_PRODUCER = new MapperForProducer();
+
+  static DependencyRequestMapper forBindingType(BindingType bindingType) {
+    return bindingType.equals(BindingType.PRODUCTION) ? FOR_PRODUCER : FOR_PROVIDER;
+  }
 }

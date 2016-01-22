@@ -56,12 +56,12 @@ import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
-import static dagger.internal.codegen.TypeNames.membersInjectorOf;
+import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.javapoetMembersInjectorNameForType;
 import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.TypeNames.membersInjectorOf;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -74,12 +74,9 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @since 2.0
  */
 final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<MembersInjectionBinding> {
-  private final DependencyRequestMapper dependencyRequestMapper;
 
-  MembersInjectorGenerator(
-      Filer filer, Elements elements, DependencyRequestMapper dependencyRequestMapper) {
+  MembersInjectorGenerator(Filer filer, Elements elements) {
     super(filer, elements);
-    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
@@ -125,7 +122,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
             .addCode("}");
 
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
+        SourceFiles.generateBindingFieldsForDependencies(binding);
 
     ImmutableMap.Builder<BindingKey, FieldSpec> dependencyFieldsBuilder = ImmutableMap.builder();
 

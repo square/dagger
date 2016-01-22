@@ -58,7 +58,6 @@ import dagger.producers.internal.MapProducer;
 import dagger.producers.internal.Producers;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -88,6 +87,7 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
+import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
 import static dagger.internal.codegen.MemberSelect.emptyMapProviderFactory;
 import static dagger.internal.codegen.MemberSelect.emptySetProvider;
@@ -97,7 +97,6 @@ import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
-import static dagger.internal.codegen.SourceFiles.indexDependenciesByUnresolvedKey;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.writer.Snippet.makeParametersSnippet;
@@ -984,8 +983,7 @@ abstract class AbstractComponentWriter {
               && !binding.bindingElement().getModifiers().contains(STATIC)) {
             parameters.add(getComponentContributionSnippet(binding.contributedBy().get()));
           }
-          parameters.addAll(
-              getDependencyParameterSnippets(binding, DependencyRequestMapper.FOR_PROVIDER));
+          parameters.addAll(getDependencyParameterSnippets(binding));
 
           Snippet factorySnippet =
               Snippet.format(
@@ -1031,8 +1029,7 @@ abstract class AbstractComponentWriter {
           parameters.add(
               getComponentContributionSnippet(
                   graph.componentDescriptor().executorDependency().get()));
-          parameters.addAll(
-              getDependencyParameterSnippets(binding, DependencyRequestMapper.FOR_PRODUCER));
+          parameters.addAll(getDependencyParameterSnippets(binding));
 
           return Snippet.format(
               "new %s(%s)",
@@ -1082,12 +1079,10 @@ abstract class AbstractComponentWriter {
       case NO_OP:
         return Snippet.format("%s.noOp()", ClassName.fromClass(MembersInjectors.class));
       case INJECT_MEMBERS:
-        List<Snippet> parameters =
-            getDependencyParameterSnippets(binding, DependencyRequestMapper.FOR_PROVIDER);
         return Snippet.format(
             "%s.create(%s)",
             membersInjectorNameForType(binding.bindingElement()),
-            Snippet.makeParametersSnippet(parameters));
+            makeParametersSnippet(getDependencyParameterSnippets(binding)));
       default:
         throw new AssertionError();
     }
@@ -1096,22 +1091,14 @@ abstract class AbstractComponentWriter {
   /**
    * The snippets that represent factory arguments for the dependencies of a binding.
    */
-  private List<Snippet> getDependencyParameterSnippets(
-      Binding binding, DependencyRequestMapper dependencyRequestMapper) {
+  private ImmutableList<Snippet> getDependencyParameterSnippets(Binding binding) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
-    for (Collection<DependencyRequest> dependencyRequestsForUnresolvedKey :
-        indexDependenciesByUnresolvedKey(binding).asMap().values()) {
-      BindingKey requestedKey =
-          Iterables.getOnlyElement(
-              FluentIterable.from(dependencyRequestsForUnresolvedKey)
-                  .transform(DependencyRequest.BINDING_KEY_FUNCTION)
-                  .toSet());
-      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
+    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+      BindingKey requestedKey = frameworkDependency.bindingKey();
       Snippet frameworkSnippet = getMemberSelect(requestedKey).getSnippetFor(name);
+      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
       if (resolvedBindings.frameworkClass().equals(Provider.class)
-          && dependencyRequestMapper
-              .getFrameworkClass(dependencyRequestsForUnresolvedKey)
-              .equals(Producer.class)) {
+          && frameworkDependency.frameworkClass().equals(Producer.class)) {
         parameters.add(
             Snippet.format(
                 "%s.producerFromProvider(%s)",

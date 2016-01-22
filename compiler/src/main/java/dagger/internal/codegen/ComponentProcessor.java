@@ -107,15 +107,12 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(elements, keyFactory, keyFormatter, methodSignatureFormatter);
 
-    this.factoryGenerator =
-        new FactoryGenerator(
-            filer, elements, DependencyRequestMapper.FOR_PROVIDER, nullableDiagnosticType);
-    this.membersInjectorGenerator =
-        new MembersInjectorGenerator(filer, elements, DependencyRequestMapper.FOR_PROVIDER);
+    this.factoryGenerator = new FactoryGenerator(filer, elements, nullableDiagnosticType);
+    this.membersInjectorGenerator = new MembersInjectorGenerator(filer, elements);
     ComponentGenerator componentGenerator =
         new ComponentGenerator(filer, elements, types, keyFactory, nullableDiagnosticType);
     ProducerFactoryGenerator producerFactoryGenerator =
-        new ProducerFactoryGenerator(filer, elements, DependencyRequestMapper.FOR_PRODUCER);
+        new ProducerFactoryGenerator(filer, elements);
     MonitoringModuleGenerator monitoringModuleGenerator =
         new MonitoringModuleGenerator(filer, elements);
 
