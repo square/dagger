@@ -113,15 +113,18 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
           if (Sets.difference(moduleProducesMethods, validProducesMethods).isEmpty()) {
             // all of the produces methods in this module are valid!
             // time to generate some factories!
-            ImmutableSet<ProductionBinding> bindings = FluentIterable.from(moduleProducesMethods)
-                .transform(new Function<ExecutableElement, ProductionBinding>() {
-                  @Override
-                  public ProductionBinding apply(ExecutableElement producesMethod) {
-                    return productionBindingFactory.forProducesMethod(producesMethod,
-                        producesMethod.getEnclosingElement().asType());
-                  }
-                })
-                .toSet();
+            ImmutableSet<ProductionBinding> bindings =
+                FluentIterable.from(moduleProducesMethods)
+                    .transform(
+                        new Function<ExecutableElement, ProductionBinding>() {
+                          @Override
+                          public ProductionBinding apply(ExecutableElement producesMethod) {
+                            return productionBindingFactory.forProducesMethod(
+                                producesMethod,
+                                MoreElements.asType(producesMethod.getEnclosingElement()));
+                          }
+                        })
+                    .toSet();
 
             try {
               for (ProductionBinding binding : bindings) {

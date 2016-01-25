@@ -15,18 +15,18 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.ParameterizedTypeName;
 import dagger.internal.codegen.writer.TypeNames;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor6;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
  * A value object that represents a field used by Dagger-generated code.
@@ -52,70 +52,57 @@ abstract class FrameworkField {
 
   private static FrameworkField createForMapBindingContribution(Key key, String name) {
     TypeMirror type = MapType.from(key.type()).valueType();
+    String suffix = MoreTypes.asDeclared(type).asElement().getSimpleName().toString();
     return new AutoValue_FrameworkField(
         (com.squareup.javapoet.ParameterizedTypeName) com.squareup.javapoet.TypeName.get(type),
         (ParameterizedTypeName) TypeNames.forTypeMirror(type),
-        name);
-  }
-
-  static FrameworkField createForSyntheticContributionBinding(
-      int contributionNumber, ContributionBinding contributionBinding) {
-    switch (contributionBinding.contributionType()) {
-      case MAP:
-        return createForMapBindingContribution(
-            contributionBinding.key(),
-            KeyVariableNamer.INSTANCE.apply(contributionBinding.key())
-                + "Contribution"
-                + contributionNumber);
-
-      case SET:
-      case UNIQUE:
-        return createWithTypeFromKey(
-            contributionBinding.frameworkClass(),
-            contributionBinding.key(),
-            KeyVariableNamer.INSTANCE.apply(contributionBinding.key())
-                + "Contribution"
-                + contributionNumber);
-      default:
-        throw new AssertionError();
-    }
+        name.endsWith(suffix) ? name : name + suffix);
   }
 
   static FrameworkField createForResolvedBindings(ResolvedBindings resolvedBindings) {
-    return createWithTypeFromKey(
-        resolvedBindings.frameworkClass(),
-        resolvedBindings.bindingKey().key(),
-        frameworkFieldName(resolvedBindings));
+    if (resolvedBindings.isMultibindingContribution()
+        && resolvedBindings.contributionType().equals(ContributionType.MAP)) {
+      return createForMapBindingContribution(
+          resolvedBindings.key(), frameworkFieldName(resolvedBindings));
+    } else {
+      return createWithTypeFromKey(
+          resolvedBindings.frameworkClass(),
+          resolvedBindings.key(),
+          frameworkFieldName(resolvedBindings));
+    }
   }
 
   private static String frameworkFieldName(ResolvedBindings resolvedBindings) {
-    BindingKey bindingKey = resolvedBindings.bindingKey();
-    if (bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION)
-        && resolvedBindings.contributionType().equals(ContributionType.UNIQUE)) {
-      ContributionBinding binding = getOnlyElement(resolvedBindings.contributionBindings());
-      if (!binding.bindingKind().equals(ContributionBinding.Kind.SYNTHETIC_MAP)) {
-        return BINDING_ELEMENT_NAME.visit(binding.bindingElement());
+    if (resolvedBindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
+      ContributionBinding binding = resolvedBindings.contributionBinding();
+      if (!binding.isSyntheticBinding()) {
+        return BINDING_ELEMENT_NAME.visit(binding.bindingElement(), binding);
       }
     }
-    return KeyVariableNamer.INSTANCE.apply(bindingKey.key());
+    return KeyVariableNamer.INSTANCE.apply(resolvedBindings.key());
   }
 
-  private static final ElementVisitor<String, Void> BINDING_ELEMENT_NAME =
-      new ElementKindVisitor6<String, Void>() {
+  private static final ElementVisitor<String, Binding> BINDING_ELEMENT_NAME =
+      new ElementKindVisitor6<String, Binding>() {
+
         @Override
-        public String visitExecutableAsConstructor(ExecutableElement e, Void p) {
-          return visit(e.getEnclosingElement());
+        protected String defaultAction(Element e, Binding p) {
+          throw new IllegalArgumentException("Unexpected binding " + p);
         }
 
         @Override
-        public String visitExecutableAsMethod(ExecutableElement e, Void p) {
+        public String visitExecutableAsConstructor(ExecutableElement e, Binding p) {
+          return visit(e.getEnclosingElement(), p);
+        }
+
+        @Override
+        public String visitExecutableAsMethod(ExecutableElement e, Binding p) {
           return e.getSimpleName().toString();
         }
 
         @Override
-        public String visitType(TypeElement e, Void p) {
-          return CaseFormat.UPPER_CAMEL.to(
-              CaseFormat.LOWER_CAMEL, e.getSimpleName().toString());
+        public String visitType(TypeElement e, Binding p) {
+          return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, e.getSimpleName().toString());
         }
       };
 

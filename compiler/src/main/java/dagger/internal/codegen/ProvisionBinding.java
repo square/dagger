@@ -29,7 +29,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -152,24 +151,23 @@ abstract class ProvisionBinding extends ContributionBinding {
       return Optional.absent();
     }
 
-    ProvisionBinding forProvidesMethod(ExecutableElement providesMethod, TypeMirror contributedBy) {
-      checkNotNull(providesMethod);
+    ProvisionBinding forProvidesMethod(
+        ExecutableElement providesMethod, TypeElement contributedBy) {
       checkArgument(providesMethod.getKind().equals(METHOD));
-      checkArgument(contributedBy.getKind().equals(TypeKind.DECLARED));
       Provides providesAnnotation = providesMethod.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
-      DeclaredType declaredContainer = MoreTypes.asDeclared(contributedBy);
+      SourceElement sourceElement = SourceElement.forElement(providesMethod, contributedBy);
       ExecutableType resolvedMethod =
-          MoreTypes.asExecutable(types.asMemberOf(declaredContainer, providesMethod));
-      Key key = keyFactory.forProvidesMethod(resolvedMethod, providesMethod);
+          MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
+      Key key = keyFactory.forProvidesMethod(sourceElement);
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredResolvedVariables(
-              declaredContainer,
+              MoreTypes.asDeclared(contributedBy.asType()),
               providesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
       Scope scope = Scope.scopeOf(providesMethod);
       return new AutoValue_ProvisionBinding(
-          SourceElement.forElement(providesMethod, MoreTypes.asTypeElement(declaredContainer)),
+          sourceElement,
           key,
           dependencies,
           findBindingPackage(key),
@@ -203,6 +201,25 @@ abstract class ProvisionBinding extends ContributionBinding {
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
           scopeOf(implicitMapOfProviderRequest.requestElement()));
+    }
+
+    /**
+     * A binding that depends explicitly on a set of individual provision multibinding contribution
+     * methods.
+     */
+    ProvisionBinding syntheticMultibinding(
+        final DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+      return new AutoValue_ProvisionBinding(
+          SourceElement.forElement(request.requestElement()),
+          request.key(),
+          dependencyRequestFactory.forMultibindingContributions(request, multibindingContributions),
+          findBindingPackage(request.key()),
+          Optional.<DeclaredType>absent(),
+          Optional.<DependencyRequest>absent(),
+          Kind.forMultibindingRequest(request),
+          Provides.Type.UNIQUE,
+          Optional.<ProvisionBinding>absent(),
+          scopeOf(request.requestElement()));
     }
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {

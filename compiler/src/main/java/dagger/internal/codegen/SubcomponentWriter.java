@@ -94,12 +94,6 @@ final class SubcomponentWriter extends AbstractComponentWriter {
     return memberSelect == null ? parent.getMemberSelect(key) : memberSelect;
   }
 
-  @Override
-  protected Optional<MemberSelect> getMultibindingContributionSnippet(ContributionBinding binding) {
-    return super.getMultibindingContributionSnippet(binding)
-        .or(parent.getMultibindingContributionSnippet(binding));
-  }
-
   private ExecutableType resolvedSubcomponentFactoryMethod() {
     return MoreTypes.asExecutable(
         types.asMemberOf(

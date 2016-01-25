@@ -15,12 +15,15 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor6;
+import javax.lang.model.util.Types;
 
 /**
  * An {@link Element}, optionally contributed by a subtype of the type that encloses it.
@@ -46,6 +49,16 @@ abstract class SourceElement {
   /** The type enclosing the {@link #element()}. */
   TypeElement enclosingTypeElement() {
     return BINDING_TYPE_ELEMENT.visit(element());
+  }
+
+  /**
+   * The type of {@link #element()}, considered as a member of {@link #contributedBy()} if it is
+   * present.
+   */
+  TypeMirror asMemberOfContributingType(Types types) {
+    return contributedBy().isPresent()
+        ? types.asMemberOf(MoreTypes.asDeclared(contributedBy().get().asType()), element())
+        : element().asType();
   }
 
   private static final ElementVisitor<TypeElement, Void> BINDING_TYPE_ELEMENT =

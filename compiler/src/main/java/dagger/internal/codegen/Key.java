@@ -91,11 +91,28 @@ abstract class Key {
    * logical equality, so {@link MoreTypes#equivalence()} wraps this type.
    */
   abstract Equivalence.Wrapper<TypeMirror> wrappedType();
+  
+  /**
+   * For multibinding contributions, this is the binding method element. Each multibound map and set
+   * is represented by a
+   * {@linkplain ProvisionBinding.Factory#syntheticMultibinding(DependencyRequest, Iterable)
+   * synthetic binding} that depends on the specific contributions to that map or set. Each such
+   * contribution binding therefore needs a key that identifies the specific binding, and not only
+   * the qualified type that is bound.
+   */
+  abstract Optional<SourceElement> bindingMethod();
 
+  /**
+   * A {@link javax.inject.Qualifier} annotation that provides a unique namespace prefix
+   * for the type of this key.
+   */
   Optional<AnnotationMirror> qualifier() {
     return unwrapOptionalEquivalence(wrappedQualifier());
   }
 
+  /**
+   * The type represented by this key.
+   */
   TypeMirror type() {
     return wrappedType().get();
   }
@@ -105,9 +122,31 @@ abstract class Key {
     return kind.isPrimitive() ? types.boxedClass((PrimitiveType) type).asType() : type;
   }
 
-  Key withType(Types types, TypeMirror newType) {
-    return new AutoValue_Key(wrappedQualifier(),
-        MoreTypes.equivalence().wrap(normalize(types, newType)));
+  /**
+   * A key whose {@link #qualifier()} and {@link #bindingMethod()} are equivalent to this one's, but
+   * with {@code newType} (normalized) as its {@link #type()}.
+   */
+  private Key withType(Types types, TypeMirror newType) {
+    return new AutoValue_Key(
+        wrappedQualifier(),
+        MoreTypes.equivalence().wrap(normalize(types, newType)),
+        bindingMethod());
+  }
+
+  /**
+   * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but
+   * with {@code bindingMethod} as its {@link #bindingMethod()}.
+   */
+  private Key withBindingMethod(SourceElement bindingMethod) {
+    return new AutoValue_Key(wrappedQualifier(), wrappedType(), Optional.of(bindingMethod));
+  }
+
+  /**
+   * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but with an
+   * absent {@link #bindingMethod()}.
+   */
+  Key withoutBindingMethod() {
+    return new AutoValue_Key(wrappedQualifier(), wrappedType(), Optional.<SourceElement>absent());
   }
 
   boolean isValidMembersInjectionKey() {
@@ -162,6 +201,7 @@ abstract class Key {
         .omitNullValues()
         .add("qualifier", qualifier().orNull())
         .add("type", type())
+        .add("bindingMethod", bindingMethod().orNull())
         .toString();
   }
 
@@ -258,29 +298,36 @@ abstract class Key {
       return forMethod(subcomponentBuilderMethod, returnType);
     }
 
-    Key forProvidesMethod(ExecutableType executableType, ExecutableElement method) {
-      checkNotNull(method);
-      checkArgument(method.getKind().equals(METHOD));
+    Key forProvidesMethod(SourceElement sourceElement) {
+      checkArgument(sourceElement.element().getKind().equals(METHOD));
+      ExecutableElement method = MoreElements.asExecutable(sourceElement.element());
+      ExecutableType methodType =
+          MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
       Provides providesAnnotation = method.getAnnotation(Provides.class);
       checkArgument(providesAnnotation != null);
-      TypeMirror returnType = normalize(types, executableType.getReturnType());
+      TypeMirror returnType = normalize(types, methodType.getReturnType());
       TypeMirror keyType =
           providesOrProducesKeyType(
               returnType,
               method,
               Optional.of(providesAnnotation.type()),
               Optional.<Produces.Type>absent());
-      return forMethod(method, keyType);
+      Key key = forMethod(method, keyType);
+      return providesAnnotation.type().equals(Provides.Type.UNIQUE)
+          ? key
+          : key.withBindingMethod(sourceElement);
     }
 
     // TODO(beder): Reconcile this method with forProvidesMethod when Provides.Type and
     // Produces.Type are no longer different.
-    Key forProducesMethod(ExecutableType executableType, ExecutableElement method) {
-      checkNotNull(method);
-      checkArgument(method.getKind().equals(METHOD));
+    Key forProducesMethod(SourceElement sourceElement) {
+      checkArgument(sourceElement.element().getKind().equals(METHOD));
+      ExecutableElement method = MoreElements.asExecutable(sourceElement.element());
+      ExecutableType methodType =
+          MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
       Produces producesAnnotation = method.getAnnotation(Produces.class);
       checkArgument(producesAnnotation != null);
-      TypeMirror returnType = normalize(types, executableType.getReturnType());
+      TypeMirror returnType = normalize(types, methodType.getReturnType());
       TypeMirror unfuturedType = returnType;
       if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
         unfuturedType =
@@ -292,7 +339,10 @@ abstract class Key {
               method,
               Optional.<Provides.Type>absent(),
               Optional.of(producesAnnotation.type()));
-      return forMethod(method, keyType);
+      Key key = forMethod(method, keyType);
+      return producesAnnotation.type().equals(Produces.Type.UNIQUE)
+          ? key
+          : key.withBindingMethod(sourceElement);
     }
     
     /**
@@ -362,31 +412,36 @@ abstract class Key {
     private Key forMethod(ExecutableElement method, TypeMirror keyType) {
       return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(method)),
-          MoreTypes.equivalence().wrap(keyType));
+          MoreTypes.equivalence().wrap(keyType),
+          Optional.<SourceElement>absent());
     }
 
     Key forInjectConstructorWithResolvedType(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(type));
+          MoreTypes.equivalence().wrap(type),
+          Optional.<SourceElement>absent());
     }
 
     Key forComponent(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(types, type)));
+          MoreTypes.equivalence().wrap(normalize(types, type)),
+          Optional.<SourceElement>absent());
     }
 
     Key forMembersInjectedType(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(types, type)));
+          MoreTypes.equivalence().wrap(normalize(types, type)),
+          Optional.<SourceElement>absent());
     }
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
       return new AutoValue_Key(
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), qualifier),
-          MoreTypes.equivalence().wrap(normalize(types, type)));
+          MoreTypes.equivalence().wrap(normalize(types, type)),
+          Optional.<SourceElement>absent());
     }
 
     /**

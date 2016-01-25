@@ -89,7 +89,7 @@ import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeySnippet;
-import static dagger.internal.codegen.MemberSelect.emptyMapProviderFactory;
+import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
 import static dagger.internal.codegen.MemberSelect.emptySetProvider;
 import static dagger.internal.codegen.MemberSelect.localField;
 import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
@@ -123,12 +123,8 @@ abstract class AbstractComponentWriter {
   protected final BindingGraph graph;
   protected final ImmutableMap<ComponentDescriptor, String> subcomponentImplNames;
   private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
-  private final Map<Binding, InitializationState> contributionInitializationStates =
-      new HashMap<>();
   protected ClassWriter componentWriter;
   private final Map<BindingKey, MemberSelect> memberSelectSnippets = new HashMap<>();
-  private final Map<ContributionBinding, MemberSelect> multibindingContributionSnippets =
-      new HashMap<>();
   protected ConstructorWriter constructorWriter;
   protected Optional<ClassName> builderName = Optional.absent();
 
@@ -219,10 +215,6 @@ abstract class AbstractComponentWriter {
     return memberSelectSnippets.get(key);
   }
 
-  protected Optional<MemberSelect> getMultibindingContributionSnippet(ContributionBinding binding) {
-    return Optional.fromNullable(multibindingContributionSnippets.get(binding));
-  }
-
   /**
    * Returns the initialization state of the factory field for a binding key in this component.
    */
@@ -234,16 +226,6 @@ abstract class AbstractComponentWriter {
 
   private void setInitializationState(BindingKey bindingKey, InitializationState state) {
     initializationStates.put(bindingKey, state);
-  }
-
-  private InitializationState getContributionInitializationState(Binding binding) {
-    return contributionInitializationStates.containsKey(binding)
-        ? contributionInitializationStates.get(binding)
-        : UNINITIALIZED;
-  }
-
-  private void setContributionInitializationState(Binding binding, InitializationState state) {
-    contributionInitializationStates.put(binding, state);
   }
 
   ImmutableSet<JavaWriter> write() {
@@ -470,38 +452,18 @@ abstract class AbstractComponentWriter {
       return;
     }
 
-    Optional<String> bindingPackage = resolvedBindings.bindingPackage();
-    boolean useRawType = bindingPackage.isPresent()
-        && !bindingPackage.get().equals(name.packageName());
-    if (resolvedBindings.isMultibindings()) {
-      // note that here we rely on the order of the resolved bindings being from parent to child
-      // otherwise, the numbering wouldn't work
-      int contributionNumber = 0;
-      for (ContributionBinding contributionBinding : resolvedBindings.contributionBindings()) {
-        contributionNumber++;
-        if (resolvedBindings.ownedContributionBindings().contains(contributionBinding)) {
-          FrameworkField contributionBindingField =
-              FrameworkField.createForSyntheticContributionBinding(
-                  contributionNumber, contributionBinding);
-          FieldWriter contributionField = addFrameworkField(useRawType, contributionBindingField);
-
-          multibindingContributionSnippets.put(
-              contributionBinding,
-              localField(name, contributionField.name()));
-        }
-      }
-    }
-
-    FrameworkField bindingField = FrameworkField.createForResolvedBindings(resolvedBindings);
-    FieldWriter frameworkField = addFrameworkField(useRawType, bindingField);
+    FieldWriter frameworkField = addFrameworkField(resolvedBindings);
 
     memberSelectSnippets.put(
         bindingKey,
         localField(name, frameworkField.name()));
   }
 
-  private FieldWriter addFrameworkField(boolean useRawType,
-      FrameworkField contributionBindingField) {
+  private FieldWriter addFrameworkField(ResolvedBindings resolvedBindings) {
+    boolean useRawType = useRawType(resolvedBindings);
+
+    FrameworkField contributionBindingField =
+        FrameworkField.createForResolvedBindings(resolvedBindings);
     FieldWriter contributionField =
         componentWriter.addField(
             useRawType
@@ -515,6 +477,11 @@ abstract class AbstractComponentWriter {
     return contributionField;
   }
 
+  private boolean useRawType(ResolvedBindings resolvedBindings) {
+    Optional<String> bindingPackage = resolvedBindings.bindingPackage();
+    return bindingPackage.isPresent() && !bindingPackage.get().equals(name.packageName());
+  }
+
   /**
    * If {@code resolvedBindings} is an unscoped provision binding with no factory arguments or a
    * no-op members injection binding, then we don't need a field to hold its factory. In that case,
@@ -524,35 +491,30 @@ abstract class AbstractComponentWriter {
   private Optional<MemberSelect> staticMemberSelect(ResolvedBindings resolvedBindings) {
     switch (resolvedBindings.bindingKey().kind()) {
       case CONTRIBUTION:
-        if (resolvedBindings.isMultibindings()
-            && resolvedBindings.contributionBindings().isEmpty()) {
-          switch (resolvedBindings.contributionType()) {
-            case MAP:
-              return Optional.of(emptyMapProviderFactory(
-                  MapType.from(resolvedBindings.key().type())));
-
-            case SET:
-              return Optional.of(emptySetFactoryStaticMemberSelect(resolvedBindings));
-
-            case UNIQUE:
-            default:
-              throw new AssertionError("Multibindings must be map or set, not " + resolvedBindings);
-          }
-        }
-        if (resolvedBindings.contributionBindings().size() != 1) {
-          return Optional.absent();
-        }
-        ContributionBinding contributionBinding =
-            getOnlyElement(resolvedBindings.contributionBindings());
-        if (contributionBinding.contributionType().isMultibinding()
-            || !contributionBinding.bindingType().equals(BindingType.PROVISION)) {
-          return Optional.absent();
-        }
+        ContributionBinding contributionBinding = resolvedBindings.contributionBinding();
         if (contributionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
             && !contributionBinding.scope().isPresent()) {
-          return Optional.of(
-              staticMethod(
-                  generatedClassNameForBinding(contributionBinding), Snippet.format("create()")));
+          switch (contributionBinding.bindingKind()) {
+            case SYNTHETIC_MULTIBOUND_MAP:
+              BindingType bindingType = contributionBinding.bindingType();
+              MapType mapType = MapType.from(contributionBinding.key().type());
+              return Optional.of(
+                  emptyFrameworkMapFactory(
+                      frameworkMapFactoryClassName(bindingType),
+                      mapType.keyType(),
+                      mapType.unwrappedValueType(bindingType.frameworkClass())));
+
+            case SYNTHETIC_MULTIBOUND_SET:
+              return Optional.of(
+                  emptySetFactoryStaticMemberSelect(
+                      contributionBinding.bindingType(), contributionBinding.key()));
+
+            default:
+              return Optional.of(
+                  staticMethod(
+                      generatedClassNameForBinding(contributionBinding),
+                      Snippet.format("create()")));
+          }
         }
         break;
 
@@ -572,18 +534,18 @@ abstract class AbstractComponentWriter {
   }
 
   /**
-   * A static member select for a call to {@code F.create()} where {@code F} is either
-   * {@link SetFactory}, {@link SetProducer}, or {@link SetOfProducedProducer}, depending on the
-   * set bindings.
+   * A static member select for an empty set factory. Calls
+   * {@link SetFactory#create(javax.inject.Provider...)},
+   * {@link SetProducer#create(dagger.producers.Producer...)}, or
+   * {@link SetOfProducedProducer#create(dagger.producers.Producer...)}, depending on the set
+   * bindings.
    */
-  private MemberSelect emptySetFactoryStaticMemberSelect(ResolvedBindings setBindings) {
-    ClassName setFactoryClassName = setFactoryClassName(setBindings);
-    return emptySetProvider(setFactoryClassName,
-        SetType.from(setBindings.bindingKey().key().type()));
+  private static MemberSelect emptySetFactoryStaticMemberSelect(BindingType bindingType, Key key) {
+    return emptySetProvider(setFactoryClassName(bindingType, key), SetType.from(key.type()));
   }
 
   /**
-   * Returns a {@link Set} factory class name appropriate for the set bindings.
+   * The {@link Set} factory class name appropriate for set bindings.
    *
    * <ul>
    * <li>{@link SetFactory} for provision bindings.
@@ -591,16 +553,56 @@ abstract class AbstractComponentWriter {
    * <li>{@link SetOfProducedProducer} for production bindings for {@code Set<Produced<T>>}.
    * </ul>
    */
-  private ClassName setFactoryClassName(ResolvedBindings setBindings) {
-    if (setBindings.bindingType().equals(BindingType.PROVISION)) {
+  private static ClassName setFactoryClassName(BindingType bindingType, Key key) {
+    if (bindingType.equals(BindingType.PROVISION)) {
       return ClassName.fromClass(SetFactory.class);
     } else {
-      SetType setType = SetType.from(setBindings.bindingKey().key().type());
+      SetType setType = SetType.from(key.type());
       return ClassName.fromClass(
           setType.elementsAreTypeOf(Produced.class)
               ? SetOfProducedProducer.class
               : SetProducer.class);
     }
+  }
+
+  /**
+   * The {@link Map}-of-value factory class name appropriate for map bindings.
+   *
+   * <ul>
+   * <li>{@link MapFactory} for provision bindings.
+   * <li>{@link MapProducer} for production bindings.
+   * </ul>
+   */
+  private static ClassName mapFactoryClassName(ContributionBinding binding) {
+    switch (binding.bindingType()) {
+      case PRODUCTION:
+        return ClassName.fromClass(
+            MapType.from(binding.key().type()).valuesAreTypeOf(Produced.class)
+                ? MapOfProducedProducer.class
+                : MapProducer.class);
+
+      case PROVISION:
+      case MEMBERS_INJECTION:
+        return ClassName.fromClass(MapFactory.class);
+
+      default:
+        throw new AssertionError(binding.toString());
+    }
+  }
+
+  /**
+   * The {@link Map}-of-framework factory class name appropriate for map bindings.
+   *
+   * <ul>
+   * <li>{@link MapProviderFactory} for provision bindings.
+   * <li>{@link MapOfProducerProducer} for production bindings.
+   * </ul>
+   */
+  private static ClassName frameworkMapFactoryClassName(BindingType bindingType) {
+    return ClassName.fromClass(
+        bindingType.equals(BindingType.PRODUCTION)
+            ? MapOfProducerProducer.class
+            : MapProviderFactory.class);
   }
 
   private void implementInterfaceMethods() {
@@ -737,87 +739,26 @@ abstract class AbstractComponentWriter {
    * ensure that things like local variables always behave as expected by the initialization logic.
    */
   private Optional<Snippet> initializeFrameworkType(BindingKey bindingKey) {
-    ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-
-    // There's no field for inherited bindings.
-    if (resolvedBindings.ownedBindings().isEmpty()) {
+    // If the field is inherited or the member select is static, don't initialize.
+    MemberSelect memberSelect = getMemberSelect(bindingKey);
+    if (memberSelect.staticMember() || !memberSelect.owningClass().equals(name)) {
       return Optional.absent();
     }
-
+    
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
-        switch (resolvedBindings.contributionType()) {
-          case SET:
-            return Optional.of(initializeSetMultibindings(resolvedBindings));
-          case MAP:
-            return Optional.of(initializeMapMultibindings(resolvedBindings));
-          case UNIQUE:
-            return initializeUniqueContributionBinding(resolvedBindings);
-          default:
-            throw new AssertionError();
-        }
+        return initializeContributionBinding(bindingKey);
 
       case MEMBERS_INJECTION:
-        return initializeMembersInjectionBinding(resolvedBindings);
+        return initializeMembersInjectionBinding(bindingKey);
 
       default:
         throw new AssertionError();
     }
   }
 
-  private Snippet initializeSetMultibindings(ResolvedBindings resolvedBindings) {
-    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
-
-    ImmutableList.Builder<Snippet> parameterSnippets = ImmutableList.builder();
-    for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
-      Optional<MemberSelect> multibindingContributionSnippet =
-          getMultibindingContributionSnippet(binding);
-      checkState(multibindingContributionSnippet.isPresent(), "%s was not found", binding);
-      Snippet snippet = multibindingContributionSnippet.get().getSnippetFor(name);
-      if (multibindingContributionSnippet.get().owningClass().equals(name)
-          // the binding might already be initialized by a different set binding that shares the
-          // same contributions (e.g., Set<T> and Set<Produced<T>>)
-          && getContributionInitializationState(binding)
-              .equals(InitializationState.UNINITIALIZED)) {
-        Snippet initializeSnippet = initializeFactoryForContributionBinding(binding);
-        initializationSnippets.add(Snippet.format("this.%s = %s;", snippet, initializeSnippet));
-        setContributionInitializationState(binding, InitializationState.INITIALIZED);
-      }
-      parameterSnippets.add(snippet);
-    }
-    Snippet initializeSetSnippet =
-        Snippet.format(
-            "%s.create(%s)",
-            setFactoryClassName(resolvedBindings),
-            makeParametersSnippet(parameterSnippets.build()));
-    initializationSnippets.add(
-        initializeMember(resolvedBindings.bindingKey(), initializeSetSnippet));
-
-    return Snippet.concat(initializationSnippets.build());
-  }
-
-  private Snippet initializeMapMultibindings(ResolvedBindings resolvedBindings) {
-    ImmutableList.Builder<Snippet> initializationSnippets = ImmutableList.builder();
-    for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
-      Optional<MemberSelect> multibindingContributionSnippet =
-          getMultibindingContributionSnippet(binding);
-      if (multibindingContributionSnippet.isPresent()
-          && multibindingContributionSnippet.get().owningClass().equals(name)) {
-        initializationSnippets.add(
-            Snippet.format(
-                "this.%s = %s;",
-                multibindingContributionSnippet.get().getSnippetFor(name),
-                initializeFactoryForContributionBinding(binding)));
-      }
-    }
-    initializationSnippets.add(
-        initializeMember(resolvedBindings.bindingKey(), initializeMapBinding(resolvedBindings)));
-
-    return Snippet.concat(initializationSnippets.build());
-  }
-
-  private Optional<Snippet> initializeUniqueContributionBinding(ResolvedBindings resolvedBindings) {
-    ContributionBinding binding = getOnlyElement(resolvedBindings.ownedContributionBindings());
+  private Optional<Snippet> initializeContributionBinding(BindingKey bindingKey) {
+    ContributionBinding binding = graph.resolvedBindings().get(bindingKey).contributionBinding();
     if (binding.factoryCreationStrategy().equals(ENUM_INSTANCE) && !binding.scope().isPresent()) {
       return Optional.absent();
     }
@@ -826,13 +767,13 @@ abstract class AbstractComponentWriter {
         Snippet.concat(
             ImmutableList.of(
                 initializeDelegateFactoriesForUninitializedDependencies(binding),
-                initializeMember(
-                    resolvedBindings.bindingKey(),
-                    initializeFactoryForContributionBinding(binding)))));
+                initializeMember(bindingKey, initializeFactoryForContributionBinding(binding)))));
   }
 
-  private Optional<Snippet> initializeMembersInjectionBinding(ResolvedBindings resolvedBindings) {
-    MembersInjectionBinding binding = resolvedBindings.membersInjectionBinding().get();
+  private Optional<Snippet> initializeMembersInjectionBinding(BindingKey bindingKey) {
+    MembersInjectionBinding binding =
+        graph.resolvedBindings().get(bindingKey).membersInjectionBinding().get();
+
     if (binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
       return Optional.absent();
     }
@@ -841,8 +782,7 @@ abstract class AbstractComponentWriter {
         Snippet.concat(
             ImmutableList.of(
                 initializeDelegateFactoriesForUninitializedDependencies(binding),
-                initializeMember(
-                    resolvedBindings.bindingKey(), initializeMembersInjectorForBinding(binding)))));
+                initializeMember(bindingKey, initializeMembersInjectorForBinding(binding)))));
   }
 
   /**
@@ -1038,33 +978,19 @@ abstract class AbstractComponentWriter {
         }
 
       case SYNTHETIC_MAP:
-        checkState(
-            MapType.isMap(binding.key().type()),
-            "Expected synthetic binding to be for a map: %s",
-            binding);
-        final ClassName contributionClassName;
-        switch (binding.bindingType()) {
-          case PRODUCTION:
-            if (MapType.from(binding.key().type()).valuesAreTypeOf(Produced.class)) {
-              contributionClassName = ClassName.fromClass(MapOfProducedProducer.class);
-            } else {
-              contributionClassName = ClassName.fromClass(MapProducer.class);
-            }
-            break;
-          case PROVISION:
-            contributionClassName = ClassName.fromClass(MapFactory.class);
-            break;
-          default:
-            throw new AssertionError();
-        }
         return Snippet.format(
             "%s.create(%s)",
-            contributionClassName,
-            getMemberSelect(getOnlyElement(binding.dependencies()).bindingKey())
-                .getSnippetFor(name));
+            mapFactoryClassName(binding),
+            getMemberSelectSnippet(getOnlyElement(binding.dependencies()).bindingKey()));
+
+      case SYNTHETIC_MULTIBOUND_SET:
+        return initializeFactoryForSetMultibinding(binding);
+
+      case SYNTHETIC_MULTIBOUND_MAP:
+        return initializeFactoryForMapMultibinding(binding);
 
       default:
-        throw new AssertionError();
+        throw new AssertionError(binding.toString());
     }
   }
 
@@ -1094,49 +1020,61 @@ abstract class AbstractComponentWriter {
   private ImmutableList<Snippet> getDependencyParameterSnippets(Binding binding) {
     ImmutableList.Builder<Snippet> parameters = ImmutableList.builder();
     for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
-      BindingKey requestedKey = frameworkDependency.bindingKey();
-      Snippet frameworkSnippet = getMemberSelect(requestedKey).getSnippetFor(name);
-      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
-      if (resolvedBindings.frameworkClass().equals(Provider.class)
-          && frameworkDependency.frameworkClass().equals(Producer.class)) {
-        parameters.add(
-            Snippet.format(
-                "%s.producerFromProvider(%s)",
-                ClassName.fromClass(Producers.class),
-                frameworkSnippet));
-      } else {
-        parameters.add(frameworkSnippet);
-      }
+      parameters.add(getDependencySnippet(frameworkDependency));
     }
     return parameters.build();
   }
 
-  private Snippet initializeMapBinding(ResolvedBindings resolvedBindings) {
-    MapType mapType = MapType.from(resolvedBindings.bindingKey().key().type());
-    boolean hasProductionContribution =
-        Iterables.any(
-            resolvedBindings.contributionBindings(), BindingType.isOfType(BindingType.PRODUCTION));
+  /**
+   * The snippet for a dependency.
+   */
+  private Snippet getDependencySnippet(FrameworkDependency frameworkDependency) {
+    BindingKey requestedKey = frameworkDependency.bindingKey();
+    Snippet frameworkSnippet = getMemberSelectSnippet(requestedKey);
+    ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
+    if (resolvedBindings.frameworkClass().equals(Provider.class)
+        && frameworkDependency.frameworkClass().equals(Producer.class)) {
+      return Snippet.format(
+          "%s.producerFromProvider(%s)", ClassName.fromClass(Producers.class), frameworkSnippet);
+    } else {
+      return frameworkSnippet;
+    }
+  }
+
+  private Snippet initializeFactoryForSetMultibinding(ContributionBinding binding) {
+    return Snippet.format(
+        "%s.create(%s)",
+        setFactoryClassName(binding.bindingType(), binding.key()),
+        makeParametersSnippet(getDependencyParameterSnippets(binding)));
+  }
+
+  private Snippet initializeFactoryForMapMultibinding(ContributionBinding binding) {
+    ImmutableSet<FrameworkDependency> frameworkDependencies =
+        FrameworkDependency.frameworkDependenciesForBinding(binding);
+
     ImmutableList.Builder<Snippet> snippets = ImmutableList.builder();
+    MapType mapType = MapType.from(binding.key().type());
     snippets.add(
         Snippet.format(
             "%s.<%s, %s>builder(%d)",
-            ClassName.fromClass(
-                hasProductionContribution ? MapOfProducerProducer.class : MapProviderFactory.class),
+            frameworkMapFactoryClassName(binding.bindingType()),
             TypeNames.forTypeMirror(mapType.keyType()),
             TypeNames.forTypeMirror(
-                mapType.unwrappedValueType(
-                    hasProductionContribution ? Producer.class : Provider.class)),
-            resolvedBindings.contributionBindings().size()));
+                mapType.unwrappedValueType(binding.bindingType().frameworkClass())),
+            frameworkDependencies.size()));
 
-    for (ContributionBinding binding : resolvedBindings.contributionBindings()) {
+    for (FrameworkDependency frameworkDependency : frameworkDependencies) {
+      BindingKey bindingKey = frameworkDependency.bindingKey();
+      ContributionBinding contributionBinding =
+          graph.resolvedBindings().get(bindingKey).contributionBinding();
       snippets.add(
           Snippet.format(
-              "    .put(%s, %s)",
-              getMapKeySnippet(binding.bindingElement()),
-              getMultibindingContributionSnippet(binding).get().getSnippetFor(name)));
+              ".put(%s, %s)",
+              getMapKeySnippet(contributionBinding.bindingElement()),
+              getDependencySnippet(frameworkDependency)));
     }
 
-    snippets.add(Snippet.format("    .build()"));
+    snippets.add(Snippet.format(".build()"));
 
     return Snippet.concat(snippets.build());
   }

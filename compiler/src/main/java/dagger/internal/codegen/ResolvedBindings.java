@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import dagger.MembersInjector;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
@@ -35,10 +34,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
-import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FORMAT;
 
 /**
- * The collection of bindings that have been resolved for a binding key.
+ * The collection of bindings that have been resolved for a binding key. For valid graphs, contains
+ * exactly one binding.
  *
  * @author Gregory Kick
  */
@@ -233,18 +232,21 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
-   * {@code true} if this is a multibindings contribution.
+   * {@code true} if this is a multibinding contribution.
    */
-  boolean isMultibindings() {
-    return !(contributionBindings().isEmpty() && multibindingDeclarations().isEmpty())
-        && contributionType().isMultibinding();
+  boolean isMultibindingContribution() {
+    return contributionBindings().size() == 1
+        && contributionBinding().contributionType().isMultibinding();
   }
 
   /**
-   * {@code true} if this is a unique contribution binding.
+   * Returns the single contribution binding.
+   *
+   * @throws IllegalStateException if there is not exactly one element in
+   *     {@link #contributionBindings()}, which will never happen for contributions in valid graphs
    */
-  boolean isUniqueContribution() {
-    return !contributionBindings().isEmpty() && !contributionType().isMultibinding();
+  ContributionBinding contributionBinding() {
+    return getOnlyElement(contributionBindings());
   }
 
   /**
@@ -272,7 +274,11 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   public ContributionType contributionType() {
     ImmutableSet<ContributionType> types = contributionTypes();
     checkState(!types.isEmpty(), "no bindings or declarations for %s", bindingKey());
-    checkState(types.size() == 1, MULTIPLE_CONTRIBUTION_TYPES_FORMAT, types);
+    checkState(
+        types.size() == 1,
+        "More than one binding present of different types for %s: %s",
+        bindingKey(),
+        bindingsAndDeclarationsByContributionType());
     return getOnlyElement(types);
   }
 
@@ -322,15 +328,6 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
    * The framework class associated with these bindings.
    */
   Class<?> frameworkClass() {
-    switch (bindingKey().kind()) {
-      case CONTRIBUTION:
-        return Iterables.any(contributionBindings(), BindingType.isOfType(BindingType.PRODUCTION))
-            ? BindingType.PRODUCTION.frameworkClass()
-            : BindingType.PROVISION.frameworkClass();
-      case MEMBERS_INJECTION:
-        return MembersInjector.class;
-      default:
-        throw new AssertionError();
-    }
+    return bindingType().frameworkClass();
   }
 }

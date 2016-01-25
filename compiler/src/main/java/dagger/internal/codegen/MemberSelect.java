@@ -24,10 +24,11 @@ import dagger.internal.MembersInjectors;
 import dagger.internal.codegen.writer.ClassName;
 import dagger.internal.codegen.writer.Snippet;
 import dagger.internal.codegen.writer.TypeNames;
+import dagger.producers.internal.MapOfProducerProducer;
 import java.util.Set;
-import javax.inject.Provider;
 import javax.lang.model.type.TypeMirror;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.Accessibility.isTypeAccessibleFrom;
 
@@ -98,14 +99,23 @@ abstract class MemberSelect {
   }
 
   /**
-   * Returns the {@link MemberSelect} an empty implementation of {@link MapProviderFactory}.
+   * A {@link MemberSelect} for an empty map of framework types.
+   *
+   * @param frameworkMapFactoryClass either {@link MapProviderFactory}
+   *     or {@link MapOfProducerProducer}
    */
-  static MemberSelect emptyMapProviderFactory(MapType mapType) {
+  static MemberSelect emptyFrameworkMapFactory(
+      ClassName frameworkMapFactoryClass, TypeMirror keyType, TypeMirror unwrappedValueType) {
+    checkArgument(
+        frameworkMapFactoryClass.equals(ClassName.fromClass(MapProviderFactory.class))
+            || frameworkMapFactoryClass.equals(ClassName.fromClass(MapOfProducerProducer.class)),
+        "frameworkMapFactoryClass must be MapProviderFactory or MapOfProducerProducer: %s",
+        frameworkMapFactoryClass);
     return new ParameterizedStaticMethod(
-        ClassName.fromClass(MapProviderFactory.class),
-        ImmutableList.of(mapType.keyType(), mapType.unwrappedValueType(Provider.class)),
+        frameworkMapFactoryClass,
+        ImmutableList.of(keyType, unwrappedValueType),
         Snippet.format("empty()"),
-        ClassName.fromClass(MapProviderFactory.class));
+        frameworkMapFactoryClass);
   }
 
   /**

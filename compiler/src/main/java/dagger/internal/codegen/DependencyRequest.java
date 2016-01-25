@@ -201,6 +201,42 @@ abstract class DependencyRequest {
           Optional.<String>absent());
     }
 
+    /**
+     * Creates a dependency request, with the same element as {@code request}, for one individual
+     * {@code multibindingContribution}.
+     */
+    DependencyRequest forMultibindingContribution(
+        DependencyRequest request, ContributionBinding multibindingContribution) {
+      checkArgument(
+          multibindingContribution.contributionType().isMultibinding(),
+          "multibindingContribution must be a multibinding: %s",
+          multibindingContribution);
+      checkArgument(
+          multibindingContribution.key().bindingMethod().isPresent(),
+          "multibindingContribution's key must have a binding method identifier: %s",
+          multibindingContribution);
+      return new AutoValue_DependencyRequest(
+          Kind.PROVIDER,
+          multibindingContribution.key(),
+          request.requestElement(),
+          request.enclosingType(),
+          false /* doesn't allow null */,
+          Optional.<String>absent());
+    }
+
+    /**
+     * Creates dependency requests, with the same element as {@code request}, for each individual
+     * multibinding contribution in {@code multibindingContributions}.
+     */
+    ImmutableSet<DependencyRequest> forMultibindingContributions(
+        DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+      ImmutableSet.Builder<DependencyRequest> requests = ImmutableSet.builder();
+      for (ContributionBinding multibindingContribution : multibindingContributions) {
+        requests.add(forMultibindingContribution(request, multibindingContribution));
+      }
+      return requests.build();
+    }
+
     DependencyRequest forRequiredVariable(VariableElement variableElement) {
       return forRequiredVariable(variableElement, Optional.<String>absent());
     }
