@@ -108,8 +108,10 @@ final class MultibindingSubcomponents {
       return BoundInParentAndChild.IN_PARENT;
     }
 
+    /* This is not static because otherwise we have no tests that cover the case where a
+     * subcomponent uses a module instance installed onto a parent component. */
     @Provides(type = SET)
-    static RequiresMultibindings<BoundInParentAndChild>
+    RequiresMultibindings<BoundInParentAndChild>
         requiresMultibindingsInParentAndChildElement(
             RequiresMultibindings<BoundInParentAndChild> requiresMultibindingsInParentAndChild) {
       return requiresMultibindingsInParentAndChild;
