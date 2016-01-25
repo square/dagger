@@ -63,6 +63,7 @@ public class AbstractProducerTest {
   }
 
   @Test
+  @SuppressWarnings("CheckReturnValue")
   public void get_nullPointerException() {
     Producer<Object> producer = new DelegateProducer<>(componentMonitorProvider, null);
     try {
