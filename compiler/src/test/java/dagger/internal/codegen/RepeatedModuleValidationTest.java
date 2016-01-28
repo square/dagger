@@ -49,7 +49,7 @@ public class RepeatedModuleValidationTest {
         .that(ImmutableList.of(MODULE_FILE, subcomponentFile, componentFile))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining("This module is present in test.TestComponent.")
+        .withErrorContaining("TestModule is present in test.TestComponent.")
         .in(componentFile)
         .onLine(7)
         .atColumn(51);

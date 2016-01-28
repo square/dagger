@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -22,11 +23,13 @@ import com.google.common.collect.Sets;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import java.util.Map;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 import static com.google.common.base.Functions.constant;
+import static java.util.Arrays.asList;
 
 /**
  * Validates the relationships between parent components and subcomponents.
@@ -42,7 +45,7 @@ final class ComponentHierarchyValidator {
 
   private ValidationReport<TypeElement> validateSubcomponentMethods(
       ComponentDescriptor componentDescriptor,
-      Map<TypeElement, TypeElement> existingModuleToOwners) {
+      ImmutableMap<TypeElement, TypeElement> existingModuleToOwners) {
     ValidationReport.Builder<TypeElement> reportBuilder =
         ValidationReport.about(componentDescriptor.componentDefinitionType());
     for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> subcomponentEntry :
@@ -55,17 +58,17 @@ final class ComponentHierarchyValidator {
         case PRODUCTION_SUBCOMPONENT:
           for (VariableElement factoryMethodParameter :
               subcomponentMethodDescriptor.methodElement().getParameters()) {
-            TypeElement origininatingComponent =
-                existingModuleToOwners.get(
-                    MoreTypes.asTypeElement(factoryMethodParameter.asType()));
-            if (origininatingComponent != null) {
+            TypeElement moduleType = MoreTypes.asTypeElement(factoryMethodParameter.asType());
+            TypeElement originatingComponent = existingModuleToOwners.get(moduleType);
+            if (originatingComponent != null) {
               /* Factory method tries to pass a module that is already present in the parent.
                * This is an error. */
               reportBuilder.addError(
                   String.format(
-                      "This module is present in %s. Subcomponents cannot use an instance of a "
+                      "%s is present in %s. A subcomponent cannot use an instance of a "
                           + "module that differs from its parent.",
-                      origininatingComponent.getQualifiedName()),
+                      moduleType.getSimpleName(),
+                      originatingComponent.getQualifiedName()),
                   factoryMethodParameter);
             }
           }
@@ -75,23 +78,32 @@ final class ComponentHierarchyValidator {
           BuilderSpec subcomponentBuilderSpec = subcomponentDescriptor.builderSpec().get();
           for (Map.Entry<TypeElement, ExecutableElement> builderMethodEntry :
               subcomponentBuilderSpec.methodMap().entrySet()) {
-            TypeElement origininatingComponent =
-                existingModuleToOwners.get(builderMethodEntry.getKey());
-            if (origininatingComponent != null) {
-              /* A subcomponent builder allows you to pass a module that is already present in the
-               * parent.  This can't be an error because it might be valid in _other_ components, so
-               * we warn here. */
-              ExecutableElement builderMethodElement = builderMethodEntry.getValue();
+            TypeElement moduleType = builderMethodEntry.getKey();
+            TypeElement originatingComponent = existingModuleToOwners.get(moduleType);
+            /* A subcomponent builder allows you to pass a module that is already present in the
+             * parent.  This can't be an error because it might be valid in _other_ components, so
+             * we warn here, unless the warning is suppressed on the subcomponent method or the
+             * builder method. */
+            ExecutableElement builderMethodElement = builderMethodEntry.getValue();
+            if (originatingComponent != null
+                && !repeatedModuleWarningsSuppressed(subcomponentMethodDescriptor.methodElement())
+                && !repeatedModuleWarningsSuppressed(builderMethodElement)) {
               /* TODO(gak): consider putting this on the builder method directly if it's in the
                * component being compiled */
               reportBuilder.addWarning(
                   String.format(
-                      "This module is present in %s. Subcomponents cannot use an instance of a "
-                          + "module that differs from its parent. The implementation of %s "
-                          + "in this component will throw %s.",
-                      origininatingComponent.getQualifiedName(),
+                      "%1$s is installed in %2$s. A subcomponent cannot use an instance of a "
+                          + "module that differs from its parent. The implementation of %4$s "
+                          + "in %5$s will throw %6$s. To suppress this warning, annotate "
+                          + "either %4$s, %3$s, %5$s.%7$s, or %5$s with "
+                          + "@SuppressWarnings(\"repeated-module\").",
+                      moduleType.getSimpleName(),
+                      originatingComponent.getQualifiedName(),
+                      subcomponentBuilderSpec.builderDefinitionType().getQualifiedName(),
                       builderMethodElement.getSimpleName(),
-                      UnsupportedOperationException.class.getSimpleName()),
+                      componentDescriptor.componentDefinitionType().getQualifiedName(),
+                      UnsupportedOperationException.class.getSimpleName(),
+                      subcomponentMethodDescriptor.methodElement().getSimpleName()),
                   builderMethodElement);
             }
           }
@@ -113,5 +125,20 @@ final class ComponentHierarchyValidator {
                   .build()));
     }
     return reportBuilder.build();
+  }
+
+  private boolean repeatedModuleWarningsSuppressed(Element element) {
+    while (true) {
+      // TODO(dpb): Extract a method to check whether a warning is suppressed on an element.
+      SuppressWarnings suppressWarnings = element.getAnnotation(SuppressWarnings.class);
+      if (suppressWarnings != null
+          && asList(suppressWarnings.value()).contains("repeated-module")) {
+        return true;
+      }
+      if (MoreElements.isType(element)) {
+        return false;
+      }
+      element = element.getEnclosingElement();
+    }
   }
 }
