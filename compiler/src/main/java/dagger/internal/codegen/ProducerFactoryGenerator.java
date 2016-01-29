@@ -44,6 +44,7 @@ import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.javapoetGeneratedClassNameForBinding;
 import static dagger.internal.codegen.TypeNames.ASYNC_FUNCTION;
@@ -120,7 +121,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
     addFieldAndConstructorParameter(factoryBuilder, constructorBuilder, "executor", EXECUTOR);
 
     for (FrameworkField bindingField : fields.values()) {
-      TypeName fieldType = bindingField.javapoetFrameworkType();
+      TypeName fieldType = bindingField.frameworkType();
       addFieldAndConstructorParameter(
           factoryBuilder, constructorBuilder, bindingField.name(), fieldType);
     }
@@ -493,10 +494,6 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
     if (thrownTypes.isEmpty()) {
       return CodeBlocks.format("");
     }
-    return CodeBlocks.format(
-        "throws $L",
-        CodeBlocks.join(
-            FluentIterable.from(thrownTypes)
-                .transform(CodeBlocks.TYPE_MIRROR_TO_CODE_BLOCK), ", "));
+    return CodeBlocks.format("throws $L", makeParametersCodeBlock(toCodeBlocks(thrownTypes)));
   }
 }

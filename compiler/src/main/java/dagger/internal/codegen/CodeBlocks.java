@@ -16,6 +16,8 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterSpec;
 import java.util.Iterator;
@@ -28,8 +30,19 @@ final class CodeBlocks {
     return CodeBlock.builder().add(format, args).build();
   }
 
+  /**
+   * Returns a comma-separated version of {@code codeBlocks} as one unified {@link CodeBlock}.
+   */
   static CodeBlock makeParametersCodeBlock(Iterable<CodeBlock> codeBlocks) {
     return join(codeBlocks, ", ");
+  }
+
+  /**
+   * Returns one unified {@link CodeBlock} which joins each item in {@code codeBlocks} with a
+   * newline.
+   */
+  static CodeBlock concat(Iterable<CodeBlock> codeBlocks) {
+    return join(codeBlocks, "\n");
   }
 
   static CodeBlock join(Iterable<CodeBlock> codeBlocks, String delimiter) {
@@ -44,7 +57,15 @@ final class CodeBlocks {
     return builder.build();
   }
 
-  static final Function<TypeMirror, CodeBlock> TYPE_MIRROR_TO_CODE_BLOCK =
+  static CodeBlock nullCheck(String thingToCheck) {
+    return format("if ($L == null) { throw new NullPointerException(); } ", thingToCheck);
+  }
+
+  static FluentIterable<CodeBlock> toCodeBlocks(Iterable<? extends TypeMirror> typeMirrors) {
+    return FluentIterable.from(typeMirrors).transform(TYPE_MIRROR_TO_CODE_BLOCK);
+  }
+
+  private static final Function<TypeMirror, CodeBlock> TYPE_MIRROR_TO_CODE_BLOCK =
       new Function<TypeMirror, CodeBlock>() {
         @Override
         public CodeBlock apply(TypeMirror typeMirror) {

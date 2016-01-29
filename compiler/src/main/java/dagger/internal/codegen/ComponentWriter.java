@@ -23,22 +23,23 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ClassWriter;
-import dagger.internal.codegen.writer.JavaWriter;
-import dagger.internal.codegen.writer.MethodWriter;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.annotation.Generated;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 
+import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.TypeSpec.classBuilder;
+import static dagger.internal.codegen.TypeSpecs.addSupertype;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -142,58 +143,55 @@ final class ComponentWriter extends AbstractComponentWriter {
   }
 
   @Override
-  protected ClassWriter createComponentClass() {
-    JavaWriter javaWriter = JavaWriter.inPackage(name.packageName());
-    javaWriters.add(javaWriter);
-
-    ClassWriter componentWriter = javaWriter.addClass(name.simpleName());
-    componentWriter.addModifiers(PUBLIC, FINAL);
-    componentWriter.setSupertype(componentDefinitionType());
-    return componentWriter;
+  protected TypeSpec.Builder createComponentClass() {
+    TypeSpec.Builder component = classBuilder(name.simpleName()).addModifiers(PUBLIC, FINAL);
+    addSupertype(component, componentDefinitionType());
+    return component;
   }
 
   @Override
-  protected ClassWriter createBuilder() {
-    ClassWriter builderWriter = componentWriter.addNestedClass("Builder");
-    builderWriter.addModifiers(STATIC);
+  protected ClassName builderName() {
+    return name.nestedClass("Builder");
+  }
+
+  @Override
+  protected TypeSpec.Builder createBuilder(String builderSimpleName) {
+    TypeSpec.Builder builder = classBuilder(builderSimpleName).addModifiers(STATIC);
 
     // Only top-level components have the factory builder() method.
     // Mirror the user's builder API type if they had one.
-    MethodWriter builderFactoryMethod =
-        graph.componentDescriptor().builderSpec().isPresent()
-            ? componentWriter.addMethod(
-                graph
-                    .componentDescriptor()
-                    .builderSpec()
-                    .get()
-                    .builderDefinitionType()
-                    .asType(),
-                "builder")
-            : componentWriter.addMethod(builderWriter, "builder");
-    builderFactoryMethod.addModifiers(PUBLIC, STATIC);
-    builderFactoryMethod.body().addSnippet("return new %s();", builderWriter.name());
-    return builderWriter;
+    MethodSpec builderFactoryMethod =
+        methodBuilder("builder")
+            .addModifiers(PUBLIC, STATIC)
+            .returns(
+                graph.componentDescriptor().builderSpec().isPresent()
+                    ? ClassName.get(
+                        graph.componentDescriptor().builderSpec().get().builderDefinitionType())
+                    : builderName.get())
+            .addStatement("return new $T()", builderName.get())
+            .build();
+    component.addMethod(builderFactoryMethod);
+    return builder;
+  }
+
+  @Override
+  protected void addBuilderClass(TypeSpec builder) {
+    component.addType(builder);
   }
 
   @Override
   protected void addFactoryMethods() {
     if (canInstantiateAllRequirements()) {
-      MethodWriter factoryMethod =
-          componentWriter.addMethod(componentDefinitionTypeName(), "create");
-      factoryMethod.addModifiers(PUBLIC, STATIC);
-      // TODO(gak): replace this with something that doesn't allocate a builder
-      factoryMethod
-          .body()
-          .addSnippet(
-              "return builder().%s();",
-              graph.componentDescriptor().builderSpec().isPresent()
-                  ? graph
-                      .componentDescriptor()
-                      .builderSpec()
-                      .get()
-                      .buildMethod()
-                      .getSimpleName()
-                  : "build");
+      CharSequence buildMethodName =
+          graph.componentDescriptor().builderSpec().isPresent()
+              ? graph.componentDescriptor().builderSpec().get().buildMethod().getSimpleName()
+              : "build";
+      component.addMethod(
+          methodBuilder("create")
+              .returns(componentDefinitionTypeName())
+              .addModifiers(PUBLIC, STATIC)
+              .addStatement("return builder().$L()", buildMethodName)
+              .build());
     }
   }
 

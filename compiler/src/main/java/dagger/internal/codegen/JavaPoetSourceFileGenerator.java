@@ -41,12 +41,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * from an annotation processor.  Particularly, it makes a best effort to ensure that files that
  * fail to write successfully are deleted.
  *
- * <p>This differs from {@link JavaWriterSourceFileGenerator} only in that it uses JavaPoet for
- * constructing the source code model. It is intended for this to take on all usages of JavaWriter.
- *
  * @param <T> The input type from which source is to be generated.
  */
-abstract class JavaPoetSourceFileGenerator<T> implements SourceFileGenerator<T> {
+abstract class JavaPoetSourceFileGenerator<T> {
   private static final String GENERATED_COMMENTS = "https://google.github.io/dagger";
 
   private static final AnnotationSpec GENERATED =
@@ -63,8 +60,8 @@ abstract class JavaPoetSourceFileGenerator<T> implements SourceFileGenerator<T> 
     generatedAnnotationAvailable = elements.getTypeElement("javax.annotation.Generated") != null;
   }
 
-  @Override
-  public final void generate(T input) throws SourceFileGenerationException {
+  /** Generates a source file to be compiled for {@code T}. */
+  void generate(T input) throws SourceFileGenerationException {
     ClassName generatedTypeName = nameGeneratedType(input);
     try {
       Optional<TypeSpec.Builder> type = write(generatedTypeName, input);

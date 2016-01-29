@@ -42,6 +42,6 @@ public class LongCycleTest {
   @Test
   public void longCycleHasMoreThanOneInitializeMethod() throws NoSuchMethodException {
     DaggerLongCycle_LongCycleComponent.class
-        .getDeclaredMethod("initialize1", DaggerLongCycle_LongCycleComponent.Builder.class);
+        .getDeclaredMethod("initialize2", DaggerLongCycle_LongCycleComponent.Builder.class);
   }
 }

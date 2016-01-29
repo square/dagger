@@ -15,15 +15,11 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import dagger.MembersInjector;
 import dagger.internal.MapProviderFactory;
-import dagger.internal.MembersInjectors;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.Snippet;
-import dagger.internal.codegen.writer.TypeNames;
 import dagger.producers.internal.MapOfProducerProducer;
 import java.util.Set;
 import javax.lang.model.type.TypeMirror;
@@ -31,15 +27,22 @@ import javax.lang.model.type.TypeMirror;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.Accessibility.isTypeAccessibleFrom;
+import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
+import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCER_PRODUCER;
+import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
+import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTOR;
+import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
+import static dagger.internal.codegen.TypeNames.SET;
 
 /**
- * Represents a {@link com.sun.source.tree.MemberSelectTree} as a {@link Snippet}.
+ * Represents a {@link com.sun.source.tree.MemberSelectTree} as a {@link CodeBlock}.
  */
 abstract class MemberSelect {
   /**
    * Returns a {@link MemberSelect} that accesses the field given by {@code fieldName} owned by
    * {@code owningClass}.  In this context "local" refers to the fact that the field is owned by the
-   * type (or an enclosing type) from which the snippet will be used.  The returned
+   * type (or an enclosing type) from which the code block will be used.  The returned
    * {@link MemberSelect} will not be valid for accessing the field from a different class
    * (regardless of accessibility).
    */
@@ -56,34 +59,34 @@ abstract class MemberSelect {
     }
 
     @Override
-    Snippet getSnippetFor(ClassName usingClass) {
+    CodeBlock getExpressionFor(ClassName usingClass) {
       return owningClass().equals(usingClass)
-          ? Snippet.format("%s", fieldName)
-          : Snippet.format("%s.this.%s", owningClass(), fieldName);
+          ? CodeBlocks.format("$L", fieldName)
+          : CodeBlocks.format("$T.this.$L", owningClass(), fieldName);
     }
   }
 
   /**
    * Returns a {@link MemberSelect} for the invocation of a static method (given by
-   * {@code methodInvocationSnippet}) on the {@code owningClass}.
+   * {@code methodInvocationCodeBlock}) on the {@code owningClass}.
    */
-  static MemberSelect staticMethod(ClassName owningClass, Snippet methodInvocationSnippet) {
-    return new StaticMethod(owningClass, methodInvocationSnippet);
+  static MemberSelect staticMethod(ClassName owningClass, CodeBlock methodInvocationCodeBlock) {
+    return new StaticMethod(owningClass, methodInvocationCodeBlock);
   }
 
   private static final class StaticMethod extends MemberSelect {
-    final Snippet methodSnippet;
+    final CodeBlock methodCodeBlock;
 
-    StaticMethod(ClassName owningClass, Snippet methodSnippet) {
+    StaticMethod(ClassName owningClass, CodeBlock methodCodeBlock) {
       super(owningClass, true);
-      this.methodSnippet = checkNotNull(methodSnippet);
+      this.methodCodeBlock = checkNotNull(methodCodeBlock);
     }
 
     @Override
-    Snippet getSnippetFor(ClassName usingClass) {
+    CodeBlock getExpressionFor(ClassName usingClass) {
       return owningClass().equals(usingClass)
-          ? methodSnippet
-          : Snippet.format("%s.%s", owningClass(), methodSnippet);
+          ? methodCodeBlock
+          : CodeBlocks.format("$T.$L", owningClass(), methodCodeBlock);
     }
   }
 
@@ -92,10 +95,10 @@ abstract class MemberSelect {
    */
   static MemberSelect noOpMembersInjector(TypeMirror type) {
     return new ParameterizedStaticMethod(
-        ClassName.fromClass(MembersInjectors.class),
+        MEMBERS_INJECTORS,
         ImmutableList.of(type),
-        Snippet.format("noOp()"),
-        ClassName.fromClass(MembersInjector.class));
+        CodeBlocks.format("noOp()"),
+        MEMBERS_INJECTOR);
   }
 
   /**
@@ -107,14 +110,14 @@ abstract class MemberSelect {
   static MemberSelect emptyFrameworkMapFactory(
       ClassName frameworkMapFactoryClass, TypeMirror keyType, TypeMirror unwrappedValueType) {
     checkArgument(
-        frameworkMapFactoryClass.equals(ClassName.fromClass(MapProviderFactory.class))
-            || frameworkMapFactoryClass.equals(ClassName.fromClass(MapOfProducerProducer.class)),
+        frameworkMapFactoryClass.equals(MAP_PROVIDER_FACTORY)
+            || frameworkMapFactoryClass.equals(MAP_OF_PRODUCER_PRODUCER),
         "frameworkMapFactoryClass must be MapProviderFactory or MapOfProducerProducer: %s",
         frameworkMapFactoryClass);
     return new ParameterizedStaticMethod(
         frameworkMapFactoryClass,
         ImmutableList.of(keyType, unwrappedValueType),
-        Snippet.format("empty()"),
+        CodeBlocks.format("empty()"),
         frameworkMapFactoryClass);
   }
 
@@ -127,53 +130,41 @@ abstract class MemberSelect {
     return new ParameterizedStaticMethod(
         setFactoryType,
         ImmutableList.of(setType.elementType()),
-        Snippet.format("create()"),
-        ClassName.fromClass(Set.class));
+        CodeBlocks.format("create()"),
+        SET);
   }
 
-  static final class ParameterizedStaticMethod extends MemberSelect {
+  private static final class ParameterizedStaticMethod extends MemberSelect {
     final ImmutableList<TypeMirror> typeParameters;
-    final Snippet methodSnippet;
+    final CodeBlock methodCodeBlock;
     final ClassName rawReturnType;
 
     ParameterizedStaticMethod(
         ClassName owningClass,
         ImmutableList<TypeMirror> typeParameters,
-        Snippet methodSnippet,
+        CodeBlock methodCodeBlock,
         ClassName rawReturnType) {
       super(owningClass, true);
       this.typeParameters = typeParameters;
-      this.methodSnippet = methodSnippet;
+      this.methodCodeBlock = methodCodeBlock;
       this.rawReturnType = rawReturnType;
     }
 
     @Override
-    Snippet getSnippetFor(ClassName usingClass) {
+    CodeBlock getExpressionFor(ClassName usingClass) {
       boolean accessible = true;
       for (TypeMirror typeParameter : typeParameters) {
         accessible &= isTypeAccessibleFrom(typeParameter, usingClass.packageName());
       }
 
       if (accessible) {
-        Snippet typeParametersSnippet = Snippet.makeParametersSnippet(
-            FluentIterable.from(typeParameters)
-                .transform(new Function<TypeMirror, Snippet>() {
-                  @Override
-                  public Snippet apply(TypeMirror input) {
-                    return Snippet.format("%s", TypeNames.forTypeMirror(input));
-                  }
-                }));
-        return Snippet.format(
-            "%s.<%s>%s",
+        return CodeBlocks.format(
+            "$T.<$L>$L",
             owningClass(),
-            typeParametersSnippet,
-            methodSnippet);
+            makeParametersCodeBlock(toCodeBlocks(typeParameters)),
+            methodCodeBlock);
       } else {
-        return Snippet.format(
-            "((%s) %s.%s)",
-            rawReturnType,
-            owningClass(),
-            methodSnippet);
+        return CodeBlocks.format("(($T) $T.$L)", rawReturnType, owningClass(), methodCodeBlock);
       }
     }
   }
@@ -200,7 +191,8 @@ abstract class MemberSelect {
   }
 
   /**
-   * Returns a {@link Snippet} suitable for accessing the member from the given {@code usingClass}.
+   * Returns a {@link CodeBlock} suitable for accessing the member from the given {@code
+   * usingClass}.
    */
-  abstract Snippet getSnippetFor(ClassName usingClass);
+  abstract CodeBlock getExpressionFor(ClassName usingClass);
 }

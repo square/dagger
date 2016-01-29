@@ -17,11 +17,10 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
 import dagger.MembersInjector;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ParameterizedTypeName;
-import dagger.internal.codegen.writer.TypeName;
-import dagger.internal.codegen.writer.TypeNames;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
@@ -63,14 +62,13 @@ public class BindingFieldTest {
   @Test public void frameworkType() {
     Key key = keyFactory.forInjectConstructorWithResolvedType(
         getXConstructor().getEnclosingElement().asType());
-    TypeName xClass = TypeNames.forTypeMirror(key.type());
+    TypeName xClass = TypeName.get(key.type());
     assertThat(FrameworkField.createWithTypeFromKey(Provider.class, key, "test").frameworkType())
-        .isEqualTo(ParameterizedTypeName.create(ClassName.fromClass(Provider.class), xClass));
+        .isEqualTo(ParameterizedTypeName.get(ClassName.get(Provider.class), xClass));
     assertThat(
             FrameworkField.createWithTypeFromKey(MembersInjector.class, key, "test")
                 .frameworkType())
-        .isEqualTo(
-            ParameterizedTypeName.create(ClassName.fromClass(MembersInjector.class), xClass));
+        .isEqualTo(ParameterizedTypeName.get(ClassName.get(MembersInjector.class), xClass));
   }
 
   @Test public void nameSuffix() {

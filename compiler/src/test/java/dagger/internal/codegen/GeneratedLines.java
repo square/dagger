@@ -21,11 +21,6 @@ package dagger.internal.codegen;
 public final class GeneratedLines {
   public static final String GENERATED_ANNOTATION =
       "@Generated("
-          + "comments = \"https://google.github.io/dagger\", "
-          + "value = \"dagger.internal.codegen.ComponentProcessor\")";
-
-  public static final String GENERATED_ANNOTATION_JAVAPOET =
-      "@Generated("
           + "value = \"dagger.internal.codegen.ComponentProcessor\", "
           + "comments = \"https://google.github.io/dagger\")";
 }

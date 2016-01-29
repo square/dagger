@@ -18,9 +18,9 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ParameterizedTypeName;
-import dagger.internal.codegen.writer.TypeNames;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
@@ -40,22 +40,16 @@ abstract class FrameworkField {
   static FrameworkField createWithTypeFromKey(Class<?> frameworkClass, Key key, String name) {
     String suffix = frameworkClass.getSimpleName();
     ParameterizedTypeName frameworkType =
-        ParameterizedTypeName.create(
-            ClassName.fromClass(frameworkClass), TypeNames.forTypeMirror(key.type()));
-    com.squareup.javapoet.ParameterizedTypeName javapoetFrameworkType =
-        com.squareup.javapoet.ParameterizedTypeName.get(
-            com.squareup.javapoet.ClassName.get(frameworkClass),
-            com.squareup.javapoet.TypeName.get(key.type()));
+        ParameterizedTypeName.get(ClassName.get(frameworkClass), TypeName.get(key.type()));
     return new AutoValue_FrameworkField(
-        javapoetFrameworkType, frameworkType, name.endsWith(suffix) ? name : name + suffix);
+        frameworkType, name.endsWith(suffix) ? name : name + suffix);
   }
 
   private static FrameworkField createForMapBindingContribution(Key key, String name) {
     TypeMirror type = MapType.from(key.type()).valueType();
     String suffix = MoreTypes.asDeclared(type).asElement().getSimpleName().toString();
     return new AutoValue_FrameworkField(
-        (com.squareup.javapoet.ParameterizedTypeName) com.squareup.javapoet.TypeName.get(type),
-        (ParameterizedTypeName) TypeNames.forTypeMirror(type),
+        (ParameterizedTypeName) TypeName.get(type),
         name.endsWith(suffix) ? name : name + suffix);
   }
 
@@ -106,7 +100,6 @@ abstract class FrameworkField {
         }
       };
 
-  abstract com.squareup.javapoet.ParameterizedTypeName javapoetFrameworkType();
   abstract ParameterizedTypeName frameworkType();
   abstract String name();
 }

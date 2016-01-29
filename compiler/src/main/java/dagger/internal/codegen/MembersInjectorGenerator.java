@@ -142,7 +142,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
     ImmutableList.Builder<CodeBlock> constructorInvocationParameters = ImmutableList.builder();
 
     boolean usesRawFrameworkTypes = false;
-    UniqueNames fieldNames = new UniqueNames();
+    UniqueNameSet fieldNames = new UniqueNameSet();
     for (Entry<BindingKey, FrameworkField> fieldEntry : fields.entrySet()) {
       BindingKey bindingKey = fieldEntry.getKey();
       FrameworkField bindingField = fieldEntry.getValue();
@@ -155,8 +155,8 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       String fieldName = fieldNames.getUniqueName(bindingField.name());
       TypeName fieldType =
           useRawFrameworkType
-              ? bindingField.javapoetFrameworkType().rawType
-              : bindingField.javapoetFrameworkType();
+              ? bindingField.frameworkType().rawType
+              : bindingField.frameworkType();
       FieldSpec.Builder fieldBuilder = FieldSpec.builder(fieldType, fieldName, PRIVATE, FINAL);
       ParameterSpec.Builder parameterBuilder = ParameterSpec.builder(fieldType, fieldName);
 
@@ -385,17 +385,4 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
           return visibleToMembersInjector(p, t.asElement());
         }
       };
-
-  private static final class UniqueNames {
-    private final Set<String> uniqueNames = new HashSet<>();
-
-    String getUniqueName(String base) {
-      String name = base;
-      for (int differentiator = 2; !uniqueNames.add(name); differentiator++) {
-        name = base + differentiator;
-      }
-      uniqueNames.add(name);
-      return name;
-    }
-  }
 }

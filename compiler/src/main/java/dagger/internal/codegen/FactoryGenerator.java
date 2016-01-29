@@ -141,7 +141,7 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
         }
         for (FrameworkField bindingField : fields.values()) {
           addConstructorParameterAndTypeField(
-              bindingField.javapoetFrameworkType(),
+              bindingField.frameworkType(),
               bindingField.name(),
               factoryBuilder,
               constructorBuilder.get());
