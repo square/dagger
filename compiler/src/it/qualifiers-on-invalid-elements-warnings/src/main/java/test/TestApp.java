@@ -41,7 +41,7 @@ class TestApp {
     @MyQualifier 
     int fieldWithWarningSuppressed2;
     
-    // qualfier on non-injectable constructor parameter
+    // qualifier on non-injectable constructor parameter
     public TestClass(@MyQualifier String constructorParam) {}
     
     @MyQualifier 

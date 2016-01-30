@@ -29,7 +29,7 @@ class TestApp {
   @MyQualifier
   static class TestClass1 {
     
-    @MyQualifier // qualfier on non-injectable constructor
+    @MyQualifier // qualifier on non-injectable constructor
     public TestClass1(String constructorParam) {}
   }
   
