@@ -123,6 +123,10 @@ import static javax.lang.model.type.TypeKind.VOID;
  * Creates the implementation class for a component or subcomponent.
  */
 abstract class AbstractComponentWriter {
+  private static final String NOOP_BUILDER_METHOD_JAVADOC =
+      "This module is declared, but an instance is not used in the component. This method is a "
+          + "no-op. For more, see https://google.github.io/dagger/unused-modules.\n";
+
   // TODO(dpb): Make all these fields private after refactoring is complete.
   protected final Elements elements;
   protected final Types types;
@@ -377,9 +381,7 @@ abstract class AbstractComponentWriter {
           addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
         } else if (graph.ownedModuleTypes().contains(builderMethodType)) {
           // owned, but not required
-          builderMethod.addCode(
-              "// This module is declared, but not used in the component. This method is a "
-                  + "no-op\n");
+          builderMethod.addJavadoc(NOOP_BUILDER_METHOD_JAVADOC);
           addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
         } else {
           // neither owned nor required, so it must be an inherited module
@@ -405,6 +407,7 @@ abstract class AbstractComponentWriter {
           builderMethod.addStatement(
               "this.$N = $L", builderFields.get(componentRequirement), componentRequirementName);
         } else {
+          builderMethod.addJavadoc("@deprecated " + NOOP_BUILDER_METHOD_JAVADOC);
           builderMethod.addAnnotation(Deprecated.class);
         }
         builderMethod.addStatement("return this");
@@ -743,7 +746,7 @@ abstract class AbstractComponentWriter {
     if (memberSelect.staticMember() || !memberSelect.owningClass().equals(name)) {
       return Optional.absent();
     }
-    
+
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
         return initializeContributionBinding(bindingKey);
