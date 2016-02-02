@@ -46,7 +46,7 @@ import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKE
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.javapoetGeneratedClassNameForBinding;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.TypeNames.ASYNC_FUNCTION;
 import static dagger.internal.codegen.TypeNames.EXECUTOR;
 import static dagger.internal.codegen.TypeNames.FUTURES;
@@ -78,7 +78,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
 
   @Override
   ClassName nameGeneratedType(ProductionBinding binding) {
-    return javapoetGeneratedClassNameForBinding(binding);
+    return generatedClassNameForBinding(binding);
   }
 
   @Override

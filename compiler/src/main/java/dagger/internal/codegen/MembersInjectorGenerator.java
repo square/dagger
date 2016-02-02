@@ -59,8 +59,8 @@ import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKE
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.javapoetMembersInjectorNameForType;
-import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
+import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
 import static dagger.internal.codegen.TypeNames.membersInjectorOf;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -81,7 +81,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
 
   @Override
   ClassName nameGeneratedType(MembersInjectionBinding binding) {
-    return javapoetMembersInjectorNameForType(binding.bindingElement());
+    return membersInjectorNameForType(binding.bindingElement());
   }
 
   @Override
@@ -138,7 +138,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
             .addTypeVariables(typeParameters);
 
     createMethodBuilder.addCode(
-        "return new $T(", javapoetParameterizedGeneratedTypeNameForBinding(binding));
+        "return new $T(", parameterizedGeneratedTypeNameForBinding(binding));
     ImmutableList.Builder<CodeBlock> constructorInvocationParameters = ImmutableList.builder();
 
     boolean usesRawFrameworkTypes = false;
@@ -252,7 +252,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       ImmutableMap<BindingKey, FieldSpec> dependencyFields, InjectionSite injectionSite) {
     return CodeBlocks.format(
         "$L.$L($L);",
-        javapoetMembersInjectorNameForType(
+        membersInjectorNameForType(
             MoreElements.asType(injectionSite.element().getEnclosingElement())),
         injectionSiteDelegateMethodName(injectionSite.element()),
         makeParametersCodeBlock(

@@ -35,13 +35,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.squareup.javapoet.TypeName;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
-import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
@@ -409,7 +409,7 @@ public class BindingGraphValidator {
        * (Maybe this happens if the code was already compiled before this point?)
        * ... we manually print out the request in that case, otherwise the error
        * message is kind of useless. */
-      String typeName = TypeNames.forTypeMirror(request.key().type()).toString();
+      String typeName = TypeName.get(request.key().type()).toString();
 
       boolean valid = true;
       for (ContributionBinding binding : bindings) {

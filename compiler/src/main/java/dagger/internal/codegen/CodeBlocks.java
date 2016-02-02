@@ -65,6 +65,10 @@ final class CodeBlocks {
     return FluentIterable.from(typeMirrors).transform(TYPE_MIRROR_TO_CODE_BLOCK);
   }
 
+  static CodeBlock stringLiteral(String toWrap) {
+    return format("$S", toWrap);
+  }
+
   private static final Function<TypeMirror, CodeBlock> TYPE_MIRROR_TO_CODE_BLOCK =
       new Function<TypeMirror, CodeBlock>() {
         @Override

@@ -56,8 +56,8 @@ import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateBindingFieldsForDependencies;
-import static dagger.internal.codegen.SourceFiles.javapoetGeneratedClassNameForBinding;
-import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
 import static dagger.internal.codegen.TypeNames.factoryOf;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -85,7 +85,7 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
 
   @Override
   ClassName nameGeneratedType(ProvisionBinding binding) {
-    return javapoetGeneratedClassNameForBinding(binding);
+    return generatedClassNameForBinding(binding);
   }
 
   @Override
@@ -191,7 +191,7 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
           case CLASS_CONSTRUCTOR:
             createMethodBuilder.addStatement(
                 "return new $T($L)",
-                javapoetParameterizedGeneratedTypeNameForBinding(binding),
+                parameterizedGeneratedTypeNameForBinding(binding),
                 makeParametersCodeBlock(
                     Lists.transform(params, CodeBlocks.PARAMETER_NAME)));
             break;

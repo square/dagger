@@ -23,13 +23,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
-import dagger.internal.DoubleCheckLazy;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.ParameterizedTypeName;
-import dagger.internal.codegen.writer.Snippet;
-import dagger.internal.codegen.writer.TypeName;
 import java.util.Iterator;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -49,7 +47,8 @@ import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK_LAZY;
  */
 class SourceFiles {
 
-  private static final Joiner CLASS_FILE_NAME_JOINER = Joiner.on('$');
+  private static final Joiner CLASS_FILE_NAME_JOINER = Joiner.on('_');
+  private static final Joiner CANONICAL_NAME_JOINER = Joiner.on('$');
 
   /**
    * Sorts {@link DependencyRequest} instances in an order likely to reflect their logical
@@ -122,24 +121,6 @@ class SourceFiles {
     }
   }
 
-  static Snippet frameworkTypeUsageStatement(Snippet frameworkTypeMemberSelect,
-      DependencyRequest.Kind dependencyKind) {
-    switch (dependencyKind) {
-      case LAZY:
-        return Snippet.format("%s.create(%s)", ClassName.fromClass(DoubleCheckLazy.class),
-            frameworkTypeMemberSelect);
-      case INSTANCE:
-      case FUTURE:
-        return Snippet.format("%s.get()", frameworkTypeMemberSelect);
-      case PROVIDER:
-      case PRODUCER:
-      case MEMBERS_INJECTOR:
-        return Snippet.format("%s", frameworkTypeMemberSelect);
-      default:
-        throw new AssertionError();
-    }
-  }
-
   static CodeBlock frameworkTypeUsageStatement(
       CodeBlock frameworkTypeMemberSelect, DependencyRequest.Kind dependencyKind) {
     switch (dependencyKind) {
@@ -167,7 +148,7 @@ class SourceFiles {
       case PRODUCTION:
         ContributionBinding contribution = (ContributionBinding) binding;
         checkArgument(!contribution.isSyntheticBinding());
-        ClassName enclosingClassName = ClassName.fromTypeElement(contribution.bindingTypeElement());
+        ClassName enclosingClassName = ClassName.get(contribution.bindingTypeElement());
         switch (contribution.bindingKind()) {
           case INJECTION:
           case PROVISION:
@@ -175,8 +156,8 @@ class SourceFiles {
           case FUTURE_PRODUCTION:
             return enclosingClassName
                 .topLevelClassName()
-                .peerNamed(
-                    enclosingClassName.classFileName()
+                .peerClass(
+                    canonicalName(enclosingClassName)
                         + "_"
                         + factoryPrefix(contribution)
                         + "Factory");
@@ -193,61 +174,16 @@ class SourceFiles {
     }
   }
 
-  /**
-   * Returns the generated factory or members injector name parameterized with the proper type
-   * parameters if necessary.
-   */
-  static TypeName parameterizedGeneratedTypeNameForBinding(Binding binding) {
-    return generatedClassNameForBinding(binding).withTypeParameters(bindingTypeParameters(binding));
-  }
-
-  /**
-   * Returns the generated factory or members injector name for a binding.
-   */
-  static com.squareup.javapoet.ClassName javapoetGeneratedClassNameForBinding(Binding binding) {
-    switch (binding.bindingType()) {
-      case PROVISION:
-      case PRODUCTION:
-        ContributionBinding contribution = (ContributionBinding) binding;
-        checkArgument(!contribution.isSyntheticBinding());
-        com.squareup.javapoet.ClassName enclosingClassName =
-            com.squareup.javapoet.ClassName.get(contribution.bindingTypeElement());
-        switch (contribution.bindingKind()) {
-          case INJECTION:
-          case PROVISION:
-          case IMMEDIATE:
-          case FUTURE_PRODUCTION:
-            return enclosingClassName
-                .topLevelClassName()
-                .peerClass(
-                    classFileName(enclosingClassName)
-                        + "_"
-                        + factoryPrefix(contribution)
-                        + "Factory");
-
-          default:
-            throw new AssertionError();
-        }
-
-      case MEMBERS_INJECTION:
-        return javapoetMembersInjectorNameForType(binding.bindingTypeElement());
-
-      default:
-        throw new AssertionError();
-    }
-  }
-
-  static com.squareup.javapoet.TypeName javapoetParameterizedGeneratedTypeNameForBinding(
+  static TypeName parameterizedGeneratedTypeNameForBinding(
       Binding binding) {
-    com.squareup.javapoet.ClassName className = javapoetGeneratedClassNameForBinding(binding);
-    ImmutableList<com.squareup.javapoet.TypeName> typeParameters =
-        javapoetBindingTypeParameters(binding);
+    ClassName className = generatedClassNameForBinding(binding);
+    ImmutableList<TypeName> typeParameters = bindingTypeParameters(binding);
     if (typeParameters.isEmpty()) {
       return className;
     } else {
-      return com.squareup.javapoet.ParameterizedTypeName.get(
+      return ParameterizedTypeName.get(
           className,
-          FluentIterable.from(typeParameters).toArray(com.squareup.javapoet.TypeName.class));
+          FluentIterable.from(typeParameters).toArray(TypeName.class));
     }
   }
 
@@ -285,58 +221,45 @@ class SourceFiles {
     }
   }
 
-  private static ImmutableList<TypeName> bindingTypeParameters(Binding binding) {
-    Optional<TypeMirror> typeMirror = typeMirrorForBindingTypeParameters(binding);
-    if (!typeMirror.isPresent()) {
-      return ImmutableList.of();
-    }
-    TypeName bindingTypeName = dagger.internal.codegen.writer.TypeNames.forTypeMirror(typeMirror.get());
-    return bindingTypeName instanceof ParameterizedTypeName
-        ? ((ParameterizedTypeName) bindingTypeName).parameters()
-        : ImmutableList.<TypeName>of();
-  }
-
-  static ImmutableList<com.squareup.javapoet.TypeName> javapoetBindingTypeParameters(
+  static ImmutableList<TypeName> bindingTypeParameters(
       Binding binding) {
     Optional<TypeMirror> typeMirror = typeMirrorForBindingTypeParameters(binding);
     if (!typeMirror.isPresent()) {
       return ImmutableList.of();
     }
-    com.squareup.javapoet.TypeName bindingTypeName =
-        com.squareup.javapoet.TypeName.get(typeMirror.get());
-    return bindingTypeName instanceof com.squareup.javapoet.ParameterizedTypeName
-        ? ImmutableList.copyOf(
-            ((com.squareup.javapoet.ParameterizedTypeName) bindingTypeName).typeArguments)
-        : ImmutableList.<com.squareup.javapoet.TypeName>of();
-  }
-  
-  static ClassName membersInjectorNameForType(TypeElement typeElement) {
-    ClassName injectedClassName = ClassName.fromTypeElement(typeElement);
-    return injectedClassName
-        .topLevelClassName()
-        .peerNamed(injectedClassName.classFileName() + "_MembersInjector");
+    TypeName bindingTypeName = TypeName.get(typeMirror.get());
+    return bindingTypeName instanceof ParameterizedTypeName
+        ? ImmutableList.copyOf(((ParameterizedTypeName) bindingTypeName).typeArguments)
+        : ImmutableList.<TypeName>of();
   }
 
-  static com.squareup.javapoet.ClassName javapoetMembersInjectorNameForType(
-      TypeElement typeElement) {
+  static ClassName membersInjectorNameForType(TypeElement typeElement) {
     return siblingClassName(typeElement,  "_MembersInjector");
   }
 
-  static String classFileName(com.squareup.javapoet.ClassName className) {
+  /**
+   * @deprecated prefer {@link #classFileName(ClassName)} instead and avoid dollar signs in
+   * generated source.
+   */
+  @Deprecated
+  static String canonicalName(ClassName className) {
+    return CANONICAL_NAME_JOINER.join(className.simpleNames());
+  }
+
+  static String classFileName(ClassName className) {
     return CLASS_FILE_NAME_JOINER.join(className.simpleNames());
   }
 
-  static com.squareup.javapoet.ClassName generatedMonitoringModuleName(
+  static ClassName generatedMonitoringModuleName(
       TypeElement componentElement) {
     return siblingClassName(componentElement, "_MonitoringModule");
   }
 
-  // TODO(ronshapiro): when JavaPoet migration is complete, replace the duplicated code which could
-  // use this.
-  private static com.squareup.javapoet.ClassName siblingClassName(
-      TypeElement typeElement, String suffix) {
-    com.squareup.javapoet.ClassName className = com.squareup.javapoet.ClassName.get(typeElement);
-    return className.topLevelClassName().peerClass(classFileName(className) + suffix);
+  // TODO(ronshapiro): when JavaPoet migration is complete, replace the duplicated code
+  // which could use this.
+  private static ClassName siblingClassName(TypeElement typeElement, String suffix) {
+    ClassName className = ClassName.get(typeElement);
+    return className.topLevelClassName().peerClass(canonicalName(className) + suffix);
   }
 
   private static String factoryPrefix(ContributionBinding binding) {

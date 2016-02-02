@@ -17,8 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.Provides;
-import dagger.internal.codegen.writer.StringLiteral;
+import com.squareup.javapoet.CodeBlock;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,8 +47,8 @@ public class ModuleFactoryGeneratorTest {
       "package test;",
       "public @interface Nullable {}");
 
-  private static final StringLiteral NPE_LITERAL =
-      StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
+  private static final CodeBlock NPE_LITERAL =
+      CodeBlocks.stringLiteral(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
 
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject

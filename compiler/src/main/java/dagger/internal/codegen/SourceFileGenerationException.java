@@ -16,9 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import dagger.internal.codegen.writer.ClassName;
+import com.squareup.javapoet.ClassName;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 
@@ -37,52 +35,17 @@ import static javax.tools.Diagnostic.Kind.ERROR;
  */
 final class SourceFileGenerationException extends Exception {
   // TODO(ronshapiro): remove these unused values
-  private final ImmutableSet<ClassName> generatedClassNames;
   private final Optional<? extends Element> associatedElement;
 
-  SourceFileGenerationException(Iterable<ClassName> generatedClassNames, Throwable cause,
-      Optional<? extends Element> associatedElement) {
-    super(createMessage(generatedClassNames, cause.getMessage()), cause);
-    this.generatedClassNames = ImmutableSet.copyOf(generatedClassNames);
-    this.associatedElement = checkNotNull(associatedElement);
-  }
-
-  SourceFileGenerationException(Iterable<ClassName> generatedClassNames, Throwable cause) {
-    this(generatedClassNames, cause, Optional.<Element>absent());
-  }
-
-  SourceFileGenerationException(Iterable<ClassName> generatedClassNames, Throwable cause,
-      Element associatedElement) {
-    this(generatedClassNames, cause, Optional.of(associatedElement));
-  }
-
   SourceFileGenerationException(
-      Optional<com.squareup.javapoet.ClassName> generatedClassName,
+      Optional<ClassName> generatedClassName,
       Throwable cause,
       Optional<? extends Element> associatedElement) {
     super(createMessage(generatedClassName, cause.getMessage()), cause);
-    this.generatedClassNames = ImmutableSet.of();
     this.associatedElement = checkNotNull(associatedElement);
   }
 
-  public ImmutableSet<ClassName> generatedClassNames() {
-    return generatedClassNames;
-  }
-
-  public Optional<? extends Element> associatedElement() {
-    return associatedElement;
-  }
-
-  private static String createMessage(Iterable<ClassName> generatedClassNames, String message) {
-    return String.format("Could not generate %s: %s.",
-        Iterables.isEmpty(generatedClassNames)
-            ? "unknown files"
-            : Iterables.toString(generatedClassNames),
-        message);
-  }
-
-  private static String createMessage(
-      Optional<com.squareup.javapoet.ClassName> generatedClassName, String message) {
+  private static String createMessage(Optional<ClassName> generatedClassName, String message) {
     return String.format("Could not generate %s: %s.",
         generatedClassName.isPresent()
             ? generatedClassName.get()

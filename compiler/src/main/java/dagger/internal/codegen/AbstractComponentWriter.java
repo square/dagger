@@ -87,8 +87,8 @@ import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
 import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.javapoetGeneratedClassNameForBinding;
-import static dagger.internal.codegen.SourceFiles.javapoetMembersInjectorNameForType;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
 import static dagger.internal.codegen.TypeNames.FACTORY;
 import static dagger.internal.codegen.TypeNames.ILLEGAL_STATE_EXCEPTION;
@@ -531,7 +531,7 @@ abstract class AbstractComponentWriter {
             default:
               return Optional.of(
                   staticMethod(
-                      javapoetGeneratedClassNameForBinding(contributionBinding),
+                      generatedClassNameForBinding(contributionBinding),
                       CodeBlocks.format("create()")));
           }
         }
@@ -922,7 +922,7 @@ abstract class AbstractComponentWriter {
           CodeBlock factoryCreate =
               CodeBlocks.format(
                   "$T.create($L)",
-                  javapoetGeneratedClassNameForBinding(binding),
+                  generatedClassNameForBinding(binding),
                   makeParametersCodeBlock(arguments));
           return binding.scope().isPresent()
               ? CodeBlocks.format("$T.create($L)", SCOPED_PROVIDER, factoryCreate)
@@ -966,7 +966,7 @@ abstract class AbstractComponentWriter {
 
           return CodeBlocks.format(
               "new $T($L)",
-              javapoetGeneratedClassNameForBinding(binding),
+              generatedClassNameForBinding(binding),
               makeParametersCodeBlock(arguments));
         }
 
@@ -1000,7 +1000,7 @@ abstract class AbstractComponentWriter {
       case INJECT_MEMBERS:
         return CodeBlocks.format(
             "$T.create($L)",
-            javapoetMembersInjectorNameForType(binding.bindingElement()),
+            membersInjectorNameForType(binding.bindingElement()),
             makeParametersCodeBlock(getDependencyArguments(binding)));
       default:
         throw new AssertionError();

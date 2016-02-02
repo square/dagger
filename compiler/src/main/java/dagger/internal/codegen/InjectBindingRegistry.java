@@ -24,9 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.squareup.javapoet.ClassName;
 import dagger.Component;
 import dagger.Provides;
-import dagger.internal.codegen.writer.ClassName;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
@@ -116,10 +116,9 @@ final class InjectBindingRegistry {
     /** Returns true if the binding needs to be generated. */
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
       return !binding.unresolved().isPresent()
-          && elements.getTypeElement(factoryName.canonicalName()) == null
+          && elements.getTypeElement(factoryName.toString()) == null
           && !materializedBindingKeys.contains(binding.key())
           && !bindingsRequiringGeneration.contains(binding);
-
     }
 
     /** Caches the binding for future lookups by key. */

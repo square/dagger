@@ -48,7 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.SourceFiles.classFileName;
+import static dagger.internal.codegen.SourceFiles.canonicalName;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
@@ -136,11 +136,9 @@ final class MapKeys {
    * Returns the name of the generated class that contains the static {@code create} methods for a
    * {@link MapKey} annotation type.
    */
-  public static com.squareup.javapoet.ClassName getJavapoetMapKeyCreatorClassName(
-      TypeElement mapKeyType) {
-    com.squareup.javapoet.ClassName mapKeyTypeName =
-        com.squareup.javapoet.ClassName.get(mapKeyType);
-    return mapKeyTypeName.topLevelClassName().peerClass(classFileName(mapKeyTypeName) + "Creator");
+  public static ClassName getMapKeyCreatorClassName(TypeElement mapKeyType) {
+    ClassName mapKeyTypeName = ClassName.get(mapKeyType);
+    return mapKeyTypeName.topLevelClassName().peerClass(canonicalName(mapKeyTypeName) + "Creator");
   }
 
   /**
@@ -155,7 +153,7 @@ final class MapKeys {
   static CodeBlock getMapKeyExpression(Element bindingElement) {
     AnnotationMirror mapKey = getMapKey(bindingElement).get();
     ClassName mapKeyCreator =
-        getJavapoetMapKeyCreatorClassName(MoreTypes.asTypeElement(mapKey.getAnnotationType()));
+        getMapKeyCreatorClassName(MoreTypes.asTypeElement(mapKey.getAnnotationType()));
     Optional<? extends AnnotationValue> unwrappedValue = unwrapValue(mapKey);
     if (unwrappedValue.isPresent()) {
       return new MapKeyExpressionExceptArrays(mapKeyCreator)
