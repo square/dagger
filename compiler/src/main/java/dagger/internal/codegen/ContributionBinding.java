@@ -21,6 +21,7 @@ import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
@@ -38,6 +39,8 @@ import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
 import static dagger.internal.codegen.MapKeys.getMapKey;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -61,7 +64,7 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
       return Sets.union(membersInjectionRequest().asSet(), dependencies());
     }
   }
-  
+
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
 
@@ -80,8 +83,19 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    * implicitly by the framework.
    */
   boolean isSyntheticBinding() {
-    return bindingKind().equals(Kind.SYNTHETIC_MAP);
+    return IS_SYNTHETIC_KIND.apply(bindingKind());
   }
+
+  /**
+   * A function that returns the kind of a binding.
+   */
+  static final Function<ContributionBinding, Kind> KIND =
+      new Function<ContributionBinding, Kind>() {
+        @Override
+        public Kind apply(ContributionBinding binding) {
+          return binding.bindingKind();
+        }
+      };
 
   /** If this provision requires members injection, this will be the corresponding request. */
   abstract Optional<DependencyRequest> membersInjectionRequest();
@@ -96,6 +110,18 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      * {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}.
      */
     SYNTHETIC_MAP,
+
+    /**
+     * A synthetic binding for a multibound set that depends on the individual multibinding
+     * {@link Provides @Provides} or {@link Produces @Produces} methods.
+     */
+    SYNTHETIC_MULTIBOUND_SET,
+
+    /**
+     * A synthetic binding for a multibound map that depends on the individual multibinding
+     * {@link Provides @Provides} or {@link Produces @Produces} methods.
+     */
+    SYNTHETIC_MULTIBOUND_MAP,
 
     // Provision kinds
 
@@ -131,6 +157,36 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      * {@link ListenableFuture} are considered {@linkplain #PROVISION provision bindings}.
      */
     COMPONENT_PRODUCTION,
+    ;
+
+    /**
+     * A predicate that tests whether a kind is for synthetic bindings.
+     */
+    static final Predicate<Kind> IS_SYNTHETIC_KIND =
+        Predicates.in(
+            immutableEnumSet(SYNTHETIC_MAP, SYNTHETIC_MULTIBOUND_SET, SYNTHETIC_MULTIBOUND_MAP));
+
+    /**
+     * A predicate that tests whether a kind is for synthetic multibindings.
+     */
+    static final Predicate<Kind> IS_SYNTHETIC_MULTIBINDING_KIND =
+        Predicates.in(immutableEnumSet(SYNTHETIC_MULTIBOUND_SET, SYNTHETIC_MULTIBOUND_MAP));
+
+    /**
+     * {@link #SYNTHETIC_MULTIBOUND_SET} or {@link #SYNTHETIC_MULTIBOUND_MAP}, depending on the
+     * request's key.
+     */
+    static Kind forMultibindingRequest(DependencyRequest request) {
+      Key key = request.key();
+      if (SetType.isSet(key.type())) {
+        return SYNTHETIC_MULTIBOUND_SET;
+      } else if (MapType.isMap(key.type())) {
+        return SYNTHETIC_MULTIBOUND_MAP;
+      } else {
+        throw new IllegalArgumentException(
+            String.format("request is not for a set or map: %s", request));
+      }
+    }
   }
 
   /**
@@ -141,12 +197,8 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
   /**
    * A predicate that passes for bindings of a given kind.
    */
-  static Predicate<ContributionBinding> isOfKind(final Kind kind) {
-    return new Predicate<ContributionBinding>() {
-      @Override
-      public boolean apply(ContributionBinding binding) {
-        return binding.bindingKind().equals(kind);
-      }};
+  static Predicate<ContributionBinding> isOfKind(Kind kind) {
+    return Predicates.compose(Predicates.equalTo(kind), KIND);
   }
 
   /** The provision type that was used to bind the key. */
@@ -180,10 +232,12 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
             : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
 
       case INJECTION:
+      case SYNTHETIC_MULTIBOUND_SET:
+      case SYNTHETIC_MULTIBOUND_MAP:
         return implicitDependencies().isEmpty()
             ? FactoryCreationStrategy.ENUM_INSTANCE
             : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
-
+        
       default:
         return FactoryCreationStrategy.CLASS_CONSTRUCTOR;
     }

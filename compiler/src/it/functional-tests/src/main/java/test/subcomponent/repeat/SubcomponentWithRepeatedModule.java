@@ -30,6 +30,7 @@ interface SubcomponentWithRepeatedModule {
 
   @Subcomponent.Builder
   interface Builder {
+    @SuppressWarnings("repeated-module")
     Builder repeatedModule(RepeatedModule repeatedModule);
 
     SubcomponentWithRepeatedModule build();

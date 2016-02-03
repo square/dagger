@@ -18,6 +18,8 @@ package dagger.producers;
 import dagger.internal.Beta;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.CheckReturnValue;
+
 /**
  * An interface that represents the production of a type {@code T}. You can also inject
  * {@code Producer<T>} instead of {@code T}, which will delay the execution of any code that
@@ -100,5 +102,6 @@ public interface Producer<T> {
    * <p>If the key is bound to a {@link Produces} method, then calling this method multiple times
    * will return the same future.
    */
+  @CheckReturnValue
   ListenableFuture<T> get();
 }

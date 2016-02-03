@@ -56,12 +56,12 @@ import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
-import static dagger.internal.codegen.TypeNames.membersInjectorOf;
+import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.javapoetMembersInjectorNameForType;
-import static dagger.internal.codegen.SourceFiles.javapoetParameterizedGeneratedTypeNameForBinding;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
+import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
+import static dagger.internal.codegen.TypeNames.membersInjectorOf;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -74,17 +74,14 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @since 2.0
  */
 final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<MembersInjectionBinding> {
-  private final DependencyRequestMapper dependencyRequestMapper;
 
-  MembersInjectorGenerator(
-      Filer filer, Elements elements, DependencyRequestMapper dependencyRequestMapper) {
+  MembersInjectorGenerator(Filer filer, Elements elements) {
     super(filer, elements);
-    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
   ClassName nameGeneratedType(MembersInjectionBinding binding) {
-    return javapoetMembersInjectorNameForType(binding.bindingElement());
+    return membersInjectorNameForType(binding.bindingElement());
   }
 
   @Override
@@ -125,7 +122,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
             .addCode("}");
 
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
+        SourceFiles.generateBindingFieldsForDependencies(binding);
 
     ImmutableMap.Builder<BindingKey, FieldSpec> dependencyFieldsBuilder = ImmutableMap.builder();
 
@@ -141,11 +138,11 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
             .addTypeVariables(typeParameters);
 
     createMethodBuilder.addCode(
-        "return new $T(", javapoetParameterizedGeneratedTypeNameForBinding(binding));
+        "return new $T(", parameterizedGeneratedTypeNameForBinding(binding));
     ImmutableList.Builder<CodeBlock> constructorInvocationParameters = ImmutableList.builder();
 
     boolean usesRawFrameworkTypes = false;
-    UniqueNames fieldNames = new UniqueNames();
+    UniqueNameSet fieldNames = new UniqueNameSet();
     for (Entry<BindingKey, FrameworkField> fieldEntry : fields.entrySet()) {
       BindingKey bindingKey = fieldEntry.getKey();
       FrameworkField bindingField = fieldEntry.getValue();
@@ -158,8 +155,8 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       String fieldName = fieldNames.getUniqueName(bindingField.name());
       TypeName fieldType =
           useRawFrameworkType
-              ? bindingField.javapoetFrameworkType().rawType
-              : bindingField.javapoetFrameworkType();
+              ? bindingField.frameworkType().rawType
+              : bindingField.frameworkType();
       FieldSpec.Builder fieldBuilder = FieldSpec.builder(fieldType, fieldName, PRIVATE, FINAL);
       ParameterSpec.Builder parameterBuilder = ParameterSpec.builder(fieldType, fieldName);
 
@@ -255,7 +252,7 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
       ImmutableMap<BindingKey, FieldSpec> dependencyFields, InjectionSite injectionSite) {
     return CodeBlocks.format(
         "$L.$L($L);",
-        javapoetMembersInjectorNameForType(
+        membersInjectorNameForType(
             MoreElements.asType(injectionSite.element().getEnclosingElement())),
         injectionSiteDelegateMethodName(injectionSite.element()),
         makeParametersCodeBlock(
@@ -388,17 +385,4 @@ final class MembersInjectorGenerator extends JavaPoetSourceFileGenerator<Members
           return visibleToMembersInjector(p, t.asElement());
         }
       };
-
-  private static final class UniqueNames {
-    private final Set<String> uniqueNames = new HashSet<>();
-
-    String getUniqueName(String base) {
-      String name = base;
-      for (int differentiator = 2; !uniqueNames.add(name); differentiator++) {
-        name = base + differentiator;
-      }
-      uniqueNames.add(name);
-      return name;
-    }
-  }
 }

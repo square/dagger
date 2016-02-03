@@ -15,11 +15,11 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.TypeSpec;
 import dagger.Component;
-import dagger.internal.codegen.writer.ClassName;
-import dagger.internal.codegen.writer.JavaWriter;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
@@ -32,7 +32,7 @@ import javax.tools.Diagnostic;
  * @author Gregory Kick
  * @since 2.0
  */
-final class ComponentGenerator extends JavaWriterSourceFileGenerator<BindingGraph> {
+final class ComponentGenerator extends JavaPoetSourceFileGenerator<BindingGraph> {
   private final Types types;
   private final Elements elements;
   private final Key.Factory keyFactory;
@@ -54,14 +54,10 @@ final class ComponentGenerator extends JavaWriterSourceFileGenerator<BindingGrap
   @Override
   ClassName nameGeneratedType(BindingGraph input) {
     ClassName componentDefinitionClassName =
-        ClassName.fromTypeElement(input.componentDescriptor().componentDefinitionType());
-    String componentName = "Dagger" + componentDefinitionClassName.classFileName('_');
-    return componentDefinitionClassName.topLevelClassName().peerNamed(componentName);
-  }
-
-  @Override
-  Iterable<? extends Element> getOriginatingElements(BindingGraph input) {
-    return ImmutableSet.of(input.componentDescriptor().componentDefinitionType());
+        ClassName.get(input.componentDescriptor().componentDefinitionType());
+    String componentName =
+        "Dagger" + Joiner.on('_').join(componentDefinitionClassName.simpleNames());
+    return componentDefinitionClassName.topLevelClassName().peerClass(componentName);
   }
 
   @Override
@@ -70,9 +66,10 @@ final class ComponentGenerator extends JavaWriterSourceFileGenerator<BindingGrap
   }
 
   @Override
-  ImmutableSet<JavaWriter> write(ClassName componentName, BindingGraph input) {
-    return new ComponentWriter(
-            types, elements, keyFactory, nullableValidationType, componentName, input)
-        .write();
+  Optional<TypeSpec.Builder> write(ClassName componentName, BindingGraph input) {
+    return Optional.of(
+        new ComponentWriter(
+                types, elements, keyFactory, nullableValidationType, componentName, input)
+            .write());
   }
 }

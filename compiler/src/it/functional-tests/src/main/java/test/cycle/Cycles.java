@@ -139,13 +139,21 @@ final class Cycles {
   }
 
   @SuppressWarnings("dependency-cycle")
-  @Component
+  @Component(modules = CycleModule.class)
   interface CycleComponent {
     A a();
 
     C c();
 
     ChildCycleComponent child();
+  }
+
+  @Module
+  static class CycleModule {
+    @Provides
+    static Object provideObjectWithCycle(@SuppressWarnings("unused") Provider<Object> object) {
+      return "object";
+    }
   }
 
   @SuppressWarnings("dependency-cycle")
@@ -158,5 +166,8 @@ final class Cycles {
   interface ChildCycleComponent {
     @SuppressWarnings("dependency-cycle")
     A a();
+
+    @SuppressWarnings("dependency-cycle")
+    Object object();
   }
 }

@@ -44,18 +44,19 @@ import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.javapoetGeneratedClassNameForBinding;
-import static dagger.internal.codegen.TypeNames.abstractProducerOf;
-import static dagger.internal.codegen.TypeNames.listOf;
-import static dagger.internal.codegen.TypeNames.listenableFutureOf;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.TypeNames.ASYNC_FUNCTION;
 import static dagger.internal.codegen.TypeNames.EXECUTOR;
 import static dagger.internal.codegen.TypeNames.FUTURES;
 import static dagger.internal.codegen.TypeNames.IMMUTABLE_SET;
-import static dagger.internal.codegen.TypeNames.PRODUCER_TOKEN;
 import static dagger.internal.codegen.TypeNames.PRODUCERS;
+import static dagger.internal.codegen.TypeNames.PRODUCER_TOKEN;
 import static dagger.internal.codegen.TypeNames.VOID_CLASS;
+import static dagger.internal.codegen.TypeNames.abstractProducerOf;
+import static dagger.internal.codegen.TypeNames.listOf;
+import static dagger.internal.codegen.TypeNames.listenableFutureOf;
 import static dagger.internal.codegen.TypeNames.producedOf;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -71,17 +72,13 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<ProductionBinding> {
 
-  private final DependencyRequestMapper dependencyRequestMapper;
-
-  ProducerFactoryGenerator(
-      Filer filer, Elements elements, DependencyRequestMapper dependencyRequestMapper) {
+  ProducerFactoryGenerator(Filer filer, Elements elements) {
     super(filer, elements);
-    this.dependencyRequestMapper = dependencyRequestMapper;
   }
 
   @Override
   ClassName nameGeneratedType(ProductionBinding binding) {
-    return javapoetGeneratedClassNameForBinding(binding);
+    return generatedClassNameForBinding(binding);
   }
 
   @Override
@@ -104,7 +101,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
             .superclass(abstractProducerOf(providedTypeName));
 
     ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(dependencyRequestMapper, binding);
+        SourceFiles.generateBindingFieldsForDependencies(binding);
 
     MethodSpec.Builder constructorBuilder =
         constructorBuilder()
@@ -124,7 +121,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
     addFieldAndConstructorParameter(factoryBuilder, constructorBuilder, "executor", EXECUTOR);
 
     for (FrameworkField bindingField : fields.values()) {
-      TypeName fieldType = bindingField.javapoetFrameworkType();
+      TypeName fieldType = bindingField.frameworkType();
       addFieldAndConstructorParameter(
           factoryBuilder, constructorBuilder, bindingField.name(), fieldType);
     }
@@ -497,10 +494,6 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
     if (thrownTypes.isEmpty()) {
       return CodeBlocks.format("");
     }
-    return CodeBlocks.format(
-        "throws $L",
-        CodeBlocks.join(
-            FluentIterable.from(thrownTypes)
-                .transform(CodeBlocks.TYPE_MIRROR_TO_CODE_BLOCK), ", "));
+    return CodeBlocks.format("throws $L", makeParametersCodeBlock(toCodeBlocks(thrownTypes)));
   }
 }

@@ -17,6 +17,7 @@ package dagger.producers.monitoring;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import dagger.internal.Beta;
 import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,7 +27,9 @@ import java.util.logging.Logger;
  *
  * @author Jesse Beder
  */
-final class TimingRecorders {
+// TODO(beder): Reduce the visibility of this class to package-private.
+@Beta
+public final class TimingRecorders {
   private static final Logger logger = Logger.getLogger(TimingRecorders.class.getName());
 
   /**
@@ -38,7 +41,7 @@ final class TimingRecorders {
    * implementation. Errors are treated as unrecoverable conditions, and may cause the entire
    * component's execution to fail.
    */
-  static ProductionComponentTimingRecorder.Factory
+  public static ProductionComponentTimingRecorder.Factory
       delegatingProductionComponentTimingRecorderFactory(
           Collection<ProductionComponentTimingRecorder.Factory> factories) {
     switch (factories.size()) {

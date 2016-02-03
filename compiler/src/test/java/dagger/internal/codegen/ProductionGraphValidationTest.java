@@ -257,8 +257,9 @@ public class ProductionGraphValidationTest {
             "  }",
             "}");
     String expectedError =
-        "java.util.Set<dagger.producers.monitoring.ProductionComponentMonitor.Factory> is a"
-            + " provision, which cannot depend on a production.";
+        "@Provides(type=SET) dagger.producers.monitoring.ProductionComponentMonitor.Factory"
+            + " test.TestClass.MonitoringModule.monitorFactory(test.TestClass.A) is a provision,"
+            + " which cannot depend on a production.";
     assertAbout(javaSource())
         .that(component)
         .processedWith(new ComponentProcessor())

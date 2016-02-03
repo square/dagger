@@ -17,8 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.Provides;
-import dagger.internal.codegen.writer.StringLiteral;
+import com.squareup.javapoet.CodeBlock;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,7 +38,7 @@ import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_OR_PRODUCES_METHOD_MULTIPLE_QUALIFIERS;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION_JAVAPOET;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
@@ -48,8 +47,8 @@ public class ModuleFactoryGeneratorTest {
       "package test;",
       "public @interface Nullable {}");
 
-  private static final StringLiteral NPE_LITERAL =
-      StringLiteral.forValue(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
+  private static final CodeBlock NPE_LITERAL =
+      CodeBlocks.stringLiteral(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
 
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject
@@ -375,7 +374,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -421,7 +420,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -462,7 +461,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideStringFactory implements Factory<String> {",
         "  private final TestModule module;",
         "",
@@ -546,7 +545,7 @@ public class ModuleFactoryGeneratorTest {
         "import javax.annotation.Generated;",
         "import javax.inject.Provider;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideObjectsFactory implements Factory<List<Object>> {",
         "  private final TestModule module;",
         "  private final Provider<Object> aProvider;",
@@ -617,7 +616,7 @@ public class ModuleFactoryGeneratorTest {
         "import java.util.Set;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideStringFactory implements Factory<Set<String>> {",
         "  private final TestModule module;",
         "",
@@ -668,7 +667,7 @@ public class ModuleFactoryGeneratorTest {
         "import java.util.Set;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideWildcardListFactory implements "
             + "Factory<Set<List<List<?>>>> {",
         "  private final TestModule module;",
@@ -715,7 +714,7 @@ public class ModuleFactoryGeneratorTest {
         "import java.util.Set;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class TestModule_ProvideStringsFactory implements Factory<Set<String>> {",
         "  private final TestModule module;",
         "",
@@ -1004,7 +1003,7 @@ public class ModuleFactoryGeneratorTest {
             "import javax.annotation.Generated;",
             "import javax.inject.Provider;",
             "",
-            GENERATED_ANNOTATION_JAVAPOET,
+            GENERATED_ANNOTATION,
             "public final class ParentModule_ProvideListBFactory<A extends CharSequence,",
             "    B, C extends Number & Comparable<C>> implements Factory<List<B>> {",
             "  private final ParentModule<A, B, C> module;",
@@ -1043,7 +1042,7 @@ public class ModuleFactoryGeneratorTest {
             "import javax.annotation.Generated;",
             "import javax.inject.Provider;",
             "",
-            GENERATED_ANNOTATION_JAVAPOET,
+            GENERATED_ANNOTATION,
             "public final class ParentModule_ProvideBElementFactory<A extends CharSequence,",
             "    B, C extends Number & Comparable<C>> implements Factory<Set<B>> {",
             "  private final ParentModule<A, B, C> module;",
@@ -1076,7 +1075,7 @@ public class ModuleFactoryGeneratorTest {
             "import javax.annotation.Generated;",
             "import javax.inject.Provider;",
             "",
-            GENERATED_ANNOTATION_JAVAPOET,
+            GENERATED_ANNOTATION,
             "public final class ParentModule_ProvideBEntryFactory<A extends CharSequence,",
             "    B, C extends Number & Comparable<C>> implements Factory<B>> {",
             "  private final ParentModule<A, B, C> module;",
@@ -1111,7 +1110,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class ChildNumberModule_ProvideNumberFactory implements Factory<Number> {",
         "  private final ChildNumberModule module;",
         "",
@@ -1140,7 +1139,7 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.internal.Factory;",
         "import javax.annotation.Generated;",
         "",
-        GENERATED_ANNOTATION_JAVAPOET,
+        GENERATED_ANNOTATION,
         "public final class ChildIntegerModule_ProvideIntegerFactory",
         "    implements Factory<Integer> {",
         "  private final ChildIntegerModule module;",
@@ -1208,7 +1207,7 @@ public class ModuleFactoryGeneratorTest {
             "import java.util.Map;",
             "import javax.annotation.Generated;",
             "",
-            GENERATED_ANNOTATION_JAVAPOET,
+            GENERATED_ANNOTATION,
             "public enum ParameterizedModule_ProvideMapStringNumberFactory",
             "    implements Factory<Map<String, Number>> {",
             "  INSTANCE;",
@@ -1235,7 +1234,7 @@ public class ModuleFactoryGeneratorTest {
             "import dagger.internal.Factory;",
             "import javax.annotation.Generated;",
             "",
-            GENERATED_ANNOTATION_JAVAPOET,
+            GENERATED_ANNOTATION,
             "public enum ParameterizedModule_ProvideNonGenericTypeFactory",
             "    implements Factory<Object> {",
             "  INSTANCE;",

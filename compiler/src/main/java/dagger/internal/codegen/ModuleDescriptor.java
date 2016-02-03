@@ -159,12 +159,10 @@ abstract class ModuleDescriptor {
       ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
       for (ExecutableElement moduleMethod : methodsIn(elements.getAllMembers(moduleElement))) {
         if (isAnnotationPresent(moduleMethod, Provides.class)) {
-          bindings.add(
-              provisionBindingFactory.forProvidesMethod(moduleMethod, moduleElement.asType()));
+          bindings.add(provisionBindingFactory.forProvidesMethod(moduleMethod, moduleElement));
         }
         if (isAnnotationPresent(moduleMethod, Produces.class)) {
-          bindings.add(
-              productionBindingFactory.forProducesMethod(moduleMethod, moduleElement.asType()));
+          bindings.add(productionBindingFactory.forProducesMethod(moduleMethod, moduleElement));
         }
       }
       

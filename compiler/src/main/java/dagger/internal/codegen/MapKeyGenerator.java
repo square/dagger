@@ -41,7 +41,7 @@ import javax.lang.model.util.SimpleTypeVisitor6;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.MapKeys.getJavapoetMapKeyCreatorClassName;
+import static dagger.internal.codegen.MapKeys.getMapKeyCreatorClassName;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -95,7 +95,7 @@ final class MapKeyGenerator extends JavaPoetSourceFileGenerator<MapKeyCreatorSpe
 
   @Override
   ClassName nameGeneratedType(MapKeyCreatorSpecification mapKeyCreatorType) {
-    return getJavapoetMapKeyCreatorClassName(mapKeyCreatorType.mapKeyElement());
+    return getMapKeyCreatorClassName(mapKeyCreatorType.mapKeyElement());
   }
 
   @Override

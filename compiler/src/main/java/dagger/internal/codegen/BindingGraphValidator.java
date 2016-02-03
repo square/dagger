@@ -35,13 +35,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.squareup.javapoet.TypeName;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
-import dagger.internal.codegen.writer.TypeNames;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
@@ -77,7 +77,6 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
-import static com.google.common.collect.Iterables.skip;
 import static com.google.common.collect.Maps.filterKeys;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
@@ -85,7 +84,8 @@ import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SU
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
-import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MAP;
+import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
@@ -286,44 +286,32 @@ public class BindingGraphValidator {
 
       switch (resolvedBinding.bindingKey().kind()) {
         case CONTRIBUTION:
-          ImmutableSet<ContributionBinding> contributionBindings =
-              resolvedBinding.contributionBindings();
           if (Iterables.any(
               resolvedBinding.bindings(), BindingType.isOfType(BindingType.MEMBERS_INJECTION))) {
             // TODO(dpb): How could this ever happen, even in an invalid graph?
             throw new AssertionError(
                 "contribution binding keys should never have members injection bindings");
           }
-          if (!validateNullability(path.peek().request(), contributionBindings)) {
+          if (!validateNullability(path.peek().request(), resolvedBinding.contributionBindings())) {
             return false;
           }
-          if (Iterables.any(contributionBindings, BindingType.isOfType(BindingType.PRODUCTION))
+          if (resolvedBinding.contributionBindings().size() > 1) {
+            reportDuplicateBindings(path);
+            return false;
+          }
+          ContributionBinding contributionBinding = resolvedBinding.contributionBinding();
+          if (contributionBinding.bindingType().equals(BindingType.PRODUCTION)
               && doesPathRequireProvisionOnly(path)) {
             reportProviderMayNotDependOnProducer(path);
             return false;
           }
-          ImmutableSet<ContributionType> contributionTypes =
-              declarationsByType(resolvedBinding).keySet();
-          if (contributionTypes.size() > 1) {
-            reportMultipleBindingTypes(path);
-            return false;
-          }
-          if (contributionBindings.size() <= 1) {
-            return true;
-          }
-          switch (getOnlyElement(contributionTypes)) {
-            case UNIQUE:
-              reportDuplicateBindings(path);
-              return false;
-            case MAP:
-              boolean duplicateMapKeys = hasDuplicateMapKeys(path, contributionBindings);
-              boolean inconsistentMapKeyAnnotationTypes =
-                  hasInconsistentMapKeyAnnotationTypes(path, contributionBindings);
-              return !duplicateMapKeys && !inconsistentMapKeyAnnotationTypes;
-            case SET:
-              break;
-            default:
-              throw new AssertionError();
+          if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
+            ImmutableSet<ContributionBinding> multibindings =
+                inlineSyntheticContributions(resolvedBinding).contributionBindings();
+            boolean duplicateMapKeys = reportIfDuplicateMapKeys(path, multibindings);
+            boolean inconsistentMapKeyAnnotationTypes =
+                reportIfInconsistentMapKeyAnnotationTypes(path, multibindings);
+            return !duplicateMapKeys && !inconsistentMapKeyAnnotationTypes;
           }
           break;
         case MEMBERS_INJECTION:
@@ -346,8 +334,8 @@ public class BindingGraphValidator {
 
     /**
      * Returns an object that contains all the same bindings as {@code resolvedBindings}, except
-     * that any {@link #SYNTHETIC_MAP} {@link ContributionBinding}s are replaced by the contribution
-     * bindings and multibinding declarations of their dependencies.
+     * that any synthetic {@link ContributionBinding}s are replaced by the contribution bindings and
+     * multibinding declarations of their dependencies.
      *
      * <p>For example, if:
      *
@@ -365,8 +353,9 @@ public class BindingGraphValidator {
      * <p>The replacement is repeated until none of the bindings are synthetic.
      */
     private ResolvedBindings inlineSyntheticContributions(ResolvedBindings resolvedBinding) {
-      if (!Iterables.any(
-          resolvedBinding.contributionBindings(), ContributionBinding.isOfKind(SYNTHETIC_MAP))) {
+      if (!FluentIterable.from(resolvedBinding.contributionBindings())
+          .transform(ContributionBinding.KIND)
+          .anyMatch(IS_SYNTHETIC_KIND)) {
         return resolvedBinding;
       }
       
@@ -375,23 +364,21 @@ public class BindingGraphValidator {
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
           ImmutableSet.builder();
 
-      Queue<Map.Entry<ComponentDescriptor, ContributionBinding>> contributionQueue =
-          new ArrayDeque<>(resolvedBinding.allContributionBindings().entries());
+      Queue<ResolvedBindings> queue = new ArrayDeque<>();
+      queue.add(resolvedBinding);
 
-      for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry =
-              contributionQueue.poll();
-          bindingEntry != null;
-          bindingEntry = contributionQueue.poll()) {
-        ContributionBinding binding = bindingEntry.getValue();
-        if (binding.bindingKind().equals(SYNTHETIC_MAP)) {
-          BindingKey syntheticBindingDependency =
-              getOnlyElement(binding.dependencies()).bindingKey();
-          ResolvedBindings dependencyBindings =
-              subject.resolvedBindings().get(syntheticBindingDependency);
-          multibindingDeclarations.addAll(dependencyBindings.multibindingDeclarations());
-          contributionQueue.addAll(dependencyBindings.allContributionBindings().entries());
-        } else {
-          contributions.put(bindingEntry);
+      for (ResolvedBindings queued = queue.poll(); queued != null; queued = queue.poll()) {
+        multibindingDeclarations.addAll(queued.multibindingDeclarations());
+        for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry :
+            queued.allContributionBindings().entries()) {
+          ContributionBinding binding = bindingEntry.getValue();
+          if (binding.isSyntheticBinding()) {
+            for (DependencyRequest dependency : binding.dependencies()) {
+              queue.add(subject.resolvedBindings().get(dependency.bindingKey()));
+            }
+          } else {
+            contributions.put(bindingEntry);
+          }
         }
       }
       return ResolvedBindings.forContributionBindings(
@@ -422,7 +409,7 @@ public class BindingGraphValidator {
        * (Maybe this happens if the code was already compiled before this point?)
        * ... we manually print out the request in that case, otherwise the error
        * message is kind of useless. */
-      String typeName = TypeNames.forTypeMirror(request.key().type()).toString();
+      String typeName = TypeName.get(request.key().type()).toString();
 
       boolean valid = true;
       for (ContributionBinding binding : bindings) {
@@ -443,7 +430,7 @@ public class BindingGraphValidator {
      * Returns {@code true} (and reports errors) if {@code mapBindings} has more than one binding
      * for the same map key.
      */
-    private boolean hasDuplicateMapKeys(
+    private boolean reportIfDuplicateMapKeys(
         Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
       boolean hasDuplicateMapKeys = false;
       for (Collection<ContributionBinding> mapBindingsForMapKey :
@@ -460,7 +447,7 @@ public class BindingGraphValidator {
      * Returns {@code true} (and reports errors) if {@code mapBindings} uses more than one
      * {@link MapKey} annotation type.
      */
-    private boolean hasInconsistentMapKeyAnnotationTypes(
+    private boolean reportIfInconsistentMapKeyAnnotationTypes(
         Deque<ResolvedRequest> path, Set<ContributionBinding> contributionBindings) {
       ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
           mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(contributionBindings);
@@ -896,6 +883,12 @@ public class BindingGraphValidator {
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
     private void reportDuplicateBindings(Deque<ResolvedRequest> path) {
       ResolvedBindings resolvedBinding = path.peek().binding();
+      if (FluentIterable.from(resolvedBinding.contributionBindings())
+          .transform(ContributionBinding.KIND)
+          .anyMatch(IS_SYNTHETIC_KIND)) {
+        reportMultipleBindingTypes(path);
+        return;
+      }
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
@@ -915,6 +908,11 @@ public class BindingGraphValidator {
       ResolvedBindings resolvedBinding = path.peek().binding();
       ImmutableListMultimap<ContributionType, HasSourceElement> declarationsByType =
           declarationsByType(resolvedBinding);
+      verify(
+          declarationsByType.keySet().size() > 1,
+          "expected multiple binding types for %s: %s",
+          resolvedBinding.bindingKey(),
+          declarationsByType);
       for (ContributionType type :
           Ordering.natural().immutableSortedCopy(declarationsByType.keySet())) {
         builder.append(INDENT);
@@ -1013,11 +1011,13 @@ public class BindingGraphValidator {
      * really broken.
      */
     private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> cycle) {
-      DependencyRequest lastDependencyRequest = cycle.get(0);
-      for (DependencyRequest dependencyRequest : skip(cycle, 1)) {
+      for (int i = 1; i < cycle.size(); i++) {
+        DependencyRequest dependencyRequest = cycle.get(i);
         switch (dependencyRequest.kind()) {
           case PROVIDER:
-            if (!isImplicitProviderMapForValueMap(dependencyRequest, lastDependencyRequest)) {
+            if (isImplicitProviderMapForValueMap(dependencyRequest, cycle.get(i - 1))) {
+              i++; // Skip the Provider requests in the Map<K, Provider<V>> too.
+            } else {
               return true;
             }
             break;
@@ -1035,7 +1035,6 @@ public class BindingGraphValidator {
           default:
             break;
         }
-        lastDependencyRequest = dependencyRequest;
       }
       return false;
     }

@@ -59,7 +59,7 @@ public final class MonitorsTest {
     ProductionComponentMonitor.Factory factory =
         Monitors.delegatingProductionComponentMonitorFactory(
             ImmutableList.<ProductionComponentMonitor.Factory>of());
-    assertThat(factory).isSameAs(Monitors.noOpProductionComponentMonitorFactory());
+    assertThat(factory).isSameAs(ProductionComponentMonitor.Factory.noOp());
   }
 
   @Test
@@ -68,7 +68,7 @@ public final class MonitorsTest {
     ProductionComponentMonitor.Factory factory =
         Monitors.delegatingProductionComponentMonitorFactory(
             ImmutableList.of(mockProductionComponentMonitorFactory));
-    assertThat(factory.create(new Object())).isSameAs(Monitors.noOpProductionComponentMonitor());
+    assertThat(factory.create(new Object())).isSameAs(ProductionComponentMonitor.noOp());
   }
 
   @Test
@@ -79,7 +79,7 @@ public final class MonitorsTest {
     ProductionComponentMonitor.Factory factory =
         Monitors.delegatingProductionComponentMonitorFactory(
             ImmutableList.of(mockProductionComponentMonitorFactory));
-    assertThat(factory.create(new Object())).isSameAs(Monitors.noOpProductionComponentMonitor());
+    assertThat(factory.create(new Object())).isSameAs(ProductionComponentMonitor.noOp());
   }
 
   @Test
@@ -93,7 +93,7 @@ public final class MonitorsTest {
             ImmutableList.of(mockProductionComponentMonitorFactory));
     ProductionComponentMonitor monitor = factory.create(new Object());
     assertThat(monitor.producerMonitorFor(ProducerToken.create(Object.class)))
-        .isSameAs(Monitors.noOpProducerMonitor());
+        .isSameAs(ProducerMonitor.noOp());
   }
 
   @Test
@@ -108,7 +108,7 @@ public final class MonitorsTest {
             ImmutableList.of(mockProductionComponentMonitorFactory));
     ProductionComponentMonitor monitor = factory.create(new Object());
     assertThat(monitor.producerMonitorFor(ProducerToken.create(Object.class)))
-        .isSameAs(Monitors.noOpProducerMonitor());
+        .isSameAs(ProducerMonitor.noOp());
   }
 
   @Test
@@ -222,7 +222,7 @@ public final class MonitorsTest {
                 mockProductionComponentMonitorFactoryA,
                 mockProductionComponentMonitorFactoryB,
                 mockProductionComponentMonitorFactoryC));
-    assertThat(factory.create(new Object())).isSameAs(Monitors.noOpProductionComponentMonitor());
+    assertThat(factory.create(new Object())).isSameAs(ProductionComponentMonitor.noOp());
   }
 
   @Test
@@ -242,7 +242,7 @@ public final class MonitorsTest {
                 mockProductionComponentMonitorFactoryA,
                 mockProductionComponentMonitorFactoryB,
                 mockProductionComponentMonitorFactoryC));
-    assertThat(factory.create(new Object())).isSameAs(Monitors.noOpProductionComponentMonitor());
+    assertThat(factory.create(new Object())).isSameAs(ProductionComponentMonitor.noOp());
   }
 
   @Test

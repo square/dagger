@@ -26,9 +26,9 @@ import dagger.Provides;
 import dagger.producers.Produces;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 
@@ -93,19 +93,17 @@ abstract class ProductionBinding extends ContributionBinding {
     }
 
     ProductionBinding forProducesMethod(
-        ExecutableElement producesMethod, TypeMirror contributedBy) {
-      checkNotNull(producesMethod);
+        ExecutableElement producesMethod, TypeElement contributedBy) {
       checkArgument(producesMethod.getKind().equals(METHOD));
-      checkArgument(contributedBy.getKind().equals(TypeKind.DECLARED));
       Produces producesAnnotation = producesMethod.getAnnotation(Produces.class);
       checkArgument(producesAnnotation != null);
-      DeclaredType declaredContainer = MoreTypes.asDeclared(contributedBy);
+      SourceElement sourceElement = SourceElement.forElement(producesMethod, contributedBy);
+      Key key = keyFactory.forProducesMethod(sourceElement);
       ExecutableType resolvedMethod =
-          MoreTypes.asExecutable(types.asMemberOf(declaredContainer, producesMethod));
-      Key key = keyFactory.forProducesMethod(resolvedMethod, producesMethod);
+          MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredResolvedVariables(
-              declaredContainer,
+              MoreTypes.asDeclared(contributedBy.asType()),
               producesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
       DependencyRequest monitorRequest =
@@ -114,7 +112,7 @@ abstract class ProductionBinding extends ContributionBinding {
           ? Kind.FUTURE_PRODUCTION
           : Kind.IMMEDIATE;
       return new AutoValue_ProductionBinding(
-          SourceElement.forElement(producesMethod, MoreTypes.asTypeElement(declaredContainer)),
+          sourceElement,
           key,
           dependencies,
           findBindingPackage(key),
@@ -143,6 +141,25 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SYNTHETIC_MAP,
+          Produces.Type.UNIQUE,
+          ImmutableList.<TypeMirror>of(),
+          Optional.<DependencyRequest>absent());
+    }
+
+    /**
+     * A binding that depends explicitly on a set of individual provision or production multibinding
+     * contribution methods.
+     */
+    ProductionBinding syntheticMultibinding(
+        final DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+      return new AutoValue_ProductionBinding(
+          SourceElement.forElement(request.requestElement()),
+          request.key(),
+          dependencyRequestFactory.forMultibindingContributions(request, multibindingContributions),
+          findBindingPackage(request.key()),
+          Optional.<DeclaredType>absent(),
+          Optional.<DependencyRequest>absent(),
+          Kind.forMultibindingRequest(request),
           Produces.Type.UNIQUE,
           ImmutableList.<TypeMirror>of(),
           Optional.<DependencyRequest>absent());

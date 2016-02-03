@@ -110,15 +110,18 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
         if (Sets.difference(moduleProvidesMethods, validProvidesMethods).isEmpty()) {
           // all of the provides methods in this module are valid!
           // time to generate some factories!
-          ImmutableSet<ProvisionBinding> bindings = FluentIterable.from(moduleProvidesMethods)
-              .transform(new Function<ExecutableElement, ProvisionBinding>() {
-                @Override
-                public ProvisionBinding apply(ExecutableElement providesMethod) {
-                  return provisionBindingFactory.forProvidesMethod(providesMethod,
-                      providesMethod.getEnclosingElement().asType());
-                }
-              })
-              .toSet();
+          ImmutableSet<ProvisionBinding> bindings =
+              FluentIterable.from(moduleProvidesMethods)
+                  .transform(
+                      new Function<ExecutableElement, ProvisionBinding>() {
+                        @Override
+                        public ProvisionBinding apply(ExecutableElement providesMethod) {
+                          return provisionBindingFactory.forProvidesMethod(
+                              providesMethod,
+                              MoreElements.asType(providesMethod.getEnclosingElement()));
+                        }
+                      })
+                  .toSet();
 
           try {
             for (ProvisionBinding binding : bindings) {

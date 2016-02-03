@@ -17,7 +17,6 @@ package dagger.producers.monitoring.internal;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
@@ -46,7 +45,7 @@ public final class Monitors {
   public static ProductionComponentMonitor.Factory delegatingProductionComponentMonitorFactory(
       Collection<? extends ProductionComponentMonitor.Factory> factories) {
     if (factories.isEmpty()) {
-      return noOpProductionComponentMonitorFactory();
+      return ProductionComponentMonitor.Factory.noOp();
     } else if (factories.size() == 1) {
       return new NonThrowingProductionComponentMonitor.Factory(Iterables.getOnlyElement(factories));
     } else {
@@ -59,7 +58,7 @@ public final class Monitors {
    * that the delegate throws.
    */
   private static final class NonThrowingProductionComponentMonitor
-      implements ProductionComponentMonitor {
+      extends ProductionComponentMonitor {
     private final ProductionComponentMonitor delegate;
 
     NonThrowingProductionComponentMonitor(ProductionComponentMonitor delegate) {
@@ -70,14 +69,14 @@ public final class Monitors {
     public ProducerMonitor producerMonitorFor(ProducerToken token) {
       try {
         ProducerMonitor monitor = delegate.producerMonitorFor(token);
-        return monitor == null ? noOpProducerMonitor() : new NonThrowingProducerMonitor(monitor);
+        return monitor == null ? ProducerMonitor.noOp() : new NonThrowingProducerMonitor(monitor);
       } catch (RuntimeException e) {
         logProducerMonitorForException(e, delegate, token);
-        return noOpProducerMonitor();
+        return ProducerMonitor.noOp();
       }
     }
 
-    static final class Factory implements ProductionComponentMonitor.Factory {
+    static final class Factory extends ProductionComponentMonitor.Factory {
       private final ProductionComponentMonitor.Factory delegate;
 
       Factory(ProductionComponentMonitor.Factory delegate) {
@@ -89,11 +88,11 @@ public final class Monitors {
         try {
           ProductionComponentMonitor monitor = delegate.create(component);
           return monitor == null
-              ? noOpProductionComponentMonitor()
+              ? ProductionComponentMonitor.noOp()
               : new NonThrowingProductionComponentMonitor(monitor);
         } catch (RuntimeException e) {
           logCreateException(e, delegate, component);
-          return noOpProductionComponentMonitor();
+          return ProductionComponentMonitor.noOp();
         }
       }
     }
@@ -161,7 +160,7 @@ public final class Monitors {
    * that the delegates throw.
    */
   private static final class DelegatingProductionComponentMonitor
-      implements ProductionComponentMonitor {
+      extends ProductionComponentMonitor {
     private final ImmutableList<ProductionComponentMonitor> delegates;
 
     DelegatingProductionComponentMonitor(ImmutableList<ProductionComponentMonitor> delegates) {
@@ -183,7 +182,7 @@ public final class Monitors {
       }
       ImmutableList<ProducerMonitor> monitors = monitorsBuilder.build();
       if (monitors.isEmpty()) {
-        return noOpProducerMonitor();
+        return ProducerMonitor.noOp();
       } else if (monitors.size() == 1) {
         return new NonThrowingProducerMonitor(Iterables.getOnlyElement(monitors));
       } else {
@@ -191,7 +190,7 @@ public final class Monitors {
       }
     }
 
-    static final class Factory implements ProductionComponentMonitor.Factory {
+    static final class Factory extends ProductionComponentMonitor.Factory {
       private final ImmutableList<? extends ProductionComponentMonitor.Factory> delegates;
 
       Factory(Iterable<? extends ProductionComponentMonitor.Factory> delegates) {
@@ -213,7 +212,7 @@ public final class Monitors {
         }
         ImmutableList<ProductionComponentMonitor> monitors = monitorsBuilder.build();
         if (monitors.isEmpty()) {
-          return noOpProductionComponentMonitor();
+          return ProductionComponentMonitor.noOp();
         } else if (monitors.size() == 1) {
           return new NonThrowingProductionComponentMonitor(Iterables.getOnlyElement(monitors));
         } else {
@@ -290,57 +289,17 @@ public final class Monitors {
     }
   }
 
-  /** Returns a monitor factory that returns no-op component monitors. */
-  public static ProductionComponentMonitor.Factory noOpProductionComponentMonitorFactory() {
-    return NO_OP_PRODUCTION_COMPONENT_MONITOR_FACTORY;
-  }
-
-  /** Returns a component monitor that returns no-op producer monitors. */
-  public static ProductionComponentMonitor noOpProductionComponentMonitor() {
-    return NO_OP_PRODUCTION_COMPONENT_MONITOR;
-  }
-
-  /** Returns a producer monitor that does nothing. */
-  public static ProducerMonitor noOpProducerMonitor() {
-    return NO_OP_PRODUCER_MONITOR;
-  }
-
   /** Returns a provider of a no-op component monitor. */
   public static Provider<ProductionComponentMonitor> noOpProductionComponentMonitorProvider() {
     return NO_OP_PRODUCTION_COMPONENT_MONITOR_PROVIDER;
   }
-
-  private static final ProductionComponentMonitor.Factory
-      NO_OP_PRODUCTION_COMPONENT_MONITOR_FACTORY =
-          new ProductionComponentMonitor.Factory() {
-            @Override
-            public ProductionComponentMonitor create(Object component) {
-              return noOpProductionComponentMonitor();
-            }
-          };
-
-  private static final ProductionComponentMonitor NO_OP_PRODUCTION_COMPONENT_MONITOR =
-      new ProductionComponentMonitor() {
-        @Override
-        public ProducerMonitor producerMonitorFor(ProducerToken token) {
-          return noOpProducerMonitor();
-        }
-      };
-
-  private static final ProducerMonitor NO_OP_PRODUCER_MONITOR =
-      new ProducerMonitor() {
-        @Override
-        public <T> void addCallbackTo(ListenableFuture<T> future) {
-          // overridden to avoid adding a do-nothing callback
-        }
-      };
 
   private static final Provider<ProductionComponentMonitor>
       NO_OP_PRODUCTION_COMPONENT_MONITOR_PROVIDER =
           new Provider() {
             @Override
             public ProductionComponentMonitor get() {
-              return noOpProductionComponentMonitor();
+              return ProductionComponentMonitor.noOp();
             }
           };
 
