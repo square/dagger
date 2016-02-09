@@ -111,5 +111,11 @@ public class SubcomponentTest {
   @Test
   public void dependenceisInASubcomponent() {
     assertThat(childComponent.newGrandchildComponent().needsAnInterface()).isNotNull();
-  }  
+  }
+
+  @Test
+  public void qualifiedSubcomponentIsBound() {
+    assertThat(parentComponent.unresolvableChildComponentBuilder().build().unboundString())
+        .isEqualTo("unbound");
+  }
 }

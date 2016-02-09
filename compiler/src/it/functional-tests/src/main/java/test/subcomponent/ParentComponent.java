@@ -18,7 +18,7 @@ package test.subcomponent;
 import dagger.Component;
 import javax.inject.Singleton;
 
-@Component(modules = ParentModule.class)
+@Component(modules = {ParentModule.class, UnresolvableChildComponentModule.class})
 @Singleton
 interface ParentComponent extends ParentGetters {
   ChildComponent newChildComponent();
@@ -28,4 +28,10 @@ interface ParentComponent extends ParentGetters {
   ChildComponentRequiringModules newChildComponentRequiringModules(
       ChildModuleWithParameters cmwp,
       ChildModuleWithState childModuleWithState);
+
+  /**
+   * Requests a qualified version of this subcomponent builder, which does not install it as a
+   * subcomponent, but instead, uses the explicit binding of this qualified builder.
+   */
+  @SomeQualifier UnresolvableChildComponent.Builder unresolvableChildComponentBuilder();
 }

@@ -61,6 +61,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -501,21 +502,23 @@ abstract class ComponentDescriptor {
               componentMethod,
               dependencyRequestFactory.forComponentMembersInjectionMethod(
                   componentMethod, resolvedComponentMethod));
-        } else if (isAnnotationPresent(MoreTypes.asElement(returnType), Subcomponent.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.SUBCOMPONENT, componentMethod);
-        } else if (isAnnotationPresent(
-            MoreTypes.asElement(returnType), ProductionSubcomponent.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.PRODUCTION_SUBCOMPONENT, componentMethod);
-        } else if (isAnnotationPresent(
-            MoreTypes.asElement(returnType), Subcomponent.Builder.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.SUBCOMPONENT_BUILDER, componentMethod);
-        } else if (isAnnotationPresent(
-            MoreTypes.asElement(returnType), ProductionSubcomponent.Builder.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER, componentMethod);
+        } else if (!getQualifier(componentMethod).isPresent()) {
+          if (isAnnotationPresent(MoreTypes.asElement(returnType), Subcomponent.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.SUBCOMPONENT, componentMethod);
+          } else if (isAnnotationPresent(
+              MoreTypes.asElement(returnType), ProductionSubcomponent.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.PRODUCTION_SUBCOMPONENT, componentMethod);
+          } else if (isAnnotationPresent(
+              MoreTypes.asElement(returnType), Subcomponent.Builder.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.SUBCOMPONENT_BUILDER, componentMethod);
+          } else if (isAnnotationPresent(
+              MoreTypes.asElement(returnType), ProductionSubcomponent.Builder.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER, componentMethod);
+          }
         }
       }
 
