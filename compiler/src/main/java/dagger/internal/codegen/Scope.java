@@ -19,11 +19,13 @@ import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import dagger.producers.ProductionScope;
 import javax.annotation.Nullable;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreTypes.isTypeOf;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
@@ -68,6 +70,15 @@ final class Scope {
   static Scope scopeOf(Element element) {
     Optional<AnnotationMirror> scopeAnnotation = getScopeAnnotation(element);
     return scopeAnnotation.isPresent() ? new Scope(scopeAnnotation.get()) : UNSCOPED;
+  }
+
+  /**
+   * Returns a representation for producer scope;
+   */
+  static Scope productionScope(Elements elements) {
+    return new Scope(
+        SimpleAnnotationMirror.of(
+            elements.getTypeElement(ProductionScope.class.getCanonicalName())));
   }
 
   /**

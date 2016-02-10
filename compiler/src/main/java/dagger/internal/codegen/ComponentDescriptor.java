@@ -172,6 +172,19 @@ abstract class ComponentDescriptor {
       return isTopLevel;
     }
 
+    boolean isProducer() {
+      switch (this) {
+        case COMPONENT:
+        case SUBCOMPONENT:
+          return false;
+        case PRODUCTION_COMPONENT:
+        case PRODUCTION_SUBCOMPONENT:
+          return true;
+        default:
+          throw new AssertionError();
+      }
+    }
+
     private static final Function<Kind, Class<? extends Annotation>> TO_ANNOTATION_TYPE =
         new Function<Kind, Class<? extends Annotation>>() {
           @Override
@@ -408,7 +421,7 @@ abstract class ComponentDescriptor {
       }
 
       Optional<TypeElement> executorDependency =
-          kind.equals(Kind.PRODUCTION_COMPONENT) || kind.equals(Kind.PRODUCTION_SUBCOMPONENT)
+          kind.isProducer()
               ? Optional.of(elements.getTypeElement(Executor.class.getCanonicalName()))
               : Optional.<TypeElement>absent();
 
@@ -470,6 +483,11 @@ abstract class ComponentDescriptor {
           Optional.fromNullable(getOnlyElement(enclosedBuilders, null));
 
       Scope scope = Scope.scopeOf(componentDefinitionType);
+      if (kind.isProducer() && !scope.isPresent()) {
+        // TODO(beder): Override scope for production components when clients don't use them.
+        scope = Scope.productionScope(elements);
+      }
+
       return new AutoValue_ComponentDescriptor(
           kind,
           componentMirror,

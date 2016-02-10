@@ -86,6 +86,24 @@ public class ProductionComponentProcessorTest {
         .withErrorContaining("is not annotated with one of @Module, @ProducerModule");
   }
 
+  // TODO(beder): Expose this when CompileTester is updated externally.
+
+  @Test public void productionScopedProductionComponent() {
+    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.ScopedComponent",
+        "package test;",
+        "",
+        "import dagger.producers.ProductionComponent;",
+        "import dagger.producers.ProductionScope;",
+        "",
+        "@ProductionScope",
+        "@ProductionComponent",
+        "interface ScopedComponent {}");
+    assertAbout(javaSource())
+        .that(componentFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
   @Test public void simpleComponent() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
         "package test;",

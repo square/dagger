@@ -226,6 +226,10 @@ final class ErrorMessages {
         MoreTypes.asTypeElement(type).getSimpleName());
   }
 
+  static final String PRODUCTION_COMPONENT_SCOPE =
+      "Production components may not declare any @Scope other than @ProductionScope; they are "
+          + "automatically scoped with @ProductionScope if no scope is applied.";
+
   static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
       "This type supports members injection but cannot be implicitly provided.";
 

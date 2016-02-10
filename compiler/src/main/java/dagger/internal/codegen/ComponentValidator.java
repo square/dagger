@@ -19,6 +19,7 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.producers.ProductionComponent;
+import dagger.producers.ProductionScope;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
@@ -226,6 +228,23 @@ final class ComponentValidator {
                 entry.getKey(),
                 entry.getValue()),
             subject);
+      }
+    }
+
+    if (componentKind.isProducer()) {
+      ImmutableSet<? extends AnnotationMirror> nonProductionScopes =
+          FluentIterable.from(InjectionAnnotations.getScopes(subject))
+              .filter(
+                  new Predicate<AnnotationMirror>() {
+                    @Override
+                    public boolean apply(AnnotationMirror scope) {
+                      return !MoreTypes.isTypeOf(ProductionScope.class, scope.getAnnotationType());
+                    }
+                  })
+              .toSet();
+      if (!nonProductionScopes.isEmpty()) {
+        // TODO(beder): Make this an error after all clients are updated.
+        builder.addWarning(ErrorMessages.PRODUCTION_COMPONENT_SCOPE, subject);
       }
     }
 
