@@ -2241,8 +2241,7 @@ public class ComponentProcessorTest {
                       public boolean apply(Element element) {
                         return MoreElements.getPackage(element)
                             .getQualifiedName()
-                            .toString()
-                            .equals("test.inject");
+                            .contentEquals("test.inject");
                       }
                     })))
         .compilesWithoutError();
