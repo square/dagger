@@ -480,6 +480,25 @@ public class ProducerModuleFactoryGeneratorTest {
         .in(publicModuleFile).onLine(8);
   }
 
+  @Test public void argumentNamedModuleCompiles() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces String produceString(int module) {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
   @Test public void singleProducesMethodNoArgsFuture() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
@@ -539,7 +558,7 @@ public class ProducerModuleFactoryGeneratorTest {
             "        @Override public ListenableFuture<String> apply(Void ignoredVoidArg) {",
             "          monitor.methodStarting();",
             "          try {",
-            "            return module.produceString();",
+            "            return TestModule_ProduceStringFactory.this.module.produceString();",
             "          } finally {",
             "            monitor.methodFinished();",
             "          }",
