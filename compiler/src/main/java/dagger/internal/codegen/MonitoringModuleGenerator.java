@@ -37,6 +37,7 @@ import static dagger.internal.codegen.AnnotationSpecs.PROVIDES_SET_VALUES;
 import static dagger.internal.codegen.TypeNames.SET_OF_FACTORIES;
 import static dagger.internal.codegen.TypeNames.providerOf;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.FINAL;
 
@@ -64,7 +65,7 @@ final class MonitoringModuleGenerator extends JavaPoetSourceFileGenerator<TypeEl
             .addAnnotation(
                 AnnotationSpec.builder(Module.class)
                     .build())
-            .addModifiers(FINAL)
+            .addModifiers(PUBLIC, FINAL)
 
             // TODO(beder): Replace this default set binding with EmptyCollections when it exists.
             .addMethod(
