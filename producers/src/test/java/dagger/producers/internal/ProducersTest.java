@@ -70,7 +70,7 @@ public class ProducersTest {
 
   private <T> ExecutionException getProducedException(Produced<T> produced) {
     try {
-      produced.get();
+      T unused = produced.get();
       throw new IllegalArgumentException("produced did not throw");
     } catch (ExecutionException e) {
       return e;
