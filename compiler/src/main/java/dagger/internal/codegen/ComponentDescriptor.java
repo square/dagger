@@ -276,9 +276,9 @@ abstract class ComponentDescriptor {
   abstract Optional<TypeElement> executorDependency();
 
   /**
-   * The scope of the component.
+   * The scopes of the component.
    */
-  abstract Scope scope();
+  abstract ImmutableSet<Scope> scopes();
 
   abstract ImmutableMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponents();
 
@@ -482,10 +482,9 @@ abstract class ComponentDescriptor {
       Optional<DeclaredType> builderType =
           Optional.fromNullable(getOnlyElement(enclosedBuilders, null));
 
-      Scope scope = Scope.scopeOf(componentDefinitionType);
-      if (kind.isProducer() && !scope.isPresent()) {
-        // TODO(beder): Override scope for production components when clients don't use them.
-        scope = Scope.productionScope(elements);
+      ImmutableSet<Scope> scopes = Scope.scopesOf(componentDefinitionType);
+      if (kind.isProducer()) {
+        scopes = FluentIterable.from(scopes).append(Scope.productionScope(elements)).toSet();
       }
 
       return new AutoValue_ComponentDescriptor(
@@ -496,7 +495,7 @@ abstract class ComponentDescriptor {
           modules.build(),
           dependencyMethodIndex.build(),
           executorDependency,
-          scope,
+          scopes,
           subcomponentDescriptors.build(),
           componentMethodsBuilder.build(),
           createBuilderSpec(builderType));

@@ -151,8 +151,8 @@ abstract class Binding implements HasBindingType, HasKey, HasSourceElement {
   /**
    * The scope of this binding.
    */
-  Scope scope() {
-    return Scope.unscoped();
+  Optional<Scope> scope() {
+    return Optional.absent();
   }
 
   // TODO(sameb): Remove the TypeElement parameter and pull it from the TypeMirror.

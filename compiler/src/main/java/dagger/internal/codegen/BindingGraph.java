@@ -493,10 +493,10 @@ abstract class BindingGraph {
 
         // look for scope separately.  we do this for the case where @Singleton can appear twice
         // in the † compatibility mode
-        Scope bindingScope = binding.scope();
+        Optional<Scope> bindingScope = binding.scope();
         if (bindingScope.isPresent()) {
           for (Resolver requestResolver : getResolverLineage().reverse()) {
-            if (bindingScope.equals(requestResolver.componentDescriptor.scope())) {
+            if (requestResolver.componentDescriptor.scopes().contains(bindingScope.get())) {
               return Optional.of(requestResolver);
             }
           }

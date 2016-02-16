@@ -17,59 +17,57 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import dagger.producers.ProductionScope;
-import javax.annotation.Nullable;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 
-import static com.google.auto.common.MoreTypes.isTypeOf;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.InjectionAnnotations.getScopeAnnotation;
+import static dagger.internal.codegen.InjectionAnnotations.getScopes;
 
 /**
  * A representation of the scope (or lack of it) associated with a component, providing method
  * or injection location.
  */
 final class Scope {
-
-  /**
-   * An internal representation for an unscoped binding.
-   */
-  private static final Scope UNSCOPED = new Scope();
-
   /**
    * The underlying {@link AnnotationMirror} that represents the scope annotation.
    */
-  @Nullable
   private final AnnotationMirror annotationMirror;
 
-  private Scope(@Nullable AnnotationMirror annotationMirror) {
-    this.annotationMirror = annotationMirror;
+  private Scope(AnnotationMirror annotationMirror) {
+    this.annotationMirror = checkNotNull(annotationMirror);
   }
 
-  private Scope() {
-    this(null);
+  /** Returns all of the associated scoped annotations from the source code element. */
+  static ImmutableSet<Scope> scopesOf(Element element) {
+    return FluentIterable.from(getScopes(element)).
+        transform(new Function<AnnotationMirror, Scope>() {
+          @Override public Scope apply(AnnotationMirror annotationMirror) {
+            return new Scope(annotationMirror);
+          }
+        }).toSet();
   }
 
   /**
-   * Returns representation for an unscoped binding.
+   * Returns at most one associated scoped annotation from the source code element, throwing an
+   * exception if there are more than one.
    */
-  static Scope unscoped() {
-    return UNSCOPED;
-  }
-
-  /**
-   * If the source code element has an associated scoped annotation then returns a representation
-   * of that scope, otherwise returns a representation for an unscoped binding.
-   */
-  static Scope scopeOf(Element element) {
-    Optional<AnnotationMirror> scopeAnnotation = getScopeAnnotation(element);
-    return scopeAnnotation.isPresent() ? new Scope(scopeAnnotation.get()) : UNSCOPED;
+  static Optional<Scope> uniqueScopeOf(Element element) {
+    ImmutableSet<? extends AnnotationMirror> scopeAnnotations = getScopes(element);
+    if (scopeAnnotations.isEmpty()) {
+      return Optional.absent();
+    }
+    return Optional.of(new Scope(Iterables.getOnlyElement(scopeAnnotations)));
   }
 
   /**
@@ -82,18 +80,12 @@ final class Scope {
   }
 
   /**
-   * Returns true if the scope is present, i.e. it's not unscoped binding.
+   * Returns a representation for singleton scope.
    */
-  public boolean isPresent() {
-    return annotationMirror != null;
-  }
-
-  /**
-   * Returns true if the scope represents the {@link Singleton @Singleton} annotation.
-   */
-  public boolean isSingleton() {
-    return annotationMirror != null
-        && isTypeOf(Singleton.class, annotationMirror.getAnnotationType());
+  static Scope singletonScope(Elements elements) {
+    return new Scope(
+        SimpleAnnotationMirror.of(
+            elements.getTypeElement(Singleton.class.getCanonicalName())));
   }
 
   /**
@@ -151,6 +143,6 @@ final class Scope {
    */
   @Override
   public String toString() {
-    return annotationMirror == null ? "UNSCOPED" : annotationMirror.toString();
+    return annotationMirror.toString();
   }
 }

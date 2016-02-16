@@ -161,6 +161,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(
+            elements,
             types,
             injectBindingRegistry,
             scopeValidationType(processingEnv),
