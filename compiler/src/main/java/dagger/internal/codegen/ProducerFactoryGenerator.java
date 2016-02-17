@@ -48,7 +48,6 @@ import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.TypeNames.ASYNC_FUNCTION;
-import static dagger.internal.codegen.TypeNames.EXECUTOR;
 import static dagger.internal.codegen.TypeNames.FUTURES;
 import static dagger.internal.codegen.TypeNames.IMMUTABLE_SET;
 import static dagger.internal.codegen.TypeNames.PRODUCERS;
@@ -118,8 +117,6 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
           factoryBuilder, constructorBuilder, "module", moduleType);
     }
 
-    addFieldAndConstructorParameter(factoryBuilder, constructorBuilder, "executor", EXECUTOR);
-
     for (FrameworkField bindingField : fields.values()) {
       TypeName fieldType = bindingField.frameworkType();
       addFieldAndConstructorParameter(
@@ -185,7 +182,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
                 providedTypeName,
                 futureTransform.parameterCodeBlocks()));
     computeMethodBuilder.addStatement(
-        "return $T.transformAsync($L, $L, executor)",
+        "return $T.transformAsync($L, $L, executorProvider.get())",
         FUTURES,
         futureTransform.futureCodeBlock(),
         transformCodeBlock);

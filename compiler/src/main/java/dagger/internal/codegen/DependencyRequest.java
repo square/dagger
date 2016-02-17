@@ -342,6 +342,17 @@ abstract class DependencyRequest {
           Optional.<String>absent());
     }
 
+    DependencyRequest forProductionImplementationExecutor() {
+      Key key = keyFactory.forProductionImplementationExecutor();
+      return new AutoValue_DependencyRequest(
+          Kind.PROVIDER,
+          key,
+          MoreTypes.asElement(key.type()),
+          MoreTypes.asDeclared(key.type()),
+          false /* doesn't allow null */,
+          Optional.<String>absent());
+    }
+
     DependencyRequest forProductionComponentMonitorProvider() {
       TypeElement element = elements.getTypeElement(AbstractProducer.class.getCanonicalName());
       for (ExecutableElement constructor : constructorsIn(element.getEnclosedElements())) {

@@ -108,6 +108,7 @@ public class BindingGraphValidator {
 
   private final Elements elements;
   private final Types types;
+  private final CompilerOptions options;
   private final InjectBindingRegistry injectBindingRegistry;
   private final ValidationType scopeCycleValidationType;
   private final Diagnostic.Kind nullableValidationType;
@@ -120,6 +121,7 @@ public class BindingGraphValidator {
   BindingGraphValidator(
       Elements elements,
       Types types,
+      CompilerOptions options,
       InjectBindingRegistry injectBindingRegistry,
       ValidationType scopeCycleValidationType,
       Diagnostic.Kind nullableValidationType,
@@ -130,6 +132,7 @@ public class BindingGraphValidator {
       Key.Factory keyFactory) {
     this.elements = elements;
     this.types = types;
+    this.options = options;
     this.injectBindingRegistry = injectBindingRegistry;
     this.scopeCycleValidationType = scopeCycleValidationType;
     this.nullableValidationType = nullableValidationType;
@@ -309,6 +312,22 @@ public class BindingGraphValidator {
               && doesPathRequireProvisionOnly(path)) {
             reportProviderMayNotDependOnProducer(path);
             return false;
+          }
+          if (options.usesProducers()) {
+            Key productionImplementationExecutorKey =
+                keyFactory.forProductionImplementationExecutor();
+            // only forbid depending on the production executor if it's not the Dagger-specific
+            // binding to the implementation
+            if (!contributionBinding.key().equals(productionImplementationExecutorKey)) {
+              Key productionExecutorKey = keyFactory.forProductionExecutor();
+              for (DependencyRequest request : contributionBinding.dependencies()) {
+                if (request.key().equals(productionExecutorKey)
+                    || request.key().equals(productionImplementationExecutorKey)) {
+                  reportDependsOnProductionExecutor(path);
+                  return false;
+                }
+              }
+            }
           }
           if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
             ImmutableSet<ContributionBinding> multibindings =
@@ -901,6 +920,14 @@ public class BindingGraphValidator {
         errorMessage.append('\n').append(suggestion);
       }
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
+    }
+
+    @SuppressWarnings("resource") // Appendable is a StringBuilder.
+    private void reportDependsOnProductionExecutor(Deque<ResolvedRequest> path) {
+      StringBuilder builder = new StringBuilder();
+      new Formatter(builder)
+          .format(ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatRootRequestKey(path));
+      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.

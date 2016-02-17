@@ -15,6 +15,7 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -23,6 +24,7 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
@@ -86,6 +88,125 @@ public class ProductionComponentProcessorTest {
         .withErrorContaining("is not annotated with one of @Module, @ProducerModule");
   }
 
+  @Test
+  public void builderWithExecutorAndProvidedExecutor() {
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.ExecutorModule",
+            "package test;",
+            "",
+            "import com.google.common.util.concurrent.MoreExecutors;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.producers.Production;",
+            "import java.util.concurrent.Executor;",
+            "",
+            "@Module",
+            "final class ExecutorModule {",
+            "  @Provides @Production Executor executor() {",
+            "    return MoreExecutors.directExecutor();",
+            "  }",
+            "}");
+    JavaFileObject producerModuleFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleModule",
+            "package test;",
+            "",
+            "import dagger.producers.ProducerModule;",
+            "import dagger.producers.Produces;",
+            "",
+            "@ProducerModule",
+            "final class SimpleModule {",
+            "  @Produces String str() {",
+            "    return \"\";",
+            "  }",
+            "}");
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleComponent",
+            "package test;",
+            "",
+            "import com.google.common.util.concurrent.ListenableFuture;",
+            "import dagger.producers.ProductionComponent;",
+            "import java.util.concurrent.Executor;",
+            "",
+            "@ProductionComponent(modules = {ExecutorModule.class, SimpleModule.class})",
+            "interface SimpleComponent {",
+            "  ListenableFuture<String> str();",
+            "",
+            "  @ProductionComponent.Builder",
+            "  interface Builder {",
+            "    Builder executor(Executor executor);",
+            "    SimpleComponent build();",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(moduleFile, producerModuleFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("is bound multiple times");
+  }
+
+  @Test
+  public void dependsOnProductionExecutor() {
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.ExecutorModule",
+            "package test;",
+            "",
+            "import com.google.common.util.concurrent.MoreExecutors;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.producers.Production;",
+            "import java.util.concurrent.Executor;",
+            "",
+            "@Module",
+            "final class ExecutorModule {",
+            "  @Provides @Production Executor executor() {",
+            "    return MoreExecutors.directExecutor();",
+            "  }",
+            "}");
+    JavaFileObject producerModuleFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleModule",
+            "package test;",
+            "",
+            "import dagger.producers.ProducerModule;",
+            "import dagger.producers.Produces;",
+            "import dagger.producers.Production;",
+            "import java.util.concurrent.Executor;",
+            "",
+            "@ProducerModule",
+            "final class SimpleModule {",
+            "  @Produces String str(@Production Executor executor) {",
+            "    return \"\";",
+            "  }",
+            "}");
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleComponent",
+            "package test;",
+            "",
+            "import com.google.common.util.concurrent.ListenableFuture;",
+            "import dagger.producers.ProductionComponent;",
+            "import java.util.concurrent.Executor;",
+            "",
+            "@ProductionComponent(modules = {ExecutorModule.class, SimpleModule.class})",
+            "interface SimpleComponent {",
+            "  ListenableFuture<String> str();",
+            "",
+            "  @ProductionComponent.Builder",
+            "  interface Builder {",
+            "    SimpleComponent build();",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(moduleFile, producerModuleFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("may not depend on the production executor");
+  }
+
   @Test public void simpleComponent() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
         "package test;",
@@ -132,6 +253,7 @@ public class ProductionComponentProcessorTest {
             "",
             "import com.google.common.util.concurrent.ListenableFuture;",
             "import dagger.internal.InstanceFactory;",
+            "import dagger.internal.ScopedProvider;",
             "import dagger.internal.SetFactory;",
             "import dagger.producers.Producer;",
             "import dagger.producers.internal.Producers;",
@@ -144,7 +266,9 @@ public class ProductionComponentProcessorTest {
             GENERATED_ANNOTATION,
             "public final class DaggerTestClass_SimpleComponent",
             "    implements TestClass.SimpleComponent {",
-            "  private Provider<TestClass.SimpleComponent> simpleComponentProvider;",
+            "  private Provider<Executor> simpleComponentProvider;",
+            "  private Provider<Executor> executorProvider;",
+            "  private Provider<TestClass.SimpleComponent> simpleComponentProvider2;",
             "  private Provider<Set<ProductionComponentMonitor.Factory>> setOfFactoryProvider;",
             "  private Provider<ProductionComponentMonitor> monitorProvider;",
             "  private Provider<TestClass.B> bProvider;",
@@ -161,7 +285,13 @@ public class ProductionComponentProcessorTest {
             "",
             "  @SuppressWarnings(\"unchecked\")",
             "  private void initialize(final Builder builder) {",
-            "    this.simpleComponentProvider = ",
+            "    this.simpleComponentProvider =",
+            "        InstanceFactory.<Executor>create(builder.executor);",
+            "     this.executorProvider =",
+            "         ScopedProvider.create(",
+            "             TestClass$SimpleComponent_ProductionExecutorModule_ExecutorFactory.create(",
+            "                 simpleComponentProvider));",
+            "    this.simpleComponentProvider2 =",
             "        InstanceFactory.<TestClass.SimpleComponent>create(this);",
             "    this.setOfFactoryProvider = SetFactory.create(",
             "        TestClass$SimpleComponent_MonitoringModule_DefaultSetOfFactoriesFactory",
@@ -169,13 +299,13 @@ public class ProductionComponentProcessorTest {
             "    this.monitorProvider =",
             "        TestClass$SimpleComponent_MonitoringModule_MonitorFactory.create(",
             "            builder.testClass$SimpleComponent_MonitoringModule,",
-            "            simpleComponentProvider,",
+            "            simpleComponentProvider2,",
             "            setOfFactoryProvider);",
             "    this.bProvider = TestClass$BModule_BFactory.create(",
             "        builder.bModule, TestClass$C_Factory.create());",
             "    this.aProducer = new TestClass$AModule_AFactory(",
             "        builder.aModule,",
-            "        builder.executor,",
+            "        executorProvider,",
             "        monitorProvider,",
             "        Producers.producerFromProvider(bProvider));",
             "  }",
@@ -237,6 +367,16 @@ public class ProductionComponentProcessorTest {
             "      }",
             "      this.testClass$SimpleComponent_MonitoringModule =",
             "          testClass$SimpleComponent_MonitoringModule;",
+            "      return this;",
+            "    }",
+            "",
+            "    @Deprecated",
+            "    public Builder testClass$SimpleComponent_ProductionExecutorModule(",
+            "        TestClass$SimpleComponent_ProductionExecutorModule",
+            "        testClass$SimpleComponent_ProductionExecutorModule) {",
+            "      if (testClass$SimpleComponent_ProductionExecutorModule == null) {",
+            "        throw new NullPointerException();",
+            "      }",
             "      return this;",
             "    }",
             "",

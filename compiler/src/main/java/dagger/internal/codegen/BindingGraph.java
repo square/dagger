@@ -197,6 +197,12 @@ abstract class BindingGraph {
       TypeElement componentDefinitionType = componentDescriptor.componentDefinitionType();
       explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDefinitionType));
 
+      // immediate binding for the executor, if it's provided to the builder
+      if (componentDescriptor.executorDependency().isPresent()) {
+        explicitBindingsBuilder.add(
+            provisionBindingFactory.forExecutorDependency(componentDefinitionType));
+      }
+
       // Collect Component dependencies.
       Optional<AnnotationMirror> componentMirror =
           getAnnotationMirror(componentDefinitionType, Component.class)

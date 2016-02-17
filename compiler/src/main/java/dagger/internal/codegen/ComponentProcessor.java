@@ -71,6 +71,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Elements elements = processingEnv.getElementUtils();
     Filer filer = processingEnv.getFiler();
 
+    CompilerOptions options = new CompilerOptions(elements);
+
+    // TODO(beder): Move these diagnostic options to CompilerOptions.
     Diagnostic.Kind nullableDiagnosticType =
         nullableValidationType(processingEnv).diagnosticKind().get();
 
@@ -115,6 +118,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProducerFactoryGenerator(filer, elements);
     MonitoringModuleGenerator monitoringModuleGenerator =
         new MonitoringModuleGenerator(filer, elements);
+    ProductionExecutorModuleGenerator productionExecutorModuleGenerator =
+        new ProductionExecutorModuleGenerator(filer, elements);
 
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(elements, keyFactory);
@@ -163,6 +168,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new BindingGraphValidator(
             elements,
             types,
+            options,
             injectBindingRegistry,
             scopeValidationType(processingEnv),
             nullableDiagnosticType,
@@ -176,6 +182,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
         new InjectProcessingStep(injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
+        new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),
         new MultibindingsProcessingStep(messager, multibindingsValidator),
         new ModuleProcessingStep(
             messager,

@@ -932,6 +932,14 @@ abstract class AbstractComponentWriter {
               : factoryCreate;
         }
 
+      case EXECUTOR_DEPENDENCY:
+        return CodeBlocks.format(
+            "$T.<$T>create($L)",
+            INSTANCE_FACTORY,
+            bindingKeyTypeName,
+            getComponentContributionExpression(
+                graph.componentDescriptor().executorDependency().get()));
+
       case COMPONENT_PRODUCTION:
         {
           TypeElement bindingTypeElement =
@@ -962,9 +970,6 @@ abstract class AbstractComponentWriter {
           if (!binding.bindingElement().getModifiers().contains(STATIC)) {
             arguments.add(getComponentContributionExpression(binding.bindingTypeElement()));
           }
-          arguments.add(
-              getComponentContributionExpression(
-                  graph.componentDescriptor().executorDependency().get()));
           arguments.addAll(getDependencyArguments(binding));
 
           return CodeBlocks.format(

@@ -32,9 +32,12 @@ import dagger.Multibindings;
 import dagger.Provides;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import dagger.producers.Production;
 import dagger.producers.Produces;
+import dagger.producers.internal.ProductionImplementation;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
@@ -67,7 +70,7 @@ import static javax.lang.model.element.ElementKind.METHOD;
  */
 @AutoValue
 abstract class Key {
-  
+
   /** An object that is associated with a {@link Key}. */
   interface HasKey {
     /** The key associated with this object. */
@@ -91,7 +94,7 @@ abstract class Key {
    * logical equality, so {@link MoreTypes#equivalence()} wraps this type.
    */
   abstract Equivalence.Wrapper<TypeMirror> wrappedType();
-  
+
   /**
    * For multibinding contributions, this is the binding method element. Each multibound map and set
    * is represented by a
@@ -344,7 +347,7 @@ abstract class Key {
           ? key
           : key.withBindingMethod(sourceElement);
     }
-    
+
     /**
      * Returns the key for a method in a {@link Multibindings @Multibindings} interface.
      *
@@ -442,6 +445,18 @@ abstract class Key {
           wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), qualifier),
           MoreTypes.equivalence().wrap(normalize(types, type)),
           Optional.<SourceElement>absent());
+    }
+
+    Key forProductionExecutor() {
+      return forQualifiedType(
+          Optional.of(SimpleAnnotationMirror.of(getClassElement(Production.class))),
+          getClassElement(Executor.class).asType());
+    }
+
+    Key forProductionImplementationExecutor() {
+      return forQualifiedType(
+          Optional.of(SimpleAnnotationMirror.of(getClassElement(ProductionImplementation.class))),
+          getClassElement(Executor.class).asType());
     }
 
     /**

@@ -420,11 +420,6 @@ abstract class ComponentDescriptor {
         }
       }
 
-      Optional<TypeElement> executorDependency =
-          kind.isProducer()
-              ? Optional.of(elements.getTypeElement(Executor.class.getCanonicalName()))
-              : Optional.<TypeElement>absent();
-
       ImmutableSet.Builder<ModuleDescriptor> modules = ImmutableSet.builder();
       for (TypeMirror moduleIncludesType : getComponentModules(componentMirror)) {
         modules.add(moduleDescriptorFactory.create(MoreTypes.asTypeElement(moduleIncludesType)));
@@ -435,6 +430,7 @@ abstract class ComponentDescriptor {
               && (parentKind.get().equals(Kind.COMPONENT)
                   || parentKind.get().equals(Kind.SUBCOMPONENT)))) {
         modules.add(descriptorForMonitoringModule(componentDefinitionType));
+        modules.add(descriptorForProductionExecutorModule(componentDefinitionType));
       }
 
       ImmutableSet<ExecutableElement> unimplementedMethods =
@@ -481,12 +477,14 @@ abstract class ComponentDescriptor {
           : enclosedBuilders(componentDefinitionType, kind.builderAnnotationType());
       Optional<DeclaredType> builderType =
           Optional.fromNullable(getOnlyElement(enclosedBuilders, null));
+      Optional<BuilderSpec> builderSpec = createBuilderSpec(builderType);
 
       ImmutableSet<Scope> scopes = Scope.scopesOf(componentDefinitionType);
       if (kind.isProducer()) {
         scopes = FluentIterable.from(scopes).append(Scope.productionScope(elements)).toSet();
       }
 
+      Optional<TypeElement> executorDependency = createExecutorDependency(kind, builderSpec);
       return new AutoValue_ComponentDescriptor(
           kind,
           componentMirror,
@@ -498,7 +496,7 @@ abstract class ComponentDescriptor {
           scopes,
           subcomponentDescriptors.build(),
           componentMethodsBuilder.build(),
-          createBuilderSpec(builderType));
+          builderSpec);
     }
 
     private ComponentMethodDescriptor getDescriptorForComponentMethod(
@@ -595,6 +593,23 @@ abstract class ComponentDescriptor {
           map.build(), buildMethod, element.getEnclosingElement().asType()));
     }
 
+    private Optional<TypeElement> createExecutorDependency(
+        Kind componentKind, Optional<BuilderSpec> builderSpec) {
+      if (!componentKind.isProducer()) {
+        return Optional.absent();
+      }
+      TypeElement executorTypeElement = elements.getTypeElement(Executor.class.getCanonicalName());
+      if (!builderSpec.isPresent()) {
+        // if there's no builder, we'll add an executor() method to the generated builder so it
+        // must be specified
+        // TODO(beder): Remove this behavior.
+        return Optional.of(executorTypeElement);
+      }
+      return builderSpec.get().methodMap().containsKey(executorTypeElement)
+          ? Optional.of(executorTypeElement)
+          : Optional.<TypeElement>absent();
+    }
+
     /**
      * Returns a descriptor for a generated module that handles monitoring for production
      * components. This module is generated in the {@link MonitoringModuleProcessingStep}.
@@ -611,6 +626,27 @@ abstract class ComponentDescriptor {
         throw new TypeNotPresentException(generatedMonitorModuleName, null);
       }
       return moduleDescriptorFactory.create(monitoringModule);
+    }
+
+    /**
+     * Returns a descriptor for a generated module that handles the producer executor for production
+     * components. This module is generated in the {@link ProductionExecutorModuleProcessingStep}.
+     *
+     * @throws TypeNotPresentException if the module has not been generated yet. This will cause the
+     *     processor to retry in a later processing round.
+     */
+    // TODO(beder): Replace this with a single class when the producers client library exists.
+    private ModuleDescriptor descriptorForProductionExecutorModule(
+        TypeElement componentDefinitionType) {
+      ClassName productionExecutorModuleName =
+          SourceFiles.generatedProductionExecutorModuleName(componentDefinitionType);
+      String generatedProductionExecutorModuleName = productionExecutorModuleName.toString();
+      TypeElement productionExecutorModule =
+          elements.getTypeElement(generatedProductionExecutorModuleName);
+      if (productionExecutorModule == null) {
+        throw new TypeNotPresentException(generatedProductionExecutorModuleName, null);
+      }
+      return moduleDescriptorFactory.create(productionExecutorModule);
     }
   }
 

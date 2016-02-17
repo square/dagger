@@ -21,14 +21,16 @@ import dagger.Module;
 import dagger.Provides;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import dagger.producers.Production;
 import dagger.producers.ProductionComponent;
 import dagger.producers.ProductionSubcomponent;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
 
-final class Subcomponents {
+final class SubcomponentsWithBoundExecutor {
   @Qualifier
   @interface FromParent {}
 
@@ -37,6 +39,38 @@ final class Subcomponents {
 
   @Qualifier
   @interface FromGrandchild {}
+
+  static final class CountingExecutor implements Executor {
+    private final AtomicInteger executionCount;
+
+    CountingExecutor(AtomicInteger executionCount) {
+      this.executionCount = executionCount;
+    }
+
+    @Override
+    public void execute(Runnable runnable) {
+      executionCount.incrementAndGet();
+      runnable.run();
+    }
+  }
+
+  @Module
+  static final class ExecutorModule {
+    private final AtomicInteger constructionCount;
+    private final AtomicInteger executionCount;
+
+    ExecutorModule(AtomicInteger constructionCount, AtomicInteger executionCount) {
+      this.constructionCount = constructionCount;
+      this.executionCount = executionCount;
+    }
+
+    @Provides
+    @Production
+    Executor executor() {
+      constructionCount.incrementAndGet();
+      return new CountingExecutor(executionCount);
+    }
+  }
 
   @Module
   static final class ParentModule {
@@ -47,11 +81,11 @@ final class Subcomponents {
     }
   }
 
-  @Component(modules = ParentModule.class)
+  @Component(modules = {ParentModule.class, ExecutorModule.class})
   interface ParentComponent {
     InjectsChildBuilder injectsChildBuilder();
 
-    ChildComponentWithExecutor.Builder newChildComponentBuilder();
+    ChildComponent.Builder newChildComponentBuilder();
   }
 
   @ProducerModule
@@ -63,9 +97,16 @@ final class Subcomponents {
     }
   }
 
-  @ProductionComponent(modules = ParentProducerModule.class)
+  @ProductionComponent(modules = {ParentProducerModule.class, ExecutorModule.class})
   interface ParentProductionComponent {
     ChildComponent.Builder newChildComponentBuilder();
+
+    @ProductionComponent.Builder
+    interface Builder {
+      Builder executorModule(ExecutorModule executorModule);
+
+      ParentProductionComponent build();
+    }
   }
 
   @ProducerModule
@@ -90,30 +131,15 @@ final class Subcomponents {
     }
   }
 
-  @ProductionSubcomponent(modules = ChildProducerModule.class)
-  interface ChildComponentWithExecutor {
-    @FromChild
-    ListenableFuture<String> fromChild();
-
-    GrandchildComponent.Builder newGrandchildComponentBuilder();
-
-    @ProductionSubcomponent.Builder
-    interface Builder {
-      Builder executor(Executor executor);
-
-      ChildComponentWithExecutor build();
-    }
-  }
-
   static final class InjectsChildBuilder {
-    private final Provider<ChildComponentWithExecutor.Builder> childBuilder;
+    private final Provider<ChildComponent.Builder> childBuilder;
 
     @Inject
-    InjectsChildBuilder(Provider<ChildComponentWithExecutor.Builder> childBuilder) {
+    InjectsChildBuilder(Provider<ChildComponent.Builder> childBuilder) {
       this.childBuilder = childBuilder;
     }
 
-    ChildComponentWithExecutor.Builder childBuilder() {
+    ChildComponent.Builder childBuilder() {
       return childBuilder.get();
     }
   }
@@ -138,5 +164,5 @@ final class Subcomponents {
     }
   }
 
-  private Subcomponents() {}
+  private SubcomponentsWithBoundExecutor() {}
 }

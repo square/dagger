@@ -23,6 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import producerstest.subcomponent.Subcomponents.ChildComponent;
+import producerstest.subcomponent.Subcomponents.ChildComponentWithExecutor;
 import producerstest.subcomponent.Subcomponents.GrandchildComponent;
 import producerstest.subcomponent.Subcomponents.ParentComponent;
 import producerstest.subcomponent.Subcomponents.ParentProductionComponent;
@@ -33,7 +34,7 @@ public final class SubcomponentTest {
   public void topLevelComponent_child() throws Exception {
     Executor executor = MoreExecutors.directExecutor();
     ParentComponent parent = DaggerSubcomponents_ParentComponent.create();
-    ChildComponent child = parent.newChildComponentBuilder().executor(executor).build();
+    ChildComponentWithExecutor child = parent.newChildComponentBuilder().executor(executor).build();
     assertThat(child.fromChild().get()).isEqualTo("child:parent");
   }
 
@@ -41,7 +42,8 @@ public final class SubcomponentTest {
   public void topLevelComponent_injectsChildBuilder() throws Exception {
     Executor executor = MoreExecutors.directExecutor();
     ParentComponent parent = DaggerSubcomponents_ParentComponent.create();
-    ChildComponent child = parent.injectsChildBuilder().childBuilder().executor(executor).build();
+    ChildComponentWithExecutor child =
+        parent.injectsChildBuilder().childBuilder().executor(executor).build();
     assertThat(child.fromChild().get()).isEqualTo("child:parent");
   }
 
@@ -49,9 +51,8 @@ public final class SubcomponentTest {
   public void topLevelComponent_grandchild() throws Exception {
     Executor executor = MoreExecutors.directExecutor();
     ParentComponent parent = DaggerSubcomponents_ParentComponent.create();
-    ChildComponent child = parent.newChildComponentBuilder().executor(executor).build();
-    GrandchildComponent grandchild =
-        child.newGrandchildComponentBuilder().executor(executor).build();
+    ChildComponentWithExecutor child = parent.newChildComponentBuilder().executor(executor).build();
+    GrandchildComponent grandchild = child.newGrandchildComponentBuilder().build();
     assertThat(grandchild.fromGrandchild().get()).isEqualTo("grandchild:child:parent");
   }
 
@@ -60,7 +61,7 @@ public final class SubcomponentTest {
     Executor executor = MoreExecutors.directExecutor();
     ParentProductionComponent parent =
         DaggerSubcomponents_ParentProductionComponent.builder().executor(executor).build();
-    ChildComponent child = parent.newChildComponentBuilder().executor(executor).build();
+    ChildComponent child = parent.newChildComponentBuilder().build();
     assertThat(child.fromChild().get()).isEqualTo("child:parentproduction");
   }
 
@@ -69,9 +70,8 @@ public final class SubcomponentTest {
     Executor executor = MoreExecutors.directExecutor();
     ParentProductionComponent parent =
         DaggerSubcomponents_ParentProductionComponent.builder().executor(executor).build();
-    ChildComponent child = parent.newChildComponentBuilder().executor(executor).build();
-    GrandchildComponent grandchild =
-        child.newGrandchildComponentBuilder().executor(executor).build();
+    ChildComponent child = parent.newChildComponentBuilder().build();
+    GrandchildComponent grandchild = child.newGrandchildComponentBuilder().build();
     assertThat(grandchild.fromGrandchild().get()).isEqualTo("grandchild:child:parentproduction");
   }
 }

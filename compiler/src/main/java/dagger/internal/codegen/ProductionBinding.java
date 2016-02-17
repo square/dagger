@@ -64,10 +64,12 @@ abstract class ProductionBinding extends ContributionBinding {
   @Override
   Set<DependencyRequest> implicitDependencies() {
     // Similar optimizations to ContributionBinding.implicitDependencies().
-    if (!monitorRequest().isPresent()) {
+    if (!executorRequest().isPresent() && !monitorRequest().isPresent()) {
       return super.implicitDependencies();
     } else {
-      return Sets.union(monitorRequest().asSet(), super.implicitDependencies());
+      return Sets.union(
+          Sets.union(executorRequest().asSet(), monitorRequest().asSet()),
+          super.implicitDependencies());
     }
   }
 
@@ -76,6 +78,9 @@ abstract class ProductionBinding extends ContributionBinding {
 
   /** Returns the list of types in the throws clause of the method. */
   abstract ImmutableList<? extends TypeMirror> thrownTypes();
+
+  /** If this production requires an executor, this will be the corresponding request. */
+  abstract Optional<DependencyRequest> executorRequest();
 
   /** If this production requires a monitor, this will be the corresponding request. */
   abstract Optional<DependencyRequest> monitorRequest();
@@ -106,6 +111,8 @@ abstract class ProductionBinding extends ContributionBinding {
               MoreTypes.asDeclared(contributedBy.asType()),
               producesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
+      DependencyRequest executorRequest =
+          dependencyRequestFactory.forProductionImplementationExecutor();
       DependencyRequest monitorRequest =
           dependencyRequestFactory.forProductionComponentMonitorProvider();
       Kind kind = MoreTypes.isTypeOf(ListenableFuture.class, producesMethod.getReturnType())
@@ -121,6 +128,7 @@ abstract class ProductionBinding extends ContributionBinding {
           kind,
           producesAnnotation.type(),
           ImmutableList.copyOf(producesMethod.getThrownTypes()),
+          Optional.of(executorRequest),
           Optional.of(monitorRequest));
     }
 
@@ -143,6 +151,7 @@ abstract class ProductionBinding extends ContributionBinding {
           Kind.SYNTHETIC_MAP,
           Produces.Type.UNIQUE,
           ImmutableList.<TypeMirror>of(),
+          Optional.<DependencyRequest>absent(),
           Optional.<DependencyRequest>absent());
     }
 
@@ -162,6 +171,7 @@ abstract class ProductionBinding extends ContributionBinding {
           Kind.forMultibindingRequest(request),
           Produces.Type.UNIQUE,
           ImmutableList.<TypeMirror>of(),
+          Optional.<DependencyRequest>absent(),
           Optional.<DependencyRequest>absent());
     }
 
@@ -180,6 +190,7 @@ abstract class ProductionBinding extends ContributionBinding {
           Kind.COMPONENT_PRODUCTION,
           Produces.Type.UNIQUE,
           ImmutableList.copyOf(componentMethod.getThrownTypes()),
+          Optional.<DependencyRequest>absent(),
           Optional.<DependencyRequest>absent());
     }
   }
