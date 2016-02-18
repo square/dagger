@@ -32,5 +32,10 @@ final class Qualifiers {
   @Qualifier
   @interface PossiblyThrowingMap {}
 
+  @Documented
+  @Retention(RUNTIME)
+  @Qualifier
+  @interface ObjCount {}
+
   private Qualifiers() {}
 }

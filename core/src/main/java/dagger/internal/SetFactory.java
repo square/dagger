@@ -23,6 +23,7 @@ import java.util.Set;
 import javax.inject.Provider;
 
 import static dagger.internal.Collections.newLinkedHashSetWithExpectedSize;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 
 /**
@@ -40,6 +41,19 @@ public final class SetFactory<T> implements Factory<Set<T>> {
   private static final String ARGUMENTS_MUST_BE_NON_NULL =
       "SetFactory.create() requires its arguments to be non-null";
 
+  private static final Factory<Set<Object>> EMPTY_FACTORY =
+      new Factory<Set<Object>>() {
+        @Override
+        public Set<Object> get() {
+          return emptySet();
+        }
+      };
+
+  @SuppressWarnings({"unchecked", "rawtypes"}) // safe covariant cast
+  public static <T> Factory<Set<T>> create() {
+    return (Factory<Set<T>>) (Factory) EMPTY_FACTORY;
+  }
+
   /**
    * Returns the supplied factory.  If there's just one factory, there's no need to wrap it or its
    * result.
@@ -48,7 +62,7 @@ public final class SetFactory<T> implements Factory<Set<T>> {
     assert factory != null : ARGUMENTS_MUST_BE_NON_NULL;
     return factory;
   }
-  
+
   /**
    * Returns a new factory that creates {@link Set} instances that form the union of the given
    * {@link Provider} instances.  Callers must not modify the providers array after invoking this
@@ -94,7 +108,7 @@ public final class SetFactory<T> implements Factory<Set<T>> {
     int size = 0;
 
     // Profiling revealed that this method was a CPU-consuming hotspot in some applications, so
-    // these loops were changed to use c-style for.  Versus enhanced for-each loops, C-style for is 
+    // these loops were changed to use c-style for.  Versus enhanced for-each loops, C-style for is
     // faster for ArrayLists, at least through Java 8.
 
     List<Set<T>> providedSets = new ArrayList<Set<T>>(contributingProviders.size());

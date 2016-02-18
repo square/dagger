@@ -34,6 +34,27 @@ import java.util.Set;
  * @since 2.0
  */
 public final class SetProducer<T> extends AbstractProducer<Set<T>> {
+  private static final Producer<Set<Object>> EMPTY_PRODUCER =
+      new Producer<Set<Object>>() {
+        @Override
+        public ListenableFuture<Set<Object>> get() {
+          return Futures.<Set<Object>>immediateFuture(ImmutableSet.<Object>of());
+        }
+      };
+
+  @SuppressWarnings({"unchecked", "rawtypes"}) // safe covariant cast
+  public static <T> Producer<Set<T>> create() {
+    return (Producer<Set<T>>) (Producer) EMPTY_PRODUCER;
+  }
+
+  /**
+   * Returns the supplied producer.  If there's just one producer, there's no need to wrap it or its
+   * result.
+   */
+  public static <T> Producer<Set<T>> create(Producer<Set<T>> producer) {
+    return producer;
+  }
+
   /**
    * Returns a new producer that creates {@link Set} futures from the union of the given
    * {@link Producer} instances.
