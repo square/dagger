@@ -64,7 +64,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
         parent.types,
         parent.elements,
         parent.keyFactory,
-        parent.nullableValidationType,
+        parent.compilerOptions,
         subcomponentName(parent, subgraph),
         subgraph,
         parent.subcomponentImplNames);

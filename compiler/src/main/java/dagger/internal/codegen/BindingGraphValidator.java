@@ -108,10 +108,8 @@ public class BindingGraphValidator {
 
   private final Elements elements;
   private final Types types;
-  private final CompilerOptions options;
+  private final CompilerOptions compilerOptions;
   private final InjectBindingRegistry injectBindingRegistry;
-  private final ValidationType scopeCycleValidationType;
-  private final Diagnostic.Kind nullableValidationType;
   private final HasSourceElementFormatter hasSourceElementFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
@@ -121,10 +119,8 @@ public class BindingGraphValidator {
   BindingGraphValidator(
       Elements elements,
       Types types,
-      CompilerOptions options,
+      CompilerOptions compilerOptions,
       InjectBindingRegistry injectBindingRegistry,
-      ValidationType scopeCycleValidationType,
-      Diagnostic.Kind nullableValidationType,
       HasSourceElementFormatter hasSourceElementFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
@@ -132,10 +128,8 @@ public class BindingGraphValidator {
       Key.Factory keyFactory) {
     this.elements = elements;
     this.types = types;
-    this.options = options;
+    this.compilerOptions = compilerOptions;
     this.injectBindingRegistry = injectBindingRegistry;
-    this.scopeCycleValidationType = scopeCycleValidationType;
-    this.nullableValidationType = nullableValidationType;
     this.hasSourceElementFormatter = hasSourceElementFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
@@ -313,7 +307,7 @@ public class BindingGraphValidator {
             reportProviderMayNotDependOnProducer(path);
             return false;
           }
-          if (options.usesProducers()) {
+          if (compilerOptions.usesProducers()) {
             Key productionImplementationExecutorKey =
                 keyFactory.forProductionImplementationExecutor();
             // only forbid depending on the production executor if it's not the Dagger-specific
@@ -442,7 +436,7 @@ public class BindingGraphValidator {
               nullableToNonNullable(typeName, hasSourceElementFormatter.format(binding))
                   + "\n at: "
                   + dependencyRequestFormatter.format(request),
-              nullableValidationType,
+              compilerOptions.nullableValidationKind(),
               request.requestElement());
           valid = false;
         }
@@ -621,9 +615,11 @@ public class BindingGraphValidator {
         componentStack.push(componentType);
         appendIndentedComponentsList(message, componentStack);
         componentStack.pop();
-        reportBuilder.addItem(message.toString(),
-            scopeCycleValidationType.diagnosticKind().get(),
-            rootComponent, getAnnotationMirror(rootComponent, Component.class).get());
+        reportBuilder.addItem(
+            message.toString(),
+            compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
+            rootComponent,
+            getAnnotationMirror(rootComponent, Component.class).get());
       } else {
         Optional<AnnotationMirror> componentAnnotation =
             getAnnotationMirror(componentType, Component.class);
@@ -653,7 +649,7 @@ public class BindingGraphValidator {
       if (!scopes.isEmpty()) {
         Scope singletonScope = Scope.singletonScope(elements);
         // Dagger 1.x scope compatibility requires this be suppress-able.
-        if (scopeCycleValidationType.diagnosticKind().isPresent()
+        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()
             && scopes.contains(singletonScope)) {
           // Singleton is a special-case representing the longest lifetime, and therefore
           // @Singleton components may not depend on scoped components
@@ -661,8 +657,9 @@ public class BindingGraphValidator {
             StringBuilder message = new StringBuilder(
                 "This @Singleton component cannot depend on scoped components:\n");
             appendIndentedComponentsList(message, scopedDependencies);
-            reportBuilder.addItem(message.toString(),
-                scopeCycleValidationType.diagnosticKind().get(),
+            reportBuilder.addItem(
+                message.toString(),
+                compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
                 descriptor.componentDefinitionType(),
                 descriptor.componentAnnotation());
           }
@@ -682,7 +679,7 @@ public class BindingGraphValidator {
               descriptor.componentAnnotation());
         } else {
           // Dagger 1.x scope compatibility requires this be suppress-able.
-          if (!scopeCycleValidationType.equals(ValidationType.NONE)) {
+          if (!compilerOptions.scopeCycleValidationType().equals(ValidationType.NONE)) {
             validateScopeHierarchy(descriptor.componentDefinitionType(),
                 descriptor.componentDefinitionType(),
                 new ArrayDeque<ImmutableSet<Scope>>(),
@@ -768,10 +765,10 @@ public class BindingGraphValidator {
         message.append(rootComponent.getQualifiedName());
         message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
         appendIndentedComponentsList(message, scopedDependencyStack);
-        if (scopeCycleValidationType.diagnosticKind().isPresent()) {
+        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()) {
           reportBuilder.addItem(
               message.toString(),
-              scopeCycleValidationType.diagnosticKind().get(),
+              compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
               rootComponent,
               getAnnotationMirror(rootComponent, Component.class)
                   .or(getAnnotationMirror(rootComponent, ProductionComponent.class))

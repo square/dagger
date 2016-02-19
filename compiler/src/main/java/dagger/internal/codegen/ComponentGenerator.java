@@ -24,7 +24,6 @@ import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
 
 /**
  * Generates the implementation of the abstract types annotated with {@link Component}.
@@ -36,19 +35,19 @@ final class ComponentGenerator extends JavaPoetSourceFileGenerator<BindingGraph>
   private final Types types;
   private final Elements elements;
   private final Key.Factory keyFactory;
-  private final Diagnostic.Kind nullableValidationType;
+  private final CompilerOptions compilerOptions;
 
   ComponentGenerator(
       Filer filer,
       Elements elements,
       Types types,
       Key.Factory keyFactory,
-      Diagnostic.Kind nullableValidationType) {
+      CompilerOptions compilerOptions) {
     super(filer, elements);
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
-    this.nullableValidationType = nullableValidationType;
+    this.compilerOptions = compilerOptions;
   }
 
   @Override
@@ -68,8 +67,7 @@ final class ComponentGenerator extends JavaPoetSourceFileGenerator<BindingGraph>
   @Override
   Optional<TypeSpec.Builder> write(ClassName componentName, BindingGraph input) {
     return Optional.of(
-        new ComponentWriter(
-                types, elements, keyFactory, nullableValidationType, componentName, input)
+        new ComponentWriter(types, elements, keyFactory, compilerOptions, componentName, input)
             .write());
   }
 }

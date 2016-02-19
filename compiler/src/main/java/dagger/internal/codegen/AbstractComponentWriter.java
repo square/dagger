@@ -61,7 +61,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-import javax.tools.Diagnostic.Kind;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
@@ -131,7 +130,7 @@ abstract class AbstractComponentWriter {
   protected final Elements elements;
   protected final Types types;
   protected final Key.Factory keyFactory;
-  protected final Kind nullableValidationType;
+  protected final CompilerOptions compilerOptions;
   protected final ClassName name;
   protected final BindingGraph graph;
   protected final ImmutableMap<ComponentDescriptor, String> subcomponentImplNames;
@@ -160,14 +159,14 @@ abstract class AbstractComponentWriter {
       Types types,
       Elements elements,
       Key.Factory keyFactory,
-      Diagnostic.Kind nullableValidationType,
+      CompilerOptions compilerOptions,
       ClassName name,
       BindingGraph graph,
       ImmutableMap<ComponentDescriptor, String> subcomponentImplNames) {
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
-    this.nullableValidationType = nullableValidationType;
+    this.compilerOptions = compilerOptions;
     this.name = name;
     this.graph = graph;
     this.subcomponentImplNames = subcomponentImplNames;
@@ -867,7 +866,7 @@ abstract class AbstractComponentWriter {
           // What should we do?
           CodeBlock getMethodBody =
               binding.nullableType().isPresent()
-                      || nullableValidationType.equals(Diagnostic.Kind.WARNING)
+                      || compilerOptions.nullableValidationKind().equals(Diagnostic.Kind.WARNING)
                   ? CodeBlocks.format("return $L;", callFactoryMethod)
                   : CodeBlocks.format(
                       Joiner.on('\n')

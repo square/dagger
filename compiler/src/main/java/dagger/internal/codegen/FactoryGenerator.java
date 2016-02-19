@@ -73,14 +73,11 @@ import static javax.lang.model.element.Modifier.STATIC;
  */
 final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBinding> {
 
-  private final Diagnostic.Kind nullableValidationType;
+  private final CompilerOptions compilerOptions;
 
-  FactoryGenerator(
-      Filer filer,
-      Elements elements,
-      Diagnostic.Kind nullableValidationType) {
+  FactoryGenerator(Filer filer, Elements elements, CompilerOptions compilerOptions) {
     super(filer, elements);
-    this.nullableValidationType = nullableValidationType;
+    this.compilerOptions = compilerOptions;
   }
 
   @Override
@@ -242,7 +239,7 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
             "return $T.<$T>singleton($L)",
             Collections.class, paramTypeName, providesMethodInvocation);
       } else if (binding.nullableType().isPresent()
-          || nullableValidationType.equals(Diagnostic.Kind.WARNING)) {
+          || compilerOptions.nullableValidationKind().equals(Diagnostic.Kind.WARNING)) {
         if (binding.nullableType().isPresent()) {
           getMethodBuilder.addAnnotation((ClassName) TypeName.get(binding.nullableType().get()));
         }
