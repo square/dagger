@@ -36,6 +36,7 @@ import com.squareup.javapoet.TypeSpec;
 import dagger.internal.DelegateFactory;
 import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
+import dagger.internal.Preconditions;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
@@ -73,12 +74,11 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.CodeBlocks.nullCheck;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
-import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
+import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
 import static dagger.internal.codegen.MemberSelect.emptySetProvider;
 import static dagger.internal.codegen.MemberSelect.localField;
@@ -372,11 +372,13 @@ abstract class AbstractComponentWriter {
             parameterNames.getUniqueName(
                 Iterables.getOnlyElement(specMethod.getParameters()).getSimpleName());
         builderMethod.addParameter(ClassName.get(builderMethodType), parameterName);
-        builderMethod.addCode(nullCheck(parameterName));
         if (graph.componentRequirements().contains(builderMethodType)) {
           // required type
           builderMethod.addStatement(
-              "this.$N = $L", builderFields.get(builderMethodType), parameterName);
+              "this.$N = $T.checkNotNull($L)",
+              builderFields.get(builderMethodType),
+              Preconditions.class,
+              parameterName);
           addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
         } else if (graph.ownedModuleTypes().contains(builderMethodType)) {
           // owned, but not required
@@ -400,12 +402,17 @@ abstract class AbstractComponentWriter {
             methodBuilder(componentRequirementName)
                 .returns(builderName.get())
                 .addModifiers(PUBLIC)
-                .addParameter(ClassName.get(componentRequirement), componentRequirementName)
-                .addCode(nullCheck(componentRequirementName));
+                .addParameter(ClassName.get(componentRequirement), componentRequirementName);
         if (graph.componentRequirements().contains(componentRequirement)) {
           builderMethod.addStatement(
-              "this.$N = $L", builderFields.get(componentRequirement), componentRequirementName);
+              "this.$N = $T.checkNotNull($L)",
+              builderFields.get(componentRequirement),
+              Preconditions.class,
+              componentRequirementName);
         } else {
+          builderMethod.addStatement("$T.checkNotNull($L)",
+              Preconditions.class,
+              componentRequirementName);
           builderMethod.addJavadoc("@deprecated " + NOOP_BUILDER_METHOD_JAVADOC);
           builderMethod.addAnnotation(Deprecated.class);
         }
@@ -868,15 +875,8 @@ abstract class AbstractComponentWriter {
               binding.nullableType().isPresent()
                       || compilerOptions.nullableValidationKind().equals(Diagnostic.Kind.WARNING)
                   ? CodeBlocks.format("return $L;", callFactoryMethod)
-                  : CodeBlocks.format(
-                      Joiner.on('\n')
-                          .join(
-                              "$T provided = $L;",
-                              "if (provided == null) {",
-                              "  throw new NullPointerException($S);",
-                              "}",
-                              "return provided;"),
-                      bindingKeyTypeName,
+                  : CodeBlocks.format("return $T.checkNotNull($L, $S);",
+                      Preconditions.class,
                       callFactoryMethod,
                       CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
           return CodeBlocks.format(

@@ -25,6 +25,7 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import dagger.internal.Preconditions;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import java.util.List;
 import java.util.Set;
@@ -41,7 +42,6 @@ import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.CodeBlocks.nullCheck;
 import static dagger.internal.codegen.MemberSelect.localField;
 import static dagger.internal.codegen.TypeSpecs.addSupertype;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -184,8 +184,10 @@ final class SubcomponentWriter extends AbstractComponentWriter {
         String actualModuleName = contributionField.name;
         constructor
             .addParameter(moduleType, actualModuleName)
-            .addCode(nullCheck(actualModuleName))
-            .addStatement("this.$1L = $1L", actualModuleName);
+            .addStatement(
+                "this.$1L = $2T.checkNotNull($1L)",
+                actualModuleName,
+                Preconditions.class);
 
         MemberSelect moduleSelect = localField(name, actualModuleName);
         componentContributionFields.put(moduleTypeElement, moduleSelect);

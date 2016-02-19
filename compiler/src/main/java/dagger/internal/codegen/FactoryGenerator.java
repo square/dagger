@@ -30,6 +30,8 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import dagger.internal.Factory;
+import dagger.internal.MembersInjectors;
+import dagger.internal.Preconditions;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.processing.Filer;
@@ -245,22 +247,17 @@ final class FactoryGenerator extends JavaPoetSourceFileGenerator<ProvisionBindin
         }
         getMethodBuilder.addStatement("return $L", providesMethodInvocation);
       } else {
-        String failMsg = CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD;
-        getMethodBuilder
-            .addStatement(
-                "$T provided = $L", getMethodBuilder.build().returnType, providesMethodInvocation)
-            .addCode("if (provided == null) { ")
-            .addStatement("throw new $T($S)", NullPointerException.class, failMsg)
-            .addCode("}")
-            .addStatement("return provided");
+        getMethodBuilder.addStatement("return $T.checkNotNull($L, $S)",
+            Preconditions.class,
+            providesMethodInvocation,
+            CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
       }
     } else if (binding.membersInjectionRequest().isPresent()) {
-      getMethodBuilder.addStatement(
-          "$1T instance = new $1T($2L)", providedTypeName, parametersCodeBlock);
-      getMethodBuilder.addStatement(
-          "$L.injectMembers(instance)",
-          fields.get(binding.membersInjectionRequest().get().bindingKey()).name());
-      getMethodBuilder.addStatement("return instance");
+      getMethodBuilder.addStatement("return $T.injectMembers($L, new $T($L))",
+          MembersInjectors.class,
+          fields.get(binding.membersInjectionRequest().get().bindingKey()).name(),
+          providedTypeName,
+          parametersCodeBlock);
     } else {
       getMethodBuilder.addStatement("return new $T($L)", providedTypeName, parametersCodeBlock);
     }
