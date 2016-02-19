@@ -60,6 +60,8 @@ public class MapKeyProcessorTest {
             "",
             GENERATED_ANNOTATION,
             "public final class PathKeyCreator {",
+            "  private PathKeyCreator() {}",
+            "",
             "  @AutoAnnotation",
             "  public static PathKey createPathKey(PathEnum value, String relativePath) {",
             "    return new AutoAnnotation_PathKeyCreator_createPathKey(value, relativePath);",
@@ -106,6 +108,8 @@ public class MapKeyProcessorTest {
             "",
             GENERATED_ANNOTATION,
             "public final class Container$PathKeyCreator {",
+            "  private Container$PathKeyCreator() {}",
+            "",
             "  @AutoAnnotation",
             "  public static Container.PathKey createPathKey("
                 + "PathEnum value, String relativePath) {",
