@@ -203,6 +203,9 @@ final class ErrorMessages {
 
   static final String PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =
       "%s is a provision, which cannot depend on a production.";
+  
+  static final String DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT =
+      "%s may not depend on the production executor.";
 
   static final String REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT =
       "%s cannot be provided without an @Inject constructor or from an @Provides-annotated method.";
@@ -225,6 +228,10 @@ final class ErrorMessages {
         PROVISION_MAY_NOT_DEPEND_ON_PRODUCER_TYPE_FORMAT,
         MoreTypes.asTypeElement(type).getSimpleName());
   }
+
+  static final String PRODUCTION_COMPONENT_SCOPE =
+      "Production components may not declare any @Scope other than @ProductionScope; they are "
+          + "automatically scoped with @ProductionScope if no scope is applied.";
 
   static final String MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION =
       "This type supports members injection but cannot be implicitly provided.";

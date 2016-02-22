@@ -480,6 +480,25 @@ public class ProducerModuleFactoryGeneratorTest {
         .in(publicModuleFile).onLine(8);
   }
 
+  @Test public void argumentNamedModuleCompiles() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces String produceString(int module) {",
+        "    return null;",
+        "  }",
+        "}");
+    assertAbout(javaSource())
+        .that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
   @Test public void singleProducesMethodNoArgsFuture() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
         "package test;",
@@ -513,20 +532,20 @@ public class ProducerModuleFactoryGeneratorTest {
             GENERATED_ANNOTATION,
             "public final class TestModule_ProduceStringFactory extends AbstractProducer<String> {",
             "  private final TestModule module;",
-            "  private final Executor executor;",
+            "  private final Provider<Executor> executorProvider;",
             "  private final Provider<ProductionComponentMonitor> monitorProvider;",
             "",
             "  public TestModule_ProduceStringFactory(",
             "      TestModule module,",
-            "      Executor executor,",
+            "      Provider<Executor> executorProvider,",
             "      Provider<ProductionComponentMonitor> monitorProvider) {",
             "    super(",
             "        monitorProvider,",
             "        ProducerToken.create(TestModule_ProduceStringFactory.class));",
             "    assert module != null;",
             "    this.module = module;",
-            "    assert executor != null;",
-            "    this.executor = executor;",
+            "    assert executorProvider != null;",
+            "    this.executorProvider = executorProvider;",
             "    assert monitorProvider != null;",
             "    this.monitorProvider = monitorProvider;",
             "  }",
@@ -539,12 +558,12 @@ public class ProducerModuleFactoryGeneratorTest {
             "        @Override public ListenableFuture<String> apply(Void ignoredVoidArg) {",
             "          monitor.methodStarting();",
             "          try {",
-            "            return module.produceString();",
+            "            return TestModule_ProduceStringFactory.this.module.produceString();",
             "          } finally {",
             "            monitor.methodFinished();",
             "          }",
             "        }",
-            "      }, executor);",
+            "      }, executorProvider.get());",
             "  }",
             "}");
     assertAbout(javaSource())

@@ -17,6 +17,7 @@ package dagger.internal.codegen;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.TypeSpec;
@@ -36,6 +37,7 @@ import static dagger.internal.codegen.AnnotationSpecs.PROVIDES_SET_VALUES;
 import static dagger.internal.codegen.TypeNames.SET_OF_FACTORIES;
 import static dagger.internal.codegen.TypeNames.providerOf;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.FINAL;
 
@@ -60,8 +62,10 @@ final class MonitoringModuleGenerator extends JavaPoetSourceFileGenerator<TypeEl
   Optional<TypeSpec.Builder> write(ClassName generatedTypeName, TypeElement componentElement) {
     return Optional.of(
         classBuilder(generatedTypeName.simpleName())
-            .addAnnotation(Module.class)
-            .addModifiers(FINAL)
+            .addAnnotation(
+                AnnotationSpec.builder(Module.class)
+                    .build())
+            .addModifiers(PUBLIC, FINAL)
 
             // TODO(beder): Replace this default set binding with EmptyCollections when it exists.
             .addMethod(
@@ -71,19 +75,15 @@ final class MonitoringModuleGenerator extends JavaPoetSourceFileGenerator<TypeEl
                     .addAnnotation(PROVIDES_SET_VALUES)
                     .addStatement("return $T.of()", ClassName.get(ImmutableSet.class))
                     .build())
-
             .addField(
                 FieldSpec.builder(MonitorCache.class, "monitorCache", PRIVATE, FINAL)
                     .initializer("new $T()", MonitorCache.class)
                     .build())
-
             .addMethod(
                 methodBuilder("monitor")
                     .returns(ProductionComponentMonitor.class)
                     .addAnnotation(Provides.class)
-                    .addParameter(
-                        providerOf(ClassName.get(componentElement.asType())),
-                        "component")
+                    .addParameter(providerOf(ClassName.get(componentElement.asType())), "component")
                     .addParameter(providerOf(SET_OF_FACTORIES), "factories")
                     .addStatement("return monitorCache.monitor(component, factories)")
                     .build()));

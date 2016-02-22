@@ -64,6 +64,13 @@ import static java.lang.annotation.ElementType.TYPE;
  * {@link com.google.common.util.concurrent.Futures#transform}.
  * <!-- TODO(beder): Explain this more thoroughly, and update the javadocs of those utilities. -->
  *
+ * <h2>Executor</h2>
+ *
+ * <p>The component must include a binding for <code>{@literal @}Production Executor</code>;
+ * this binding will be called exactly once, and the provided executor will be used by the framework
+ * to schedule all producer methods (for this component, and any {@link ProductionSubcomponent} it
+ * may have.
+ *
  * @author Jesse Beder
  */
 @Documented
@@ -90,8 +97,6 @@ public @interface ProductionComponent {
    *      (This is typically the {@code build()} method.)
    * <li> All other abstract methods must take a single argument and must return void,
    *      the builder type, or a supertype of the builder.
-   * <li> There <b>must</b> be an abstract method whose parameter is
-   *      {@link java.util.concurrent.Executor}.
    * <li> Each component dependency <b>must</b> have an abstract setter method.
    * <li> Each module dependency that Dagger can't instantiate itself (i.e., the module
    *      doesn't have a visible no-args constructor) <b>must</b> have an abstract setter method.
@@ -109,7 +114,6 @@ public @interface ProductionComponent {
    *   {@literal @}ProductionComponent.Builder
    *   interface Builder {
    *     MyComponent build();
-   *     Builder executor(Executor executor);
    *     Builder backendModule(BackendModule bm);
    *     Builder frontendModule(FrontendModule fm);
    *   }

@@ -48,7 +48,6 @@ import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.TypeNames.ASYNC_FUNCTION;
-import static dagger.internal.codegen.TypeNames.EXECUTOR;
 import static dagger.internal.codegen.TypeNames.FUTURES;
 import static dagger.internal.codegen.TypeNames.IMMUTABLE_SET;
 import static dagger.internal.codegen.TypeNames.PRODUCERS;
@@ -118,8 +117,6 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
           factoryBuilder, constructorBuilder, "module", moduleType);
     }
 
-    addFieldAndConstructorParameter(factoryBuilder, constructorBuilder, "executor", EXECUTOR);
-
     for (FrameworkField bindingField : fields.values()) {
       TypeName fieldType = bindingField.frameworkType();
       addFieldAndConstructorParameter(
@@ -179,10 +176,16 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
             futureTransform.applyArgName(),
             getThrowsClause(binding.thrownTypes()),
             getInvocationCodeBlock(
-                !returnsFuture, binding, providedTypeName, futureTransform.parameterCodeBlocks()));
+                generatedTypeName,
+                !returnsFuture,
+                binding,
+                providedTypeName,
+                futureTransform.parameterCodeBlocks()));
     computeMethodBuilder.addStatement(
-        "return $T.transformAsync($L, $L, executor)",
-        FUTURES, futureTransform.futureCodeBlock(), transformCodeBlock);
+        "return $T.transformAsync($L, $L, executorProvider.get())",
+        FUTURES,
+        futureTransform.futureCodeBlock(),
+        transformCodeBlock);
 
     factoryBuilder.addMethod(constructorBuilder.build());
     factoryBuilder.addMethod(computeMethodBuilder.build());
@@ -436,6 +439,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
    * @param parameterCodeBlocks The code blocks for all the parameters to the producer method.
    */
   private CodeBlock getInvocationCodeBlock(
+      ClassName generatedTypeName,
       boolean wrapWithFuture,
       ProductionBinding binding,
       TypeName providedTypeName,
@@ -443,7 +447,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
     CodeBlock moduleCodeBlock = CodeBlocks.format("$L.$L($L)",
         binding.bindingElement().getModifiers().contains(STATIC)
             ? CodeBlocks.format("$T", ClassName.get(binding.bindingTypeElement()))
-            : "module",
+            : CodeBlocks.format("$T.this.module", generatedTypeName),
         binding.bindingElement().getSimpleName(),
         makeParametersCodeBlock(parameterCodeBlocks));
 

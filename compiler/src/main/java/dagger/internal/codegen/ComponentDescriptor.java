@@ -61,6 +61,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -171,6 +172,19 @@ abstract class ComponentDescriptor {
       return isTopLevel;
     }
 
+    boolean isProducer() {
+      switch (this) {
+        case COMPONENT:
+        case SUBCOMPONENT:
+          return false;
+        case PRODUCTION_COMPONENT:
+        case PRODUCTION_SUBCOMPONENT:
+          return true;
+        default:
+          throw new AssertionError();
+      }
+    }
+
     private static final Function<Kind, Class<? extends Annotation>> TO_ANNOTATION_TYPE =
         new Function<Kind, Class<? extends Annotation>>() {
           @Override
@@ -262,9 +276,9 @@ abstract class ComponentDescriptor {
   abstract Optional<TypeElement> executorDependency();
 
   /**
-   * The scope of the component.
+   * The scopes of the component.
    */
-  abstract Scope scope();
+  abstract ImmutableSet<Scope> scopes();
 
   abstract ImmutableMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponents();
 
@@ -406,11 +420,6 @@ abstract class ComponentDescriptor {
         }
       }
 
-      Optional<TypeElement> executorDependency =
-          kind.equals(Kind.PRODUCTION_COMPONENT) || kind.equals(Kind.PRODUCTION_SUBCOMPONENT)
-              ? Optional.of(elements.getTypeElement(Executor.class.getCanonicalName()))
-              : Optional.<TypeElement>absent();
-
       ImmutableSet.Builder<ModuleDescriptor> modules = ImmutableSet.builder();
       for (TypeMirror moduleIncludesType : getComponentModules(componentMirror)) {
         modules.add(moduleDescriptorFactory.create(MoreTypes.asTypeElement(moduleIncludesType)));
@@ -421,6 +430,7 @@ abstract class ComponentDescriptor {
               && (parentKind.get().equals(Kind.COMPONENT)
                   || parentKind.get().equals(Kind.SUBCOMPONENT)))) {
         modules.add(descriptorForMonitoringModule(componentDefinitionType));
+        modules.add(descriptorForProductionExecutorModule(componentDefinitionType));
       }
 
       ImmutableSet<ExecutableElement> unimplementedMethods =
@@ -467,8 +477,14 @@ abstract class ComponentDescriptor {
           : enclosedBuilders(componentDefinitionType, kind.builderAnnotationType());
       Optional<DeclaredType> builderType =
           Optional.fromNullable(getOnlyElement(enclosedBuilders, null));
+      Optional<BuilderSpec> builderSpec = createBuilderSpec(builderType);
 
-      Scope scope = Scope.scopeOf(componentDefinitionType);
+      ImmutableSet<Scope> scopes = Scope.scopesOf(componentDefinitionType);
+      if (kind.isProducer()) {
+        scopes = FluentIterable.from(scopes).append(Scope.productionScope(elements)).toSet();
+      }
+
+      Optional<TypeElement> executorDependency = createExecutorDependency(kind, builderSpec);
       return new AutoValue_ComponentDescriptor(
           kind,
           componentMirror,
@@ -477,10 +493,10 @@ abstract class ComponentDescriptor {
           modules.build(),
           dependencyMethodIndex.build(),
           executorDependency,
-          scope,
+          scopes,
           subcomponentDescriptors.build(),
           componentMethodsBuilder.build(),
-          createBuilderSpec(builderType));
+          builderSpec);
     }
 
     private ComponentMethodDescriptor getDescriptorForComponentMethod(
@@ -501,21 +517,23 @@ abstract class ComponentDescriptor {
               componentMethod,
               dependencyRequestFactory.forComponentMembersInjectionMethod(
                   componentMethod, resolvedComponentMethod));
-        } else if (isAnnotationPresent(MoreTypes.asElement(returnType), Subcomponent.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.SUBCOMPONENT, componentMethod);
-        } else if (isAnnotationPresent(
-            MoreTypes.asElement(returnType), ProductionSubcomponent.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.PRODUCTION_SUBCOMPONENT, componentMethod);
-        } else if (isAnnotationPresent(
-            MoreTypes.asElement(returnType), Subcomponent.Builder.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.SUBCOMPONENT_BUILDER, componentMethod);
-        } else if (isAnnotationPresent(
-            MoreTypes.asElement(returnType), ProductionSubcomponent.Builder.class)) {
-          return ComponentMethodDescriptor.forSubcomponent(
-              ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER, componentMethod);
+        } else if (!getQualifier(componentMethod).isPresent()) {
+          if (isAnnotationPresent(MoreTypes.asElement(returnType), Subcomponent.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.SUBCOMPONENT, componentMethod);
+          } else if (isAnnotationPresent(
+              MoreTypes.asElement(returnType), ProductionSubcomponent.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.PRODUCTION_SUBCOMPONENT, componentMethod);
+          } else if (isAnnotationPresent(
+              MoreTypes.asElement(returnType), Subcomponent.Builder.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.SUBCOMPONENT_BUILDER, componentMethod);
+          } else if (isAnnotationPresent(
+              MoreTypes.asElement(returnType), ProductionSubcomponent.Builder.class)) {
+            return ComponentMethodDescriptor.forSubcomponent(
+                ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER, componentMethod);
+          }
         }
       }
 
@@ -575,6 +593,23 @@ abstract class ComponentDescriptor {
           map.build(), buildMethod, element.getEnclosingElement().asType()));
     }
 
+    private Optional<TypeElement> createExecutorDependency(
+        Kind componentKind, Optional<BuilderSpec> builderSpec) {
+      if (!componentKind.isProducer()) {
+        return Optional.absent();
+      }
+      TypeElement executorTypeElement = elements.getTypeElement(Executor.class.getCanonicalName());
+      if (!builderSpec.isPresent()) {
+        // if there's no builder, we'll add an executor() method to the generated builder so it
+        // must be specified
+        // TODO(beder): Remove this behavior.
+        return Optional.of(executorTypeElement);
+      }
+      return builderSpec.get().methodMap().containsKey(executorTypeElement)
+          ? Optional.of(executorTypeElement)
+          : Optional.<TypeElement>absent();
+    }
+
     /**
      * Returns a descriptor for a generated module that handles monitoring for production
      * components. This module is generated in the {@link MonitoringModuleProcessingStep}.
@@ -591,6 +626,27 @@ abstract class ComponentDescriptor {
         throw new TypeNotPresentException(generatedMonitorModuleName, null);
       }
       return moduleDescriptorFactory.create(monitoringModule);
+    }
+
+    /**
+     * Returns a descriptor for a generated module that handles the producer executor for production
+     * components. This module is generated in the {@link ProductionExecutorModuleProcessingStep}.
+     *
+     * @throws TypeNotPresentException if the module has not been generated yet. This will cause the
+     *     processor to retry in a later processing round.
+     */
+    // TODO(beder): Replace this with a single class when the producers client library exists.
+    private ModuleDescriptor descriptorForProductionExecutorModule(
+        TypeElement componentDefinitionType) {
+      ClassName productionExecutorModuleName =
+          SourceFiles.generatedProductionExecutorModuleName(componentDefinitionType);
+      String generatedProductionExecutorModuleName = productionExecutorModuleName.toString();
+      TypeElement productionExecutorModule =
+          elements.getTypeElement(generatedProductionExecutorModuleName);
+      if (productionExecutorModule == null) {
+        throw new TypeNotPresentException(generatedProductionExecutorModuleName, null);
+      }
+      return moduleDescriptorFactory.create(productionExecutorModule);
     }
   }
 

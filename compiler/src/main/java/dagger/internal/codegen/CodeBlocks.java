@@ -17,7 +17,6 @@ package dagger.internal.codegen;
 
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterSpec;
 import java.util.Iterator;
@@ -55,10 +54,6 @@ final class CodeBlocks {
       }
     }
     return builder.build();
-  }
-
-  static CodeBlock nullCheck(String thingToCheck) {
-    return format("if ($L == null) { throw new NullPointerException(); } ", thingToCheck);
   }
 
   static FluentIterable<CodeBlock> toCodeBlocks(Iterable<? extends TypeMirror> typeMirrors) {

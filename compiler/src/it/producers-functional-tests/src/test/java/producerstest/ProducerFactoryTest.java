@@ -1,18 +1,18 @@
 /*
-* Copyright (C) 2015 Google, Inc.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (C) 2015 Google, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package producerstest;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -23,6 +23,7 @@ import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import javax.inject.Provider;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,6 +44,7 @@ import static org.mockito.Mockito.when;
 public class ProducerFactoryTest {
   @Mock private ProductionComponentMonitor componentMonitor;
   private ProducerMonitor monitor;
+  private Provider<Executor> executorProvider;
   private Provider<ProductionComponentMonitor> componentMonitorProvider;
 
   @Before
@@ -50,6 +52,14 @@ public class ProducerFactoryTest {
     MockitoAnnotations.initMocks(this);
     monitor = Mockito.mock(ProducerMonitor.class, Mockito.CALLS_REAL_METHODS);
     when(componentMonitor.producerMonitorFor(any(ProducerToken.class))).thenReturn(monitor);
+    // TODO(beder): Use Providers.of when available.
+    executorProvider =
+        new Provider<Executor>() {
+          @Override
+          public Executor get() {
+            return MoreExecutors.directExecutor();
+          }
+        };
     componentMonitorProvider =
         new Provider<ProductionComponentMonitor>() {
           @Override
@@ -63,8 +73,7 @@ public class ProducerFactoryTest {
   public void noArgMethod() throws Exception {
     ProducerToken token = ProducerToken.create(SimpleProducerModule_StrFactory.class);
     Producer<String> producer =
-        new SimpleProducerModule_StrFactory(
-            MoreExecutors.directExecutor(), componentMonitorProvider);
+        new SimpleProducerModule_StrFactory(executorProvider, componentMonitorProvider);
     assertThat(producer.get().get()).isEqualTo("str");
     InOrder order = inOrder(componentMonitor, monitor);
     order.verify(componentMonitor).producerMonitorFor(token);
@@ -74,12 +83,13 @@ public class ProducerFactoryTest {
     order.verifyNoMoreInteractions();
   }
 
-  @Test public void singleArgMethod() throws Exception {
+  @Test
+  public void singleArgMethod() throws Exception {
     SettableFuture<Integer> intFuture = SettableFuture.create();
     Producer<Integer> intProducer = producerOfFuture(intFuture);
     Producer<String> producer =
         new SimpleProducerModule_StrWithArgFactory(
-            MoreExecutors.directExecutor(), componentMonitorProvider, intProducer);
+            executorProvider, componentMonitorProvider, intProducer);
     assertThat(producer.get().isDone()).isFalse();
     intFuture.set(42);
     assertThat(producer.get().get()).isEqualTo("str with arg");
@@ -94,7 +104,7 @@ public class ProducerFactoryTest {
     Producer<SettableFuture<String>> strFutureProducer = producerOfFuture(strFutureFuture);
     Producer<String> producer =
         new SimpleProducerModule_SettableFutureStrFactory(
-            MoreExecutors.directExecutor(), componentMonitorProvider, strFutureProducer);
+            executorProvider, componentMonitorProvider, strFutureProducer);
     assertThat(producer.get().isDone()).isFalse();
 
     InOrder order = inOrder(componentMonitor, monitor);
@@ -121,7 +131,7 @@ public class ProducerFactoryTest {
     Producer<SettableFuture<String>> strFutureProducer = producerOfFuture(strFutureFuture);
     Producer<String> producer =
         new SimpleProducerModule_SettableFutureStrFactory(
-            MoreExecutors.directExecutor(), componentMonitorProvider, strFutureProducer);
+            executorProvider, componentMonitorProvider, strFutureProducer);
     assertThat(producer.get().isDone()).isFalse();
 
     InOrder order = inOrder(componentMonitor, monitor);
@@ -151,7 +161,7 @@ public class ProducerFactoryTest {
 
     Producer<String> producer =
         new SimpleProducerModule_ThrowingProducerFactory(
-            MoreExecutors.directExecutor(), componentMonitorProvider);
+            executorProvider, componentMonitorProvider);
     assertThat(producer.get().isDone()).isTrue();
 
     InOrder order = inOrder(componentMonitor, monitor);
@@ -172,12 +182,13 @@ public class ProducerFactoryTest {
 
   @Test(expected = NullPointerException.class)
   public void nullComponentMonitorProvider() throws Exception {
-    new SimpleProducerModule_StrFactory(MoreExecutors.directExecutor(), null);
+    new SimpleProducerModule_StrFactory(executorProvider, null);
   }
 
   private static <T> Producer<T> producerOfFuture(final ListenableFuture<T> future) {
     return new Producer<T>() {
-      @Override public ListenableFuture<T> get() {
+      @Override
+      public ListenableFuture<T> get() {
         return future;
       }
     };

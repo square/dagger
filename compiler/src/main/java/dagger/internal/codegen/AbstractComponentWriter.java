@@ -36,6 +36,7 @@ import com.squareup.javapoet.TypeSpec;
 import dagger.internal.DelegateFactory;
 import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
+import dagger.internal.Preconditions;
 import dagger.internal.SetFactory;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
@@ -61,7 +62,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-import javax.tools.Diagnostic.Kind;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
@@ -74,12 +74,11 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.CodeBlocks.nullCheck;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
-import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
+import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
 import static dagger.internal.codegen.MemberSelect.emptySetProvider;
 import static dagger.internal.codegen.MemberSelect.localField;
@@ -123,11 +122,15 @@ import static javax.lang.model.type.TypeKind.VOID;
  * Creates the implementation class for a component or subcomponent.
  */
 abstract class AbstractComponentWriter {
+  private static final String NOOP_BUILDER_METHOD_JAVADOC =
+      "This module is declared, but an instance is not used in the component. This method is a "
+          + "no-op. For more, see https://google.github.io/dagger/unused-modules.\n";
+
   // TODO(dpb): Make all these fields private after refactoring is complete.
   protected final Elements elements;
   protected final Types types;
   protected final Key.Factory keyFactory;
-  protected final Kind nullableValidationType;
+  protected final CompilerOptions compilerOptions;
   protected final ClassName name;
   protected final BindingGraph graph;
   protected final ImmutableMap<ComponentDescriptor, String> subcomponentImplNames;
@@ -156,14 +159,14 @@ abstract class AbstractComponentWriter {
       Types types,
       Elements elements,
       Key.Factory keyFactory,
-      Diagnostic.Kind nullableValidationType,
+      CompilerOptions compilerOptions,
       ClassName name,
       BindingGraph graph,
       ImmutableMap<ComponentDescriptor, String> subcomponentImplNames) {
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
-    this.nullableValidationType = nullableValidationType;
+    this.compilerOptions = compilerOptions;
     this.name = name;
     this.graph = graph;
     this.subcomponentImplNames = subcomponentImplNames;
@@ -369,17 +372,17 @@ abstract class AbstractComponentWriter {
             parameterNames.getUniqueName(
                 Iterables.getOnlyElement(specMethod.getParameters()).getSimpleName());
         builderMethod.addParameter(ClassName.get(builderMethodType), parameterName);
-        builderMethod.addCode(nullCheck(parameterName));
         if (graph.componentRequirements().contains(builderMethodType)) {
           // required type
           builderMethod.addStatement(
-              "this.$N = $L", builderFields.get(builderMethodType), parameterName);
+              "this.$N = $T.checkNotNull($L)",
+              builderFields.get(builderMethodType),
+              Preconditions.class,
+              parameterName);
           addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
         } else if (graph.ownedModuleTypes().contains(builderMethodType)) {
           // owned, but not required
-          builderMethod.addCode(
-              "// This module is declared, but not used in the component. This method is a "
-                  + "no-op\n");
+          builderMethod.addJavadoc(NOOP_BUILDER_METHOD_JAVADOC);
           addBuilderMethodReturnStatementForSpec(specMethod, builderMethod);
         } else {
           // neither owned nor required, so it must be an inherited module
@@ -399,12 +402,18 @@ abstract class AbstractComponentWriter {
             methodBuilder(componentRequirementName)
                 .returns(builderName.get())
                 .addModifiers(PUBLIC)
-                .addParameter(ClassName.get(componentRequirement), componentRequirementName)
-                .addCode(nullCheck(componentRequirementName));
+                .addParameter(ClassName.get(componentRequirement), componentRequirementName);
         if (graph.componentRequirements().contains(componentRequirement)) {
           builderMethod.addStatement(
-              "this.$N = $L", builderFields.get(componentRequirement), componentRequirementName);
+              "this.$N = $T.checkNotNull($L)",
+              builderFields.get(componentRequirement),
+              Preconditions.class,
+              componentRequirementName);
         } else {
+          builderMethod.addStatement("$T.checkNotNull($L)",
+              Preconditions.class,
+              componentRequirementName);
+          builderMethod.addJavadoc("@deprecated " + NOOP_BUILDER_METHOD_JAVADOC);
           builderMethod.addAnnotation(Deprecated.class);
         }
         builderMethod.addStatement("return this");
@@ -743,7 +752,7 @@ abstract class AbstractComponentWriter {
     if (memberSelect.staticMember() || !memberSelect.owningClass().equals(name)) {
       return Optional.absent();
     }
-    
+
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
         return initializeContributionBinding(bindingKey);
@@ -864,17 +873,10 @@ abstract class AbstractComponentWriter {
           // What should we do?
           CodeBlock getMethodBody =
               binding.nullableType().isPresent()
-                      || nullableValidationType.equals(Diagnostic.Kind.WARNING)
+                      || compilerOptions.nullableValidationKind().equals(Diagnostic.Kind.WARNING)
                   ? CodeBlocks.format("return $L;", callFactoryMethod)
-                  : CodeBlocks.format(
-                      Joiner.on('\n')
-                          .join(
-                              "$T provided = $L;",
-                              "if (provided == null) {",
-                              "  throw new NullPointerException($S);",
-                              "}",
-                              "return provided;"),
-                      bindingKeyTypeName,
+                  : CodeBlocks.format("return $T.checkNotNull($L, $S);",
+                      Preconditions.class,
                       callFactoryMethod,
                       CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
           return CodeBlocks.format(
@@ -929,6 +931,14 @@ abstract class AbstractComponentWriter {
               : factoryCreate;
         }
 
+      case EXECUTOR_DEPENDENCY:
+        return CodeBlocks.format(
+            "$T.<$T>create($L)",
+            INSTANCE_FACTORY,
+            bindingKeyTypeName,
+            getComponentContributionExpression(
+                graph.componentDescriptor().executorDependency().get()));
+
       case COMPONENT_PRODUCTION:
         {
           TypeElement bindingTypeElement =
@@ -959,9 +969,6 @@ abstract class AbstractComponentWriter {
           if (!binding.bindingElement().getModifiers().contains(STATIC)) {
             arguments.add(getComponentContributionExpression(binding.bindingTypeElement()));
           }
-          arguments.add(
-              getComponentContributionExpression(
-                  graph.componentDescriptor().executorDependency().get()));
           arguments.addAll(getDependencyArguments(binding));
 
           return CodeBlocks.format(

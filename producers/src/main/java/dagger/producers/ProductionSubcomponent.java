@@ -30,6 +30,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * {@link ProductionComponent}, or {@link ProductionSubcomponent}. The details of how to associate a
  * subcomponent with a parent are described in the documentation for {@link Component}.
  *
+ * <p>The executor for a production subcomponent is supplied by binding
+ * <code>{@literal @}Production Executor</code>, similar to {@link ProductionComponent}. Note that
+ * this binding may be in an ancestor component.
+ *
  * @author Jesse Beder
  */
 @Retention(RUNTIME) // Allows runtimes to have specialized behavior interoperating with Dagger.

@@ -158,4 +158,22 @@ public class MultibindingTest {
       assertThat(e.getCause()).hasMessage("monkey");
     }
   }
+
+  @Test
+  public void emptySet() throws Exception {
+    MultibindingComponent multibindingComponent =
+        DaggerMultibindingComponent.builder().executor(MoreExecutors.directExecutor()).build();
+    assertThat(multibindingComponent.objs().get()).isEmpty();
+    assertThat(multibindingComponent.producedObjs().get()).isEmpty();
+    assertThat(multibindingComponent.objCount().get()).isEqualTo(0);
+  }
+
+  @Test
+  public void emptyMap() throws Exception {
+    MultibindingComponent multibindingComponent =
+        DaggerMultibindingComponent.builder().executor(MoreExecutors.directExecutor()).build();
+    assertThat(multibindingComponent.objMap().get()).isEmpty();
+    assertThat(multibindingComponent.objMapOfProduced().get()).isEmpty();
+    assertThat(multibindingComponent.objMapOfProducer().get()).isEmpty();
+  }
 }

@@ -35,7 +35,6 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic.Kind;
 
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
@@ -54,14 +53,14 @@ final class ComponentWriter extends AbstractComponentWriter {
       Types types,
       Elements elements,
       Key.Factory keyFactory,
-      Kind nullableValidationType,
+      CompilerOptions compilerOptions,
       ClassName name,
       BindingGraph graph) {
     super(
         types,
         elements,
         keyFactory,
-        nullableValidationType,
+        compilerOptions,
         name,
         graph,
         new UniqueSubcomponentNamesGenerator(graph).generate());

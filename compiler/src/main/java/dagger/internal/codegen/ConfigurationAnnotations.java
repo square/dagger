@@ -89,7 +89,7 @@ final class ConfigurationAnnotations {
   static Optional<DeclaredType> getNullableType(Element element) {
     List<? extends AnnotationMirror> mirrors = element.getAnnotationMirrors();
     for (AnnotationMirror mirror : mirrors) {
-      if (mirror.getAnnotationType().asElement().getSimpleName().toString().equals("Nullable")) {
+      if (mirror.getAnnotationType().asElement().getSimpleName().contentEquals("Nullable")) {
         return Optional.of(mirror.getAnnotationType());
       }
     }

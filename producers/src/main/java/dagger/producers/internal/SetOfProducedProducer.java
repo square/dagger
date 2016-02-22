@@ -36,6 +36,10 @@ import java.util.concurrent.ExecutionException;
  * @since 2.0
  */
 public final class SetOfProducedProducer<T> extends AbstractProducer<Set<Produced<T>>> {
+  public static <T> Producer<Set<T>> create() {
+    return SetProducer.create();
+  }
+
   /**
    * Returns a new producer that creates {@link Set} futures from the union of the given
    * {@link Producer} instances.

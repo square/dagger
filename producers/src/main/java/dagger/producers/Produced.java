@@ -18,6 +18,7 @@ package dagger.producers;
 import com.google.common.base.Objects;
 import dagger.internal.Beta;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -43,6 +44,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Jesse Beder
  */
 @Beta
+@CheckReturnValue
 public abstract class Produced<T> {
   /**
    * Returns the result of a production.

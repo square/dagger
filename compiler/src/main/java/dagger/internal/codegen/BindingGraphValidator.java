@@ -42,6 +42,7 @@ import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
+import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
@@ -63,6 +64,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
@@ -104,10 +106,10 @@ import static javax.tools.Diagnostic.Kind.WARNING;
 
 public class BindingGraphValidator {
 
+  private final Elements elements;
   private final Types types;
+  private final CompilerOptions compilerOptions;
   private final InjectBindingRegistry injectBindingRegistry;
-  private final ValidationType scopeCycleValidationType;
-  private final Diagnostic.Kind nullableValidationType;
   private final HasSourceElementFormatter hasSourceElementFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
@@ -115,19 +117,19 @@ public class BindingGraphValidator {
   private final Key.Factory keyFactory;
 
   BindingGraphValidator(
+      Elements elements,
       Types types,
+      CompilerOptions compilerOptions,
       InjectBindingRegistry injectBindingRegistry,
-      ValidationType scopeCycleValidationType,
-      Diagnostic.Kind nullableValidationType,
       HasSourceElementFormatter hasSourceElementFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
       KeyFormatter keyFormatter,
       Key.Factory keyFactory) {
+    this.elements = elements;
     this.types = types;
+    this.compilerOptions = compilerOptions;
     this.injectBindingRegistry = injectBindingRegistry;
-    this.scopeCycleValidationType = scopeCycleValidationType;
-    this.nullableValidationType = nullableValidationType;
     this.hasSourceElementFormatter = hasSourceElementFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
@@ -173,7 +175,7 @@ public class BindingGraphValidator {
               new HashSet<DependencyRequest>());
         }
       }
-      
+
       for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> entry :
           filterKeys(
                   subject.componentDescriptor().subcomponents(),
@@ -305,6 +307,22 @@ public class BindingGraphValidator {
             reportProviderMayNotDependOnProducer(path);
             return false;
           }
+          if (compilerOptions.usesProducers()) {
+            Key productionImplementationExecutorKey =
+                keyFactory.forProductionImplementationExecutor();
+            // only forbid depending on the production executor if it's not the Dagger-specific
+            // binding to the implementation
+            if (!contributionBinding.key().equals(productionImplementationExecutorKey)) {
+              Key productionExecutorKey = keyFactory.forProductionExecutor();
+              for (DependencyRequest request : contributionBinding.dependencies()) {
+                if (request.key().equals(productionExecutorKey)
+                    || request.key().equals(productionImplementationExecutorKey)) {
+                  reportDependsOnProductionExecutor(path);
+                  return false;
+                }
+              }
+            }
+          }
           if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
             ImmutableSet<ContributionBinding> multibindings =
                 inlineSyntheticContributions(resolvedBinding).contributionBindings();
@@ -358,7 +376,7 @@ public class BindingGraphValidator {
           .anyMatch(IS_SYNTHETIC_KIND)) {
         return resolvedBinding;
       }
-      
+
       ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> contributions =
           ImmutableSetMultimap.builder();
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
@@ -418,7 +436,7 @@ public class BindingGraphValidator {
               nullableToNonNullable(typeName, hasSourceElementFormatter.format(binding))
                   + "\n at: "
                   + dependencyRequestFormatter.format(request),
-              nullableValidationType,
+              compilerOptions.nullableValidationKind(),
               request.requestElement());
           valid = false;
         }
@@ -597,9 +615,11 @@ public class BindingGraphValidator {
         componentStack.push(componentType);
         appendIndentedComponentsList(message, componentStack);
         componentStack.pop();
-        reportBuilder.addItem(message.toString(),
-            scopeCycleValidationType.diagnosticKind().get(),
-            rootComponent, getAnnotationMirror(rootComponent, Component.class).get());
+        reportBuilder.addItem(
+            message.toString(),
+            compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
+            rootComponent,
+            getAnnotationMirror(rootComponent, Component.class).get());
       } else {
         Optional<AnnotationMirror> componentAnnotation =
             getAnnotationMirror(componentType, Component.class);
@@ -624,27 +644,32 @@ public class BindingGraphValidator {
      */
     private void validateDependencyScopes() {
       ComponentDescriptor descriptor = subject.componentDescriptor();
-      Scope scope = descriptor.scope();
+      ImmutableSet<Scope> scopes = descriptor.scopes();
       ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
-      if (scope.isPresent()) {
+      if (!scopes.isEmpty()) {
+        Scope singletonScope = Scope.singletonScope(elements);
         // Dagger 1.x scope compatibility requires this be suppress-able.
-        if (scopeCycleValidationType.diagnosticKind().isPresent()
-            && scope.isSingleton()) {
+        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()
+            && scopes.contains(singletonScope)) {
           // Singleton is a special-case representing the longest lifetime, and therefore
           // @Singleton components may not depend on scoped components
           if (!scopedDependencies.isEmpty()) {
             StringBuilder message = new StringBuilder(
                 "This @Singleton component cannot depend on scoped components:\n");
             appendIndentedComponentsList(message, scopedDependencies);
-            reportBuilder.addItem(message.toString(),
-                scopeCycleValidationType.diagnosticKind().get(),
+            reportBuilder.addItem(
+                message.toString(),
+                compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
                 descriptor.componentDefinitionType(),
                 descriptor.componentAnnotation());
           }
         } else if (scopedDependencies.size() > 1) {
           // Scoped components may depend on at most one scoped component.
-          StringBuilder message = new StringBuilder(scope.getReadableSource())
-              .append(' ')
+          StringBuilder message = new StringBuilder();
+          for (Scope scope : scopes) {
+            message.append(scope.getReadableSource()).append(' ');
+          }
+          message
               .append(descriptor.componentDefinitionType().getQualifiedName())
               .append(" depends on more than one scoped component:\n");
           appendIndentedComponentsList(message, scopedDependencies);
@@ -654,10 +679,10 @@ public class BindingGraphValidator {
               descriptor.componentAnnotation());
         } else {
           // Dagger 1.x scope compatibility requires this be suppress-able.
-          if (!scopeCycleValidationType.equals(ValidationType.NONE)) {
+          if (!compilerOptions.scopeCycleValidationType().equals(ValidationType.NONE)) {
             validateScopeHierarchy(descriptor.componentDefinitionType(),
                 descriptor.componentDefinitionType(),
-                new ArrayDeque<Scope>(),
+                new ArrayDeque<ImmutableSet<Scope>>(),
                 new ArrayDeque<TypeElement>());
           }
         }
@@ -730,41 +755,53 @@ public class BindingGraphValidator {
      */
     private void validateScopeHierarchy(TypeElement rootComponent,
         TypeElement componentType,
-        Deque<Scope> scopeStack,
+        Deque<ImmutableSet<Scope>> scopeStack,
         Deque<TypeElement> scopedDependencyStack) {
-      Scope scope = Scope.scopeOf(componentType);
-      if (scope.isPresent()) {
-        if (scopeStack.contains(scope)) {
-          scopedDependencyStack.push(componentType);
-          // Current scope has already appeared in the component chain.
-          StringBuilder message = new StringBuilder();
-          message.append(rootComponent.getQualifiedName());
-          message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
-          appendIndentedComponentsList(message, scopedDependencyStack);
-          if (scopeCycleValidationType.diagnosticKind().isPresent()) {
-            reportBuilder.addItem(message.toString(),
-                scopeCycleValidationType.diagnosticKind().get(),
-                rootComponent, getAnnotationMirror(rootComponent, Component.class).get());
+      ImmutableSet<Scope> scopes = Scope.scopesOf(componentType);
+      if (stackOverlaps(scopeStack, scopes)) {
+        scopedDependencyStack.push(componentType);
+        // Current scope has already appeared in the component chain.
+        StringBuilder message = new StringBuilder();
+        message.append(rootComponent.getQualifiedName());
+        message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
+        appendIndentedComponentsList(message, scopedDependencyStack);
+        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()) {
+          reportBuilder.addItem(
+              message.toString(),
+              compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
+              rootComponent,
+              getAnnotationMirror(rootComponent, Component.class)
+                  .or(getAnnotationMirror(rootComponent, ProductionComponent.class))
+                  .get());
+        }
+        scopedDependencyStack.pop();
+      } else {
+        // TODO(beder): transitively check scopes of production components too.
+        Optional<AnnotationMirror> componentAnnotation =
+            getAnnotationMirror(componentType, Component.class);
+        if (componentAnnotation.isPresent()) {
+          ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(
+              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get())));
+          if (scopedDependencies.size() == 1) {
+            // empty can be ignored (base-case), and > 1 is a different error reported separately.
+            scopeStack.push(scopes);
+            scopedDependencyStack.push(componentType);
+            validateScopeHierarchy(rootComponent, getOnlyElement(scopedDependencies),
+                scopeStack, scopedDependencyStack);
+            scopedDependencyStack.pop();
+            scopeStack.pop();
           }
-          scopedDependencyStack.pop();
-        } else {
-          Optional<AnnotationMirror> componentAnnotation =
-              getAnnotationMirror(componentType, Component.class);
-          if (componentAnnotation.isPresent()) {
-            ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(
-                MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get())));
-            if (scopedDependencies.size() == 1) {
-              // empty can be ignored (base-case), and > 1 is a different error reported separately.
-              scopeStack.push(scope);
-              scopedDependencyStack.push(componentType);
-              validateScopeHierarchy(rootComponent, getOnlyElement(scopedDependencies),
-                  scopeStack, scopedDependencyStack);
-              scopedDependencyStack.pop();
-              scopeStack.pop();
-            }
-          } // else: we skip component dependencies which are not components
+        } // else: we skip component dependencies which are not components
+      }
+    }
+
+    private <T> boolean stackOverlaps(Deque<ImmutableSet<T>> stack, ImmutableSet<T> set) {
+      for (ImmutableSet<T> entry : stack) {
+        if (!Sets.intersection(entry, set).isEmpty()) {
+          return true;
         }
       }
+      return false;
     }
 
     /**
@@ -773,12 +810,12 @@ public class BindingGraphValidator {
      */
     void validateComponentScope() {
       ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
-      Scope componentScope = subject.componentDescriptor().scope();
+      ImmutableSet<Scope> componentScopes = subject.componentDescriptor().scopes();
       ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
       for (ResolvedBindings bindings : resolvedBindings.values()) {
         for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
-          Scope bindingScope = contributionBinding.scope();
-          if (bindingScope.isPresent() && !bindingScope.equals(componentScope)) {
+          Optional<Scope> bindingScope = contributionBinding.scope();
+          if (bindingScope.isPresent() && !componentScopes.contains(bindingScope.get())) {
             // Scoped components cannot reference bindings to @Provides methods or @Inject
             // types decorated by a different scope annotation. Unscoped components cannot
             // reference to scoped @Provides methods or @Inject types decorated by any
@@ -792,7 +829,7 @@ public class BindingGraphValidator {
                 break;
               case INJECTION:
                 incompatiblyScopedMethodsBuilder.add(
-                    bindingScope.getReadableSource()
+                    bindingScope.get().getReadableSource()
                         + " class "
                         + contributionBinding.bindingTypeElement().getQualifiedName());
                 break;
@@ -807,10 +844,12 @@ public class BindingGraphValidator {
       if (!incompatiblyScopedMethods.isEmpty()) {
         TypeElement componentType = subject.componentDescriptor().componentDefinitionType();
         StringBuilder message = new StringBuilder(componentType.getQualifiedName());
-        if (componentScope.isPresent()) {
+        if (!componentScopes.isEmpty()) {
           message.append(" scoped with ");
-          message.append(componentScope.getReadableSource());
-          message.append(" may not reference bindings with different scopes:\n");
+          for (Scope scope : componentScopes) {
+            message.append(scope.getReadableSource()).append(' ');
+          }
+          message.append("may not reference bindings with different scopes:\n");
         } else {
           message.append(" (unscoped) may not reference scoped bindings:\n");
         }
@@ -878,6 +917,14 @@ public class BindingGraphValidator {
         errorMessage.append('\n').append(suggestion);
       }
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
+    }
+
+    @SuppressWarnings("resource") // Appendable is a StringBuilder.
+    private void reportDependsOnProductionExecutor(Deque<ResolvedRequest> path) {
+      StringBuilder builder = new StringBuilder();
+      new Formatter(builder)
+          .format(ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatRootRequestKey(path));
+      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
@@ -1079,8 +1126,7 @@ public class BindingGraphValidator {
   private void appendIndentedComponentsList(StringBuilder message, Iterable<TypeElement> types) {
     for (TypeElement scopedComponent : types) {
       message.append(INDENT);
-      Scope scope = Scope.scopeOf(scopedComponent);
-      if (scope.isPresent()) {
+      for (Scope scope : Scope.scopesOf(scopedComponent)) {
         message.append(scope.getReadableSource()).append(' ');
       }
       message.append(stripCommonTypePrefixes(scopedComponent.getQualifiedName().toString()))
@@ -1095,7 +1141,7 @@ public class BindingGraphValidator {
   private ImmutableSet<TypeElement> scopedTypesIn(Set<TypeElement> types) {
     return FluentIterable.from(types).filter(new Predicate<TypeElement>() {
       @Override public boolean apply(TypeElement input) {
-        return Scope.scopeOf(input).isPresent();
+        return !Scope.scopesOf(input).isEmpty();
       }
     }).toSet();
   }

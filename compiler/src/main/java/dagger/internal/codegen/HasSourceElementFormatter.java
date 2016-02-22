@@ -21,9 +21,8 @@ import com.google.common.base.Optional;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 
 /**
  * Formats a {@link HasSourceElement} into a {@link String} suitable for use in error messages.
@@ -38,16 +37,19 @@ final class HasSourceElementFormatter extends Formatter<HasSourceElement> {
   @Override
   public String format(HasSourceElement hasElement) {
     SourceElement sourceElement = hasElement.sourceElement();
-    checkArgument(
-        sourceElement.element().asType().getKind().equals(TypeKind.EXECUTABLE),
-        "Not yet supporting nonexecutable elements: %s",
-        hasElement);
-
-    Optional<TypeElement> contributedBy = sourceElement.contributedBy();
-    return methodSignatureFormatter.format(
-        MoreElements.asExecutable(sourceElement.element()),
-        contributedBy.isPresent()
-            ? Optional.of(MoreTypes.asDeclared(contributedBy.get().asType()))
-            : Optional.<DeclaredType>absent());
+    switch (sourceElement.element().asType().getKind()) {
+      case EXECUTABLE:
+        Optional<TypeElement> contributedBy = sourceElement.contributedBy();
+        return methodSignatureFormatter.format(
+            MoreElements.asExecutable(sourceElement.element()),
+            contributedBy.isPresent()
+                ? Optional.of(MoreTypes.asDeclared(contributedBy.get().asType()))
+                : Optional.<DeclaredType>absent());
+      case DECLARED:
+        return stripCommonTypePrefixes(sourceElement.element().asType().toString());
+      default:
+        throw new IllegalArgumentException(
+            "Formatting unsupported for element: " + sourceElement.element());
+    }
   }
 }

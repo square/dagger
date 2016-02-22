@@ -180,6 +180,7 @@ public final class InjectConstructorFactoryGeneratorTest {
             "",
             "import dagger.MembersInjector;",
             "import dagger.internal.Factory;",
+            "import dagger.internal.MembersInjectors;",
             "import javax.annotation.Generated;",
             "",
             GENERATED_ANNOTATION,
@@ -194,9 +195,8 @@ public final class InjectConstructorFactoryGeneratorTest {
             "",
             "  @Override",
             "  public GenericClass<A, B> get() {",
-            "    GenericClass<A, B> instance = new GenericClass<A, B>();",
-            "    genericClassMembersInjector.injectMembers(instance);",
-            "    return instance;",
+            "    return MembersInjectors.injectMembers(",
+            "        genericClassMembersInjector, new GenericClass<A, B>());",
             "  }",
             "",
             "  public static <A, B> Factory<GenericClass<A, B>> create(",
@@ -290,7 +290,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
-  
+
   @Test public void boundedGenerics() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.GenericClass",
         "package test;",
@@ -381,7 +381,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         "  private final Provider<B> qbProvider;",
         "",
         "  public GenericClass_Factory(Provider<A> aAndA2AndPaAndLaProvider,",
-        "      Provider<A> qaProvider,", 
+        "      Provider<A> qaProvider,",
         "      Provider<String> sAndS2AndPsAndLsProvider,",
         "      Provider<String> qsProvider,",
         "      Provider<B> bAndB2AndPbAndLbProvider,",
@@ -414,7 +414,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         "      qsProvider.get(),",
         "      DoubleCheckLazy.create(sAndS2AndPsAndLsProvider),",
         "      bAndB2AndPbAndLbProvider.get(),",
-        "      bAndB2AndPbAndLbProvider.get(),", 
+        "      bAndB2AndPbAndLbProvider.get(),",
         "      bAndB2AndPbAndLbProvider,",
         "      qbProvider.get(),",
         "      DoubleCheckLazy.create(bAndB2AndPbAndLbProvider));",
@@ -422,7 +422,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         "",
         "  public static <A, B> Factory<GenericClass<A, B>> create(",
         "      Provider<A> aAndA2AndPaAndLaProvider,",
-        "      Provider<A> qaProvider,", 
+        "      Provider<A> qaProvider,",
         "      Provider<String> sAndS2AndPsAndLsProvider,",
         "      Provider<String> qsProvider,",
         "      Provider<B> bAndB2AndPbAndLbProvider,",
@@ -537,7 +537,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_FIELD).in(file).onLine(6);
   }
-  
+
   @Test public void privateInjectFieldWarning() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.PrivateInjectField",
         "package test;",
@@ -552,7 +552,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError(); // TODO: Verify warning message when supported
   }
-  
+
   @Test public void staticInjectFieldError() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectField",
         "package test;",
@@ -567,7 +567,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(STATIC_INJECT_FIELD).in(file).onLine(6);
   }
-  
+
   @Test public void staticInjectFieldWarning() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectField",
         "package test;",
@@ -627,7 +627,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(PRIVATE_INJECT_METHOD).in(file).onLine(6);
   }
-  
+
   @Test public void privateInjectMethodWarning() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.PrivateInjectMethod",
         "package test;",
@@ -642,7 +642,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError(); // TODO: Verify warning message when supported
   }
-  
+
   @Test public void staticInjectMethodError() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectMethod",
         "package test;",
@@ -657,7 +657,7 @@ public final class InjectConstructorFactoryGeneratorTest {
         .failsToCompile()
         .withErrorContaining(STATIC_INJECT_METHOD).in(file).onLine(6);
   }
-  
+
   @Test public void staticInjectMethodWarning() {
     JavaFileObject file = JavaFileObjects.forSourceLines("test.StaticInjectMethod",
         "package test;",
@@ -859,6 +859,7 @@ public final class InjectConstructorFactoryGeneratorTest {
             "",
             "import dagger.MembersInjector;",
             "import dagger.internal.Factory;",
+            "import dagger.internal.MembersInjectors;",
             "import javax.annotation.Generated;",
             "import javax.inject.Provider;",
             "",
@@ -879,9 +880,8 @@ public final class InjectConstructorFactoryGeneratorTest {
             "  }",
             "",
             "  @Override public AllInjections get() {",
-            "    AllInjections instance = new AllInjections(sProvider.get());",
-            "    allInjectionsMembersInjector.injectMembers(instance);",
-            "    return instance;",
+            "    return MembersInjectors.injectMembers(",
+            "        allInjectionsMembersInjector, new AllInjections(sProvider.get()));",
             "  }",
             "",
             "  public static Factory<AllInjections> create(",
@@ -916,6 +916,7 @@ public final class InjectConstructorFactoryGeneratorTest {
             "",
             "import dagger.MembersInjector;",
             "import dagger.internal.Factory;",
+            "import dagger.internal.MembersInjectors;",
             "import javax.annotation.Generated;",
             "",
             GENERATED_ANNOTATION,
@@ -929,9 +930,7 @@ public final class InjectConstructorFactoryGeneratorTest {
             "  }",
             "",
             "  @Override public B get() {",
-            "    B instance = new B();",
-            "    bMembersInjector.injectMembers(instance);",
-            "    return instance;",
+            "    return MembersInjectors.injectMembers(bMembersInjector, new B());",
             "  }",
             "",
             "  public static Factory<B> create(MembersInjector<B> bMembersInjector) {",

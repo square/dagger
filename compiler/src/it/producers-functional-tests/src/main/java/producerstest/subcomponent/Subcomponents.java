@@ -51,7 +51,7 @@ final class Subcomponents {
   interface ParentComponent {
     InjectsChildBuilder injectsChildBuilder();
 
-    ChildComponent.Builder newChildComponentBuilder();
+    ChildComponentWithExecutor.Builder newChildComponentBuilder();
   }
 
   @ProducerModule
@@ -86,21 +86,34 @@ final class Subcomponents {
 
     @ProductionSubcomponent.Builder
     interface Builder {
-      Builder executor(Executor executor);
-
       ChildComponent build();
     }
   }
 
+  @ProductionSubcomponent(modules = ChildProducerModule.class)
+  interface ChildComponentWithExecutor {
+    @FromChild
+    ListenableFuture<String> fromChild();
+
+    GrandchildComponent.Builder newGrandchildComponentBuilder();
+
+    @ProductionSubcomponent.Builder
+    interface Builder {
+      Builder executor(Executor executor);
+
+      ChildComponentWithExecutor build();
+    }
+  }
+
   static final class InjectsChildBuilder {
-    private final Provider<ChildComponent.Builder> childBuilder;
+    private final Provider<ChildComponentWithExecutor.Builder> childBuilder;
 
     @Inject
-    InjectsChildBuilder(Provider<ChildComponent.Builder> childBuilder) {
+    InjectsChildBuilder(Provider<ChildComponentWithExecutor.Builder> childBuilder) {
       this.childBuilder = childBuilder;
     }
 
-    ChildComponent.Builder childBuilder() {
+    ChildComponentWithExecutor.Builder childBuilder() {
       return childBuilder.get();
     }
   }
@@ -121,8 +134,6 @@ final class Subcomponents {
 
     @ProductionSubcomponent.Builder
     interface Builder {
-      Builder executor(Executor executor);
-
       GrandchildComponent build();
     }
   }

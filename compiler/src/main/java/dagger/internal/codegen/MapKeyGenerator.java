@@ -39,11 +39,13 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.MapKeys.getMapKeyCreatorClassName;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
@@ -109,6 +111,8 @@ final class MapKeyGenerator extends JavaPoetSourceFileGenerator<MapKeyCreatorSpe
       ClassName generatedTypeName, MapKeyCreatorSpecification mapKeyCreatorType) {
     TypeSpec.Builder mapKeyCreatorBuilder =
         classBuilder(generatedTypeName.simpleName()).addModifiers(PUBLIC, FINAL);
+
+    mapKeyCreatorBuilder.addMethod(constructorBuilder().addModifiers(PRIVATE).build());
 
     for (TypeElement annotationElement :
         nestedAnnotationElements(mapKeyCreatorType.annotationElement())) {

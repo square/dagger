@@ -17,22 +17,15 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
-
-import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
@@ -57,11 +50,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   @Override
   public Set<String> getSupportedOptions() {
     return ImmutableSet.of(
-        DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
-        NULLABLE_VALIDATION_KEY,
-        PRIVATE_MEMBER_VALIDATION_TYPE_KEY,
-        STATIC_MEMBER_VALIDATION_TYPE_KEY
-    );
+        CompilerOptions.DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
+        CompilerOptions.NULLABLE_VALIDATION_KEY,
+        CompilerOptions.PRIVATE_MEMBER_VALIDATION_TYPE_KEY,
+        CompilerOptions.STATIC_MEMBER_VALIDATION_TYPE_KEY);
   }
 
   @Override
@@ -71,8 +63,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Elements elements = processingEnv.getElementUtils();
     Filer filer = processingEnv.getFiler();
 
-    Diagnostic.Kind nullableDiagnosticType =
-        nullableValidationType(processingEnv).diagnosticKind().get();
+    CompilerOptions compilerOptions = new CompilerOptions(processingEnv, elements);
 
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
     HasSourceElementFormatter hasSourceElementFormatter =
@@ -81,12 +72,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     KeyFormatter keyFormatter = new KeyFormatter(methodSignatureFormatter);
 
     InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
-    InjectFieldValidator injectFieldValidator = new InjectFieldValidator(
-        privateMemberValidationType(processingEnv).diagnosticKind().get(),
-        staticMemberValidationType(processingEnv).diagnosticKind().get());
-    InjectMethodValidator injectMethodValidator = new InjectMethodValidator(
-        privateMemberValidationType(processingEnv).diagnosticKind().get(),
-        staticMemberValidationType(processingEnv).diagnosticKind().get());
+    InjectFieldValidator injectFieldValidator = new InjectFieldValidator(compilerOptions);
+    InjectMethodValidator injectMethodValidator = new InjectMethodValidator(compilerOptions);
     MembersInjectedTypeValidator membersInjectedTypeValidator =
         new MembersInjectedTypeValidator(injectFieldValidator, injectMethodValidator);
     ModuleValidator moduleValidator =
@@ -107,14 +94,16 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(elements, keyFactory, keyFormatter, methodSignatureFormatter);
 
-    this.factoryGenerator = new FactoryGenerator(filer, elements, nullableDiagnosticType);
+    this.factoryGenerator = new FactoryGenerator(filer, elements, compilerOptions);
     this.membersInjectorGenerator = new MembersInjectorGenerator(filer, elements);
     ComponentGenerator componentGenerator =
-        new ComponentGenerator(filer, elements, types, keyFactory, nullableDiagnosticType);
+        new ComponentGenerator(filer, elements, types, keyFactory, compilerOptions);
     ProducerFactoryGenerator producerFactoryGenerator =
         new ProducerFactoryGenerator(filer, elements);
     MonitoringModuleGenerator monitoringModuleGenerator =
         new MonitoringModuleGenerator(filer, elements);
+    ProductionExecutorModuleGenerator productionExecutorModuleGenerator =
+        new ProductionExecutorModuleGenerator(filer, elements);
 
     DependencyRequest.Factory dependencyRequestFactory =
         new DependencyRequest.Factory(elements, keyFactory);
@@ -161,10 +150,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(
+            elements,
             types,
+            compilerOptions,
             injectBindingRegistry,
-            scopeValidationType(processingEnv),
-            nullableDiagnosticType,
             hasSourceElementFormatter,
             methodSignatureFormatter,
             dependencyRequestFormatter,
@@ -175,6 +164,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
         new InjectProcessingStep(injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
+        new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),
         new MultibindingsProcessingStep(messager, multibindingsValidator),
         new ModuleProcessingStep(
             messager,
@@ -220,65 +210,5 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     } catch (SourceFileGenerationException e) {
       e.printMessageTo(processingEnv.getMessager());
     }
-  }
-
-  private static final String DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY =
-      "dagger.disableInterComponentScopeValidation";
-
-  private static final String NULLABLE_VALIDATION_KEY = "dagger.nullableValidation";
-
-  private static final String PRIVATE_MEMBER_VALIDATION_TYPE_KEY =
-      "dagger.privateMemberValidation";
-
-  private static final String STATIC_MEMBER_VALIDATION_TYPE_KEY =
-      "dagger.staticMemberValidation";
-
-  private static ValidationType scopeValidationType(ProcessingEnvironment processingEnv) {
-    return valueOf(processingEnv,
-        DISABLE_INTER_COMPONENT_SCOPE_VALIDATION_KEY,
-        ValidationType.ERROR,
-        EnumSet.allOf(ValidationType.class));
-  }
-
-  private static ValidationType nullableValidationType(ProcessingEnvironment processingEnv) {
-    return valueOf(processingEnv,
-        NULLABLE_VALIDATION_KEY,
-        ValidationType.ERROR,
-        EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
-  }
-
-  private static ValidationType privateMemberValidationType(ProcessingEnvironment processingEnv) {
-    return valueOf(processingEnv,
-        PRIVATE_MEMBER_VALIDATION_TYPE_KEY,
-        ValidationType.ERROR,
-        EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
-  }
-
-  private static ValidationType staticMemberValidationType(ProcessingEnvironment processingEnv) {
-    return valueOf(processingEnv,
-        STATIC_MEMBER_VALIDATION_TYPE_KEY,
-        ValidationType.ERROR,
-        EnumSet.of(ValidationType.ERROR, ValidationType.WARNING));
-  }
-
-  private static <T extends Enum<T>> T valueOf(ProcessingEnvironment processingEnv, String key,
-      T defaultValue, Set<T> validValues) {
-    Map<String, String> options = processingEnv.getOptions();
-    if (options.containsKey(key)) {
-      try {
-        T type = Enum.valueOf(
-            defaultValue.getDeclaringClass(),
-            Ascii.toUpperCase(options.get(key)));
-        if (!validValues.contains(type)) {
-          throw new IllegalArgumentException(); // let handler below print out good msg.
-        }
-        return type;
-      } catch (IllegalArgumentException e) {
-        processingEnv.getMessager().printMessage(ERROR, "Processor option -A"
-            + key + " may only have the values " + validValues
-            + " (case insensitive), found: " + options.get(key));
-      }
-    }
-    return defaultValue;
   }
 }

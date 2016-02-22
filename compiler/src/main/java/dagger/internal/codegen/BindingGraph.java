@@ -197,6 +197,12 @@ abstract class BindingGraph {
       TypeElement componentDefinitionType = componentDescriptor.componentDefinitionType();
       explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDefinitionType));
 
+      // immediate binding for the executor, if it's provided to the builder
+      if (componentDescriptor.executorDependency().isPresent()) {
+        explicitBindingsBuilder.add(
+            provisionBindingFactory.forExecutorDependency(componentDefinitionType));
+      }
+
       // Collect Component dependencies.
       Optional<AnnotationMirror> componentMirror =
           getAnnotationMirror(componentDefinitionType, Component.class)
@@ -493,10 +499,10 @@ abstract class BindingGraph {
 
         // look for scope separately.  we do this for the case where @Singleton can appear twice
         // in the † compatibility mode
-        Scope bindingScope = binding.scope();
+        Optional<Scope> bindingScope = binding.scope();
         if (bindingScope.isPresent()) {
           for (Resolver requestResolver : getResolverLineage().reverse()) {
-            if (bindingScope.equals(requestResolver.componentDescriptor.scope())) {
+            if (requestResolver.componentDescriptor.scopes().contains(bindingScope.get())) {
               return Optional.of(requestResolver);
             }
           }

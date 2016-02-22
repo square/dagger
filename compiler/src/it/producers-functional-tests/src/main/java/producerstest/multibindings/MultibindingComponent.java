@@ -21,6 +21,7 @@ import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
 import java.util.Map;
 import java.util.Set;
+import producerstest.multibindings.Qualifiers.ObjCount;
 import producerstest.multibindings.Qualifiers.PossiblyThrowingMap;
 import producerstest.multibindings.Qualifiers.PossiblyThrowingSet;
 
@@ -48,4 +49,17 @@ interface MultibindingComponent {
 
   @PossiblyThrowingMap
   ListenableFuture<Map<Integer, Produced<String>>> possiblyThrowingMapOfProduced();
+
+  ListenableFuture<Set<Object>> objs();
+
+  ListenableFuture<Set<Produced<Object>>> producedObjs();
+
+  ListenableFuture<Map<Object, Object>> objMap();
+
+  ListenableFuture<Map<Object, Produced<Object>>> objMapOfProduced();
+
+  ListenableFuture<Map<Object, Producer<Object>>> objMapOfProducer();
+
+  @ObjCount
+  ListenableFuture<Integer> objCount();
 }

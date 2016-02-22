@@ -22,6 +22,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Provides;
+import java.util.concurrent.Executor;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -39,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.Scope.scopeOf;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -63,7 +63,7 @@ abstract class ProvisionBinding extends ContributionBinding {
   abstract Optional<ProvisionBinding> unresolved();
 
   @Override
-  abstract Scope scope();
+  abstract Optional<Scope> scope();
   
   static final class Factory {
     private final Elements elements;
@@ -113,7 +113,7 @@ abstract class ProvisionBinding extends ContributionBinding {
               cxtorType.getParameterTypes());
       Optional<DependencyRequest> membersInjectionRequest =
           membersInjectionRequest(enclosingCxtorType);
-      Scope scope = Scope.scopeOf(constructorElement.getEnclosingElement());
+      Optional<Scope> scope = Scope.uniqueScopeOf(constructorElement.getEnclosingElement());
 
       TypeElement bindingTypeElement =
           MoreElements.asType(constructorElement.getEnclosingElement());
@@ -165,7 +165,7 @@ abstract class ProvisionBinding extends ContributionBinding {
               MoreTypes.asDeclared(contributedBy.asType()),
               providesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
-      Scope scope = Scope.scopeOf(providesMethod);
+      Optional<Scope> scope = Scope.uniqueScopeOf(providesMethod);
       return new AutoValue_ProvisionBinding(
           sourceElement,
           key,
@@ -200,7 +200,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Kind.SYNTHETIC_MAP,
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
-          scopeOf(implicitMapOfProviderRequest.requestElement()));
+          Scope.uniqueScopeOf(implicitMapOfProviderRequest.requestElement()));
     }
 
     /**
@@ -219,7 +219,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Kind.forMultibindingRequest(request),
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
-          scopeOf(request.requestElement()));
+          Scope.uniqueScopeOf(request.requestElement()));
     }
 
     ProvisionBinding forComponent(TypeElement componentDefinitionType) {
@@ -234,14 +234,14 @@ abstract class ProvisionBinding extends ContributionBinding {
           Kind.COMPONENT,
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
-          Scope.unscoped());
+          Optional.<Scope>absent());
     }
 
     ProvisionBinding forComponentMethod(ExecutableElement componentMethod) {
       checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
       checkArgument(componentMethod.getParameters().isEmpty());
-      Scope scope = Scope.scopeOf(componentMethod);
+      Optional<Scope> scope = Scope.uniqueScopeOf(componentMethod);
       return new AutoValue_ProvisionBinding(
           SourceElement.forElement(componentMethod),
           keyFactory.forComponentMethod(componentMethod),
@@ -271,7 +271,23 @@ abstract class ProvisionBinding extends ContributionBinding {
           Kind.SUBCOMPONENT_BUILDER,
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
-          Scope.unscoped());
+          Optional.<Scope>absent());
+    }
+
+    ProvisionBinding forExecutorDependency(TypeElement componentElement) {
+      TypeElement executorElement = elements.getTypeElement(Executor.class.getCanonicalName());
+      checkNotNull(executorElement);
+      return new AutoValue_ProvisionBinding(
+          SourceElement.forElement(componentElement),
+          keyFactory.forProductionExecutor(),
+          ImmutableSet.<DependencyRequest>of(),
+          Optional.<String>absent(),
+          Optional.<DeclaredType>absent(),
+          Optional.<DependencyRequest>absent(),
+          Kind.EXECUTOR_DEPENDENCY,
+          Provides.Type.UNIQUE,
+          Optional.<ProvisionBinding>absent(),
+          Optional.<Scope>absent());
     }
   }
 }
