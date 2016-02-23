@@ -138,19 +138,23 @@ public class BindingGraphValidator {
   }
 
   private class Validation {
-    final BindingGraph topLevelGraph;
     final BindingGraph subject;
     final ValidationReport.Builder<TypeElement> reportBuilder;
+    final Optional<Validation> parent;
 
-    Validation(BindingGraph topLevelGraph, BindingGraph subject) {
-      this.topLevelGraph = topLevelGraph;
+    Validation(BindingGraph subject, Optional<Validation> parent) {
       this.subject = subject;
       this.reportBuilder =
           ValidationReport.about(subject.componentDescriptor().componentDefinitionType());
+      this.parent = parent;
     }
 
     Validation(BindingGraph topLevelGraph) {
-      this(topLevelGraph, topLevelGraph);
+      this(topLevelGraph, Optional.<Validation>absent());
+    }
+
+    BindingGraph topLevelGraph() {
+      return parent.isPresent() ? parent.get().topLevelGraph() : subject;
     }
 
     ValidationReport<TypeElement> buildReport() {
@@ -186,8 +190,7 @@ public class BindingGraphValidator {
       }
 
       for (BindingGraph subgraph : subject.subgraphs().values()) {
-        Validation subgraphValidation =
-            new Validation(topLevelGraph, subgraph);
+        Validation subgraphValidation = new Validation(subgraph, Optional.of(this));
         subgraphValidation.validateSubgraph();
         reportBuilder.addSubreport(subgraphValidation.buildReport());
       }
@@ -913,7 +916,7 @@ public class BindingGraphValidator {
           printableDependencyPath.subList(1, printableDependencyPath.size())) {
         errorMessage.append('\n').append(dependency);
       }
-      for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph, bindingKey)) {
+      for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(), bindingKey)) {
         errorMessage.append('\n').append(suggestion);
       }
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
@@ -939,12 +942,48 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
+      ImmutableSet<ContributionBinding> duplicateBindings =
+          inlineSyntheticContributions(resolvedBinding).contributionBindings();
       hasSourceElementFormatter.formatIndentedList(
-          builder,
-          inlineSyntheticContributions(resolvedBinding).contributionBindings(),
-          1,
-          DUPLICATE_SIZE_LIMIT);
-      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
+          builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
+      owningReportBuilder(duplicateBindings)
+          .addError(builder.toString(), path.getLast().request().requestElement());
+    }
+
+    /**
+     * Returns the report builder for the rootmost component that contains any of the duplicate
+     * bindings.
+     */
+    private ValidationReport.Builder<TypeElement> owningReportBuilder(
+        Iterable<ContributionBinding> duplicateBindings) {
+      ImmutableSet.Builder<ComponentDescriptor> owningComponentsBuilder = ImmutableSet.builder();
+      for (ContributionBinding binding : duplicateBindings) {
+        BindingKey bindingKey = BindingKey.create(BindingKey.Kind.CONTRIBUTION, binding.key());
+        ResolvedBindings resolvedBindings = subject.resolvedBindings().get(bindingKey);
+        owningComponentsBuilder.addAll(
+            resolvedBindings.allContributionBindings().inverse().get(binding));
+      }
+      ImmutableSet<ComponentDescriptor> owningComponents = owningComponentsBuilder.build();
+      for (Validation validation : validationPath()) {
+        if (owningComponents.contains(validation.subject.componentDescriptor())) {
+          return validation.reportBuilder;
+        }
+      }
+      throw new AssertionError(
+          "cannot find owning component for duplicate bindings: " + duplicateBindings);
+    }
+
+    /**
+     * The path from the {@link Validation} of the root graph down to this {@link Validation}.
+     */
+    private ImmutableList<Validation> validationPath() {
+      ImmutableList.Builder<Validation> validationPath = ImmutableList.builder();
+      for (Optional<Validation> validation = Optional.of(this);
+          validation.isPresent();
+          validation = validation.get().parent) {
+        validationPath.add(validation.get());
+      }
+      return validationPath.build().reverse();
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
