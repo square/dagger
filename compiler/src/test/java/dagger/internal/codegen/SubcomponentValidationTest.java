@@ -768,7 +768,7 @@ public final class SubcomponentValidationTest {
   public void parentComponentNameShouldNotBeDisambiguatedWhenItConflictsWithASubcomponent() {
     JavaFileObject parent =
         JavaFileObjects.forSourceLines(
-            "test.ParentComponent",
+            "test.C",
             "package test;",
             "",
             "import dagger.Component;",
@@ -790,7 +790,7 @@ public final class SubcomponentValidationTest {
 
     JavaFileObject componentGeneratedFile =
         JavaFileObjects.forSourceLines(
-            "test.DaggerParentComponent",
+            "test.DaggerC",
             "package test;",
             "",
             "import javax.annotation.Generated;",
@@ -829,6 +829,115 @@ public final class SubcomponentValidationTest {
 
     assertAbout(javaSources())
         .that(ImmutableList.of(parent, subcomponentWithSameSimpleNameAsParent))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(componentGeneratedFile);
+  }
+
+  @Test
+  public void subcomponentBuilderNamesShouldNotConflict() {
+    JavaFileObject parent =
+        JavaFileObjects.forSourceLines(
+            "test.C",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Subcomponent;",
+            "",
+            "@Component",
+            "interface C {",
+            "  Foo.Sub.Builder fooBuilder();",
+            "  Bar.Sub.Builder barBuilder();",
+            "",
+            "  interface Foo {",
+            "    @Subcomponent",
+            "    interface Sub {",
+            "      @Subcomponent.Builder",
+            "      interface Builder {",
+            "        Sub build();",
+            "      }",
+            "    }",
+            "  }",
+            "",
+            "  interface Bar {",
+            "    @Subcomponent",
+            "    interface Sub {",
+            "      @Subcomponent.Builder",
+            "      interface Builder {",
+            "        Sub build();",
+            "      }",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject componentGeneratedFile =
+        JavaFileObjects.forSourceLines(
+            "test.DaggerC",
+            "package test;",
+            "",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class DaggerC implements C {",
+            "  private DaggerC(Builder builder) {",
+            "    assert builder != null;",
+            "  }",
+            "",
+            "  public static Builder builder() {",
+            "    return new Builder();",
+            "  }",
+            "",
+            "  public static C create() {",
+            "    return builder().build();",
+            "  }",
+            "",
+            "  @Override",
+            "  public C.Foo.Sub.Builder fooBuilder() {",
+            "    return new Foo_SubBuilder();",
+            "  }",
+            "",
+            "  @Override",
+            "  public C.Bar.Sub.Builder barBuilder() {",
+            "    return new Bar_SubBuilder();",
+            "  }",
+            "",
+            "  public static final class Builder {",
+            "    private Builder() {}",
+            "",
+            "    public C build() {",
+            "      return new DaggerC(this);",
+            "    }",
+            "  }",
+            "",
+            "  private final class Foo_SubBuilder implements C.Foo.Sub.Builder {",
+            "    @Override",
+            "    public C.Foo.Sub build() {",
+            "      return new Foo_SubImpl(this);",
+            "    }",
+            "  }",
+            "",
+            "  private final class Foo_SubImpl implements C.Foo.Sub {",
+            "    private Foo_SubImpl(Foo_SubBuilder builder) {",
+            "      assert builder != null;",
+            "    }",
+            "  }",
+            "",
+            "  private final class Bar_SubBuilder implements C.Bar.Sub.Builder {",
+            "    @Override",
+            "    public C.Bar.Sub build() {",
+            "      return new Bar_SubImpl(this);",
+            "    }",
+            "  }",
+            "",
+            "  private final class Bar_SubImpl implements C.Bar.Sub {",
+            "    private Bar_SubImpl(Bar_SubBuilder builder) {",
+            "      assert builder != null;",
+            "    }",
+            "  }",
+            "}");
+
+    assertAbout(javaSources())
+        .that(ImmutableList.of(parent))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and()

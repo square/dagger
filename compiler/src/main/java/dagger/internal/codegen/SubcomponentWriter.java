@@ -67,14 +67,14 @@ final class SubcomponentWriter extends AbstractComponentWriter {
         parent.compilerOptions,
         subcomponentName(parent, subgraph),
         subgraph,
-        parent.subcomponentImplNames);
+        parent.subcomponentNames);
     this.parent = parent;
     this.subcomponentFactoryMethod = subcomponentFactoryMethod;
   }
 
   private static ClassName subcomponentName(AbstractComponentWriter parent, BindingGraph subgraph) {
     return parent.name.nestedClass(
-        parent.subcomponentImplNames.get(subgraph.componentDescriptor()));
+        parent.subcomponentNames.get(subgraph.componentDescriptor()) + "Impl");
   }
 
   @Override
@@ -128,7 +128,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
 
   @Override
   protected ClassName builderName() {
-    return name.peerClass(componentDefinitionTypeName().simpleName() + "Builder");
+    return name.peerClass(subcomponentNames.get(graph.componentDescriptor()) + "Builder");
   }
 
   @Override
