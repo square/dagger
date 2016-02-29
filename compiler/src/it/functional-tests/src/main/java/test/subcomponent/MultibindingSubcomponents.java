@@ -160,7 +160,9 @@ final class MultibindingSubcomponents {
     Set<RequiresMultibindings<BoundInParentAndChild>> setOfRequiresMultibindingsInParentAndChild();
   }
 
-  interface ParentWithProvision extends ProvidesBoundInParent, ProvidesBoundInParentAndChild {}
+  interface ParentWithProvision
+      extends ProvidesBoundInParent, ProvidesBoundInParentAndChild,
+          ProvidesSetOfRequiresMultibindings {}
 
   interface HasChildWithProvision {
     ChildWithProvision childWithProvision();

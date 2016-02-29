@@ -617,6 +617,14 @@ abstract class BindingGraph {
         if (getPreviouslyResolvedBindings(bindingKey).isPresent()
             && !new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
             && getExplicitBindings(bindingKey.key()).isEmpty()) {
+          /* Resolve in the parent in case there are multibinding contributions or conflicts in some
+           * component between this one and the previously-resolved one. */
+          parentResolver.get().resolve(request);
+          /* Cache the inherited parent component's bindings in case resolving at the parent found
+           * bindings in some component between this one and the previously-resolved one. */
+          ResolvedBindings inheritedBindings =
+              getPreviouslyResolvedBindings(bindingKey).get().asInheritedIn(componentDescriptor);
+          resolvedBindings.put(bindingKey, inheritedBindings);
           return;
         }
 
