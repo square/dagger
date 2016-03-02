@@ -1074,7 +1074,9 @@ public class BindingGraphValidator {
       TypeElement componentType = MoreElements.asType(rootRequestElement.getEnclosingElement());
       reportBuilder.addItem(
           String.format(
-              ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
+              kind == WARNING
+                  ? ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_WARNING_FORMAT
+                  : ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_ERROR_FORMAT,
               componentType.getQualifiedName(),
               rootRequestElement.getSimpleName(),
               Joiner.on("\n")

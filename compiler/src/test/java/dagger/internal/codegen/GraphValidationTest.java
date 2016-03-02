@@ -420,20 +420,28 @@ public class GraphValidationTest {
             "  }",
             "}");
 
-    /* String expectedWarning =
-     "test.Outer.CComponent.get() contains a dependency cycle:"
-     + "      test.Outer.C.<init>(javax.inject.Provider<test.Outer.A> aParam)"
-     + "          [parameter: javax.inject.Provider<test.Outer.A> aParam]"
-     + "      test.Outer.A.<init>(test.Outer.B bParam)"
-     + "          [parameter: test.Outer.B bParam]"
-     + "      test.Outer.B.<init>(test.Outer.C bParam, test.Outer.D dParam)"
-     + "          [parameter: test.Outer.C bParam]";
-     */
-    assertAbout(javaSource()) // TODO(cgruber): Implement warning checks.
+    String expectedWarning =
+        Joiner.on('\n')
+            .join(
+                "test.Outer.CComponent.get() contains a dependency cycle. "
+                    + "You can suppress this warning by annotating the component method, the "
+                    + "component, or any dependency request in the cycle with "
+                    + "@SuppressWarnings(\"dependency-cycle\"):",
+                "      test.Outer.C.<init>(javax.inject.Provider<test.Outer.A> aParam)",
+                "          [parameter: javax.inject.Provider<test.Outer.A> aParam]",
+                "      test.Outer.A.<init>(test.Outer.B bParam)",
+                "          [parameter: test.Outer.B bParam]",
+                "      test.Outer.B.<init>(test.Outer.C bParam, test.Outer.D dParam)",
+                "          [parameter: test.Outer.C bParam]");
+    assertAbout(javaSource())
         .that(component)
+        .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
-        //.withWarningContaining(expectedWarning).in(component).onLine(X);
+    // TODO(dpb): Enable when testing warnings is released.
+    //  .withWarningContaining(expectedWarning)
+    //  .in(component)
+    //  .onLine(28);
   }
 
   @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarningSuppressed() {
@@ -474,9 +482,57 @@ public class GraphValidationTest {
 
     assertAbout(javaSource())
         .that(component)
+        .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
-        //.compilesWithoutWarning(); //TODO(cgruber)
+    // TODO(dpb): Enable when testing warnings is released.
+    //  .compilesWithoutWarnings();
+  }
+
+  @Ignore
+  @Test
+  public void cyclicDependencySimpleProviderIndirectionWarningSuppressed_atDependencyRequest() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(B bParam) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(C bParam, D dParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(@SuppressWarnings(\"dependency-cycle\") Provider<A> aParam) {}",
+            "  }",
+            "",
+            "  static class D {",
+            "    @Inject D() {}",
+            "  }",
+            "",
+            "  @Component()",
+            "  interface CComponent {",
+            "    C get();",
+            "  }",
+            "}");
+
+    assertAbout(javaSource())
+        .that(component)
+        .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+    // TODO(dpb): Enable when testing warnings is released.
+    //  .compilesWithoutWarnings();
   }
   
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
