@@ -1063,11 +1063,12 @@ public class BindingGraphValidator {
       Element rootRequestElement = requestPath.get(0).requestElement();
       ImmutableList<DependencyRequest> cycle =
           requestPath.subList(indexOfDuplicatedKey, requestPath.size());
-      Diagnostic.Kind kind = cycleHasProviderOrLazy(cycle) ? WARNING : ERROR;
+      ImmutableSet<DependencyRequest> providersBreakingCycle = providersBreakingCycle(cycle);
+      Diagnostic.Kind kind = providersBreakingCycle.isEmpty() ? ERROR : WARNING;
       if (kind == WARNING
           && (suppressCycleWarnings(rootRequestElement)
               || suppressCycleWarnings(rootRequestElement.getEnclosingElement())
-              || suppressCycleWarnings(cycle))) {
+              || suppressCycleWarnings(providersBreakingCycle))) {
         return;
       }
       // TODO(cgruber): Provide a hint for the start and end of the cycle.
@@ -1090,15 +1091,18 @@ public class BindingGraphValidator {
     }
 
     /**
-     * Returns {@code true} if any step of a dependency cycle after the first is a {@link Provider}
-     * or {@link Lazy} or a {@code Map<K, Provider<V>>}.
+     * Returns any steps in a dependency cycle that "break" the cycle. These are any
+     * {@link Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first
+     * request in the cycle.
      *
      * <p>If an implicit {@link Provider} dependency on {@code Map<K, Provider<V>>} is immediately
      * preceded by a dependency on {@code Map<K, V>}, which means that the map's {@link Provider}s'
      * {@link Provider#get() get()} methods are called during provision and so the cycle is not
      * really broken.
      */
-    private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> cycle) {
+    private ImmutableSet<DependencyRequest> providersBreakingCycle(
+        ImmutableList<DependencyRequest> cycle) {
+      ImmutableSet.Builder<DependencyRequest> providers = ImmutableSet.builder();
       for (int i = 1; i < cycle.size(); i++) {
         DependencyRequest dependencyRequest = cycle.get(i);
         switch (dependencyRequest.kind()) {
@@ -1106,17 +1110,18 @@ public class BindingGraphValidator {
             if (isImplicitProviderMapForValueMap(dependencyRequest, cycle.get(i - 1))) {
               i++; // Skip the Provider requests in the Map<K, Provider<V>> too.
             } else {
-              return true;
+              providers.add(dependencyRequest);
             }
             break;
 
           case LAZY:
-            return true;
+            providers.add(dependencyRequest);
+            break;
 
           case INSTANCE:
             TypeMirror type = dependencyRequest.key().type();
             if (MapType.isMap(type) && MapType.from(type).valuesAreTypeOf(Provider.class)) {
-              return true;
+              providers.add(dependencyRequest);
             }
             break;
 
@@ -1124,7 +1129,7 @@ public class BindingGraphValidator {
             break;
         }
       }
-      return false;
+      return providers.build();
     }
 
     /**
@@ -1146,8 +1151,8 @@ public class BindingGraphValidator {
     return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
   }
 
-  private boolean suppressCycleWarnings(ImmutableList<DependencyRequest> pathElements) {
-    for (DependencyRequest dependencyRequest : pathElements) {
+  private boolean suppressCycleWarnings(Iterable<DependencyRequest> dependencyRequests) {
+    for (DependencyRequest dependencyRequest : dependencyRequests) {
       if (suppressCycleWarnings(dependencyRequest.requestElement())) {
         return true;
       }
