@@ -38,5 +38,6 @@ after_success:
   - util/publish-snapshot-on-commit.sh
 
 branches:
-  except:
-    - gh-pages
+  only:
+    - master
+    - /^release.*$/
