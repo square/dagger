@@ -297,9 +297,7 @@ public class BindingGraphValidator {
             throw new AssertionError(
                 "contribution binding keys should never have members injection bindings");
           }
-          if (!validateNullability(path.peek().request(), resolvedBinding.contributionBindings())) {
-            return false;
-          }
+          validateNullability(path.peek().request(), resolvedBinding.contributionBindings());
           if (resolvedBinding.contributionBindings().size() > 1) {
             reportDuplicateBindings(path);
             return false;
@@ -419,10 +417,9 @@ public class BindingGraphValidator {
     }
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
-    private boolean validateNullability(
-        DependencyRequest request, Set<ContributionBinding> bindings) {
+    private void validateNullability(DependencyRequest request, Set<ContributionBinding> bindings) {
       if (request.isNullable()) {
-        return true;
+        return;
       }
 
       // Note: the method signature will include the @Nullable in it!
@@ -432,7 +429,6 @@ public class BindingGraphValidator {
        * message is kind of useless. */
       String typeName = TypeName.get(request.key().type()).toString();
 
-      boolean valid = true;
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
           reportBuilder.addItem(
@@ -441,10 +437,8 @@ public class BindingGraphValidator {
                   + dependencyRequestFormatter.format(request),
               compilerOptions.nullableValidationKind(),
               request.requestElement());
-          valid = false;
         }
       }
-      return valid;
     }
 
     /**

@@ -1496,4 +1496,63 @@ public class GraphValidationTest {
         .in(child)
         .onLine(8);
   }
+
+  @Test
+  public void subcomponentBindingConflictsWithParentWithNullableViolationAsWarning() {
+    JavaFileObject parentConflictsWithChild =
+        JavaFileObjects.forSourceLines(
+            "test.ParentConflictsWithChild",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.annotation.Nullable;",
+            "",
+            "@Component(modules = ParentConflictsWithChild.ParentModule.class)",
+            "interface ParentConflictsWithChild {",
+            "  Child child();",
+            "",
+            "  @Module",
+            "  static class ParentModule {",
+            "    @Provides @Nullable static Object nullableParentChildConflict() {",
+            "      return \"parent\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject child =
+        JavaFileObjects.forSourceLines(
+            "test.Child",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = Child.ChildModule.class)",
+            "interface Child {",
+            "  Object parentChildConflictThatViolatesNullability();",
+            "",
+            "  @Module",
+            "  static class ChildModule {",
+            "    @Provides static Object nonNullableParentChildConflict() {",
+            "      return \"child\";",
+            "    }",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(parentConflictsWithChild, child))
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "[test.Child.parentChildConflictThatViolatesNullability()] "
+                + "java.lang.Object is bound multiple times:\n"
+                + "      @Provides @javax.annotation.Nullable Object"
+                + " test.ParentConflictsWithChild.ParentModule.nullableParentChildConflict()\n"
+                + "      @Provides Object"
+                + " test.Child.ChildModule.nonNullableParentChildConflict()")
+        .in(parentConflictsWithChild)
+        .onLine(9);
+  }
 }
