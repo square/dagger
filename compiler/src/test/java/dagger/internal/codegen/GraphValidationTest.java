@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -385,7 +384,8 @@ public class GraphValidationTest {
         .onLine(28);
   }
 
-  @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarning() {
+  @Test
+  public void cyclicDependencySimpleProviderIndirectionWarning() {
     JavaFileObject component =
         JavaFileObjects.forSourceLines(
             "test.Outer",
@@ -437,14 +437,14 @@ public class GraphValidationTest {
         .that(component)
         .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
         .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
-    // TODO(dpb): Enable when testing warnings is released.
-    //  .withWarningContaining(expectedWarning)
-    //  .in(component)
-    //  .onLine(28);
+        .compilesWithoutError()
+        .withWarningContaining(expectedWarning)
+        .in(component)
+        .onLine(28);
   }
 
-  @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarningSuppressed() {
+  @Test
+  public void cyclicDependencySimpleProviderIndirectionWarningSuppressed() {
     JavaFileObject component =
         JavaFileObjects.forSourceLines(
             "test.Outer",
@@ -484,12 +484,9 @@ public class GraphValidationTest {
         .that(component)
         .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
         .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
-    // TODO(dpb): Enable when testing warnings is released.
-    //  .compilesWithoutWarnings();
+        .compilesWithoutWarnings();
   }
 
-  @Ignore
   @Test
   public void cyclicDependencySimpleProviderIndirectionWarningSuppressed_atDependencyRequest() {
     JavaFileObject component =
@@ -530,12 +527,9 @@ public class GraphValidationTest {
         .that(component)
         .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
         .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
-    // TODO(dpb): Enable when testing warnings is released.
-    //  .compilesWithoutWarnings();
+        .compilesWithoutWarnings();
   }
 
-  @Ignore
   @Test
   public void cyclicDependencySimpleProviderIndirectionWarningNotSuppressed_atDependencyRequest() {
     JavaFileObject component =
@@ -576,9 +570,8 @@ public class GraphValidationTest {
         .that(component)
         .withCompilerOptions("-Xlint:-processing", "-Xlint:-rawtypes")
         .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
-    // TODO(dpb): Enable when testing warnings is released.
-    //  .withWarningContaining("dependency cycle");
+        .compilesWithoutError()
+        .withWarningContaining("dependency cycle");
   }
 
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {

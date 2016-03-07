@@ -2202,6 +2202,7 @@ public class ComponentProcessorTest {
                     "    extends LocalInjectMemberNoConstructor {",
                     "  @Inject ParentInjectMemberWithConstructor() {}",
                     "}")))
+        .withCompilerOptions("-Xlint:-processing")
         .processedWith(
             new ElementFilteringComponentProcessor(
                 Predicates.not(
@@ -2213,8 +2214,6 @@ public class ComponentProcessorTest {
                             .contentEquals("test.inject");
                       }
                     })))
-        .compilesWithoutError();
-        /* TODO(b/23108801): Uncomment when compilesWithoutWarnings() is implemented.
         .compilesWithoutWarnings()
         .withNoteContaining(
             "Generating a MembersInjector or Factory for "
@@ -2232,7 +2231,6 @@ public class ComponentProcessorTest {
                 + "Prefer to run the dagger processor over that class instead.")
         .and()
         .withNoteCount(3);
-         */
   }
 
   /**
