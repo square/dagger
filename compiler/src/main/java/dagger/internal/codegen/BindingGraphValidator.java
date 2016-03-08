@@ -44,7 +44,6 @@ import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
@@ -67,7 +66,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.asDeclared;
@@ -89,6 +87,7 @@ import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapK
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
+import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
@@ -102,7 +101,6 @@ import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.tools.Diagnostic.Kind.ERROR;
-import static javax.tools.Diagnostic.Kind.WARNING;
 
 public class BindingGraphValidator {
 
@@ -1057,21 +1055,14 @@ public class BindingGraphValidator {
       Element rootRequestElement = requestPath.get(0).requestElement();
       ImmutableList<DependencyRequest> cycle =
           requestPath.subList(indexOfDuplicatedKey, requestPath.size());
-      ImmutableSet<DependencyRequest> providersBreakingCycle = providersBreakingCycle(cycle);
-      Diagnostic.Kind kind = providersBreakingCycle.isEmpty() ? ERROR : WARNING;
-      if (kind == WARNING
-          && (suppressCycleWarnings(rootRequestElement)
-              || suppressCycleWarnings(rootRequestElement.getEnclosingElement())
-              || suppressCycleWarnings(providersBreakingCycle))) {
+      if (!providersBreakingCycle(cycle).isEmpty()) {
         return;
       }
       // TODO(cgruber): Provide a hint for the start and end of the cycle.
       TypeElement componentType = MoreElements.asType(rootRequestElement.getEnclosingElement());
       reportBuilder.addItem(
           String.format(
-              kind == WARNING
-                  ? ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_WARNING_FORMAT
-                  : ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_ERROR_FORMAT,
+              CONTAINS_DEPENDENCY_CYCLE_FORMAT,
               componentType.getQualifiedName(),
               rootRequestElement.getSimpleName(),
               Joiner.on("\n")
@@ -1080,7 +1071,7 @@ public class BindingGraphValidator {
                           .transform(dependencyRequestFormatter)
                           .filter(not(equalTo("")))
                           .skip(1))),
-          kind,
+          ERROR,
           rootRequestElement);
     }
 
@@ -1138,20 +1129,6 @@ public class BindingGraphValidator {
       return implicitProviderMapKey.isPresent()
           && implicitProviderMapKey.get().equals(maybeProviderMapRequest.key());
     }
-  }
-
-  private boolean suppressCycleWarnings(Element requestElement) {
-    SuppressWarnings suppressions = requestElement.getAnnotation(SuppressWarnings.class);
-    return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
-  }
-
-  private boolean suppressCycleWarnings(Iterable<DependencyRequest> dependencyRequests) {
-    for (DependencyRequest dependencyRequest : dependencyRequests) {
-      if (suppressCycleWarnings(dependencyRequest.requestElement())) {
-        return true;
-      }
-    }
-    return false;
   }
 
   ValidationReport<TypeElement> validate(BindingGraph subject) {

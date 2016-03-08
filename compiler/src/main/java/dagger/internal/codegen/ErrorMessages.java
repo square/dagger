@@ -242,13 +242,7 @@ final class ErrorMessages {
   static final String MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE =
       "Type parameters must be bounded for members injection. %s required by %s, via:\n%s";
 
-  static final String CONTAINS_DEPENDENCY_CYCLE_ERROR_FORMAT =
-      "%s.%s() contains a dependency cycle:\n%s";
-
-  static final String CONTAINS_DEPENDENCY_CYCLE_WARNING_FORMAT =
-      "%s.%s() contains a dependency cycle. "
-          + "You can suppress this warning by annotating the component method, the component, or "
-          + "any dependency request in the cycle with @SuppressWarnings(\"dependency-cycle\"):\n%s";
+  static final String CONTAINS_DEPENDENCY_CYCLE_FORMAT = "%s.%s() contains a dependency cycle:\n%s";
 
   static final String MALFORMED_MODULE_METHOD_FORMAT =
       "Cannot generated a graph because method %s on module %s was malformed";
