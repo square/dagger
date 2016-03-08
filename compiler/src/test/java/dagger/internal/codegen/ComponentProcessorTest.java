@@ -2216,17 +2216,17 @@ public class ComponentProcessorTest {
                     })))
         .compilesWithoutWarnings()
         .withNoteContaining(
-            "Generating a MembersInjector or Factory for "
+            "Generating a MembersInjector for "
                 + "test.inject.LocalInjectMemberNoConstructor. "
                 + "Prefer to run the dagger processor over that class instead.")
         .and()
         .withNoteContaining(
-            "Generating a MembersInjector or Factory for "
+            "Generating a MembersInjector for "
                 + "test.inject.LocalInjectMemberWithConstructor. "
                 + "Prefer to run the dagger processor over that class instead.")
         .and()
         .withNoteContaining(
-            "Generating a MembersInjector or Factory for "
+            "Generating a MembersInjector for "
                 + "test.inject.ParentInjectMemberWithConstructor. "
                 + "Prefer to run the dagger processor over that class instead.")
         .and()
