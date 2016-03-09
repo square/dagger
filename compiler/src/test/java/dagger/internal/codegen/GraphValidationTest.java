@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -385,100 +384,6 @@ public class GraphValidationTest {
         .onLine(28);
   }
 
-  @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarning() {
-    JavaFileObject component =
-        JavaFileObjects.forSourceLines(
-            "test.Outer",
-            "package test;",
-            "",
-            "import dagger.Component;",
-            "import dagger.Module;",
-            "import dagger.Provides;",
-            "import javax.inject.Inject;",
-            "import javax.inject.Provider;",
-            "",
-            "final class Outer {",
-            "  static class A {",
-            "    @Inject A(B bParam) {}",
-            "  }",
-            "",
-            "  static class B {",
-            "    @Inject B(C bParam, D dParam) {}",
-            "  }",
-            "",
-            "  static class C {",
-            "    @Inject C(Provider<A> aParam) {}",
-            "  }",
-            "",
-            "  static class D {",
-            "    @Inject D() {}",
-            "  }",
-            "",
-            "  @Component()",
-            "  interface CComponent {",
-            "    C get();",
-            "  }",
-            "}");
-
-    /* String expectedWarning =
-     "test.Outer.CComponent.get() contains a dependency cycle:"
-     + "      test.Outer.C.<init>(javax.inject.Provider<test.Outer.A> aParam)"
-     + "          [parameter: javax.inject.Provider<test.Outer.A> aParam]"
-     + "      test.Outer.A.<init>(test.Outer.B bParam)"
-     + "          [parameter: test.Outer.B bParam]"
-     + "      test.Outer.B.<init>(test.Outer.C bParam, test.Outer.D dParam)"
-     + "          [parameter: test.Outer.C bParam]";
-     */
-    assertAbout(javaSource()) // TODO(cgruber): Implement warning checks.
-        .that(component)
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
-        //.withWarningContaining(expectedWarning).in(component).onLine(X);
-  }
-
-  @Ignore @Test public void cyclicDependencySimpleProviderIndirectionWarningSuppressed() {
-    JavaFileObject component =
-        JavaFileObjects.forSourceLines(
-            "test.Outer",
-            "package test;",
-            "",
-            "import dagger.Component;",
-            "import dagger.Module;",
-            "import dagger.Provides;",
-            "import javax.inject.Inject;",
-            "import javax.inject.Provider;",
-            "",
-            "final class Outer {",
-            "  static class A {",
-            "    @Inject A(B bParam) {}",
-            "  }",
-            "",
-            "  static class B {",
-            "    @Inject B(C bParam, D dParam) {}",
-            "  }",
-            "",
-            "  static class C {",
-            "    @Inject C(Provider<A> aParam) {}",
-            "  }",
-            "",
-            "  static class D {",
-            "    @Inject D() {}",
-            "  }",
-            "",
-            "  @SuppressWarnings(\"dependency-cycle\")",
-            "  @Component()",
-            "  interface CComponent {",
-            "    C get();",
-            "  }",
-            "}");
-
-    assertAbout(javaSource())
-        .that(component)
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
-        //.compilesWithoutWarning(); //TODO(cgruber)
-  }
-
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -562,7 +467,7 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError).in(component).onLine(24);
   }
-
+  
   @Test public void duplicateExplicitBindings_MultipleProvisionTypes() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -714,7 +619,7 @@ public class GraphValidationTest {
         .in(component)
         .onLine(38);
   }
-
+  
   @Test public void duplicateBindings_TruncateAfterLimit() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
@@ -1223,9 +1128,8 @@ public class GraphValidationTest {
         .and()
         .withErrorContaining(shortErrorMessage).in(shortLifetime);
   }
-
+  
   @Test
-  @Ignore
   public void subcomponentBindingConflictsWithParent() {
     JavaFileObject parentChildConflict =
         JavaFileObjects.forSourceLines(
@@ -1251,19 +1155,23 @@ public class GraphValidationTest {
             "import javax.inject.Qualifier;",
             "",
             "@Qualifier @interface ChildGrandchildConflict {}");
-    JavaFileObject parent =
+    
+    /* Some annotation processor implementations do not report more than one error per element. So
+     * separate parents for testing parent-conflicts-with-child and
+     * parent-conflicts-with-grandchild.
+     */
+    JavaFileObject parentConflictsWithChild =
         JavaFileObjects.forSourceLines(
-            "test.Parent",
+            "test.ParentConflictsWithChild",
             "package test;",
             "",
             "import dagger.Component;",
             "import dagger.Module;",
             "import dagger.Provides;",
             "",
-            "@Component(modules = Parent.ParentModule.class)",
-            "interface Parent {",
+            "@Component(modules = ParentConflictsWithChild.ParentModule.class)",
+            "interface ParentConflictsWithChild {",
             "  @ParentChildConflict Object parentChildConflict();",
-            "  @ParentGrandchildConflict Object parentGrandchildConflict();",
             "",
             "  Child child();",
             "",
@@ -1272,7 +1180,25 @@ public class GraphValidationTest {
             "    @Provides @ParentChildConflict static Object parentChildConflict() {",
             "      return \"parent\";",
             "    }",
+            "  }",
+            "}");
+    JavaFileObject parentConflictsWithGrandchild =
+        JavaFileObjects.forSourceLines(
+            "test.ParentConflictsWithGrandchild",
+            "package test;",
             "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Component(modules = ParentConflictsWithGrandchild.ParentModule.class)",
+            "interface ParentConflictsWithGrandchild {",
+            "  @ParentGrandchildConflict Object parentGrandchildConflict();",
+            "",
+            "  Child child();",
+            "",
+            "  @Module",
+            "  static class ParentModule {",
             "    @Provides @ParentGrandchildConflict static Object parentGrandchildConflict() {",
             "      return \"parent\";",
             "    }",
@@ -1337,36 +1263,99 @@ public class GraphValidationTest {
                 parentChildConflict,
                 parentGrandchildConflict,
                 childGrandchildConflict,
-                parent,
+                parentConflictsWithChild,
+                parentConflictsWithGrandchild,
                 child,
                 grandchild))
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@ParentChildConflict Object is rebound in test.Child:\n"
-                + "      @Provides @ParentChildConflict Object"
-                + " test.Parent.ParentModule.parentChildConflict()\n"
-                + "      @Provides @ParentChildConflict Object"
-                + " test.Child.ChildModule.parentChildConflict()\n")
-        .in(parent)
-        .onLine(12)
+            "[test.Child.parentChildConflict()] "
+                + "@test.ParentChildConflict java.lang.Object is bound multiple times:\n"
+                + "      @Provides @test.ParentChildConflict Object"
+                + " test.ParentConflictsWithChild.ParentModule.parentChildConflict()\n"
+                + "      @Provides @test.ParentChildConflict Object"
+                + " test.Child.ChildModule.parentChildConflict()")
+        .in(parentConflictsWithChild)
+        .onLine(8)
         .and()
         .withErrorContaining(
-            "@ParentGrandchildConflict Object is rebound in test.Grandchild:\n"
-                + "      @Provides @ParentGrandchildConflict Object"
-                + " test.Parent.ParentModule.parentGrandchildConflict()\n"
-                + "      @Provides @ParentGrandchildConflict Object"
-                + " test.Grandchild.GrandchildModule.parentGrandchildConflict()\n")
-        .in(parent)
-        .onLine(12)
+            "[test.Grandchild.parentGrandchildConflict()] "
+                + "@test.ParentGrandchildConflict java.lang.Object is bound multiple times:\n"
+                + "      @Provides @test.ParentGrandchildConflict Object"
+                + " test.ParentConflictsWithGrandchild.ParentModule.parentGrandchildConflict()\n"
+                + "      @Provides @test.ParentGrandchildConflict Object"
+                + " test.Grandchild.GrandchildModule.parentGrandchildConflict()")
+        .in(parentConflictsWithGrandchild)
+        .onLine(8)
         .and()
         .withErrorContaining(
-            "@ChildGrandchildConflict Object is rebound in test.Grandchild:\n"
-                + "      @Provides @ChildGrandchildConflict Object"
+            "[test.Grandchild.childGrandchildConflict()] "
+                + "@test.ChildGrandchildConflict java.lang.Object is bound multiple times:\n"
+                + "      @Provides @test.ChildGrandchildConflict Object"
                 + " test.Child.ChildModule.childGrandchildConflict()\n"
-                + "      @Provides @ChildGrandchildConflict Object"
-                + " test.Grandchild.GrandchildModule.childGrandchildConflict()\n")
+                + "      @Provides @test.ChildGrandchildConflict Object"
+                + " test.Grandchild.GrandchildModule.childGrandchildConflict()")
         .in(child)
-        .onLine(12);
+        .onLine(8);
+  }
+
+  @Test
+  public void subcomponentBindingConflictsWithParentWithNullableViolationAsWarning() {
+    JavaFileObject parentConflictsWithChild =
+        JavaFileObjects.forSourceLines(
+            "test.ParentConflictsWithChild",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.annotation.Nullable;",
+            "",
+            "@Component(modules = ParentConflictsWithChild.ParentModule.class)",
+            "interface ParentConflictsWithChild {",
+            "  Child child();",
+            "",
+            "  @Module",
+            "  static class ParentModule {",
+            "    @Provides @Nullable static Object nullableParentChildConflict() {",
+            "      return \"parent\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject child =
+        JavaFileObjects.forSourceLines(
+            "test.Child",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = Child.ChildModule.class)",
+            "interface Child {",
+            "  Object parentChildConflictThatViolatesNullability();",
+            "",
+            "  @Module",
+            "  static class ChildModule {",
+            "    @Provides static Object nonNullableParentChildConflict() {",
+            "      return \"child\";",
+            "    }",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(parentConflictsWithChild, child))
+        .withCompilerOptions("-Adagger.nullableValidation=WARNING")
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "[test.Child.parentChildConflictThatViolatesNullability()] "
+                + "java.lang.Object is bound multiple times:\n"
+                + "      @Provides @javax.annotation.Nullable Object"
+                + " test.ParentConflictsWithChild.ParentModule.nullableParentChildConflict()\n"
+                + "      @Provides Object"
+                + " test.Child.ChildModule.nonNullableParentChildConflict()")
+        .in(parentConflictsWithChild)
+        .onLine(9);
   }
 }

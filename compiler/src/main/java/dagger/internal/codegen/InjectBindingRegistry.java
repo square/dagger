@@ -68,9 +68,14 @@ final class InjectBindingRegistry {
   private final MembersInjectionBinding.Factory membersInjectionBindingFactory;
 
   final class BindingsCollection<B extends Binding> {
+    private final BindingType bindingType;
     private final Map<Key, B> bindingsByKey = Maps.newLinkedHashMap();
     private final Deque<B> bindingsRequiringGeneration = new ArrayDeque<>();
     private final Set<Key> materializedBindingKeys = Sets.newLinkedHashSet();
+    
+    BindingsCollection(BindingType bindingType) {
+      this.bindingType = bindingType;
+    }
 
     void generateBindings(JavaPoetSourceFileGenerator<B> generator)
         throws SourceFileGenerationException {
@@ -105,10 +110,13 @@ final class InjectBindingRegistry {
       if (shouldGenerateBinding(binding, generatedClassNameForBinding(binding))) {
         bindingsRequiringGeneration.offer(binding);
         if (warnIfNotAlreadyGenerated) {
-          messager.printMessage(Kind.NOTE, String.format(
-              "Generating a MembersInjector or Factory for %s. "
-                    + "Prefer to run the dagger processor over that class instead.",
-              types.erasure(binding.key().type()))); // erasure to strip <T> from msgs.
+          messager.printMessage(
+              Kind.NOTE,
+              String.format(
+                  "Generating a %s for %s. "
+                      + "Prefer to run the dagger processor over that class instead.",
+                  bindingType.frameworkClass().getSimpleName(),
+                  types.erasure(binding.key().type()))); // erasure to strip <T> from msgs.
         }
       }
     }
@@ -136,9 +144,10 @@ final class InjectBindingRegistry {
     }
   }
 
-  private final BindingsCollection<ProvisionBinding> provisionBindings = new BindingsCollection<>();
+  private final BindingsCollection<ProvisionBinding> provisionBindings =
+      new BindingsCollection<>(BindingType.PROVISION);
   private final BindingsCollection<MembersInjectionBinding> membersInjectionBindings =
-      new BindingsCollection<>();
+      new BindingsCollection<>(BindingType.MEMBERS_INJECTION);
 
   InjectBindingRegistry(
       Elements elements,

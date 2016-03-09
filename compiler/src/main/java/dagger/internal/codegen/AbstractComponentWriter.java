@@ -133,7 +133,7 @@ abstract class AbstractComponentWriter {
   protected final CompilerOptions compilerOptions;
   protected final ClassName name;
   protected final BindingGraph graph;
-  protected final ImmutableMap<ComponentDescriptor, String> subcomponentImplNames;
+  protected final ImmutableMap<ComponentDescriptor, String> subcomponentNames;
   private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
   protected TypeSpec.Builder component;
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
@@ -162,14 +162,14 @@ abstract class AbstractComponentWriter {
       CompilerOptions compilerOptions,
       ClassName name,
       BindingGraph graph,
-      ImmutableMap<ComponentDescriptor, String> subcomponentImplNames) {
+      ImmutableMap<ComponentDescriptor, String> subcomponentNames) {
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
     this.compilerOptions = compilerOptions;
     this.name = name;
     this.graph = graph;
-    this.subcomponentImplNames = subcomponentImplNames;
+    this.subcomponentNames = subcomponentNames;
   }
 
   protected final TypeElement componentDefinitionType() {

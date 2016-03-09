@@ -605,13 +605,26 @@ abstract class BindingGraph {
           return;
         }
 
-        // If the binding was previously resolved in a supercomponent, then test to see if it
-        // depends on multibindings with contributions from this subcomponent. If it does, then we
-        // have to resolve it in this subcomponent so that it sees the local contributions. If it
-        // does not, then we can stop resolving it in this subcomponent and rely on the
-        // supercomponent resolution.
+        /* If the binding was previously resolved in a supercomponent, then we may be able to avoid
+         * resolving it here and just depend on the supercomponent resolution.
+         *
+         * 1. If it depends on multibindings with contributions from this subcomponent, then we have
+         *    to resolve it in this subcomponent so that it sees the local contributions.
+         *
+         * 2. If there are any explicit bindings in this component, they may conflict with those in
+         *    the supercomponent, so resolve them here so that conflicts can be caught.
+         */
         if (getPreviouslyResolvedBindings(bindingKey).isPresent()
-            && !new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)) {
+            && !new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
+            && getExplicitBindings(bindingKey.key()).isEmpty()) {
+          /* Resolve in the parent in case there are multibinding contributions or conflicts in some
+           * component between this one and the previously-resolved one. */
+          parentResolver.get().resolve(request);
+          /* Cache the inherited parent component's bindings in case resolving at the parent found
+           * bindings in some component between this one and the previously-resolved one. */
+          ResolvedBindings inheritedBindings =
+              getPreviouslyResolvedBindings(bindingKey).get().asInheritedIn(componentDescriptor);
+          resolvedBindings.put(bindingKey, inheritedBindings);
           return;
         }
 

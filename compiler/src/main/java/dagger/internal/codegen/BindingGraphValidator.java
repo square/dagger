@@ -44,7 +44,6 @@ import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
@@ -67,7 +66,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.asDeclared;
@@ -89,6 +87,7 @@ import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapK
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
+import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
@@ -102,7 +101,6 @@ import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.tools.Diagnostic.Kind.ERROR;
-import static javax.tools.Diagnostic.Kind.WARNING;
 
 public class BindingGraphValidator {
 
@@ -138,19 +136,23 @@ public class BindingGraphValidator {
   }
 
   private class Validation {
-    final BindingGraph topLevelGraph;
     final BindingGraph subject;
     final ValidationReport.Builder<TypeElement> reportBuilder;
+    final Optional<Validation> parent;
 
-    Validation(BindingGraph topLevelGraph, BindingGraph subject) {
-      this.topLevelGraph = topLevelGraph;
+    Validation(BindingGraph subject, Optional<Validation> parent) {
       this.subject = subject;
       this.reportBuilder =
           ValidationReport.about(subject.componentDescriptor().componentDefinitionType());
+      this.parent = parent;
     }
 
     Validation(BindingGraph topLevelGraph) {
-      this(topLevelGraph, topLevelGraph);
+      this(topLevelGraph, Optional.<Validation>absent());
+    }
+
+    BindingGraph topLevelGraph() {
+      return parent.isPresent() ? parent.get().topLevelGraph() : subject;
     }
 
     ValidationReport<TypeElement> buildReport() {
@@ -186,8 +188,7 @@ public class BindingGraphValidator {
       }
 
       for (BindingGraph subgraph : subject.subgraphs().values()) {
-        Validation subgraphValidation =
-            new Validation(topLevelGraph, subgraph);
+        Validation subgraphValidation = new Validation(subgraph, Optional.of(this));
         subgraphValidation.validateSubgraph();
         reportBuilder.addSubreport(subgraphValidation.buildReport());
       }
@@ -294,9 +295,7 @@ public class BindingGraphValidator {
             throw new AssertionError(
                 "contribution binding keys should never have members injection bindings");
           }
-          if (!validateNullability(path.peek().request(), resolvedBinding.contributionBindings())) {
-            return false;
-          }
+          validateNullability(path.peek().request(), resolvedBinding.contributionBindings());
           if (resolvedBinding.contributionBindings().size() > 1) {
             reportDuplicateBindings(path);
             return false;
@@ -416,10 +415,9 @@ public class BindingGraphValidator {
     }
 
     /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
-    private boolean validateNullability(
-        DependencyRequest request, Set<ContributionBinding> bindings) {
+    private void validateNullability(DependencyRequest request, Set<ContributionBinding> bindings) {
       if (request.isNullable()) {
-        return true;
+        return;
       }
 
       // Note: the method signature will include the @Nullable in it!
@@ -429,7 +427,6 @@ public class BindingGraphValidator {
        * message is kind of useless. */
       String typeName = TypeName.get(request.key().type()).toString();
 
-      boolean valid = true;
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
           reportBuilder.addItem(
@@ -438,10 +435,8 @@ public class BindingGraphValidator {
                   + dependencyRequestFormatter.format(request),
               compilerOptions.nullableValidationKind(),
               request.requestElement());
-          valid = false;
         }
       }
-      return valid;
     }
 
     /**
@@ -913,7 +908,7 @@ public class BindingGraphValidator {
           printableDependencyPath.subList(1, printableDependencyPath.size())) {
         errorMessage.append('\n').append(dependency);
       }
-      for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph, bindingKey)) {
+      for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(), bindingKey)) {
         errorMessage.append('\n').append(suggestion);
       }
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
@@ -939,12 +934,48 @@ public class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
+      ImmutableSet<ContributionBinding> duplicateBindings =
+          inlineSyntheticContributions(resolvedBinding).contributionBindings();
       hasSourceElementFormatter.formatIndentedList(
-          builder,
-          inlineSyntheticContributions(resolvedBinding).contributionBindings(),
-          1,
-          DUPLICATE_SIZE_LIMIT);
-      reportBuilder.addError(builder.toString(), path.getLast().request().requestElement());
+          builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
+      owningReportBuilder(duplicateBindings)
+          .addError(builder.toString(), path.getLast().request().requestElement());
+    }
+
+    /**
+     * Returns the report builder for the rootmost component that contains any of the duplicate
+     * bindings.
+     */
+    private ValidationReport.Builder<TypeElement> owningReportBuilder(
+        Iterable<ContributionBinding> duplicateBindings) {
+      ImmutableSet.Builder<ComponentDescriptor> owningComponentsBuilder = ImmutableSet.builder();
+      for (ContributionBinding binding : duplicateBindings) {
+        BindingKey bindingKey = BindingKey.create(BindingKey.Kind.CONTRIBUTION, binding.key());
+        ResolvedBindings resolvedBindings = subject.resolvedBindings().get(bindingKey);
+        owningComponentsBuilder.addAll(
+            resolvedBindings.allContributionBindings().inverse().get(binding));
+      }
+      ImmutableSet<ComponentDescriptor> owningComponents = owningComponentsBuilder.build();
+      for (Validation validation : validationPath()) {
+        if (owningComponents.contains(validation.subject.componentDescriptor())) {
+          return validation.reportBuilder;
+        }
+      }
+      throw new AssertionError(
+          "cannot find owning component for duplicate bindings: " + duplicateBindings);
+    }
+
+    /**
+     * The path from the {@link Validation} of the root graph down to this {@link Validation}.
+     */
+    private ImmutableList<Validation> validationPath() {
+      ImmutableList.Builder<Validation> validationPath = ImmutableList.builder();
+      for (Optional<Validation> validation = Optional.of(this);
+          validation.isPresent();
+          validation = validation.get().parent) {
+        validationPath.add(validation.get());
+      }
+      return validationPath.build().reverse();
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
@@ -1024,18 +1055,14 @@ public class BindingGraphValidator {
       Element rootRequestElement = requestPath.get(0).requestElement();
       ImmutableList<DependencyRequest> cycle =
           requestPath.subList(indexOfDuplicatedKey, requestPath.size());
-      Diagnostic.Kind kind = cycleHasProviderOrLazy(cycle) ? WARNING : ERROR;
-      if (kind == WARNING
-          && (suppressCycleWarnings(rootRequestElement)
-              || suppressCycleWarnings(rootRequestElement.getEnclosingElement())
-              || suppressCycleWarnings(cycle))) {
+      if (!providersBreakingCycle(cycle).isEmpty()) {
         return;
       }
       // TODO(cgruber): Provide a hint for the start and end of the cycle.
       TypeElement componentType = MoreElements.asType(rootRequestElement.getEnclosingElement());
       reportBuilder.addItem(
           String.format(
-              ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT,
+              CONTAINS_DEPENDENCY_CYCLE_FORMAT,
               componentType.getQualifiedName(),
               rootRequestElement.getSimpleName(),
               Joiner.on("\n")
@@ -1044,20 +1071,23 @@ public class BindingGraphValidator {
                           .transform(dependencyRequestFormatter)
                           .filter(not(equalTo("")))
                           .skip(1))),
-          kind,
+          ERROR,
           rootRequestElement);
     }
 
     /**
-     * Returns {@code true} if any step of a dependency cycle after the first is a {@link Provider}
-     * or {@link Lazy} or a {@code Map<K, Provider<V>>}.
+     * Returns any steps in a dependency cycle that "break" the cycle. These are any
+     * {@link Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first
+     * request in the cycle.
      *
      * <p>If an implicit {@link Provider} dependency on {@code Map<K, Provider<V>>} is immediately
      * preceded by a dependency on {@code Map<K, V>}, which means that the map's {@link Provider}s'
      * {@link Provider#get() get()} methods are called during provision and so the cycle is not
      * really broken.
      */
-    private boolean cycleHasProviderOrLazy(ImmutableList<DependencyRequest> cycle) {
+    private ImmutableSet<DependencyRequest> providersBreakingCycle(
+        ImmutableList<DependencyRequest> cycle) {
+      ImmutableSet.Builder<DependencyRequest> providers = ImmutableSet.builder();
       for (int i = 1; i < cycle.size(); i++) {
         DependencyRequest dependencyRequest = cycle.get(i);
         switch (dependencyRequest.kind()) {
@@ -1065,17 +1095,18 @@ public class BindingGraphValidator {
             if (isImplicitProviderMapForValueMap(dependencyRequest, cycle.get(i - 1))) {
               i++; // Skip the Provider requests in the Map<K, Provider<V>> too.
             } else {
-              return true;
+              providers.add(dependencyRequest);
             }
             break;
 
           case LAZY:
-            return true;
+            providers.add(dependencyRequest);
+            break;
 
           case INSTANCE:
             TypeMirror type = dependencyRequest.key().type();
             if (MapType.isMap(type) && MapType.from(type).valuesAreTypeOf(Provider.class)) {
-              return true;
+              providers.add(dependencyRequest);
             }
             break;
 
@@ -1083,7 +1114,7 @@ public class BindingGraphValidator {
             break;
         }
       }
-      return false;
+      return providers.build();
     }
 
     /**
@@ -1098,20 +1129,6 @@ public class BindingGraphValidator {
       return implicitProviderMapKey.isPresent()
           && implicitProviderMapKey.get().equals(maybeProviderMapRequest.key());
     }
-  }
-
-  private boolean suppressCycleWarnings(Element requestElement) {
-    SuppressWarnings suppressions = requestElement.getAnnotation(SuppressWarnings.class);
-    return suppressions != null && Arrays.asList(suppressions.value()).contains("dependency-cycle");
-  }
-
-  private boolean suppressCycleWarnings(ImmutableList<DependencyRequest> pathElements) {
-    for (DependencyRequest dependencyRequest : pathElements) {
-      if (suppressCycleWarnings(dependencyRequest.requestElement())) {
-        return true;
-      }
-    }
-    return false;
   }
 
   ValidationReport<TypeElement> validate(BindingGraph subject) {

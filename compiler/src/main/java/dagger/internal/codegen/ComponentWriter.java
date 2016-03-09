@@ -116,8 +116,7 @@ final class ComponentWriter extends AbstractComponentWriter {
           List<String> pieces = componentQualifiedNamePieces.get(component);
           String simpleName =
               QUALIFIED_NAME_JOINER.join(
-                      pieces.subList(Math.max(0, pieces.size() - levels - 1), pieces.size()))
-                  + "Impl";
+                  pieces.subList(Math.max(0, pieces.size() - levels - 1), pieces.size()));
           ComponentDescriptor conflict = generatedSimpleNames.put(simpleName, component);
           if (conflict != null) {
             // if the map previously contained an entry for the same simple name, stop early since
