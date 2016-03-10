@@ -277,14 +277,13 @@ public class BindingGraphValidator {
     }
 
     /**
-     * Validates that the set of bindings resolved is consistent with the type of the binding, and
-     * returns true if the bindings are valid.
+     * Reports errors if the set of bindings resolved is inconsistent with the type of the binding.
      */
-    private boolean validateResolvedBinding(
+    private void validateResolvedBinding(
         Deque<ResolvedRequest> path, ResolvedBindings resolvedBinding) {
       if (resolvedBinding.isEmpty()) {
         reportMissingBinding(path);
-        return false;
+        return;
       }
 
       switch (resolvedBinding.bindingKey().kind()) {
@@ -298,13 +297,13 @@ public class BindingGraphValidator {
           validateNullability(path.peek().request(), resolvedBinding.contributionBindings());
           if (resolvedBinding.contributionBindings().size() > 1) {
             reportDuplicateBindings(path);
-            return false;
+            return;
           }
           ContributionBinding contributionBinding = resolvedBinding.contributionBinding();
           if (contributionBinding.bindingType().equals(BindingType.PRODUCTION)
               && doesPathRequireProvisionOnly(path)) {
             reportProviderMayNotDependOnProducer(path);
-            return false;
+            return;
           }
           if (compilerOptions.usesProducers()) {
             Key productionImplementationExecutorKey =
@@ -317,7 +316,7 @@ public class BindingGraphValidator {
                 if (request.key().equals(productionExecutorKey)
                     || request.key().equals(productionImplementationExecutorKey)) {
                   reportDependsOnProductionExecutor(path);
-                  return false;
+                  return;
                 }
               }
             }
@@ -325,10 +324,8 @@ public class BindingGraphValidator {
           if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
             ImmutableSet<ContributionBinding> multibindings =
                 inlineSyntheticContributions(resolvedBinding).contributionBindings();
-            boolean duplicateMapKeys = reportIfDuplicateMapKeys(path, multibindings);
-            boolean inconsistentMapKeyAnnotationTypes =
-                reportIfInconsistentMapKeyAnnotationTypes(path, multibindings);
-            return !duplicateMapKeys && !inconsistentMapKeyAnnotationTypes;
+            validateMapKeySet(path, multibindings);
+            validateMapKeyAnnotationTypes(path, multibindings);
           }
           break;
         case MEMBERS_INJECTION:
@@ -340,13 +337,13 @@ public class BindingGraphValidator {
           }
           if (resolvedBinding.bindings().size() > 1) {
             reportDuplicateBindings(path);
-            return false;
+            return;
           }
-          return validateMembersInjectionBinding(getOnlyElement(resolvedBinding.bindings()), path);
+          validateMembersInjectionBinding(getOnlyElement(resolvedBinding.bindings()), path);
+          return;
         default:
           throw new AssertionError();
       }
-      return true;
     }
 
     /**
@@ -440,57 +437,49 @@ public class BindingGraphValidator {
     }
 
     /**
-     * Returns {@code true} (and reports errors) if {@code mapBindings} has more than one binding
-     * for the same map key.
+     * Reports errors if {@code mapBindings} has more than one binding for the same map key.
      */
-    private boolean reportIfDuplicateMapKeys(
+    private void validateMapKeySet(
         Deque<ResolvedRequest> path, Set<ContributionBinding> mapBindings) {
-      boolean hasDuplicateMapKeys = false;
       for (Collection<ContributionBinding> mapBindingsForMapKey :
           indexMapBindingsByMapKey(mapBindings).asMap().values()) {
         if (mapBindingsForMapKey.size() > 1) {
-          hasDuplicateMapKeys = true;
           reportDuplicateMapKeys(path, mapBindingsForMapKey);
         }
       }
-      return hasDuplicateMapKeys;
     }
 
     /**
-     * Returns {@code true} (and reports errors) if {@code mapBindings} uses more than one
-     * {@link MapKey} annotation type.
+     * Reports errors if {@code mapBindings} uses more than one {@link MapKey} annotation type.
      */
-    private boolean reportIfInconsistentMapKeyAnnotationTypes(
+    private void validateMapKeyAnnotationTypes(
         Deque<ResolvedRequest> path, Set<ContributionBinding> contributionBindings) {
       ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
           mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(contributionBindings);
       if (mapBindingsByAnnotationType.keySet().size() > 1) {
         reportInconsistentMapKeyAnnotations(path, mapBindingsByAnnotationType);
-        return true;
       }
-      return false;
     }
 
     /**
-     * Validates a members injection binding, returning false (and reporting the error) if it wasn't
-     * valid.
+     * Reports errors if a members injection binding is invalid.
      */
-    private boolean validateMembersInjectionBinding(
+    private void validateMembersInjectionBinding(
         Binding binding, final Deque<ResolvedRequest> path) {
-      return binding
+      binding
           .key()
           .type()
           .accept(
-              new SimpleTypeVisitor6<Boolean, Void>() {
+              new SimpleTypeVisitor6<Void, Void>() {
                 @Override
-                protected Boolean defaultAction(TypeMirror e, Void p) {
+                protected Void defaultAction(TypeMirror e, Void p) {
                   reportBuilder.addError(
                       "Invalid members injection request.", path.peek().request().requestElement());
-                  return false;
+                  return null;
                 }
 
                 @Override
-                public Boolean visitDeclared(DeclaredType type, Void ignored) {
+                public Void visitDeclared(DeclaredType type, Void ignored) {
                   // If the key has type arguments, validate that each type argument is declared.
                   // Otherwise the type argument may be a wildcard (or other type), and we can't
                   // resolve that to actual types.  If the arg was an array, validate the type
@@ -552,7 +541,7 @@ public class BindingGraphValidator {
                               type.toString(),
                               Joiner.on('\n').join(printableDependencyPath)),
                           path.peek().request().requestElement());
-                      return false;
+                      return null;
                     }
                   }
 
@@ -576,10 +565,8 @@ public class BindingGraphValidator {
                             type.toString(),
                             Joiner.on('\n').join(printableDependencyPath)),
                         path.peek().request().requestElement());
-                    return false;
                   }
-
-                  return true; // valid
+                  return null;
                 }
               },
               null);

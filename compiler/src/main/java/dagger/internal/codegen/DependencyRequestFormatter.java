@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -137,8 +138,9 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
     }, qualifier);
   }
 
-  private StringBuilder appendParameter(VariableElement parameter, TypeMirror type,
-      StringBuilder builder) {
+  @CanIgnoreReturnValue
+  private StringBuilder appendParameter(
+      VariableElement parameter, TypeMirror type, StringBuilder builder) {
     return builder.append(type).append(' ').append(parameter.getSimpleName());
   }
 

@@ -51,6 +51,7 @@
     <auto.factory.version>1.0-beta3</auto.factory.version>
     <auto.service.version>1.0-rc2</auto.service.version>
     <auto.value.version>1.0</auto.value.version>
+    <errorprone.version>2.0.8</errorprone.version>
     <guava.version>19.0-rc2</guava.version>
     <google.java.format.version>0.1-alpha</google.java.format.version>
 
@@ -137,6 +138,11 @@
         <groupId>com.google.auto.value</groupId>
         <artifactId>auto-value</artifactId>
         <version>${auto.value.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>${errorprone.version}</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>
