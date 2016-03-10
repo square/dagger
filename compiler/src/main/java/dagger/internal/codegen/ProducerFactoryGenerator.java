@@ -123,19 +123,6 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
           factoryBuilder, constructorBuilder, bindingField.name(), fieldType);
     }
 
-    boolean returnsFuture =
-        binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION);
-    ImmutableList<DependencyRequest> asyncDependencies =
-        FluentIterable.from(binding.implicitDependencies())
-            .filter(
-                new Predicate<DependencyRequest>() {
-                  @Override
-                  public boolean apply(DependencyRequest dependency) {
-                    return isAsyncDependency(dependency);
-                  }
-                })
-            .toList();
-
     MethodSpec.Builder computeMethodBuilder =
         methodBuilder("compute")
             .returns(futureTypeName)
@@ -143,6 +130,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
             .addModifiers(PROTECTED)
             .addParameter(ProducerMonitor.class, "monitor", FINAL);
 
+    ImmutableList<DependencyRequest> asyncDependencies = asyncDependencies(binding);
     for (DependencyRequest dependency : asyncDependencies) {
       TypeName futureType = listenableFutureOf(asyncDependencyType(dependency));
       CodeBlock futureAccess =
@@ -177,7 +165,6 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
             getThrowsClause(binding.thrownTypes()),
             getInvocationCodeBlock(
                 generatedTypeName,
-                !returnsFuture,
                 binding,
                 providedTypeName,
                 futureTransform.parameterCodeBlocks()));
@@ -205,6 +192,26 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
         .addParameter(variableType, variableName)
         .addStatement("assert $L != null", variableName)
         .addStatement("this.$1L = $1L", variableName);
+  }
+
+  /** Returns a list of dependencies that are generated asynchronously. */
+  private static ImmutableList<DependencyRequest> asyncDependencies(Binding binding) {
+    final ImmutableMap<DependencyRequest, FrameworkDependency> frameworkDependencies =
+        FrameworkDependency.indexByDependencyRequest(
+            FrameworkDependency.frameworkDependenciesForBinding(binding));
+    return FluentIterable.from(binding.implicitDependencies())
+        .filter(
+            new Predicate<DependencyRequest>() {
+              @Override
+              public boolean apply(DependencyRequest dependency) {
+                return isAsyncDependency(dependency)
+                    && frameworkDependencies
+                        .get(dependency)
+                        .frameworkClass()
+                        .equals(Producer.class);
+              }
+            })
+        .toList();
   }
 
   /** Returns a name of the variable representing this dependency's future. */
@@ -432,15 +439,12 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
    * Creates a code block for the invocation of the producer method from the module, which should be
    * used entirely within a method body.
    *
-   * @param wrapWithFuture If true, wraps the result of the call to the producer method
-   *        in an immediate future.
    * @param binding The binding to generate the invocation code block for.
    * @param providedTypeName The type name that should be provided by this producer.
    * @param parameterCodeBlocks The code blocks for all the parameters to the producer method.
    */
   private CodeBlock getInvocationCodeBlock(
       ClassName generatedTypeName,
-      boolean wrapWithFuture,
       ProductionBinding binding,
       TypeName providedTypeName,
       ImmutableList<CodeBlock> parameterCodeBlocks) {
@@ -470,13 +474,13 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
       valueCodeBlock = moduleCodeBlock;
     }
     CodeBlock returnCodeBlock =
-        wrapWithFuture
-            ? CodeBlocks.format(
+        binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION)
+            ? valueCodeBlock
+            : CodeBlocks.format(
                 "$T.<$T>immediateFuture($L)",
                 FUTURES,
                 providedTypeName,
-                valueCodeBlock)
-            : valueCodeBlock;
+                valueCodeBlock);
     return CodeBlocks.format(
         Joiner.on('\n')
             .join(
