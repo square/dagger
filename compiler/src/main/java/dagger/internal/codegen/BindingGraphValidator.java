@@ -62,6 +62,7 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
@@ -87,6 +88,7 @@ import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapK
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
+import static dagger.internal.codegen.ErrorMessages.CANNOT_INJECT_WILDCARD_TYPE;
 import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
@@ -862,28 +864,46 @@ public class BindingGraphValidator {
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
     }
 
-    private void reportMissingBinding(Deque<ResolvedRequest> path) {
-      Key key = path.peek().request().key();
-      BindingKey bindingKey = path.peek().request().bindingKey();
-      boolean requiresContributionMethod = !key.isValidImplicitProvisionKey(types);
-      boolean requiresProvision = doesPathRequireProvisionOnly(path);
-      StringBuilder errorMessage = new StringBuilder();
-      String requiresErrorMessageFormat = requiresContributionMethod
-          ? requiresProvision
+    /**
+     * Descriptive portion of the error message for when the given request has no binding.
+     * Currently, the only other portions of the message are the dependency path, line number and
+     * filename. Not static because it uses the instance field types.
+     */
+    private StringBuilder requiresErrorMessageBase(Deque<ResolvedRequest> path) {
+      DependencyRequest request = path.peek().request();
+      Key key = request.key();
+      String requiresErrorMessageFormat;
+      // TODO(dpb): Check for wildcard injection somewhere else first?
+      if (key.type().getKind().equals(TypeKind.WILDCARD)) {
+        requiresErrorMessageFormat = CANNOT_INJECT_WILDCARD_TYPE;
+      } else {
+        boolean requiresProvision = doesPathRequireProvisionOnly(path);
+        if (!key.isValidImplicitProvisionKey(types)) {
+          requiresErrorMessageFormat = requiresProvision
               ? REQUIRES_PROVIDER_FORMAT
-              : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT
-          : requiresProvision
+              : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
+        } else {
+          requiresErrorMessageFormat = requiresProvision
               ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
               : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
-      errorMessage.append(String.format(requiresErrorMessageFormat, keyFormatter.format(key)));
+        }
+      }
+      StringBuilder errorMessage = new StringBuilder(
+          String.format(requiresErrorMessageFormat, keyFormatter.format(key)));
       if (key.isValidMembersInjectionKey()) {
         Optional<MembersInjectionBinding> membersInjectionBinding =
             injectBindingRegistry.getOrFindMembersInjectionBinding(key);
         if (membersInjectionBinding.isPresent()
             && !membersInjectionBinding.get().injectionSites().isEmpty()) {
-          errorMessage.append(" ").append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
+          errorMessage.append(" ");
+          errorMessage.append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
         }
       }
+      return errorMessage;
+    }
+
+    private void reportMissingBinding(Deque<ResolvedRequest> path) {
+      StringBuilder errorMessage = requiresErrorMessageBase(path);
       ImmutableList<String> printableDependencyPath =
           FluentIterable.from(path)
               .transform(REQUEST_FROM_RESOLVED_REQUEST)
@@ -895,7 +915,8 @@ public class BindingGraphValidator {
           printableDependencyPath.subList(1, printableDependencyPath.size())) {
         errorMessage.append('\n').append(dependency);
       }
-      for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(), bindingKey)) {
+      for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(),
+          path.peek().request().bindingKey())) {
         errorMessage.append('\n').append(suggestion);
       }
       reportBuilder.addError(errorMessage.toString(), path.getLast().request().requestElement());
