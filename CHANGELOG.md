@@ -15,6 +15,8 @@ Dagger 2 (Components)
   * GWT Integration
   * Producers monitoring
   * Multibindings for producers
+  * Add common `@MapKey` annotations to `dagger.mapkeys`.  These annotations are
+    not, but should be marked `@Beta` (since the `@MapKey` itself is beta).
   * Lots of bug fixes!
 
 ### Version 2.0.2 *(2015-11-03)*
