@@ -50,7 +50,7 @@ public final class ProducerToken {
     }
   }
 
-  /** Returns an appropriate hash code to match {@link #equals). */
+  /** Returns an appropriate hash code to match {@link #equals(Object)}. */
   @Override
   public int hashCode() {
     return classToken.hashCode();
