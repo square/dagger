@@ -906,13 +906,13 @@ public class BindingGraphValidator {
       StringBuilder errorMessage = requiresErrorMessageBase(path);
       ImmutableList<String> printableDependencyPath =
           FluentIterable.from(path)
+              .filter(Predicates.not(SYNTHETIC_BINDING))
               .transform(REQUEST_FROM_RESOLVED_REQUEST)
               .transform(dependencyRequestFormatter)
               .filter(Predicates.not(Predicates.equalTo("")))
               .toList()
               .reverse();
-      for (String dependency :
-          printableDependencyPath.subList(1, printableDependencyPath.size())) {
+      for (String dependency : Iterables.skip(printableDependencyPath, 1)) {
         errorMessage.append('\n').append(dependency);
       }
       for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(),
@@ -1073,12 +1073,14 @@ public class BindingGraphValidator {
               CONTAINS_DEPENDENCY_CYCLE_FORMAT,
               componentType.getQualifiedName(),
               rootRequestElement.getSimpleName(),
-              Joiner.on("\n")
-                  .join(
-                      FluentIterable.from(requestPath)
-                          .transform(dependencyRequestFormatter)
-                          .filter(not(equalTo("")))
-                          .skip(1))),
+              FluentIterable.from(bindingPath) // TODO(dpb): Resolve with similar code above.
+                  .skip(1)
+                  .filter(Predicates.not(SYNTHETIC_BINDING))
+                  .transform(REQUEST_FROM_RESOLVED_REQUEST)
+                  .append(request)
+                  .transform(dependencyRequestFormatter)
+                  .filter(not(equalTo("")))
+                  .join(Joiner.on('\n'))),
           ERROR,
           rootRequestElement);
     }
@@ -1253,8 +1255,17 @@ public class BindingGraphValidator {
 
   private static final Function<ResolvedRequest, DependencyRequest> REQUEST_FROM_RESOLVED_REQUEST =
       new Function<ResolvedRequest, DependencyRequest>() {
-        @Override public DependencyRequest apply(ResolvedRequest resolvedRequest) {
+        @Override
+        public DependencyRequest apply(ResolvedRequest resolvedRequest) {
           return resolvedRequest.request();
+        }
+      };
+
+  private static final Predicate<ResolvedRequest> SYNTHETIC_BINDING =
+      new Predicate<ResolvedRequest>() {
+        @Override
+        public boolean apply(ResolvedRequest request) {
+          return request.binding().isSyntheticContribution();
         }
       };
 }
