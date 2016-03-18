@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.mapkeys;
+package dagger.multibindings;
 
 import dagger.MapKey;
 import dagger.internal.Beta;
@@ -22,12 +22,7 @@ import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.METHOD;
 
-/**
- * A {@link MapKey} annotation for maps with {@link String} keys.
- *
- * <p><strong>This annotation is being replaced by {@link dagger.multibindings.StringKey}.</strong>
- * Prefer that annotation over this one.
- */
+/** A {@link MapKey} annotation for maps with {@link String} keys. */
 @Beta
 @Documented
 @Target(METHOD)

@@ -15,8 +15,8 @@ package test;
 
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableMap;
-import dagger.mapkeys.StringKey;
 import dagger.multibindings.ClassKey;
+import dagger.multibindings.StringKey;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Map;
