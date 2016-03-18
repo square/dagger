@@ -25,13 +25,14 @@ import static java.lang.annotation.ElementType.METHOD;
 /**
  * A {@link MapKey} annotation for maps with {@link String} keys.
  *
- * <p><strong>This annotation is being replaced by {@link dagger.multibindings.StringKey}.</strong>
- * Prefer that annotation over this one.
+ * @deprecated This annotation is being replaced by {@link dagger.multibindings.StringKey}. Prefer
+ *     that annotation over this one.
  */
 @Beta
 @Documented
 @Target(METHOD)
 @MapKey
+@Deprecated
 public @interface StringKey {
   String value();
 }
