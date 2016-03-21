@@ -70,9 +70,11 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @since 2.0
  */
 final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<ProductionBinding> {
+  private final CompilerOptions compilerOptions;
 
-  ProducerFactoryGenerator(Filer filer, Elements elements) {
+  ProducerFactoryGenerator(Filer filer, Elements elements, CompilerOptions compilerOptions) {
     super(filer, elements);
+    this.compilerOptions = compilerOptions;
   }
 
   @Override
@@ -106,15 +108,13 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
         constructorBuilder()
             .addModifiers(PUBLIC)
             .addStatement(
-                "super($L, $T.create($T.class))",
+                "super($L, $L)",
                 fields.get(binding.monitorRequest().get().bindingKey()).name(),
-                PRODUCER_TOKEN,
-                generatedTypeName);
+                producerTokenConstruction(generatedTypeName, binding));
 
     if (!binding.bindingElement().getModifiers().contains(STATIC)) {
       TypeName moduleType = TypeName.get(binding.bindingTypeElement().asType());
-      addFieldAndConstructorParameter(
-          factoryBuilder, constructorBuilder, "module", moduleType);
+      addFieldAndConstructorParameter(factoryBuilder, constructorBuilder, "module", moduleType);
     }
 
     for (FrameworkField bindingField : fields.values()) {
@@ -212,6 +212,20 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
               }
             })
         .toList();
+  }
+
+  private CodeBlock producerTokenConstruction(
+      ClassName generatedTypeName, ProductionBinding binding) {
+    CodeBlock producerTokenArgs =
+        compilerOptions.writeProducerNameInToken()
+            ? CodeBlocks.format(
+                "$S",
+                String.format(
+                    "%s#%s",
+                    ClassName.get(binding.bindingTypeElement()),
+                    binding.bindingElement().getSimpleName()))
+            : CodeBlocks.format("$T.class", generatedTypeName);
+    return CodeBlocks.format("$T.create($L)", PRODUCER_TOKEN, producerTokenArgs);
   }
 
   /** Returns a name of the variable representing this dependency's future. */
@@ -420,16 +434,15 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
     for (DependencyRequest dependency : binding.dependencies()) {
       if (isAsyncDependency(dependency)) {
-        codeBlocks.add(CodeBlocks.format(
-            "($T) $L.get($L)",
-            asyncDependencyType(dependency),
-            listArgName,
-            argIndex));
+        codeBlocks.add(
+            CodeBlocks.format(
+                "($T) $L.get($L)", asyncDependencyType(dependency), listArgName, argIndex));
         argIndex++;
       } else {
-        codeBlocks.add(frameworkTypeUsageStatement(
-            CodeBlocks.format("$L", fields.get(dependency.bindingKey()).name()),
-            dependency.kind()));
+        codeBlocks.add(
+            frameworkTypeUsageStatement(
+                CodeBlocks.format("$L", fields.get(dependency.bindingKey()).name()),
+                dependency.kind()));
       }
     }
     return codeBlocks.build();
@@ -448,12 +461,14 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
       ProductionBinding binding,
       TypeName providedTypeName,
       ImmutableList<CodeBlock> parameterCodeBlocks) {
-    CodeBlock moduleCodeBlock = CodeBlocks.format("$L.$L($L)",
-        binding.bindingElement().getModifiers().contains(STATIC)
-            ? CodeBlocks.format("$T", ClassName.get(binding.bindingTypeElement()))
-            : CodeBlocks.format("$T.this.module", generatedTypeName),
-        binding.bindingElement().getSimpleName(),
-        makeParametersCodeBlock(parameterCodeBlocks));
+    CodeBlock moduleCodeBlock =
+        CodeBlocks.format(
+            "$L.$L($L)",
+            binding.bindingElement().getModifiers().contains(STATIC)
+                ? CodeBlocks.format("$T", ClassName.get(binding.bindingTypeElement()))
+                : CodeBlocks.format("$T.this.module", generatedTypeName),
+            binding.bindingElement().getSimpleName(),
+            makeParametersCodeBlock(parameterCodeBlocks));
 
     // NOTE(beder): We don't worry about catching exceptions from the monitor methods themselves
     // because we'll wrap all monitoring in non-throwing monitors before we pass them to the
@@ -467,8 +482,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
         valueCodeBlock =
             CodeBlocks.format("$T.createFutureSingletonSet($L)", PRODUCERS, moduleCodeBlock);
       } else {
-        valueCodeBlock =
-            CodeBlocks.format("$T.of($L)", IMMUTABLE_SET, moduleCodeBlock);
+        valueCodeBlock = CodeBlocks.format("$T.of($L)", IMMUTABLE_SET, moduleCodeBlock);
       }
     } else {
       valueCodeBlock = moduleCodeBlock;
@@ -477,10 +491,7 @@ final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<Product
         binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION)
             ? valueCodeBlock
             : CodeBlocks.format(
-                "$T.<$T>immediateFuture($L)",
-                FUTURES,
-                providedTypeName,
-                valueCodeBlock);
+                "$T.<$T>immediateFuture($L)", FUTURES, providedTypeName, valueCodeBlock);
     return CodeBlocks.format(
         Joiner.on('\n')
             .join(
