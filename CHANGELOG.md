@@ -4,6 +4,12 @@ Change Log
 Dagger 2 (Components)
 ---------------------
 
+### Version 2.2 *(2016-03-22)*
+  * `dagger.mapkeys` moved to `dagger.multibindings` and all `@MapKey`
+    implementations now correctly have `@Beta` applied
+  * Better error messages for multibindings
+  * Compiler bug fixes!
+
 ### Version 2.1 *(2016-03-10)*
 
   * Correctly handle `@Component`s that inject generated types
