@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2016 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.mapkeys;
+package test;
 
-import dagger.MapKey;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Target;
+import dagger.Module;
+import dagger.Provides;
 
-import static java.lang.annotation.ElementType.METHOD;
+@Module
+final class NullableModule {
+  /**
+   * A {@code Nullable} that isn't {@link javax.annotation.Nullable}, to ensure that Dagger can be
+   * built without depending on JSR-305.
+   */
+  @interface Nullable {}
 
-/**
- * A {@link MapKey} annotation for maps with {@code Class<?>} keys.
- * 
- * <p>If your map's keys can be constrained, consider using a custom annotation instead, with a
- * member whose type is {@code Class<? extends Something>}.
- */
-@Documented
-@Target(METHOD)
-@MapKey
-public @interface ClassKey {
-  Class<?> value();
+  @Provides
+  @Nullable
+  static Object nullObject() {
+    return null;
+  }
 }

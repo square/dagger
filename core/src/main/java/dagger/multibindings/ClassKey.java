@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.mapkeys;
+package dagger.multibindings;
 
 import dagger.MapKey;
 import dagger.internal.Beta;
@@ -23,16 +23,15 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.METHOD;
 
 /**
- * A {@link MapKey} annotation for maps with {@link String} keys.
- *
- * @deprecated This annotation is being replaced by {@link dagger.multibindings.StringKey}. Prefer
- *     that annotation over this one.
+ * A {@link MapKey} annotation for maps with {@code Class<?>} keys.
+ * 
+ * <p>If your map's keys can be constrained, consider using a custom annotation instead, with a
+ * member whose type is {@code Class<? extends Something>}.
  */
 @Beta
 @Documented
 @Target(METHOD)
 @MapKey
-@Deprecated
-public @interface StringKey {
-  String value();
+public @interface ClassKey {
+  Class<?> value();
 }

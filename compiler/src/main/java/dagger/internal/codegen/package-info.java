@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2016 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.mapkeys;
+@CheckReturnValue
+package dagger.internal.codegen;
 
-import dagger.MapKey;
-import dagger.internal.Beta;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.METHOD;
-
-/**
- * A {@link MapKey} annotation for maps with {@link String} keys.
- *
- * @deprecated This annotation is being replaced by {@link dagger.multibindings.StringKey}. Prefer
- *     that annotation over this one.
- */
-@Beta
-@Documented
-@Target(METHOD)
-@MapKey
-@Deprecated
-public @interface StringKey {
-  String value();
-}
+import javax.annotation.CheckReturnValue;

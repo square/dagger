@@ -312,10 +312,6 @@ public class GraphValidationTest {
                 "          [parameter: test.Outer.A aParam]",
                 "      test.Outer.A.<init>(java.util.Map<java.lang.String,test.Outer.C> cMap)",
                 "          [parameter: java.util.Map<java.lang.String,test.Outer.C> cMap]",
-                "      test.Outer.A.<init>(java.util.Map<java.lang.String,test.Outer.C> cMap)",
-                "          [parameter: java.util.Map<java.lang.String,test.Outer.C> cMap]",
-                "      test.Outer.A.<init>(java.util.Map<java.lang.String,test.Outer.C> cMap)",
-                "          [parameter: java.util.Map<java.lang.String,test.Outer.C> cMap]",
                 "      test.Outer.CModule.c(test.Outer.C c)",
                 "          [parameter: test.Outer.C c]");
 
