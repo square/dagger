@@ -78,8 +78,7 @@ final class InjectBindingRegistry {
       this.bindingType = bindingType;
     }
 
-    void generateBindings(JavaPoetSourceFileGenerator<B> generator)
-        throws SourceFileGenerationException {
+    void generateBindings(SourceFileGenerator<B> generator) throws SourceFileGenerationException {
       for (B binding = bindingsRequiringGeneration.poll();
           binding != null;
           binding = bindingsRequiringGeneration.poll()) {

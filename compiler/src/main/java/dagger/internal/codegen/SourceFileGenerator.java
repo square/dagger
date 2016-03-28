@@ -43,7 +43,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @param <T> The input type from which source is to be generated.
  */
-abstract class JavaPoetSourceFileGenerator<T> {
+abstract class SourceFileGenerator<T> {
   private static final String GENERATED_COMMENTS = "https://google.github.io/dagger";
 
   private static final AnnotationSpec GENERATED =
@@ -55,7 +55,7 @@ abstract class JavaPoetSourceFileGenerator<T> {
   private final Filer filer;
   private final boolean generatedAnnotationAvailable;
 
-  JavaPoetSourceFileGenerator(Filer filer, Elements elements) {
+  SourceFileGenerator(Filer filer, Elements elements) {
     this.filer = checkNotNull(filer);
     generatedAnnotationAvailable = elements.getTypeElement("javax.annotation.Generated") != null;
   }
