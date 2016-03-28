@@ -122,6 +122,9 @@ final class ErrorMessages {
   static final String PROVIDES_METHOD_THROWS =
       "@Provides methods may only throw unchecked exceptions";
 
+  static final String PRODUCES_METHOD_NULLABLE =
+      "@Nullable on @Produces methods does not do anything.";
+
   static final String PRODUCES_METHOD_RETURN_TYPE =
       "@Produces methods must either return a primitive, an array, a type variable, or a declared"
           + " type, or a ListenableFuture of one of those types.";
