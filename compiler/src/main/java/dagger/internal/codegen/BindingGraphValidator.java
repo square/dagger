@@ -101,6 +101,7 @@ import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.Scope.reusableScope;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
@@ -796,10 +797,13 @@ public class BindingGraphValidator {
       ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
       ImmutableSet<Scope> componentScopes = subject.componentDescriptor().scopes();
       ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
+      Scope reusableScope = reusableScope(elements);
       for (ResolvedBindings bindings : resolvedBindings.values()) {
         for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
           Optional<Scope> bindingScope = contributionBinding.scope();
-          if (bindingScope.isPresent() && !componentScopes.contains(bindingScope.get())) {
+          if (bindingScope.isPresent()
+              && !bindingScope.get().equals(reusableScope)
+              && !componentScopes.contains(bindingScope.get())) {
             // Scoped components cannot reference bindings to @Provides methods or @Inject
             // types decorated by a different scope annotation. Unscoped components cannot
             // reference to scoped @Provides methods or @Inject types decorated by any

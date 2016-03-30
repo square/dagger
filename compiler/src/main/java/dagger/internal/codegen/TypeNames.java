@@ -32,6 +32,7 @@ import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.ScopedProvider;
 import dagger.internal.SetFactory;
+import dagger.internal.SimpleLazilyInitializedProvider;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.internal.AbstractProducer;
@@ -78,6 +79,8 @@ final class TypeNames {
   static final ClassName PRODUCERS = ClassName.get(Producers.class);
   static final ClassName PROVIDER = ClassName.get(Provider.class);
   static final ClassName SCOPED_PROVIDER = ClassName.get(ScopedProvider.class);
+  static final ClassName SIMPLE_LAZILY_INITIALIZED_PROVIDER =
+      ClassName.get(SimpleLazilyInitializedProvider.class);
   static final ClassName SET = ClassName.get(Set.class);
   static final ClassName SET_FACTORY = ClassName.get(SetFactory.class);
   static final ClassName SET_OF_PRODUCED_PRODUCER = ClassName.get(SetOfProducedProducer.class);

@@ -85,6 +85,7 @@ import static dagger.internal.codegen.MemberSelect.localField;
 import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
 import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
+import static dagger.internal.codegen.Scope.reusableScope;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
@@ -105,6 +106,7 @@ import static dagger.internal.codegen.TypeNames.SCOPED_PROVIDER;
 import static dagger.internal.codegen.TypeNames.SET_FACTORY;
 import static dagger.internal.codegen.TypeNames.SET_OF_PRODUCED_PRODUCER;
 import static dagger.internal.codegen.TypeNames.SET_PRODUCER;
+import static dagger.internal.codegen.TypeNames.SIMPLE_LAZILY_INITIALIZED_PROVIDER;
 import static dagger.internal.codegen.TypeNames.STRING;
 import static dagger.internal.codegen.TypeNames.UNSUPPORTED_OPERATION_EXCEPTION;
 import static dagger.internal.codegen.TypeNames.providerOf;
@@ -927,7 +929,7 @@ abstract class AbstractComponentWriter {
                   generatedClassNameForBinding(binding),
                   makeParametersCodeBlock(arguments));
           return binding.scope().isPresent()
-              ? CodeBlocks.format("$T.create($L)", SCOPED_PROVIDER, factoryCreate)
+              ? decorateForScope(factoryCreate, binding.scope().get())
               : factoryCreate;
         }
 
@@ -992,6 +994,15 @@ abstract class AbstractComponentWriter {
       default:
         throw new AssertionError(binding.toString());
     }
+  }
+
+  private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {
+    return CodeBlocks.format(
+        "$T.create($L)",
+        scope.equals(reusableScope(elements))
+            ? SIMPLE_LAZILY_INITIALIZED_PROVIDER
+            : SCOPED_PROVIDER,
+        factoryCreate);
   }
 
   private CodeBlock nullableAnnotation(Optional<DeclaredType> nullableType) {
