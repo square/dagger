@@ -90,6 +90,7 @@ import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
+import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
 import static dagger.internal.codegen.TypeNames.FACTORY;
 import static dagger.internal.codegen.TypeNames.ILLEGAL_STATE_EXCEPTION;
 import static dagger.internal.codegen.TypeNames.INSTANCE_FACTORY;
@@ -102,7 +103,6 @@ import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
 import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
 import static dagger.internal.codegen.TypeNames.PRODUCER;
 import static dagger.internal.codegen.TypeNames.PRODUCERS;
-import static dagger.internal.codegen.TypeNames.SCOPED_PROVIDER;
 import static dagger.internal.codegen.TypeNames.SET_FACTORY;
 import static dagger.internal.codegen.TypeNames.SET_OF_PRODUCED_PRODUCER;
 import static dagger.internal.codegen.TypeNames.SET_PRODUCER;
@@ -997,12 +997,9 @@ abstract class AbstractComponentWriter {
   }
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {
-    return CodeBlocks.format(
-        "$T.create($L)",
-        scope.equals(reusableScope(elements))
-            ? SIMPLE_LAZILY_INITIALIZED_PROVIDER
-            : SCOPED_PROVIDER,
-        factoryCreate);
+    return scope.equals(reusableScope(elements))
+        ? CodeBlocks.format("$T.create($L)", SIMPLE_LAZILY_INITIALIZED_PROVIDER, factoryCreate)
+        : CodeBlocks.format("$T.provider($L)", DOUBLE_CHECK, factoryCreate);
   }
 
   private CodeBlock nullableAnnotation(Optional<DeclaredType> nullableType) {
