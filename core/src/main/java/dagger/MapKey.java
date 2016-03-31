@@ -63,8 +63,8 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * <p>If {@code unwrapValue} is true, the annotation's single member can be any type except an
  * array.
  *
- * <p>See {@link dagger.mapkeys} for standard unwrapped map key annotations for keys that are boxed
- * primitives, strings, or classes.
+ * <p>See {@link dagger.multibindings} for standard unwrapped map key annotations for keys that are
+ * boxed primitives, strings, or classes.
  *
  * <h2>Annotations as keys</h2>
  *
