@@ -1354,4 +1354,58 @@ public class GraphValidationTest {
         .in(parentConflictsWithChild)
         .onLine(9);
   }
+  
+  @Test
+  public void bindingUsedOnlyInSubcomponentDependsOnBindingOnlyInSubcomponent() {
+    JavaFileObject parent =
+        JavaFileObjects.forSourceLines(
+            "Parent",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = ParentModule.class)",
+            "interface Parent {",
+            "  Child child();",
+            "}");
+    JavaFileObject parentModule =
+        JavaFileObjects.forSourceLines(
+            "ParentModule",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module",
+            "class ParentModule {",
+            "  @Provides static Object needsString(String string) {",
+            "    return \"needs string: \" + string;",
+            "  }",
+            "}");
+    JavaFileObject child =
+        JavaFileObjects.forSourceLines(
+            "Child",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = ChildModule.class)",
+            "interface Child {",
+            "  String string();",
+            "  Object needsString();",
+            "}");
+    JavaFileObject childModule =
+        JavaFileObjects.forSourceLines(
+            "ChildModule",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module",
+            "class ChildModule {",
+            "  @Provides static String string() {",
+            "    return \"child string\";",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(parent, parentModule, child, childModule))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("[Child.needsString()] java.lang.String cannot be provided")
+        .in(parent)
+        .onLine(4);
+  }
 }

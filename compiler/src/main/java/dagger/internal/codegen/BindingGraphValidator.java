@@ -176,7 +176,6 @@ public class BindingGraphValidator {
               entryPoint.get(),
               new ArrayDeque<ResolvedRequest>(),
               new LinkedHashSet<BindingKey>(),
-              subject,
               new HashSet<DependencyRequest>());
         }
       }
@@ -248,7 +247,6 @@ public class BindingGraphValidator {
         DependencyRequest request,
         Deque<ResolvedRequest> bindingPath,
         LinkedHashSet<BindingKey> keysInPath,
-        BindingGraph graph,
         Set<DependencyRequest> resolvedRequests) {
       verify(bindingPath.size() == keysInPath.size(),
           "mismatched path vs keys -- (%s vs %s)", bindingPath, keysInPath);
@@ -264,18 +262,37 @@ public class BindingGraphValidator {
 
       // If request has already been resolved, avoid re-traversing the binding path.
       if (resolvedRequests.add(request)) {
-        ResolvedRequest resolvedRequest = ResolvedRequest.create(request, graph);
+        ResolvedRequest resolvedRequest = ResolvedRequest.create(request, subject);
         bindingPath.push(resolvedRequest);
         keysInPath.add(requestKey);
         validateResolvedBinding(bindingPath, resolvedRequest.binding());
 
-        for (Binding binding : resolvedRequest.binding().bindings()) {
-          for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-            traverseRequest(nextRequest, bindingPath, keysInPath, graph, resolvedRequests);
+        // Validate all dependencies within the component that owns the binding.
+        for (Map.Entry<ComponentDescriptor, Collection<Binding>> entry :
+            resolvedRequest.binding().bindingsByComponent().asMap().entrySet()) {
+          Validation validation = validationForComponent(entry.getKey());
+          for (Binding binding : entry.getValue()) {
+            for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+              validation.traverseRequest(nextRequest, bindingPath, keysInPath, resolvedRequests);
+            }
           }
         }
         bindingPath.poll();
         keysInPath.remove(requestKey);
+      }
+    }
+
+    private Validation validationForComponent(ComponentDescriptor component) {
+      if (component.equals(subject.componentDescriptor())) {
+        return this;
+      } else if (parent.isPresent()) {
+        return parent.get().validationForComponent(component);
+      } else {
+        throw new IllegalArgumentException(
+            String.format(
+                "unknown component %s within %s",
+                component.componentDefinitionType(),
+                subject.componentDescriptor().componentDefinitionType()));
       }
     }
 
