@@ -325,6 +325,68 @@ public class GraphValidationTest {
   }
 
   @Test
+  public void cyclicDependencyWithSetBinding() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import java.util.Set;",
+            "import javax.inject.Inject;",
+            "",
+            "final class Outer {",
+            "  static class A {",
+            "    @Inject A(Set<C> cSet) {}",
+            "  }",
+            "",
+            "  static class B {",
+            "    @Inject B(A aParam) {}",
+            "  }",
+            "",
+            "  static class C {",
+            "    @Inject C(B bParam) {}",
+            "  }",
+            "",
+            "  @Component(modules = CModule.class)",
+            "  interface CComponent {",
+            "    C getC();",
+            "  }",
+            "",
+            "  @Module",
+            "  static class CModule {",
+            "    @Provides(type = Provides.Type.SET)",
+            "    static C c(C c) {",
+            "      return c;",
+            "    }",
+            "  }",
+            "}");
+
+    String expectedError =
+        Joiner.on('\n')
+            .join(
+                "test.Outer.CComponent.getC() contains a dependency cycle:",
+                "      test.Outer.C.<init>(test.Outer.B bParam)",
+                "          [parameter: test.Outer.B bParam]",
+                "      test.Outer.B.<init>(test.Outer.A aParam)",
+                "          [parameter: test.Outer.A aParam]",
+                "      test.Outer.A.<init>(java.util.Set<test.Outer.C> cSet)",
+                "          [parameter: java.util.Set<test.Outer.C> cSet]",
+                "      test.Outer.CModule.c(test.Outer.C c)",
+                "          [parameter: test.Outer.C c]");
+
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(expectedError)
+        .in(component)
+        .onLine(24);
+  }
+
+  @Test
   public void falsePositiveCyclicDependencyIndirectionDetected() {
     JavaFileObject component =
         JavaFileObjects.forSourceLines(

@@ -1123,7 +1123,7 @@ public class BindingGraphValidator {
         DependencyRequest dependencyRequest = cycle.get(i);
         switch (dependencyRequest.kind()) {
           case PROVIDER:
-            if (isImplicitProviderMapForValueMap(dependencyRequest, cycle.get(i - 1))) {
+            if (isDependencyOfSyntheticMap(dependencyRequest, cycle.get(i - 1))) {
               i++; // Skip the Provider requests in the Map<K, Provider<V>> too.
             } else {
               providers.add(dependencyRequest);
@@ -1149,16 +1149,19 @@ public class BindingGraphValidator {
     }
 
     /**
-     * Returns {@code true} if {@code maybeValueMapRequest}'s key type is {@code Map<K, V>} and
-     * {@code maybeProviderMapRequest}'s key type is {@code Map<K, Provider<V>>}, and both keys have
-     * the same qualifier.
+     * Returns {@code true} if {@code request} is a request for {@code Map<K, Provider<V>>} or
+     * {@code Map<K, Producer<V>>} from a synthetic binding for {@code Map<K, V>} or
+     * {@code Map<K, Produced<V>>}.
      */
-    private boolean isImplicitProviderMapForValueMap(
-        DependencyRequest maybeProviderMapRequest, DependencyRequest maybeValueMapRequest) {
-      Optional<Key> implicitProviderMapKey =
-          keyFactory.implicitMapProviderKeyFrom(maybeValueMapRequest.key());
-      return implicitProviderMapKey.isPresent()
-          && implicitProviderMapKey.get().equals(maybeProviderMapRequest.key());
+    // TODO(dpb): Make this check more explicit.
+    private boolean isDependencyOfSyntheticMap(
+        DependencyRequest request, DependencyRequest requestForPreviousBinding) {
+      // Synthetic map dependencies share the same request element as the previous request.
+      return request.requestElement().equals(requestForPreviousBinding.requestElement())
+          && Sets.union(
+                  keyFactory.implicitMapProviderKeyFrom(requestForPreviousBinding.key()).asSet(),
+                  keyFactory.implicitMapProducerKeyFrom(requestForPreviousBinding.key()).asSet())
+              .contains(request.key());
     }
   }
 
