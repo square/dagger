@@ -925,15 +925,13 @@ public class BindingGraphValidator {
 
     private void reportMissingBinding(Deque<ResolvedRequest> path) {
       StringBuilder errorMessage = requiresErrorMessageBase(path);
-      ImmutableList<String> printableDependencyPath =
+      FluentIterable<String> printableDependencyPath =
           FluentIterable.from(path)
-              .filter(Predicates.not(SYNTHETIC_BINDING))
+              .filter(Predicates.not(PREVIOUS_REQUEST_WAS_SYNTHETIC))
               .transform(REQUEST_FROM_RESOLVED_REQUEST)
               .transform(dependencyRequestFormatter)
-              .filter(Predicates.not(Predicates.equalTo("")))
-              .toList()
-              .reverse();
-      for (String dependency : Iterables.skip(printableDependencyPath, 1)) {
+              .filter(Predicates.not(Predicates.equalTo("")));
+      for (String dependency : printableDependencyPath) {
         errorMessage.append('\n').append(dependency);
       }
       for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(),
@@ -1096,7 +1094,7 @@ public class BindingGraphValidator {
               rootRequestElement.getSimpleName(),
               FluentIterable.from(bindingPath) // TODO(dpb): Resolve with similar code above.
                   .skip(1)
-                  .filter(Predicates.not(SYNTHETIC_BINDING))
+                  .filter(Predicates.not(PREVIOUS_REQUEST_WAS_SYNTHETIC))
                   .transform(REQUEST_FROM_RESOLVED_REQUEST)
                   .append(request)
                   .transform(dependencyRequestFormatter)
@@ -1285,11 +1283,16 @@ public class BindingGraphValidator {
         }
       };
 
-  private static final Predicate<ResolvedRequest> SYNTHETIC_BINDING =
+  private static final Predicate<ResolvedRequest> PREVIOUS_REQUEST_WAS_SYNTHETIC =
       new Predicate<ResolvedRequest>() {
+
+        boolean previousRequestWasSynthetic;
+
         @Override
-        public boolean apply(ResolvedRequest request) {
-          return request.binding().isSyntheticContribution();
+        public boolean apply(ResolvedRequest resolvedRequest) {
+          boolean returnValue = previousRequestWasSynthetic;
+          previousRequestWasSynthetic = resolvedRequest.binding().isSyntheticContribution();
+          return returnValue;
         }
       };
 }
