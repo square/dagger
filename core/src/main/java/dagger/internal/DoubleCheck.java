@@ -27,7 +27,7 @@ import static dagger.internal.Preconditions.checkNotNull;
 public final class DoubleCheck<T> implements Provider<T>, Lazy<T> {
   private static final Object UNINITIALIZED = new Object();
 
-  private final Provider<T> provider;
+  private volatile Provider<T> provider;
   private volatile Object instance = UNINITIALIZED;
 
   private DoubleCheck(Provider<T> provider) {
@@ -35,7 +35,7 @@ public final class DoubleCheck<T> implements Provider<T>, Lazy<T> {
     this.provider = provider;
   }
 
-  @SuppressWarnings("unchecked") // cast only happens when result comes from the factory
+  @SuppressWarnings("unchecked") // cast only happens when result comes from the provider
   @Override
   public T get() {
     Object result = instance;
@@ -44,6 +44,9 @@ public final class DoubleCheck<T> implements Provider<T>, Lazy<T> {
         result = instance;
         if (result == UNINITIALIZED) {
           instance = result = provider.get();
+          /* Null out the reference to the provider. We are never going to need it again, so we
+           * can make it eligible for GC. */
+          provider = null;
         }
       }
     }
