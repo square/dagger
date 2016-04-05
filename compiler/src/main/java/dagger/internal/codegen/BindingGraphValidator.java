@@ -405,10 +405,11 @@ public class BindingGraphValidator {
         multibindingDeclarations.addAll(queued.multibindingDeclarations());
         for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry :
             queued.allContributionBindings().entries()) {
+          BindingGraph owningGraph = validationForComponent(bindingEntry.getKey()).subject;
           ContributionBinding binding = bindingEntry.getValue();
           if (binding.isSyntheticBinding()) {
             for (DependencyRequest dependency : binding.dependencies()) {
-              queue.add(subject.resolvedBindings().get(dependency.bindingKey()));
+              queue.add(owningGraph.resolvedBindings().get(dependency.bindingKey()));
             }
           } else {
             contributions.put(bindingEntry);
