@@ -390,19 +390,19 @@ abstract class BindingGraph {
 
             if (!explicitProducerMapBindings.isEmpty()
                 || !explicitProducerMultibindingDeclarations.isEmpty()) {
-              /* If the binding key is Map<K, V>, and there are some explicit Map<K, Producer<V>>
-               * bindings or multibinding declarations, then add the synthetic binding that depends
-               * on Map<K, Producer<V>>. */
+              /* If the binding key is Map<K, V> or Map<K, Produced<V>> and there are some explicit
+               * Map<K, Producer<V>> bindings or multibinding declarations, then add the synthetic
+               * binding that depends on Map<K, Producer<V>>. */
               contributionBindings.add(
-                  productionBindingFactory.implicitMapOfProducerBinding(request));
+                  productionBindingFactory.syntheticMapOfValuesOrProducedBinding(request));
             } else if (!explicitProviderMapBindings.isEmpty()
                 || !explicitProviderMultibindingDeclarations.isEmpty()) {
-              /* If the binding key is Map<K, V>, and there are some explicit Map<K, Provider<V>>
+              /* If the binding key is Map<K, V> and there are some explicit Map<K, Provider<V>>
                * bindings or multibinding declarations but no explicit Map<K, Producer<V>> bindings
                * or multibinding declarations, then add the synthetic binding that depends on
                * Map<K, Provider<V>>. */
               contributionBindings.add(
-                  provisionBindingFactory.implicitMapOfProviderBinding(request));
+                  provisionBindingFactory.syntheticMapOfValuesBinding(request));
             }
 
             Iterable<? extends HasBindingType> multibindingsAndDeclarations =

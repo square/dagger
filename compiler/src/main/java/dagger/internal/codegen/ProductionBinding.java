@@ -132,20 +132,27 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.of(monitorRequest));
     }
 
-    ProductionBinding implicitMapOfProducerBinding(DependencyRequest mapOfValueRequest) {
-      checkNotNull(mapOfValueRequest);
-      Optional<Key> implicitMapOfProducerKey =
-          keyFactory.implicitMapProducerKeyFrom(mapOfValueRequest.key());
+    /**
+     * A synthetic binding of {@code Map<K, V>} or {@code Map<K, Produced<V>>} that depends on
+     * {@code Map<K, Producer<V>>}.
+     */
+    ProductionBinding syntheticMapOfValuesOrProducedBinding(
+        DependencyRequest requestForMapOfValuesOrProduced) {
+      checkNotNull(requestForMapOfValuesOrProduced);
+      Optional<Key> mapOfProducersKey =
+          keyFactory.implicitMapProducerKeyFrom(requestForMapOfValuesOrProduced.key());
       checkArgument(
-          implicitMapOfProducerKey.isPresent(), "%s is not for a Map<K, V>", mapOfValueRequest);
-      DependencyRequest implicitMapOfProducerRequest =
+          mapOfProducersKey.isPresent(),
+          "%s is not for a Map<K, V>",
+          requestForMapOfValuesOrProduced);
+      DependencyRequest requestForMapOfProducers =
           dependencyRequestFactory.forImplicitMapBinding(
-              mapOfValueRequest, implicitMapOfProducerKey.get());
+              requestForMapOfValuesOrProduced, mapOfProducersKey.get());
       return new AutoValue_ProductionBinding(
-          SourceElement.forElement(implicitMapOfProducerRequest.requestElement()),
-          mapOfValueRequest.key(),
-          ImmutableSet.of(implicitMapOfProducerRequest),
-          findBindingPackage(mapOfValueRequest.key()),
+          SourceElement.forElement(requestForMapOfProducers.requestElement()),
+          requestForMapOfValuesOrProduced.key(),
+          ImmutableSet.of(requestForMapOfProducers),
+          findBindingPackage(requestForMapOfValuesOrProduced.key()),
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SYNTHETIC_MAP,
@@ -156,8 +163,10 @@ abstract class ProductionBinding extends ContributionBinding {
     }
 
     /**
-     * A binding that depends explicitly on a set of individual provision or production multibinding
-     * contribution methods.
+     * A synthetic binding that depends explicitly on a set of individual provision or production
+     * multibinding contribution methods.
+     * 
+     * <p>Note that these could be set multibindings or map multibindings.
      */
     ProductionBinding syntheticMultibinding(
         final DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
