@@ -160,6 +160,46 @@ public class GraphValidationTest {
         .withErrorContaining(expectedError).in(component).onLine(19);
   }
 
+  @Test
+  public void membersInjectDependsOnUnboundedType() {
+    JavaFileObject injectsUnboundedType =
+        JavaFileObjects.forSourceLines(
+            "test.InjectsUnboundedType",
+            "package test;",
+            "",
+            "import dagger.MembersInjector;",
+            "import java.util.ArrayList;",
+            "import javax.inject.Inject;",
+            "",
+            "class InjectsUnboundedType {",
+            "  @Inject MembersInjector<ArrayList<?>> listInjector;",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface TestComponent {",
+            "  void injectsUnboundedType(InjectsUnboundedType injects);",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(injectsUnboundedType, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(Joiner.on('\n').join(
+            "Type parameters must be bounded for members injection."
+                + " ? required by java.util.ArrayList<?>, via:",
+                "      test.TestComponent.injectsUnboundedType(injects)",
+                "          injects test.InjectsUnboundedType",
+                "      test.InjectsUnboundedType.listInjector",
+                "          injects dagger.MembersInjector<java.util.ArrayList<?>>"))
+        .in(component)
+        .onLine(7);
+  }
+
   @Test public void cyclicDependency() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",

@@ -16,9 +16,13 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Provides;
+import dagger.internal.codegen.BindingGraphValidator.DependencyPath;
 import dagger.producers.Produces;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -64,6 +68,39 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
   DependencyRequestFormatter(Types types, Elements elements) {
     this.types = types;
     this.elements = elements;
+  }
+
+  /**
+   * A string representation of the dependency trace, starting with the
+   * {@linkplain DependencyPath#currentDependencyRequest() current request} and ending with the
+   * entry point.
+   */
+  String toDependencyTrace(DependencyPath dependencyPath) {
+    return Joiner.on('\n').join(formattedRequests(dependencyPath).toList().reverse());
+  }
+
+  /**
+   * A string representation of the dependency trace, starting with the entry point and ending with
+   * the {@linkplain DependencyPath#currentDependencyRequest() current request}.
+   */
+  String toForwardDependencyTrace(DependencyPath dependencyPath) {
+    return Joiner.on('\n').join(formattedRequests(dependencyPath));
+  }
+
+  /**
+   * A string representation of the dependency trace, starting with the request after the entry
+   * point and ending with the {@linkplain DependencyPath#currentDependencyRequest() current
+   * request}.
+   */
+  String toForwardDependencyTraceSkippingEntryPoint(DependencyPath dependencyPath) {
+    return Joiner.on('\n').join(formattedRequests(dependencyPath).skip(1));
+  }
+
+  private FluentIterable<String> formattedRequests(DependencyPath dependencyPath) {
+    return dependencyPath
+        .nonsyntheticRequests()
+        .transform(this)
+        .filter(Predicates.not(Predicates.equalTo("")));
   }
 
   // TODO(cgruber): Sweep this class for TypeMirror.toString() usage and do some preventive format.
