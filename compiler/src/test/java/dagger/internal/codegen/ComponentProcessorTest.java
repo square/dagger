@@ -2234,6 +2234,36 @@ public class ComponentProcessorTest {
         .withNoteCount(3);
   }
 
+  @Test
+  public void scopeAnnotationOnInjectConstructorNotValid() {
+    JavaFileObject aScope =
+        JavaFileObjects.forSourceLines(
+            "test.AScope",
+            "package test;",
+            "",
+            "import javax.inject.Scope;",
+            "",
+            "@Scope",
+            "@interface AScope {}");
+    JavaFileObject aClass =
+        JavaFileObjects.forSourceLines(
+            "test.AClass",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class AClass {",
+            "  @Inject @AScope AClass() {}",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(aScope, aClass))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Scope annotations are not allowed on @Inject constructors.")
+        .in(aClass)
+        .onLine(6);
+  }
+
   /**
    * A {@link ComponentProcessor} that excludes elements using a {@link Predicate}.
    */

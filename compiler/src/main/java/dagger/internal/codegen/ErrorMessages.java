@@ -74,8 +74,10 @@ final class ErrorMessages {
       "@Inject constructors are invalid on inner classes";
   static final String INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS =
       "@Inject is nonsense on the constructor of an abstract class";
-    static final String QUALIFIER_ON_INJECT_CONSTRUCTOR =
+  static final String QUALIFIER_ON_INJECT_CONSTRUCTOR =
       "@Qualifier annotations are not allowed on @Inject constructors.";
+  static final String SCOPE_ON_INJECT_CONSTRUCTOR =
+      "@Scope annotations are not allowed on @Inject constructors. Annotate the class instead.";
 
   /* fields */
   static final String PRIVATE_INJECT_FIELD =
