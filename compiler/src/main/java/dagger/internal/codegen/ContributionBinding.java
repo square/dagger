@@ -142,13 +142,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      */
     SUBCOMPONENT_BUILDER,
 
-    /**
-     * The executor provided in a builder for a production component. This executor is used to
-     * schedule producer methods, and its specification on the component builder is to provide an
-     * implicit provision for it.
-     */
-    EXECUTOR_DEPENDENCY,
-
     // Production kinds
 
     /** A {@link Produces}-annotated method that doesn't return a {@link ListenableFuture}. */

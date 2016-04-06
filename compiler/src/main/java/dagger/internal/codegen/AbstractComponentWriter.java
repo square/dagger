@@ -933,14 +933,6 @@ abstract class AbstractComponentWriter {
               : factoryCreate;
         }
 
-      case EXECUTOR_DEPENDENCY:
-        return CodeBlocks.format(
-            "$T.<$T>create($L)",
-            INSTANCE_FACTORY,
-            bindingKeyTypeName,
-            getComponentContributionExpression(
-                graph.componentDescriptor().executorDependency().get()));
-
       case COMPONENT_PRODUCTION:
         {
           TypeElement bindingTypeElement =

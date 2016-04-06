@@ -48,7 +48,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -110,8 +109,7 @@ abstract class BindingGraph {
 
   /**
    * Returns the set of types necessary to implement the component, but are not part of the injected
-   * graph.  This includes modules, component dependencies and an {@link Executor} in the case of
-   * {@link ProductionComponent}.
+   * graph.  This includes modules and component dependencies.
    */
   ImmutableSet<TypeElement> componentRequirements() {
     return SUBGRAPH_TRAVERSER
@@ -141,7 +139,6 @@ abstract class BindingGraph {
             })
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())
-        .append(componentDescriptor().executorDependency().asSet())
         .toSet();
   }
 
@@ -165,7 +162,6 @@ abstract class BindingGraph {
     return new ImmutableSet.Builder<TypeElement>()
         .addAll(componentDescriptor().transitiveModuleTypes())
         .addAll(componentDescriptor().dependencies())
-        .addAll(componentDescriptor().executorDependency().asSet())
         .build();
   }
 
@@ -199,12 +195,6 @@ abstract class BindingGraph {
       // binding for the component itself
       TypeElement componentDefinitionType = componentDescriptor.componentDefinitionType();
       explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDefinitionType));
-
-      // immediate binding for the executor, if it's provided to the builder
-      if (componentDescriptor.executorDependency().isPresent()) {
-        explicitBindingsBuilder.add(
-            provisionBindingFactory.forExecutorDependency(componentDefinitionType));
-      }
 
       // Collect Component dependencies.
       Optional<AnnotationMirror> componentMirror =

@@ -22,7 +22,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import dagger.Provides;
-import java.util.concurrent.Executor;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -274,22 +273,6 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Kind.SUBCOMPONENT_BUILDER,
-          Provides.Type.UNIQUE,
-          Optional.<ProvisionBinding>absent(),
-          Optional.<Scope>absent());
-    }
-
-    ProvisionBinding forExecutorDependency(TypeElement componentElement) {
-      TypeElement executorElement = elements.getTypeElement(Executor.class.getCanonicalName());
-      checkNotNull(executorElement);
-      return new AutoValue_ProvisionBinding(
-          SourceElement.forElement(componentElement),
-          keyFactory.forProductionExecutor(),
-          ImmutableSet.<DependencyRequest>of(),
-          Optional.<String>absent(),
-          Optional.<DeclaredType>absent(),
-          Optional.<DependencyRequest>absent(),
-          Kind.EXECUTOR_DEPENDENCY,
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
           Optional.<Scope>absent());
