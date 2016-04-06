@@ -28,6 +28,11 @@
 
   <dependencies>
     <dependency>
+      <!-- Force the correct version of Guava to be on the classpath. -->
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.google.dagger</groupId>
       <artifactId>dagger</artifactId>
       <version>${project.version}</version>

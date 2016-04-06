@@ -19,13 +19,13 @@ Square, Google, and other contributors.
 
 ## Status
 
-  - ***Release Version:* 2.1**
-  - ***Snapshot Version:* 2.2-SNAPSHOT**
+  - ***Release Version:* 2.2**
+  - ***Snapshot Version:* 2.3-SNAPSHOT**
 
 Dagger is currently in active development, primarily internally at Google,
 with regular pushes to the open-source community. Snapshot releases are
 auto-deployed to sonatype's central maven repository on a clean build with
-the version `2.2-SNAPSHOT`.
+the version `2.3-SNAPSHOT`.
 
 ## Documentation
 
@@ -53,12 +53,12 @@ of your `pom.xml` and the `dagger-compiler` artifact as either an `optional` or
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger</artifactId>
-    <version>2.1</version>
+    <version>2.2</version>
   </dependency>
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
-    <version>2.1</version>
+    <version>2.2</version>
     <optional>true</optional>
   </dependency>
 </dependencies>
@@ -72,7 +72,7 @@ parallelizable execution graphs), then add this to your maven configuration:
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-producers</artifactId>
-    <version>2.1</version>
+    <version>2.2</version>
   </dependency>
 </dependencies>
 ```

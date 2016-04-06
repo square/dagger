@@ -69,7 +69,7 @@ import static javax.lang.model.element.Modifier.STATIC;
  * @author Jesse Beder
  * @since 2.0
  */
-final class ProducerFactoryGenerator extends JavaPoetSourceFileGenerator<ProductionBinding> {
+final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBinding> {
   private final CompilerOptions compilerOptions;
 
   ProducerFactoryGenerator(Filer filer, Elements elements, CompilerOptions compilerOptions) {

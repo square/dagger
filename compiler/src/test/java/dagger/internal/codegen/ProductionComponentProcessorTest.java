@@ -252,9 +252,9 @@ public class ProductionComponentProcessorTest {
             "package test;",
             "",
             "import com.google.common.util.concurrent.ListenableFuture;",
+            "import dagger.internal.DoubleCheck;",
             "import dagger.internal.InstanceFactory;",
             "import dagger.internal.Preconditions;",
-            "import dagger.internal.ScopedProvider;",
             "import dagger.internal.SetFactory;",
             "import dagger.producers.Producer;",
             "import dagger.producers.internal.Producers;",
@@ -286,14 +286,14 @@ public class ProductionComponentProcessorTest {
             "  private void initialize(final Builder builder) {",
             "    this.simpleComponentProvider =",
             "        InstanceFactory.<Executor>create(builder.executor);",
-            "     this.executorProvider =",
-            "         ScopedProvider.create(",
-            "             TestClass$SimpleComponent_ProductionExecutorModule_ExecutorFactory",
-            "                 .create(simpleComponentProvider));",
+            "    this.executorProvider =",
+            "        DoubleCheck.provider(",
+            "            TestClass$SimpleComponent_ProductionExecutorModule_ExecutorFactory",
+            "                .create(simpleComponentProvider));",
             "    this.simpleComponentProvider2 =",
             "        InstanceFactory.<TestClass.SimpleComponent>create(this);",
             "    this.monitorProvider =",
-            "        ScopedProvider.create(",
+            "        DoubleCheck.provider(",
             "            TestClass$SimpleComponent_MonitoringModule_MonitorFactory.create(",
             "                simpleComponentProvider2,",
             "                SetFactory.<ProductionComponentMonitor.Factory>create());",
@@ -369,5 +369,58 @@ public class ProductionComponentProcessorTest {
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and().generatesSources(generatedComponent);
+  }
+
+  @Test public void nullableProducersAreNotErrors() {
+    JavaFileObject component = JavaFileObjects.forSourceLines("test.TestClass",
+        "package test;",
+        "",
+        "import com.google.common.util.concurrent.ListenableFuture;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
+        "import dagger.producers.ProductionComponent;",
+        "import javax.annotation.Nullable;",
+        "import javax.inject.Inject;",
+        "",
+        "final class TestClass {",
+        "  interface A {}",
+        "  interface B {}",
+        "  interface C {}",
+        "",
+        "  @Module",
+        "  static final class CModule {",
+        "    @Provides @Nullable C c() {",
+        "      return null;",
+        "    }",
+        "  }",
+        "",
+        "  @ProducerModule",
+        "  static final class ABModule {",
+        "    @Produces @Nullable B b(@Nullable C c) {",
+        "      return null;",
+        "    }",
+
+        "    @Produces @Nullable ListenableFuture<A> a(B b) {",  // NOTE: B not injected as nullable
+        "      return null;",
+        "    }",
+        "  }",
+        "",
+        "  @ProductionComponent(modules = {ABModule.class, CModule.class})",
+        "  interface SimpleComponent {",
+        "    ListenableFuture<A> a();",
+        "  }",
+        "}");
+    assertAbout(javaSource()).that(component)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .withWarningContaining("@Nullable on @Produces methods does not do anything")
+        .in(component)
+        .onLine(26)
+        .and()
+        .withWarningContaining("@Nullable on @Produces methods does not do anything")
+        .in(component)
+        .onLine(29);
   }
 }

@@ -101,6 +101,7 @@ import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.Scope.reusableScope;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
@@ -175,7 +176,6 @@ public class BindingGraphValidator {
               entryPoint.get(),
               new ArrayDeque<ResolvedRequest>(),
               new LinkedHashSet<BindingKey>(),
-              subject,
               new HashSet<DependencyRequest>());
         }
       }
@@ -247,7 +247,6 @@ public class BindingGraphValidator {
         DependencyRequest request,
         Deque<ResolvedRequest> bindingPath,
         LinkedHashSet<BindingKey> keysInPath,
-        BindingGraph graph,
         Set<DependencyRequest> resolvedRequests) {
       verify(bindingPath.size() == keysInPath.size(),
           "mismatched path vs keys -- (%s vs %s)", bindingPath, keysInPath);
@@ -263,18 +262,37 @@ public class BindingGraphValidator {
 
       // If request has already been resolved, avoid re-traversing the binding path.
       if (resolvedRequests.add(request)) {
-        ResolvedRequest resolvedRequest = ResolvedRequest.create(request, graph);
+        ResolvedRequest resolvedRequest = ResolvedRequest.create(request, subject);
         bindingPath.push(resolvedRequest);
         keysInPath.add(requestKey);
         validateResolvedBinding(bindingPath, resolvedRequest.binding());
 
-        for (Binding binding : resolvedRequest.binding().bindings()) {
-          for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-            traverseRequest(nextRequest, bindingPath, keysInPath, graph, resolvedRequests);
+        // Validate all dependencies within the component that owns the binding.
+        for (Map.Entry<ComponentDescriptor, Collection<Binding>> entry :
+            resolvedRequest.binding().bindingsByComponent().asMap().entrySet()) {
+          Validation validation = validationForComponent(entry.getKey());
+          for (Binding binding : entry.getValue()) {
+            for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+              validation.traverseRequest(nextRequest, bindingPath, keysInPath, resolvedRequests);
+            }
           }
         }
         bindingPath.poll();
         keysInPath.remove(requestKey);
+      }
+    }
+
+    private Validation validationForComponent(ComponentDescriptor component) {
+      if (component.equals(subject.componentDescriptor())) {
+        return this;
+      } else if (parent.isPresent()) {
+        return parent.get().validationForComponent(component);
+      } else {
+        throw new IllegalArgumentException(
+            String.format(
+                "unknown component %s within %s",
+                component.componentDefinitionType(),
+                subject.componentDescriptor().componentDefinitionType()));
       }
     }
 
@@ -796,10 +814,13 @@ public class BindingGraphValidator {
       ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
       ImmutableSet<Scope> componentScopes = subject.componentDescriptor().scopes();
       ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
+      Scope reusableScope = reusableScope(elements);
       for (ResolvedBindings bindings : resolvedBindings.values()) {
         for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
           Optional<Scope> bindingScope = contributionBinding.scope();
-          if (bindingScope.isPresent() && !componentScopes.contains(bindingScope.get())) {
+          if (bindingScope.isPresent()
+              && !bindingScope.get().equals(reusableScope)
+              && !componentScopes.contains(bindingScope.get())) {
             // Scoped components cannot reference bindings to @Provides methods or @Inject
             // types decorated by a different scope annotation. Unscoped components cannot
             // reference to scoped @Provides methods or @Inject types decorated by any
@@ -904,15 +925,13 @@ public class BindingGraphValidator {
 
     private void reportMissingBinding(Deque<ResolvedRequest> path) {
       StringBuilder errorMessage = requiresErrorMessageBase(path);
-      ImmutableList<String> printableDependencyPath =
+      FluentIterable<String> printableDependencyPath =
           FluentIterable.from(path)
-              .filter(Predicates.not(SYNTHETIC_BINDING))
+              .filter(Predicates.not(PREVIOUS_REQUEST_WAS_SYNTHETIC))
               .transform(REQUEST_FROM_RESOLVED_REQUEST)
               .transform(dependencyRequestFormatter)
-              .filter(Predicates.not(Predicates.equalTo("")))
-              .toList()
-              .reverse();
-      for (String dependency : Iterables.skip(printableDependencyPath, 1)) {
+              .filter(Predicates.not(Predicates.equalTo("")));
+      for (String dependency : printableDependencyPath) {
         errorMessage.append('\n').append(dependency);
       }
       for (String suggestion : MissingBindingSuggestions.forKey(topLevelGraph(),
@@ -1075,7 +1094,7 @@ public class BindingGraphValidator {
               rootRequestElement.getSimpleName(),
               FluentIterable.from(bindingPath) // TODO(dpb): Resolve with similar code above.
                   .skip(1)
-                  .filter(Predicates.not(SYNTHETIC_BINDING))
+                  .filter(Predicates.not(PREVIOUS_REQUEST_WAS_SYNTHETIC))
                   .transform(REQUEST_FROM_RESOLVED_REQUEST)
                   .append(request)
                   .transform(dependencyRequestFormatter)
@@ -1102,7 +1121,7 @@ public class BindingGraphValidator {
         DependencyRequest dependencyRequest = cycle.get(i);
         switch (dependencyRequest.kind()) {
           case PROVIDER:
-            if (isImplicitProviderMapForValueMap(dependencyRequest, cycle.get(i - 1))) {
+            if (isDependencyOfSyntheticMap(dependencyRequest, cycle.get(i - 1))) {
               i++; // Skip the Provider requests in the Map<K, Provider<V>> too.
             } else {
               providers.add(dependencyRequest);
@@ -1128,16 +1147,19 @@ public class BindingGraphValidator {
     }
 
     /**
-     * Returns {@code true} if {@code maybeValueMapRequest}'s key type is {@code Map<K, V>} and
-     * {@code maybeProviderMapRequest}'s key type is {@code Map<K, Provider<V>>}, and both keys have
-     * the same qualifier.
+     * Returns {@code true} if {@code request} is a request for {@code Map<K, Provider<V>>} or
+     * {@code Map<K, Producer<V>>} from a synthetic binding for {@code Map<K, V>} or
+     * {@code Map<K, Produced<V>>}.
      */
-    private boolean isImplicitProviderMapForValueMap(
-        DependencyRequest maybeProviderMapRequest, DependencyRequest maybeValueMapRequest) {
-      Optional<Key> implicitProviderMapKey =
-          keyFactory.implicitMapProviderKeyFrom(maybeValueMapRequest.key());
-      return implicitProviderMapKey.isPresent()
-          && implicitProviderMapKey.get().equals(maybeProviderMapRequest.key());
+    // TODO(dpb): Make this check more explicit.
+    private boolean isDependencyOfSyntheticMap(
+        DependencyRequest request, DependencyRequest requestForPreviousBinding) {
+      // Synthetic map dependencies share the same request element as the previous request.
+      return request.requestElement().equals(requestForPreviousBinding.requestElement())
+          && Sets.union(
+                  keyFactory.implicitMapProviderKeyFrom(requestForPreviousBinding.key()).asSet(),
+                  keyFactory.implicitMapProducerKeyFrom(requestForPreviousBinding.key()).asSet())
+              .contains(request.key());
     }
   }
 
@@ -1261,11 +1283,16 @@ public class BindingGraphValidator {
         }
       };
 
-  private static final Predicate<ResolvedRequest> SYNTHETIC_BINDING =
+  private static final Predicate<ResolvedRequest> PREVIOUS_REQUEST_WAS_SYNTHETIC =
       new Predicate<ResolvedRequest>() {
+
+        boolean previousRequestWasSynthetic;
+
         @Override
-        public boolean apply(ResolvedRequest request) {
-          return request.binding().isSyntheticContribution();
+        public boolean apply(ResolvedRequest resolvedRequest) {
+          boolean returnValue = previousRequestWasSynthetic;
+          previousRequestWasSynthetic = resolvedRequest.binding().isSyntheticContribution();
+          return returnValue;
         }
       };
 }

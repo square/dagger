@@ -41,7 +41,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /** Generates a monitoring module for use with production components. */
-final class MonitoringModuleGenerator extends JavaPoetSourceFileGenerator<TypeElement> {
+final class MonitoringModuleGenerator extends SourceFileGenerator<TypeElement> {
 
   MonitoringModuleGenerator(Filer filer, Elements elements) {
     super(filer, elements);

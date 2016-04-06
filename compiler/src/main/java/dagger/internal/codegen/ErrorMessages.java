@@ -98,6 +98,7 @@ final class ErrorMessages {
   static final String CANNOT_INJECT_WILDCARD_TYPE =
       "Dagger does not support injecting Provider<T>, Lazy<T> or Produced<T> when T is a wildcard "
           + "type such as <%s>.";
+  
   /*
    * Configuration errors
    *
@@ -115,12 +116,18 @@ final class ErrorMessages {
     return key + " uses more than one @MapKey annotation type";
   }
 
+  static final String COMPONENT_ANNOTATED_REUSABLE =
+      "@Reusable cannot be applied to components or subcomponents.";
+  
   static final String PROVIDES_METHOD_RETURN_TYPE =
       "@Provides methods must either return a primitive, an array, a type variable, or a declared"
           + " type.";
 
   static final String PROVIDES_METHOD_THROWS =
       "@Provides methods may only throw unchecked exceptions";
+
+  static final String PRODUCES_METHOD_NULLABLE =
+      "@Nullable on @Produces methods does not do anything.";
 
   static final String PRODUCES_METHOD_RETURN_TYPE =
       "@Produces methods must either return a primitive, an array, a type variable, or a declared"
