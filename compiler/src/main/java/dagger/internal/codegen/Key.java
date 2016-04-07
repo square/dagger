@@ -28,12 +28,13 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
+import dagger.Bind;
 import dagger.Multibindings;
 import dagger.Provides;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
-import dagger.producers.Production;
 import dagger.producers.Produces;
+import dagger.producers.Production;
 import dagger.producers.internal.ProductionImplementation;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +46,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.PrimitiveType;
@@ -54,6 +56,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -368,6 +371,27 @@ abstract class Key {
                   MapType.from(returnType).valueType())
               : returnType;
       return forMethod(method, keyType);
+    }
+
+    /** Returns the key bound by a {@link Bind} method. */
+    Key forBindMethod(SourceElement bindMethodElement) {
+      ExecutableElement method = MoreElements.asExecutable(bindMethodElement.element());
+      ExecutableType methodType =
+          MoreTypes.asExecutable(bindMethodElement.asMemberOfContributingType(types));
+      checkArgument(isAnnotationPresent(method, Bind.class));
+      TypeMirror returnType = normalize(types, methodType.getReturnType());
+      return forMethod(method, returnType);
+    }
+
+    /** Returns the key for the single parameter of a {@link Bind} method. */
+    Key forBindParameter(SourceElement bindMethodElement) {
+      ExecutableElement method = MoreElements.asExecutable(bindMethodElement.element());
+      VariableElement parameterElement = Iterables.getOnlyElement(method.getParameters());
+      ExecutableType methodType =
+          MoreTypes.asExecutable(bindMethodElement.asMemberOfContributingType(types));
+      checkArgument(isAnnotationPresent(method, Bind.class));
+      TypeMirror parameterType = Iterables.getOnlyElement(methodType.getParameterTypes());
+      return forQualifiedType(getQualifier(parameterElement), parameterType);
     }
 
     private TypeMirror providesOrProducesKeyType(

@@ -202,5 +202,21 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.<DependencyRequest>absent(),
           Optional.<DependencyRequest>absent());
     }
+
+    ProductionBinding delegate(
+        DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
+      return new AutoValue_ProductionBinding(
+          delegateDeclaration.sourceElement(),
+          delegateDeclaration.key(),
+          ImmutableSet.of(delegateDeclaration.delegateRequest()),
+          findBindingPackage(delegateDeclaration.key()),
+          delegateBinding.nullableType(),
+          Optional.<DependencyRequest>absent(),
+          Kind.SYNTHETIC_DELEGATE_BINDING,
+          delegateBinding.productionType(),
+          ImmutableList.<TypeMirror>of(),
+          Optional.<DependencyRequest>absent(),
+          Optional.<DependencyRequest>absent());
+    }
   }
 }

@@ -112,6 +112,7 @@ import static dagger.internal.codegen.TypeNames.UNSUPPORTED_OPERATION_EXCEPTION;
 import static dagger.internal.codegen.TypeNames.providerOf;
 import static dagger.internal.codegen.TypeSpecs.addSupertype;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static dagger.internal.codegen.Util.requiresAPassedInstance;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -344,7 +345,7 @@ abstract class AbstractComponentWriter {
       if (componentCanMakeNewInstances(builderFieldEntry.getKey())) {
         buildMethod.addCode(
             "if ($1N == null) { this.$1N = new $2T(); }", builderField, builderField.type);
-      } else {
+      } else if (requiresAPassedInstance(elements, builderFieldEntry.getKey())) {
         buildMethod.addCode(
             "if ($N == null) { throw new $T($T.class.getCanonicalName() + $S); }",
             builderField,
@@ -479,6 +480,8 @@ abstract class AbstractComponentWriter {
     if (resolvedBindings.ownedBindings().isEmpty()) {
       return;
     }
+
+    // TODO(gak): get rid of the field for unscoped delegated bindings
 
     FieldSpec frameworkField = addFrameworkField(resolvedBindings);
     memberSelects.put(
@@ -769,15 +772,35 @@ abstract class AbstractComponentWriter {
 
   private Optional<CodeBlock> initializeContributionBinding(BindingKey bindingKey) {
     ContributionBinding binding = graph.resolvedBindings().get(bindingKey).contributionBinding();
-    if (binding.factoryCreationStrategy().equals(ENUM_INSTANCE) && !binding.scope().isPresent()) {
-      return Optional.absent();
+    switch (binding.factoryCreationStrategy()) {
+      case DELEGATE:
+        CodeBlock delegatingCodeBlock = CodeBlocks.format(
+            "($T) $L",
+            binding.frameworkClass(),
+            getMemberSelect(
+                Iterables.getOnlyElement(binding.dependencies()).bindingKey())
+                    .getExpressionFor(name));
+        return Optional.of(
+            initializeMember(
+                bindingKey,
+                binding.scope().isPresent()
+                    ? decorateForScope(delegatingCodeBlock, binding.scope().get())
+                    : delegatingCodeBlock));
+      case ENUM_INSTANCE:
+        if (!binding.scope().isPresent()) {
+          return Optional.absent();
+        }
+        // fall through
+      case CLASS_CONSTRUCTOR:
+        return Optional.of(
+            CodeBlocks.concat(
+                ImmutableList.of(
+                    initializeDelegateFactoriesForUninitializedDependencies(binding),
+                    initializeMember(
+                        bindingKey, initializeFactoryForContributionBinding(binding)))));
+      default:
+        throw new AssertionError();
     }
-
-    return Optional.of(
-        CodeBlocks.concat(
-            ImmutableList.of(
-                initializeDelegateFactoriesForUninitializedDependencies(binding),
-                initializeMember(bindingKey, initializeFactoryForContributionBinding(binding)))));
   }
 
   private Optional<CodeBlock> initializeMembersInjectionBinding(BindingKey bindingKey) {

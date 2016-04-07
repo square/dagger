@@ -146,6 +146,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
               constructorBuilder.get());
         }
         break;
+      case DELEGATE:
+        return Optional.absent();
       default:
         throw new AssertionError();
     }

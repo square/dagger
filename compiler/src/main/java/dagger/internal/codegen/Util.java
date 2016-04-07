@@ -16,8 +16,12 @@
  */
 package dagger.internal.codegen;
 
+import com.google.auto.common.MoreElements;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
+import dagger.Bind;
+import dagger.Provides;
+import dagger.producers.Produces;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -25,6 +29,7 @@ import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
 import static com.google.auto.common.MoreElements.hasModifiers;
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -34,6 +39,32 @@ import static javax.lang.model.element.Modifier.STATIC;
  * Utilities for handling types in annotation processors
  */
 final class Util {
+  /**
+   * Returns true if the passed {@link TypeElement} requires a passed instance in order to be used
+   * within a component.
+   */
+  static boolean requiresAPassedInstance(Elements elements, TypeElement typeElement) {
+    ImmutableSet<ExecutableElement> methods =
+        MoreElements.getLocalAndInheritedMethods(typeElement, elements);
+    boolean foundInstanceMethod = false;
+    for (ExecutableElement method : methods) {
+      if (method.getModifiers().contains(ABSTRACT) && !isAnnotationPresent(method, Bind.class)) {
+        /* We found an abstract method that isn't a @Bind method.  That automatically means that
+         * a user will have to provide an instance because we don't know which subclass to use. */
+        return true;
+      } else if (!method.getModifiers().contains(STATIC)
+          && (isAnnotationPresent(method, Provides.class)
+              || isAnnotationPresent(method, Produces.class))) {
+        foundInstanceMethod = true;
+      }
+    }
+
+    if (foundInstanceMethod) {
+      return !componentCanMakeNewInstances(typeElement);
+    }
+
+    return false;
+  }
 
   /**
    * Returns true if and only if a component can instantiate new instances (typically of a module)

@@ -84,6 +84,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements, types);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements, types);
+    BindMethodValidator bindMethodValidator = new BindMethodValidator(elements, types);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -113,6 +114,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
+    DelegateDeclaration.Factory bindingDelegateDeclarationFactory =
+        new DelegateDeclaration.Factory(types, keyFactory, dependencyRequestFactory);
+
     this.injectBindingRegistry =
         new InjectBindingRegistry(
             elements,
@@ -129,7 +133,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             elements,
             provisionBindingFactory,
             productionBindingFactory,
-            multibindingDeclarationFactory);
+            multibindingDeclarationFactory,
+            bindingDelegateDeclarationFactory);
 
     ComponentDescriptor.Factory componentDescriptorFactory = new ComponentDescriptor.Factory(
         elements, types, dependencyRequestFactory, moduleDescriptorFactory);
@@ -167,6 +172,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             moduleValidator,
             providesMethodValidator,
             provisionBindingFactory,
+            bindMethodValidator,
             factoryGenerator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.COMPONENT,
@@ -183,6 +189,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             messager,
             moduleValidator,
             producesMethodValidator,
+            bindMethodValidator,
             productionBindingFactory,
             producerFactoryGenerator),
         new ComponentProcessingStep(

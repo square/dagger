@@ -63,7 +63,7 @@ abstract class ProvisionBinding extends ContributionBinding {
 
   @Override
   abstract Optional<Scope> scope();
-  
+
   static final class Factory {
     private final Elements elements;
     private final Types types;
@@ -177,7 +177,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<ProvisionBinding>absent(),
           scope);
     }
-    
+
     /**
      * A synthetic binding of {@code Map<K, V>} that depends on {@code Map<K, Provider<V>>}.
      */
@@ -276,6 +276,21 @@ abstract class ProvisionBinding extends ContributionBinding {
           Provides.Type.UNIQUE,
           Optional.<ProvisionBinding>absent(),
           Optional.<Scope>absent());
+    }
+
+    ProvisionBinding delegate(
+        DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
+      return new AutoValue_ProvisionBinding(
+          delegateDeclaration.sourceElement(),
+          delegateDeclaration.key(),
+          ImmutableSet.of(delegateDeclaration.delegateRequest()),
+          findBindingPackage(delegateDeclaration.key()),
+          delegate.nullableType(),
+          Optional.<DependencyRequest>absent(),
+          Kind.SYNTHETIC_DELEGATE_BINDING,
+          delegate.provisionType(),
+          Optional.<ProvisionBinding>absent(),
+          Scope.uniqueScopeOf(delegateDeclaration.sourceElement().element()));
     }
   }
 }

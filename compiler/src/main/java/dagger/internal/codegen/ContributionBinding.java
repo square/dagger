@@ -123,6 +123,12 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      */
     SYNTHETIC_MULTIBOUND_MAP,
 
+    /**
+     * A binding (provision or production) that delegates from requests for one key to another.
+     * These are the bindings that satisfy {@code @Bind} declarations.
+     */
+    SYNTHETIC_DELEGATE_BINDING,
+
     // Provision kinds
 
     /** An {@link Inject}-annotated constructor. */
@@ -164,7 +170,11 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      */
     static final Predicate<Kind> IS_SYNTHETIC_KIND =
         Predicates.in(
-            immutableEnumSet(SYNTHETIC_MAP, SYNTHETIC_MULTIBOUND_SET, SYNTHETIC_MULTIBOUND_MAP));
+            immutableEnumSet(
+                SYNTHETIC_MAP,
+                SYNTHETIC_MULTIBOUND_SET,
+                SYNTHETIC_MULTIBOUND_MAP,
+                SYNTHETIC_DELEGATE_BINDING));
 
     /**
      * A predicate that tests whether a kind is for synthetic multibindings.
@@ -193,7 +203,7 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    * The kind of this contribution binding.
    */
   protected abstract Kind bindingKind();
-  
+
   /**
    * A predicate that passes for bindings of a given kind.
    */
@@ -217,6 +227,8 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
     ENUM_INSTANCE,
     /** The factory must be created by calling the constructor. */
     CLASS_CONSTRUCTOR,
+    /** The factory is simply delegated to another. */
+    DELEGATE,
   }
 
   /**
@@ -226,18 +238,18 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    */
   FactoryCreationStrategy factoryCreationStrategy() {
     switch (bindingKind()) {
+      case SYNTHETIC_DELEGATE_BINDING:
+        return FactoryCreationStrategy.DELEGATE;
       case PROVISION:
         return implicitDependencies().isEmpty() && bindingElement().getModifiers().contains(STATIC)
             ? FactoryCreationStrategy.ENUM_INSTANCE
             : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
-
       case INJECTION:
       case SYNTHETIC_MULTIBOUND_SET:
       case SYNTHETIC_MULTIBOUND_MAP:
         return implicitDependencies().isEmpty()
             ? FactoryCreationStrategy.ENUM_INSTANCE
             : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
-        
       default:
         return FactoryCreationStrategy.CLASS_CONSTRUCTOR;
     }

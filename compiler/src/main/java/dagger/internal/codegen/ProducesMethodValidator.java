@@ -31,6 +31,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,13 +51,12 @@ import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_THROWS;
 import static dagger.internal.codegen.MapKeys.getMapKeys;
+import static dagger.internal.codegen.Validation.validateMethodQualifiers;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.type.TypeKind.ARRAY;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
-
-import javax.lang.model.util.Types;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Produces} methods.
@@ -132,7 +132,7 @@ final class ProducesMethodValidator {
           formatErrorMessage(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY), producesMethodElement);
     }
 
-    ProvidesMethodValidator.validateMethodQualifiers(builder, producesMethodElement);
+    validateMethodQualifiers(builder, producesMethodElement);
 
     switch (producesAnnotation.type()) {
       case UNIQUE: // fall through

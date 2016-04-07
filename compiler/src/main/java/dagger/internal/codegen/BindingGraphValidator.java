@@ -880,6 +880,7 @@ public class BindingGraphValidator {
             // reference to scoped @Provides methods or @Inject types decorated by any
             // scope annotation.
             switch (contributionBinding.bindingKind()) {
+              case SYNTHETIC_DELEGATE_BINDING:
               case PROVISION:
                 ExecutableElement provisionMethod =
                     MoreElements.asExecutable(contributionBinding.bindingElement());

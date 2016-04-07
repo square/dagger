@@ -46,7 +46,6 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
-import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 import static javax.tools.StandardLocation.SOURCE_OUTPUT;
 
@@ -111,36 +110,6 @@ public class ComponentProcessorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining("is not annotated with @Module");
-  }
-
-  private void checkCannotReferToModuleOfType(String moduleType) {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "",
-        "@Module",
-        moduleType + " TestModule {}");
-    JavaFileObject componentFile = JavaFileObjects.forSourceLines("test.BadComponent",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "",
-        "@Component(modules = TestModule.class)",
-        "interface BadComponent {}");
-    assertAbout(javaSources()).that(ImmutableList.of(moduleFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            String.format(REFERENCED_MODULES_MUST_NOT_BE_ABSTRACT, "test.TestModule"));
-  }
-
-  @Test public void cannotReferToAbstractClassModules() {
-    checkCannotReferToModuleOfType("abstract class");
-  }
-
-  @Test public void cannotReferToInterfaceModules() {
-    checkCannotReferToModuleOfType("interface");
   }
 
   @Test public void doubleBindingFromResolvedModules() {
