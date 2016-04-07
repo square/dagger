@@ -620,7 +620,7 @@ public class BindingGraphValidator {
                               MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
                               arg.toString(),
                               type.toString(),
-                              dependencyRequestFormatter.toForwardDependencyTrace(path)),
+                              dependencyRequestFormatter.toDependencyTrace(path)),
                           path.entryPointElement());
                       return null;
                     }
@@ -1117,7 +1117,7 @@ public class BindingGraphValidator {
               CONTAINS_DEPENDENCY_CYCLE_FORMAT,
               componentType.getQualifiedName(),
               path.entryPointElement().getSimpleName(),
-              dependencyRequestFormatter.toForwardDependencyTraceSkippingEntryPoint(path)),
+              dependencyRequestFormatter.toDependencyTrace(path)),
           ERROR,
           path.entryPointElement());
     }
