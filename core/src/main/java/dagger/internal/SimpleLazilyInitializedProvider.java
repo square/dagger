@@ -27,7 +27,7 @@ import static dagger.internal.Preconditions.checkNotNull;
 public final class SimpleLazilyInitializedProvider<T> implements Provider<T>, Lazy<T> {
   private static final Object UNINITIALIZED = new Object();
 
-  private final Factory<T> factory;
+  private volatile Factory<T> factory;
   private volatile Object instance = UNINITIALIZED;
 
   private SimpleLazilyInitializedProvider(Factory<T> factory) {
@@ -38,8 +38,16 @@ public final class SimpleLazilyInitializedProvider<T> implements Provider<T>, La
   @SuppressWarnings("unchecked") // cast only happens when result comes from the factory
   @Override
   public T get() {
+    // factory is volatile and might become null afer the check to instance == UNINITIALIZED
+    // retrieve the factory first, which should not be null if instance is UNINITIALIZED.
+    // This relies upon instance also being volatile so that the reads and writes of both variables
+    // cannot be reordered.
+    Factory<T> factoryReference = factory;
     if (instance == UNINITIALIZED) {
-      instance = factory.get();
+      instance = factoryReference.get();
+      // Null out the reference to the provider. We are never going to need it again, so we can make
+      // it eligble for GC.
+      factory = null;
     }
     return (T) instance;
   }
