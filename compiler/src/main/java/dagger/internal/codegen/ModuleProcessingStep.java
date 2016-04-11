@@ -22,7 +22,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import java.lang.annotation.Annotation;
@@ -70,7 +70,7 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
 
   @Override
   public Set<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.of(Module.class, Provides.class, Bind.class);
+    return ImmutableSet.of(Module.class, Provides.class, Binds.class);
   }
 
   @Override
@@ -101,7 +101,7 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
           if (isAnnotationPresent(methodElement, Provides.class)) {
             moduleProvidesMethodsBuilder.add(methodElement);
           }
-          if (isAnnotationPresent(methodElement, Bind.class)) {
+          if (isAnnotationPresent(methodElement, Binds.class)) {
             moduleBindMethodsBuilder.add(methodElement);
           }
         }
@@ -147,7 +147,7 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
   private ImmutableSet<ExecutableElement> validateBindMethods(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     ImmutableSet.Builder<ExecutableElement> validBindMethodsBuilder = ImmutableSet.builder();
-    for (Element bindElement : elementsByAnnotation.get(Bind.class)) {
+    for (Element bindElement : elementsByAnnotation.get(Binds.class)) {
       if (bindElement.getKind().equals(METHOD)) {
         ExecutableElement bindMethodElement = (ExecutableElement) bindElement;
         ValidationReport<ExecutableElement> methodReport =

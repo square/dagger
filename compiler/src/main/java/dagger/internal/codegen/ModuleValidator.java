@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Module;
 import dagger.producers.ProducerModule;
 import java.lang.annotation.Annotation;
@@ -98,7 +98,7 @@ final class ModuleValidator {
             moduleMethod.getModifiers().contains(STATIC)
                 ? ModuleMethodKind.STATIC_BINDING
                 : ModuleMethodKind.INSTANCE_BINDING);
-      } else if (isAnnotationPresent(moduleMethod, Bind.class)) {
+      } else if (isAnnotationPresent(moduleMethod, Binds.class)) {
         methodKinds.add(ModuleMethodKind.ABSTRACT_DECLARATION);
       }
       allMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);

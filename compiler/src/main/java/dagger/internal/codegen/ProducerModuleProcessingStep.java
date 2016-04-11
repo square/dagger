@@ -23,7 +23,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
@@ -104,7 +104,7 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
             if (isAnnotationPresent(methodElement, Produces.class)) {
               moduleProducesMethodsBuilder.add(methodElement);
             }
-            if (isAnnotationPresent(methodElement, Bind.class)) {
+            if (isAnnotationPresent(methodElement, Binds.class)) {
               moduleBindMethodsBuilder.add(methodElement);
             }
           }
@@ -165,7 +165,7 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
   private ImmutableSet<ExecutableElement> validateBindMethods(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     ImmutableSet.Builder<ExecutableElement> validBindMethodsBuilder = ImmutableSet.builder();
-    for (Element bindElement : elementsByAnnotation.get(Bind.class)) {
+    for (Element bindElement : elementsByAnnotation.get(Binds.class)) {
       if (bindElement.getKind().equals(METHOD)) {
         ExecutableElement bindMethodElement = (ExecutableElement) bindElement;
         ValidationReport<ExecutableElement> methodReport =

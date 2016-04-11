@@ -15,7 +15,7 @@
  */
 package test.bind;
 
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import javax.inject.Singleton;
@@ -23,16 +23,16 @@ import test.SomeQualifier;
 
 @Module(includes = InterfaceModule.class)
 abstract class SimpleBindingModule {
-  @Bind
+  @Binds
   abstract Object bindObject(FooOfStrings impl);
 
-  @Bind
+  @Binds
   abstract Foo<String> bindFooOfStrings(FooOfStrings impl);
 
-  @Bind
+  @Binds
   abstract Foo<? extends Number> bindFooOfNumbers(Foo<Integer> fooOfIntegers);
 
-  @Bind
+  @Binds
   @Singleton
   @SomeQualifier
   abstract Foo<String> bindQualifiedFooOfStrings(FooOfStrings impl);

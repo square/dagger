@@ -23,7 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Module;
 import dagger.Multibindings;
 import dagger.Provides;
@@ -75,7 +75,7 @@ abstract class ModuleDescriptor {
   abstract ImmutableSet<MultibindingDeclaration> multibindingDeclarations();
 
   /**
-   * The {@link Bind} method declarations that define delegate bindings.
+   * The {@link Binds} method declarations that define delegate bindings.
    */
   abstract ImmutableSet<DelegateDeclaration> delegateDeclarations();
 
@@ -175,7 +175,7 @@ abstract class ModuleDescriptor {
         if (isAnnotationPresent(moduleMethod, Produces.class)) {
           bindings.add(productionBindingFactory.forProducesMethod(moduleMethod, moduleElement));
         }
-        if (isAnnotationPresent(moduleMethod, Bind.class)) {
+        if (isAnnotationPresent(moduleMethod, Binds.class)) {
           delegates.add(bindingDelegateDeclarationFactory.create(moduleMethod, moduleElement));
         }
       }

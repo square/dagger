@@ -19,7 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Module;
 import dagger.producers.ProducerModule;
 import java.util.List;
@@ -66,7 +66,7 @@ final class BindMethodValidator {
       ValidationReport.Builder<ExecutableElement> builder =
           ValidationReport.about(bindMethodElement);
 
-      checkArgument(isAnnotationPresent(bindMethodElement, Bind.class));
+      checkArgument(isAnnotationPresent(bindMethodElement, Binds.class));
 
       Element enclosingElement = bindMethodElement.getEnclosingElement();
       if (!isAnnotationPresent(enclosingElement, Module.class)
@@ -91,7 +91,7 @@ final class BindMethodValidator {
         builder.addError(formatErrorMessage(BIND_METHOD_NOT_ABSTRACT), bindMethodElement);
       }
       TypeMirror returnType = bindMethodElement.getReturnType();
-      validateReturnType(Bind.class, builder, returnType);
+      validateReturnType(Binds.class, builder, returnType);
 
       List<? extends VariableElement> parameters = bindMethodElement.getParameters();
       if (parameters.size() == 1) {
@@ -105,7 +105,7 @@ final class BindMethodValidator {
             formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindMethodElement);
       }
 
-      validateUncheckedThrows(elements, types, bindMethodElement, Bind.class, builder);
+      validateUncheckedThrows(elements, types, bindMethodElement, Binds.class, builder);
 
       validateMethodQualifiers(builder, bindMethodElement);
 
@@ -118,10 +118,10 @@ final class BindMethodValidator {
   }
 
   private String formatErrorMessage(String msg) {
-    return String.format(msg, Bind.class.getSimpleName());
+    return String.format(msg, Binds.class.getSimpleName());
   }
 
   private String formatErrorMessage(String msg, String parameter) {
-    return String.format(msg, Bind.class.getSimpleName(), parameter);
+    return String.format(msg, Binds.class.getSimpleName(), parameter);
   }
 }

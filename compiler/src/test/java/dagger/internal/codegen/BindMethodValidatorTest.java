@@ -50,11 +50,11 @@ public class BindMethodValidatorTest {
             "test.TestModule",
             "package test;",
             "",
-            "import dagger.Bind;",
+            "import dagger.Binds;",
             "",
             "@" + moduleAnnotation.getCanonicalName(),
             "abstract class TestModule {",
-            "  @Bind Object bindObject(String impl) { return null; }",
+            "  @Binds Object bindObject(String impl) { return null; }",
             "}");
     assertAbout(javaSource())
         .that(moduleFile)
@@ -72,11 +72,11 @@ public class BindMethodValidatorTest {
             "test.TestModule",
             "package test;",
             "",
-            "import dagger.Bind;",
+            "import dagger.Binds;",
             "",
             "@" + moduleAnnotation.getCanonicalName(),
             "abstract class TestModule {",
-            "  @Bind abstract String bindString(Object impl);",
+            "  @Binds abstract String bindString(Object impl);",
             "}");
     assertAbout(javaSource())
         .that(moduleFile)
@@ -94,11 +94,11 @@ public class BindMethodValidatorTest {
             "test.TestModule",
             "package test;",
             "",
-            "import dagger.Bind;",
+            "import dagger.Binds;",
             "",
             "@" + moduleAnnotation.getCanonicalName(),
             "abstract class TestModule {",
-            "  @Bind abstract Object bindObject(String s1, String s2);",
+            "  @Binds abstract Object bindObject(String s1, String s2);",
             "}");
     assertAbout(javaSource())
         .that(moduleFile)
@@ -116,11 +116,11 @@ public class BindMethodValidatorTest {
             "test.TestModule",
             "package test;",
             "",
-            "import dagger.Bind;",
+            "import dagger.Binds;",
             "",
             "@" + moduleAnnotation.getCanonicalName(),
             "abstract class TestModule {",
-            "  @Bind abstract <S, T extends S> S bindS(T t);",
+            "  @Binds abstract <S, T extends S> S bindS(T t);",
             "}");
     assertAbout(javaSource())
         .that(moduleFile)
@@ -138,10 +138,10 @@ public class BindMethodValidatorTest {
             "test.TestModule",
             "package test;",
             "",
-            "import dagger.Bind;",
+            "import dagger.Binds;",
             "",
             "abstract class TestModule {",
-            "  @Bind abstract Object bindObject(String s);",
+            "  @Binds abstract Object bindObject(String s);",
             "}");
     assertAbout(javaSource())
         .that(moduleFile)
@@ -159,12 +159,12 @@ public class BindMethodValidatorTest {
             "test.TestModule",
             "package test;",
             "",
-            "import dagger.Bind;",
+            "import dagger.Binds;",
             "import java.io.IOException;",
             "",
             "@" + moduleAnnotation.getCanonicalName(),
             "abstract class TestModule {",
-            "  @Bind abstract Object bindObject(String s1) throws IOException;",
+            "  @Binds abstract Object bindObject(String s1) throws IOException;",
             "}");
     assertAbout(javaSource())
         .that(moduleFile)

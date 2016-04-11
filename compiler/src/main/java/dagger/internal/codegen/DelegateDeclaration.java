@@ -19,7 +19,7 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
@@ -57,7 +57,7 @@ abstract class DelegateDeclaration implements HasKey, HasSourceElement, HasContr
 
     DelegateDeclaration create(
         ExecutableElement bindMethod, TypeElement contributingElement) {
-      checkArgument(MoreElements.isAnnotationPresent(bindMethod, Bind.class));
+      checkArgument(MoreElements.isAnnotationPresent(bindMethod, Binds.class));
       SourceElement sourceElement = SourceElement.forElement(bindMethod, contributingElement);
       ExecutableType resolvedMethod =
           MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));

@@ -15,10 +15,10 @@
  */
 package test.bind;
 
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Module;
 
 @Module
 interface InterfaceModule {
-  @Bind Foo<Object> bindFooOfObjects(FooOfObjects impl);
+  @Binds Foo<Object> bindFooOfObjects(FooOfObjects impl);
 }

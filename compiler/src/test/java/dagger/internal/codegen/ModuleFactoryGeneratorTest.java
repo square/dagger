@@ -1321,7 +1321,7 @@ public class ModuleFactoryGeneratorTest {
         .withErrorContaining("Produced may only be injected in @Produces methods");
   }
 
-  private static final String BIND_METHOD = "@Bind abstract Foo bindFoo(FooImpl impl);";
+  private static final String BIND_METHOD = "@Binds abstract Foo bindFoo(FooImpl impl);";
   private static final String STATIC_PROVIDES_METHOD =
       "@Provides static Bar provideBar() { return new Bar(); }";
   private static final String INSTANCE_PROVIDES_METHOD =
@@ -1373,7 +1373,7 @@ public class ModuleFactoryGeneratorTest {
             .add(
                 "package test;",
                 "",
-                "import dagger.Bind;",
+                "import dagger.Binds;",
                 "import dagger.Module;",
                 "import dagger.Provides;",
                 "",

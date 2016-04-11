@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Multibindings;
 import dagger.Provides;
 import dagger.producers.Produced;
@@ -373,23 +373,23 @@ abstract class Key {
       return forMethod(method, keyType);
     }
 
-    /** Returns the key bound by a {@link Bind} method. */
+    /** Returns the key bound by a {@link Binds} method. */
     Key forBindMethod(SourceElement bindMethodElement) {
       ExecutableElement method = MoreElements.asExecutable(bindMethodElement.element());
       ExecutableType methodType =
           MoreTypes.asExecutable(bindMethodElement.asMemberOfContributingType(types));
-      checkArgument(isAnnotationPresent(method, Bind.class));
+      checkArgument(isAnnotationPresent(method, Binds.class));
       TypeMirror returnType = normalize(types, methodType.getReturnType());
       return forMethod(method, returnType);
     }
 
-    /** Returns the key for the single parameter of a {@link Bind} method. */
+    /** Returns the key for the single parameter of a {@link Binds} method. */
     Key forBindParameter(SourceElement bindMethodElement) {
       ExecutableElement method = MoreElements.asExecutable(bindMethodElement.element());
       VariableElement parameterElement = Iterables.getOnlyElement(method.getParameters());
       ExecutableType methodType =
           MoreTypes.asExecutable(bindMethodElement.asMemberOfContributingType(types));
-      checkArgument(isAnnotationPresent(method, Bind.class));
+      checkArgument(isAnnotationPresent(method, Binds.class));
       TypeMirror parameterType = Iterables.getOnlyElement(methodType.getParameterTypes());
       return forQualifiedType(getQualifier(parameterElement), parameterType);
     }

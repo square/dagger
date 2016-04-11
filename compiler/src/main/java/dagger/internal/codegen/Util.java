@@ -19,7 +19,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
-import dagger.Bind;
+import dagger.Binds;
 import dagger.Provides;
 import dagger.producers.Produces;
 import javax.lang.model.element.Element;
@@ -48,7 +48,7 @@ final class Util {
         MoreElements.getLocalAndInheritedMethods(typeElement, elements);
     boolean foundInstanceMethod = false;
     for (ExecutableElement method : methods) {
-      if (method.getModifiers().contains(ABSTRACT) && !isAnnotationPresent(method, Bind.class)) {
+      if (method.getModifiers().contains(ABSTRACT) && !isAnnotationPresent(method, Binds.class)) {
         /* We found an abstract method that isn't a @Bind method.  That automatically means that
          * a user will have to provide an instance because we don't know which subclass to use. */
         return true;
