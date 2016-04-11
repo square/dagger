@@ -30,6 +30,7 @@ import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MULTIPLE_QUALIFIERS;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
@@ -131,6 +132,45 @@ public class ModuleFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
+  }
+
+  @Test public void providesMethodFrameworkType() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Lazy;",
+        "import dagger.MembersInjector;",
+        "import dagger.Module;",
+        "import dagger.Provides;",
+        "import dagger.producers.Producer;",
+        "import dagger.producers.Produced;",
+        "import javax.inject.Provider;",
+        "",
+        "@Module",
+        "final class TestModule {",
+        "  @Provides Provider<String> provideProvider() {}",
+        "  @Provides Lazy<String> provideLazy() {}",
+        "  @Provides MembersInjector<String> provideMembersInjector() {}",
+        "  @Provides Producer<String> provideProducer() {}",
+        "  @Provides Produced<String> provideProduced() {}",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+        .in(moduleFile).onLine(13)
+        .and()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+        .in(moduleFile).onLine(14)
+        .and()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+        .in(moduleFile).onLine(15)
+        .and()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+        .in(moduleFile).onLine(16)
+        .and()
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+        .in(moduleFile).onLine(17);
   }
 
   @Test public void providesMethodWithTypeParameter() {

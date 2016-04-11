@@ -36,6 +36,7 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
@@ -78,6 +79,8 @@ final class ProvidesMethodValidator {
     ValidationReport.Builder<ExecutableElement> builder =
         ValidationReport.about(providesMethodElement);
 
+    /* this cast isn't actually guaranteed to be safe, but since we've already run superficial
+     * validation, it shouldn't ever fail */
     Provides providesAnnotation = providesMethodElement.getAnnotation(Provides.class);
     checkArgument(providesAnnotation != null);
 
@@ -124,7 +127,16 @@ final class ProvidesMethodValidator {
     validateMethodQualifiers(builder, providesMethodElement);
 
     switch (providesAnnotation.type()) {
-      case UNIQUE: // fall through
+      case UNIQUE:
+        /* Validate that a unique binding is not attempting to bind a framework type. This
+         * validation is only appropriate for unique bindings because multibindings may collect
+         * framework types.  E.g. Set<Provider<Foo>> is perfectly reasonable. */
+        if (FrameworkTypes.isFrameworkType(returnType)) {
+          builder.addError(
+              formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES),
+              providesMethodElement);
+        }
+        // fall through
       case SET:
         validateReturnType(Provides.class, builder, returnType);
         break;

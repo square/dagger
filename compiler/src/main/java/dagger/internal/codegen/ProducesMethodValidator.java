@@ -37,6 +37,7 @@ import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
@@ -114,6 +115,11 @@ final class ProducesMethodValidator {
     if (returnTypeKind.equals(VOID)) {
       builder.addError(
           formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE), producesMethodElement);
+    }
+
+    if (FrameworkTypes.isFrameworkType(returnType)) {
+      builder.addError(
+          formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES), producesMethodElement);
     }
 
     TypeMirror exceptionType = elements.getTypeElement(Exception.class.getCanonicalName()).asType();

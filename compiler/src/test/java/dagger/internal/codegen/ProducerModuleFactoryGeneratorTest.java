@@ -28,6 +28,7 @@ import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MULTIPLE_QUALIFIERS;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
@@ -118,6 +119,45 @@ public class ProducerModuleFactoryGeneratorTest {
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
+  }
+
+  @Test public void producesMethodFrameworkType() {
+    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
+        "package test;",
+        "",
+        "import dagger.Lazy;",
+        "import dagger.MembersInjector;",
+        "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produced;",
+        "import dagger.producers.Producer;",
+        "import dagger.producers.Produces;",
+        "import javax.inject.Provider;",
+        "",
+        "@ProducerModule",
+        "final class TestModule {",
+        "  @Produces Provider<String> produceProvider() {}",
+        "  @Produces Lazy<String> produceLazy() {}",
+        "  @Produces MembersInjector<String> produceMembersInjector() {}",
+        "  @Produces Producer<String> produceProducer() {}",
+        "  @Produces Produced<String> produceProduced() {}",
+        "}");
+    assertAbout(javaSource()).that(moduleFile)
+    .processedWith(new ComponentProcessor())
+    .failsToCompile()
+    .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+    .in(moduleFile).onLine(13)
+    .and()
+    .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+    .in(moduleFile).onLine(14)
+    .and()
+    .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+    .in(moduleFile).onLine(15)
+    .and()
+    .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+    .in(moduleFile).onLine(16)
+    .and()
+    .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
+    .in(moduleFile).onLine(17);
   }
 
   @Test public void producesMethodReturnRawFuture() {

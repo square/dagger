@@ -153,6 +153,9 @@ final class ErrorMessages {
   static final String BINDING_METHOD_MUST_RETURN_A_VALUE =
       "@%s methods must return a value (not void).";
 
+  static final String BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES =
+      "@%s methods must not return framework types.";
+
   static final String BINDING_METHOD_ABSTRACT = "@%s methods cannot be abstract";
 
   static final String BIND_METHOD_NOT_ABSTRACT = "@Bind methods must be abstract";
