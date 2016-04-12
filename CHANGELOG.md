@@ -4,6 +4,11 @@ Change Log
 Dagger 2 (Components)
 ---------------------
 
+### Version 2.3 *(2016-04-08)*
+  * Adds [`@Reusable`]
+  (http://google.github.io/dagger/users-guide.html#reusable-scope) scope
+  [(javadoc)](http://google.github.io/dagger/api/latest/dagger/Reusable.html)
+
 ### Version 2.2 *(2016-03-22)*
   * `dagger.mapkeys` moved to `dagger.multibindings` and all `@MapKey`
     implementations now correctly have `@Beta` applied
