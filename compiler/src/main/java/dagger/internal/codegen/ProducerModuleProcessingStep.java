@@ -49,7 +49,7 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
   private final ProducesMethodValidator producesMethodValidator;
-  private final BindMethodValidator bindMethodValidator;
+  private final BindsMethodValidator bindsMethodValidator;
   private final ProductionBinding.Factory productionBindingFactory;
   private final ProducerFactoryGenerator factoryGenerator;
   private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
@@ -58,13 +58,13 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
       Messager messager,
       ModuleValidator moduleValidator,
       ProducesMethodValidator producesMethodValidator,
-      BindMethodValidator bindMethodValidator,
+      BindsMethodValidator bindsMethodValidator,
       ProductionBinding.Factory productionBindingFactory,
       ProducerFactoryGenerator factoryGenerator) {
     this.messager = messager;
     this.moduleValidator = moduleValidator;
     this.producesMethodValidator = producesMethodValidator;
-    this.bindMethodValidator = bindMethodValidator;
+    this.bindsMethodValidator = bindsMethodValidator;
     this.productionBindingFactory = productionBindingFactory;
     this.factoryGenerator = factoryGenerator;
   }
@@ -82,7 +82,7 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
         validateProducesMethods(elementsByAnnotation);
 
     // second, check and collect all bind methods
-    ImmutableSet<ExecutableElement> validBindMethods = validateBindMethods(elementsByAnnotation);
+    ImmutableSet<ExecutableElement> validBindsMethods = validateBindsMethods(elementsByAnnotation);
 
     // process each module
     for (Element moduleElement :
@@ -96,7 +96,7 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
         if (report.isClean()) {
           ImmutableSet.Builder<ExecutableElement> moduleProducesMethodsBuilder =
               ImmutableSet.builder();
-          ImmutableSet.Builder<ExecutableElement> moduleBindMethodsBuilder =
+          ImmutableSet.Builder<ExecutableElement> moduleBindsMethodsBuilder =
               ImmutableSet.builder();
           List<ExecutableElement> moduleMethods =
               ElementFilter.methodsIn(moduleElement.getEnclosedElements());
@@ -105,15 +105,15 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
               moduleProducesMethodsBuilder.add(methodElement);
             }
             if (isAnnotationPresent(methodElement, Binds.class)) {
-              moduleBindMethodsBuilder.add(methodElement);
+              moduleBindsMethodsBuilder.add(methodElement);
             }
           }
           ImmutableSet<ExecutableElement> moduleProducesMethods =
               moduleProducesMethodsBuilder.build();
-          ImmutableSet<ExecutableElement> moduleBindMethods = moduleBindMethodsBuilder.build();
+          ImmutableSet<ExecutableElement> moduleBindsMethods = moduleBindsMethodsBuilder.build();
 
           if (Sets.difference(moduleProducesMethods, validProducesMethods).isEmpty()
-              && Sets.difference(moduleBindMethods, validBindMethods).isEmpty()) {
+              && Sets.difference(moduleBindsMethods, validBindsMethods).isEmpty()) {
             // all of the produces methods in this module are valid!
             // time to generate some factories!
             ImmutableSet<ProductionBinding> bindings =
@@ -162,20 +162,20 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
     return validProducesMethodsBuilder.build();
   }
 
-  private ImmutableSet<ExecutableElement> validateBindMethods(
+  private ImmutableSet<ExecutableElement> validateBindsMethods(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ExecutableElement> validBindMethodsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<ExecutableElement> validBindsMethodsBuilder = ImmutableSet.builder();
     for (Element bindElement : elementsByAnnotation.get(Binds.class)) {
       if (bindElement.getKind().equals(METHOD)) {
-        ExecutableElement bindMethodElement = (ExecutableElement) bindElement;
+        ExecutableElement bindsMethodElement = (ExecutableElement) bindElement;
         ValidationReport<ExecutableElement> methodReport =
-            bindMethodValidator.validate(bindMethodElement);
+            bindsMethodValidator.validate(bindsMethodElement);
         methodReport.printMessagesTo(messager);
         if (methodReport.isClean()) {
-          validBindMethodsBuilder.add(bindMethodElement);
+          validBindsMethodsBuilder.add(bindsMethodElement);
         }
       }
     }
-    return validBindMethodsBuilder.build();
+    return validBindsMethodsBuilder.build();
   }
 }

@@ -31,7 +31,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
 @RunWith(Parameterized.class)
-public class BindMethodValidatorTest {
+public class BindsMethodValidatorTest {
   @Parameters
   public static Collection<Object[]> data() {
     return ImmutableList.copyOf(new Object[][] {{Module.class}, {ProducerModule.class}});
@@ -39,7 +39,7 @@ public class BindMethodValidatorTest {
 
   private final Class<? extends Annotation> moduleAnnotation;
 
-  public BindMethodValidatorTest(Class<? extends Annotation> moduleAnnotation) {
+  public BindsMethodValidatorTest(Class<? extends Annotation> moduleAnnotation) {
     this.moduleAnnotation = moduleAnnotation;
   }
 

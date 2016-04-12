@@ -1382,10 +1382,10 @@ public class ModuleFactoryGeneratorTest {
             .add("}")
             .build();
 
-    JavaFileObject bindMethodAndInstanceProvidesMethodModuleFile =
+    JavaFileObject bindsMethodAndInstanceProvidesMethodModuleFile =
         JavaFileObjects.forSourceLines("test.TestModule", moduleLines);
     return assertThat(
-            fooFile, fooImplFile, barFile, bazFile, bindMethodAndInstanceProvidesMethodModuleFile)
+            fooFile, fooImplFile, barFile, bazFile, bindsMethodAndInstanceProvidesMethodModuleFile)
         .processedWith(new ComponentProcessor());
   }
 }

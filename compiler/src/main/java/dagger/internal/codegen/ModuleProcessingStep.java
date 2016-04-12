@@ -48,7 +48,7 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
   private final Messager messager;
   private final ModuleValidator moduleValidator;
   private final ProvidesMethodValidator providesMethodValidator;
-  private final BindMethodValidator bindMethodValidator;
+  private final BindsMethodValidator bindsMethodValidator;
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final FactoryGenerator factoryGenerator;
   private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
@@ -58,12 +58,12 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
       ModuleValidator moduleValidator,
       ProvidesMethodValidator providesMethodValidator,
       ProvisionBinding.Factory provisionBindingFactory,
-      BindMethodValidator bindMethodValidator,
+      BindsMethodValidator bindsMethodValidator,
       FactoryGenerator factoryGenerator) {
     this.messager = messager;
     this.moduleValidator = moduleValidator;
     this.providesMethodValidator = providesMethodValidator;
-    this.bindMethodValidator = bindMethodValidator;
+    this.bindsMethodValidator = bindsMethodValidator;
     this.provisionBindingFactory = provisionBindingFactory;
     this.factoryGenerator = factoryGenerator;
   }
@@ -81,7 +81,7 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
         validateProvidesMethods(elementsByAnnotation);
 
     // second, check and collect all bind methods
-    ImmutableSet<ExecutableElement> validBindMethods = validateBindMethods(elementsByAnnotation);
+    ImmutableSet<ExecutableElement> validBindsMethods = validateBindsMethods(elementsByAnnotation);
 
     // process each module
     for (Element moduleElement :
@@ -93,7 +93,7 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
       if (report.isClean()) {
         ImmutableSet.Builder<ExecutableElement> moduleProvidesMethodsBuilder =
             ImmutableSet.builder();
-        ImmutableSet.Builder<ExecutableElement> moduleBindMethodsBuilder =
+        ImmutableSet.Builder<ExecutableElement> moduleBindsMethodsBuilder =
             ImmutableSet.builder();
         List<ExecutableElement> moduleMethods =
             ElementFilter.methodsIn(moduleElement.getEnclosedElements());
@@ -102,16 +102,16 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
             moduleProvidesMethodsBuilder.add(methodElement);
           }
           if (isAnnotationPresent(methodElement, Binds.class)) {
-            moduleBindMethodsBuilder.add(methodElement);
+            moduleBindsMethodsBuilder.add(methodElement);
           }
         }
         ImmutableSet<ExecutableElement> moduleProvidesMethods =
             moduleProvidesMethodsBuilder.build();
-        ImmutableSet<ExecutableElement> moduleBindMethods =
-            moduleBindMethodsBuilder.build();
+        ImmutableSet<ExecutableElement> moduleBindsMethods =
+            moduleBindsMethodsBuilder.build();
 
         if (Sets.difference(moduleProvidesMethods, validProvidesMethods).isEmpty()
-            && Sets.difference(moduleBindMethods, validBindMethods).isEmpty()) {
+            && Sets.difference(moduleBindsMethods, validBindsMethods).isEmpty()) {
           // all of the provides and bind methods in this module are valid!
           // time to generate some factories!
           ImmutableSet<ProvisionBinding> bindings =
@@ -144,21 +144,21 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
   /* TODO(gak): Add an interface for Validators and combine these two methods and the ones in
    * ProducerModuleProcessingStep */
 
-  private ImmutableSet<ExecutableElement> validateBindMethods(
+  private ImmutableSet<ExecutableElement> validateBindsMethods(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ExecutableElement> validBindMethodsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<ExecutableElement> validBindsMethodsBuilder = ImmutableSet.builder();
     for (Element bindElement : elementsByAnnotation.get(Binds.class)) {
       if (bindElement.getKind().equals(METHOD)) {
-        ExecutableElement bindMethodElement = (ExecutableElement) bindElement;
+        ExecutableElement bindsMethodElement = (ExecutableElement) bindElement;
         ValidationReport<ExecutableElement> methodReport =
-            bindMethodValidator.validate(bindMethodElement);
+            bindsMethodValidator.validate(bindsMethodElement);
         methodReport.printMessagesTo(messager);
         if (methodReport.isClean()) {
-          validBindMethodsBuilder.add(bindMethodElement);
+          validBindsMethodsBuilder.add(bindsMethodElement);
         }
       }
     }
-    return validBindMethodsBuilder.build();
+    return validBindsMethodsBuilder.build();
   }
 
   private ImmutableSet<ExecutableElement> validateProvidesMethods(

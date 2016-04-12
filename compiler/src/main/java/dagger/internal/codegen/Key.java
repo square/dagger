@@ -374,21 +374,21 @@ abstract class Key {
     }
 
     /** Returns the key bound by a {@link Binds} method. */
-    Key forBindMethod(SourceElement bindMethodElement) {
-      ExecutableElement method = MoreElements.asExecutable(bindMethodElement.element());
+    Key forBindsMethod(SourceElement bindsMethodElement) {
+      ExecutableElement method = MoreElements.asExecutable(bindsMethodElement.element());
       ExecutableType methodType =
-          MoreTypes.asExecutable(bindMethodElement.asMemberOfContributingType(types));
+          MoreTypes.asExecutable(bindsMethodElement.asMemberOfContributingType(types));
       checkArgument(isAnnotationPresent(method, Binds.class));
       TypeMirror returnType = normalize(types, methodType.getReturnType());
       return forMethod(method, returnType);
     }
 
     /** Returns the key for the single parameter of a {@link Binds} method. */
-    Key forBindParameter(SourceElement bindMethodElement) {
-      ExecutableElement method = MoreElements.asExecutable(bindMethodElement.element());
+    Key forBindParameter(SourceElement bindsMethodElement) {
+      ExecutableElement method = MoreElements.asExecutable(bindsMethodElement.element());
       VariableElement parameterElement = Iterables.getOnlyElement(method.getParameters());
       ExecutableType methodType =
-          MoreTypes.asExecutable(bindMethodElement.asMemberOfContributingType(types));
+          MoreTypes.asExecutable(bindsMethodElement.asMemberOfContributingType(types));
       checkArgument(isAnnotationPresent(method, Binds.class));
       TypeMirror parameterType = Iterables.getOnlyElement(methodType.getParameterTypes());
       return forQualifiedType(getQualifier(parameterElement), parameterType);

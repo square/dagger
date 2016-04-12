@@ -56,18 +56,18 @@ abstract class DelegateDeclaration implements HasKey, HasSourceElement, HasContr
     }
 
     DelegateDeclaration create(
-        ExecutableElement bindMethod, TypeElement contributingElement) {
-      checkArgument(MoreElements.isAnnotationPresent(bindMethod, Binds.class));
-      SourceElement sourceElement = SourceElement.forElement(bindMethod, contributingElement);
+        ExecutableElement bindsMethod, TypeElement contributingElement) {
+      checkArgument(MoreElements.isAnnotationPresent(bindsMethod, Binds.class));
+      SourceElement sourceElement = SourceElement.forElement(bindsMethod, contributingElement);
       ExecutableType resolvedMethod =
           MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
       DependencyRequest delegateRequest =
           dependencyRequestFactory.forRequiredResolvedVariable(
               MoreTypes.asDeclared(contributingElement.asType()),
-              Iterables.getOnlyElement(bindMethod.getParameters()),
+              Iterables.getOnlyElement(bindsMethod.getParameters()),
               Iterables.getOnlyElement(resolvedMethod.getParameterTypes()));
       return new AutoValue_DelegateDeclaration(
-          keyFactory.forBindMethod(sourceElement), sourceElement, delegateRequest);
+          keyFactory.forBindsMethod(sourceElement), sourceElement, delegateRequest);
     }
   }
 }

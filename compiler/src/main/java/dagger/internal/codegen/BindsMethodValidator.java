@@ -47,13 +47,13 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 /**
  * A {@linkplain ValidationReport validator} for {@link Bind} methods.
  */
-final class BindMethodValidator {
+final class BindsMethodValidator {
   private final Elements elements;
   private final Types types;
   private final LoadingCache<ExecutableElement, ValidationReport<ExecutableElement>>
       validationCache;
 
-  BindMethodValidator(Elements elements, Types types) {
+  BindsMethodValidator(Elements elements, Types types) {
     this.elements = checkNotNull(elements);
     this.types = checkNotNull(types);
     this.validationCache = CacheBuilder.newBuilder().build(new ValidationLoader());
@@ -62,13 +62,13 @@ final class BindMethodValidator {
   private final class ValidationLoader
       extends CacheLoader<ExecutableElement, ValidationReport<ExecutableElement>> {
     @Override
-    public ValidationReport<ExecutableElement> load(ExecutableElement bindMethodElement) {
+    public ValidationReport<ExecutableElement> load(ExecutableElement bindsMethodElement) {
       ValidationReport.Builder<ExecutableElement> builder =
-          ValidationReport.about(bindMethodElement);
+          ValidationReport.about(bindsMethodElement);
 
-      checkArgument(isAnnotationPresent(bindMethodElement, Binds.class));
+      checkArgument(isAnnotationPresent(bindsMethodElement, Binds.class));
 
-      Element enclosingElement = bindMethodElement.getEnclosingElement();
+      Element enclosingElement = bindsMethodElement.getEnclosingElement();
       if (!isAnnotationPresent(enclosingElement, Module.class)
           && !isAnnotationPresent(enclosingElement, ProducerModule.class)) {
         builder.addError(
@@ -79,42 +79,42 @@ final class BindMethodValidator {
                     "%s or @%s",
                     Module.class.getSimpleName(),
                     ProducerModule.class.getSimpleName())),
-            bindMethodElement);
+            bindsMethodElement);
       }
 
-      if (!bindMethodElement.getTypeParameters().isEmpty()) {
-        builder.addError(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER), bindMethodElement);
+      if (!bindsMethodElement.getTypeParameters().isEmpty()) {
+        builder.addError(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER), bindsMethodElement);
       }
 
-      Set<Modifier> modifiers = bindMethodElement.getModifiers();
+      Set<Modifier> modifiers = bindsMethodElement.getModifiers();
       if (!modifiers.contains(ABSTRACT)) {
-        builder.addError(formatErrorMessage(BIND_METHOD_NOT_ABSTRACT), bindMethodElement);
+        builder.addError(formatErrorMessage(BIND_METHOD_NOT_ABSTRACT), bindsMethodElement);
       }
-      TypeMirror returnType = bindMethodElement.getReturnType();
+      TypeMirror returnType = bindsMethodElement.getReturnType();
       validateReturnType(Binds.class, builder, returnType);
 
-      List<? extends VariableElement> parameters = bindMethodElement.getParameters();
+      List<? extends VariableElement> parameters = bindsMethodElement.getParameters();
       if (parameters.size() == 1) {
         VariableElement parameter = Iterables.getOnlyElement(parameters);
         if (!types.isAssignable(parameter.asType(), returnType)) {
           builder.addError(
-              formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindMethodElement);
+              formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
         }
       } else {
         builder.addError(
-            formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindMethodElement);
+            formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
       }
 
-      validateUncheckedThrows(elements, types, bindMethodElement, Binds.class, builder);
+      validateUncheckedThrows(elements, types, bindsMethodElement, Binds.class, builder);
 
-      validateMethodQualifiers(builder, bindMethodElement);
+      validateMethodQualifiers(builder, bindsMethodElement);
 
       return builder.build();
     }
   }
 
-  ValidationReport<ExecutableElement> validate(ExecutableElement bindMethodElement) {
-    return validationCache.getUnchecked(bindMethodElement);
+  ValidationReport<ExecutableElement> validate(ExecutableElement bindsMethodElement) {
+    return validationCache.getUnchecked(bindsMethodElement);
   }
 
   private String formatErrorMessage(String msg) {

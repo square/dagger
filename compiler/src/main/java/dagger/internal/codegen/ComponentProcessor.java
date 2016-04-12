@@ -84,7 +84,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements, types);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements, types);
-    BindMethodValidator bindMethodValidator = new BindMethodValidator(elements, types);
+    BindsMethodValidator bindsMethodValidator = new BindsMethodValidator(elements, types);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -172,7 +172,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             moduleValidator,
             providesMethodValidator,
             provisionBindingFactory,
-            bindMethodValidator,
+            bindsMethodValidator,
             factoryGenerator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.COMPONENT,
@@ -189,7 +189,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             messager,
             moduleValidator,
             producesMethodValidator,
-            bindMethodValidator,
+            bindsMethodValidator,
             productionBindingFactory,
             producerFactoryGenerator),
         new ComponentProcessingStep(
