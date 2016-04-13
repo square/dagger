@@ -141,6 +141,7 @@ abstract class AbstractComponentWriter {
   protected TypeSpec.Builder component;
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
   private final Map<BindingKey, MemberSelect> memberSelects = new HashMap<>();
+  private final Map<BindingKey, MemberSelect> producerFromProviderMemberSelects = new HashMap<>();
   protected final MethodSpec.Builder constructor = constructorBuilder().addModifiers(PRIVATE);
   protected Optional<ClassName> builderName = Optional.absent();
 
@@ -483,17 +484,22 @@ abstract class AbstractComponentWriter {
 
     // TODO(gak): get rid of the field for unscoped delegated bindings
 
-    FieldSpec frameworkField = addFrameworkField(resolvedBindings);
+    FieldSpec frameworkField = addFrameworkField(resolvedBindings, Optional.<BindingType>absent());
     memberSelects.put(
         bindingKey,
         localField(name, frameworkField.name));
   }
 
-  private FieldSpec addFrameworkField(ResolvedBindings resolvedBindings) {
+  /**
+   * Adds a field representing the resolved bindings, optionally forcing it to use a particular
+   * binding type (instead of the type the resolved bindings would typically use).
+   */
+  private FieldSpec addFrameworkField(
+      ResolvedBindings resolvedBindings, Optional<BindingType> bindingType) {
     boolean useRawType = useRawType(resolvedBindings);
 
     FrameworkField contributionBindingField =
-        FrameworkField.createForResolvedBindings(resolvedBindings);
+        FrameworkField.createForResolvedBindings(resolvedBindings, bindingType);
     FieldSpec.Builder contributionField =
         componentField(
             useRawType
@@ -795,7 +801,7 @@ abstract class AbstractComponentWriter {
         return Optional.of(
             CodeBlocks.concat(
                 ImmutableList.of(
-                    initializeDelegateFactoriesForUninitializedDependencies(binding),
+                    initializeDeferredDependencies(binding),
                     initializeMember(
                         bindingKey, initializeFactoryForContributionBinding(binding)))));
       default:
@@ -814,8 +820,19 @@ abstract class AbstractComponentWriter {
     return Optional.of(
         CodeBlocks.concat(
             ImmutableList.of(
-                initializeDelegateFactoriesForUninitializedDependencies(binding),
+                initializeDeferredDependencies(binding),
                 initializeMember(bindingKey, initializeMembersInjectorForBinding(binding)))));
+  }
+
+  /**
+   * Initializes any dependencies of the given binding that need to be instantiated, i.e., as we get
+   * to them during normal initialization.
+   */
+  private CodeBlock initializeDeferredDependencies(Binding binding) {
+    return CodeBlocks.concat(
+        ImmutableList.of(
+            initializeDelegateFactoriesForUninitializedDependencies(binding),
+            initializeProducersFromProviderDependencies(binding)));
   }
 
   /**
@@ -838,6 +855,33 @@ abstract class AbstractComponentWriter {
       }
     }
 
+    return CodeBlocks.concat(initializations.build());
+  }
+
+  private CodeBlock initializeProducersFromProviderDependencies(Binding binding) {
+    ImmutableList.Builder<CodeBlock> initializations = ImmutableList.builder();
+    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+      ResolvedBindings resolvedBindings =
+          graph.resolvedBindings().get(frameworkDependency.bindingKey());
+      if (resolvedBindings.frameworkClass().equals(Provider.class)
+          && frameworkDependency.frameworkClass().equals(Producer.class)) {
+        MemberSelect memberSelect =
+            producerFromProviderMemberSelects.get(frameworkDependency.bindingKey());
+        if (memberSelect != null) {
+          continue;
+        }
+        FieldSpec frameworkField =
+            addFrameworkField(resolvedBindings, Optional.of(BindingType.PRODUCTION));
+        memberSelect = localField(name, frameworkField.name);
+        producerFromProviderMemberSelects.put(frameworkDependency.bindingKey(), memberSelect);
+        initializations.add(
+            CodeBlock.of(
+                "this.$L = $T.producerFromProvider($L);",
+                memberSelect.getExpressionFor(name),
+                PRODUCERS,
+                getMemberSelectExpression(frameworkDependency.bindingKey())));
+      }
+    }
     return CodeBlocks.concat(initializations.build());
   }
 
@@ -1053,13 +1097,12 @@ abstract class AbstractComponentWriter {
    */
   private CodeBlock getDependencyArgument(FrameworkDependency frameworkDependency) {
     BindingKey requestedKey = frameworkDependency.bindingKey();
-    CodeBlock frameworkExpression = getMemberSelectExpression(requestedKey);
     ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
     if (resolvedBindings.frameworkClass().equals(Provider.class)
         && frameworkDependency.frameworkClass().equals(Producer.class)) {
-      return CodeBlock.of("$T.producerFromProvider($L)", PRODUCERS, frameworkExpression);
+      return producerFromProviderMemberSelects.get(requestedKey).getExpressionFor(name);
     } else {
-      return frameworkExpression;
+      return getMemberSelectExpression(requestedKey);
     }
   }
 
