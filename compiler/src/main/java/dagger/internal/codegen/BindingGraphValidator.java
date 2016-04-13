@@ -1264,6 +1264,7 @@ public class BindingGraphValidator {
       case MAP:
         return "Map";
       case SET:
+      case SET_VALUES:
         return "Set";
       case UNIQUE:
         return "Unique";

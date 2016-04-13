@@ -205,21 +205,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
   protected abstract Kind bindingKind();
 
   /**
-   * A predicate that passes for bindings of a given kind.
-   */
-  static Predicate<ContributionBinding> isOfKind(Kind kind) {
-    return Predicates.compose(Predicates.equalTo(kind), KIND);
-  }
-
-  /** The provision type that was used to bind the key. */
-  abstract Provides.Type provisionType();
-
-  @Override
-  public ContributionType contributionType() {
-    return ContributionType.forProvisionType(provisionType());
-  }
-
-  /**
    * The strategy for getting an instance of a factory for a {@link ContributionBinding}.
    */
   enum FactoryCreationStrategy {

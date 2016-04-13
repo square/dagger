@@ -232,6 +232,7 @@ abstract class DependencyRequest {
               ? Kind.PRODUCER
               : Kind.PROVIDER;
         case SET:
+        case SET_VALUES:
           return Kind.INSTANCE;
         case UNIQUE:
           throw new IllegalArgumentException(

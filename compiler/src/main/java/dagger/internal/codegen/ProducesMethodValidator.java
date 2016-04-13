@@ -34,13 +34,11 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A_VALUE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
@@ -52,6 +50,8 @@ import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_THROWS;
 import static dagger.internal.codegen.MapKeys.getMapKeys;
+import static dagger.internal.codegen.ProvidesMethodValidator.validateMapKey;
+import static dagger.internal.codegen.ProvidesMethodValidator.validateMultibindingSpecifiers;
 import static dagger.internal.codegen.Validation.validateMethodQualifiers;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -83,9 +83,6 @@ final class ProducesMethodValidator {
   ValidationReport<ExecutableElement> validate(ExecutableElement producesMethodElement) {
     ValidationReport.Builder<ExecutableElement> builder =
         ValidationReport.about(producesMethodElement);
-
-    Produces producesAnnotation = producesMethodElement.getAnnotation(Produces.class);
-    checkArgument(producesAnnotation != null);
 
     Element enclosingElement = producesMethodElement.getEnclosingElement();
     if (!isAnnotationPresent(enclosingElement, ProducerModule.class)) {
@@ -131,17 +128,15 @@ final class ProducesMethodValidator {
       }
     }
 
-    // check mapkey is right
-    if (!producesAnnotation.type().equals(Produces.Type.MAP)
-        && !getMapKeys(producesMethodElement).isEmpty()) {
-      builder.addError(
-          formatErrorMessage(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY), producesMethodElement);
-    }
+    ContributionType contributionType = ContributionType.fromBindingMethod(producesMethodElement);
+    validateMapKey(builder, producesMethodElement, contributionType, Produces.class);
+
+    validateMultibindingSpecifiers(builder, producesMethodElement, Produces.class);
 
     validateMethodQualifiers(builder, producesMethodElement);
 
-    switch (producesAnnotation.type()) {
-      case UNIQUE: // fall through
+    switch (contributionType) {
+      case UNIQUE:
       case SET:
         validateSingleReturnType(builder, returnType);
         break;

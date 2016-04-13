@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.Module;
 import dagger.Provides;
+import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -32,8 +33,8 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
@@ -45,6 +46,8 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RA
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_NO_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.MULTIBINDING_ANNOTATION_CONFLICTS_WITH_BINDING_ANNOTATION_ENUM;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_MULTIBINDING_ANNOTATIONS_ON_METHOD;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
 import static dagger.internal.codegen.MapKeys.getMapKeys;
@@ -79,11 +82,6 @@ final class ProvidesMethodValidator {
     ValidationReport.Builder<ExecutableElement> builder =
         ValidationReport.about(providesMethodElement);
 
-    /* this cast isn't actually guaranteed to be safe, but since we've already run superficial
-     * validation, it shouldn't ever fail */
-    Provides providesAnnotation = providesMethodElement.getAnnotation(Provides.class);
-    checkArgument(providesAnnotation != null);
-
     Element enclosingElement = providesMethodElement.getEnclosingElement();
     if (!isAnnotationPresent(enclosingElement, Module.class)) {
       builder.addError(
@@ -117,16 +115,14 @@ final class ProvidesMethodValidator {
       }
     }
 
-    // check mapkey is right
-    if (!providesAnnotation.type().equals(Provides.Type.MAP)
-        && !getMapKeys(providesMethodElement).isEmpty()) {
-      builder.addError(
-          formatErrorMessage(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY), providesMethodElement);
-    }
+    ContributionType contributionType = ContributionType.fromBindingMethod(providesMethodElement);
+
+    validateMapKey(builder, providesMethodElement, contributionType, Provides.class);
 
     validateMethodQualifiers(builder, providesMethodElement);
 
-    switch (providesAnnotation.type()) {
+    validateMultibindingSpecifiers(builder, providesMethodElement, Provides.class);
+    switch (contributionType) {
       case UNIQUE:
         /* Validate that a unique binding is not attempting to bind a framework type. This
          * validation is only appropriate for unique bindings because multibindings may collect
@@ -182,11 +178,58 @@ final class ProvidesMethodValidator {
     return builder.build();
   }
 
+  /** Validate that methods for map multibindings have a {@code @MapKey} annotation. */
+  static void validateMapKey(
+      ValidationReport.Builder<ExecutableElement> builder,
+      ExecutableElement method,
+      ContributionType contributionType,
+      Class<? extends Annotation> bindingAnnotation) {
+    if (!contributionType.equals(ContributionType.MAP) && !getMapKeys(method).isEmpty()) {
+      builder.addError(
+          String.format(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY, bindingAnnotation.getSimpleName()),
+          method);
+    }
+  }
+
+  /**
+   * Validate that at most one multibinding annotation is used, and not in conflict with {@link
+   * Provides#type()}.
+   */
+  static void validateMultibindingSpecifiers(
+      ValidationReport.Builder<ExecutableElement> builder,
+      ExecutableElement method,
+      Class<? extends Annotation> bindingAnnotation) {
+    ImmutableSet<AnnotationMirror> multibindingAnnotations =
+        MultibindingAnnotations.forMethod(method);
+    if (multibindingAnnotations.size() > 1) {
+      for (AnnotationMirror annotation : multibindingAnnotations) {
+        builder.addError(
+            String.format(
+                MULTIPLE_MULTIBINDING_ANNOTATIONS_ON_METHOD, bindingAnnotation.getSimpleName()),
+            method,
+            annotation);
+      }
+    }
+
+    AnnotationMirror bindingAnnotationMirror = getAnnotationMirror(method, bindingAnnotation).get();
+    boolean usesProvidesType = false;
+    for (ExecutableElement member : bindingAnnotationMirror.getElementValues().keySet()) {
+      usesProvidesType |= member.getSimpleName().contentEquals("type");
+    }
+    if (usesProvidesType && !multibindingAnnotations.isEmpty()) {
+      builder.addError(
+          String.format(
+              MULTIBINDING_ANNOTATION_CONFLICTS_WITH_BINDING_ANNOTATION_ENUM,
+              bindingAnnotation.getSimpleName()),
+          method);
+    }
+  }
+
   private String formatErrorMessage(String msg) {
     return String.format(msg, Provides.class.getSimpleName());
   }
 
-  private String formatModuleErrorMessage(String msg) {
+  private static String formatModuleErrorMessage(String msg) {
     return String.format(msg, Provides.class.getSimpleName(), Module.class.getSimpleName());
   }
 }

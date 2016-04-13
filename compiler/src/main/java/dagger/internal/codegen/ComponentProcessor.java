@@ -167,6 +167,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
         new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),
         new MultibindingsProcessingStep(messager, multibindingsValidator),
+        new MultibindingAnnotationsProcessingStep(messager),
         new ModuleProcessingStep(
             messager,
             moduleValidator,

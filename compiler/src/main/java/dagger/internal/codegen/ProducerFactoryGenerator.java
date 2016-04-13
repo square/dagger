@@ -29,8 +29,6 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.producers.Producer;
-import dagger.producers.Produces;
-import dagger.producers.Produces.Type;
 import dagger.producers.monitoring.ProducerMonitor;
 import java.util.List;
 import javax.annotation.processing.Filer;
@@ -45,6 +43,7 @@ import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
+import static dagger.internal.codegen.ContributionType.MAP;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.TypeNames.ASYNC_FUNCTION;
@@ -90,7 +89,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
   @Override
   Optional<TypeSpec.Builder> write(ClassName generatedTypeName, ProductionBinding binding) {
     TypeMirror keyType =
-        binding.productionType().equals(Type.MAP)
+        binding.contributionType().equals(MAP)
             ? MapType.from(binding.key().type()).unwrappedValueType(Producer.class)
             : binding.key().type();
     TypeName providedTypeName = TypeName.get(keyType);
@@ -477,7 +476,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     codeBlocks.add(CodeBlocks.format("monitor.methodStarting();"));
 
     final CodeBlock valueCodeBlock;
-    if (binding.productionType().equals(Produces.Type.SET)) {
+    if (binding.contributionType().equals(ContributionType.SET)) {
       if (binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION)) {
         valueCodeBlock =
             CodeBlocks.format("$T.createFutureSingletonSet($L)", PRODUCERS, moduleCodeBlock);

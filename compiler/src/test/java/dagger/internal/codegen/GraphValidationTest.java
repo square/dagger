@@ -318,6 +318,7 @@ public class GraphValidationTest {
             "import dagger.MapKey;",
             "import dagger.Module;",
             "import dagger.Provides;",
+            "import dagger.multibindings.IntoMap;",
             "import java.util.Map;",
             "import javax.inject.Inject;",
             "",
@@ -341,7 +342,7 @@ public class GraphValidationTest {
             "",
             "  @Module",
             "  static class CModule {",
-            "    @Provides(type = Provides.Type.MAP)",
+            "    @Provides @IntoMap",
             "    @StringKey(\"C\")",
             "    static C c(C c) {",
             "      return c;",
@@ -375,7 +376,7 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError)
         .in(component)
-        .onLine(25);
+        .onLine(26);
   }
 
   @Test
@@ -388,6 +389,7 @@ public class GraphValidationTest {
             "import dagger.Component;",
             "import dagger.Module;",
             "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
             "import java.util.Set;",
             "import javax.inject.Inject;",
             "",
@@ -411,7 +413,7 @@ public class GraphValidationTest {
             "",
             "  @Module",
             "  static class CModule {",
-            "    @Provides(type = Provides.Type.SET)",
+            "    @Provides @IntoSet",
             "    static C c(C c) {",
             "      return c;",
             "    }",
@@ -439,7 +441,7 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError)
         .in(component)
-        .onLine(24);
+        .onLine(25);
   }
 
   @Test
@@ -595,15 +597,14 @@ public class GraphValidationTest {
         "import dagger.Module;",
         "import dagger.Provides;",
         "import dagger.MapKey;",
+        "import dagger.multibindings.IntoMap;",
+        "import dagger.multibindings.IntoSet;",
         "import java.util.HashMap;",
         "import java.util.HashSet;",
         "import java.util.Map;",
         "import java.util.Set;",
         "",
         "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
-        "import static dagger.Provides.Type.MAP;",
-        "import static dagger.Provides.Type.SET;",
-        "",
         "final class Outer {",
         "  @MapKey(unwrapValue = true)",
         "  @interface StringKey {",
@@ -612,11 +613,11 @@ public class GraphValidationTest {
         "",
         "  @Module",
         "  static class TestModule1 {",
-        "    @Provides(type = MAP)",
+        "    @Provides @IntoMap",
         "    @StringKey(\"foo\")",
         "    String stringMapEntry() { return \"\"; }",
         "",
-        "    @Provides(type = SET) String stringSetElement() { return \"\"; }",
+        "    @Provides @IntoSet String stringSetElement() { return \"\"; }",
         "  }",
         "",
         "  @Module",
@@ -638,7 +639,8 @@ public class GraphValidationTest {
     String expectedSetError =
         "java.util.Set<java.lang.String> has incompatible bindings or declarations:\n"
             + "      Set bindings and declarations:\n"
-            + "          @Provides(type=SET) String test.Outer.TestModule1.stringSetElement()\n"
+            + "          @Provides @dagger.multibindings.IntoSet String "
+            + "test.Outer.TestModule1.stringSetElement()\n"
             + "      Unique bindings and declarations:\n"
             + "          @Provides Set<String> test.Outer.TestModule2.stringSet()";
 
@@ -646,7 +648,8 @@ public class GraphValidationTest {
         "java.util.Map<java.lang.String,java.lang.String> has incompatible bindings "
             + "or declarations:\n"
             + "      Map bindings and declarations:\n"
-            + "          @Provides(type=MAP) @test.Outer.StringKey(\"foo\") String"
+            + "          @Provides @dagger.multibindings.IntoMap "
+            + "@test.Outer.StringKey(\"foo\") String"
             + " test.Outer.TestModule1.stringMapEntry()\n"
             + "      Unique bindings and declarations:\n"
             + "          @Provides Map<String,String> test.Outer.TestModule2.stringMap()";
@@ -657,11 +660,11 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedSetError)
         .in(component)
-        .onLine(43)
+        .onLine(42)
         .and()
         .withErrorContaining(expectedMapError)
         .in(component)
-        .onLine(44);
+        .onLine(43);
   }
 
   @Test
@@ -681,8 +684,6 @@ public class GraphValidationTest {
             "import java.util.Set;",
             "",
             "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
-            "import static dagger.Provides.Type.MAP;",
-            "import static dagger.Provides.Type.SET;",
             "",
             "final class Outer {",
             "  @Module",
@@ -731,11 +732,11 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedSetError)
         .in(component)
-        .onLine(37)
+        .onLine(35)
         .and()
         .withErrorContaining(expectedMapError)
         .in(component)
-        .onLine(38);
+        .onLine(36);
   }
   
   @Test public void duplicateBindings_TruncateAfterLimit() {

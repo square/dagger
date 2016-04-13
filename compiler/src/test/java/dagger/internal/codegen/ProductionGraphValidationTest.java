@@ -189,19 +189,18 @@ public class ProductionGraphValidationTest {
             "import com.google.common.util.concurrent.ListenableFuture;",
             "import dagger.Module;",
             "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
             "import dagger.producers.ProducerModule;",
             "import dagger.producers.Produces;",
             "import dagger.producers.ProductionComponent;",
             "import dagger.producers.monitoring.ProductionComponentMonitor;",
-            "",
-            "import static dagger.Provides.Type.SET;",
             "",
             "final class TestClass {",
             "  interface A {}",
             "",
             "  @Module",
             "  final class MonitoringModule {",
-            "    @Provides(type = SET)",
+            "    @Provides @IntoSet",
             "    ProductionComponentMonitor.Factory monitorFactory(A unbound) {",
             "      return null;",
             "    }",
@@ -228,7 +227,7 @@ public class ProductionGraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError)
         .in(component)
-        .onLine(35);
+        .onLine(34);
   }
 
   @Test
@@ -241,19 +240,18 @@ public class ProductionGraphValidationTest {
             "import com.google.common.util.concurrent.ListenableFuture;",
             "import dagger.Module;",
             "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
             "import dagger.producers.ProducerModule;",
             "import dagger.producers.Produces;",
             "import dagger.producers.ProductionComponent;",
             "import dagger.producers.monitoring.ProductionComponentMonitor;",
-            "",
-            "import static dagger.Provides.Type.SET;",
             "",
             "final class TestClass {",
             "  interface A {}",
             "",
             "  @Module",
             "  final class MonitoringModule {",
-            "    @Provides(type = SET) ProductionComponentMonitor.Factory monitorFactory(A a) {",
+            "    @Provides @IntoSet ProductionComponentMonitor.Factory monitorFactory(A a) {",
             "      return null;",
             "    }",
             "  }",
@@ -277,7 +275,8 @@ public class ProductionGraphValidationTest {
             "  }",
             "}");
     String expectedError =
-        "@Provides(type=SET) dagger.producers.monitoring.ProductionComponentMonitor.Factory"
+        "@Provides @dagger.multibindings.IntoSet"
+            + " dagger.producers.monitoring.ProductionComponentMonitor.Factory"
             + " test.TestClass.MonitoringModule.monitorFactory(test.TestClass.A) is a provision,"
             + " which cannot depend on a production.";
     assertAbout(javaSources()).that(ImmutableList.of(EXECUTOR_MODULE, component))
@@ -285,7 +284,7 @@ public class ProductionGraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedError)
         .in(component)
-        .onLine(38);
+        .onLine(37);
   }
   
   @Test
@@ -309,9 +308,9 @@ public class ProductionGraphValidationTest {
             "",
             "import dagger.producers.ProducerModule;",
             "import dagger.producers.Produces;",
+            "import dagger.multibindings.IntoMap;",
             "import dagger.multibindings.StringKey;",
             "import java.util.Map;",
-            "import static dagger.producers.Produces.Type.MAP;",
             "",
             "@ProducerModule",
             "final class TestModule {",
@@ -319,7 +318,7 @@ public class ProductionGraphValidationTest {
             "    return \"string\";",
             "  }",
             "",
-            "  @Produces(type = MAP) @StringKey(\"key\")",
+            "  @Produces @IntoMap @StringKey(\"key\")",
             "  static String entry(String string) {",
             "    return string;",
             "  }",
@@ -356,8 +355,8 @@ public class ProductionGraphValidationTest {
             "import dagger.producers.ProducerModule;",
             "import dagger.producers.Produces;",
             "import dagger.multibindings.StringKey;",
+            "import dagger.multibindings.IntoMap;",
             "import java.util.Map;",
-            "import static dagger.producers.Produces.Type.MAP;",
             "",
             "@ProducerModule",
             "final class TestModule {",
@@ -365,7 +364,7 @@ public class ProductionGraphValidationTest {
             "    return \"string\";",
             "  }",
             "",
-            "  @Produces(type = MAP) @StringKey(\"key\")",
+            "  @Produces @IntoMap @StringKey(\"key\")",
             "  static String entry(String string) {",
             "    return string;",
             "  }",

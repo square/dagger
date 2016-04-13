@@ -284,6 +284,16 @@ final class ErrorMessages {
   static final String CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD =
       "Cannot return null from a non-@Nullable @Provides method";
 
+  /* Multibinding messages */
+  static final String MULTIBINDING_ANNOTATION_NOT_ON_PROVIDES_OR_PRODUCES =
+      "Multibinding annotations may only be on @Provides or @Produces methods";
+
+  static final String MULTIPLE_MULTIBINDING_ANNOTATIONS_ON_METHOD =
+      "Multiple multibinding annotations cannot be placed on the same %s method";
+
+  static final String MULTIBINDING_ANNOTATION_CONFLICTS_WITH_BINDING_ANNOTATION_ENUM =
+      "@%s.type cannot be used with multibinding annotations";
+
   static ComponentBuilderMessages builderMsgsFor(ComponentDescriptor.Kind kind) {
     switch(kind) {
       case COMPONENT:

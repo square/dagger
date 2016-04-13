@@ -17,11 +17,15 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import dagger.Binds;
 import dagger.Provides;
 import dagger.producers.Produces;
+import java.lang.annotation.Annotation;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -123,6 +127,17 @@ final class Util {
     return FluentIterable.from(getLocalAndInheritedMethods(type, elements))
         .filter(hasModifiers(ABSTRACT))
         .toSet();
+  }
+
+  // TODO(ronshapiro): add into auto/common/AnnotationMirrors.java
+  static Predicate<AnnotationMirror> hasAnnotationType(
+      final Class<? extends Annotation> annotation) {
+    return new Predicate<AnnotationMirror>() {
+      @Override
+      public boolean apply(AnnotationMirror input) {
+        return MoreTypes.isTypeOf(annotation, input.getAnnotationType());
+      }
+    };
   }
 
   private Util() {}
