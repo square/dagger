@@ -125,14 +125,14 @@ class SourceFiles {
       CodeBlock frameworkTypeMemberSelect, DependencyRequest.Kind dependencyKind) {
     switch (dependencyKind) {
       case LAZY:
-        return CodeBlocks.format("$T.lazy($L)", DOUBLE_CHECK, frameworkTypeMemberSelect);
+        return CodeBlock.of("$T.lazy($L)", DOUBLE_CHECK, frameworkTypeMemberSelect);
       case INSTANCE:
       case FUTURE:
-        return CodeBlocks.format("$L.get()", frameworkTypeMemberSelect);
+        return CodeBlock.of("$L.get()", frameworkTypeMemberSelect);
       case PROVIDER:
       case PRODUCER:
       case MEMBERS_INJECTOR:
-        return CodeBlocks.format("$L", frameworkTypeMemberSelect);
+        return CodeBlock.of("$L", frameworkTypeMemberSelect);
       default:
         throw new AssertionError();
     }

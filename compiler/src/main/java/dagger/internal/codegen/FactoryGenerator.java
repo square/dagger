@@ -127,7 +127,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         break;
       case CLASS_CONSTRUCTOR:
         factoryBuilder =
-            classBuilder(generatedTypeName.simpleName())
+            classBuilder(generatedTypeName)
                 .addTypeVariables(typeParameters)
                 .addModifiers(FINAL);
         constructorBuilder = Optional.of(constructorBuilder().addModifiers(PUBLIC));
@@ -214,7 +214,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(
           frameworkTypeUsageStatement(
-              CodeBlocks.format("$L", fields.get(dependency.bindingKey()).name()),
+              CodeBlock.of("$L", fields.get(dependency.bindingKey()).name()),
               dependency.kind()));
     }
     CodeBlock parametersCodeBlock = makeParametersCodeBlock(parameters);

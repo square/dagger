@@ -189,7 +189,7 @@ abstract class AbstractComponentWriter {
    */
   private CodeBlock getComponentContributionExpression(TypeElement contributionType) {
     if (builderFields.containsKey(contributionType)) {
-      return CodeBlocks.format("builder.$N", builderFields.get(contributionType));
+      return CodeBlock.of("builder.$N", builderFields.get(contributionType));
     } else {
       Optional<CodeBlock> codeBlock =
           getOrCreateComponentContributionFieldExpression(contributionType);
@@ -546,7 +546,7 @@ abstract class AbstractComponentWriter {
               return Optional.of(
                   staticMethod(
                       generatedClassNameForBinding(contributionBinding),
-                      CodeBlocks.format("create()")));
+                      CodeBlock.of("create()")));
           }
         }
         break;
@@ -774,7 +774,7 @@ abstract class AbstractComponentWriter {
     ContributionBinding binding = graph.resolvedBindings().get(bindingKey).contributionBinding();
     switch (binding.factoryCreationStrategy()) {
       case DELEGATE:
-        CodeBlock delegatingCodeBlock = CodeBlocks.format(
+        CodeBlock delegatingCodeBlock = CodeBlock.of(
             "($T) $L",
             binding.frameworkClass(),
             getMemberSelect(
@@ -832,7 +832,7 @@ abstract class AbstractComponentWriter {
       if (!getMemberSelect(dependencyKey).staticMember()
           && getInitializationState(dependencyKey).equals(UNINITIALIZED)) {
         initializations.add(
-            CodeBlocks.format(
+            CodeBlock.of(
                 "this.$L = new $T();", getMemberSelectExpression(dependencyKey), DELEGATE_FACTORY));
         setInitializationState(dependencyKey, DELEGATED);
       }
@@ -848,14 +848,14 @@ abstract class AbstractComponentWriter {
     CodeBlock delegateFactoryVariable = delegateFactoryVariableExpression(bindingKey);
     if (getInitializationState(bindingKey).equals(DELEGATED)) {
       initializations.add(
-          CodeBlocks.format(
+          CodeBlock.of(
               "$1T $2L = ($1T) $3L;", DELEGATE_FACTORY, delegateFactoryVariable, memberSelect));
     }
     initializations.add(
-        CodeBlocks.format("this.$L = $L;", memberSelect, initializationCodeBlock));
+        CodeBlock.of("this.$L = $L;", memberSelect, initializationCodeBlock));
     if (getInitializationState(bindingKey).equals(DELEGATED)) {
       initializations.add(
-          CodeBlocks.format("$L.setDelegatedProvider($L);", delegateFactoryVariable, memberSelect));
+          CodeBlock.of("$L.setDelegatedProvider($L);", delegateFactoryVariable, memberSelect));
     }
     setInitializationState(bindingKey, INITIALIZED);
 
@@ -863,15 +863,14 @@ abstract class AbstractComponentWriter {
   }
 
   private CodeBlock delegateFactoryVariableExpression(BindingKey key) {
-    return CodeBlocks.format(
-        "$LDelegate", getMemberSelectExpression(key).toString().replace('.', '_'));
+    return CodeBlock.of("$LDelegate", getMemberSelectExpression(key).toString().replace('.', '_'));
   }
 
   private CodeBlock initializeFactoryForContributionBinding(ContributionBinding binding) {
     TypeName bindingKeyTypeName = TypeName.get(binding.key().type());
     switch (binding.bindingKind()) {
       case COMPONENT:
-        return CodeBlocks.format(
+        return CodeBlock.of(
             "$T.<$T>create($L)",
             INSTANCE_FACTORY,
             bindingKeyTypeName,
@@ -886,7 +885,7 @@ abstract class AbstractComponentWriter {
               graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
           String localFactoryVariable = simpleVariableName(bindingTypeElement);
           CodeBlock callFactoryMethod =
-              CodeBlocks.format(
+              CodeBlock.of(
                   "$L.$L()",
                   localFactoryVariable,
                   binding.bindingElement().getSimpleName().toString());
@@ -899,12 +898,12 @@ abstract class AbstractComponentWriter {
           CodeBlock getMethodBody =
               binding.nullableType().isPresent()
                       || compilerOptions.nullableValidationKind().equals(Diagnostic.Kind.WARNING)
-                  ? CodeBlocks.format("return $L;", callFactoryMethod)
-                  : CodeBlocks.format("return $T.checkNotNull($L, $S);",
+                  ? CodeBlock.of("return $L;", callFactoryMethod)
+                  : CodeBlock.of("return $T.checkNotNull($L, $S);",
                       Preconditions.class,
                       callFactoryMethod,
                       CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD);
-          return CodeBlocks.format(
+          return CodeBlock.of(
               Joiner.on('\n')
                   .join(
                       "new $1T<$2T>() {",
@@ -923,7 +922,7 @@ abstract class AbstractComponentWriter {
         }
 
       case SUBCOMPONENT_BUILDER:
-        return CodeBlocks.format(
+        return CodeBlock.of(
             Joiner.on('\n')
                 .join(
                     "new $1T<$2T>() {",
@@ -947,7 +946,7 @@ abstract class AbstractComponentWriter {
           arguments.addAll(getDependencyArguments(binding));
 
           CodeBlock factoryCreate =
-              CodeBlocks.format(
+              CodeBlock.of(
                   "$T.create($L)",
                   generatedClassNameForBinding(binding),
                   makeParametersCodeBlock(arguments));
@@ -960,7 +959,7 @@ abstract class AbstractComponentWriter {
         {
           TypeElement bindingTypeElement =
               graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
-          return CodeBlocks.format(
+          return CodeBlock.of(
               Joiner.on('\n')
                   .join(
                       "new $1T<$2T>() {",
@@ -988,14 +987,14 @@ abstract class AbstractComponentWriter {
           }
           arguments.addAll(getDependencyArguments(binding));
 
-          return CodeBlocks.format(
+          return CodeBlock.of(
               "new $T($L)",
               generatedClassNameForBinding(binding),
               makeParametersCodeBlock(arguments));
         }
 
       case SYNTHETIC_MAP:
-        return CodeBlocks.format(
+        return CodeBlock.of(
             "$T.create($L)",
             mapFactoryClassName(binding),
             getMemberSelectExpression(getOnlyElement(binding.dependencies()).bindingKey()));
@@ -1013,22 +1012,22 @@ abstract class AbstractComponentWriter {
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {
     return scope.equals(reusableScope(elements))
-        ? CodeBlocks.format("$T.create($L)", SIMPLE_LAZILY_INITIALIZED_PROVIDER, factoryCreate)
-        : CodeBlocks.format("$T.provider($L)", DOUBLE_CHECK, factoryCreate);
+        ? CodeBlock.of("$T.create($L)", SIMPLE_LAZILY_INITIALIZED_PROVIDER, factoryCreate)
+        : CodeBlock.of("$T.provider($L)", DOUBLE_CHECK, factoryCreate);
   }
 
   private CodeBlock nullableAnnotation(Optional<DeclaredType> nullableType) {
     return nullableType.isPresent()
-        ? CodeBlocks.format("@$T ", TypeName.get(nullableType.get()))
-        : CodeBlocks.format("");
+        ? CodeBlock.of("@$T ", TypeName.get(nullableType.get()))
+        : CodeBlock.of("");
   }
 
   private CodeBlock initializeMembersInjectorForBinding(MembersInjectionBinding binding) {
     switch (binding.injectionStrategy()) {
       case NO_OP:
-        return CodeBlocks.format("$T.noOp()", MEMBERS_INJECTORS);
+        return CodeBlock.of("$T.noOp()", MEMBERS_INJECTORS);
       case INJECT_MEMBERS:
-        return CodeBlocks.format(
+        return CodeBlock.of(
             "$T.create($L)",
             membersInjectorNameForType(binding.bindingElement()),
             makeParametersCodeBlock(getDependencyArguments(binding)));
@@ -1058,14 +1057,14 @@ abstract class AbstractComponentWriter {
     ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
     if (resolvedBindings.frameworkClass().equals(Provider.class)
         && frameworkDependency.frameworkClass().equals(Producer.class)) {
-      return CodeBlocks.format("$T.producerFromProvider($L)", PRODUCERS, frameworkExpression);
+      return CodeBlock.of("$T.producerFromProvider($L)", PRODUCERS, frameworkExpression);
     } else {
       return frameworkExpression;
     }
   }
 
   private CodeBlock initializeFactoryForSetMultibinding(ContributionBinding binding) {
-    return CodeBlocks.format(
+    return CodeBlock.of(
         "$T.create($L)",
         setFactoryClassName(binding.bindingType(), binding.key()),
         makeParametersCodeBlock(getDependencyArguments(binding)));
@@ -1078,7 +1077,7 @@ abstract class AbstractComponentWriter {
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
     MapType mapType = MapType.from(binding.key().type());
     codeBlocks.add(
-        CodeBlocks.format(
+        CodeBlock.of(
             "$T.<$T, $T>builder($L)",
             frameworkMapFactoryClassName(binding.bindingType()),
             TypeName.get(mapType.keyType()),
@@ -1091,12 +1090,12 @@ abstract class AbstractComponentWriter {
       ContributionBinding contributionBinding =
           graph.resolvedBindings().get(bindingKey).contributionBinding();
       codeBlocks.add(
-          CodeBlocks.format(
+          CodeBlock.of(
               ".put($L, $L)",
               getMapKeyExpression(contributionBinding.bindingElement()),
               getDependencyArgument(frameworkDependency)));
     }
-    codeBlocks.add(CodeBlocks.format(".build()"));
+    codeBlocks.add(CodeBlock.of(".build()"));
 
     return CodeBlocks.concat(codeBlocks.build());
   }

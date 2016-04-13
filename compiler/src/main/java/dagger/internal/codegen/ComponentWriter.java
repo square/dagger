@@ -142,7 +142,7 @@ final class ComponentWriter extends AbstractComponentWriter {
 
   @Override
   protected TypeSpec.Builder createComponentClass() {
-    TypeSpec.Builder component = classBuilder(name.simpleName()).addModifiers(PUBLIC, FINAL);
+    TypeSpec.Builder component = classBuilder(name).addModifiers(PUBLIC, FINAL);
     addSupertype(component, componentDefinitionType());
     return component;
   }
