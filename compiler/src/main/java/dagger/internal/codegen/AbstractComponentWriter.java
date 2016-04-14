@@ -106,7 +106,7 @@ import static dagger.internal.codegen.TypeNames.PRODUCERS;
 import static dagger.internal.codegen.TypeNames.SET_FACTORY;
 import static dagger.internal.codegen.TypeNames.SET_OF_PRODUCED_PRODUCER;
 import static dagger.internal.codegen.TypeNames.SET_PRODUCER;
-import static dagger.internal.codegen.TypeNames.SIMPLE_LAZILY_INITIALIZED_PROVIDER;
+import static dagger.internal.codegen.TypeNames.SINGLE_CHECK;
 import static dagger.internal.codegen.TypeNames.STRING;
 import static dagger.internal.codegen.TypeNames.UNSUPPORTED_OPERATION_EXCEPTION;
 import static dagger.internal.codegen.TypeNames.providerOf;
@@ -1055,9 +1055,10 @@ abstract class AbstractComponentWriter {
   }
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {
-    return scope.equals(reusableScope(elements))
-        ? CodeBlock.of("$T.create($L)", SIMPLE_LAZILY_INITIALIZED_PROVIDER, factoryCreate)
-        : CodeBlock.of("$T.provider($L)", DOUBLE_CHECK, factoryCreate);
+    return CodeBlock.of(
+        "$T.provider($L)",
+        scope.equals(reusableScope(elements)) ? SINGLE_CHECK : DOUBLE_CHECK,
+        factoryCreate);
   }
 
   private CodeBlock nullableAnnotation(Optional<DeclaredType> nullableType) {

@@ -24,13 +24,13 @@ import static dagger.internal.Preconditions.checkNotNull;
  * A {@link Provider} implementation that memoizes the result of a {@link Factory} instance using
  * simple lazy initialization, not the double-checked lock pattern.
  */
-public final class SimpleLazilyInitializedProvider<T> implements Provider<T>, Lazy<T> {
+public final class SingleCheck<T> implements Provider<T>, Lazy<T> {
   private static final Object UNINITIALIZED = new Object();
 
   private volatile Factory<T> factory;
   private volatile Object instance = UNINITIALIZED;
 
-  private SimpleLazilyInitializedProvider(Factory<T> factory) {
+  private SingleCheck(Factory<T> factory) {
     assert factory != null;
     this.factory = factory;
   }
@@ -53,7 +53,7 @@ public final class SimpleLazilyInitializedProvider<T> implements Provider<T>, La
   }
 
   /** Returns a new provider for the given factory. */
-  public static <T> Provider<T> create(Factory<T> factory) {
-    return new SimpleLazilyInitializedProvider<T>(checkNotNull(factory));
+  public static <T> Provider<T> provider(Factory<T> factory) {
+    return new SingleCheck<T>(checkNotNull(factory));
   }
 }
