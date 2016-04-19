@@ -30,6 +30,7 @@ import dagger.internal.InstanceFactory;
 import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
+import dagger.internal.ProviderOfLazy;
 import dagger.internal.SetFactory;
 import dagger.internal.SingleCheck;
 import dagger.producers.Produced;
@@ -77,11 +78,12 @@ final class TypeNames {
   static final ClassName PRODUCER = ClassName.get(Producer.class);
   static final ClassName PRODUCERS = ClassName.get(Producers.class);
   static final ClassName PROVIDER = ClassName.get(Provider.class);
-  static final ClassName SINGLE_CHECK = ClassName.get(SingleCheck.class);
+  static final ClassName PROVIDER_OF_LAZY = ClassName.get(ProviderOfLazy.class);
   static final ClassName SET = ClassName.get(Set.class);
   static final ClassName SET_FACTORY = ClassName.get(SetFactory.class);
   static final ClassName SET_OF_PRODUCED_PRODUCER = ClassName.get(SetOfProducedProducer.class);
   static final ClassName SET_PRODUCER = ClassName.get(SetProducer.class);
+  static final ClassName SINGLE_CHECK = ClassName.get(SingleCheck.class);
   static final ClassName STRING = ClassName.get(String.class);
   static final ClassName UNSUPPORTED_OPERATION_EXCEPTION =
       ClassName.get(UnsupportedOperationException.class);
