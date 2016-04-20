@@ -48,7 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.SourceFiles.canonicalName;
+import static dagger.internal.codegen.SourceFiles.classFileName;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
@@ -138,7 +138,7 @@ final class MapKeys {
    */
   public static ClassName getMapKeyCreatorClassName(TypeElement mapKeyType) {
     ClassName mapKeyTypeName = ClassName.get(mapKeyType);
-    return mapKeyTypeName.topLevelClassName().peerClass(canonicalName(mapKeyTypeName) + "Creator");
+    return mapKeyTypeName.topLevelClassName().peerClass(classFileName(mapKeyTypeName) + "Creator");
   }
 
   /**

@@ -49,7 +49,6 @@ import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
 class SourceFiles {
 
   private static final Joiner CLASS_FILE_NAME_JOINER = Joiner.on('_');
-  private static final Joiner CANONICAL_NAME_JOINER = Joiner.on('$');
 
   /**
    * Sorts {@link DependencyRequest} instances in an order likely to reflect their logical
@@ -159,7 +158,7 @@ class SourceFiles {
             return enclosingClassName
                 .topLevelClassName()
                 .peerClass(
-                    canonicalName(enclosingClassName)
+                    classFileName(enclosingClassName)
                         + "_"
                         + factoryPrefix(contribution)
                         + "Factory");
@@ -239,15 +238,6 @@ class SourceFiles {
     return siblingClassName(typeElement,  "_MembersInjector");
   }
 
-  /**
-   * @deprecated prefer {@link #classFileName(ClassName)} instead and avoid dollar signs in
-   * generated source.
-   */
-  @Deprecated
-  static String canonicalName(ClassName className) {
-    return CANONICAL_NAME_JOINER.join(className.simpleNames());
-  }
-
   static String classFileName(ClassName className) {
     return CLASS_FILE_NAME_JOINER.join(className.simpleNames());
   }
@@ -265,7 +255,7 @@ class SourceFiles {
   // which could use this.
   private static ClassName siblingClassName(TypeElement typeElement, String suffix) {
     ClassName className = ClassName.get(typeElement);
-    return className.topLevelClassName().peerClass(canonicalName(className) + suffix);
+    return className.topLevelClassName().peerClass(classFileName(className) + suffix);
   }
 
   private static String factoryPrefix(ContributionBinding binding) {
