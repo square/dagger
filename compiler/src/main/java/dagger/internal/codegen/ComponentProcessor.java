@@ -67,11 +67,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new DependencyRequestFormatter(types, elements);
     KeyFormatter keyFormatter = new KeyFormatter(methodSignatureFormatter);
 
-    InjectConstructorValidator injectConstructorValidator = new InjectConstructorValidator();
-    InjectFieldValidator injectFieldValidator = new InjectFieldValidator(compilerOptions);
-    InjectMethodValidator injectMethodValidator = new InjectMethodValidator(compilerOptions);
-    MembersInjectedTypeValidator membersInjectedTypeValidator =
-        new MembersInjectedTypeValidator(injectFieldValidator, injectMethodValidator);
+    InjectValidator injectValidator = new InjectValidator(compilerOptions);
     ModuleValidator moduleValidator =
         new ModuleValidator(types, elements, methodSignatureFormatter);
     BuilderValidator builderValidator = new BuilderValidator(elements, types);
@@ -122,8 +118,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             elements,
             types,
             messager,
-            injectConstructorValidator,
-            membersInjectedTypeValidator,
+            injectValidator,
             keyFactory,
             provisionBindingFactory,
             membersInjectionBindingFactory);
