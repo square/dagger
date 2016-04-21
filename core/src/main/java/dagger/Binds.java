@@ -25,13 +25,13 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 /**
  * Annotates <em>abstract</em> methods of a {@link Module} that delegate bindings. For example, to
  * bind {@link java.util.Random} to {@link java.security.SecureRandom} a module could declare the
- * following: {@code @Bind abstract Random bindRandom(SecureRandom secureRandom);}
+ * following: {@code @Binds abstract Random bindRandom(SecureRandom secureRandom);}
  *
- * <p>{@code @Bind} methods are a drop-in replacement for {@link Provides} methods that simply
- * return an injected parameter.  Prefer {@code @Bind} because the generated implementation is
+ * <p>{@code @Binds} methods are a drop-in replacement for {@link Provides} methods that simply
+ * return an injected parameter.  Prefer {@code @Binds} because the generated implementation is
  * likely to be more efficient.
  *
- * <p>A {@code @Bind} method:
+ * <p>A {@code @Binds} method:
  * <ul>
  * <li>Must be {@code abstract}.
  * <li>Must have a single parameter whose type is assignable to the return type.  The return type is

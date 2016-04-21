@@ -100,20 +100,20 @@ public class MapKeyProcessorTest {
         "}");
     JavaFileObject generatedKeyCreator =
         JavaFileObjects.forSourceLines(
-            "test.Container$PathKeyCreator",
+            "test.Container_PathKeyCreator",
             "package test;",
             "",
             "import com.google.auto.value.AutoAnnotation;",
             "import javax.annotation.Generated;",
             "",
             GENERATED_ANNOTATION,
-            "public final class Container$PathKeyCreator {",
-            "  private Container$PathKeyCreator() {}",
+            "public final class Container_PathKeyCreator {",
+            "  private Container_PathKeyCreator() {}",
             "",
             "  @AutoAnnotation",
             "  public static Container.PathKey createPathKey("
                 + "PathEnum value, String relativePath) {",
-            "    return new AutoAnnotation_Container$PathKeyCreator_createPathKey(",
+            "    return new AutoAnnotation_Container_PathKeyCreator_createPathKey(",
             "        value, relativePath);",
             "  }",
             "}");
