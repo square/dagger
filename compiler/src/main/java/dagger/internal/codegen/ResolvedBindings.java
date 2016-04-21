@@ -16,6 +16,7 @@
 package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableListMultimap;
@@ -28,6 +29,7 @@ import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
 import dagger.internal.codegen.SourceElement.HasSourceElement;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -332,4 +334,12 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   Class<?> frameworkClass() {
     return bindingType().frameworkClass();
   }
+
+  static final Function<ResolvedBindings, Set<ContributionBinding>> CONTRIBUTION_BINDINGS =
+      new Function<ResolvedBindings, Set<ContributionBinding>>() {
+        @Override
+        public Set<ContributionBinding> apply(ResolvedBindings resolvedBindings) {
+          return resolvedBindings.contributionBindings();
+        }
+      };
 }

@@ -17,13 +17,18 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.Types;
+
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * An {@link Element}, optionally contributed by a subtype of the type that encloses it.
@@ -35,6 +40,14 @@ abstract class SourceElement {
   interface HasSourceElement {
     /** The source element associated with this object. */
     SourceElement sourceElement();
+
+    Function<SourceElement.HasSourceElement, SourceElement> SOURCE_ELEMENT =
+        new Function<SourceElement.HasSourceElement, SourceElement>() {
+          @Override
+          public SourceElement apply(SourceElement.HasSourceElement hasSourceElement) {
+            return hasSourceElement.sourceElement();
+          }
+        };
   }
 
   /** The {@link Element} instance.. */
@@ -81,4 +94,20 @@ abstract class SourceElement {
   static SourceElement forElement(Element element, TypeElement contributedBy) {
     return new AutoValue_SourceElement(element, Optional.of(contributedBy));
   }
+
+  static final Function<SourceElement, Set<TypeElement>> CONTRIBUTING_CLASS =
+      new Function<SourceElement, Set<TypeElement>>() {
+        @Override
+        public Set<TypeElement> apply(SourceElement sourceElement) {
+          return sourceElement.contributedBy().asSet();
+        }
+      };
+
+  static final Predicate<SourceElement> IS_STATIC =
+      new Predicate<SourceElement>() {
+        @Override
+        public boolean apply(SourceElement sourceElement) {
+          return sourceElement.element().getModifiers().contains(STATIC);
+        }
+      };
 }
