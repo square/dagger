@@ -57,6 +57,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreElements.hasModifiers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
@@ -72,6 +73,8 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDepen
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULTIBINDING_KIND;
 import static dagger.internal.codegen.Key.indexByKey;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * The canonical representation of a full-resolved graph.
@@ -112,8 +115,8 @@ abstract class BindingGraph {
    * The types for which the component needs instances.
    * <ul>
    * <li>component dependencies
-   * <li>{@linkplain #ownedModules() owned modules} with instance bindings that are used in the
-   *     graph
+   * <li>{@linkplain #ownedModules() owned modules} with concrete instance bindings that are used in
+   *     the graph
    * </ul>
    */
   ImmutableSet<TypeElement> componentRequirements() {
@@ -122,7 +125,8 @@ abstract class BindingGraph {
         .transformAndConcat(RESOLVED_BINDINGS)
         .transformAndConcat(ResolvedBindings.CONTRIBUTION_BINDINGS)
         .transform(HasSourceElement.SOURCE_ELEMENT)
-        .filter(not(SourceElement.IS_STATIC))
+        .filter(not(SourceElement.hasModifier(STATIC)))
+        .filter(not(SourceElement.hasModifier(ABSTRACT)))
         .transformAndConcat(SourceElement.CONTRIBUTING_CLASS)
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())
@@ -154,10 +158,10 @@ abstract class BindingGraph {
   }
 
   ImmutableSet<TypeElement> availableDependencies() {
-    return new ImmutableSet.Builder<TypeElement>()
-        .addAll(componentDescriptor().transitiveModuleTypes())
-        .addAll(componentDescriptor().dependencies())
-        .build();
+    return FluentIterable.from(componentDescriptor().transitiveModuleTypes())
+        .filter(not(hasModifiers(ABSTRACT)))
+        .append(componentDescriptor().dependencies())
+        .toSet();
   }
 
   static final class Factory {

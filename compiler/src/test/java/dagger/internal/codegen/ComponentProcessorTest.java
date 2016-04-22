@@ -514,6 +514,115 @@ public class ComponentProcessorTest {
         .and().generatesSources(generatedComponent);
   }
 
+  @Test
+  public void componentWithAbstractModule() {
+    JavaFileObject aFile =
+        JavaFileObjects.forSourceLines(
+            "test.A",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class A {",
+            "  @Inject A(B b) {}",
+            "}");
+    JavaFileObject bFile =
+        JavaFileObjects.forSourceLines("test.B",
+            "package test;",
+            "",
+            "interface B {}");
+    JavaFileObject cFile =
+        JavaFileObjects.forSourceLines(
+            "test.C",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class C {",
+            "  @Inject C() {}",
+            "}");
+
+    JavaFileObject moduleFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module",
+            "abstract class TestModule {",
+            "  @Provides static B b(C c) { return null; }",
+            "}");
+
+    JavaFileObject componentFile =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "import javax.inject.Provider;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  A a();",
+            "}");
+    JavaFileObject generatedComponent =
+        JavaFileObjects.forSourceLines(
+            "test.DaggerTestComponent",
+            "package test;",
+            "",
+            "import javax.annotation.Generated;",
+            "import javax.inject.Provider;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class DaggerTestComponent implements TestComponent {",
+            "  private Provider<B> bProvider;",
+            "  private Provider<A> aProvider;",
+            "",
+            "  private DaggerTestComponent(Builder builder) {",
+            "    assert builder != null;",
+            "    initialize(builder);",
+            "  }",
+            "",
+            "  public static Builder builder() {",
+            "    return new Builder();",
+            "  }",
+            "",
+            "  public static TestComponent create() {",
+            "    return builder().build();",
+            "  }",
+            "",
+            "  @SuppressWarnings(\"unchecked\")",
+            "  private void initialize(final Builder builder) {",
+            "    this.bProvider = TestModule_BFactory.create(C_Factory.create());",
+            "    this.aProvider = A_Factory.create(bProvider);",
+            "  }",
+            "",
+            "  @Override",
+            "  public A a() {",
+            "    return aProvider.get();",
+            "  }",
+            "",
+            "  public static final class Builder {",
+            "",
+            "    private Builder() {",
+            "    }",
+            "",
+            "    public TestComponent build() {",
+            "      return new DaggerTestComponent(this);",
+            "    }",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(aFile, bFile, cFile, moduleFile, componentFile))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(generatedComponent);
+  }
+
   @Test public void transitiveModuleDeps() {
     JavaFileObject always = JavaFileObjects.forSourceLines("test.AlwaysIncluded",
         "package test;",

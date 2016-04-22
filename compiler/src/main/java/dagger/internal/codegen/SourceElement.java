@@ -23,12 +23,11 @@ import com.google.common.base.Predicate;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.Types;
-
-import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * An {@link Element}, optionally contributed by a subtype of the type that encloses it.
@@ -102,12 +101,13 @@ abstract class SourceElement {
           return sourceElement.contributedBy().asSet();
         }
       };
-
-  static final Predicate<SourceElement> IS_STATIC =
-      new Predicate<SourceElement>() {
-        @Override
-        public boolean apply(SourceElement sourceElement) {
-          return sourceElement.element().getModifiers().contains(STATIC);
-        }
-      };
+      
+  static Predicate<SourceElement> hasModifier(final Modifier modifier) {
+    return new Predicate<SourceElement>() {
+      @Override
+      public boolean apply(SourceElement sourceElement) {
+        return sourceElement.element().getModifiers().contains(modifier);
+      }
+    };
+  }
 }
