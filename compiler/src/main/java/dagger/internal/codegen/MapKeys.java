@@ -88,7 +88,7 @@ final class MapKeys {
     checkArgument(
         mapKeyAnnotation != null, "%s is not annotated with @MapKey", mapKey.getAnnotationType());
     return mapKeyAnnotation.unwrapValue()
-        ? Optional.of(getOnlyElement(mapKey.getElementValues().values()))
+        ? Optional.of(getOnlyElement(getAnnotationValuesWithDefaults(mapKey).values()))
         : Optional.<AnnotationValue>absent();
   }
 
