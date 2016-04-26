@@ -53,7 +53,7 @@ final class Util {
     boolean foundInstanceMethod = false;
     for (ExecutableElement method : methods) {
       if (method.getModifiers().contains(ABSTRACT) && !isAnnotationPresent(method, Binds.class)) {
-        /* We found an abstract method that isn't a @Bind method.  That automatically means that
+        /* We found an abstract method that isn't a @Binds method.  That automatically means that
          * a user will have to provide an instance because we don't know which subclass to use. */
         return true;
       } else if (!method.getModifiers().contains(STATIC)

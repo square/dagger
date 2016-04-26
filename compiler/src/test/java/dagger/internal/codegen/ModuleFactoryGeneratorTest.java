@@ -1314,7 +1314,7 @@ public class ModuleFactoryGeneratorTest {
         .withErrorContaining("Produced may only be injected in @Produces methods");
   }
 
-  private static final String BIND_METHOD = "@Binds abstract Foo bindFoo(FooImpl impl);";
+  private static final String BINDS_METHOD = "@Binds abstract Foo bindFoo(FooImpl impl);";
   private static final String STATIC_PROVIDES_METHOD =
       "@Provides static Bar provideBar() { return new Bar(); }";
   private static final String INSTANCE_PROVIDES_METHOD =
@@ -1323,10 +1323,10 @@ public class ModuleFactoryGeneratorTest {
 
   @Test
   public void moduleMethodPermutations() {
-    assertThatMethodCombination(BIND_METHOD, INSTANCE_PROVIDES_METHOD)
+    assertThatMethodCombination(BINDS_METHOD, INSTANCE_PROVIDES_METHOD)
         .failsToCompile()
         .withErrorContaining("not both at the same time");
-    assertThatMethodCombination(BIND_METHOD, STATIC_PROVIDES_METHOD).compilesWithoutError();
+    assertThatMethodCombination(BINDS_METHOD, STATIC_PROVIDES_METHOD).compilesWithoutError();
     assertThatMethodCombination(INSTANCE_PROVIDES_METHOD, SOME_ABSTRACT_METHOD)
         .compilesWithoutError();
   }

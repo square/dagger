@@ -57,7 +57,7 @@ public final class DoubleCheck<T> implements Provider<T>, Lazy<T> {
   public static <T> Provider<T> provider(Provider<T> delegate) {
     checkNotNull(delegate);
     if (delegate instanceof DoubleCheck) {
-      /* This should be a rare case, but if we have a scoped @Bind that delegates to a scoped
+      /* This should be a rare case, but if we have a scoped @Binds that delegates to a scoped
        * binding, we shouldn't cache the value again. */
       return delegate;
     }
