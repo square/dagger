@@ -165,7 +165,7 @@ final class ModuleValidator {
     // Validate that all the modules we include are valid for inclusion.
     AnnotationMirror mirror = getAnnotationMirror(subject, moduleKind.moduleAnnotation()).get();
     ImmutableList<TypeMirror> includes = getModuleIncludes(mirror);
-    validateReferencedModules(subject, mirror, builder, includes, ImmutableSet.of(moduleKind));
+    validateReferencedModules(subject, builder, includes, ImmutableSet.of(moduleKind));
   }
 
   private static ImmutableSet<? extends Class<? extends Annotation>> includedModuleClasses(
@@ -187,7 +187,6 @@ final class ModuleValidator {
    */
   void validateReferencedModules(
       final TypeElement subject,
-      final AnnotationMirror moduleAnnotation,
       final ValidationReport.Builder<TypeElement> builder,
       ImmutableList<TypeMirror> includes,
       ImmutableSet<ModuleDescriptor.Kind> validModuleKinds) {

@@ -24,6 +24,7 @@ import dagger.producers.monitoring.ProducerMonitor;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Maps.newLinkedHashMapWithExpectedSize;
 
 /**
  * A {@link Producer} implementation used to implement {@link Map} bindings. This factory returns an
@@ -62,17 +63,15 @@ public final class MapOfProducerProducer<K, V> extends AbstractProducer<Map<K, P
    * A builder to help build the {@link MapOfProducerProducer}
    */
   public static final class Builder<K, V> {
-    private final ImmutableMap.Builder<K, Producer<V>> mapBuilder;
+    private final Map<K, Producer<V>> mapBuilder;
 
     private Builder(int size) {
-      // TODO(beder): It would be nice to use the size, but ImmutableMap doesn't allow a pre-sized
-      // map, and Dagger's internal Collections implementation is package-private.
-      this.mapBuilder = ImmutableMap.builder();
+      this.mapBuilder = newLinkedHashMapWithExpectedSize(size);
     }
 
     /** Returns a new {@link MapOfProducerProducer}. */
     public MapOfProducerProducer<K, V> build() {
-      return new MapOfProducerProducer<K, V>(mapBuilder.build());
+      return new MapOfProducerProducer<K, V>(ImmutableMap.copyOf(mapBuilder));
     }
 
     /** Associates k with producerOfValue in {@code Builder}. */

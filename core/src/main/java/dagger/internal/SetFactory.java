@@ -51,7 +51,7 @@ public final class SetFactory<T> implements Factory<Set<T>> {
 
   @SuppressWarnings({"unchecked", "rawtypes"}) // safe covariant cast
   public static <T> Factory<Set<T>> create() {
-    return (Factory<Set<T>>) (Factory) EMPTY_FACTORY;
+    return (Factory) EMPTY_FACTORY;
   }
 
   /**

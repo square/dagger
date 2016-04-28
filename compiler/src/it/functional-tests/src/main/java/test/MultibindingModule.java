@@ -24,14 +24,12 @@ import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import dagger.multibindings.LongKey;
 import dagger.multibindings.StringKey;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.inject.Named;
 import javax.inject.Provider;
 
@@ -44,13 +42,13 @@ class MultibindingModule {
   @Provides
   @IntoMap
   @StringKey("foo")
-  static String provideFooKey(double doubleDependency) {
+  static String provideFooKey(@SuppressWarnings("unused") double doubleDependency) {
     return "foo value";
   }
 
   @Provides(type = MAP)
   @StringKey("foo @Provides(type)")
-  static String provideFooProvidesTypeKey(double doubleDependency) {
+  static String provideFooProvidesTypeKey(@SuppressWarnings("unused") double doubleDependency) {
     return "foo @Provides(type) value";
   }
 
@@ -64,7 +62,7 @@ class MultibindingModule {
   @Provides
   @IntoMap
   @StringKey("foo")
-  static String[] provideFooArrayValue(double doubleDependency) {
+  static String[] provideFooArrayValue(@SuppressWarnings("unused") double doubleDependency) {
     return new String[] {"foo1", "foo2"};
   }
 

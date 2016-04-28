@@ -29,7 +29,6 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-import dagger.Provides;
 import dagger.internal.Factory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.Preconditions;

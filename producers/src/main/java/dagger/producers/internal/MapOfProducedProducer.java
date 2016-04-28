@@ -108,7 +108,6 @@ public final class MapOfProducedProducer<K, V> extends AbstractProducer<Map<K, P
   private static <K, V>
       Function<Map.Entry<K, Producer<V>>, ListenableFuture<Map.Entry<K, Produced<V>>>>
           entryUnwrapper() {
-    return (Function<Map.Entry<K, Producer<V>>, ListenableFuture<Map.Entry<K, Produced<V>>>>)
-        (Function) ENTRY_UNWRAPPER;
+    return (Function) ENTRY_UNWRAPPER;
   }
 }
