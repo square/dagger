@@ -88,9 +88,9 @@ class SourceFiles {
     for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
       bindingFields.put(
           frameworkDependency.bindingKey(),
-          FrameworkField.createWithTypeFromKey(
-              frameworkDependency.frameworkClass(),
-              frameworkDependency.bindingKey().key(),
+          FrameworkField.create(
+              ClassName.get(frameworkDependency.frameworkClass()),
+              TypeName.get(frameworkDependency.bindingKey().key().type()),
               fieldNameForDependency(frameworkDependency)));
     }
     return bindingFields.build();

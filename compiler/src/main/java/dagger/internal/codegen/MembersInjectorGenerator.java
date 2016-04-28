@@ -155,8 +155,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       String fieldName = fieldNames.getUniqueName(bindingField.name());
       TypeName fieldType =
           useRawFrameworkType
-              ? bindingField.frameworkType().rawType
-              : bindingField.frameworkType();
+              ? bindingField.type().rawType
+              : bindingField.type();
       FieldSpec.Builder fieldBuilder = FieldSpec.builder(fieldType, fieldName, PRIVATE, FINAL);
       ParameterSpec.Builder parameterBuilder = ParameterSpec.builder(fieldType, fieldName);
 

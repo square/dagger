@@ -484,27 +484,25 @@ abstract class AbstractComponentWriter {
 
     // TODO(gak): get rid of the field for unscoped delegated bindings
 
-    FieldSpec frameworkField = addFrameworkField(resolvedBindings, Optional.<BindingType>absent());
-    memberSelects.put(
-        bindingKey,
-        localField(name, frameworkField.name));
+    FieldSpec frameworkField = addFrameworkField(resolvedBindings, Optional.<ClassName>absent());
+    memberSelects.put(bindingKey, localField(name, frameworkField.name));
   }
 
   /**
    * Adds a field representing the resolved bindings, optionally forcing it to use a particular
-   * binding type (instead of the type the resolved bindings would typically use).
+   * framework class (instead of the class the resolved bindings would typically use).
    */
   private FieldSpec addFrameworkField(
-      ResolvedBindings resolvedBindings, Optional<BindingType> bindingType) {
+      ResolvedBindings resolvedBindings, Optional<ClassName> frameworkClass) {
     boolean useRawType = useRawType(resolvedBindings);
 
     FrameworkField contributionBindingField =
-        FrameworkField.createForResolvedBindings(resolvedBindings, bindingType);
+        FrameworkField.forResolvedBindings(resolvedBindings, frameworkClass);
     FieldSpec.Builder contributionField =
         componentField(
             useRawType
-                ? contributionBindingField.frameworkType().rawType
-                : contributionBindingField.frameworkType(),
+                ? contributionBindingField.type().rawType
+                : contributionBindingField.type(),
             contributionBindingField.name());
     contributionField.addModifiers(PRIVATE);
     if (useRawType) {
@@ -872,7 +870,7 @@ abstract class AbstractComponentWriter {
           continue;
         }
         FieldSpec frameworkField =
-            addFrameworkField(resolvedBindings, Optional.of(BindingType.PRODUCTION));
+            addFrameworkField(resolvedBindings, Optional.of(PRODUCER));
         memberSelect = localField(name, frameworkField.name);
         producerFromProviderMemberSelects.put(frameworkDependency.bindingKey(), memberSelect);
         initializations.add(

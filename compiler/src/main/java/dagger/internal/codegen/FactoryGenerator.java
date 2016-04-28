@@ -140,7 +140,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         }
         for (FrameworkField bindingField : fields.values()) {
           addConstructorParameterAndTypeField(
-              bindingField.frameworkType(),
+              bindingField.type(),
               bindingField.name(),
               factoryBuilder,
               constructorBuilder.get());
