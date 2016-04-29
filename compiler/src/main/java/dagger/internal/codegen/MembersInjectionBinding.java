@@ -157,7 +157,7 @@ abstract class MembersInjectionBinding extends Binding {
           InjectionSite.Kind.METHOD,
           methodElement,
           dependencyRequestFactory.forRequiredResolvedVariables(
-              containingType, methodElement.getParameters(), resolved.getParameterTypes()));
+              methodElement.getParameters(), resolved.getParameterTypes()));
     }
 
     private InjectionSite injectionSiteForInjectField(
@@ -170,8 +170,7 @@ abstract class MembersInjectionBinding extends Binding {
           InjectionSite.Kind.FIELD,
           fieldElement,
           ImmutableSet.of(
-              dependencyRequestFactory.forRequiredResolvedVariable(
-                  containingType, fieldElement, resolved)));
+              dependencyRequestFactory.forRequiredResolvedVariable(fieldElement, resolved)));
     }
 
     /** Returns true if the type has some injected members in itself or any of its super classes. */

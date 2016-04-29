@@ -96,7 +96,6 @@ abstract class ProductionBinding extends ContributionBinding {
           MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredResolvedVariables(
-              MoreTypes.asDeclared(contributedBy.asType()),
               producesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
       DependencyRequest executorRequest =

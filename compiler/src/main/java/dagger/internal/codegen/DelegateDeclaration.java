@@ -63,7 +63,6 @@ abstract class DelegateDeclaration implements HasKey, HasSourceElement, HasContr
           MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
       DependencyRequest delegateRequest =
           dependencyRequestFactory.forRequiredResolvedVariable(
-              MoreTypes.asDeclared(contributingElement.asType()),
               Iterables.getOnlyElement(bindsMethod.getParameters()),
               Iterables.getOnlyElement(resolvedMethod.getParameterTypes()));
       return new AutoValue_DelegateDeclaration(

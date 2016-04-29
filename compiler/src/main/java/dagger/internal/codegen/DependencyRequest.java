@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
@@ -153,16 +152,6 @@ abstract class DependencyRequest {
 
   abstract Element requestElement();
 
-  /**
-   * Returns the possibly resolved type that contained the requesting element. For members injection
-   * requests, this is the type itself.
-   */
-  DeclaredType enclosingType() {
-    return wrappedEnclosingType().get();
-  }
-
-  abstract Equivalence.Wrapper<DeclaredType> wrappedEnclosingType();
-
   /** Returns true if this request allows null objects. */
   abstract boolean isNullable();
 
@@ -187,12 +176,12 @@ abstract class DependencyRequest {
       this.keyFactory = keyFactory;
     }
 
-    ImmutableSet<DependencyRequest> forRequiredResolvedVariables(DeclaredType container,
+    ImmutableSet<DependencyRequest> forRequiredResolvedVariables(
         List<? extends VariableElement> variables, List<? extends TypeMirror> resolvedTypes) {
       checkState(resolvedTypes.size() == variables.size());
       ImmutableSet.Builder<DependencyRequest> builder = ImmutableSet.builder();
       for (int i = 0; i < variables.size(); i++) {
-        builder.add(forRequiredResolvedVariable(container, variables.get(i), resolvedTypes.get(i)));
+        builder.add(forRequiredResolvedVariable(variables.get(i), resolvedTypes.get(i)));
       }
       return builder.build();
     }
@@ -225,7 +214,6 @@ abstract class DependencyRequest {
           Kind.PROVIDER,
           mapOfFactoryKey,
           mapOfValueRequest.requestElement(),
-          mapOfValueRequest.wrappedEnclosingType(),
           false /* doesn't allow null */,
           Optional.<String>absent());
     }
@@ -244,7 +232,6 @@ abstract class DependencyRequest {
           multibindingContributionRequestKind(multibindingContribution),
           multibindingContribution.key(),
           request.requestElement(),
-          request.wrappedEnclosingType(),
           false /* doesn't allow null */,
           Optional.<String>absent());
     }
@@ -287,18 +274,16 @@ abstract class DependencyRequest {
       checkNotNull(variableElement);
       TypeMirror type = variableElement.asType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
-      return newDependencyRequest(
-          variableElement, type, qualifier, getEnclosingType(variableElement), name);
+      return newDependencyRequest(variableElement, type, qualifier, name);
     }
 
-    DependencyRequest forRequiredResolvedVariable(DeclaredType container,
-        VariableElement variableElement,
-        TypeMirror resolvedType) {
+    DependencyRequest forRequiredResolvedVariable(
+        VariableElement variableElement, TypeMirror resolvedType) {
       checkNotNull(variableElement);
       checkNotNull(resolvedType);
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(variableElement);
       return newDependencyRequest(
-          variableElement, resolvedType, qualifier, container, Optional.<String>absent());
+          variableElement, resolvedType, qualifier, Optional.<String>absent());
     }
 
     DependencyRequest forComponentProvisionMethod(ExecutableElement provisionMethod,
@@ -314,7 +299,6 @@ abstract class DependencyRequest {
           provisionMethod,
           provisionMethodType.getReturnType(),
           qualifier,
-          getEnclosingType(provisionMethod),
           Optional.<String>absent());
     }
 
@@ -326,7 +310,6 @@ abstract class DependencyRequest {
           "Component production methods must be empty: %s", productionMethod);
       TypeMirror type = productionMethodType.getReturnType();
       Optional<AnnotationMirror> qualifier = InjectionAnnotations.getQualifier(productionMethod);
-      DeclaredType container = getEnclosingType(productionMethod);
       // Only a component production method can be a request for a ListenableFuture, so we
       // special-case it here.
       if (isTypeOf(ListenableFuture.class, type)) {
@@ -335,12 +318,10 @@ abstract class DependencyRequest {
             keyFactory.forQualifiedType(
                 qualifier, Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())),
             productionMethod,
-            MoreTypes.equivalence().wrap(container),
             false /* doesn't allow null */,
             Optional.<String>absent());
       } else {
-        return newDependencyRequest(
-            productionMethod, type, qualifier, container, Optional.<String>absent());
+        return newDependencyRequest(productionMethod, type, qualifier, Optional.<String>absent());
       }
     }
 
@@ -352,8 +333,6 @@ abstract class DependencyRequest {
           InjectionAnnotations.getQualifier(membersInjectionMethod);
       checkArgument(!qualifier.isPresent());
       TypeMirror returnType = membersInjectionMethodType.getReturnType();
-      Equivalence.Wrapper<DeclaredType> container =
-          MoreTypes.equivalence().wrap(getEnclosingType(membersInjectionMethod));
       TypeMirror membersInjectedType =
           MoreTypes.isType(returnType) && MoreTypes.isTypeOf(MembersInjector.class, returnType)
               ? getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments())
@@ -362,7 +341,6 @@ abstract class DependencyRequest {
           Kind.MEMBERS_INJECTOR,
           keyFactory.forMembersInjectedType(membersInjectedType),
           membersInjectionMethod,
-          container,
           false /* doesn't allow null */,
           Optional.<String>absent());
     }
@@ -372,7 +350,6 @@ abstract class DependencyRequest {
           Kind.MEMBERS_INJECTOR,
           keyFactory.forMembersInjectedType(type),
           type.asElement(),
-          MoreTypes.equivalence().wrap(type),
           false /* doesn't allow null */,
           Optional.<String>absent());
     }
@@ -383,7 +360,6 @@ abstract class DependencyRequest {
           Kind.PROVIDER,
           key,
           MoreTypes.asElement(key.type()),
-          MoreTypes.equivalence().wrap(MoreTypes.asDeclared(key.type())),
           false /* doesn't allow null */,
           Optional.<String>absent());
     }
@@ -403,7 +379,6 @@ abstract class DependencyRequest {
         Element requestElement,
         TypeMirror type,
         Optional<AnnotationMirror> qualifier,
-        DeclaredType container,
         Optional<String> name) {
       KindAndType kindAndType = extractKindAndType(type);
       if (kindAndType.kind().equals(Kind.MEMBERS_INJECTOR)) {
@@ -418,7 +393,6 @@ abstract class DependencyRequest {
           kindAndType.kind(),
           keyFactory.forQualifiedType(qualifier, kindAndType.type()),
           requestElement,
-          MoreTypes.equivalence().wrap(container),
           allowsNull,
           name);
     }

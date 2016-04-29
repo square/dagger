@@ -106,9 +106,8 @@ abstract class ProvisionBinding extends ContributionBinding {
       Key key = keyFactory.forInjectConstructorWithResolvedType(enclosingCxtorType);
       checkArgument(!key.qualifier().isPresent());
       ImmutableSet<DependencyRequest> dependencies =
-          dependencyRequestFactory.forRequiredResolvedVariables(enclosingCxtorType,
-              constructorElement.getParameters(),
-              cxtorType.getParameterTypes());
+          dependencyRequestFactory.forRequiredResolvedVariables(
+              constructorElement.getParameters(), cxtorType.getParameterTypes());
       Optional<DependencyRequest> membersInjectionRequest =
           membersInjectionRequest(enclosingCxtorType);
       Optional<Scope> scope = Scope.uniqueScopeOf(constructorElement.getEnclosingElement());
@@ -158,7 +157,6 @@ abstract class ProvisionBinding extends ContributionBinding {
       Key key = keyFactory.forProvidesMethod(sourceElement);
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredResolvedVariables(
-              MoreTypes.asDeclared(contributedBy.asType()),
               providesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
       Optional<Scope> scope = Scope.uniqueScopeOf(providesMethod);
