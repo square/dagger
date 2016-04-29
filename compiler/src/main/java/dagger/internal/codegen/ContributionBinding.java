@@ -36,7 +36,6 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -67,16 +66,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
 
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
-
-  /**
-   * If this is a provision request from an {@code @Provides} or {@code @Produces} method, this will
-   * be the element that contributed it. In the case of subclassed modules, this may differ than the
-   * binding's enclosed element, as this will return the subclass whereas the enclosed element will
-   * be the superclass.
-   */
-  Optional<TypeElement> contributedBy() {
-    return sourceElement().contributedBy();
-  }
 
   /**
    * Returns whether this binding is synthetic, i.e., not explicitly tied to code, but generated

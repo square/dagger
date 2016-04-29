@@ -984,7 +984,7 @@ abstract class AbstractComponentWriter {
               Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
           if (binding.bindingKind().equals(PROVISION)
               && !binding.bindingElement().getModifiers().contains(STATIC)) {
-            arguments.add(getComponentContributionExpression(binding.contributedBy().get()));
+            arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
           arguments.addAll(getDependencyArguments(binding));
 
@@ -1073,7 +1073,7 @@ abstract class AbstractComponentWriter {
       case INJECT_MEMBERS:
         return CodeBlock.of(
             "$T.create($L)",
-            membersInjectorNameForType(binding.bindingElement()),
+            membersInjectorNameForType(binding.membersInjectedType()),
             makeParametersCodeBlock(getDependencyArguments(binding)));
       default:
         throw new AssertionError();

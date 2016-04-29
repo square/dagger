@@ -28,7 +28,6 @@ import com.google.common.collect.Multimap;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
-import dagger.internal.codegen.SourceElement.HasSourceElement;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -298,9 +297,9 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
    * The {@link #contributionBindings()} and {@link #multibindingDeclarations()}, indexed by
    * {@link ContributionType}.
    */
-  ImmutableListMultimap<ContributionType, HasSourceElement>
+  ImmutableListMultimap<ContributionType, BindingDeclaration>
       bindingsAndDeclarationsByContributionType() {
-    return new ImmutableListMultimap.Builder<ContributionType, HasSourceElement>()
+    return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
         .putAll(indexByContributionType(contributionBindings()))
         .putAll(indexByContributionType(multibindingDeclarations()))
         .build();

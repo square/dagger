@@ -203,7 +203,7 @@ final class InjectBindingRegistry {
      */
     warnIfNotAlreadyGenerated =
         warnIfNotAlreadyGenerated
-            && (!injectedConstructors(binding.bindingElement()).isEmpty()
+            && (!injectedConstructors(binding.membersInjectedType()).isEmpty()
                 ? !binding.injectionSites().isEmpty()
                 : binding.hasLocalInjectionSites());
     membersInjectionBindings.tryRegisterBinding(binding, warnIfNotAlreadyGenerated);

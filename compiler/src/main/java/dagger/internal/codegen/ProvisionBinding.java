@@ -117,7 +117,8 @@ abstract class ProvisionBinding extends ContributionBinding {
 
       return new AutoValue_ProvisionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(constructorElement),
+          constructorElement,
+          Optional.<TypeElement>absent(),
           key,
           dependencies,
           findBindingPackage(key),
@@ -151,10 +152,10 @@ abstract class ProvisionBinding extends ContributionBinding {
     ProvisionBinding forProvidesMethod(
         ExecutableElement providesMethod, TypeElement contributedBy) {
       checkArgument(providesMethod.getKind().equals(METHOD));
-      SourceElement sourceElement = SourceElement.forElement(providesMethod, contributedBy);
       ExecutableType resolvedMethod =
-          MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
-      Key key = keyFactory.forProvidesMethod(sourceElement);
+          MoreTypes.asExecutable(
+              types.asMemberOf(MoreTypes.asDeclared(contributedBy.asType()), providesMethod));
+      Key key = keyFactory.forProvidesMethod(providesMethod, contributedBy);
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredResolvedVariables(
               providesMethod.getParameters(),
@@ -162,7 +163,8 @@ abstract class ProvisionBinding extends ContributionBinding {
       Optional<Scope> scope = Scope.uniqueScopeOf(providesMethod);
       return new AutoValue_ProvisionBinding(
           ContributionType.fromBindingMethod(providesMethod),
-          sourceElement,
+          providesMethod,
+          Optional.of(contributedBy),
           key,
           dependencies,
           findBindingPackage(key),
@@ -189,7 +191,8 @@ abstract class ProvisionBinding extends ContributionBinding {
               requestForMapOfValues, mapOfProvidersKey.get());
       return new AutoValue_ProvisionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(requestForMapOfProviders.requestElement()),
+          requestForMapOfProviders.requestElement(),
+          Optional.<TypeElement>absent(),
           requestForMapOfValues.key(),
           ImmutableSet.of(requestForMapOfProviders),
           findBindingPackage(requestForMapOfValues.key()),
@@ -210,7 +213,8 @@ abstract class ProvisionBinding extends ContributionBinding {
         final DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return new AutoValue_ProvisionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(request.requestElement()),
+          request.requestElement(),
+          Optional.<TypeElement>absent(),
           request.key(),
           dependencyRequestFactory.forMultibindingContributions(request, multibindingContributions),
           findBindingPackage(request.key()),
@@ -225,7 +229,8 @@ abstract class ProvisionBinding extends ContributionBinding {
       checkNotNull(componentDefinitionType);
       return new AutoValue_ProvisionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(componentDefinitionType),
+          componentDefinitionType,
+          Optional.<TypeElement>absent(),
           keyFactory.forComponent(componentDefinitionType.asType()),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
@@ -243,7 +248,8 @@ abstract class ProvisionBinding extends ContributionBinding {
       Optional<Scope> scope = Scope.uniqueScopeOf(componentMethod);
       return new AutoValue_ProvisionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(componentMethod),
+          componentMethod,
+          Optional.<TypeElement>absent(),
           keyFactory.forComponentMethod(componentMethod),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
@@ -262,7 +268,8 @@ abstract class ProvisionBinding extends ContributionBinding {
       DeclaredType declaredContainer = asDeclared(contributedBy.asType());
       return new AutoValue_ProvisionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(subcomponentBuilderMethod, contributedBy),
+          subcomponentBuilderMethod,
+          Optional.<TypeElement>absent(),
           keyFactory.forSubcomponentBuilderMethod(subcomponentBuilderMethod, declaredContainer),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
@@ -277,7 +284,8 @@ abstract class ProvisionBinding extends ContributionBinding {
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
       return new AutoValue_ProvisionBinding(
           delegate.contributionType(),
-          delegateDeclaration.sourceElement(),
+          delegateDeclaration.bindingElement(),
+          delegateDeclaration.contributingModule(),
           delegateDeclaration.key(),
           ImmutableSet.of(delegateDeclaration.delegateRequest()),
           findBindingPackage(delegateDeclaration.key()),
@@ -285,7 +293,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           Optional.<DependencyRequest>absent(),
           Kind.SYNTHETIC_DELEGATE_BINDING,
           Optional.<ProvisionBinding>absent(),
-          Scope.uniqueScopeOf(delegateDeclaration.sourceElement().element()));
+          Scope.uniqueScopeOf(delegateDeclaration.bindingElement()));
     }
   }
 }

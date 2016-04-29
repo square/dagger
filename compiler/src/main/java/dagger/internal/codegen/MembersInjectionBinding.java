@@ -64,9 +64,8 @@ abstract class MembersInjectionBinding extends Binding {
   @Override
   abstract Optional<MembersInjectionBinding> unresolved();
 
-  @Override
-  TypeElement bindingElement() {
-    return MoreElements.asType(super.bindingElement());
+  TypeElement membersInjectedType() {
+    return MoreElements.asType(bindingElement());
   }
 
   @Override
@@ -106,7 +105,7 @@ abstract class MembersInjectionBinding extends Binding {
             new Predicate<InjectionSite>() {
               @Override
               public boolean apply(InjectionSite injectionSite) {
-                return injectionSite.element().getEnclosingElement().equals(bindingElement());
+                return injectionSite.element().getEnclosingElement().equals(membersInjectedType());
               }
             });
   }
@@ -221,7 +220,8 @@ abstract class MembersInjectionBinding extends Binding {
       Key key = keyFactory.forMembersInjectedType(declaredType);
       TypeElement typeElement = MoreElements.asType(declaredType.asElement());
       return new AutoValue_MembersInjectionBinding(
-          SourceElement.forElement(typeElement),
+          typeElement,
+          Optional.<TypeElement>absent(),
           key,
           dependencies,
           findBindingPackage(key),

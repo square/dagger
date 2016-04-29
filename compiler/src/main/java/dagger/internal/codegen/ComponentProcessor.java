@@ -61,8 +61,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     CompilerOptions compilerOptions = CompilerOptions.create(processingEnv, elements);
 
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
-    HasSourceElementFormatter hasSourceElementFormatter =
-        new HasSourceElementFormatter(methodSignatureFormatter);
+    BindingDeclarationFormatter bindingDeclarationFormatter =
+        new BindingDeclarationFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter =
         new DependencyRequestFormatter(types, elements);
     KeyFormatter keyFormatter = new KeyFormatter(methodSignatureFormatter);
@@ -150,7 +150,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             types,
             compilerOptions,
             injectBindingRegistry,
-            hasSourceElementFormatter,
+            bindingDeclarationFormatter,
             methodSignatureFormatter,
             dependencyRequestFormatter,
             keyFormatter,

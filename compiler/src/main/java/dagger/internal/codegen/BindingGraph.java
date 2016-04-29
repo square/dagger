@@ -36,7 +36,6 @@ import dagger.Reusable;
 import dagger.Subcomponent;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.internal.codegen.SourceElement.HasSourceElement;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -124,10 +123,9 @@ abstract class BindingGraph {
         .preOrderTraversal(this)
         .transformAndConcat(RESOLVED_BINDINGS)
         .transformAndConcat(ResolvedBindings.CONTRIBUTION_BINDINGS)
-        .transform(HasSourceElement.SOURCE_ELEMENT)
-        .filter(not(SourceElement.hasModifier(STATIC)))
-        .filter(not(SourceElement.hasModifier(ABSTRACT)))
-        .transformAndConcat(SourceElement.CONTRIBUTING_CLASS)
+        .filter(not(BindingDeclaration.bindingElementHasModifier(STATIC)))
+        .filter(not(BindingDeclaration.bindingElementHasModifier(ABSTRACT)))
+        .transformAndConcat(BindingDeclaration.CONTRIBUTING_MODULE)
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())
         .toSet();
@@ -315,8 +313,9 @@ abstract class BindingGraph {
         ImmutableSetMultimap.Builder<Key, ContributionBinding> explicitMultibindingsBuilder =
             ImmutableSetMultimap.builder();
         for (ContributionBinding binding : explicitBindingsSet) {
-          if (binding.key().bindingMethod().isPresent()) {
-            explicitMultibindingsBuilder.put(binding.key().withoutBindingMethod(), binding);
+          if (binding.key().bindingMethodIdentifier().isPresent()) {
+            explicitMultibindingsBuilder.put(
+                binding.key().withoutBindingMethodIdentifier(), binding);
           }
         }
         this.explicitMultibindings = explicitMultibindingsBuilder.build();
@@ -585,8 +584,9 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the explicit multibindings whose key (minus its {@link Key#bindingMethod()})
-       * matches the {@code requestKey} from this and all ancestor resolvers.
+       * Returns the explicit multibindings whose key (minus its
+       * {@link Key#bindingMethodIdentifier()}) matches the {@code requestKey} from this and all
+       * ancestor resolvers.
        */
       private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key requestKey) {
         ImmutableSet.Builder<ContributionBinding> explicitMultibindingsForKey =
