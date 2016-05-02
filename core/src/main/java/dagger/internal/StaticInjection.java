@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2013 Square, Inc.
- * Copyright (C) 2013 Google, Inc.
+ * Copyright (C) 2012 Square Inc.
+ * Copyright (C) 2012 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.loaders;
+package dagger.internal;
 
 
 /**
- * A single point for API used in common by Adapters and Adapter generators
+ * Injects the static fields of a class.
  */
-public final class GeneratedAdapters {
-  private static final String SEPARATOR = "$$";
-  public static final String INJECT_ADAPTER_SUFFIX = SEPARATOR + "InjectAdapter";
-  public static final String MODULE_ADAPTER_SUFFIX = SEPARATOR + "ModuleAdapter";
-  public static final String STATIC_INJECTION_SUFFIX = SEPARATOR + "StaticInjection";
+public abstract class StaticInjection {
 
-  private GeneratedAdapters() { }
+  public abstract void attach(Linker linker);
+
+  public abstract void inject();
+
 }

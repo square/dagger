@@ -18,6 +18,7 @@ package dagger.internal;
 
 
 import dagger.internal.loaders.ReflectiveAtInjectBinding;
+import dagger.internal.loaders.ReflectiveStaticInjection;
 
 /**
  * A test-only loader that merely uses reflection to test internals.
@@ -41,5 +42,9 @@ public final class TestingLoader extends Loader {
       throw new TypeNotPresentException(
           String.format("Could not find %s needed for binding %s", className, key), e);
     }
+  }
+
+  @Override public StaticInjection getStaticInjection(Class<?> injectedClass) {
+    return ReflectiveStaticInjection.create(injectedClass);
   }
 }
