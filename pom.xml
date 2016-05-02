@@ -43,7 +43,7 @@
     <!-- Compilation -->
     <java.version>1.6</java.version>
     <javax.inject.version>1</javax.inject.version>
-    <javapoet.version>1.4.0</javapoet.version>
+    <javapoet.version>1.7.0</javapoet.version>
     <guava.version>19.0</guava.version>
 
     <!-- Test Dependencies -->
