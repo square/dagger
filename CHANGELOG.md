@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+Version 1.2.3 *(2016-05-02)*
+----------------------------
+
+ * Fix: Correct detection of module base classes. This previously erroneously failed compilation
+   on modules which extended from `Object` but were not detected as such.
+ * Fix: Allow the use of dollar signs in processed class names.
+ * Fix: Remove the need for `javac` to generate synthetic accessor methods for internal classes.
+ * Fix: Error when duplicate classes are listed in `injects=` or `includes=` lists.
+
+
 Version 1.2.2 *(2014-07-21)*
 ----------------------------
 
