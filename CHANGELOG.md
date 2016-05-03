@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-Version 1.2.4 *(2015-05-03)*
+Version 1.2.4 *(2016-05-03)*
 ----------------------------
 
  * Fix: Restore static injection support to work correctly.
