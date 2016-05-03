@@ -26,6 +26,7 @@ import dagger.internal.ModuleAdapter;
 import dagger.internal.Modules;
 import dagger.internal.ProblemDetector;
 import dagger.internal.SetBinding;
+import dagger.internal.StaticInjection;
 import dagger.internal.ThrowingErrorHandler;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -106,11 +107,18 @@ public abstract class ObjectGraph {
   public abstract void validate();
 
   /**
+   * Injects the static fields of the classes listed in the object graph's
+   * {@code staticInjections} property.
+   */
+  public abstract void injectStatics();
+
+  /**
    * Returns a new dependency graph using the {@literal @}{@link
    * Module}-annotated modules.
    *
    * <p>This <strong>does not</strong> inject any members. Most applications
-   * should call {@link #inject} or get {@link #get(Class)} to inject instance members when this
+   * should call {@link #injectStatics} to inject static members and {@link
+   * #inject} or get {@link #get(Class)} to inject instance members when this
    * method has returned.
    *
    * <p>This <strong>does not</strong> validate the graph. Rely on build time
@@ -131,18 +139,21 @@ public abstract class ObjectGraph {
     private final DaggerObjectGraph base;
     private final Linker linker;
     private final Loader plugin;
+    private final Map<Class<?>, StaticInjection> staticInjections;
     private final Map<String, Class<?>> injectableTypes;
     private final List<SetBinding<?>> setBindings;
 
     DaggerObjectGraph(DaggerObjectGraph base,
         Linker linker,
         Loader plugin,
+        Map<Class<?>, StaticInjection> staticInjections,
         Map<String, Class<?>> injectableTypes,
         List<SetBinding<?>> setBindings) {
 
       this.base = base;
       this.linker = checkNotNull(linker, "linker");
       this.plugin = checkNotNull(plugin, "plugin");
+      this.staticInjections = checkNotNull(staticInjections, "staticInjections");
       this.injectableTypes = checkNotNull(injectableTypes, "injectableTypes");
       this.setBindings = checkNotNull(setBindings, "setBindings");
     }
@@ -154,6 +165,8 @@ public abstract class ObjectGraph {
 
     static ObjectGraph makeGraph(DaggerObjectGraph base, Loader plugin, Object... modules) {
       Map<String, Class<?>> injectableTypes = new LinkedHashMap<String, Class<?>>();
+      Map<Class<?>, StaticInjection> staticInjections
+          = new LinkedHashMap<Class<?>, StaticInjection>();
       StandardBindings baseBindings =
           (base == null) ? new StandardBindings() : new StandardBindings(base.setBindings);
       BindingsGroup overrideBindings = new OverridesBindings();
@@ -163,6 +176,9 @@ public abstract class ObjectGraph {
         ModuleAdapter<Object> moduleAdapter = (ModuleAdapter<Object>) loadedModule.getKey();
         for (int i = 0; i < moduleAdapter.injectableTypes.length; i++) {
           injectableTypes.put(moduleAdapter.injectableTypes[i], moduleAdapter.moduleClass);
+        }
+        for (int i = 0; i < moduleAdapter.staticInjections.length; i++) {
+          staticInjections.put(moduleAdapter.staticInjections[i], null);
         }
         try {
           BindingsGroup addTo = moduleAdapter.overrides ? overrideBindings : baseBindings;
@@ -180,12 +196,23 @@ public abstract class ObjectGraph {
       linker.installBindings(overrideBindings);
 
       return new DaggerObjectGraph(
-          base, linker, plugin, injectableTypes, baseBindings.setBindings);
+          base, linker, plugin, staticInjections, injectableTypes, baseBindings.setBindings);
     }
 
     @Override public ObjectGraph plus(Object... modules) {
       linkEverything();
       return makeGraph(this, plugin, modules);
+    }
+
+    private void linkStaticInjections() {
+      for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
+        StaticInjection staticInjection = entry.getValue();
+        if (staticInjection == null) {
+          staticInjection = plugin.getStaticInjection(entry.getKey());
+          entry.setValue(staticInjection);
+        }
+        staticInjection.attach(linker);
+      }
     }
 
     private void linkInjectableTypes() {
@@ -212,8 +239,26 @@ public abstract class ObjectGraph {
         if ((bindings = linker.fullyLinkedBindings()) != null) {
           return bindings;
         }
+        linkStaticInjections();
         linkInjectableTypes();
         return linker.linkAll(); // Linker.linkAll() implicitly does Linker.linkRequested().
+      }
+    }
+
+    @Override public void injectStatics() {
+      // We call linkStaticInjections() twice on purpose. The first time through
+      // we request all of the bindings we need. The linker returns null for
+      // bindings it doesn't have. Then we ask the linker to link all of those
+      // requested bindings. Finally we call linkStaticInjections() again: this
+      // time the linker won't return null because everything has been linked.
+      synchronized (linker) {
+        linkStaticInjections();
+        linker.linkRequested();
+        linkStaticInjections();
+      }
+
+      for (Map.Entry<Class<?>, StaticInjection> entry : staticInjections.entrySet()) {
+        entry.getValue().inject();
       }
     }
 

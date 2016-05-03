@@ -53,9 +53,10 @@ public final class InjectAdapterGenerationTest {
             + "    extends ModuleAdapter<Basic.AModule> {\n"
             + "  private static final String[] INJECTS = {\n"
             + "      \"members/Basic$A\", \"members/Basic$Foo$Bar\", \"members/Basic$Foo$Bar$Baz\"};\n"
+            + "  private static final Class<?>[] STATIC_INJECTIONS = {};\n"
             + "  private static final Class<?>[] INCLUDES = {};\n"
             + "  public Basic$AModule$$ModuleAdapter() {\n"
-            + "    super(Basic.AModule.class, INJECTS, false, INCLUDES,\n"
+            + "    super(Basic.AModule.class, INJECTS, STATIC_INJECTIONS, false, INCLUDES,\n"
             + "      true, false);\n"
             + "  }\n"
             + "  @Override public Basic.AModule newModule() {\n"
@@ -122,25 +123,5 @@ public final class InjectAdapterGenerationTest {
         .generatesSources(expectedModuleAdapter, expectedInjectAdapterA,
             expectedInjectAdapterFooBar, expectedInjectAdapterFooBarBaz);
 
-  }
-
-  @Test public void injectStaticFails() {
-    JavaFileObject sourceFile = JavaFileObjects.forSourceString("Basic", ""
-        + "import dagger.Module;\n"
-        + "import javax.inject.Inject;\n"
-        + "class Basic {\n"
-        + "  static class A { @Inject A() { } }\n"
-        + "  static class B { @Inject static A a; }\n"
-        + "  @Module(injects = B.class)\n"
-        + "  static class AModule { }\n"
-        + "}\n"
-    );
-
-    assertAbout(javaSource())
-        .that(sourceFile)
-        .processedWith(daggerProcessors())
-        .failsToCompile()
-        .withErrorContaining("@Inject not supported on static field Basic.B")
-        .in(sourceFile).onLine(5);
   }
 }

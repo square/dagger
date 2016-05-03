@@ -253,6 +253,25 @@ public @interface Named {
 
             <p>Dependencies may not have multiple qualifier annotations.</p>
 
+            <h4>Static Injection</h4>
+
+            <p><span class="label label-important">Warning:</span> This feature should be used sparingly because static dependencies are difficult to test and reuse.</p>
+
+            <p>Dagger can inject static fields. Classes that declare static fields with <code>@Inject</code> annotations must be listed as <code>staticInjections</code> in a module annotation.</p>
+
+            <pre class="prettyprint">@Module(
+    staticInjections = LegacyCoffeeUtils.class
+)
+class LegacyModule {
+}</pre>
+
+            <p>Use <code>ObjectGraph.injectStatics()</code> to populate these static fields with their injected values:</p>
+
+            <pre class="prettyprint">ObjectGraph objectGraph = ObjectGraph.create(new LegacyModule());
+objectGraph.injectStatics();</pre>
+
+            <p><span class="label">Note:</span> <em>Static injection only operates for modules in the immediate graph. If you call <code>injectStatics()</code> on a graph created from a call to <code>plus()</code>, static injections on modules in the extended graph will not be performed.</em></p>
+
             <h4>Compile-time Validation</h4>
 
             <p>Dagger includes an <a href="http://docs.oracle.com/javase/6/docs/api/javax/annotation/processing/package-summary.html">annotation processor</a> that validates modules and injections. This processor is strict and will cause a compiler error if any bindings are invalid or incomplete. For example, this module is missing a binding for <code>Executor</code>:</p>

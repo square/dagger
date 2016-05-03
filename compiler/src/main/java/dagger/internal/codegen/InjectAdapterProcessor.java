@@ -22,8 +22,10 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
+import dagger.ObjectGraph;
 import dagger.internal.Binding;
 import dagger.internal.Linker;
+import dagger.internal.StaticInjection;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +60,7 @@ import static dagger.internal.codegen.Util.injectableType;
 import static dagger.internal.codegen.Util.isCallableConstructor;
 import static dagger.internal.codegen.Util.rawTypeToString;
 import static dagger.internal.loaders.GeneratedAdapters.INJECT_ADAPTER_SUFFIX;
+import static dagger.internal.loaders.GeneratedAdapters.STATIC_INJECTION_SUFFIX;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -84,7 +87,8 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       boolean missingDependentClasses =
           !allTypesExist(injectedClass.fields)
           || (injectedClass.constructor != null && !allTypesExist(injectedClass.constructor
-              .getParameters()));
+              .getParameters()))
+          || !allTypesExist(injectedClass.staticFields);
       if (!missingDependentClasses) {
         try {
           generateInjectionsForClass(injectedClass);
@@ -104,6 +108,9 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
   private void generateInjectionsForClass(InjectedClass injectedClass) throws IOException {
     if (injectedClass.constructor != null || !injectedClass.fields.isEmpty()) {
       generateInjectAdapter(injectedClass.type, injectedClass.constructor, injectedClass.fields);
+    }
+    if (!injectedClass.staticFields.isEmpty()) {
+      generateStaticInjection(injectedClass.type, injectedClass.staticFields);
     }
   }
 
@@ -182,6 +189,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
   private InjectedClass createInjectedClass(String injectedClassName) {
     TypeElement type = processingEnv.getElementUtils().getTypeElement(injectedClassName);
     boolean isAbstract = type.getModifiers().contains(ABSTRACT);
+    List<Element> staticFields = new ArrayList<Element>();
     ExecutableElement constructor = null;
     List<Element> fields = new ArrayList<Element>();
     for (Element member : type.getEnclosedElements()) {
@@ -192,7 +200,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       switch (member.getKind()) {
         case FIELD:
           if (member.getModifiers().contains(STATIC)) {
-            error("@Inject not supported on static field " + type.getQualifiedName(), member);
+            staticFields.add(member);
           } else {
             fields.add(member);
           }
@@ -222,7 +230,7 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       }
     }
 
-    return new InjectedClass(type, constructor, fields);
+    return new InjectedClass(type, staticFields, constructor, fields);
   }
 
   /**
@@ -281,6 +289,31 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
           membersInjectMethod(fields, disambiguateFields, injectedClassName, supertype));
     }
 
+    JavaFile javaFile = JavaFile.builder(packageName, result.build())
+        .addFileComment(AdapterJavadocs.GENERATED_BY_DAGGER)
+        .build();
+    javaFile.writeTo(processingEnv.getFiler());
+  }
+
+  /**
+   * Write a companion class for {@code type} that extends {@link StaticInjection}.
+   */
+  private void generateStaticInjection(TypeElement type, List<Element> fields) throws IOException {
+    ClassName typeName = ClassName.get(type);
+    ClassName adapterClassName = adapterName(ClassName.get(type), STATIC_INJECTION_SUFFIX);
+
+    TypeSpec.Builder result = TypeSpec.classBuilder(adapterClassName.simpleName())
+        .addOriginatingElement(type)
+        .addJavadoc(AdapterJavadocs.STATIC_INJECTION_TYPE, type)
+        .addModifiers(PUBLIC, FINAL)
+        .superclass(StaticInjection.class);
+    for (Element field : fields) {
+      result.addField(memberBindingField(false, field));
+    }
+    result.addMethod(attachMethod(null, fields, false, typeName, null, true));
+    result.addMethod(staticInjectMethod(fields, typeName));
+
+    String packageName = getPackage(type).getQualifiedName().toString();
     JavaFile javaFile = JavaFile.builder(packageName, result.build())
         .addFileComment(AdapterJavadocs.GENERATED_BY_DAGGER)
         .build();
@@ -420,6 +453,20 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
     return result.build();
   }
 
+  private MethodSpec staticInjectMethod(List<Element> fields, ClassName typeName) {
+    MethodSpec.Builder result = MethodSpec.methodBuilder("inject")
+        .addJavadoc(AdapterJavadocs.STATIC_INJECT_METHOD, ObjectGraph.class)
+        .addAnnotation(Override.class)
+        .addModifiers(PUBLIC);
+    for (Element field : fields) {
+      result.addStatement("$T.$N = $N.get()",
+          typeName,
+          field.getSimpleName().toString(),
+          fieldName(false, field));
+    }
+    return result.build();
+  }
+
   private String fieldName(boolean disambiguateFields, Element field) {
     return (disambiguateFields ? "field_" : "") + field.getSimpleName().toString();
   }
@@ -434,11 +481,14 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
 
   static class InjectedClass {
     final TypeElement type;
+    final List<Element> staticFields;
     final ExecutableElement constructor;
     final List<Element> fields;
 
-    InjectedClass(TypeElement type, ExecutableElement constructor, List<Element> fields) {
+    InjectedClass(TypeElement type, List<Element> staticFields, ExecutableElement constructor,
+        List<Element> fields) {
       this.type = type;
+      this.staticFields = staticFields;
       this.constructor = constructor;
       this.fields = fields;
     }
