@@ -20,7 +20,7 @@
   <parent>
     <groupId>com.squareup.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.2.3-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -47,6 +47,24 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>animal-sniffer-maven-plugin</artifactId>
+        <version>1.8</version><!-- 1.9+ requires JDK7 -->
+        <executions>
+          <execution>
+            <id>sniff-api</id>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <signature>
+            <groupId>org.codehaus.mojo.signature</groupId>
+            <artifactId>java15</artifactId>
+            <version>1.0</version>
+          </signature>
+        </configuration>
+      </plugin>
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
