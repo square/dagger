@@ -365,6 +365,7 @@ abstract class AbstractComponentWriter {
    */
   private void addBuilderMethods(
       TypeSpec.Builder componentBuilder, Optional<BuilderSpec> builderSpec) {
+    ImmutableSet<TypeElement> componentRequirements = graph.componentRequirements();
     if (builderSpec.isPresent()) {
       UniqueNameSet parameterNames = new UniqueNameSet();
       for (Map.Entry<TypeElement, ExecutableElement> builderMethodEntry :
@@ -376,7 +377,7 @@ abstract class AbstractComponentWriter {
             parameterNames.getUniqueName(
                 Iterables.getOnlyElement(specMethod.getParameters()).getSimpleName());
         builderMethod.addParameter(ClassName.get(builderMethodType), parameterName);
-        if (graph.componentRequirements().contains(builderMethodType)) {
+        if (componentRequirements.contains(builderMethodType)) {
           // required type
           builderMethod.addStatement(
               "this.$N = $T.checkNotNull($L)",
@@ -407,7 +408,7 @@ abstract class AbstractComponentWriter {
                 .returns(builderName.get())
                 .addModifiers(PUBLIC)
                 .addParameter(ClassName.get(componentRequirement), componentRequirementName);
-        if (graph.componentRequirements().contains(componentRequirement)) {
+        if (componentRequirements.contains(componentRequirement)) {
           builderMethod.addStatement(
               "this.$N = $T.checkNotNull($L)",
               builderFields.get(componentRequirement),
