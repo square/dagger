@@ -243,6 +243,9 @@ public final class InjectAdapterProcessor extends AbstractProcessor {
       List<Element> fields) throws IOException {
     String packageName = getPackage(type).getQualifiedName().toString();
     TypeMirror supertype = getApplicationSupertype(type);
+    if (supertype != null) {
+      supertype = processingEnv.getTypeUtils().erasure(supertype);
+    }
     ClassName injectedClassName = ClassName.get(type);
     ClassName adapterClassName = adapterName(injectedClassName, INJECT_ADAPTER_SUFFIX);
 
