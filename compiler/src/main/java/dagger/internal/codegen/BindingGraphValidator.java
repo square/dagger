@@ -333,13 +333,12 @@ public class BindingGraphValidator {
           validateResolvedBinding(path);
 
           // Validate all dependencies within the component that owns the binding.
-          for (Map.Entry<ComponentDescriptor, Collection<Binding>> entry :
-              path.currentBinding().bindingsByComponent().asMap().entrySet()) {
+          for (Map.Entry<ComponentDescriptor, ? extends Binding> entry :
+              path.currentBinding().bindingsByComponent()) {
             Validation validation = validationForComponent(entry.getKey());
-            for (Binding binding : entry.getValue()) {
-              for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-                validation.traverseRequest(nextRequest, path);
-              }
+            Binding binding = entry.getValue();
+            for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+              validation.traverseRequest(nextRequest, path);
             }
           }
         }

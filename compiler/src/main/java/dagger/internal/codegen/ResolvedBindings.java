@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,7 @@ import com.google.common.collect.Multimap;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -98,14 +100,15 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         throw new AssertionError(bindingKey());
     }
   }
-  
+
   /**
-   * All bindings for {@link #bindingKey()}, indexed by the component in which they were resolved.
+   * All bindings for {@link #bindingKey()}, together with the component in which they were
+   * resolved.
    */
-  ImmutableSetMultimap<ComponentDescriptor, Binding> bindingsByComponent() {
-    return new ImmutableSetMultimap.Builder<ComponentDescriptor, Binding>()
-        .putAll(allContributionBindings())
-        .putAll(allMembersInjectionBindings().entrySet())
+  ImmutableList<Map.Entry<ComponentDescriptor, ? extends Binding>> bindingsByComponent() {
+    return new ImmutableList.Builder<Map.Entry<ComponentDescriptor, ? extends Binding>>()
+        .addAll(allContributionBindings().entries())
+        .addAll(allMembersInjectionBindings().entrySet())
         .build();
   }
 
