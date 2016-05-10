@@ -37,8 +37,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
-import static dagger.internal.codegen.ErrorMessages.BIND_METHOD_NOT_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.BIND_METHOD_ONE_ASSIGNABLE_PARAMETER;
+import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_NOT_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER;
 import static dagger.internal.codegen.Validation.validateMethodQualifiers;
 import static dagger.internal.codegen.Validation.validateReturnType;
 import static dagger.internal.codegen.Validation.validateUncheckedThrows;
@@ -88,7 +88,7 @@ final class BindsMethodValidator {
 
       Set<Modifier> modifiers = bindsMethodElement.getModifiers();
       if (!modifiers.contains(ABSTRACT)) {
-        builder.addError(formatErrorMessage(BIND_METHOD_NOT_ABSTRACT), bindsMethodElement);
+        builder.addError(formatErrorMessage(BINDS_METHOD_NOT_ABSTRACT), bindsMethodElement);
       }
       TypeMirror returnType = bindsMethodElement.getReturnType();
       validateReturnType(Binds.class, builder, returnType);
@@ -98,11 +98,11 @@ final class BindsMethodValidator {
         VariableElement parameter = Iterables.getOnlyElement(parameters);
         if (!types.isAssignable(parameter.asType(), returnType)) {
           builder.addError(
-              formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
+              formatErrorMessage(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
         }
       } else {
         builder.addError(
-            formatErrorMessage(BIND_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
+            formatErrorMessage(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
       }
 
       validateUncheckedThrows(elements, types, bindsMethodElement, Binds.class, builder);

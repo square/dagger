@@ -44,7 +44,7 @@ public final class SetProducer<T> extends AbstractProducer<Set<T>> {
 
   @SuppressWarnings({"unchecked", "rawtypes"}) // safe covariant cast
   public static <T> Producer<Set<T>> create() {
-    return (Producer<Set<T>>) (Producer) EMPTY_PRODUCER;
+    return (Producer) EMPTY_PRODUCER;
   }
 
   /**

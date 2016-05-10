@@ -100,7 +100,6 @@ public final class MapProducer<K, V> extends AbstractProducer<Map<K, V>> {
   @SuppressWarnings({"unchecked", "rawtypes"}) // bivariate implementation
   private static <K, V>
       Function<Map.Entry<K, Producer<V>>, ListenableFuture<Map.Entry<K, V>>> entryUnwrapper() {
-    return (Function<Map.Entry<K, Producer<V>>, ListenableFuture<Map.Entry<K, V>>>)
-        (Function) ENTRY_UNWRAPPER;
+    return (Function) ENTRY_UNWRAPPER;
   }
 }

@@ -43,7 +43,6 @@ import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.internal.codegen.SourceElement.HasSourceElement;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -111,7 +110,7 @@ public class BindingGraphValidator {
   private final Types types;
   private final CompilerOptions compilerOptions;
   private final InjectBindingRegistry injectBindingRegistry;
-  private final HasSourceElementFormatter hasSourceElementFormatter;
+  private final BindingDeclarationFormatter bindingDeclarationFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final DependencyRequestFormatter dependencyRequestFormatter;
   private final KeyFormatter keyFormatter;
@@ -122,7 +121,7 @@ public class BindingGraphValidator {
       Types types,
       CompilerOptions compilerOptions,
       InjectBindingRegistry injectBindingRegistry,
-      HasSourceElementFormatter hasSourceElementFormatter,
+      BindingDeclarationFormatter bindingDeclarationFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       DependencyRequestFormatter dependencyRequestFormatter,
       KeyFormatter keyFormatter,
@@ -131,7 +130,7 @@ public class BindingGraphValidator {
     this.types = types;
     this.compilerOptions = compilerOptions;
     this.injectBindingRegistry = injectBindingRegistry;
-    this.hasSourceElementFormatter = hasSourceElementFormatter;
+    this.bindingDeclarationFormatter = bindingDeclarationFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.dependencyRequestFormatter = dependencyRequestFormatter;
     this.keyFormatter = keyFormatter;
@@ -334,13 +333,12 @@ public class BindingGraphValidator {
           validateResolvedBinding(path);
 
           // Validate all dependencies within the component that owns the binding.
-          for (Map.Entry<ComponentDescriptor, Collection<Binding>> entry :
-              path.currentBinding().bindingsByComponent().asMap().entrySet()) {
+          for (Map.Entry<ComponentDescriptor, ? extends Binding> entry :
+              path.currentBinding().bindingsByComponent()) {
             Validation validation = validationForComponent(entry.getKey());
-            for (Binding binding : entry.getValue()) {
-              for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-                validation.traverseRequest(nextRequest, path);
-              }
+            Binding binding = entry.getValue();
+            for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+              validation.traverseRequest(nextRequest, path);
             }
           }
         }
@@ -491,10 +489,10 @@ public class BindingGraphValidator {
           multibindingDeclarations.build());
     }
 
-    private ImmutableListMultimap<ContributionType, HasSourceElement> declarationsByType(
+    private ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType(
         ResolvedBindings resolvedBinding) {
       ResolvedBindings inlined = inlineSyntheticContributions(resolvedBinding);
-      return new ImmutableListMultimap.Builder<ContributionType, HasSourceElement>()
+      return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
           .putAll(indexByContributionType(inlined.contributionBindings()))
           .putAll(indexByContributionType(inlined.multibindingDeclarations()))
           .build();
@@ -516,7 +514,7 @@ public class BindingGraphValidator {
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
           reportBuilder.addItem(
-              nullableToNonNullable(typeName, hasSourceElementFormatter.format(binding))
+              nullableToNonNullable(typeName, bindingDeclarationFormatter.format(binding))
                   + "\n at: "
                   + dependencyRequestFormatter.format(request),
               compilerOptions.nullableValidationKind(),
@@ -882,10 +880,9 @@ public class BindingGraphValidator {
             switch (contributionBinding.bindingKind()) {
               case SYNTHETIC_DELEGATE_BINDING:
               case PROVISION:
-                ExecutableElement provisionMethod =
-                    MoreElements.asExecutable(contributionBinding.bindingElement());
                 incompatiblyScopedMethodsBuilder.add(
-                    methodSignatureFormatter.format(provisionMethod));
+                    methodSignatureFormatter.format(
+                        contributionBinding.bindingElementAsExecutable()));
                 break;
               case INJECTION:
                 incompatiblyScopedMethodsBuilder.add(
@@ -1010,7 +1007,7 @@ public class BindingGraphValidator {
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ImmutableSet<ContributionBinding> duplicateBindings =
           inlineSyntheticContributions(resolvedBinding).contributionBindings();
-      hasSourceElementFormatter.formatIndentedList(
+      bindingDeclarationFormatter.formatIndentedList(
           builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
       owningReportBuilder(duplicateBindings).addError(builder.toString(), path.entryPointElement());
     }
@@ -1057,7 +1054,7 @@ public class BindingGraphValidator {
       new Formatter(builder)
           .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ResolvedBindings resolvedBinding = path.currentBinding();
-      ImmutableListMultimap<ContributionType, HasSourceElement> declarationsByType =
+      ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType =
           declarationsByType(resolvedBinding);
       verify(
           declarationsByType.keySet().size() > 1,
@@ -1069,7 +1066,7 @@ public class BindingGraphValidator {
         builder.append(INDENT);
         builder.append(formatContributionType(type));
         builder.append(" bindings and declarations:");
-        hasSourceElementFormatter.formatIndentedList(
+        bindingDeclarationFormatter.formatIndentedList(
             builder, declarationsByType.get(type), 2, DUPLICATE_SIZE_LIMIT);
         builder.append('\n');
       }
@@ -1080,7 +1077,7 @@ public class BindingGraphValidator {
         DependencyPath path, Collection<ContributionBinding> mapBindings) {
       StringBuilder builder = new StringBuilder();
       builder.append(duplicateMapKeysError(formatRootRequestKey(path)));
-      hasSourceElementFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
+      bindingDeclarationFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
       reportBuilder.addError(builder.toString(), path.entryPointElement());
     }
 
@@ -1101,7 +1098,7 @@ public class BindingGraphValidator {
             .append(annotationType)
             .append(':');
 
-        hasSourceElementFormatter.formatIndentedList(builder, bindings, 2, DUPLICATE_SIZE_LIMIT);
+        bindingDeclarationFormatter.formatIndentedList(builder, bindings, 2, DUPLICATE_SIZE_LIMIT);
       }
       reportBuilder.addError(builder.toString(), path.entryPointElement());
     }

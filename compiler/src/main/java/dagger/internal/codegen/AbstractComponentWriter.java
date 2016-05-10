@@ -365,6 +365,7 @@ abstract class AbstractComponentWriter {
    */
   private void addBuilderMethods(
       TypeSpec.Builder componentBuilder, Optional<BuilderSpec> builderSpec) {
+    ImmutableSet<TypeElement> componentRequirements = graph.componentRequirements();
     if (builderSpec.isPresent()) {
       UniqueNameSet parameterNames = new UniqueNameSet();
       for (Map.Entry<TypeElement, ExecutableElement> builderMethodEntry :
@@ -376,7 +377,7 @@ abstract class AbstractComponentWriter {
             parameterNames.getUniqueName(
                 Iterables.getOnlyElement(specMethod.getParameters()).getSimpleName());
         builderMethod.addParameter(ClassName.get(builderMethodType), parameterName);
-        if (graph.componentRequirements().contains(builderMethodType)) {
+        if (componentRequirements.contains(builderMethodType)) {
           // required type
           builderMethod.addStatement(
               "this.$N = $T.checkNotNull($L)",
@@ -407,7 +408,7 @@ abstract class AbstractComponentWriter {
                 .returns(builderName.get())
                 .addModifiers(PUBLIC)
                 .addParameter(ClassName.get(componentRequirement), componentRequirementName);
-        if (graph.componentRequirements().contains(componentRequirement)) {
+        if (componentRequirements.contains(componentRequirement)) {
           builderMethod.addStatement(
               "this.$N = $T.checkNotNull($L)",
               builderFields.get(componentRequirement),
@@ -484,27 +485,25 @@ abstract class AbstractComponentWriter {
 
     // TODO(gak): get rid of the field for unscoped delegated bindings
 
-    FieldSpec frameworkField = addFrameworkField(resolvedBindings, Optional.<BindingType>absent());
-    memberSelects.put(
-        bindingKey,
-        localField(name, frameworkField.name));
+    FieldSpec frameworkField = addFrameworkField(resolvedBindings, Optional.<ClassName>absent());
+    memberSelects.put(bindingKey, localField(name, frameworkField.name));
   }
 
   /**
    * Adds a field representing the resolved bindings, optionally forcing it to use a particular
-   * binding type (instead of the type the resolved bindings would typically use).
+   * framework class (instead of the class the resolved bindings would typically use).
    */
   private FieldSpec addFrameworkField(
-      ResolvedBindings resolvedBindings, Optional<BindingType> bindingType) {
+      ResolvedBindings resolvedBindings, Optional<ClassName> frameworkClass) {
     boolean useRawType = useRawType(resolvedBindings);
 
     FrameworkField contributionBindingField =
-        FrameworkField.createForResolvedBindings(resolvedBindings, bindingType);
+        FrameworkField.forResolvedBindings(resolvedBindings, frameworkClass);
     FieldSpec.Builder contributionField =
         componentField(
             useRawType
-                ? contributionBindingField.frameworkType().rawType
-                : contributionBindingField.frameworkType(),
+                ? contributionBindingField.type().rawType
+                : contributionBindingField.type(),
             contributionBindingField.name());
     contributionField.addModifiers(PRIVATE);
     if (useRawType) {
@@ -872,7 +871,7 @@ abstract class AbstractComponentWriter {
           continue;
         }
         FieldSpec frameworkField =
-            addFrameworkField(resolvedBindings, Optional.of(BindingType.PRODUCTION));
+            addFrameworkField(resolvedBindings, Optional.of(PRODUCER));
         memberSelect = localField(name, frameworkField.name);
         producerFromProviderMemberSelects.put(frameworkDependency.bindingKey(), memberSelect);
         initializations.add(
@@ -986,7 +985,7 @@ abstract class AbstractComponentWriter {
               Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
           if (binding.bindingKind().equals(PROVISION)
               && !binding.bindingElement().getModifiers().contains(STATIC)) {
-            arguments.add(getComponentContributionExpression(binding.contributedBy().get()));
+            arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
           arguments.addAll(getDependencyArguments(binding));
 
@@ -1075,7 +1074,7 @@ abstract class AbstractComponentWriter {
       case INJECT_MEMBERS:
         return CodeBlock.of(
             "$T.create($L)",
-            membersInjectorNameForType(binding.bindingElement()),
+            membersInjectorNameForType(binding.membersInjectedType()),
             makeParametersCodeBlock(getDependencyArguments(binding)));
       default:
         throw new AssertionError();

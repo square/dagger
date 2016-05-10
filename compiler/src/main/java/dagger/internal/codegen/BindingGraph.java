@@ -56,8 +56,10 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreElements.hasModifiers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
@@ -70,6 +72,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDepen
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULTIBINDING_KIND;
 import static dagger.internal.codegen.Key.indexByKey;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
@@ -108,39 +111,33 @@ abstract class BindingGraph {
       };
 
   /**
-   * Returns the set of types necessary to implement the component, but are not part of the injected
-   * graph.  This includes modules and component dependencies.
+   * The types for which the component needs instances.
+   * <ul>
+   * <li>component dependencies
+   * <li>{@linkplain #ownedModules() owned modules} with concrete instance bindings that are used in
+   *     the graph
+   * </ul>
    */
   ImmutableSet<TypeElement> componentRequirements() {
     return SUBGRAPH_TRAVERSER
         .preOrderTraversal(this)
-        .transformAndConcat(
-            new Function<BindingGraph, Iterable<ResolvedBindings>>() {
-              @Override
-              public Iterable<ResolvedBindings> apply(BindingGraph input) {
-                return input.resolvedBindings().values();
-              }
-            })
-        .transformAndConcat(
-            new Function<ResolvedBindings, Set<ContributionBinding>>() {
-              @Override
-              public Set<ContributionBinding> apply(ResolvedBindings input) {
-                return input.contributionBindings();
-              }
-            })
-        .transformAndConcat(
-            new Function<ContributionBinding, Set<TypeElement>>() {
-              @Override
-              public Set<TypeElement> apply(ContributionBinding input) {
-                return input.bindingElement().getModifiers().contains(STATIC)
-                    ? ImmutableSet.<TypeElement>of()
-                    : input.contributedBy().asSet();
-              }
-            })
+        .transformAndConcat(RESOLVED_BINDINGS)
+        .transformAndConcat(ResolvedBindings.CONTRIBUTION_BINDINGS)
+        .filter(not(BindingDeclaration.bindingElementHasModifier(STATIC)))
+        .filter(not(BindingDeclaration.bindingElementHasModifier(ABSTRACT)))
+        .transformAndConcat(BindingDeclaration.CONTRIBUTING_MODULE)
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())
         .toSet();
   }
+
+  private static final Function<BindingGraph, Iterable<ResolvedBindings>> RESOLVED_BINDINGS =
+      new Function<BindingGraph, Iterable<ResolvedBindings>>() {
+        @Override
+        public Iterable<ResolvedBindings> apply(BindingGraph graph) {
+          return graph.resolvedBindings().values();
+        }
+      };
 
   /**
    * Returns the {@link ComponentDescriptor}s for this component and its subcomponents.
@@ -159,10 +156,10 @@ abstract class BindingGraph {
   }
 
   ImmutableSet<TypeElement> availableDependencies() {
-    return new ImmutableSet.Builder<TypeElement>()
-        .addAll(componentDescriptor().transitiveModuleTypes())
-        .addAll(componentDescriptor().dependencies())
-        .build();
+    return FluentIterable.from(componentDescriptor().transitiveModuleTypes())
+        .filter(not(hasModifiers(ABSTRACT)))
+        .append(componentDescriptor().dependencies())
+        .toSet();
   }
 
   static final class Factory {
@@ -316,8 +313,9 @@ abstract class BindingGraph {
         ImmutableSetMultimap.Builder<Key, ContributionBinding> explicitMultibindingsBuilder =
             ImmutableSetMultimap.builder();
         for (ContributionBinding binding : explicitBindingsSet) {
-          if (binding.key().bindingMethod().isPresent()) {
-            explicitMultibindingsBuilder.put(binding.key().withoutBindingMethod(), binding);
+          if (binding.key().bindingMethodIdentifier().isPresent()) {
+            explicitMultibindingsBuilder.put(
+                binding.key().withoutBindingMethodIdentifier(), binding);
           }
         }
         this.explicitMultibindings = explicitMultibindingsBuilder.build();
@@ -586,8 +584,9 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the explicit multibindings whose key (minus its {@link Key#bindingMethod()})
-       * matches the {@code requestKey} from this and all ancestor resolvers.
+       * Returns the explicit multibindings whose key (minus its
+       * {@link Key#bindingMethodIdentifier()}) matches the {@code requestKey} from this and all
+       * ancestor resolvers.
        */
       private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key requestKey) {
         ImmutableSet.Builder<ContributionBinding> explicitMultibindingsForKey =

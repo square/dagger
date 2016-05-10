@@ -90,13 +90,12 @@ abstract class ProductionBinding extends ContributionBinding {
     ProductionBinding forProducesMethod(
         ExecutableElement producesMethod, TypeElement contributedBy) {
       checkArgument(producesMethod.getKind().equals(METHOD));
-      SourceElement sourceElement = SourceElement.forElement(producesMethod, contributedBy);
-      Key key = keyFactory.forProducesMethod(sourceElement);
+      Key key = keyFactory.forProducesMethod(producesMethod, contributedBy);
       ExecutableType resolvedMethod =
-          MoreTypes.asExecutable(sourceElement.asMemberOfContributingType(types));
+          MoreTypes.asExecutable(
+              types.asMemberOf(MoreTypes.asDeclared(contributedBy.asType()), producesMethod));
       ImmutableSet<DependencyRequest> dependencies =
           dependencyRequestFactory.forRequiredResolvedVariables(
-              MoreTypes.asDeclared(contributedBy.asType()),
               producesMethod.getParameters(),
               resolvedMethod.getParameterTypes());
       DependencyRequest executorRequest =
@@ -108,7 +107,8 @@ abstract class ProductionBinding extends ContributionBinding {
           : Kind.IMMEDIATE;
       return new AutoValue_ProductionBinding(
           ContributionType.fromBindingMethod(producesMethod),
-          sourceElement,
+          producesMethod,
+          Optional.of(contributedBy),
           key,
           dependencies,
           findBindingPackage(key),
@@ -138,7 +138,8 @@ abstract class ProductionBinding extends ContributionBinding {
               requestForMapOfValuesOrProduced, mapOfProducersKey.get());
       return new AutoValue_ProductionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(requestForMapOfProducers.requestElement()),
+          requestForMapOfProducers.requestElement(),
+          Optional.<TypeElement>absent(),
           requestForMapOfValuesOrProduced.key(),
           ImmutableSet.of(requestForMapOfProducers),
           findBindingPackage(requestForMapOfValuesOrProduced.key()),
@@ -160,7 +161,8 @@ abstract class ProductionBinding extends ContributionBinding {
         final DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return new AutoValue_ProductionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(request.requestElement()),
+          request.requestElement(),
+          Optional.<TypeElement>absent(),
           request.key(),
           dependencyRequestFactory.forMultibindingContributions(request, multibindingContributions),
           findBindingPackage(request.key()),
@@ -179,7 +181,8 @@ abstract class ProductionBinding extends ContributionBinding {
       checkArgument(MoreTypes.isTypeOf(ListenableFuture.class, componentMethod.getReturnType()));
       return new AutoValue_ProductionBinding(
           ContributionType.UNIQUE,
-          SourceElement.forElement(componentMethod),
+          componentMethod,
+          Optional.<TypeElement>absent(),
           keyFactory.forProductionComponentMethod(componentMethod),
           ImmutableSet.<DependencyRequest>of(),
           Optional.<String>absent(),
@@ -195,7 +198,8 @@ abstract class ProductionBinding extends ContributionBinding {
         DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
       return new AutoValue_ProductionBinding(
           delegateBinding.contributionType(),
-          delegateDeclaration.sourceElement(),
+          delegateDeclaration.bindingElement(),
+          delegateDeclaration.contributingModule(),
           delegateDeclaration.key(),
           ImmutableSet.of(delegateDeclaration.delegateRequest()),
           findBindingPackage(delegateDeclaration.key()),

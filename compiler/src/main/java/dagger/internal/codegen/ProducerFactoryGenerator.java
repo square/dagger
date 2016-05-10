@@ -117,9 +117,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     }
 
     for (FrameworkField bindingField : fields.values()) {
-      TypeName fieldType = bindingField.frameworkType();
       addFieldAndConstructorParameter(
-          factoryBuilder, constructorBuilder, bindingField.name(), fieldType);
+          factoryBuilder, constructorBuilder, bindingField.name(), bindingField.type());
     }
 
     MethodSpec.Builder computeMethodBuilder =

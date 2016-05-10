@@ -158,15 +158,15 @@ final class ErrorMessages {
 
   static final String BINDING_METHOD_ABSTRACT = "@%s methods cannot be abstract";
 
-  static final String BIND_METHOD_NOT_ABSTRACT = "@Bind methods must be abstract";
+  static final String BINDS_METHOD_NOT_ABSTRACT = "@Binds methods must be abstract";
 
   static final String BINDING_METHOD_PRIVATE = "@%s methods cannot be private";
 
   static final String BINDING_METHOD_TYPE_PARAMETER =
       "@%s methods may not have type parameters.";
 
-  static final String BIND_METHOD_ONE_ASSIGNABLE_PARAMETER =
-      "@Bind methods must have only one parameter whose type is assignable to the return type";
+  static final String BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER =
+      "@Binds methods must have only one parameter whose type is assignable to the return type";
 
   static final String BINDING_METHOD_NOT_IN_MODULE =
       "@%s methods can only be present within a @%s";
@@ -184,7 +184,7 @@ final class ErrorMessages {
       "Cannot have more than one @%s method with the same name in a single module";
 
   static final String INCOMPATIBLE_MODULE_METHODS =
-      "A @%1$s may contain non-static @%2$s methods or @Bind methods,"
+      "A @%1$s may contain non-static @%2$s methods or @Binds methods,"
           + " but not both at the same time.  (Static @%2$s may be used with either.)";
 
   static final String MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT =

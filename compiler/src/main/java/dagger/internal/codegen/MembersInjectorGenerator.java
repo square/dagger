@@ -81,12 +81,12 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
 
   @Override
   ClassName nameGeneratedType(MembersInjectionBinding binding) {
-    return membersInjectorNameForType(binding.bindingElement());
+    return membersInjectorNameForType(binding.membersInjectedType());
   }
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(MembersInjectionBinding binding) {
-    return Optional.of(binding.bindingElement());
+    return Optional.of(binding.membersInjectedType());
   }
 
   @Override
@@ -155,8 +155,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       String fieldName = fieldNames.getUniqueName(bindingField.name());
       TypeName fieldType =
           useRawFrameworkType
-              ? bindingField.frameworkType().rawType
-              : bindingField.frameworkType();
+              ? bindingField.type().rawType
+              : bindingField.type();
       FieldSpec.Builder fieldBuilder = FieldSpec.builder(fieldType, fieldName, PRIVATE, FINAL);
       ParameterSpec.Builder parameterBuilder = ParameterSpec.builder(fieldType, fieldName);
 
@@ -193,7 +193,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
               ? directInjectMemberCodeBlock(binding, dependencyFields, injectionSite)
               : delegateInjectMemberCodeBlock(dependencyFields, injectionSite));
       if (!injectionSite.element().getModifiers().contains(PUBLIC)
-          && injectionSite.element().getEnclosingElement().equals(binding.bindingElement())
+          && injectionSite.element().getEnclosingElement().equals(binding.membersInjectedType())
           && delegateMethods.add(injectionSiteDelegateMethodName(injectionSite.element()))) {
         injectMethodsForSubclasses.add(
             injectorMethodForSubclasses(
@@ -224,7 +224,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   // enclosed in a package-private element?
   private static boolean visibleToMembersInjector(
       MembersInjectionBinding binding, Element element) {
-    return getPackage(element).equals(getPackage(binding.bindingElement()))
+    return getPackage(element).equals(getPackage(binding.membersInjectedType()))
         || element.getModifiers().contains(PUBLIC);
   }
 
@@ -238,7 +238,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     return CodeBlock.of(
         injectionSite.element().getKind().isField() ? "$L.$L = $L;" : "$L.$L($L);",
         getInstanceCodeBlockWithPotentialCast(
-            injectionSite.element().getEnclosingElement(), binding.bindingElement()),
+            injectionSite.element().getEnclosingElement(), binding.membersInjectedType()),
         injectionSite.element().getSimpleName(),
         makeParametersCodeBlock(
             parameterCodeBlocks(dependencyFields, injectionSite.dependencies(), true)));

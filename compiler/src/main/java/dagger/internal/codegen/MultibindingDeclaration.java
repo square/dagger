@@ -17,13 +17,12 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import dagger.Module;
 import dagger.Multibindings;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
-import dagger.internal.codegen.Key.HasKey;
-import dagger.internal.codegen.SourceElement.HasSourceElement;
 import dagger.producers.Producer;
 import dagger.producers.ProducerModule;
 import java.util.Map;
@@ -48,15 +47,8 @@ import static javax.lang.model.element.ElementKind.INTERFACE;
  * method in a {@link Multibindings @Multibindings}-annotated interface nested within a module.
  */
 @AutoValue
-abstract class MultibindingDeclaration
-    implements HasBindingType, HasKey, HasSourceElement, HasContributionType {
-
-  /**
-   * The method in a {@link Multibindings @Multibindings} interface that declares that this map or
-   * set is available to be injected.
-   */
-  @Override
-  public abstract SourceElement sourceElement();
+abstract class MultibindingDeclaration extends BindingDeclaration
+    implements HasBindingType, HasContributionType {
 
   /**
    * The map or set key whose availability is declared. For maps, this will be {@code Map<K, F<V>>},
@@ -141,7 +133,8 @@ abstract class MultibindingDeclaration
           "%s must return a set or map",
           method);
       return new AutoValue_MultibindingDeclaration(
-          SourceElement.forElement(method, interfaceElement),
+          method,
+          Optional.of(interfaceElement),
           keyFactory.forMultibindingsMethod(bindingType, methodType, method),
           contributionType(returnType),
           bindingType);
