@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.squareup.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>1.2.5</version>
+    <version>1.2.6-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
