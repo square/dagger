@@ -26,7 +26,7 @@
   <groupId>com.squareup.dagger</groupId>
   <artifactId>dagger-parent</artifactId>
   <packaging>pom</packaging>
-  <version>1.2.5-SNAPSHOT</version>
+  <version>1.2.5</version>
   <name>Dagger (Parent)</name>
   <description>A fast dependency injector for Android and Java.</description>
   <url>https://github.com/square/dagger</url>
@@ -57,7 +57,7 @@
     <url>http://github.com/square/dagger/</url>
     <connection>scm:git:git://github.com/square/dagger.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/square/dagger.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>dagger-parent-1.2.5</tag>
   </scm>
 
   <issueManagement>
