@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 1.2.5 *(2016-05-09)*
+----------------------------
+
+ * Fix: Correctly emit generated code for binding parameterized types.
+
+
 Version 1.2.4 *(2016-05-03)*
 ----------------------------
 
