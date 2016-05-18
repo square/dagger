@@ -16,12 +16,13 @@
 package dagger.internal;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Provider;
 
-import static dagger.internal.Collections.newHashSetWithExpectedSize;
+import static dagger.internal.DaggerCollections.hasDuplicates;
+import static dagger.internal.DaggerCollections.newHashSetWithExpectedSize;
+import static dagger.internal.DaggerCollections.presizedList;
 import static dagger.internal.Preconditions.checkNotNull;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
@@ -48,13 +49,27 @@ public final class SetFactory<T> implements Factory<Set<T>> {
     return (Factory) EMPTY_FACTORY;
   }
 
-  public static <T> SetFactory.Builder<T> builder() {
-    return new Builder<T>();
+  /**
+   * Constructs a new {@link Builder} for a {@link SetFactory} with {@code individualProviderSize}
+   * individual {@code Provider<T>} and {@code setProviderSize} {@code Provider<Set<T>>} instances.
+   */
+  public static <T> Builder<T> builder(int individualProviderSize, int setProviderSize) {
+    return new Builder<T>(individualProviderSize, setProviderSize);
   }
 
+  /**
+   * A builder to accumulate {@code Provider<T>} and {@code Provider<Set<T>>} instances. These are
+   * only intended to be single-use and from within generated code. Do <em>NOT</em> add providers
+   * after calling {@link #build()}.
+   */
   public static final class Builder<T> {
-    private final List<Provider<T>> individualProviders = new ArrayList<Provider<T>>();
-    private final List<Provider<Set<T>>> setProviders = new ArrayList<Provider<Set<T>>>();
+    private final List<Provider<T>> individualProviders;
+    private final List<Provider<Set<T>>> setProviders;
+
+    private Builder(int individualProviderSize, int setProviderSize) {
+      individualProviders = presizedList(individualProviderSize);
+      setProviders = presizedList(setProviderSize);
+    }
 
     public Builder<T> addProvider(Provider<T> individualProvider) {
       assert individualProvider != null : "Codegen error? Null provider";
@@ -74,18 +89,8 @@ public final class SetFactory<T> implements Factory<Set<T>> {
       assert !hasDuplicates(setProviders)
           : "Codegen error?  Duplicates in the provider list";
 
-      return new SetFactory<T>(
-          new ArrayList<Provider<T>>(individualProviders),
-          new ArrayList<Provider<Set<T>>>(setProviders));
+      return new SetFactory<T>(individualProviders, setProviders);
     }
-  }
-
-  /**
-   * Returns true if at least one pair of items in (@code original) are equals.
-   */
-  private static boolean hasDuplicates(List<? extends Object> original) {
-    Set<Object> asSet = new HashSet<Object>(original);
-    return original.size() != asSet.size();
   }
 
   private final List<Provider<T>> individualProviders;

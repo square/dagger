@@ -37,7 +37,7 @@ public class SetFactoryTest {
   @Test
   public void providerReturnsNull() {
     Factory<Set<Integer>> factory =
-        SetFactory.<Integer>builder().addSetProvider(providerOf((Set<Integer>) null)).build();
+        SetFactory.<Integer>builder(0, 1).addSetProvider(providerOf((Set<Integer>) null)).build();
     thrown.expect(NullPointerException.class);
     factory.get();
   }
@@ -45,7 +45,7 @@ public class SetFactoryTest {
   @Test
   public void providerReturnsNullSet() {
     Factory<Set<Integer>> factory =
-        SetFactory.<Integer>builder().addProvider(providerOf((Integer) null)).build();
+        SetFactory.<Integer>builder(1, 0).addProvider(providerOf((Integer) null)).build();
     thrown.expect(NullPointerException.class);
     factory.get();
   }
@@ -54,7 +54,7 @@ public class SetFactoryTest {
   public void providerReturnsSetWithNullElement() {
     Set<Integer> set = new LinkedHashSet<Integer>(Arrays.asList(1, null, 3));
     Factory<Set<Integer>> factory =
-        SetFactory.<Integer>builder().addSetProvider(providerOf(set)).build();
+        SetFactory.<Integer>builder(0, 1).addSetProvider(providerOf(set)).build();
     thrown.expect(NullPointerException.class);
     factory.get();
   }
@@ -62,7 +62,7 @@ public class SetFactoryTest {
   @Test
   public void invokesProvidersEveryTime() {
     Factory<Set<Integer>> factory =
-        SetFactory.<Integer>builder()
+        SetFactory.<Integer>builder(2, 2)
             .addProvider(incrementingIntegerProvider(0))
             .addProvider(incrementingIntegerProvider(10))
             .addSetProvider(incrementingIntegerSetProvider(20))

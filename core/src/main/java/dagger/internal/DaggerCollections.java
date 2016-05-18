@@ -15,16 +15,46 @@
  */
 package dagger.internal;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Set;
 
-final class Collections {
+/**
+ * Collection utility methods in service of Dagger internal classes. <em>Do not use</em> in client
+ * code.
+ */
+public final class DaggerCollections {
   /**
    * The maximum value for a signed 32-bit integer that is equal to a power of 2.
    */
   private static final int MAX_POWER_OF_TWO = 1 << (Integer.SIZE - 2);
 
-  private Collections() {
+  private DaggerCollections() {}
+
+  /**
+   * Returns a new list that is pre-sized to {@code size}, or {@link Collections#emptyList()} if
+   * empty. The list returned is never intended to grow beyond {@code size}, so adding to a list
+   * when the size is 0 is an error.
+   */
+  public static <T> List<T> presizedList(int size) {
+    if (size == 0) {
+      return Collections.emptyList();
+    }
+    return new ArrayList<T>(size);
+  }
+
+  /**
+   * Returns true if at least one pair of items in {@code list} are equals.
+   */
+  public static boolean hasDuplicates(List<?> list) {
+    if (list.size() < 2) {
+      return false;
+    }
+    Set<Object> asSet = new HashSet<Object>(list);
+    return list.size() != asSet.size();
   }
 
   /**

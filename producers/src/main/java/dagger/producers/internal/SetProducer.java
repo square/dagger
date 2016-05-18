@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.DaggerCollections.hasDuplicates;
+import static dagger.internal.DaggerCollections.presizedList;
 
 /**
  * A {@link Producer} implementation used to implement {@link Set} bindings. This producer returns
@@ -49,13 +51,27 @@ public final class SetProducer<T> extends AbstractProducer<Set<T>> {
     return (Producer) EMPTY_PRODUCER;
   }
 
-  public static <T> SetProducer.Builder<T> builder() {
-    return new Builder<T>();
+  /**
+   * Constructs a new {@link Builder} for a {@link SetProducer} with {@code individualProducerSize}
+   * individual {@code Producer<T>} and {@code setProducerSize} {@code Producer<Set<T>>} instances.
+   */
+  public static <T> Builder<T> builder(int individualProducerSize, int setProducerSize) {
+    return new Builder<T>(individualProducerSize, setProducerSize);
   }
 
+  /**
+   * A builder to accumulate {@code Producer<T>} and {@code Producer<Set<T>>} instances. These are
+   * only intended to be single-use and from within generated code. Do <em>NOT</em> add producers
+   * after calling {@link #build()}.
+   */
   public static final class Builder<T> {
-    private final List<Producer<T>> individualProducers = new ArrayList<Producer<T>>();
-    private final List<Producer<Set<T>>> setProducers = new ArrayList<Producer<Set<T>>>();
+    private final List<Producer<T>> individualProducers;
+    private final List<Producer<Set<T>>> setProducers;
+
+    private Builder(int individualProducerSize, int setProducerSize) {
+      individualProducers = presizedList(individualProducerSize);
+      setProducers = presizedList(setProducerSize);
+    }
 
     public Builder<T> addProducer(Producer<T> individualProducer) {
       assert individualProducer != null : "Codegen error? Null producer";
@@ -75,23 +91,15 @@ public final class SetProducer<T> extends AbstractProducer<Set<T>> {
       assert !hasDuplicates(setProducers)
           : "Codegen error?  Duplicates in the producer list";
 
-      return new SetProducer<T>(
-          ImmutableSet.copyOf(individualProducers), ImmutableSet.copyOf(setProducers));
+      return new SetProducer<T>(individualProducers, setProducers);
     }
   }
 
-  /**
-   * Returns true if at least one pair of items in (@code original) are equals.
-   */
-  private static boolean hasDuplicates(List<? extends Object> original) {
-    return original.size() != ImmutableSet.copyOf(original).size();
-  }
-
-  private final ImmutableSet<Producer<T>> individualProducers;
-  private final ImmutableSet<Producer<Set<T>>> setProducers;
+  private final List<Producer<T>> individualProducers;
+  private final List<Producer<Set<T>>> setProducers;
 
   private SetProducer(
-      ImmutableSet<Producer<T>> individualProducers, ImmutableSet<Producer<Set<T>>> setProducers) {
+      List<Producer<T>> individualProducers, List<Producer<Set<T>>> setProducers) {
     this.individualProducers = individualProducers;
     this.setProducers = setProducers;
   }

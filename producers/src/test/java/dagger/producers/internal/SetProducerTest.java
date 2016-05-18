@@ -36,7 +36,7 @@ public class SetProducerTest {
   @Test
   public void success() throws Exception {
     Producer<Set<Integer>> producer =
-        SetProducer.<Integer>builder()
+        SetProducer.<Integer>builder(1, 1)
             .addProducer(Producers.immediateProducer(1))
             .addSetProducer(Producers.<Set<Integer>>immediateProducer(ImmutableSet.of(5, 7)))
             .build();
@@ -46,7 +46,7 @@ public class SetProducerTest {
   @Test
   public void delegateNpe() throws Exception {
     Producer<Set<Integer>> producer =
-        SetProducer.<Integer>builder()
+        SetProducer.<Integer>builder(1, 0)
             .addProducer(Producers.<Integer>immediateProducer(null))
             .build();
     ListenableFuture<Set<Integer>> future = producer.get();
@@ -61,7 +61,7 @@ public class SetProducerTest {
   @Test
   public void delegateSetNpe() throws Exception {
     Producer<Set<Integer>> producer =
-        SetProducer.<Integer>builder()
+        SetProducer.<Integer>builder(0, 1)
             .addSetProducer(Producers.<Set<Integer>>immediateProducer(null))
             .build();
     ListenableFuture<Set<Integer>> future = producer.get();
@@ -76,7 +76,7 @@ public class SetProducerTest {
   @Test
   public void delegateElementNpe() throws Exception {
     Producer<Set<Integer>> producer =
-        SetProducer.<Integer>builder()
+        SetProducer.<Integer>builder(0, 2)
             .addSetProducer(Producers.<Set<Integer>>immediateProducer(ImmutableSet.of(1, 2)))
             .addSetProducer(
                 Producers.<Set<Integer>>immediateProducer(Collections.<Integer>singleton(null)))
