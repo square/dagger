@@ -124,8 +124,7 @@ final class ErrorMessages {
       "@Reusable cannot be applied to components or subcomponents.";
 
   static final String BINDING_METHOD_RETURN_TYPE =
-      "@%s methods must either return a primitive, an array, a type variable, or a declared"
-          + " type.";
+      "@%s methods must return a primitive, an array, a type variable, or a declared type.";
 
   static final String BINDING_METHOD_THROWS_CHECKED =
       "@%s methods may only throw unchecked exceptions";
@@ -134,8 +133,8 @@ final class ErrorMessages {
       "@Nullable on @Produces methods does not do anything.";
 
   static final String PRODUCES_METHOD_RETURN_TYPE =
-      "@Produces methods must either return a primitive, an array, a type variable, or a declared"
-          + " type, or a ListenableFuture of one of those types.";
+      "@Produces methods must return a primitive, an array, a type variable, or a declared type, "
+          + "or a ListenableFuture of one of those types.";
 
   static final String PRODUCES_METHOD_RAW_FUTURE =
       "@Produces methods cannot return a raw ListenableFuture.";
@@ -143,14 +142,16 @@ final class ErrorMessages {
   static final String BINDING_METHOD_SET_VALUES_RAW_SET =
       "@%s methods of type set values cannot return a raw Set";
 
-  static final String PROVIDES_METHOD_SET_VALUES_RETURN_SET =
-      "@Provides methods of type set values must return a Set";
+  static final String BINDING_METHOD_SET_VALUES_RETURN_SET =
+      "@%s methods of type set values must return a Set";
 
   static final String PRODUCES_METHOD_SET_VALUES_RETURN_SET =
       "@Produces methods of type set values must return a Set or ListenableFuture of Set";
 
-  static final String PRODUCES_METHOD_THROWS =
-      "@Produces methods may only throw unchecked exceptions or exceptions subclassing Exception";
+  static final String BINDING_METHOD_THROWS =
+      "@%s methods may only throw unchecked exceptions or exceptions subclassing Exception";
+
+  static final String BINDING_METHOD_THROWS_ANY = "@%s methods may not throw";
 
   static final String BINDING_METHOD_MUST_RETURN_A_VALUE =
       "@%s methods must return a value (not void).";
@@ -160,7 +161,7 @@ final class ErrorMessages {
 
   static final String BINDING_METHOD_ABSTRACT = "@%s methods cannot be abstract";
 
-  static final String BINDS_METHOD_NOT_ABSTRACT = "@Binds methods must be abstract";
+  static final String BINDING_METHOD_NOT_ABSTRACT = "@%s methods must be abstract";
 
   static final String BINDING_METHOD_PRIVATE = "@%s methods cannot be private";
 

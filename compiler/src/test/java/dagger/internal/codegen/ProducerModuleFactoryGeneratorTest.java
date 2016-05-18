@@ -33,12 +33,12 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_RETURN_A
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
-import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_THROWS;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
@@ -396,7 +396,7 @@ public class ProducerModuleFactoryGeneratorTest {
         .that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PRODUCES_METHOD_THROWS)
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_THROWS))
         .in(moduleFile)
         .onLine(8);
   }

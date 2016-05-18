@@ -36,7 +36,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static javax.lang.model.element.ElementKind.METHOD;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the
@@ -48,8 +48,8 @@ import static javax.lang.model.element.ElementKind.METHOD;
 final class ProducerModuleProcessingStep implements ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
-  private final ProducesMethodValidator producesMethodValidator;
-  private final BindsMethodValidator bindsMethodValidator;
+  private final Validator<ExecutableElement> producesMethodValidator;
+  private final Validator<ExecutableElement> bindsMethodValidator;
   private final ProductionBinding.Factory productionBindingFactory;
   private final ProducerFactoryGenerator factoryGenerator;
   private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
@@ -57,8 +57,8 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
   ProducerModuleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
-      ProducesMethodValidator producesMethodValidator,
-      BindsMethodValidator bindsMethodValidator,
+      Validator<ExecutableElement> producesMethodValidator,
+      Validator<ExecutableElement> bindsMethodValidator,
       ProductionBinding.Factory productionBindingFactory,
       ProducerFactoryGenerator factoryGenerator) {
     this.messager = messager;
@@ -79,10 +79,12 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     // first, check and collect all produces methods
     ImmutableSet<ExecutableElement> validProducesMethods =
-        validateProducesMethods(elementsByAnnotation);
+        producesMethodValidator.validate(
+            messager, methodsIn(elementsByAnnotation.get(Produces.class)));
 
     // second, check and collect all bind methods
-    ImmutableSet<ExecutableElement> validBindsMethods = validateBindsMethods(elementsByAnnotation);
+    ImmutableSet<ExecutableElement> validBindsMethods =
+        bindsMethodValidator.validate(messager, methodsIn(elementsByAnnotation.get(Binds.class)));
 
     // process each module
     for (Element moduleElement :
@@ -143,39 +145,5 @@ final class ProducerModuleProcessingStep implements ProcessingStep {
       }
     }
     return ImmutableSet.of();
-  }
-
-  private ImmutableSet<ExecutableElement> validateProducesMethods(
-      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ExecutableElement> validProducesMethodsBuilder = ImmutableSet.builder();
-    for (Element producesElement : elementsByAnnotation.get(Produces.class)) {
-      if (producesElement.getKind().equals(METHOD)) {
-        ExecutableElement producesMethodElement = (ExecutableElement) producesElement;
-        ValidationReport<ExecutableElement> methodReport =
-            producesMethodValidator.validate(producesMethodElement);
-        methodReport.printMessagesTo(messager);
-        if (methodReport.isClean()) {
-          validProducesMethodsBuilder.add(producesMethodElement);
-        }
-      }
-    }
-    return validProducesMethodsBuilder.build();
-  }
-
-  private ImmutableSet<ExecutableElement> validateBindsMethods(
-      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ExecutableElement> validBindsMethodsBuilder = ImmutableSet.builder();
-    for (Element bindElement : elementsByAnnotation.get(Binds.class)) {
-      if (bindElement.getKind().equals(METHOD)) {
-        ExecutableElement bindsMethodElement = (ExecutableElement) bindElement;
-        ValidationReport<ExecutableElement> methodReport =
-            bindsMethodValidator.validate(bindsMethodElement);
-        methodReport.printMessagesTo(messager);
-        if (methodReport.isClean()) {
-          validBindsMethodsBuilder.add(bindsMethodElement);
-        }
-      }
-    }
-    return validBindsMethodsBuilder.build();
   }
 }

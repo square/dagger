@@ -35,7 +35,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static javax.lang.model.element.ElementKind.METHOD;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the {@link Module}
@@ -47,8 +47,8 @@ import static javax.lang.model.element.ElementKind.METHOD;
 final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
   private final Messager messager;
   private final ModuleValidator moduleValidator;
-  private final ProvidesMethodValidator providesMethodValidator;
-  private final BindsMethodValidator bindsMethodValidator;
+  private final Validator<ExecutableElement> providesMethodValidator;
+  private final Validator<ExecutableElement> bindsMethodValidator;
   private final ProvisionBinding.Factory provisionBindingFactory;
   private final FactoryGenerator factoryGenerator;
   private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
@@ -56,9 +56,9 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
   ModuleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
-      ProvidesMethodValidator providesMethodValidator,
+      Validator<ExecutableElement> providesMethodValidator,
       ProvisionBinding.Factory provisionBindingFactory,
-      BindsMethodValidator bindsMethodValidator,
+      Validator<ExecutableElement> bindsMethodValidator,
       FactoryGenerator factoryGenerator) {
     this.messager = messager;
     this.moduleValidator = moduleValidator;
@@ -78,10 +78,12 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     // first, check and collect all provides methods
     ImmutableSet<ExecutableElement> validProvidesMethods =
-        validateProvidesMethods(elementsByAnnotation);
+        providesMethodValidator.validate(
+            messager, methodsIn(elementsByAnnotation.get(Provides.class)));
 
     // second, check and collect all bind methods
-    ImmutableSet<ExecutableElement> validBindsMethods = validateBindsMethods(elementsByAnnotation);
+    ImmutableSet<ExecutableElement> validBindsMethods =
+        bindsMethodValidator.validate(messager, methodsIn(elementsByAnnotation.get(Binds.class)));
 
     // process each module
     for (Element moduleElement :
@@ -139,42 +141,5 @@ final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingS
       processedModuleElements.add(moduleElement);
     }
     return ImmutableSet.of();
-  }
-
-  /* TODO(gak): Add an interface for Validators and combine these two methods and the ones in
-   * ProducerModuleProcessingStep */
-
-  private ImmutableSet<ExecutableElement> validateBindsMethods(
-      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ExecutableElement> validBindsMethodsBuilder = ImmutableSet.builder();
-    for (Element bindElement : elementsByAnnotation.get(Binds.class)) {
-      if (bindElement.getKind().equals(METHOD)) {
-        ExecutableElement bindsMethodElement = (ExecutableElement) bindElement;
-        ValidationReport<ExecutableElement> methodReport =
-            bindsMethodValidator.validate(bindsMethodElement);
-        methodReport.printMessagesTo(messager);
-        if (methodReport.isClean()) {
-          validBindsMethodsBuilder.add(bindsMethodElement);
-        }
-      }
-    }
-    return validBindsMethodsBuilder.build();
-  }
-
-  private ImmutableSet<ExecutableElement> validateProvidesMethods(
-      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    ImmutableSet.Builder<ExecutableElement> validProvidesMethodsBuilder = ImmutableSet.builder();
-    for (Element providesElement : elementsByAnnotation.get(Provides.class)) {
-      if (providesElement.getKind().equals(METHOD)) {
-        ExecutableElement providesMethodElement = (ExecutableElement) providesElement;
-        ValidationReport<ExecutableElement> methodReport =
-            providesMethodValidator.validate(providesMethodElement);
-        methodReport.printMessagesTo(messager);
-        if (methodReport.isClean()) {
-          validProvidesMethodsBuilder.add(providesMethodElement);
-        }
-      }
-    }
-    return validProvidesMethodsBuilder.build();
   }
 }

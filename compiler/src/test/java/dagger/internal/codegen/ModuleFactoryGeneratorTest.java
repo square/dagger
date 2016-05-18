@@ -36,11 +36,11 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_PRIVATE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_RETURN_TYPE;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RAW_SET;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS_CHECKED;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
 @RunWith(JUnit4.class)
@@ -252,10 +252,11 @@ public class ModuleFactoryGeneratorTest {
         "    return null;",
         "  }",
         "}");
-    assertAbout(javaSource()).that(moduleFile)
+    assertAbout(javaSource())
+        .that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(PROVIDES_METHOD_SET_VALUES_RETURN_SET);
+        .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RETURN_SET));
   }
 
   @Test public void modulesWithTypeParamsMustBeAbstract() {

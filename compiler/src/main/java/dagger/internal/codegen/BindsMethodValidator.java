@@ -15,113 +15,70 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import dagger.Binds;
 import dagger.Module;
 import dagger.producers.ProducerModule;
 import java.util.List;
-import java.util.Set;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_IN_MODULE;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
-import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_NOT_ABSTRACT;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
 import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER;
-import static dagger.internal.codegen.Validation.validateMethodQualifiers;
-import static dagger.internal.codegen.Validation.validateReturnType;
-import static dagger.internal.codegen.Validation.validateUncheckedThrows;
-import static javax.lang.model.element.Modifier.ABSTRACT;
 
 /**
- * A {@linkplain ValidationReport validator} for {@link Binds} methods.
+ * A validator for {@link Binds} methods.
  */
-final class BindsMethodValidator {
-  private final Elements elements;
+final class BindsMethodValidator extends BindingMethodValidator {
   private final Types types;
-  private final LoadingCache<ExecutableElement, ValidationReport<ExecutableElement>>
-      validationCache;
 
   BindsMethodValidator(Elements elements, Types types) {
-    this.elements = checkNotNull(elements);
+    super(
+        elements,
+        types,
+        Binds.class,
+        ImmutableList.of(Module.class, ProducerModule.class),
+        MUST_BE_ABSTRACT,
+        RUNTIME_EXCEPTION);
     this.types = checkNotNull(types);
-    this.validationCache = CacheBuilder.newBuilder().build(new ValidationLoader());
   }
 
-  private final class ValidationLoader
-      extends CacheLoader<ExecutableElement, ValidationReport<ExecutableElement>> {
-    @Override
-    public ValidationReport<ExecutableElement> load(ExecutableElement bindsMethodElement) {
-      ValidationReport.Builder<ExecutableElement> builder =
-          ValidationReport.about(bindsMethodElement);
+  @Override
+  protected void checkMethod(ValidationReport.Builder<ExecutableElement> builder) {
+    super.checkMethod(builder);
+    checkParameters(builder);
+  }
 
-      checkArgument(isAnnotationPresent(bindsMethodElement, Binds.class));
+  @Override // TODO(dpb, ronshapiro): When @Binds methods support multibindings, stop overriding.
+  protected void checkReturnType(ValidationReport.Builder<ExecutableElement> builder) {
+    checkFrameworkType(builder);
+    checkKeyType(builder, builder.getSubject().getReturnType());
+  }
 
-      Element enclosingElement = bindsMethodElement.getEnclosingElement();
-      if (!isAnnotationPresent(enclosingElement, Module.class)
-          && !isAnnotationPresent(enclosingElement, ProducerModule.class)) {
-        builder.addError(
-            formatErrorMessage(
-                BINDING_METHOD_NOT_IN_MODULE,
-                String.format(
-                    // the first @ is in the format string
-                    "%s or @%s",
-                    Module.class.getSimpleName(),
-                    ProducerModule.class.getSimpleName())),
-            bindsMethodElement);
+  @Override // TODO(dpb, ronshapiro): When @Binds methods support multibindings, stop overriding.
+  protected void checkMapKeys(ValidationReport.Builder<ExecutableElement> builder) {
+    // no-op
+  }
+
+  @Override // TODO(dpb, ronshapiro): When @Binds methods support multibindings, stop overriding.
+  protected void checkMultibindings(ValidationReport.Builder<ExecutableElement> builder) {
+    // no-op
+  }
+
+  private void checkParameters(ValidationReport.Builder<ExecutableElement> builder) {
+    List<? extends VariableElement> parameters = builder.getSubject().getParameters();
+    if (parameters.size() == 1) {
+      VariableElement parameter = getOnlyElement(parameters);
+      if (!types.isAssignable(parameter.asType(), builder.getSubject().getReturnType())) {
+        builder.addError(formatErrorMessage(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER));
       }
-
-      if (!bindsMethodElement.getTypeParameters().isEmpty()) {
-        builder.addError(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER), bindsMethodElement);
-      }
-
-      Set<Modifier> modifiers = bindsMethodElement.getModifiers();
-      if (!modifiers.contains(ABSTRACT)) {
-        builder.addError(formatErrorMessage(BINDS_METHOD_NOT_ABSTRACT), bindsMethodElement);
-      }
-      TypeMirror returnType = bindsMethodElement.getReturnType();
-      validateReturnType(Binds.class, builder, returnType);
-
-      List<? extends VariableElement> parameters = bindsMethodElement.getParameters();
-      if (parameters.size() == 1) {
-        VariableElement parameter = Iterables.getOnlyElement(parameters);
-        if (!types.isAssignable(parameter.asType(), returnType)) {
-          builder.addError(
-              formatErrorMessage(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
-        }
-      } else {
-        builder.addError(
-            formatErrorMessage(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER), bindsMethodElement);
-      }
-
-      validateUncheckedThrows(elements, types, bindsMethodElement, Binds.class, builder);
-
-      validateMethodQualifiers(builder, bindsMethodElement);
-
-      return builder.build();
+    } else {
+      builder.addError(formatErrorMessage(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER));
     }
-  }
-
-  ValidationReport<ExecutableElement> validate(ExecutableElement bindsMethodElement) {
-    return validationCache.getUnchecked(bindsMethodElement);
-  }
-
-  private String formatErrorMessage(String msg) {
-    return String.format(msg, Binds.class.getSimpleName());
-  }
-
-  private String formatErrorMessage(String msg, String parameter) {
-    return String.format(msg, Binds.class.getSimpleName(), parameter);
   }
 }

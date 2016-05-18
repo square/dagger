@@ -286,13 +286,11 @@ public class MultibindingsValidatorTest {
         .in(testModule)
         .onLine(26)
         .and()
-        .withErrorContaining(
-            "Cannot use more than one @Qualifier on a method in an @Multibindings type")
+        .withErrorContaining("Cannot use more than one @Qualifier")
         .in(testModule)
         .onLine(27)
         .and()
-        .withErrorContaining(
-            "Cannot use more than one @Qualifier on a method in an @Multibindings type")
+        .withErrorContaining("Cannot use more than one @Qualifier")
         .in(testModule)
         .onLine(28);
   }

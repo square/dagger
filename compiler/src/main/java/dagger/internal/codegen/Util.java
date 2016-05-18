@@ -170,5 +170,22 @@ final class Util {
         }
       };
 
+      
+  /**
+   * Returns {@code true} iff the given element has an {@link AnnotationMirror} whose
+   * {@linkplain AnnotationMirror#getAnnotationType() annotation type} has the same canonical name
+   * as any of that of {@code annotationClasses}.
+   */
+  // TODO(dpb): Move to MoreElements.
+  static boolean isAnyAnnotationPresent(
+      Element element, Iterable<? extends Class<? extends Annotation>> annotationClasses) {
+    for (Class<? extends Annotation> annotation : annotationClasses) {
+      if (isAnnotationPresent(element, annotation)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private Util() {}
 }
