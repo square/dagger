@@ -28,6 +28,8 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatMethodInUnannotatedClass;
+import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatModuleMethod;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MULTIPLE_QUALIFIERS;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES;
@@ -46,9 +48,9 @@ import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {
 
-  private final JavaFileObject NULLABLE = JavaFileObjects.forSourceLines("test.Nullable",
-      "package test;",
-      "public @interface Nullable {}");
+  private static final JavaFileObject NULLABLE =
+      JavaFileObjects.forSourceLines(
+          "test.Nullable", "package test;", "public @interface Nullable {}");
 
   private static final CodeBlock NPE_LITERAL =
       CodeBlocks.stringLiteral(ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
@@ -65,198 +67,74 @@ public class ModuleFactoryGeneratorTest {
   }
 
   @Test public void providesMethodNotInModule() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Provides;",
-        "",
-        "final class TestModule {",
-        "  @Provides String provideString() {",
-        "    return \"\";",
-        "  }",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE));
+    assertThatMethodInUnannotatedClass("@Provides String provideString() { return null; }")
+        .hasError(formatModuleErrorMessage(BINDING_METHOD_NOT_IN_MODULE));
   }
 
   @Test public void providesMethodAbstract() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "",
-        "@Module",
-        "abstract class TestModule {",
-        "  @Provides abstract String provideString();",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_ABSTRACT));
+    assertThatModuleMethod("@Provides abstract String abstractMethod();")
+        .hasError(formatErrorMessage(BINDING_METHOD_ABSTRACT));
   }
 
   @Test public void providesMethodPrivate() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides private String provideString() {",
-        "    return \"\";",
-        "  }",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_PRIVATE));
+    assertThatModuleMethod("@Provides private String privateMethod() { return null; }")
+        .hasError(formatErrorMessage(BINDING_METHOD_PRIVATE));
   }
 
   @Test public void providesMethodReturnVoid() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides void provideNothing() {}",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
+    assertThatModuleMethod("@Provides void voidMethod() {}")
+        .hasError(formatErrorMessage(BINDING_METHOD_MUST_RETURN_A_VALUE));
   }
 
-  @Test public void providesMethodFrameworkType() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Lazy;",
-        "import dagger.MembersInjector;",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import dagger.producers.Producer;",
-        "import dagger.producers.Produced;",
-        "import javax.inject.Provider;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides Provider<String> provideProvider() {}",
-        "  @Provides Lazy<String> provideLazy() {}",
-        "  @Provides MembersInjector<String> provideMembersInjector() {}",
-        "  @Provides Producer<String> provideProducer() {}",
-        "  @Provides Produced<String> provideProduced() {}",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
-        .in(moduleFile).onLine(13)
-        .and()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
-        .in(moduleFile).onLine(14)
-        .and()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
-        .in(moduleFile).onLine(15)
-        .and()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
-        .in(moduleFile).onLine(16)
-        .and()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES))
-        .in(moduleFile).onLine(17);
+  @Test
+  public void providesMethodReturnsProvider() {
+    assertThatModuleMethod("@Provides Provider<String> provideProvider() {}")
+        .hasError(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES));
+  }
+
+  @Test
+  public void providesMethodReturnsLazy() {
+    assertThatModuleMethod("@Provides Lazy<String> provideLazy() {}")
+        .hasError(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES));
+  }
+
+  @Test
+  public void providesMethodReturnsMembersInjector() {
+    assertThatModuleMethod("@Provides MembersInjector<String> provideMembersInjector() {}")
+        .hasError(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES));
+  }
+
+  @Test
+  public void providesMethodReturnsProducer() {
+    assertThatModuleMethod("@Provides Producer<String> provideProducer() {}")
+        .hasError(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES));
+  }
+
+  @Test
+  public void providesMethodReturnsProduced() {
+    assertThatModuleMethod("@Provides Produced<String> provideProduced() {}")
+        .hasError(formatErrorMessage(BINDING_METHOD_MUST_NOT_BIND_FRAMEWORK_TYPES));
   }
 
   @Test public void providesMethodWithTypeParameter() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides <T> String provideString() {",
-        "    return \"\";",
-        "  }",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER));
+    assertThatModuleMethod("@Provides <T> String typeParameter() { return null; }")
+        .hasError(formatErrorMessage(BINDING_METHOD_TYPE_PARAMETER));
   }
 
   @Test public void providesMethodSetValuesWildcard() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import dagger.multibindings.ElementsIntoSet;",
-        "",
-        "import java.util.Set;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides @ElementsIntoSet Set<?> provideWildcard() {",
-        "    return null;",
-        "  }",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(String.format(BINDING_METHOD_RETURN_TYPE, "Provides"));
+    assertThatModuleMethod("@Provides @ElementsIntoSet Set<?> provideWildcard() { return null; }")
+        .hasError(formatErrorMessage(BINDING_METHOD_RETURN_TYPE));
   }
 
   @Test public void providesMethodSetValuesRawSet() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import dagger.multibindings.ElementsIntoSet;",
-        "",
-        "import java.util.Set;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides @ElementsIntoSet Set provideSomething() {",
-        "    return null;",
-        "  }",
-        "}");
-    assertAbout(javaSource()).that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET));
+    assertThatModuleMethod("@Provides @ElementsIntoSet Set provideSomething() { return null; }")
+        .hasError(formatErrorMessage(BINDING_METHOD_SET_VALUES_RAW_SET));
   }
 
   @Test public void providesMethodSetValuesNotASet() {
-    JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.TestModule",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "import dagger.multibindings.ElementsIntoSet;",
-        "",
-        "import java.util.List;",
-        "",
-        "@Module",
-        "final class TestModule {",
-        "  @Provides @ElementsIntoSet List<String> provideStrings() {",
-        "    return null;",
-        "  }",
-        "}");
-    assertAbout(javaSource())
-        .that(moduleFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(formatErrorMessage(BINDING_METHOD_SET_VALUES_RETURN_SET));
+    assertThatModuleMethod(
+            "@Provides @ElementsIntoSet List<String> provideStrings() { return null; }")
+        .hasError(formatErrorMessage(BINDING_METHOD_SET_VALUES_RETURN_SET));
   }
 
   @Test public void modulesWithTypeParamsMustBeAbstract() {
@@ -264,14 +142,16 @@ public class ModuleFactoryGeneratorTest {
         "package test;",
         "",
         "import dagger.Module;",
-        "import dagger.Provides;",
         "",
         "@Module",
         "final class TestModule<A> {}");
-    assertAbout(javaSource()).that(moduleFile)
+    assertAbout(javaSource())
+        .that(moduleFile)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
-        .withErrorContaining(MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT);
+        .withErrorContaining(MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT)
+        .in(moduleFile)
+        .onLine(6);
   }
 
   @Test public void provideOverriddenByNoProvide() {
@@ -285,20 +165,14 @@ public class ModuleFactoryGeneratorTest {
         "class Parent {",
         "  @Provides String foo() { return null; }",
         "}");
-    JavaFileObject child = JavaFileObjects.forSourceLines("test.Child",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "",
-        "@Module",
-        "class Child extends Parent{",
-        "  String foo() { return null; }",
-        "}");
-    assertAbout(javaSources()).that(ImmutableList.of(parent, child))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(String.format(ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD,
-            "Provides", "@Provides String test.Parent.foo()"));
+    assertThatModuleMethod("String foo() { return null; }")
+        .withDeclaration("@Module class %s extends Parent { %s }")
+        .withAdditionalSources(parent)
+        .hasError(
+            String.format(
+                ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD,
+                "Provides",
+                "@Provides String test.Parent.foo()"));
   }
 
   @Test public void provideOverriddenByProvide() {
@@ -312,21 +186,14 @@ public class ModuleFactoryGeneratorTest {
         "class Parent {",
         "  @Provides String foo() { return null; }",
         "}");
-    JavaFileObject child = JavaFileObjects.forSourceLines("test.Child",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "",
-        "@Module",
-        "class Child extends Parent{",
-        "  @Provides String foo() { return null; }",
-        "}");
-    assertAbout(javaSources()).that(ImmutableList.of(parent, child))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(String.format(ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER,
-            "Provides", "@Provides String test.Parent.foo()"));
+    assertThatModuleMethod("@Provides String foo() { return null; }")
+        .withDeclaration("@Module class %s extends Parent { %s }")
+        .withAdditionalSources(parent)
+        .hasError(
+            String.format(
+                ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER,
+                "Provides",
+                "@Provides String test.Parent.foo()"));
   }
 
   @Test public void providesOverridesNonProvides() {
@@ -339,21 +206,14 @@ public class ModuleFactoryGeneratorTest {
         "class Parent {",
         "  String foo() { return null; }",
         "}");
-    JavaFileObject child = JavaFileObjects.forSourceLines("test.Child",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "import dagger.Provides;",
-        "",
-        "@Module",
-        "class Child extends Parent{",
-        "  @Provides String foo() { return null; }",
-        "}");
-    assertAbout(javaSources()).that(ImmutableList.of(parent, child))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(String.format(ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER,
-            "Provides", "String test.Parent.foo()"));
+    assertThatModuleMethod("@Provides String foo() { return null; }")
+        .withDeclaration("@Module class %s extends Parent { %s }")
+        .withAdditionalSources(parent)
+        .hasError(
+            String.format(
+                ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER,
+                "Provides",
+                "String test.Parent.foo()"));
   }
 
   @Test public void validatesIncludedModules() {

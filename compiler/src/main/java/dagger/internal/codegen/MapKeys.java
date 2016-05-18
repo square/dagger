@@ -20,8 +20,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.TypeName;
 import dagger.MapKey;
 import java.util.List;
@@ -66,7 +66,7 @@ final class MapKeys {
     ImmutableSet<? extends AnnotationMirror> mapKeys = getMapKeys(bindingElement);
     return mapKeys.isEmpty()
         ? Optional.<AnnotationMirror>absent()
-        : Optional.of(getOnlyElement(mapKeys));
+        : Optional.<AnnotationMirror>of(getOnlyElement(mapKeys));
   }
 
   /**

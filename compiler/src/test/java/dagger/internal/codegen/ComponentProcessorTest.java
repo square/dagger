@@ -47,6 +47,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static java.util.Arrays.asList;
 import static javax.tools.StandardLocation.SOURCE_OUTPUT;
 
 @RunWith(JUnit4.class)
@@ -2371,6 +2372,35 @@ public class ComponentProcessorTest {
         .withErrorContaining("@Scope annotations are not allowed on @Inject constructors.")
         .in(aClass)
         .onLine(6);
+  }
+
+  @Test
+  public void attemptToInjectWildcardGenerics() {
+    JavaFileObject testComponent =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Lazy;",
+            "import javax.inject.Provider;",
+            "",
+            "@Component",
+            "interface TestComponent {",
+            "  Lazy<? extends Number> wildcardNumberLazy();",
+            "  Provider<? super Number> wildcardNumberProvider();",
+            "}");
+    assertAbout(javaSources())
+        .that(asList(testComponent))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("wildcard type")
+        .in(testComponent)
+        .onLine(9)
+        .and()
+        .withErrorContaining("wildcard type")
+        .in(testComponent)
+        .onLine(10);
   }
 
   /**
