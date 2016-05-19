@@ -27,6 +27,9 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import static dagger.internal.codegen.ModuleProcessingStep.moduleProcessingStep;
+import static dagger.internal.codegen.ModuleProcessingStep.producerModuleProcessingStep;
+
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
  * implementation.
@@ -176,13 +179,13 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),
         new MultibindingsProcessingStep(messager, multibindingsValidator),
         new MultibindingAnnotationsProcessingStep(messager),
-        new ModuleProcessingStep(
+        moduleProcessingStep(
             messager,
             moduleValidator,
-            providesMethodValidator,
             provisionBindingFactory,
-            bindsMethodValidator,
-            factoryGenerator),
+            factoryGenerator,
+            providesMethodValidator,
+            bindsMethodValidator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.COMPONENT,
             messager,
@@ -194,13 +197,13 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             componentDescriptorFactory,
             bindingGraphFactory,
             componentGenerator),
-        new ProducerModuleProcessingStep(
+        producerModuleProcessingStep(
             messager,
             moduleValidator,
-            producesMethodValidator,
-            bindsMethodValidator,
             productionBindingFactory,
-            producerFactoryGenerator),
+            producerFactoryGenerator,
+            producesMethodValidator,
+            bindsMethodValidator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.PRODUCTION_COMPONENT,
             messager,

@@ -15,131 +15,201 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.BasicAnnotationProcessor;
-import com.google.auto.common.MoreElements;
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
+import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
+import dagger.producers.ProducerModule;
+import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.ElementFilter;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static dagger.internal.codegen.Util.elementsWithAnnotation;
+import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
 import static javax.lang.model.util.ElementFilter.methodsIn;
+import static javax.lang.model.util.ElementFilter.typesIn;
 
 /**
- * An annotation processor for generating Dagger implementation code based on the {@link Module}
- * (and {@link Provides}) annotation.
+ * A {@link ProcessingStep} that validates module classes and generates factories for binding
+ * methods.
  *
- * @author Gregory Kick
- * @since 2.0
+ * @param <B> the type of binding created from methods
  */
-final class ModuleProcessingStep implements BasicAnnotationProcessor.ProcessingStep {
-  private final Messager messager;
-  private final ModuleValidator moduleValidator;
-  private final Validator<ExecutableElement> providesMethodValidator;
-  private final Validator<ExecutableElement> bindsMethodValidator;
-  private final ProvisionBinding.Factory provisionBindingFactory;
-  private final FactoryGenerator factoryGenerator;
-  private final Set<Element> processedModuleElements = Sets.newLinkedHashSet();
+final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
 
-  ModuleProcessingStep(
+  /**
+   * A {@link ProcessingStep} for {@link Module @Module} classes that generates factories for
+   * {@link Provides @Provides} methods.
+   */
+  static ModuleProcessingStep<ProvisionBinding> moduleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
-      Validator<ExecutableElement> providesMethodValidator,
-      ProvisionBinding.Factory provisionBindingFactory,
-      Validator<ExecutableElement> bindsMethodValidator,
-      FactoryGenerator factoryGenerator) {
+      final ProvisionBinding.Factory provisionBindingFactory,
+      FactoryGenerator factoryGenerator,
+      ProvidesMethodValidator providesMethodValidator,
+      Validator<ExecutableElement> bindsMethodValidator) {
+    return new ModuleProcessingStep<>(
+        messager,
+        Module.class,
+        moduleValidator,
+        Provides.class,
+        new ModuleMethodBindingFactory<ProvisionBinding>() {
+          @Override
+          public ProvisionBinding bindingForModuleMethod(
+              ExecutableElement method, TypeElement module) {
+            return provisionBindingFactory.forProvidesMethod(method, module);
+          }
+        },
+        factoryGenerator,
+        ImmutableMap.of(
+            Provides.class, providesMethodValidator, Binds.class, bindsMethodValidator));
+  }
+
+  /**
+   * A {@link ProcessingStep} for {@link ProducerModule @ProducerModule} classes that generates
+   * factories for {@link Produces @Produces} methods.
+   */
+  static ModuleProcessingStep<ProductionBinding> producerModuleProcessingStep(
+      Messager messager,
+      ModuleValidator moduleValidator,
+      final ProductionBinding.Factory productionBindingFactory,
+      ProducerFactoryGenerator producerFactoryGenerator,
+      ProducesMethodValidator producesMethodValidator,
+      Validator<ExecutableElement> bindsMethodValidator) {
+    return new ModuleProcessingStep<>(
+        messager,
+        ProducerModule.class,
+        moduleValidator,
+        Produces.class,
+        new ModuleMethodBindingFactory<ProductionBinding>() {
+          @Override
+          public ProductionBinding bindingForModuleMethod(
+              ExecutableElement method, TypeElement module) {
+            return productionBindingFactory.forProducesMethod(method, module);
+          }
+        },
+        producerFactoryGenerator,
+        ImmutableMap.of(
+            Produces.class, producesMethodValidator, Binds.class, bindsMethodValidator));
+  }
+
+  private final Messager messager;
+  private final Class<? extends Annotation> moduleAnnotation;
+  private final ModuleValidator moduleValidator;
+  private final Class<? extends Annotation> factoryMethodAnnotation;
+  private final ModuleMethodBindingFactory<B> moduleMethodBindingFactory;
+  private final SourceFileGenerator<B> factoryGenerator;
+  private final ImmutableMap<Class<? extends Annotation>, Validator<ExecutableElement>>
+      methodValidators;
+  private final Set<TypeElement> processedModuleElements = Sets.newLinkedHashSet();
+
+  /**
+   * Creates a new processing step.
+   *
+   * @param moduleAnnotation the annotation on the module class
+   * @param factoryMethodAnnotation the annotation on methods that need factories
+   * @param methodValidators validators for binding methods
+   */
+  ModuleProcessingStep(
+      Messager messager,
+      Class<? extends Annotation> moduleAnnotation,
+      ModuleValidator moduleValidator,
+      Class<? extends Annotation> factoryMethodAnnotation,
+      ModuleMethodBindingFactory<B> moduleMethodBindingFactory,
+      SourceFileGenerator<B> factoryGenerator,
+      Map<Class<? extends Annotation>, Validator<ExecutableElement>> methodValidators) {
     this.messager = messager;
+    this.moduleAnnotation = moduleAnnotation;
     this.moduleValidator = moduleValidator;
-    this.providesMethodValidator = providesMethodValidator;
-    this.bindsMethodValidator = bindsMethodValidator;
-    this.provisionBindingFactory = provisionBindingFactory;
+    this.factoryMethodAnnotation = factoryMethodAnnotation;
+    this.moduleMethodBindingFactory = moduleMethodBindingFactory;
     this.factoryGenerator = factoryGenerator;
+    this.methodValidators = ImmutableMap.copyOf(methodValidators);
   }
 
   @Override
-  public Set<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.of(Module.class, Provides.class, Binds.class);
+  public Set<? extends Class<? extends Annotation>> annotations() {
+    return new ImmutableSet.Builder<Class<? extends Annotation>>()
+        .add(moduleAnnotation)
+        .addAll(methodValidators.keySet())
+        .build();
   }
 
   @Override
   public Set<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    // first, check and collect all provides methods
-    ImmutableSet<ExecutableElement> validProvidesMethods =
-        providesMethodValidator.validate(
-            messager, methodsIn(elementsByAnnotation.get(Provides.class)));
-
-    // second, check and collect all bind methods
-    ImmutableSet<ExecutableElement> validBindsMethods =
-        bindsMethodValidator.validate(messager, methodsIn(elementsByAnnotation.get(Binds.class)));
+    ImmutableSet<ExecutableElement> validMethods = validMethods(elementsByAnnotation);
 
     // process each module
-    for (Element moduleElement :
-        Sets.difference(elementsByAnnotation.get(Module.class), processedModuleElements)) {
-      ValidationReport<TypeElement> report =
-          moduleValidator.validate(MoreElements.asType(moduleElement));
+    for (TypeElement moduleElement :
+        Sets.difference(
+            typesIn(elementsByAnnotation.get(moduleAnnotation)), processedModuleElements)) {
+      ValidationReport<TypeElement> report = moduleValidator.validate(moduleElement);
       report.printMessagesTo(messager);
 
       if (report.isClean()) {
-        ImmutableSet.Builder<ExecutableElement> moduleProvidesMethodsBuilder =
-            ImmutableSet.builder();
-        ImmutableSet.Builder<ExecutableElement> moduleBindsMethodsBuilder =
-            ImmutableSet.builder();
-        List<ExecutableElement> moduleMethods =
-            ElementFilter.methodsIn(moduleElement.getEnclosedElements());
-        for (ExecutableElement methodElement : moduleMethods) {
-          if (isAnnotationPresent(methodElement, Provides.class)) {
-            moduleProvidesMethodsBuilder.add(methodElement);
-          }
-          if (isAnnotationPresent(methodElement, Binds.class)) {
-            moduleBindsMethodsBuilder.add(methodElement);
-          }
-        }
-        ImmutableSet<ExecutableElement> moduleProvidesMethods =
-            moduleProvidesMethodsBuilder.build();
-        ImmutableSet<ExecutableElement> moduleBindsMethods =
-            moduleBindsMethodsBuilder.build();
-
-        if (Sets.difference(moduleProvidesMethods, validProvidesMethods).isEmpty()
-            && Sets.difference(moduleBindsMethods, validBindsMethods).isEmpty()) {
-          // all of the provides and bind methods in this module are valid!
-          // time to generate some factories!
-          ImmutableSet<ProvisionBinding> bindings =
-              FluentIterable.from(moduleProvidesMethods)
-                  .transform(
-                      new Function<ExecutableElement, ProvisionBinding>() {
-                        @Override
-                        public ProvisionBinding apply(ExecutableElement providesMethod) {
-                          return provisionBindingFactory.forProvidesMethod(
-                              providesMethod,
-                              MoreElements.asType(providesMethod.getEnclosingElement()));
-                        }
-                      })
-                  .toSet();
-
-          try {
-            for (ProvisionBinding binding : bindings) {
-              factoryGenerator.generate(binding);
-            }
-          } catch (SourceFileGenerationException e) {
-            e.printMessageTo(messager);
+        List<ExecutableElement> moduleMethods = methodsIn(moduleElement.getEnclosedElements());
+        if (moduleMethodsAreValid(validMethods, moduleMethods)) {
+          for (ExecutableElement method :
+              elementsWithAnnotation(moduleMethods, factoryMethodAnnotation)) {
+            generateFactory(
+                moduleMethodBindingFactory.bindingForModuleMethod(method, moduleElement));
           }
         }
       }
       processedModuleElements.add(moduleElement);
     }
     return ImmutableSet.of();
+  }
+
+  /** The binding methods that are valid according to their validator. */
+  private ImmutableSet<ExecutableElement> validMethods(
+      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
+    ImmutableSet.Builder<ExecutableElement> validMethods = ImmutableSet.builder();
+    for (Map.Entry<Class<? extends Annotation>, Validator<ExecutableElement>> entry :
+        methodValidators.entrySet()) {
+      Class<? extends Annotation> methodAnnotation = entry.getKey();
+      Validator<ExecutableElement> validator = entry.getValue();
+      validMethods.addAll(
+          validator.validate(messager, methodsIn(elementsByAnnotation.get(methodAnnotation))));
+    }
+    return validMethods.build();
+  }
+
+  /**
+   * {@code true} if all {@code moduleMethods} that are annotated with a binding method annotation
+   * are in {@code validMethods}.
+   */
+  private boolean moduleMethodsAreValid(
+      ImmutableSet<ExecutableElement> validMethods, Iterable<ExecutableElement> moduleMethods) {
+    for (ExecutableElement methodElement : moduleMethods) {
+      if (isAnyAnnotationPresent(methodElement, methodValidators.keySet())
+          && !validMethods.contains(methodElement)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private void generateFactory(B binding) {
+    try {
+      factoryGenerator.generate(binding);
+    } catch (SourceFileGenerationException e) {
+      e.printMessageTo(messager);
+    }
+  }
+
+  private interface ModuleMethodBindingFactory<B extends Binding> {
+    B bindingForModuleMethod(ExecutableElement method, TypeElement module);
   }
 }

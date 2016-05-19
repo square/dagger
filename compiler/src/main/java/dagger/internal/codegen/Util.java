@@ -187,5 +187,21 @@ final class Util {
     return false;
   }
 
+  /**
+   * The elements in {@code elements} that are annotated with an annotation of type
+   * {@code annotation}.
+   */
+  static <E extends Element> FluentIterable<E> elementsWithAnnotation(
+      Iterable<E> elements, final Class<? extends Annotation> annotation) {
+    return FluentIterable.from(elements)
+        .filter(
+            new Predicate<Element>() {
+              @Override
+              public boolean apply(Element element) {
+                return MoreElements.isAnnotationPresent(element, annotation);
+              }
+            });
+  }
+
   private Util() {}
 }
