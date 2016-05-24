@@ -85,11 +85,13 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements, types);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements, types);
     BindsMethodValidator bindsMethodValidator = new BindsMethodValidator(elements, types);
+    MultibindsMethodValidator multibindsMethodValidator =
+        new MultibindsMethodValidator(elements, types);
+    MultibindingsMethodValidator multibindingsMethodValidator =
+        new MultibindingsMethodValidator(elements, types);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
-    MultibindingsMethodValidator multibindingsMethodValidator =
-        new MultibindingsMethodValidator(elements, types);
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(
             elements,
@@ -183,7 +185,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             factoryGenerator,
             providesMethodValidator,
-            bindsMethodValidator),
+            bindsMethodValidator,
+            multibindsMethodValidator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.COMPONENT,
             messager,
@@ -201,7 +204,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             productionBindingFactory,
             producerFactoryGenerator,
             producesMethodValidator,
-            bindsMethodValidator),
+            bindsMethodValidator,
+            multibindsMethodValidator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.PRODUCTION_COMPONENT,
             messager,

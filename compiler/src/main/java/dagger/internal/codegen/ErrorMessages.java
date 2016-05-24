@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreTypes;
 import dagger.Multibindings;
 import dagger.Provides;
+import dagger.multibindings.Multibinds;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
@@ -189,8 +190,8 @@ final class ErrorMessages {
       "Cannot have more than one @%s method with the same name in a single module";
 
   static final String INCOMPATIBLE_MODULE_METHODS =
-      "A @%1$s may contain non-static @%2$s methods or @Binds methods,"
-          + " but not both at the same time.  (Static @%2$s may be used with either.)";
+      "A @%1$s may not contain both non-static @%2$s methods and abstract @Binds or @Multibinds "
+          + "declarations";
 
   static final String MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT =
       "Modules with type parameters must be abstract";
@@ -481,18 +482,27 @@ final class ErrorMessages {
     static final String MUST_BE_IN_MODULE =
         "@Multibindings types must be nested within a @Module or @ProducerModule";
 
-    static final String METHOD_MUST_RETURN_MAP_OR_SET =
-        "@Multibindings methods must return Map<K, V> or Set<T>";
-
-    static final String TOO_MANY_QUALIFIERS =
-        "Cannot use more than one @Qualifier on a method in an @Multibindings type";
-
     static String tooManyMethodsForKey(String formattedKey) {
       return String.format(
           "Too many @Multibindings methods for %s", stripCommonTypePrefixes(formattedKey));
     }
 
     private MultibindingsMessages() {}
+  }
+  
+  /**
+   * Error messages related to {@link Multibinds @Multibinds} methods and methods in
+   * {@link Multibindings} interfaces.
+   */
+  static final class MultibindsMessages {
+    static final String METHOD_MUST_RETURN_MAP_OR_SET =
+        "@%s methods must return Map<K, V> or Set<T>";
+
+    static final String NO_MAP_KEY = "@%s methods must not have a @MapKey annotation";
+
+    static final String PARAMETERS = "@%s methods cannot have parameters";
+
+    private MultibindsMessages() {}
   }
 
   /**

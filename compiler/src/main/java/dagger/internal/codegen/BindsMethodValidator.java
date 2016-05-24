@@ -15,7 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import dagger.Binds;
 import dagger.Module;
 import dagger.producers.ProducerModule;
@@ -42,7 +42,7 @@ final class BindsMethodValidator extends BindingMethodValidator {
         elements,
         types,
         Binds.class,
-        ImmutableList.of(Module.class, ProducerModule.class),
+        ImmutableSet.of(Module.class, ProducerModule.class),
         MUST_BE_ABSTRACT,
         RUNTIME_EXCEPTION);
     this.types = checkNotNull(types);

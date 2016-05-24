@@ -1174,6 +1174,7 @@ public class ModuleFactoryGeneratorTest {
   }
 
   private static final String BINDS_METHOD = "@Binds abstract Foo bindFoo(FooImpl impl);";
+  private static final String MULTIBINDS_METHOD = "@Multibinds abstract Set<Foo> foos();";
   private static final String STATIC_PROVIDES_METHOD =
       "@Provides static Bar provideBar() { return new Bar(); }";
   private static final String INSTANCE_PROVIDES_METHOD =
@@ -1184,8 +1185,17 @@ public class ModuleFactoryGeneratorTest {
   public void moduleMethodPermutations() {
     assertThatMethodCombination(BINDS_METHOD, INSTANCE_PROVIDES_METHOD)
         .failsToCompile()
-        .withErrorContaining("not both at the same time");
+        .withErrorContaining(
+            "A @Module may not contain both non-static @Provides methods and "
+                + "abstract @Binds or @Multibinds declarations");
+    assertThatMethodCombination(MULTIBINDS_METHOD, INSTANCE_PROVIDES_METHOD)
+        .failsToCompile()
+        .withErrorContaining(
+            "A @Module may not contain both non-static @Provides methods and "
+                + "abstract @Binds or @Multibinds declarations");
     assertThatMethodCombination(BINDS_METHOD, STATIC_PROVIDES_METHOD).compilesWithoutError();
+    assertThatMethodCombination(BINDS_METHOD, MULTIBINDS_METHOD).compilesWithoutError();
+    assertThatMethodCombination(MULTIBINDS_METHOD, STATIC_PROVIDES_METHOD).compilesWithoutError();
     assertThatMethodCombination(INSTANCE_PROVIDES_METHOD, SOME_ABSTRACT_METHOD)
         .compilesWithoutError();
   }
@@ -1228,6 +1238,8 @@ public class ModuleFactoryGeneratorTest {
                 "import dagger.Binds;",
                 "import dagger.Module;",
                 "import dagger.Provides;",
+                "import dagger.multibindings.Multibinds;",
+                "import java.util.Set;",
                 "",
                 "@Module abstract class TestModule {")
             .add(methodLines)

@@ -93,7 +93,7 @@ final class MultibindingsValidator {
 
       if (methodReport.isClean() && bindingType.isPresent()) {
         methodsByKey.put(
-            keyFactory.forMultibindingsMethod(
+            keyFactory.forMultibindsMethod(
                 bindingType.get(), asExecutable(method.asType()), method),
             method);
       }

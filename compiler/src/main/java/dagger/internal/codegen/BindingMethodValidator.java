@@ -21,7 +21,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import dagger.MapKey;
@@ -30,6 +29,7 @@ import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoMap;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
+import javax.annotation.OverridingMethodsMustInvokeSuper;
 import javax.annotation.processing.Messager;
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
@@ -75,7 +75,7 @@ abstract class BindingMethodValidator {
   private final Elements elements;
   private final Types types;
   private final Class<? extends Annotation> methodAnnotation;
-  private final ImmutableList<Class<? extends Annotation>> enclosingElementAnnotations;
+  private final ImmutableSet<Class<? extends Annotation>> enclosingElementAnnotations;
   private final Abstractness abstractness;
   private final ExceptionSuperclass exceptionSuperclass;
   private final LoadingCache<ExecutableElement, ValidationReport<ExecutableElement>> cache =
@@ -109,7 +109,7 @@ abstract class BindingMethodValidator {
         elements,
         types,
         methodAnnotation,
-        ImmutableList.of(enclosingElementAnnotation),
+        ImmutableSet.of(enclosingElementAnnotation),
         abstractness,
         exceptionSuperclass);
   }
@@ -132,7 +132,7 @@ abstract class BindingMethodValidator {
     this.types = types;
     this.methodAnnotation = methodAnnotation;
     this.enclosingElementAnnotations =
-        ImmutableList.<Class<? extends Annotation>>copyOf(enclosingElementAnnotations);
+        ImmutableSet.<Class<? extends Annotation>>copyOf(enclosingElementAnnotations);
     this.abstractness = abstractness;
     this.exceptionSuperclass = exceptionSuperclass;
   }
@@ -162,6 +162,7 @@ abstract class BindingMethodValidator {
   }
 
   /** Checks the method for validity. Adds errors to {@code builder}. */
+  @OverridingMethodsMustInvokeSuper
   protected void checkMethod(ValidationReport.Builder<ExecutableElement> builder) {
     checkEnclosingElement(builder);
     checkTypeParameters(builder);
@@ -178,7 +179,8 @@ abstract class BindingMethodValidator {
    * Adds an error if the method is not declared in a class or interface annotated with one of the
    * {@link #enclosingElementAnnotations}.
    */
-  private void checkEnclosingElement(ValidationReport.Builder<ExecutableElement> builder) {
+  // TODO(b/28861722): Make private once @Multibindings is deleted.
+  protected void checkEnclosingElement(ValidationReport.Builder<ExecutableElement> builder) {
     if (!isAnyAnnotationPresent(
         builder.getSubject().getEnclosingElement(), enclosingElementAnnotations)) {
       builder.addError(

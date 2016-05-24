@@ -29,6 +29,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Binds;
 import dagger.Multibindings;
+import dagger.multibindings.Multibinds;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Production;
@@ -330,12 +331,13 @@ abstract class Key {
     }
 
     /**
-     * Returns the key for a method in a {@link Multibindings @Multibindings} interface.
+     * Returns the key for a {@link Multibinds @Multibinds} method or a method in a
+     * {@link Multibindings @Multibindings} interface.
      *
      * The key's type is either {@code Set<T>} or {@code Map<K, F<V>>}, where {@code F} is either
      * {@link Provider} or {@link Producer}, depending on {@code bindingType}.
      */
-    Key forMultibindingsMethod(
+    Key forMultibindsMethod(
         BindingType bindingType, ExecutableType executableType, ExecutableElement method) {
       checkArgument(method.getKind().equals(METHOD), "%s must be a method", method);
       TypeElement factoryType =

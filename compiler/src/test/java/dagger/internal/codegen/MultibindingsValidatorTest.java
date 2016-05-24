@@ -290,6 +290,12 @@ public class MultibindingsValidatorTest {
   }
 
   @Test
+  public void hasParameters() {
+    assertThatMultibindingsMethod("Set<String> parameters(Object param);")
+        .hasError("@Multibindings methods cannot have parameters");
+  }
+
+  @Test
   public void badMethodsOnSupertype() {
     JavaFileObject testModule =
         JavaFileObjects.forSourceLines(

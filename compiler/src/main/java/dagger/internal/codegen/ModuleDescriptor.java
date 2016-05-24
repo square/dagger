@@ -27,6 +27,7 @@ import dagger.Binds;
 import dagger.Module;
 import dagger.Multibindings;
 import dagger.Provides;
+import dagger.multibindings.Multibinds;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
@@ -168,6 +169,8 @@ abstract class ModuleDescriptor {
 
       ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
       ImmutableSet.Builder<DelegateDeclaration> delegates = ImmutableSet.builder();
+      ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
+          ImmutableSet.builder();
       for (ExecutableElement moduleMethod : methodsIn(elements.getAllMembers(moduleElement))) {
         if (isAnnotationPresent(moduleMethod, Provides.class)) {
           bindings.add(provisionBindingFactory.forProvidesMethod(moduleMethod, moduleElement));
@@ -178,14 +181,16 @@ abstract class ModuleDescriptor {
         if (isAnnotationPresent(moduleMethod, Binds.class)) {
           delegates.add(bindingDelegateDeclarationFactory.create(moduleMethod, moduleElement));
         }
+        if (isAnnotationPresent(moduleMethod, Multibinds.class)) {
+          multibindingDeclarations.add(
+              multibindingDeclarationFactory.forMultibindsMethod(moduleMethod, moduleElement));
+        }
       }
 
-      ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
-          ImmutableSet.builder();
       for (TypeElement memberType : typesIn(elements.getAllMembers(moduleElement))) {
         if (isAnnotationPresent(memberType, Multibindings.class)) {
           multibindingDeclarations.addAll(
-              multibindingDeclarationFactory.forDeclaredInterface(memberType));
+              multibindingDeclarationFactory.forMultibindingsInterface(memberType));
         }
       }
 

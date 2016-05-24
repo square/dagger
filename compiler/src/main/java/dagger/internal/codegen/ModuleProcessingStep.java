@@ -54,7 +54,8 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       final ProvisionBinding.Factory provisionBindingFactory,
       FactoryGenerator factoryGenerator,
       ProvidesMethodValidator providesMethodValidator,
-      BindsMethodValidator bindsMethodValidator) {
+      BindsMethodValidator bindsMethodValidator,
+      MultibindsMethodValidator multibindsMethodValidator) {
     return new ModuleProcessingStep<>(
         messager,
         Module.class,
@@ -68,7 +69,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
           }
         },
         factoryGenerator,
-        ImmutableSet.of(providesMethodValidator, bindsMethodValidator));
+        ImmutableSet.of(providesMethodValidator, bindsMethodValidator, multibindsMethodValidator));
   }
 
   /**
@@ -81,7 +82,8 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       final ProductionBinding.Factory productionBindingFactory,
       ProducerFactoryGenerator producerFactoryGenerator,
       ProducesMethodValidator producesMethodValidator,
-      BindsMethodValidator bindsMethodValidator) {
+      BindsMethodValidator bindsMethodValidator,
+      MultibindsMethodValidator multibindsMethodValidator) {
     return new ModuleProcessingStep<>(
         messager,
         ProducerModule.class,
@@ -95,7 +97,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
           }
         },
         producerFactoryGenerator,
-        ImmutableSet.of(producesMethodValidator, bindsMethodValidator));
+        ImmutableSet.of(producesMethodValidator, bindsMethodValidator, multibindsMethodValidator));
   }
 
   private final Messager messager;

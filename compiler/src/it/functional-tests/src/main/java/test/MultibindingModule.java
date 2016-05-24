@@ -16,7 +16,6 @@
 package test;
 
 import dagger.Module;
-import dagger.Multibindings;
 import dagger.Provides;
 import dagger.multibindings.ClassKey;
 import dagger.multibindings.ElementsIntoSet;
@@ -25,14 +24,12 @@ import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import dagger.multibindings.LongKey;
 import dagger.multibindings.StringKey;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.inject.Named;
 import javax.inject.Provider;
 
@@ -253,30 +250,5 @@ class MultibindingModule {
   @StringKey("key")
   static CharSequence qualifiedMapContribution() {
     return "qualified foo value";
-  }
-
-  interface EmptiesSupertype {
-    Set<Object> emptySet();
-
-    Map<String, Object> emptyMap();
-
-    Set<CharSequence> maybeEmptySet();
-
-    Map<String, CharSequence> maybeEmptyMap();
-  }
-
-  @Multibindings
-  interface Empties extends EmptiesSupertype {
-    @Named("complexQualifier")
-    Set<Object> emptyQualifiedSet();
-
-    @Named("complexQualifier")
-    Map<String, Object> emptyQualifiedMap();
-
-    @Named("complexQualifier")
-    Set<CharSequence> maybeEmptyQualifiedSet();
-
-    @Named("complexQualifier")
-    Map<String, CharSequence> maybeEmptyQualifiedMap();
   }
 }
