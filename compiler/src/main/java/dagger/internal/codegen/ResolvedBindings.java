@@ -151,6 +151,16 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
     return allContributionBindings().get(owningComponent());
   }
 
+  /** The component that owns {@code binding}. */
+  ComponentDescriptor owningComponent(ContributionBinding binding) {
+    checkArgument(
+        contributionBindings().contains(binding),
+        "binding is not resolved for %s: %s",
+        bindingKey(),
+        binding);
+    return getOnlyElement(allContributionBindings().inverse().get(binding));
+  }
+
   /**
    * The members-injection binding, regardless of owning component. Empty if these are contribution
    * bindings.

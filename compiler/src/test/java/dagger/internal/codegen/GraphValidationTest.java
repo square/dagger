@@ -1561,4 +1561,78 @@ public class GraphValidationTest {
         .in(parent)
         .onLine(4);
   }
+  
+  @Test
+  public void multibindingContributionBetweenAncestorComponentAndEntrypointComponent() {
+    JavaFileObject parent =
+        JavaFileObjects.forSourceLines(
+            "Parent",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = ParentModule.class)",
+            "interface Parent {",
+            "  Child child();",
+            "}");
+    JavaFileObject child =
+        JavaFileObjects.forSourceLines(
+            "Child",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = ChildModule.class)",
+            "interface Child {",
+            "  Grandchild grandchild();",
+            "}");
+    JavaFileObject grandchild =
+        JavaFileObjects.forSourceLines(
+            "Grandchild",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent",
+            "interface Grandchild {",
+            "  Object object();",
+            "}");
+
+    JavaFileObject parentModule =
+        JavaFileObjects.forSourceLines(
+            "ParentModule",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
+            "import java.util.Set;",
+            "",
+            "@Module",
+            "class ParentModule {",
+            "  @Provides static Object dependsOnSet(Set<String> strings) {",
+            "    return \"needs strings: \" + strings;",
+            "  }",
+            "",
+            "  @Provides @IntoSet static String contributesToSet() {",
+            "    return \"parent string\";",
+            "  }",
+            "",
+            "  @Provides int missingDependency(double dub) {",
+            "    return 4;",
+            "  }",
+            "}");
+    JavaFileObject childModule =
+        JavaFileObjects.forSourceLines(
+            "ChildModule",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
+            "",
+            "@Module",
+            "class ChildModule {",
+            "  @Provides @IntoSet static String contributesToSet(int i) {",
+            "    return \"\" + i;",
+            "  }",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(parent, parentModule, child, childModule, grandchild))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("[Grandchild.object()] java.lang.Double cannot be provided")
+        .in(parent)
+        .onLine(4);
+  }
 }
