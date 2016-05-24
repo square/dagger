@@ -17,6 +17,9 @@ package dagger.internal.codegen;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -27,6 +30,7 @@ import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoMap;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
+import javax.annotation.processing.Messager;
 import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -65,8 +69,8 @@ import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.TYPEVAR;
 import static javax.lang.model.type.TypeKind.VOID;
 
-/** A {@link Validator} for methods that represent binding declarations. */
-abstract class BindingMethodValidator extends Validator<ExecutableElement> {
+/** A validator for methods that represent binding declarations. */
+abstract class BindingMethodValidator {
 
   private final Elements elements;
   private final Types types;
@@ -74,6 +78,18 @@ abstract class BindingMethodValidator extends Validator<ExecutableElement> {
   private final ImmutableList<Class<? extends Annotation>> enclosingElementAnnotations;
   private final Abstractness abstractness;
   private final ExceptionSuperclass exceptionSuperclass;
+  private final LoadingCache<ExecutableElement, ValidationReport<ExecutableElement>> cache =
+      CacheBuilder.newBuilder()
+          .build(
+              new CacheLoader<ExecutableElement, ValidationReport<ExecutableElement>>() {
+                @Override
+                public ValidationReport<ExecutableElement> load(ExecutableElement method) {
+                  ValidationReport.Builder<ExecutableElement> builder =
+                      ValidationReport.about(method);
+                  checkMethod(builder);
+                  return builder.build();
+                }
+              });
 
   /**
    * Creates a validator object.
@@ -120,12 +136,29 @@ abstract class BindingMethodValidator extends Validator<ExecutableElement> {
     this.abstractness = abstractness;
     this.exceptionSuperclass = exceptionSuperclass;
   }
+  
+  /** The annotation that identifies methods validated by this object. */
+  Class<? extends Annotation> methodAnnotation() {
+    return methodAnnotation;
+  }
 
-  @Override
-  public final ValidationReport<ExecutableElement> validate(ExecutableElement method) {
-    ValidationReport.Builder<ExecutableElement> builder = ValidationReport.about(method);
-    checkMethod(builder);
-    return builder.build();
+  /** Returns a {@link ValidationReport} for {@code method}. */
+  final ValidationReport<ExecutableElement> validate(ExecutableElement method) {
+    return cache.getUnchecked(method);
+  }
+
+  /** Prints validation reports to {@code messager}, and returns valid methods. */
+  final ImmutableSet<ExecutableElement> validate(
+      Messager messager, Iterable<? extends ExecutableElement> methods) {
+    ImmutableSet.Builder<ExecutableElement> validMethods = ImmutableSet.builder();
+    for (ExecutableElement method : methods) {
+      ValidationReport<ExecutableElement> report = validate(method);
+      report.printMessagesTo(messager);
+      if (report.isClean()) {
+        validMethods.add(method);
+      }
+    }
+    return validMethods.build();
   }
 
   /** Checks the method for validity. Adds errors to {@code builder}. */

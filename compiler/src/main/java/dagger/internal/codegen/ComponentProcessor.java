@@ -23,7 +23,6 @@ import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
@@ -85,8 +84,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MapKeyValidator mapKeyValidator = new MapKeyValidator();
     ProvidesMethodValidator providesMethodValidator = new ProvidesMethodValidator(elements, types);
     ProducesMethodValidator producesMethodValidator = new ProducesMethodValidator(elements, types);
-    Validator<ExecutableElement> bindsMethodValidator =
-        CachingValidator.caching(new BindsMethodValidator(elements, types));
+    BindsMethodValidator bindsMethodValidator = new BindsMethodValidator(elements, types);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 

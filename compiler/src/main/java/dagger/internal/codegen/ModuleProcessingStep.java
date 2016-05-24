@@ -16,26 +16,23 @@
 package dagger.internal.codegen;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static dagger.internal.codegen.Util.elementsWithAnnotation;
-import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 import static javax.lang.model.util.ElementFilter.typesIn;
 
@@ -57,7 +54,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       final ProvisionBinding.Factory provisionBindingFactory,
       FactoryGenerator factoryGenerator,
       ProvidesMethodValidator providesMethodValidator,
-      Validator<ExecutableElement> bindsMethodValidator) {
+      BindsMethodValidator bindsMethodValidator) {
     return new ModuleProcessingStep<>(
         messager,
         Module.class,
@@ -71,8 +68,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
           }
         },
         factoryGenerator,
-        ImmutableMap.of(
-            Provides.class, providesMethodValidator, Binds.class, bindsMethodValidator));
+        ImmutableSet.of(providesMethodValidator, bindsMethodValidator));
   }
 
   /**
@@ -85,7 +81,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       final ProductionBinding.Factory productionBindingFactory,
       ProducerFactoryGenerator producerFactoryGenerator,
       ProducesMethodValidator producesMethodValidator,
-      Validator<ExecutableElement> bindsMethodValidator) {
+      BindsMethodValidator bindsMethodValidator) {
     return new ModuleProcessingStep<>(
         messager,
         ProducerModule.class,
@@ -99,8 +95,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
           }
         },
         producerFactoryGenerator,
-        ImmutableMap.of(
-            Produces.class, producesMethodValidator, Binds.class, bindsMethodValidator));
+        ImmutableSet.of(producesMethodValidator, bindsMethodValidator));
   }
 
   private final Messager messager;
@@ -109,8 +104,7 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
   private final Class<? extends Annotation> factoryMethodAnnotation;
   private final ModuleMethodBindingFactory<B> moduleMethodBindingFactory;
   private final SourceFileGenerator<B> factoryGenerator;
-  private final ImmutableMap<Class<? extends Annotation>, Validator<ExecutableElement>>
-      methodValidators;
+  private final ImmutableSet<? extends BindingMethodValidator> methodValidators;
   private final Set<TypeElement> processedModuleElements = Sets.newLinkedHashSet();
 
   /**
@@ -127,22 +121,24 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       Class<? extends Annotation> factoryMethodAnnotation,
       ModuleMethodBindingFactory<B> moduleMethodBindingFactory,
       SourceFileGenerator<B> factoryGenerator,
-      Map<Class<? extends Annotation>, Validator<ExecutableElement>> methodValidators) {
+      Iterable<? extends BindingMethodValidator> methodValidators) {
     this.messager = messager;
     this.moduleAnnotation = moduleAnnotation;
     this.moduleValidator = moduleValidator;
     this.factoryMethodAnnotation = factoryMethodAnnotation;
     this.moduleMethodBindingFactory = moduleMethodBindingFactory;
     this.factoryGenerator = factoryGenerator;
-    this.methodValidators = ImmutableMap.copyOf(methodValidators);
+    this.methodValidators = ImmutableSet.copyOf(methodValidators);
   }
 
   @Override
   public Set<? extends Class<? extends Annotation>> annotations() {
-    return new ImmutableSet.Builder<Class<? extends Annotation>>()
-        .add(moduleAnnotation)
-        .addAll(methodValidators.keySet())
-        .build();
+    ImmutableSet.Builder<Class<? extends Annotation>> annotations = ImmutableSet.builder();
+    annotations.add(moduleAnnotation);
+    for (BindingMethodValidator validator : methodValidators) {
+      annotations.add(validator.methodAnnotation());
+    }
+    return annotations.build();
   }
 
   @Override
@@ -176,12 +172,10 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
   private ImmutableSet<ExecutableElement> validMethods(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     ImmutableSet.Builder<ExecutableElement> validMethods = ImmutableSet.builder();
-    for (Map.Entry<Class<? extends Annotation>, Validator<ExecutableElement>> entry :
-        methodValidators.entrySet()) {
-      Class<? extends Annotation> methodAnnotation = entry.getKey();
-      Validator<ExecutableElement> validator = entry.getValue();
+    for (BindingMethodValidator validator : methodValidators) {
       validMethods.addAll(
-          validator.validate(messager, methodsIn(elementsByAnnotation.get(methodAnnotation))));
+          validator.validate(
+              messager, methodsIn(elementsByAnnotation.get(validator.methodAnnotation()))));
     }
     return validMethods.build();
   }
@@ -193,9 +187,12 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
   private boolean moduleMethodsAreValid(
       ImmutableSet<ExecutableElement> validMethods, Iterable<ExecutableElement> moduleMethods) {
     for (ExecutableElement methodElement : moduleMethods) {
-      if (isAnyAnnotationPresent(methodElement, methodValidators.keySet())
-          && !validMethods.contains(methodElement)) {
-        return false;
+      if (!validMethods.contains(methodElement)) {
+        for (BindingMethodValidator validator : methodValidators) {
+          if (isAnnotationPresent(methodElement, validator.methodAnnotation())) {
+            return false;
+          }
+        }
       }
     }
     return true;
