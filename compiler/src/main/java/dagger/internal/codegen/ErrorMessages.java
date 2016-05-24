@@ -148,6 +148,8 @@ final class ErrorMessages {
   static final String PRODUCES_METHOD_SET_VALUES_RETURN_SET =
       "@Produces methods of type set values must return a Set or ListenableFuture of Set";
 
+  static final String PRODUCES_METHOD_SCOPE = "@Produces methods may not have scope annotations.";
+
   static final String BINDING_METHOD_THROWS =
       "@%s methods may only throw unchecked exceptions or exceptions subclassing Exception";
 

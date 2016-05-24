@@ -34,6 +34,7 @@ import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_NULLABLE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SCOPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 
 /**
@@ -54,6 +55,7 @@ final class ProducesMethodValidator extends BindingMethodValidator {
   protected void checkMethod(ValidationReport.Builder<ExecutableElement> builder) {
     super.checkMethod(builder);
     checkNullable(builder);
+    checkScope(builder);
   }
 
   /** Adds a warning if a {@link Produces @Produces} method is declared nullable. */
@@ -61,6 +63,13 @@ final class ProducesMethodValidator extends BindingMethodValidator {
   private void checkNullable(ValidationReport.Builder<ExecutableElement> builder) {
     if (ConfigurationAnnotations.getNullableType(builder.getSubject()).isPresent()) {
       builder.addWarning(PRODUCES_METHOD_NULLABLE);
+    }
+  }
+
+  /** Adds an error if a {@link Produces @Produces} method has a scope annotation. */
+  private void checkScope(ValidationReport.Builder<ExecutableElement> builder) {
+    if (!Scope.scopesOf(builder.getSubject()).isEmpty()) {
+      builder.addError(PRODUCES_METHOD_SCOPE);
     }
   }
 

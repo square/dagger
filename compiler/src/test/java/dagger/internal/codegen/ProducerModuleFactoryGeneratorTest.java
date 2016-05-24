@@ -41,6 +41,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETE
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SCOPE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
@@ -195,6 +196,11 @@ public class ProducerModuleFactoryGeneratorTest {
         .hasError(
             "@Produces methods may only throw unchecked exceptions or exceptions subclassing "
                 + "Exception");
+  }
+
+  @Test public void producesMethodWithScope() {
+    assertThatProductionModuleMethod("@Produces @Singleton String str() { return \"\"; }")
+        .hasError(PRODUCES_METHOD_SCOPE);
   }
 
   @Test
