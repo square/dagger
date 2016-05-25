@@ -785,6 +785,8 @@ abstract class AbstractComponentWriter {
 
   private Optional<CodeBlock> initializeContributionBinding(BindingKey bindingKey) {
     ContributionBinding binding = graph.resolvedBindings().get(bindingKey).contributionBinding();
+    /* We have some duplication in the branches below b/c initializeDeferredDependencies must be
+     * called before we get the code block that initializes the member. */
     switch (binding.factoryCreationStrategy()) {
       case DELEGATE:
         CodeBlock delegatingCodeBlock = CodeBlock.of(
@@ -794,11 +796,14 @@ abstract class AbstractComponentWriter {
                 Iterables.getOnlyElement(binding.dependencies()).bindingKey())
                     .getExpressionFor(name));
         return Optional.of(
-            initializeMember(
-                bindingKey,
-                binding.scope().isPresent()
-                    ? decorateForScope(delegatingCodeBlock, binding.scope().get())
-                    : delegatingCodeBlock));
+            CodeBlocks.concat(
+                ImmutableList.of(
+                    initializeDeferredDependencies(binding),
+                    initializeMember(
+                        bindingKey,
+                        binding.scope().isPresent()
+                            ? decorateForScope(delegatingCodeBlock, binding.scope().get())
+                            : delegatingCodeBlock))));
       case ENUM_INSTANCE:
         if (!binding.scope().isPresent()) {
           return Optional.absent();
