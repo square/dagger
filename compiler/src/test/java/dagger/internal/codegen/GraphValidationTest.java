@@ -31,9 +31,9 @@ import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 
 @RunWith(JUnit4.class)
 public class GraphValidationTest {
-  private final JavaFileObject NULLABLE = JavaFileObjects.forSourceLines("test.Nullable",
-      "package test;",
-      "public @interface Nullable {}");
+  private static final JavaFileObject NULLABLE =
+      JavaFileObjects.forSourceLines(
+          "test.Nullable", "package test;", "public @interface Nullable {}");
 
   @Test public void componentOnConcreteClass() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.MyComponent",
@@ -930,6 +930,56 @@ public class GraphValidationTest {
         .withErrorContaining(secondError)
         .in(component)
         .onLine(39);
+  }
+
+  @Test
+  public void bindsMethodAppearsInTrace() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "TestComponent",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  TestInterface testInterface();",
+            "}");
+    JavaFileObject interfaceFile =
+        JavaFileObjects.forSourceLines("TestInterface", "interface TestInterface {}");
+    JavaFileObject implementationFile =
+        JavaFileObjects.forSourceLines(
+            "TestImplementation",
+            "import javax.inject.Inject;",
+            "",
+            "final class TestImplementation implements TestInterface {",
+            "  @Inject TestImplementation(String missingBinding) {}",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "TestModule",
+            "import dagger.Binds;",
+            "import dagger.Module;",
+            "",
+            "@Module",
+            "interface TestModule {",
+            "  @Binds abstract TestInterface bindTestInterface(TestImplementation implementation);",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(component, module, interfaceFile, implementationFile))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            Joiner.on("\n      ")
+                .join(
+                    "java.lang.String cannot be provided without an @Inject constructor or from "
+                        + "an @Provides-annotated method.",
+                    "java.lang.String is injected at",
+                    "    TestImplementation.<init>(missingBinding)",
+                    "TestImplementation is injected at",
+                    "    TestModule.bindTestInterface(implementation)",
+                    "TestInterface is provided at",
+                    "    TestComponent.testInterface()"))
+        .in(component)
+        .onLine(5);
   }
 
   @Test public void resolvedParametersInDependencyTrace() {

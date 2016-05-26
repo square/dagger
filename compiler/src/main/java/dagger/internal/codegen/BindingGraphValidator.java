@@ -105,7 +105,8 @@ import static dagger.internal.codegen.Scope.reusableScope;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
-public class BindingGraphValidator {
+/** Reports errors in the shape of the binding graph. */
+final class BindingGraphValidator {
 
   private final Elements elements;
   private final Types types;
@@ -143,7 +144,7 @@ public class BindingGraphValidator {
 
   /** A dependency path from an entry point. */
   static final class DependencyPath {
-    final Deque<ResolvedRequest> requestPath = new ArrayDeque<>();
+    private final Deque<ResolvedRequest> requestPath = new ArrayDeque<>();
     private final LinkedHashMultiset<BindingKey> keyPath = LinkedHashMultiset.create();
     private final Set<DependencyRequest> resolvedRequests = new HashSet<>();
 
@@ -224,12 +225,19 @@ public class BindingGraphValidator {
       return requestPath.size();
     }
 
-    /** The nonsynthetic dependency requests in this path, starting with the entry point. */
-    FluentIterable<DependencyRequest> nonsyntheticRequests() {
-      return FluentIterable.from(requestPath)
-          .filter(Predicates.not(new PreviousBindingWasSynthetic()))
-          .transform(REQUEST_FROM_RESOLVED_REQUEST);
+    /** The dependency requests in this path, starting with the entry point. */
+    FluentIterable<DependencyRequest> requests() {
+      return FluentIterable.from(requestPath).transform(REQUEST_FROM_RESOLVED_REQUEST);
     }
+
+    private static final Function<ResolvedRequest, DependencyRequest>
+        REQUEST_FROM_RESOLVED_REQUEST =
+            new Function<ResolvedRequest, DependencyRequest>() {
+              @Override
+              public DependencyRequest apply(ResolvedRequest resolvedRequest) {
+                return resolvedRequest.request();
+              }
+            };
   }
 
   private final class Validation {
@@ -1302,26 +1310,6 @@ public class BindingGraphValidator {
           resolvedBindings == null
               ? ResolvedBindings.noBindings(bindingKey, graph.componentDescriptor())
               : resolvedBindings);
-    }
-  }
-
-  private static final Function<ResolvedRequest, DependencyRequest> REQUEST_FROM_RESOLVED_REQUEST =
-      new Function<ResolvedRequest, DependencyRequest>() {
-        @Override
-        public DependencyRequest apply(ResolvedRequest resolvedRequest) {
-          return resolvedRequest.request();
-        }
-      };
-
-  private static final class PreviousBindingWasSynthetic implements Predicate<ResolvedRequest> {
-    private ResolvedBindings previousBinding;
-
-    @Override
-    public boolean apply(ResolvedRequest resolvedRequest) {
-      boolean previousBindingWasSynthetic =
-          previousBinding != null && previousBinding.isSyntheticContribution();
-      previousBinding = resolvedRequest.binding();
-      return previousBindingWasSynthetic;
     }
   }
 }
