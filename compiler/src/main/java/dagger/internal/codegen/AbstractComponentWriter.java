@@ -516,7 +516,14 @@ abstract class AbstractComponentWriter {
   }
 
   private boolean useRawType(ResolvedBindings resolvedBindings) {
-    Optional<String> bindingPackage = resolvedBindings.bindingPackage();
+    return useRawType(resolvedBindings.bindingPackage());
+  }
+
+  private boolean useRawType(Binding binding) {
+    return useRawType(binding.bindingPackage());
+  }
+
+  private boolean useRawType(Optional<String> bindingPackage) {
     return bindingPackage.isPresent() && !bindingPackage.get().equals(name.packageName());
   }
 
@@ -778,6 +785,8 @@ abstract class AbstractComponentWriter {
 
   private Optional<CodeBlock> initializeContributionBinding(BindingKey bindingKey) {
     ContributionBinding binding = graph.resolvedBindings().get(bindingKey).contributionBinding();
+    /* We have some duplication in the branches below b/c initializeDeferredDependencies must be
+     * called before we get the code block that initializes the member. */
     switch (binding.factoryCreationStrategy()) {
       case DELEGATE:
         CodeBlock delegatingCodeBlock = CodeBlock.of(
@@ -787,11 +796,14 @@ abstract class AbstractComponentWriter {
                 Iterables.getOnlyElement(binding.dependencies()).bindingKey())
                     .getExpressionFor(name));
         return Optional.of(
-            initializeMember(
-                bindingKey,
-                binding.scope().isPresent()
-                    ? decorateForScope(delegatingCodeBlock, binding.scope().get())
-                    : delegatingCodeBlock));
+            CodeBlocks.concat(
+                ImmutableList.of(
+                    initializeDeferredDependencies(binding),
+                    initializeMember(
+                        bindingKey,
+                        binding.scope().isPresent()
+                            ? decorateForScope(delegatingCodeBlock, binding.scope().get())
+                            : delegatingCodeBlock))));
       case ENUM_INSTANCE:
         if (!binding.scope().isPresent()) {
           return Optional.absent();
@@ -1084,8 +1096,7 @@ abstract class AbstractComponentWriter {
   /**
    * The expressions that represent factory arguments for the dependencies of a binding.
    */
-  private ImmutableList<CodeBlock> getDependencyArguments(
-      Binding binding) {
+  private ImmutableList<CodeBlock> getDependencyArguments(Binding binding) {
     ImmutableList.Builder<CodeBlock> parameters = ImmutableList.builder();
     for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
       parameters.add(getDependencyArgument(frameworkDependency));
@@ -1108,10 +1119,49 @@ abstract class AbstractComponentWriter {
   }
 
   private CodeBlock initializeFactoryForSetMultibinding(ContributionBinding binding) {
-    return CodeBlock.of(
-        "$T.create($L)",
-        setFactoryClassName(binding.bindingType(), binding.key()),
-        makeParametersCodeBlock(getDependencyArguments(binding)));
+    CodeBlock.Builder builder =
+        CodeBlock.builder().add("$T.", setFactoryClassName(binding.bindingType(), binding.key()));
+    boolean useRawTypes = useRawType(binding);
+    if (!useRawTypes) {
+      SetType setType = SetType.from(binding.key().type());
+      builder.add(
+          "<$T>",
+          setType.elementsAreTypeOf(Produced.class)
+              ? setType.unwrappedElementType(Produced.class)
+              : setType.elementType());
+    }
+    int individualProviders = 0;
+    int setProviders = 0;
+    CodeBlock.Builder builderMethodCalls = CodeBlock.builder();
+    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+      ContributionType contributionType =
+          graph.resolvedBindings().get(frameworkDependency.bindingKey()).contributionType();
+      String methodName;
+      switch (contributionType) {
+        case SET:
+          individualProviders++;
+          methodName = "add";
+          break;
+        case SET_VALUES:
+          setProviders++;
+          methodName = "addSet";
+          break;
+        default:
+          throw new AssertionError(frameworkDependency + " is not a set multibinding");
+      }
+
+      builderMethodCalls.add(
+          ".$L$L($L)",
+          methodName,
+          frameworkDependency.frameworkClass().getSimpleName(),
+          potentiallyCast(
+              useRawTypes,
+              frameworkDependency.frameworkClass(),
+              getDependencyArgument(frameworkDependency)));
+    }
+    builder.add("builder($L, $L)", individualProviders, setProviders);
+    builder.add(builderMethodCalls.build());
+    return builder.add(".build()").build();
   }
 
   private CodeBlock initializeFactoryForMapMultibinding(ContributionBinding binding) {
@@ -1120,14 +1170,15 @@ abstract class AbstractComponentWriter {
 
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
     MapType mapType = MapType.from(binding.key().type());
-    codeBlocks.add(
-        CodeBlock.of(
-            "$T.<$T, $T>builder($L)",
-            frameworkMapFactoryClassName(binding.bindingType()),
-            TypeName.get(mapType.keyType()),
-            TypeName.get(
-                mapType.unwrappedValueType(binding.bindingType().frameworkClass())),
-            frameworkDependencies.size()));
+    CodeBlock.Builder builderCall =
+        CodeBlock.builder().add("$T.", frameworkMapFactoryClassName(binding.bindingType()));
+    boolean useRawTypes = useRawType(binding);
+    if (!useRawTypes) {
+      builderCall.add("<$T, $T>", TypeName.get(mapType.keyType()),
+          TypeName.get(mapType.unwrappedValueType(binding.bindingType().frameworkClass())));
+    }
+    builderCall.add("builder($L)", frameworkDependencies.size());
+    codeBlocks.add(builderCall.build());
 
     for (FrameworkDependency frameworkDependency : frameworkDependencies) {
       BindingKey bindingKey = frameworkDependency.bindingKey();
@@ -1136,12 +1187,22 @@ abstract class AbstractComponentWriter {
       codeBlocks.add(
           CodeBlock.of(
               ".put($L, $L)",
-              getMapKeyExpression(contributionBinding.bindingElement()),
-              getDependencyArgument(frameworkDependency)));
+              getMapKeyExpression(contributionBinding.mapKey().get()),
+              potentiallyCast(
+                  useRawTypes,
+                  frameworkDependency.frameworkClass(),
+                  getDependencyArgument(frameworkDependency))));
     }
     codeBlocks.add(CodeBlock.of(".build()"));
 
     return CodeBlocks.concat(codeBlocks.build());
+  }
+
+  private CodeBlock potentiallyCast(boolean shouldCast, Class<?> classToCast, CodeBlock notCasted) {
+    if (!shouldCast) {
+      return notCasted;
+    }
+    return CodeBlock.of("($T) $L", classToCast, notCasted);
   }
 
   private static String simpleVariableName(TypeElement typeElement) {

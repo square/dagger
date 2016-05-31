@@ -16,13 +16,14 @@
 package dagger.internal;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Provider;
 
-import static dagger.internal.Collections.newLinkedHashSetWithExpectedSize;
+import static dagger.internal.DaggerCollections.hasDuplicates;
+import static dagger.internal.DaggerCollections.newHashSetWithExpectedSize;
+import static dagger.internal.DaggerCollections.presizedList;
+import static dagger.internal.Preconditions.checkNotNull;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 
@@ -35,12 +36,6 @@ import static java.util.Collections.unmodifiableSet;
  * @since 2.0
  */
 public final class SetFactory<T> implements Factory<Set<T>> {
-  /**
-   * A message for NPEs that trigger on bad argument lists.
-   */
-  private static final String ARGUMENTS_MUST_BE_NON_NULL =
-      "SetFactory.create() requires its arguments to be non-null";
-
   private static final Factory<Set<Object>> EMPTY_FACTORY =
       new Factory<Set<Object>>() {
         @Override
@@ -55,45 +50,55 @@ public final class SetFactory<T> implements Factory<Set<T>> {
   }
 
   /**
-   * Returns the supplied factory.  If there's just one factory, there's no need to wrap it or its
-   * result.
+   * Constructs a new {@link Builder} for a {@link SetFactory} with {@code individualProviderSize}
+   * individual {@code Provider<T>} and {@code setProviderSize} {@code Provider<Set<T>>} instances.
    */
-  public static <T> Factory<Set<T>> create(Factory<Set<T>> factory) {
-    assert factory != null : ARGUMENTS_MUST_BE_NON_NULL;
-    return factory;
+  public static <T> Builder<T> builder(int individualProviderSize, int setProviderSize) {
+    return new Builder<T>(individualProviderSize, setProviderSize);
   }
 
   /**
-   * Returns a new factory that creates {@link Set} instances that form the union of the given
-   * {@link Provider} instances.  Callers must not modify the providers array after invoking this
-   * method; no copy is made.
+   * A builder to accumulate {@code Provider<T>} and {@code Provider<Set<T>>} instances. These are
+   * only intended to be single-use and from within generated code. Do <em>NOT</em> add providers
+   * after calling {@link #build()}.
    */
-  public static <T> Factory<Set<T>> create(
-      @SuppressWarnings("unchecked") Provider<Set<T>>... providers) {
-    assert providers != null : ARGUMENTS_MUST_BE_NON_NULL;
+  public static final class Builder<T> {
+    private final List<Provider<T>> individualProviders;
+    private final List<Provider<Set<T>>> setProviders;
 
-    List<Provider<Set<T>>> contributingProviders = Arrays.asList(providers);
+    private Builder(int individualProviderSize, int setProviderSize) {
+      individualProviders = presizedList(individualProviderSize);
+      setProviders = presizedList(setProviderSize);
+    }
 
-    assert !contributingProviders.contains(null)
-        : "Codegen error?  Null within provider list.";
-    assert !hasDuplicates(contributingProviders)
-        : "Codegen error?  Duplicates in the provider list";
+    public Builder<T> addProvider(Provider<T> individualProvider) {
+      assert individualProvider != null : "Codegen error? Null provider";
+      individualProviders.add(individualProvider);
+      return this;
+    }
 
-    return new SetFactory<T>(contributingProviders);
+    public Builder<T> addSetProvider(Provider<Set<T>> multipleProvider) {
+      assert multipleProvider != null : "Codegen error? Null provider";
+      setProviders.add(multipleProvider);
+      return this;
+    }
+
+    public SetFactory<T> build() {
+      assert !hasDuplicates(individualProviders)
+          : "Codegen error?  Duplicates in the provider list";
+      assert !hasDuplicates(setProviders)
+          : "Codegen error?  Duplicates in the provider list";
+
+      return new SetFactory<T>(individualProviders, setProviders);
+    }
   }
 
-  /**
-   * Returns true if at least one pair of items in (@code original) are equals.
-   */
-  private static boolean hasDuplicates(List<? extends Object> original) {
-    Set<Object> asSet = new HashSet<Object>(original);
-    return original.size() != asSet.size();
-  }
+  private final List<Provider<T>> individualProviders;
+  private final List<Provider<Set<T>>> setProviders;
 
-  private final List<Provider<Set<T>>> contributingProviders;
-
-  private SetFactory(List<Provider<Set<T>>> contributingProviders) {
-    this.contributingProviders = contributingProviders;
+  private SetFactory(List<Provider<T>> individualProviders, List<Provider<Set<T>>> setProviders) {
+    this.individualProviders = individualProviders;
+    this.setProviders = setProviders;
   }
 
   /**
@@ -105,32 +110,28 @@ public final class SetFactory<T> implements Factory<Set<T>> {
    */
   @Override
   public Set<T> get() {
-    int size = 0;
-
+    int size = individualProviders.size();
     // Profiling revealed that this method was a CPU-consuming hotspot in some applications, so
     // these loops were changed to use c-style for.  Versus enhanced for-each loops, C-style for is
     // faster for ArrayLists, at least through Java 8.
 
-    List<Set<T>> providedSets = new ArrayList<Set<T>>(contributingProviders.size());
-    for (int i = 0, c = contributingProviders.size(); i < c; i++) {
-      Provider<Set<T>> provider = contributingProviders.get(i);
-      Set<T> providedSet = provider.get();
-      if (providedSet == null) {
-        throw new NullPointerException(provider + " returned null");
-      }
-      providedSets.add(providedSet);
+    List<Set<T>> providedSets = new ArrayList<Set<T>>(setProviders.size());
+    for (int i = 0, c = setProviders.size(); i < c; i++) {
+      Set<T> providedSet = setProviders.get(i).get();
       size += providedSet.size();
+      providedSets.add(providedSet);
     }
 
-    Set<T> result = newLinkedHashSetWithExpectedSize(size);
+    Set<T> providedValues = newHashSetWithExpectedSize(size);
+    for (int i = 0, c = individualProviders.size(); i < c; i++) {
+      providedValues.add(checkNotNull(individualProviders.get(i).get()));
+    }
     for (int i = 0, c = providedSets.size(); i < c; i++) {
       for (T element : providedSets.get(i)) {
-        if (element == null) {
-          throw new NullPointerException("a null element was provided");
-        }
-        result.add(element);
+        providedValues.add(checkNotNull(element));
       }
     }
-    return unmodifiableSet(result);
+
+    return unmodifiableSet(providedValues);
   }
 }

@@ -20,7 +20,6 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
@@ -30,6 +29,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Binds;
 import dagger.Multibindings;
+import dagger.multibindings.Multibinds;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Production;
@@ -60,6 +60,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.MapKeys.getMapKey;
 import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
+import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
 import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
@@ -242,27 +244,6 @@ abstract class Key {
             }));
   }
 
-  /**
-   * Wraps an {@link Optional} of a type in an {@code Optional} of a {@link Wrapper} for that type.
-   */
-  private static <T> Optional<Equivalence.Wrapper<T>> wrapOptionalInEquivalence(
-      Equivalence<T> equivalence, Optional<T> optional) {
-    return optional.isPresent()
-        ? Optional.of(equivalence.wrap(optional.get()))
-        : Optional.<Equivalence.Wrapper<T>>absent();
-  }
-
-  /**
-   * Unwraps an {@link Optional} of a {@link Wrapper} into an {@code Optional} of the underlying
-   * type.
-   */
-  private static <T> Optional<T> unwrapOptionalEquivalence(
-      Optional<Equivalence.Wrapper<T>> wrappedOptional) {
-    return wrappedOptional.isPresent()
-        ? Optional.of(wrappedOptional.get().get())
-        : Optional.<T>absent();
-  }
-
   static final class Factory {
     private final Types types;
     private final Elements elements;
@@ -350,12 +331,13 @@ abstract class Key {
     }
 
     /**
-     * Returns the key for a method in a {@link Multibindings @Multibindings} interface.
+     * Returns the key for a {@link Multibinds @Multibinds} method or a method in a
+     * {@link Multibindings @Multibindings} interface.
      *
      * The key's type is either {@code Set<T>} or {@code Map<K, F<V>>}, where {@code F} is either
      * {@link Provider} or {@link Producer}, depending on {@code bindingType}.
      */
-    Key forMultibindingsMethod(
+    Key forMultibindsMethod(
         BindingType bindingType, ExecutableType executableType, ExecutableElement method) {
       checkArgument(method.getKind().equals(METHOD), "%s must be a method", method);
       TypeElement factoryType =
@@ -416,7 +398,7 @@ abstract class Key {
 
     private Key forMethod(ExecutableElement method, TypeMirror keyType) {
       return new AutoValue_Key(
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), getQualifier(method)),
+          wrapOptionalInEquivalence(getQualifier(method)),
           MoreTypes.equivalence().wrap(keyType),
           Optional.<BindingMethodIdentifier>absent());
     }
@@ -444,7 +426,7 @@ abstract class Key {
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
       return new AutoValue_Key(
-          wrapOptionalInEquivalence(AnnotationMirrors.equivalence(), qualifier),
+          wrapOptionalInEquivalence(qualifier),
           MoreTypes.equivalence().wrap(normalize(types, type)),
           Optional.<BindingMethodIdentifier>absent());
     }

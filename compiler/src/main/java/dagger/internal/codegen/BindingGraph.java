@@ -490,20 +490,25 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the component that "owns" {@code binding}.
+       * Returns the component that should contain the framework field for {@code binding}.
        *
-       * <p>If {@code binding} is bound in an ancestor component, resolves {@code request} in this
-       * component's parent. Returns the ancestor component in which it is bound, unless
-       * {@code binding} depends on local multibindings, in which case returns this component.
+       * <p>If {@code binding} is either not bound in an ancestor component or depends on
+       * multibinding contributions in this component, returns this component.
        *
-       * <p>If {@code binding} is not bound in an ancestor component, simply returns this component.
+       * <p>Otherwise, resolves {@code request} in this component's parent in order to resolve any
+       * multibinding contributions in the parent, and returns the parent-resolved
+       * {@link ResolvedBindings#owningComponent(ContributionBinding)}.
        */
       private ComponentDescriptor getOwningComponent(
           DependencyRequest request, ContributionBinding binding) {
-        return isResolvedInParent(request, binding)
-                && !new MultibindingDependencies().dependsOnLocalMultibindings(binding)
-            ? getOwningResolver(binding).get().componentDescriptor
-            : componentDescriptor;
+        if (isResolvedInParent(request, binding)
+            && !new MultibindingDependencies().dependsOnLocalMultibindings(binding)) {
+          ResolvedBindings parentResolvedBindings =
+              parentResolver.get().resolvedBindings.get(request.bindingKey());
+          return parentResolvedBindings.owningComponent(binding);
+        } else {
+          return componentDescriptor;
+        }
       }
 
       /**
@@ -675,18 +680,19 @@ abstract class BindingGraph {
          * 2. If there are any explicit bindings in this component, they may conflict with those in
          *    the supercomponent, so resolve them here so that conflicts can be caught.
          */
-        if (getPreviouslyResolvedBindings(bindingKey).isPresent()
-            && !new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
-            && getExplicitBindings(bindingKey.key()).isEmpty()) {
+        if (getPreviouslyResolvedBindings(bindingKey).isPresent()) {
           /* Resolve in the parent in case there are multibinding contributions or conflicts in some
            * component between this one and the previously-resolved one. */
           parentResolver.get().resolve(request);
-          /* Cache the inherited parent component's bindings in case resolving at the parent found
-           * bindings in some component between this one and the previously-resolved one. */
-          ResolvedBindings inheritedBindings =
-              getPreviouslyResolvedBindings(bindingKey).get().asInheritedIn(componentDescriptor);
-          resolvedBindings.put(bindingKey, inheritedBindings);
-          return;
+          if (!new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
+              && getExplicitBindings(bindingKey.key()).isEmpty()) {
+            /* Cache the inherited parent component's bindings in case resolving at the parent found
+             * bindings in some component between this one and the previously-resolved one. */
+            ResolvedBindings inheritedBindings =
+                getPreviouslyResolvedBindings(bindingKey).get().asInheritedIn(componentDescriptor);
+            resolvedBindings.put(bindingKey, inheritedBindings);
+            return;
+          }
         }
 
         cycleStack.push(bindingKey);
