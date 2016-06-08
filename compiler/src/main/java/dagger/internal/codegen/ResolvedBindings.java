@@ -102,6 +102,16 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
+   * Returns the single binding.
+   *
+   * @throws IllegalStateException if there is not exactly one element in {@link #bindings()},
+   *     which will never happen for contributions in valid graphs
+   */
+  Binding binding() {
+    return getOnlyElement(bindings());
+  }
+
+  /**
    * All bindings for {@link #bindingKey()}, together with the component in which they were
    * resolved.
    */
@@ -245,14 +255,6 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   boolean isMultibindingContribution() {
     return contributionBindings().size() == 1
         && contributionBinding().contributionType().isMultibinding();
-  }
-
-  /**
-   * {@code true} if this is a {@linkplain ContributionBinding#isSyntheticBinding() synthetic}
-   * contribution.
-   */
-  boolean isSyntheticContribution() {
-    return contributionBindings().size() == 1 && contributionBinding().isSyntheticBinding();
   }
 
   /**

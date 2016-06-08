@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Set;
-
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -116,7 +115,6 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.of(contributedBy),
           key,
           dependencies,
-          findBindingPackage(key),
           Optional.<DeclaredType>absent(), // TODO(beder): Add nullability checking with Java 8.
           Optional.<DependencyRequest>absent(),
           wrapOptionalInEquivalence(getMapKey(producesMethod)),
@@ -148,7 +146,6 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           requestForMapOfValuesOrProduced.key(),
           ImmutableSet.of(requestForMapOfProducers),
-          findBindingPackage(requestForMapOfValuesOrProduced.key()),
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           wrapOptionalInEquivalence(getMapKey(requestForMapOfProducers.requestElement())),
@@ -165,14 +162,13 @@ abstract class ProductionBinding extends ContributionBinding {
      * <p>Note that these could be set multibindings or map multibindings.
      */
     ProductionBinding syntheticMultibinding(
-        final DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+        DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return new AutoValue_ProductionBinding(
           ContributionType.UNIQUE,
           request.requestElement(),
           Optional.<TypeElement>absent(),
           request.key(),
           dependencyRequestFactory.forMultibindingContributions(request, multibindingContributions),
-          findBindingPackage(request.key()),
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
@@ -193,7 +189,6 @@ abstract class ProductionBinding extends ContributionBinding {
           Optional.<TypeElement>absent(),
           keyFactory.forProductionComponentMethod(componentMethod),
           ImmutableSet.<DependencyRequest>of(),
-          Optional.<String>absent(),
           Optional.<DeclaredType>absent(),
           Optional.<DependencyRequest>absent(),
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
@@ -206,12 +201,11 @@ abstract class ProductionBinding extends ContributionBinding {
     ProductionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
       return new AutoValue_ProductionBinding(
-          delegateBinding.contributionType(),
+          delegateDeclaration.contributionType(),
           delegateDeclaration.bindingElement(),
           delegateDeclaration.contributingModule(),
           delegateDeclaration.key(),
           ImmutableSet.of(delegateDeclaration.delegateRequest()),
-          findBindingPackage(delegateDeclaration.key()),
           delegateBinding.nullableType(),
           Optional.<DependencyRequest>absent(),
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),

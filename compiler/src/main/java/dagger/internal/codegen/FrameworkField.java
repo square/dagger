@@ -77,10 +77,10 @@ abstract class FrameworkField {
     if (resolvedBindings.isMultibindingContribution()) {
       switch (resolvedBindings.contributionType()) {
         case MAP:
-          return MapType.from(resolvedBindings.key().type())
+          return MapType.from(resolvedBindings.key())
               .unwrappedValueType(resolvedBindings.frameworkClass());
         case SET:
-          return SetType.from((resolvedBindings.key().type())).elementType();
+          return SetType.from(resolvedBindings.key()).elementType();
         default:
           // do nothing
       }
@@ -95,7 +95,7 @@ abstract class FrameworkField {
         return BINDING_ELEMENT_NAME.visit(binding.bindingElement(), binding);
       }
     }
-    return KeyVariableNamer.INSTANCE.apply(resolvedBindings.key());
+    return BindingVariableNamer.name(resolvedBindings.binding());
   }
 
   private static final ElementVisitor<String, Binding> BINDING_ELEMENT_NAME =
