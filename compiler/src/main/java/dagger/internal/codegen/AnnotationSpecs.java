@@ -16,8 +16,6 @@
 package dagger.internal.codegen;
 
 import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ClassName;
-import dagger.Provides;
 
 final class AnnotationSpecs {
 
