@@ -80,6 +80,14 @@ abstract class MapType {
   }
 
   /**
+   * Returns {@code true} if the {@linkplain #valueType() value type} of the {@link Map} is a
+   * {@linkplain FrameworkTypes#isFrameworkType(TypeMirror) framework type}.
+   */
+  boolean valuesAreFrameworkType() {
+    return FrameworkTypes.isFrameworkType(valueType());
+  }
+  
+  /**
    * {@code V} if {@link #valueType()} is a {@code WrappingClass<V>}.
    *
    * @throws IllegalStateException if {@link #isRawType()} is true or {@link #valueType()} is not a

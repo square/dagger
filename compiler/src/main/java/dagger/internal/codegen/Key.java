@@ -270,7 +270,7 @@ abstract class Key {
     }
 
     private TypeElement getClassElement(Class<?> cls) {
-      return elements.getTypeElement(cls.getCanonicalName());
+      return elements.getTypeElement(cls.getName());
     }
 
     Key forComponentMethod(ExecutableElement componentMethod) {
@@ -322,7 +322,7 @@ abstract class Key {
         returnType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
       }
       TypeMirror keyType =
-          bindingMethodKeyType(returnType, method, contributionType, frameworkType);
+          bindingMethodKeyType(returnType, method, contributionType, Optional.of(frameworkType));
       Key key = forMethod(method, keyType);
       return contributionType.equals(ContributionType.UNIQUE)
           ? key
@@ -334,7 +334,7 @@ abstract class Key {
      * Returns the key for a {@link Multibinds @Multibinds} method or a method in a
      * {@link Multibindings @Multibindings} interface.
      *
-     * The key's type is either {@code Set<T>} or {@code Map<K, F<V>>}, where {@code F} is either
+     * <p>The key's type is either {@code Set<T>} or {@code Map<K, F<V>>}, where {@code F} is either
      * {@link Provider} or {@link Producer}, depending on {@code bindingType}.
      */
     Key forMultibindsMethod(
@@ -360,11 +360,7 @@ abstract class Key {
       TypeMirror returnType = normalize(types, methodType.getReturnType());
       TypeMirror keyType =
           bindingMethodKeyType(
-              // TODO(ronshapiro): Map<K, Framework<V>> can't be determined at this point. When
-              // @IntoMap support is added, consider replacing getProviderElement() with a
-              // placeholder type, which is then replaced when the DelegateDeclaration is translated
-              // into a Provision or ProductionBinding
-              returnType, method, contributionType, getProviderElement());
+              returnType, method, contributionType, Optional.<TypeElement>absent());
       Key key = forMethod(method, keyType);
       return contributionType.equals(ContributionType.UNIQUE)
           ? key
@@ -377,14 +373,18 @@ abstract class Key {
         TypeMirror returnType,
         ExecutableElement method,
         ContributionType contributionType,
-        TypeElement frameworkType) {
+        Optional<TypeElement> frameworkType) {
       switch (contributionType) {
         case UNIQUE:
           return returnType;
         case SET:
           return types.getDeclaredType(getSetElement(), returnType);
         case MAP:
-          return mapOfFrameworkType(mapKeyType(method), frameworkType, returnType);
+          if (frameworkType.isPresent()) {
+            return mapOfFrameworkType(mapKeyType(method), frameworkType.get(), returnType);
+          } else {
+            return types.getDeclaredType(getMapElement(), mapKeyType(method), returnType);
+          }
         case SET_VALUES:
           // TODO(gak): do we want to allow people to use "covariant return" here?
           checkArgument(SetType.isSet(returnType));
@@ -392,6 +392,20 @@ abstract class Key {
         default:
           throw new AssertionError();
       }
+    }
+
+    /**
+     * Returns the key for a binding associated with a {@link DelegateDeclaration}.
+     *
+     * If {@code delegateDeclaration} is {@code @IntoMap}, transforms the {@code Map<K, V>} key
+     * from {@link DelegateDeclaration#key()} to {@code Map<K, FrameworkType<V>>}. If {@code
+     * delegateDeclaration} is not a map contribution, its key is returned.
+     */
+    Key forDelegateBinding(
+        DelegateDeclaration delegateDeclaration, Class<?> frameworkType) {
+      return delegateDeclaration.contributionType().equals(ContributionType.MAP)
+          ? wrapMapValue(delegateDeclaration.key(), frameworkType)
+          : delegateDeclaration.key();
     }
 
     /**
@@ -475,6 +489,41 @@ abstract class Key {
     Optional<Key> implicitMapProducerKeyFrom(Key possibleMapKey) {
       return maybeRewrapMapValue(possibleMapKey, Produced.class, Producer.class)
           .or(maybeWrapMapValue(possibleMapKey, Producer.class));
+    }
+
+    /**
+     * Keys for map contributions from {@link dagger.Provides} and {@link dagger.producers.Produces}
+     * are in the form {@code Map<K, Framework<V>>}, but keys for {@link Binds} methods are just
+     * {@code Map<K, V>} since the framework type is not known until graph resolution. This
+     * translates from the {@code @Provides}/{@code @Produces} format into the {@code @Binds}
+     * format. If {@link Key#type() possibleMapKey.type()} is not a {@code Map<K, Framework<V>>},
+     * returns {@code possibleMapKey}.
+     */
+    Key convertToDelegateKey(Key possibleMapKey) {
+      if (!MapType.isMap(possibleMapKey)) {
+        return possibleMapKey;
+      }
+      MapType mapType = MapType.from(possibleMapKey);
+      TypeMirror wrappedValueType;
+      if (mapType.valuesAreTypeOf(Provider.class)) {
+        wrappedValueType = mapType.unwrappedValueType(Provider.class);
+      } else if (mapType.valuesAreTypeOf(Producer.class)) {
+        wrappedValueType = mapType.unwrappedValueType(Producer.class);
+      } else {
+        return possibleMapKey;
+      }
+      return possibleMapKey.withType(
+          types, types.getDeclaredType(getMapElement(), mapType.keyType(), wrappedValueType));
+    }
+
+    /**
+     * Converts a {@link Key} of type {@code Map<K, V>} to {@code Map<K, Provider<V>>}.
+     */
+    private Key wrapMapValue(Key key, Class<?> newWrappingClass) {
+      checkArgument(
+          FrameworkTypes.isFrameworkType(
+              elements.getTypeElement(newWrappingClass.getName()).asType()));
+      return maybeWrapMapValue(key, newWrappingClass).get();
     }
 
     /**

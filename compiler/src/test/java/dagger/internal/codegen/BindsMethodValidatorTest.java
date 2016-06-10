@@ -100,12 +100,6 @@ public class BindsMethodValidatorTest {
   }
 
   @Test
-  public void intoMap() {
-    assertThatMethod("@Binds @IntoMap @IntKey(1) abstract Object bindObject(String string);")
-        .hasError("@Binds @IntoMap is not yet supported");
-  }
-
-  @Test
   public void setElementsNotAssignable() {
     assertThatMethod(
             "@Binds @ElementsIntoSet abstract Set<String> bindSetOfIntegers(Set<Integer> ints);")

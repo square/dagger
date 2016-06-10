@@ -30,6 +30,7 @@ import dagger.Component;
 import dagger.MapKey;
 import dagger.Provides;
 import dagger.internal.codegen.ContributionType.HasContributionType;
+import dagger.producers.Producer;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
 import java.util.Set;

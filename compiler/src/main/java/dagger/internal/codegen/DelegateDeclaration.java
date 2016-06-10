@@ -40,6 +40,8 @@ import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquiva
 abstract class DelegateDeclaration extends BindingDeclaration implements HasContributionType {
   abstract DependencyRequest delegateRequest();
 
+  abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey();
+
   static final class Factory {
     private final Types types;
     private final Key.Factory keyFactory;
@@ -67,7 +69,8 @@ abstract class DelegateDeclaration extends BindingDeclaration implements HasCont
           keyFactory.forBindsMethod(bindsMethod, resolvedMethod),
           bindsMethod,
           Optional.of(contributingElement),
-          delegateRequest);
+          delegateRequest,
+          wrapOptionalInEquivalence(getMapKey(bindsMethod)));
     }
   }
 }

@@ -24,6 +24,7 @@ import dagger.Module;
 import dagger.multibindings.IntoMap;
 import dagger.producers.ProducerModule;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -78,21 +79,15 @@ final class BindsMethodValidator extends BindingMethodValidator {
     }
   }
 
-  @Override
-  protected void checkMultibindings(ValidationReport.Builder<ExecutableElement> builder) {
-    super.checkMultibindings(builder);
-    if (isAnnotationPresent(builder.getSubject(), IntoMap.class)) {
-      builder.addError("@Binds @IntoMap is not yet supported");
-    }
-  }
-
   private void checkParameters(ValidationReport.Builder<ExecutableElement> builder) {
-    List<? extends VariableElement> parameters = builder.getSubject().getParameters();
+    ExecutableElement method = builder.getSubject();
+    List<? extends VariableElement> parameters = method.getParameters();
     if (parameters.size() == 1) {
       VariableElement parameter = getOnlyElement(parameters);
-      TypeMirror leftHandSide = builder.getSubject().getReturnType();
+      TypeMirror leftHandSide = method.getReturnType();
       TypeMirror rightHandSide = parameter.asType();
-      switch (ContributionType.fromBindingMethod(builder.getSubject())) {
+      ContributionType contributionType = ContributionType.fromBindingMethod(method);
+      switch (contributionType) {
         case SET_VALUES:
           if (!SetType.isSet(leftHandSide)) {
             builder.addError(BINDS_ELEMENTS_INTO_SET_METHOD_RETURN_SET);
@@ -110,18 +105,28 @@ final class BindsMethodValidator extends BindingMethodValidator {
               rightHandSide,
               methodParameterType(parameterizedSetType, "add"));
           break;
+        case MAP:
+          DeclaredType parameterizedMapType =
+              types.getDeclaredType(mapElement(), unboundedWildcard(), leftHandSide);
+          validateTypesAreAssignable(
+              builder,
+              rightHandSide,
+              methodParameterTypes(parameterizedMapType, "put").get(1));
+          break;
         case UNIQUE:
           validateTypesAreAssignable(builder, rightHandSide, leftHandSide);
           break;
         default:
-          // @IntoMap not yet supported
+          throw new AssertionError(
+              String.format(
+                  "Unknown contribution type (%s) for method: %s", contributionType, method));
       }
     } else {
       builder.addError(BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER);
     }
   }
 
-  private TypeMirror methodParameterType(DeclaredType type, String methodName) {
+  private ImmutableList<TypeMirror> methodParameterTypes(DeclaredType type, String methodName) {
     ImmutableList.Builder<ExecutableElement> methodsForName = ImmutableList.builder();
     for (ExecutableElement method :
         ElementFilter.methodsIn(MoreElements.asType(type.asElement()).getEnclosedElements())) {
@@ -130,8 +135,12 @@ final class BindsMethodValidator extends BindingMethodValidator {
       }
     }
     ExecutableElement method = getOnlyElement(methodsForName.build());
-    return getOnlyElement(
+    return ImmutableList.<TypeMirror>copyOf(
         MoreTypes.asExecutable(types.asMemberOf(type, method)).getParameterTypes());
+  }
+
+  private TypeMirror methodParameterType(DeclaredType type, String methodName) {
+    return getOnlyElement(methodParameterTypes(type, methodName));
   }
 
   private void validateTypesAreAssignable(
@@ -145,5 +154,13 @@ final class BindsMethodValidator extends BindingMethodValidator {
 
   private TypeElement setElement() {
     return elements.getTypeElement(Set.class.getName());
+  }
+
+  private TypeElement mapElement() {
+    return elements.getTypeElement(Map.class.getName());
+  }
+
+  private TypeMirror unboundedWildcard() {
+    return types.getWildcardType(null, null);
   }
 }

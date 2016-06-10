@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -286,15 +287,16 @@ abstract class ProvisionBinding extends ContributionBinding {
 
     ProvisionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
+      Key key = keyFactory.forDelegateBinding(delegateDeclaration, Provider.class);
       return new AutoValue_ProvisionBinding(
           delegateDeclaration.contributionType(),
           delegateDeclaration.bindingElement(),
           delegateDeclaration.contributingModule(),
-          delegateDeclaration.key(),
+          key,
           ImmutableSet.of(delegateDeclaration.delegateRequest()),
           delegate.nullableType(),
           Optional.<DependencyRequest>absent(),
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+          delegateDeclaration.wrappedMapKey(),
           Kind.SYNTHETIC_DELEGATE_BINDING,
           Optional.<ProvisionBinding>absent(),
           Scope.uniqueScopeOf(delegateDeclaration.bindingElement()));

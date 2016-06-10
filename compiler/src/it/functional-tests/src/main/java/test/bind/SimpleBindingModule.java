@@ -19,12 +19,15 @@ import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import dagger.multibindings.ElementsIntoSet;
+import dagger.multibindings.IntKey;
+import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
+import javax.inject.Named;
 import javax.inject.Singleton;
 import test.SomeQualifier;
 
@@ -96,4 +99,39 @@ abstract class SimpleBindingModule {
   @Binds
   @ElementsIntoSet
   abstract Set<CharSequence> bindCollectionOfCharSequences(Collection<CharSequence> collection);
+
+  @Binds
+  @IntoMap
+  @IntKey(123)
+  abstract Object bind123ForMap(@Named("For-123") String string);
+
+  @Binds
+  @IntoMap
+  @IntKey(456)
+  abstract Object bind456ForMap(@Named("For-456") String string);
+
+  @Provides
+  @IntoMap
+  @IntKey(789)
+  static Object provide789ForMap() {
+    return "789-string";
+  }
+
+  @Binds
+  @IntoMap
+  @IntKey(123)
+  @SomeQualifier
+  abstract Object bindFooOfStringsIntoQualifiedMap(FooOfStrings fooOfStrings);
+  
+  @Provides
+  @Named("For-123")
+  static String provide123String() {
+    return "123-string";
+  }
+
+  @Provides
+  @Named("For-456")
+  static String provide456String() {
+    return "456-string";
+  }
 }
