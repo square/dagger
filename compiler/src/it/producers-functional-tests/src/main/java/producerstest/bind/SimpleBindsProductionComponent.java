@@ -21,7 +21,6 @@ import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
 import java.util.Map;
 import java.util.Set;
-import javax.inject.Provider;
 import javax.inject.Singleton;
 import producerstest.bind.SimpleBindingModule.SomeQualifier;
 
