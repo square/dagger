@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.bind;
+
+package test.binds;
 
 import javax.inject.Inject;
 
-final class FooOfStrings implements Foo<String> {
-  @Inject
-  FooOfStrings() {}
+final class FooOfObjects implements Foo<Object> {
+  @Inject FooOfObjects() {}
 }

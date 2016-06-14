@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package producerstest.bind;
+package producerstest.binds;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produced;
@@ -22,7 +22,7 @@ import dagger.producers.ProductionComponent;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
-import producerstest.bind.SimpleBindingModule.SomeQualifier;
+import producerstest.binds.SimpleBindingModule.SomeQualifier;
 
 @Singleton
 @ProductionComponent(modules = SimpleBindingModule.class)
