@@ -16,7 +16,10 @@
 package producerstest.bind;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import dagger.producers.Produced;
+import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
+import java.util.Map;
 import java.util.Set;
 import javax.inject.Singleton;
 import producerstest.bind.SimpleBindingModule.SomeQualifier;
@@ -38,4 +41,12 @@ public interface SimpleBindsProductionComponent {
   ListenableFuture<Set<Object>> objects();
 
   ListenableFuture<Set<CharSequence>> charSequences();
+
+  ListenableFuture<Map<Integer, Object>> integerObjectMap();
+
+  ListenableFuture<Map<Integer, Producer<Object>>> integerProducerOfObjectMap();
+
+  ListenableFuture<Map<Integer, Produced<Object>>> integerProducedOfObjectMap();
+
+  @SomeQualifier ListenableFuture<Map<Integer, Object>> qualifiedIntegerObjectMap();
 }

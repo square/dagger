@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import dagger.producers.Producer;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -200,15 +201,16 @@ abstract class ProductionBinding extends ContributionBinding {
 
     ProductionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
+      Key key = keyFactory.forDelegateBinding(delegateDeclaration, Producer.class);
       return new AutoValue_ProductionBinding(
           delegateDeclaration.contributionType(),
           delegateDeclaration.bindingElement(),
           delegateDeclaration.contributingModule(),
-          delegateDeclaration.key(),
+          key,
           ImmutableSet.of(delegateDeclaration.delegateRequest()),
           delegateBinding.nullableType(),
           Optional.<DependencyRequest>absent(),
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+          delegateDeclaration.wrappedMapKey(),
           Kind.SYNTHETIC_DELEGATE_BINDING,
           ImmutableList.<TypeMirror>of(),
           Optional.<DependencyRequest>absent(),

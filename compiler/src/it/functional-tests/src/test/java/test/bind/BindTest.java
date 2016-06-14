@@ -15,6 +15,7 @@
  */
 package test.bind;
 
+import com.google.common.collect.ImmutableMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,6 +23,7 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertThat;
 
+// TODO(ronshapiro): rename to BindsTest
 @RunWith(JUnit4.class)
 public class BindTest {
 
@@ -51,5 +53,15 @@ public class BindTest {
     assertThat(component.foosOfNumbers()).hasSize(2);
     assertThat(component.objects()).hasSize(3);
     assertThat(component.charSequences()).hasSize(5);
+
+    assertThat(component.integerObjectMap())
+        .containsExactlyEntriesIn(
+            ImmutableMap.of(123, "123-string", 456, "456-string", 789, "789-string"));
+    assertThat(component.integerProviderOfObjectMap()).hasSize(3);
+    assertThat(component.integerProviderOfObjectMap().get(123).get()).isEqualTo("123-string");
+    assertThat(component.integerProviderOfObjectMap().get(456).get()).isEqualTo("456-string");
+    assertThat(component.integerProviderOfObjectMap().get(789).get()).isEqualTo("789-string");
+
+    assertThat(component.qualifiedIntegerObjectMap()).hasSize(1);
   }
 }

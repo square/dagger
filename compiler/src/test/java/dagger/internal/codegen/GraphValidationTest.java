@@ -592,6 +592,7 @@ public class GraphValidationTest {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
         "",
+        "import dagger.Binds;",
         "import dagger.Component;",
         "import dagger.MapKey;",
         "import dagger.Module;",
@@ -603,6 +604,7 @@ public class GraphValidationTest {
         "import java.util.HashSet;",
         "import java.util.Map;",
         "import java.util.Set;",
+        "import javax.inject.Qualifier;",
         "",
         "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
         "final class Outer {",
@@ -611,13 +613,21 @@ public class GraphValidationTest {
         "    String value();",
         "  }",
         "",
+        "  @Qualifier @interface SomeQualifier {}",
+        "",
         "  @Module",
-        "  static class TestModule1 {",
+        "  abstract static class TestModule1 {",
         "    @Provides @IntoMap",
         "    @StringKey(\"foo\")",
-        "    String stringMapEntry() { return \"\"; }",
+        "    static String stringMapEntry() { return \"\"; }",
         "",
-        "    @Provides @IntoSet String stringSetElement() { return \"\"; }",
+        "    @Binds @IntoMap @StringKey(\"bar\")",
+        "    abstract String bindStringMapEntry(@SomeQualifier String value);",
+        "",
+        "    @Provides @IntoSet static String stringSetElement() { return \"\"; }",
+        "    @Binds @IntoSet abstract String bindStringSetElement(@SomeQualifier String value);",
+        "",
+        "    @Provides @SomeQualifier static String provideSomeQualifiedString() { return \"\"; }",
         "  }",
         "",
         "  @Module",
@@ -641,6 +651,8 @@ public class GraphValidationTest {
             + "      Set bindings and declarations:\n"
             + "          @Provides @dagger.multibindings.IntoSet String "
             + "test.Outer.TestModule1.stringSetElement()\n"
+            + "          @Binds @dagger.multibindings.IntoSet String "
+            + "test.Outer.TestModule1.bindStringSetElement(@test.Outer.SomeQualifier String)\n"
             + "      Unique bindings and declarations:\n"
             + "          @Provides Set<String> test.Outer.TestModule2.stringSet()";
 
@@ -651,6 +663,9 @@ public class GraphValidationTest {
             + "          @Provides @dagger.multibindings.IntoMap "
             + "@test.Outer.StringKey(\"foo\") String"
             + " test.Outer.TestModule1.stringMapEntry()\n"
+            + "          @Binds @dagger.multibindings.IntoMap "
+            + "@test.Outer.StringKey(\"bar\") String"
+            + " test.Outer.TestModule1.bindStringMapEntry(@test.Outer.SomeQualifier String)\n"
             + "      Unique bindings and declarations:\n"
             + "          @Provides Map<String,String> test.Outer.TestModule2.stringMap()";
 
@@ -660,11 +675,11 @@ public class GraphValidationTest {
         .failsToCompile()
         .withErrorContaining(expectedSetError)
         .in(component)
-        .onLine(42)
+        .onLine(52)
         .and()
         .withErrorContaining(expectedMapError)
         .in(component)
-        .onLine(43);
+        .onLine(53);
   }
 
   @Test

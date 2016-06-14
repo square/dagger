@@ -20,24 +20,28 @@ import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import dagger.multibindings.ElementsIntoSet;
+import dagger.multibindings.IntKey;
+import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import dagger.producers.Production;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Executor;
+import javax.inject.Named;
 import javax.inject.Qualifier;
 import javax.inject.Singleton;
 
-@ProducerModule(includes = SimpleBindingModule.ExecutorModule.class)
+@ProducerModule(includes = {
+    SimpleBindingModule.ExecutorModule.class,
+    SimpleBindingModule.ProvisionModuleForMap.class
+})
 abstract class SimpleBindingModule {
   @Binds
   abstract Object bindObject(FooOfStrings impl);
@@ -121,5 +125,52 @@ abstract class SimpleBindingModule {
     static Executor provideExecutor() {
       return MoreExecutors.directExecutor();
     }
+  }
+
+  @Binds
+  @IntoMap
+  @IntKey(123)
+  abstract Object bind123ForMap(@Named("For-123") String string);
+
+  @Binds
+  @IntoMap
+  @IntKey(456)
+  abstract Object bind456ForMap(@Named("For-456") String string);
+
+  @Produces
+  @IntoMap
+  @IntKey(789)
+  static Object produce789ForMap() {
+    return "789-string";
+  }
+
+  @Module
+  abstract static class ProvisionModuleForMap {
+    @Provides @Named("Provision string") static String provideProvisionString() {
+      return "provision-string";
+    }
+
+    @Binds
+    @IntoMap
+    @IntKey(-1)
+    abstract Object bindNegative1ForMap(@Named("Provision string") String string);
+  }
+
+  @Binds
+  @IntoMap
+  @IntKey(123)
+  @SomeQualifier
+  abstract Object bindFooOfStringsIntoQualifiedMap(FooOfStrings fooOfStrings);
+
+  @Produces
+  @Named("For-123")
+  static String produce123String() {
+    return "123-string";
+  }
+
+  @Produces
+  @Named("For-456")
+  static String produce456String() {
+    return "456-string";
   }
 }

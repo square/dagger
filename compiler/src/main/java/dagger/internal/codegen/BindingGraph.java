@@ -63,12 +63,12 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
-import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
-import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULTIBINDING_KIND;
 import static dagger.internal.codegen.Key.indexByKey;
@@ -347,24 +347,18 @@ abstract class BindingGraph {
             Set<ContributionBinding> multibindings = new LinkedHashSet<>();
             ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarationsBuilder =
                 ImmutableSet.builder();
-            ImmutableSet.Builder<DelegateDeclaration> delegateDeclarationsBuilder =
-                ImmutableSet.builder();
 
             for (Key keyOrImplicitKey : explicitAndImplicitKeys(key)) {
               contributionBindings.addAll(getExplicitBindings(keyOrImplicitKey));
+              contributionBindings.addAll(
+                  delegateBindings(getDelegateDeclarations(keyOrImplicitKey)));
+
               multibindings.addAll(getExplicitMultibindings(keyOrImplicitKey));
-              multibindingDeclarationsBuilder.addAll(getMultibindingDeclarations(keyOrImplicitKey));
-              delegateDeclarationsBuilder.addAll(getDelegateDeclarations(keyOrImplicitKey));
               multibindings.addAll(
                   delegateBindings(getDelegateMultibindingDeclarations(keyOrImplicitKey)));
+
+              multibindingDeclarationsBuilder.addAll(getMultibindingDeclarations(keyOrImplicitKey));
             }
-
-            ImmutableSet<MultibindingDeclaration> multibindingDeclarations =
-                multibindingDeclarationsBuilder.build();
-            ImmutableSet<DelegateDeclaration> delegateDeclarations =
-                delegateDeclarationsBuilder.build();
-
-            contributionBindings.addAll(delegateBindings(delegateDeclarations));
 
             // If the key is Map<K, V>, get its map-of-framework-type binding keys, which are either
             // Map<K, Provider<V>> or Map<K, Producer<V>>, and grab their explicit bindings and
@@ -386,18 +380,21 @@ abstract class BindingGraph {
                   provisionBindingFactory.syntheticMapOfValuesBinding(request));
             }
 
+            ImmutableSet<MultibindingDeclaration> multibindingDeclarations =
+                multibindingDeclarationsBuilder.build();
+
             Iterable<? extends HasBindingType> multibindingsAndDeclarations =
                 Iterables.concat(multibindings, multibindingDeclarations);
             if (Iterables.any(
                 multibindingsAndDeclarations, BindingType.isOfType(BindingType.PRODUCTION))) {
-              /* If there are production multibindings, add a synthetic binding that depends on each
-               * individual multibinding. */
+            /* If there are production multibindings, add a synthetic binding that depends on each
+             * individual multibinding. */
               contributionBindings.add(
                   productionBindingFactory.syntheticMultibinding(request, multibindings));
             } else if (Iterables.any(
                 multibindingsAndDeclarations, BindingType.isOfType(BindingType.PROVISION))) {
-              /* If there are provision multibindings but not production ones, add a synthetic
-               * binding that depends on each individual multibinding. */
+            /* If there are provision multibindings but not production ones, add a synthetic
+             * binding that depends on each individual multibinding. */
               contributionBindings.add(
                   provisionBindingFactory.syntheticMultibinding(request, multibindings));
             }
@@ -406,8 +403,7 @@ abstract class BindingGraph {
              * declarations, use an implicit @Inject- constructed binding if there is one. */
             if (contributionBindings.isEmpty()
                 && multibindings.isEmpty()
-                && multibindingDeclarations.isEmpty()
-                && delegateDeclarations.isEmpty()) {
+                && multibindingDeclarations.isEmpty()) {
               contributionBindings.addAll(
                   injectBindingRegistry.getOrFindProvisionBinding(key).asSet());
             }
@@ -439,13 +435,25 @@ abstract class BindingGraph {
             .build();
       }
 
-      private boolean shouldCreateSyntheticMapOfValuesBinding(Optional<Key> key) {
-        if (!key.isPresent()) {
+      private boolean shouldCreateSyntheticMapOfValuesBinding(Optional<Key> maybeKey) {
+        if (!maybeKey.isPresent()) {
           return false;
         }
-        return !getExplicitMultibindings(key.get()).isEmpty()
-            || !getMultibindingDeclarations(key.get()).isEmpty()
-            || !getDelegateDeclarations(key.get()).isEmpty();
+
+        Key key = maybeKey.get();
+        if (!getExplicitMultibindings(key).isEmpty()
+            || !getMultibindingDeclarations(key).isEmpty()) {
+          return true;
+        }
+
+        ImmutableSet<ContributionBinding> delegateBindings =
+            delegateBindings(getDelegateMultibindingDeclarations(key));
+        for (ContributionBinding delegateBinding : delegateBindings) {
+          if (delegateBinding.key().withoutBindingMethodIdentifier().equals(key)) {
+            return true;
+          }
+        }
+        return false;
       }
 
       private ImmutableSet<ContributionBinding> delegateBindings(
@@ -605,7 +613,8 @@ abstract class BindingGraph {
         return multibindingDeclarations.build();
       }
 
-      private ImmutableSet<DelegateDeclaration> getDelegateDeclarations(Key key) {
+      private ImmutableSet<DelegateDeclaration> getDelegateDeclarations(Key requestKey) {
+        Key key = keyFactory.convertToDelegateKey(requestKey);
         ImmutableSet.Builder<DelegateDeclaration> delegateDeclarations =
             ImmutableSet.builder();
         for (Resolver resolver : getResolverLineage()) {
@@ -614,7 +623,14 @@ abstract class BindingGraph {
         return delegateDeclarations.build();
       }
 
-      private ImmutableSet<DelegateDeclaration> getDelegateMultibindingDeclarations(Key key) {
+      private ImmutableSet<DelegateDeclaration> getDelegateMultibindingDeclarations(
+          Key requestKey) {
+        if (MapType.isMap(requestKey) && !MapType.from(requestKey).valuesAreFrameworkType()) {
+          // There are no @Binds @IntoMap delegate declarations for Map<K, V> requests. All @IntoMap
+          // requests must be for Map<K, Framework<V>>.
+          return ImmutableSet.of();
+        }
+        Key key = keyFactory.convertToDelegateKey(requestKey);
         ImmutableSet.Builder<DelegateDeclaration> delegateMultibindingDeclarations =
             ImmutableSet.builder();
         for (Resolver resolver : getResolverLineage()) {

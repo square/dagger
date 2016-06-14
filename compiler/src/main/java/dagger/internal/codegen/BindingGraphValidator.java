@@ -82,6 +82,7 @@ import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescrip
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_DELEGATE_BINDING;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
@@ -432,7 +433,7 @@ final class BindingGraphValidator {
           }
           if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
             ImmutableSet<ContributionBinding> multibindings =
-                inlineSyntheticContributions(resolvedBinding).contributionBindings();
+                inlineSyntheticNondelegateContributions(resolvedBinding).contributionBindings();
             validateMapKeySet(path, multibindings);
             validateMapKeyAnnotationTypes(path, multibindings);
           }
@@ -470,12 +471,16 @@ final class BindingGraphValidator {
      *     {@code Y}.
      * </ul>
      *
-     * then {@code inlineSyntheticBindings(bindingsForKey1)} has bindings {@code A}, {@code C}, and
-     * {@code D}, with multibinding declarations {@code X} and {@code Y}.
+     * then {@code inlineSyntheticNondelegateContributions(bindingsForKey1)} has bindings {@code A},
+     * {@code C}, and {@code D}, with multibinding declarations {@code X} and {@code Y}.
      *
      * <p>The replacement is repeated until none of the bindings are synthetic.
      */
-    private ResolvedBindings inlineSyntheticContributions(ResolvedBindings resolvedBinding) {
+    // TODO(dpb): The actual operation we want is to inline bindings without real binding elements.
+    // Delegate bindings are the first example of synthetic bindings that have real binding elements
+    // and nonsynthetic dependencies.
+    private ResolvedBindings inlineSyntheticNondelegateContributions(
+        ResolvedBindings resolvedBinding) {
       if (!FluentIterable.from(resolvedBinding.contributionBindings())
           .transform(ContributionBinding.KIND)
           .anyMatch(IS_SYNTHETIC_KIND)) {
@@ -496,7 +501,8 @@ final class BindingGraphValidator {
             queued.allContributionBindings().entries()) {
           BindingGraph owningGraph = validationForComponent(bindingEntry.getKey()).subject;
           ContributionBinding binding = bindingEntry.getValue();
-          if (binding.isSyntheticBinding()) {
+          if (binding.isSyntheticBinding()
+              && !binding.bindingKind().equals(SYNTHETIC_DELEGATE_BINDING)) {
             for (DependencyRequest dependency : binding.dependencies()) {
               queue.add(owningGraph.resolvedBindings().get(dependency.bindingKey()));
             }
@@ -514,7 +520,7 @@ final class BindingGraphValidator {
 
     private ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType(
         ResolvedBindings resolvedBinding) {
-      ResolvedBindings inlined = inlineSyntheticContributions(resolvedBinding);
+      ResolvedBindings inlined = inlineSyntheticNondelegateContributions(resolvedBinding);
       return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
           .putAll(indexByContributionType(inlined.contributionBindings()))
           .putAll(indexByContributionType(inlined.multibindingDeclarations()))
@@ -1029,7 +1035,7 @@ final class BindingGraphValidator {
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ImmutableSet<ContributionBinding> duplicateBindings =
-          inlineSyntheticContributions(resolvedBinding).contributionBindings();
+          inlineSyntheticNondelegateContributions(resolvedBinding).contributionBindings();
       bindingDeclarationFormatter.formatIndentedList(
           builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
       owningReportBuilder(duplicateBindings).addError(builder.toString(), path.entryPointElement());

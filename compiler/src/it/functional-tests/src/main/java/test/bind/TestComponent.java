@@ -16,7 +16,9 @@
 package test.bind;
 
 import dagger.Component;
+import java.util.Map;
 import java.util.Set;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 import test.SomeQualifier;
 
@@ -39,4 +41,10 @@ public interface TestComponent {
   Set<Object> objects();
 
   Set<CharSequence> charSequences();
+
+  Map<Integer, Object> integerObjectMap();
+
+  Map<Integer, Provider<Object>> integerProviderOfObjectMap();
+
+  @SomeQualifier Map<Integer, Object> qualifiedIntegerObjectMap();
 }
