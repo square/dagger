@@ -19,6 +19,11 @@ import dagger.Component;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+/**
+ * Component with a long enough cycle such that the initialization of a provider happens in a
+ * separate {@code initialize} method from the one where it is used as a delegated factory.
+ *
+ */
 // Each nested class's constructor has an intentionally unused parameter.
 @SuppressWarnings("unused")
 final class LongCycle {

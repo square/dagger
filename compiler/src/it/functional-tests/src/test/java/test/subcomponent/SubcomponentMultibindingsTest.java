@@ -100,6 +100,13 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInChild())
         .isEqualTo(BOUND_IN_CHILD);
 
+    /*
+     * Even though the multibinding for Set<RequiresMultiboundObjects> does not itself have a
+     * contribution from the child, it must be pushed down to (not duplicated in) the child because
+     * its contribution depends on multibindings that have one contribution from the parent and one
+     * from the child.
+     *
+     */
     assertThat(
             parentWithoutProvisionHasChildWithoutProvision
                 .childWithoutProvision()
@@ -132,6 +139,13 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInChild())
         .isEqualTo(BOUND_IN_CHILD);
 
+    /*
+     * Even though the multibinding for Set<RequiresMultiboundObjects> does not itself have a
+     * contribution from the child, it must be pushed down to (not duplicated in) the child because
+     * its contribution depends on multibindings that have one contribution from the parent and one
+     * from the child.
+     *
+     */
     assertThat(
             parentWithoutProvisionHasChildWithProvision
                 .childWithProvision()
@@ -172,6 +186,13 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInParentAndChild())
         .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
 
+    /*
+     * Even though the multibinding for Set<RequiresMultiboundObjects> does not itself have a
+     * contribution from the child, it must be pushed down to (not duplicated in) the child because
+     * its contribution depends on multibindings that have one contribution from the parent and one
+     * from the child.
+     *
+     */
     assertThat(
             parentWithProvisionHasChildWithoutProvision
                 .childWithoutProvision()
@@ -203,6 +224,13 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInParentAndChild())
         .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
 
+    /*
+     * Even though the multibinding for Set<RequiresMultiboundObjects> does not itself have a
+     * contribution from the child, it must be pushed down to (not duplicated in) the child because
+     * its contribution depends on multibindings that have one contribution from the parent and one
+     * from the child.
+     *
+     */
     assertThat(
             parentWithProvisionHasChildWithProvision
                 .childWithProvision()
@@ -229,6 +257,13 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInParentAndChild())
         .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
 
+    /*
+     * Even though the multibinding for Set<RequiresMultiboundObjects> does not itself have a
+     * contribution from the child, it must be pushed down to (not duplicated in) the child because
+     * its contribution depends on multibindings that have one contribution from the parent and one
+     * from the child.
+     *
+     */
     assertThat(
             parentWithProvisionHasChildWithProvision
                 .childWithProvision()

@@ -755,6 +755,7 @@ abstract class BindingGraph {
               Resolver.this,
               bindingKey);
           // Don't recur infinitely if there are valid cycles in the dependency graph.
+          // http://b/23032377
           if (!cycleChecker.add(bindingKey)) {
             return false;
           }
