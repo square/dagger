@@ -4,6 +4,17 @@ Change Log
 Dagger 2 (Components)
 ---------------------
 
+### Version 2.5 *(2016-06-14)*
+  * Enables `@Binds` usage with multibinding annotations (`@IntoSet`, `@ElementsIntoSet`, and `@IntoMap`)
+  * Adds [`@Multibinds`](http://google.github.io/dagger/api/latest/dagger/multibindings/Multibinds.html) API to replace `@Multibindings` interfaces
+  * `@Component.Builder` methods for abstract modules are no longer allowed
+  * Performance improvements for `@IntoSet` usage. Provided objects are no longer wrapped in a wasteful `Collections.singleton()`
+  * Compilation speed improvements for large graphs
+  * `@Scope`s are no longer allowed on `@Produces` methods
+  * Adds state checking to scoped providers to make sure a circular dependency does not create multiple instances
+  * Producers optimizations: Each `@Produces` method now generates 1 class instead of 2
+  * Fix: Requests for Map<K, V> now include both `@Provides @IntoMap` and `@Produces @IntoMap` values
+
 ### Version 2.4 *(2016-04-21)*
   * Adds [`@Binds`](http://google.github.io/dagger/api/latest/dagger/Binds.html) API for delegating
     one binding to another
