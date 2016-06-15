@@ -205,7 +205,6 @@
         <configuration>
           <windowtitle>Dagger Dependency Injection ${project.version} API</windowtitle>
           <doctitle>Dagger Dependency Injection ${project.version} API</doctitle>
-          <excludePackageNames>*.internal</excludePackageNames>
         </configuration>
       </plugin>
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package test.bind;
+package test.binds;
 
 import com.google.common.collect.ImmutableMap;
 import org.junit.Before;
@@ -23,9 +23,8 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertThat;
 
-// TODO(ronshapiro): rename to BindsTest
 @RunWith(JUnit4.class)
-public class BindTest {
+public class BindsTest {
 
   private TestComponent component;
 

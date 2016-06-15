@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package producerstest.bind;
+package producerstest.binds;
 
 /**
  * This is not marked with {@link javax.inject.Inject @Inject} (like the {@link dagger.Provides
