@@ -24,9 +24,6 @@ install: mvn -B -P!standard-with-extra-repos -U install clean --fail-never --qui
 
 script: mvn -B -P!standard-with-extra-repos -U verify --fail-at-end -Dsource.skip=true -Dmaven.javadoc.skip=true
 
-notifications:
-  email: dagger-firehose@googlegroups.com
-
 env:
   global:
     - secure: eGc3LHBRIPmTnXLM1YoIqG1do9BkpFI2pJm3fz5Cd8UaXtf7Oefa+Ts3rcn4ipee5A+lf8kEouPshSoaQs81KZ2/qf8rSTCIqeFjHR8hzmOVYo/0zRfS/VSUT0yqN+jeRhuNk3+A49RTPlcfJqPv3tyddtrM1vF7axhCJPQIRJM=
