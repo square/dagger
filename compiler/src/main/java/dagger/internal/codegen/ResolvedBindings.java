@@ -349,6 +349,15 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
     return bindingType().frameworkClass();
   }
 
+  /**
+   * The scope associated with the single binding.
+   *
+   * @throws IllegalStateException if {@link #bindings()} does not have exactly one element
+   */
+  Optional<Scope> scope() {
+    return getOnlyElement(bindings()).scope();
+  }
+
   static final Function<ResolvedBindings, Set<ContributionBinding>> CONTRIBUTION_BINDINGS =
       new Function<ResolvedBindings, Set<ContributionBinding>>() {
         @Override

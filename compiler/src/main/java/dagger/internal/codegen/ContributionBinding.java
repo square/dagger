@@ -40,7 +40,11 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
+import static dagger.internal.codegen.ContributionType.SET;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -213,26 +217,30 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
   }
 
   /**
-   * Returns {@link FactoryCreationStrategy#ENUM_INSTANCE} if the binding has no dependencies and
-   * is a static provision binding or an {@link Inject @Inject} constructor binding. Otherwise
-   * returns {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR}.
+   * Returns the {@link FactoryCreationStrategy} appropriate for a binding.
+   *
+   * <p>Delegate bindings
+   * use the {@link FactoryCreationStrategy#DELEGATE} strategy.
+   *
+   * <p>Bindings without dependencies that don't require a module instance use the
+   * {@link FactoryCreationStrategy#ENUM_INSTANCE} strategy.
+   *
+   * <p>All other bindings use the {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR} strategy.
    */
   FactoryCreationStrategy factoryCreationStrategy() {
     switch (bindingKind()) {
       case SYNTHETIC_DELEGATE_BINDING:
-        return FactoryCreationStrategy.DELEGATE;
+        return DELEGATE;
       case PROVISION:
         return implicitDependencies().isEmpty() && bindingElement().getModifiers().contains(STATIC)
-            ? FactoryCreationStrategy.ENUM_INSTANCE
-            : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+            ? ENUM_INSTANCE
+            : CLASS_CONSTRUCTOR;
       case INJECTION:
       case SYNTHETIC_MULTIBOUND_SET:
       case SYNTHETIC_MULTIBOUND_MAP:
-        return implicitDependencies().isEmpty()
-            ? FactoryCreationStrategy.ENUM_INSTANCE
-            : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+        return implicitDependencies().isEmpty() ? ENUM_INSTANCE : CLASS_CONSTRUCTOR;
       default:
-        return FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+        return CLASS_CONSTRUCTOR;
     }
   }
 

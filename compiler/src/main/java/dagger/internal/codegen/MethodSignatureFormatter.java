@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
-import dagger.internal.codegen.Key.BindingMethodIdentifier;
 import java.util.Iterator;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
@@ -92,12 +91,6 @@ final class MethodSignatureFormatter extends Formatter<ExecutableElement> {
     }
     builder.append(')');
     return builder.toString();
-  }
-
-  String format(BindingMethodIdentifier bindingMethodIdentifier) {
-    return format(
-        MoreElements.asExecutable(bindingMethodIdentifier.bindingMethod()),
-        Optional.of(MoreTypes.asDeclared(bindingMethodIdentifier.contributingModule().asType())));
   }
 
   private static void appendParameter(StringBuilder builder, VariableElement parameter,

@@ -110,7 +110,7 @@ abstract class DependencyRequest {
     Kind() {
       this.frameworkClass = Optional.absent();
     }
-    
+
     /**
      * If {@code type}'s raw type is {@link #frameworkClass}, returns a {@link KindAndType} with
      * this kind that represents the dependency request.
@@ -131,7 +131,7 @@ abstract class DependencyRequest {
 
   abstract Kind kind();
   abstract Key key();
-  
+
   BindingKey bindingKey() {
     switch (kind()) {
       case INSTANCE:
@@ -159,7 +159,7 @@ abstract class DependencyRequest {
    * use a name derived from {@link #requestElement}.
    */
   abstract Optional<String> overriddenVariableName();
-  
+
   /** {@code true} if this is a synthetic request, which should not appear in dependency traces. */
   abstract boolean isSynthetic();
 
@@ -200,7 +200,7 @@ abstract class DependencyRequest {
     /**
      * Creates a implicit {@link DependencyRequest} for {@code mapOfFactoryKey}, which will be used
      * to satisfy the {@code mapOfValueRequest}.
-     * 
+     *
      * @param mapOfValueRequest a request for {@code Map<K, V>}
      * @param mapOfFactoryKey a key equivalent to {@code mapOfValueRequest}'s key, whose type is
      *     {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}
@@ -224,8 +224,8 @@ abstract class DependencyRequest {
     DependencyRequest forMultibindingContribution(
         DependencyRequest request, ContributionBinding multibindingContribution) {
       checkArgument(
-          multibindingContribution.key().bindingMethodIdentifier().isPresent(),
-          "multibindingContribution's key must have a binding method identifier: %s",
+          multibindingContribution.key().bindingIdentifier().isPresent(),
+          "multibindingContribution's key must have a binding identifier: %s",
           multibindingContribution);
       return new AutoValue_DependencyRequest(
           multibindingContributionRequestKind(multibindingContribution),

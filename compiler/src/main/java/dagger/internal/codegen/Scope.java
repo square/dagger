@@ -19,7 +19,6 @@ import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -105,8 +104,8 @@ final class Scope {
    * <p>It's readable source because it has had common package prefixes removed, e.g.
    * {@code @javax.inject.Singleton} is returned as {@code @Singleton}.
    *
-   * This does not return any annotation values as according to {@link javax.inject.Scope} scope
-   * annotations are not supposed to use them.
+   * <p>Does not return any annotation values, since {@link javax.inject.Scope @Scope}
+   * annotations are not supposed to have any.
    */
   public String getReadableSource() {
     return stripCommonTypePrefixes("@" + getQualifiedName());
@@ -116,10 +115,14 @@ final class Scope {
    * Returns the fully qualified name of the annotation type.
    */
   public String getQualifiedName() {
-    Preconditions.checkState(annotationMirror != null,
-        "Cannot create a stripped source representation of no annotation");
-    TypeElement typeElement = MoreTypes.asTypeElement(annotationMirror.getAnnotationType());
-    return typeElement.getQualifiedName().toString();
+    return scopeAnnotationElement().getQualifiedName().toString();
+  }
+
+  /**
+   * The scope annotation element.
+   */
+  public TypeElement scopeAnnotationElement() {
+    return MoreTypes.asTypeElement(annotationMirror.getAnnotationType());
   }
 
   /**

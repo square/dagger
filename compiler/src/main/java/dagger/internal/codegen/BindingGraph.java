@@ -448,7 +448,7 @@ abstract class BindingGraph {
         }
 
         for (ContributionBinding delegateMultibinding : getDelegateMultibindings(key)) {
-          if (delegateMultibinding.key().withoutBindingMethodIdentifier().equals(key)) {
+          if (delegateMultibinding.key().withoutBindingIdentifier().equals(key)) {
             return true;
           }
         }
@@ -587,7 +587,7 @@ abstract class BindingGraph {
 
       /**
        * Returns the explicit multibindings whose key (minus its
-       * {@link Key#bindingMethodIdentifier()}) matches the {@code requestKey} from this and all
+       * {@link Key#bindingIdentifier()}) matches the {@code requestKey} from this and all
        * ancestor resolvers.
        */
       private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key requestKey) {
@@ -831,16 +831,17 @@ abstract class BindingGraph {
     }
 
     /**
-     * Selects each item in {@code haveKeys} that has a {@link Key#bindingMethodIdentifier()} and
-     * indexes them by its {@link HasKey#key()}, where each key has its {@link
-     * dagger.internal.codegen.Key.BindingMethodIdentifier} removed.
+     * Selects each item in {@code haveKeys} that has a {@link Key#bindingIdentifier()} and
+     * indexes them by its {@link HasKey#key()}, where each key has its
+     * {@link Key.BindingIdentifier} removed.
      */
-    static <T extends HasKey> ImmutableSetMultimap<Key, T>
-        multibindingsKeyedWithoutBindingIdentifiers(Iterable<T> haveKeys) {
+    static <T extends HasKey>
+        ImmutableSetMultimap<Key, T> multibindingsKeyedWithoutBindingIdentifiers(
+            Iterable<T> haveKeys) {
       ImmutableSetMultimap.Builder<Key, T> builder = ImmutableSetMultimap.builder();
       for (T hasKey : haveKeys) {
-        if (hasKey.key().bindingMethodIdentifier().isPresent()) {
-          builder.put(hasKey.key().withoutBindingMethodIdentifier(), hasKey);
+        if (hasKey.key().bindingIdentifier().isPresent()) {
+          builder.put(hasKey.key().withoutBindingIdentifier(), hasKey);
         }
       }
       return builder.build();

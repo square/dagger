@@ -31,9 +31,9 @@ final class KeyFormatter extends Formatter<Key> {
 
   @Override
   public String format(Key key) {
-    if (key.bindingMethodIdentifier().isPresent()) {
-      // If there's a binding method, its signature is enough.
-      return methodSignatureFormatter.format(key.bindingMethodIdentifier().get());
+    if (key.bindingIdentifier().isPresent()) {
+      // If there's a binding identifier, use that.
+      return key.bindingIdentifier().get().toString();
     }
     StringBuilder builder = new StringBuilder();
     if (key.qualifier().isPresent()) {

@@ -170,7 +170,6 @@ final class Util {
         }
       };
 
-      
   /**
    * Returns {@code true} iff the given element has an {@link AnnotationMirror} whose
    * {@linkplain AnnotationMirror#getAnnotationType() annotation type} has the same canonical name
@@ -202,6 +201,15 @@ final class Util {
               }
             });
   }
+
+  /** A function that returns the simple name of an element. */
+  static final Function<Element, String> ELEMENT_SIMPLE_NAME =
+      new Function<Element, String>() {
+        @Override
+        public String apply(Element element) {
+          return element.getSimpleName().toString();
+        }
+      };
 
   private Util() {}
 }

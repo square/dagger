@@ -261,7 +261,7 @@ abstract class AbstractComponentWriter {
     component = createComponentClass();
     addBuilder();
     addFactoryMethods();
-    addFields();
+    addFrameworkFields();
     initializeFrameworkTypes();
     implementInterfaceMethods();
     addSubcomponents();
@@ -461,7 +461,7 @@ abstract class AbstractComponentWriter {
    */
   protected abstract void addFactoryMethods();
 
-  private void addFields() {
+  private void addFrameworkFields() {
     for (ResolvedBindings resolvedBindings : graph.resolvedBindings().values()) {
       addField(resolvedBindings);
     }
@@ -1066,10 +1066,10 @@ abstract class AbstractComponentWriter {
   }
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {
-    return CodeBlock.of(
-        "$T.provider($L)",
-        scope.equals(reusableScope(elements)) ? SINGLE_CHECK : DOUBLE_CHECK,
-        factoryCreate);
+      return CodeBlock.of(
+          "$T.provider($L)",
+          scope.equals(reusableScope(elements)) ? SINGLE_CHECK : DOUBLE_CHECK,
+          factoryCreate);
   }
 
   private CodeBlock nullableAnnotation(Optional<DeclaredType> nullableType) {

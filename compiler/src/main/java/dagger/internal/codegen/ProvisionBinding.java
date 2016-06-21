@@ -211,7 +211,7 @@ abstract class ProvisionBinding extends ContributionBinding {
     /**
      * A synthetic binding that depends explicitly on a set of individual provision multibinding
      * contribution methods.
-     * 
+     *
      * <p>Note that these could be set multibindings or map multibindings.
      */
     ProvisionBinding syntheticMultibinding(
