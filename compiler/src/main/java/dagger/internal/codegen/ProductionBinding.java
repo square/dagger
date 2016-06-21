@@ -17,18 +17,17 @@ package dagger.internal.codegen;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.producers.Producer;
 import java.util.Set;
-import javax.lang.model.element.AnnotationMirror;
+import javax.annotation.CheckReturnValue;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
@@ -80,6 +79,26 @@ abstract class ProductionBinding extends ContributionBinding {
   /** If this production requires a monitor, this will be the corresponding request. */
   abstract Optional<DependencyRequest> monitorRequest();
 
+  private static Builder builder() {
+    return new AutoValue_ProductionBinding.Builder()
+        .dependencies(ImmutableList.<DependencyRequest>of())
+        .thrownTypes(ImmutableList.<TypeMirror>of());
+  }
+
+  @AutoValue.Builder
+  @CanIgnoreReturnValue
+  abstract static class Builder extends ContributionBinding.Builder<Builder> {
+
+    abstract Builder thrownTypes(Iterable<? extends TypeMirror> thrownTypes);
+
+    abstract Builder executorRequest(DependencyRequest executorRequest);
+
+    abstract Builder monitorRequest(DependencyRequest monitorRequest);
+
+    @CheckReturnValue
+    abstract ProductionBinding build();
+  }
+
   static final class Factory {
     private final Types types;
     private final Key.Factory keyFactory;
@@ -110,19 +129,19 @@ abstract class ProductionBinding extends ContributionBinding {
       Kind kind = MoreTypes.isTypeOf(ListenableFuture.class, producesMethod.getReturnType())
           ? Kind.FUTURE_PRODUCTION
           : Kind.IMMEDIATE;
-      return new AutoValue_ProductionBinding(
-          ContributionType.fromBindingMethod(producesMethod),
-          producesMethod,
-          Optional.of(contributedBy),
-          key,
-          dependencies,
-          Optional.<DeclaredType>absent(), // TODO(beder): Add nullability checking with Java 8.
-          Optional.<DependencyRequest>absent(),
-          wrapOptionalInEquivalence(getMapKey(producesMethod)),
-          kind,
-          ImmutableList.copyOf(producesMethod.getThrownTypes()),
-          Optional.of(executorRequest),
-          Optional.of(monitorRequest));
+      // TODO(beder): Add nullability checking with Java 8.
+      return ProductionBinding.builder()
+          .contributionType(ContributionType.fromBindingMethod(producesMethod))
+          .bindingElement(producesMethod)
+          .contributingModule(contributedBy)
+          .key(key)
+          .dependencies(dependencies)
+          .wrappedMapKey(wrapOptionalInEquivalence(getMapKey(producesMethod)))
+          .bindingKind(kind)
+          .thrownTypes(producesMethod.getThrownTypes())
+          .executorRequest(executorRequest)
+          .monitorRequest(monitorRequest)
+          .build();
     }
 
     /**
@@ -141,42 +160,32 @@ abstract class ProductionBinding extends ContributionBinding {
       DependencyRequest requestForMapOfProducers =
           dependencyRequestFactory.forImplicitMapBinding(
               requestForMapOfValuesOrProduced, mapOfProducersKey.get());
-      return new AutoValue_ProductionBinding(
-          ContributionType.UNIQUE,
-          requestForMapOfProducers.requestElement(),
-          Optional.<TypeElement>absent(),
-          requestForMapOfValuesOrProduced.key(),
-          ImmutableSet.of(requestForMapOfProducers),
-          Optional.<DeclaredType>absent(),
-          Optional.<DependencyRequest>absent(),
-          wrapOptionalInEquivalence(getMapKey(requestForMapOfProducers.requestElement())),
-          Kind.SYNTHETIC_MAP,
-          ImmutableList.<TypeMirror>of(),
-          Optional.<DependencyRequest>absent(),
-          Optional.<DependencyRequest>absent());
+      return ProductionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .bindingElement(requestForMapOfProducers.requestElement())
+          .key(requestForMapOfValuesOrProduced.key())
+          .dependencies(requestForMapOfProducers)
+          .bindingKind(Kind.SYNTHETIC_MAP)
+          .build();
     }
 
     /**
      * A synthetic binding that depends explicitly on a set of individual provision or production
      * multibinding contribution methods.
-     * 
+     *
      * <p>Note that these could be set multibindings or map multibindings.
      */
     ProductionBinding syntheticMultibinding(
         DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
-      return new AutoValue_ProductionBinding(
-          ContributionType.UNIQUE,
-          request.requestElement(),
-          Optional.<TypeElement>absent(),
-          request.key(),
-          dependencyRequestFactory.forMultibindingContributions(request, multibindingContributions),
-          Optional.<DeclaredType>absent(),
-          Optional.<DependencyRequest>absent(),
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          Kind.forMultibindingRequest(request),
-          ImmutableList.<TypeMirror>of(),
-          Optional.<DependencyRequest>absent(),
-          Optional.<DependencyRequest>absent());
+      return ProductionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .bindingElement(request.requestElement())
+          .key(request.key())
+          .dependencies(
+              dependencyRequestFactory.forMultibindingContributions(
+                  request, multibindingContributions))
+          .bindingKind(Kind.forMultibindingRequest(request))
+          .build();
     }
 
     ProductionBinding forComponentMethod(ExecutableElement componentMethod) {
@@ -184,37 +193,27 @@ abstract class ProductionBinding extends ContributionBinding {
       checkArgument(componentMethod.getKind().equals(METHOD));
       checkArgument(componentMethod.getParameters().isEmpty());
       checkArgument(MoreTypes.isTypeOf(ListenableFuture.class, componentMethod.getReturnType()));
-      return new AutoValue_ProductionBinding(
-          ContributionType.UNIQUE,
-          componentMethod,
-          Optional.<TypeElement>absent(),
-          keyFactory.forProductionComponentMethod(componentMethod),
-          ImmutableSet.<DependencyRequest>of(),
-          Optional.<DeclaredType>absent(),
-          Optional.<DependencyRequest>absent(),
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          Kind.COMPONENT_PRODUCTION,
-          ImmutableList.copyOf(componentMethod.getThrownTypes()),
-          Optional.<DependencyRequest>absent(),
-          Optional.<DependencyRequest>absent());
+      return ProductionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .bindingElement(componentMethod)
+          .key(keyFactory.forProductionComponentMethod(componentMethod))
+          .bindingKind(Kind.COMPONENT_PRODUCTION)
+          .thrownTypes(componentMethod.getThrownTypes())
+          .build();
     }
 
     ProductionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
-      Key key = keyFactory.forDelegateBinding(delegateDeclaration, Producer.class);
-      return new AutoValue_ProductionBinding(
-          delegateDeclaration.contributionType(),
-          delegateDeclaration.bindingElement(),
-          delegateDeclaration.contributingModule(),
-          key,
-          ImmutableSet.of(delegateDeclaration.delegateRequest()),
-          delegateBinding.nullableType(),
-          Optional.<DependencyRequest>absent(),
-          delegateDeclaration.wrappedMapKey(),
-          Kind.SYNTHETIC_DELEGATE_BINDING,
-          ImmutableList.<TypeMirror>of(),
-          Optional.<DependencyRequest>absent(),
-          Optional.<DependencyRequest>absent());
+      return ProductionBinding.builder()
+          .contributionType(delegateDeclaration.contributionType())
+          .bindingElement(delegateDeclaration.bindingElement())
+          .contributingModule(delegateDeclaration.contributingModule().get())
+          .key(keyFactory.forDelegateBinding(delegateDeclaration, Producer.class))
+          .dependencies(delegateDeclaration.delegateRequest())
+          .nullableType(delegateBinding.nullableType())
+          .wrappedMapKey(delegateDeclaration.wrappedMapKey())
+          .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
+          .build();
     }
   }
 }

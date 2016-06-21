@@ -67,6 +67,11 @@ abstract class MembersInjectionBinding extends Binding {
   TypeElement membersInjectedType() {
     return MoreElements.asType(bindingElement());
   }
+  
+  @Override
+  Optional<TypeElement> contributingModule() {
+    return Optional.absent();
+  }
 
   @Override
   Set<DependencyRequest> implicitDependencies() {
@@ -221,7 +226,6 @@ abstract class MembersInjectionBinding extends Binding {
       TypeElement typeElement = MoreElements.asType(declaredType.asElement());
       return new AutoValue_MembersInjectionBinding(
           typeElement,
-          Optional.<TypeElement>absent(),
           key,
           dependencies,
           hasNonDefaultTypeParameters(typeElement, key.type(), types)

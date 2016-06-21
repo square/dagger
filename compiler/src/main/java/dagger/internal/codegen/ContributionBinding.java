@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Provides;
@@ -36,6 +37,8 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
@@ -298,5 +301,32 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
                     .wrap(mapBinding.mapKey().get().getAnnotationType());
               }
             }));
+  }
+
+  /**
+   * Base builder for {@link com.google.auto.value.AutoValue @AutoValue} subclasses of
+   * {@link ContributionBinding}.
+   */
+  @CanIgnoreReturnValue
+  abstract static class Builder<B extends Builder<B>> {
+    abstract B contributionType(ContributionType contributionType);
+
+    abstract B bindingElement(Element bindingElement);
+
+    abstract B contributingModule(TypeElement contributingModule);
+
+    abstract B key(Key key);
+
+    abstract B dependencies(Iterable<DependencyRequest> dependencies);
+
+    abstract B dependencies(DependencyRequest... dependencies);
+
+    abstract B nullableType(Optional<DeclaredType> nullableType);
+
+    abstract B membersInjectionRequest(Optional<DependencyRequest> membersInjectionRequest);
+
+    abstract B wrappedMapKey(Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey);
+
+    abstract B bindingKind(ContributionBinding.Kind kind);
   }
 }
