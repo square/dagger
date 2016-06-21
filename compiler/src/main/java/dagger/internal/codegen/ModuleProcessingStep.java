@@ -39,16 +39,14 @@ import static javax.lang.model.util.ElementFilter.typesIn;
 /**
  * A {@link ProcessingStep} that validates module classes and generates factories for binding
  * methods.
- *
- * @param <B> the type of binding created from methods
  */
-final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
+final class ModuleProcessingStep implements ProcessingStep {
 
   /**
-   * A {@link ProcessingStep} for {@link Module @Module} classes that generates factories for
-   * {@link Provides @Provides} methods.
+   * A {@link ProcessingStep} for {@code @Module} classes that generates factories for {@code
+   * @Provides} methods.
    */
-  static ModuleProcessingStep<ProvisionBinding> moduleProcessingStep(
+  static ModuleProcessingStep moduleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
       final ProvisionBinding.Factory provisionBindingFactory,
@@ -56,56 +54,49 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       ProvidesMethodValidator providesMethodValidator,
       BindsMethodValidator bindsMethodValidator,
       MultibindsMethodValidator multibindsMethodValidator) {
-    return new ModuleProcessingStep<>(
+    return new ModuleProcessingStep(
         messager,
         Module.class,
         moduleValidator,
-        Provides.class,
-        new ModuleMethodBindingFactory<ProvisionBinding>() {
-          @Override
-          public ProvisionBinding bindingForModuleMethod(
-              ExecutableElement method, TypeElement module) {
-            return provisionBindingFactory.forProvidesMethod(method, module);
-          }
-        },
-        factoryGenerator,
+        ImmutableSet.<ModuleMethodFactoryGenerator>of(
+            new ProvisionModuleMethodFactoryGenerator(provisionBindingFactory, factoryGenerator)),
         ImmutableSet.of(providesMethodValidator, bindsMethodValidator, multibindsMethodValidator));
   }
 
   /**
-   * A {@link ProcessingStep} for {@link ProducerModule @ProducerModule} classes that generates
-   * factories for {@link Produces @Produces} methods.
+   * A {@link ProcessingStep} for {@code @ProducerModule} classes that generates factories for
+   * {@code @Provides} and {@code @Produces} methods.
    */
-  static ModuleProcessingStep<ProductionBinding> producerModuleProcessingStep(
+  static ModuleProcessingStep producerModuleProcessingStep(
       Messager messager,
       ModuleValidator moduleValidator,
-      final ProductionBinding.Factory productionBindingFactory,
+      ProvisionBinding.Factory provisionBindingFactory,
+      FactoryGenerator factoryGenerator,
+      ProvidesMethodValidator providesMethodValidator,
+      ProductionBinding.Factory productionBindingFactory,
       ProducerFactoryGenerator producerFactoryGenerator,
       ProducesMethodValidator producesMethodValidator,
       BindsMethodValidator bindsMethodValidator,
       MultibindsMethodValidator multibindsMethodValidator) {
-    return new ModuleProcessingStep<>(
+    return new ModuleProcessingStep(
         messager,
         ProducerModule.class,
         moduleValidator,
-        Produces.class,
-        new ModuleMethodBindingFactory<ProductionBinding>() {
-          @Override
-          public ProductionBinding bindingForModuleMethod(
-              ExecutableElement method, TypeElement module) {
-            return productionBindingFactory.forProducesMethod(method, module);
-          }
-        },
-        producerFactoryGenerator,
-        ImmutableSet.of(producesMethodValidator, bindsMethodValidator, multibindsMethodValidator));
+        ImmutableSet.of(
+            new ProvisionModuleMethodFactoryGenerator(provisionBindingFactory, factoryGenerator),
+            new ProductionModuleMethodFactoryGenerator(
+                productionBindingFactory, producerFactoryGenerator)),
+        ImmutableSet.of(
+            providesMethodValidator,
+            producesMethodValidator,
+            bindsMethodValidator,
+            multibindsMethodValidator));
   }
 
   private final Messager messager;
   private final Class<? extends Annotation> moduleAnnotation;
   private final ModuleValidator moduleValidator;
-  private final Class<? extends Annotation> factoryMethodAnnotation;
-  private final ModuleMethodBindingFactory<B> moduleMethodBindingFactory;
-  private final SourceFileGenerator<B> factoryGenerator;
+  private final ImmutableSet<ModuleMethodFactoryGenerator> moduleMethodFactoryGenerators;
   private final ImmutableSet<? extends BindingMethodValidator> methodValidators;
   private final Set<TypeElement> processedModuleElements = Sets.newLinkedHashSet();
 
@@ -113,23 +104,18 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
    * Creates a new processing step.
    *
    * @param moduleAnnotation the annotation on the module class
-   * @param factoryMethodAnnotation the annotation on methods that need factories
    * @param methodValidators validators for binding methods
    */
   ModuleProcessingStep(
       Messager messager,
       Class<? extends Annotation> moduleAnnotation,
       ModuleValidator moduleValidator,
-      Class<? extends Annotation> factoryMethodAnnotation,
-      ModuleMethodBindingFactory<B> moduleMethodBindingFactory,
-      SourceFileGenerator<B> factoryGenerator,
+      ImmutableSet<ModuleMethodFactoryGenerator> moduleMethodFactoryGenerators,
       Iterable<? extends BindingMethodValidator> methodValidators) {
     this.messager = messager;
     this.moduleAnnotation = moduleAnnotation;
     this.moduleValidator = moduleValidator;
-    this.factoryMethodAnnotation = factoryMethodAnnotation;
-    this.moduleMethodBindingFactory = moduleMethodBindingFactory;
-    this.factoryGenerator = factoryGenerator;
+    this.moduleMethodFactoryGenerators = moduleMethodFactoryGenerators;
     this.methodValidators = ImmutableSet.copyOf(methodValidators);
   }
 
@@ -158,10 +144,15 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
       if (report.isClean()) {
         List<ExecutableElement> moduleMethods = methodsIn(moduleElement.getEnclosedElements());
         if (moduleMethodsAreValid(validMethods, moduleMethods)) {
-          for (ExecutableElement method :
-              elementsWithAnnotation(moduleMethods, factoryMethodAnnotation)) {
-            generateFactory(
-                moduleMethodBindingFactory.bindingForModuleMethod(method, moduleElement));
+          for (ModuleMethodFactoryGenerator generator : moduleMethodFactoryGenerators) {
+            for (ExecutableElement method :
+                elementsWithAnnotation(moduleMethods, generator.factoryMethodAnnotation())) {
+              try {
+                generator.generate(method, moduleElement);
+              } catch (SourceFileGenerationException e) {
+                e.printMessageTo(messager);
+              }
+            }
           }
         }
       }
@@ -200,15 +191,62 @@ final class ModuleProcessingStep<B extends Binding> implements ProcessingStep {
     return true;
   }
 
-  private void generateFactory(B binding) {
-    try {
-      factoryGenerator.generate(binding);
-    } catch (SourceFileGenerationException e) {
-      e.printMessageTo(messager);
+  interface ModuleMethodFactoryGenerator {
+    /** Binding method annotation for which factories should be generated. */
+    Class<? extends Annotation> factoryMethodAnnotation();
+
+    /** Generates the factory source file for the given method and module. */
+    void generate(ExecutableElement method, TypeElement moduleElement)
+        throws SourceFileGenerationException;
+  }
+
+  private static final class ProvisionModuleMethodFactoryGenerator
+      implements ModuleMethodFactoryGenerator {
+
+    private final ProvisionBinding.Factory provisionBindingFactory;
+    private final FactoryGenerator factoryGenerator;
+
+    ProvisionModuleMethodFactoryGenerator(
+        ProvisionBinding.Factory provisionBindingFactory, FactoryGenerator factoryGenerator) {
+      this.provisionBindingFactory = provisionBindingFactory;
+      this.factoryGenerator = factoryGenerator;
+    }
+
+    @Override
+    public Class<? extends Annotation> factoryMethodAnnotation() {
+      return Provides.class;
+    }
+
+    @Override
+    public void generate(ExecutableElement method, TypeElement moduleElement)
+        throws SourceFileGenerationException {
+      factoryGenerator.generate(provisionBindingFactory.forProvidesMethod(method, moduleElement));
     }
   }
 
-  private interface ModuleMethodBindingFactory<B extends Binding> {
-    B bindingForModuleMethod(ExecutableElement method, TypeElement module);
+  private static final class ProductionModuleMethodFactoryGenerator
+      implements ModuleMethodFactoryGenerator {
+
+    private final ProductionBinding.Factory productionBindingFactory;
+    private final ProducerFactoryGenerator producerFactoryGenerator;
+
+    ProductionModuleMethodFactoryGenerator(
+        ProductionBinding.Factory productionBindingFactory,
+        ProducerFactoryGenerator productionFactoryGenerator) {
+      this.productionBindingFactory = productionBindingFactory;
+      this.producerFactoryGenerator = productionFactoryGenerator;
+    }
+
+    @Override
+    public Class<? extends Annotation> factoryMethodAnnotation() {
+      return Produces.class;
+    }
+
+    @Override
+    public void generate(ExecutableElement method, TypeElement moduleElement)
+        throws SourceFileGenerationException {
+      producerFactoryGenerator.generate(
+          productionBindingFactory.forProducesMethod(method, moduleElement));
+    }
   }
 }

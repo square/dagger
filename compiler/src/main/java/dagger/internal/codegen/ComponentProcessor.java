@@ -201,6 +201,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         producerModuleProcessingStep(
             messager,
             moduleValidator,
+            provisionBindingFactory,
+            factoryGenerator,
+            providesMethodValidator,
             productionBindingFactory,
             producerFactoryGenerator,
             producesMethodValidator,

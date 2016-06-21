@@ -15,8 +15,10 @@
  */
 package dagger.internal.codegen;
 
+import com.google.common.collect.ImmutableSet;
 import dagger.Module;
 import dagger.Provides;
+import dagger.producers.ProducerModule;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
@@ -35,7 +37,13 @@ import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProdu
 final class ProvidesMethodValidator extends BindingMethodValidator {
 
   ProvidesMethodValidator(Elements elements, Types types) {
-    super(elements, types, Provides.class, Module.class, MUST_BE_CONCRETE, RUNTIME_EXCEPTION);
+    super(
+        elements,
+        types,
+        Provides.class,
+        ImmutableSet.of(Module.class, ProducerModule.class),
+        MUST_BE_CONCRETE,
+        RUNTIME_EXCEPTION);
   }
 
   @Override
