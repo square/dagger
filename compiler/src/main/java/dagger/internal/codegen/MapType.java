@@ -100,7 +100,7 @@ abstract class MapType {
         wrappingClass.getTypeParameters().length == 1,
         "%s must have exactly one type parameter",
         wrappingClass);
-    checkState(valuesAreTypeOf(wrappingClass));
+    checkState(valuesAreTypeOf(wrappingClass), "expected values to be %s: %s", wrappingClass, this);
     return MoreTypes.asDeclared(valueType()).getTypeArguments().get(0);
   }
 

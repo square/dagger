@@ -34,7 +34,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
 
@@ -268,18 +267,21 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
-   * The binding type for all {@link #bindings()} and {@link #multibindingDeclarations()}.
+   * The binding type for these bindings. If there are {@link #multibindingDeclarations()} but no
+   * {@link #bindings()}, returns {@link BindingType#PROVISION}.
    *
    * @throws IllegalStateException if {@link #isEmpty()} or the binding types conflict
    */
   @Override
   public BindingType bindingType() {
     checkState(!isEmpty(), "empty bindings for %s", bindingKey());
+    if (bindings().isEmpty() && !multibindingDeclarations().isEmpty()) {
+      // Only multibinding declarations, so assume provision.
+      return BindingType.PROVISION;
+    }
     ImmutableSet<BindingType> bindingTypes =
-        FluentIterable.from(concat(bindings(), multibindingDeclarations()))
-            .transform(BindingType.BINDING_TYPE)
-            .toSet();
-    checkState(bindingTypes.size() == 1, "conflicting binding types: %s", this);
+        FluentIterable.from(bindings()).transform(BindingType.BINDING_TYPE).toSet();
+    checkState(bindingTypes.size() == 1, "conflicting binding types: %s", bindings());
     return getOnlyElement(bindingTypes);
   }
 

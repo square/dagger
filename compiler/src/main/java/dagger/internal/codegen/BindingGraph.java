@@ -19,6 +19,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.FluentIterable;
@@ -31,12 +32,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeTraverser;
+import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Reusable;
 import dagger.Subcomponent;
-import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.Key.HasKey;
+import dagger.producers.Produced;
+import dagger.producers.Producer;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -50,6 +53,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -62,7 +66,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.isEmpty;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
+import static dagger.internal.codegen.BindingType.isOfType;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
@@ -351,7 +357,8 @@ abstract class BindingGraph {
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
             Set<ContributionBinding> contributionBindings = new LinkedHashSet<>();
-            ImmutableSet.Builder<ContributionBinding> multibindingsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<ContributionBinding> multibindingContributionsBuilder =
+                ImmutableSet.builder();
             ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarationsBuilder =
                 ImmutableSet.builder();
 
@@ -359,51 +366,24 @@ abstract class BindingGraph {
               contributionBindings.addAll(getExplicitBindings(key));
               contributionBindings.addAll(getDelegateBindings(key));
 
-              multibindingsBuilder.addAll(getExplicitMultibindings(key));
-              multibindingsBuilder.addAll(getDelegateMultibindings(key));
+              multibindingContributionsBuilder.addAll(getExplicitMultibindingContributions(key));
+              multibindingContributionsBuilder.addAll(getDelegateMultibindingContributions(key));
 
               multibindingDeclarationsBuilder.addAll(getMultibindingDeclarations(key));
             }
 
-            if (shouldCreateSyntheticMapOfValuesBinding(
-                keyFactory.implicitMapProducerKeyFrom(requestKey))) {
-              /* If the binding key is Map<K, V> or Map<K, Produced<V>> and there are some explicit
-               * Map<K, Producer<V>> bindings or multibinding declarations, then add the synthetic
-               * binding that depends on Map<K, Producer<V>>. */
-              contributionBindings.add(
-                  productionBindingFactory.syntheticMapOfValuesOrProducedBinding(request));
-            } else if (shouldCreateSyntheticMapOfValuesBinding(
-                keyFactory.implicitMapProviderKeyFrom(requestKey))) {
-              /* If the binding key is Map<K, V> and there are some explicit Map<K, Provider<V>>
-               * bindings or multibinding declarations but no explicit Map<K, Producer<V>> bindings
-               * or multibinding declarations, then add the synthetic binding that depends on
-               * Map<K, Provider<V>>. */
-              contributionBindings.add(
-                  provisionBindingFactory.syntheticMapOfValuesBinding(request));
-            }
-
-            ImmutableSet<ContributionBinding> multibindings = multibindingsBuilder.build();
+            ImmutableSet<ContributionBinding> multibindingContributions =
+                multibindingContributionsBuilder.build();
             ImmutableSet<MultibindingDeclaration> multibindingDeclarations =
                 multibindingDeclarationsBuilder.build();
 
-            Iterable<? extends HasBindingType> multibindingsAndDeclarations =
-                Iterables.concat(multibindings, multibindingDeclarations);
-            if (Iterables.any(
-                multibindingsAndDeclarations, BindingType.isOfType(BindingType.PRODUCTION))) {
-              /* If there are production multibindings, add a synthetic binding that depends on each
-               * individual multibinding. */
-              contributionBindings.add(
-                  productionBindingFactory.syntheticMultibinding(request, multibindings));
-            } else if (Iterables.any(
-                multibindingsAndDeclarations, BindingType.isOfType(BindingType.PROVISION))) {
-              /* If there are provision multibindings but not production ones, add a synthetic
-               * binding that depends on each individual multibinding. */
-              contributionBindings.add(
-                  provisionBindingFactory.syntheticMultibinding(request, multibindings));
-            }
+            contributionBindings.addAll(syntheticMapOfValuesBinding(request).asSet());
+            contributionBindings.addAll(
+                syntheticMultibinding(request, multibindingContributions, multibindingDeclarations)
+                    .asSet());
 
-            /* If there are still no bindings, look for an implicit @Inject- constructed binding if
-             * there is one. */
+            /* If there are no bindings, add the implicit @Inject-constructed binding if there is
+             * one. */
             if (contributionBindings.isEmpty()) {
               contributionBindings.addAll(
                   injectBindingRegistry.getOrFindProvisionBinding(requestKey).asSet());
@@ -423,6 +403,7 @@ abstract class BindingGraph {
                 ? ResolvedBindings.forMembersInjectionBinding(
                     bindingKey, componentDescriptor, binding.get())
                 : ResolvedBindings.noBindings(bindingKey, componentDescriptor);
+
           default:
             throw new AssertionError();
         }
@@ -431,28 +412,148 @@ abstract class BindingGraph {
       private Iterable<Key> keysMatchingRequest(Key requestKey) {
         return ImmutableSet.<Key>builder()
             .add(requestKey)
-            .addAll(keyFactory.implicitSetKeyFromProduced(requestKey).asSet())
-            .addAll(keyFactory.implicitProviderMapKeyFromProducer(requestKey).asSet())
+            .addAll(keyFactory.unwrapSetKey(requestKey, Produced.class).asSet())
+            .addAll(keyFactory.rewrapMapKey(requestKey, Producer.class, Provider.class).asSet())
+            .addAll(keyFactory.rewrapMapKey(requestKey, Provider.class, Producer.class).asSet())
             .build();
       }
 
-      private boolean shouldCreateSyntheticMapOfValuesBinding(Optional<Key> maybeKey) {
-        if (!maybeKey.isPresent()) {
-          return false;
-        }
+      /**
+       * If {@code request} is for a {@code Map<K, V>} or {@code Map<K, Produced<V>>}, and there are
+       * any multibinding contributions or declarations that apply to that map, returns a synthetic
+       * binding for the {@code request} that depends on an {@linkplain
+       * #syntheticMultibinding(DependencyRequest, Iterable, Iterable) underlying synthetic
+       * multibinding}.
+       *
+       * <p>The returned binding has the same {@link BindingType} as the underlying synthetic
+       * multibinding.
+       */
+      private Optional<ContributionBinding> syntheticMapOfValuesBinding(
+          final DependencyRequest request) {
+        return syntheticMultibinding(
+                request,
+                multibindingContributionsForValueMap(request.key()),
+                multibindingDeclarationsForValueMap(request.key()))
+            .transform(
+                new Function<ContributionBinding, ContributionBinding>() {
+                  @Override
+                  public ContributionBinding apply(ContributionBinding syntheticMultibinding) {
+                    switch (syntheticMultibinding.bindingType()) {
+                      case PROVISION:
+                        return provisionBindingFactory.syntheticMapOfValuesBinding(request);
 
-        Key key = maybeKey.get();
-        if (!getExplicitMultibindings(key).isEmpty()
-            || !getMultibindingDeclarations(key).isEmpty()) {
-          return true;
-        }
+                      case PRODUCTION:
+                        return productionBindingFactory.syntheticMapOfValuesOrProducedBinding(
+                            request);
 
-        for (ContributionBinding delegateMultibinding : getDelegateMultibindings(key)) {
-          if (delegateMultibinding.key().withoutBindingIdentifier().equals(key)) {
+                      default:
+                        throw new VerifyException(syntheticMultibinding.toString());
+                    }
+                  }
+                });
+      }
+
+      /**
+       * If {@code requestKey} is for {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns all
+       * multibinding contributions whose key is for {@code Map<K, Provider<V>>} or {@code Map<K,
+       * Producer<V>>} with the same qualifier and {@code K} and {@code V}.
+       */
+      private FluentIterable<ContributionBinding> multibindingContributionsForValueMap(
+          Key requestKey) {
+        return keyFactory
+            .implicitFrameworkMapKeys(requestKey)
+            .transformAndConcat(
+                new Function<Key, Iterable<ContributionBinding>>() {
+                  @Override
+                  public Iterable<ContributionBinding> apply(Key key) {
+                    return Iterables.concat(
+                        getExplicitMultibindingContributions(key),
+                        getDelegateMultibindingContributions(key));
+                  }
+                });
+      }
+
+      /**
+       * If {@code requestKey} is for {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns all
+       * multibinding declarations whose key is for {@code Map<K, Provider<V>>} or {@code Map<K,
+       * Producer<V>>} with the same qualifier and {@code K} and {@code V}.
+       */
+      private FluentIterable<MultibindingDeclaration> multibindingDeclarationsForValueMap(
+          Key requestKey) {
+        return keyFactory
+            .implicitFrameworkMapKeys(requestKey)
+            .transformAndConcat(
+                new Function<Key, Iterable<MultibindingDeclaration>>() {
+                  @Override
+                  public Iterable<MultibindingDeclaration> apply(Key key) {
+                    return getMultibindingDeclarations(key);
+                  }
+                });
+      }
+
+      /**
+       * Returns a synthetic binding that depends on individual multibinding contributions.
+       *
+       * <p>If there are no {@code multibindingContributions} or {@code multibindingDeclarations},
+       * returns {@link Optional#absent()}.
+       *
+       * <p>If there are production {@code multibindingContributions} or the request is for any of
+       * the following types, returns a {@link ProductionBinding}.
+       *
+       * <ul>
+       * <li>{@link Producer Producer<SetOrMap>}
+       * <li>{@link Produced Produced<SetOrMap>}
+       * <li>{@link ListenableFuture ListenableFuture<SetOrMap>}
+       * <li>{@code Set<Produced<T>>}
+       * <li>{@code Map<K, Producer<V>>}
+       * <li>{@code Map<K, Produced<V>>}
+       * </ul>
+       *
+       * Otherwise, returns a {@link ProvisionBinding}.
+       */
+      private Optional<? extends ContributionBinding> syntheticMultibinding(
+          DependencyRequest request,
+          Iterable<ContributionBinding> multibindingContributions,
+          Iterable<MultibindingDeclaration> multibindingDeclarations) {
+        if (isEmpty(multibindingContributions) && isEmpty(multibindingDeclarations)) {
+          return Optional.absent();
+        } else if (multibindingsRequireProduction(multibindingContributions, request)) {
+          return Optional.of(
+              productionBindingFactory.syntheticMultibinding(request, multibindingContributions));
+        } else {
+          return Optional.of(
+              provisionBindingFactory.syntheticMultibinding(request, multibindingContributions));
+        }
+      }
+
+      private boolean multibindingsRequireProduction(
+          Iterable<ContributionBinding> multibindingContributions, DependencyRequest request) {
+        switch (request.kind()) {
+          case PRODUCER:
+          case PRODUCED:
+          case FUTURE:
             return true;
-          }
+
+          case INSTANCE:
+          case LAZY:
+          case PROVIDER:
+          case PROVIDER_OF_LAZY:
+            if (MapType.isMap(request.key())) {
+              MapType mapType = MapType.from(request.key());
+              if (mapType.valuesAreTypeOf(Producer.class)
+                  || mapType.valuesAreTypeOf(Produced.class)) {
+                return true;
+              }
+            } else if (SetType.isSet(request.key())
+                && SetType.from(request.key()).elementsAreTypeOf(Produced.class)) {
+              return true;
+            }
+            return Iterables.any(multibindingContributions, isOfType(BindingType.PRODUCTION));
+
+          case MEMBERS_INJECTOR:
+          default:
+            throw new AssertionError(request.kind());
         }
-        return false;
       }
 
       private ImmutableSet<ContributionBinding> createDelegateBindings(
@@ -586,11 +687,12 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the explicit multibindings whose key (minus its
-       * {@link Key#bindingIdentifier()}) matches the {@code requestKey} from this and all
-       * ancestor resolvers.
+       * Returns the explicit multibinding contributions whose key (minus its
+       * {@link Key#bindingIdentifier()}) matches the {@code requestKey} from this and all ancestor
+       * resolvers.
        */
-      private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key requestKey) {
+      private ImmutableSet<ContributionBinding> getExplicitMultibindingContributions(
+          Key requestKey) {
         ImmutableSet.Builder<ContributionBinding> explicitMultibindingsForKey =
             ImmutableSet.builder();
         for (Resolver resolver : getResolverLineage()) {
@@ -622,7 +724,8 @@ abstract class BindingGraph {
         return delegateBindings.build();
       }
 
-      private ImmutableSet<ContributionBinding> getDelegateMultibindings(Key requestKey) {
+      private ImmutableSet<ContributionBinding> getDelegateMultibindingContributions(
+          Key requestKey) {
         if (MapType.isMap(requestKey) && !MapType.from(requestKey).valuesAreFrameworkType()) {
           // There are no @Binds @IntoMap delegate declarations for Map<K, V> requests. All @IntoMap
           // requests must be for Map<K, Framework<V>>.
@@ -831,9 +934,8 @@ abstract class BindingGraph {
     }
 
     /**
-     * Selects each item in {@code haveKeys} that has a {@link Key#bindingIdentifier()} and
-     * indexes them by its {@link HasKey#key()}, where each key has its
-     * {@link Key.BindingIdentifier} removed.
+     * Selects each item in {@code haveKeys} that has a {@link Key#bindingIdentifier()} and indexes
+     * them by its {@link HasKey#key()}, where each key has its binding identifier removed.
      */
     static <T extends HasKey>
         ImmutableSetMultimap<Key, T> multibindingsKeyedWithoutBindingIdentifiers(

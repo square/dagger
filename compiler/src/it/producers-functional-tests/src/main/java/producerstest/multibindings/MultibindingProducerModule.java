@@ -18,7 +18,6 @@ package producerstest.multibindings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntKey;
 import dagger.multibindings.IntoMap;
@@ -27,13 +26,12 @@ import dagger.multibindings.Multibinds;
 import dagger.producers.Produced;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
-
-import producerstest.multibindings.Qualifiers.ObjCount;
-import producerstest.multibindings.Qualifiers.PossiblyThrowingMap;
-import producerstest.multibindings.Qualifiers.PossiblyThrowingSet;
-
 import java.util.Map;
 import java.util.Set;
+import producerstest.multibindings.Qualifiers.ObjCount;
+import producerstest.multibindings.Qualifiers.EmptyButDeclaredInModuleAndProducerModule;
+import producerstest.multibindings.Qualifiers.PossiblyThrowingMap;
+import producerstest.multibindings.Qualifiers.PossiblyThrowingSet;
 
 @ProducerModule
 abstract class MultibindingProducerModule {
@@ -128,4 +126,8 @@ abstract class MultibindingProducerModule {
   static int objCount(Set<Produced<Object>> objs, Map<Object, Produced<Object>> objMap) {
     return objs.size() + objMap.size();
   }
+  
+  @Multibinds
+  @EmptyButDeclaredInModuleAndProducerModule
+  abstract Map<String, Object> emptyButDeclaredInModuleAndProducerModule();
 }

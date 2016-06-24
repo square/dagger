@@ -23,6 +23,8 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
@@ -55,6 +57,7 @@ import javax.lang.model.util.Types;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.MoreTypes.asExecutable;
+import static com.google.common.base.Optional.presentInstances;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
@@ -484,12 +487,24 @@ abstract class Key {
     }
 
     /**
+     * If {@code requestKey} is for a {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns keys
+     * for {@code Map<K, Provider<V>>} and {@code Map<K, Producer<V>>} (if Dagger-Producers is on
+     * the classpath).
+     */
+    FluentIterable<Key> implicitFrameworkMapKeys(Key requestKey) {
+      return FluentIterable.from(
+          presentInstances(
+              ImmutableList.of(
+                  implicitMapProviderKeyFrom(requestKey), implicitMapProducerKeyFrom(requestKey))));
+    }
+
+    /**
      * Optionally extract a {@link Key} for the underlying provision binding(s) if such a
      * valid key can be inferred from the given key.  Specifically, if the key represents a
      * {@link Map}{@code <K, V>}, a key of {@code Map<K, Provider<V>>} will be returned.
      */
     Optional<Key> implicitMapProviderKeyFrom(Key possibleMapKey) {
-      return maybeWrapMapValue(possibleMapKey, Provider.class);
+      return wrapMapKey(possibleMapKey, Provider.class);
     }
 
     /**
@@ -499,8 +514,8 @@ abstract class Key {
      * {@code Map<K, Producer<V>>} will be returned.
      */
     Optional<Key> implicitMapProducerKeyFrom(Key possibleMapKey) {
-      return maybeRewrapMapValue(possibleMapKey, Produced.class, Producer.class)
-          .or(maybeWrapMapValue(possibleMapKey, Producer.class));
+      return rewrapMapKey(possibleMapKey, Produced.class, Producer.class)
+          .or(wrapMapKey(possibleMapKey, Producer.class));
     }
 
     /**
@@ -534,14 +549,20 @@ abstract class Key {
       checkArgument(
           FrameworkTypes.isFrameworkType(
               elements.getTypeElement(newWrappingClass.getName()).asType()));
-      return maybeWrapMapValue(key, newWrappingClass).get();
+      return wrapMapKey(key, newWrappingClass).get();
     }
 
     /**
-     * Returns a key of {@link Map}{@code <K, NewWrappingClass<V>>} if the input key represents a
-     * {@code Map<K, CurrentWrappingClass<V>>}.
+     * If {@code key}'s type is {@code Map<K, CurrentWrappingClass<Bar>>}, returns a key with type
+     * {@code Map<K, NewWrappingClass<Bar>>} with the same qualifier. Otherwise returns {@link
+     * Optional#absent()}.
+     *
+     * <p>Returns {@link Optional#absent()} if {@code newWrappingClass} is not in the classpath.
+     *
+     * @throws IllegalArgumentException if {@code newWrappingClass} is the same as {@code
+     *     currentWrappingClass}
      */
-    private Optional<Key> maybeRewrapMapValue(
+    Optional<Key> rewrapMapKey(
         Key possibleMapKey, Class<?> currentWrappingClass, Class<?> newWrappingClass) {
       checkArgument(!currentWrappingClass.equals(newWrappingClass));
       if (MapType.isMap(possibleMapKey)) {
@@ -564,10 +585,13 @@ abstract class Key {
     }
 
     /**
-     * Returns a key of {@link Map}{@code <K, WrappingClass<V>>} if the input key represents a
-     * {@code Map<K, V>}.
+     * If {@code key}'s type is {@code Map<K, Foo>} and {@code Foo} is not {@code WrappingClass
+     * <Bar>}, returns a key with type {@code Map<K, WrappingClass<Foo>>} with the same qualifier.
+     * Otherwise returns {@link Optional#absent()}.
+     *
+     * <p>Returns {@link Optional#absent()} if {@code WrappingClass} is not in the classpath.
      */
-    private Optional<Key> maybeWrapMapValue(Key possibleMapKey, Class<?> wrappingClass) {
+    private Optional<Key> wrapMapKey(Key possibleMapKey, Class<?> wrappingClass) {
       if (MapType.isMap(possibleMapKey)) {
         MapType mapType = MapType.from(possibleMapKey);
         if (!mapType.valuesAreTypeOf(wrappingClass)) {
@@ -587,28 +611,18 @@ abstract class Key {
     }
 
     /**
-     * Optionally extract a {@link Key} for a {@code Set<T>} if the given key is for
-     * {@code Set<Produced<T>>}.
+     * If {@code key}'s type is {@code Set<WrappingClass<Bar>>}, returns a key with type {@code Set
+     * <Bar>} with the same qualifier. Otherwise returns {@link Optional#absent()}.
      */
-    Optional<Key> implicitSetKeyFromProduced(Key possibleSetOfProducedKey) {
-      if (MoreTypes.isType(possibleSetOfProducedKey.type())
-          && MoreTypes.isTypeOf(Set.class, possibleSetOfProducedKey.type())) {
-        TypeMirror argType =
-            MoreTypes.asDeclared(possibleSetOfProducedKey.type()).getTypeArguments().get(0);
-        if (MoreTypes.isType(argType) && MoreTypes.isTypeOf(Produced.class, argType)) {
-          TypeMirror producedArgType = MoreTypes.asDeclared(argType).getTypeArguments().get(0);
-          return Optional.of(possibleSetOfProducedKey.withType(types, setOf(producedArgType)));
+    Optional<Key> unwrapSetKey(Key key, Class<?> wrappingClass) {
+      if (SetType.isSet(key)) {
+        SetType setType = SetType.from(key);
+        if (setType.elementsAreTypeOf(wrappingClass)) {
+          return Optional.of(
+              key.withType(types, setOf(setType.unwrappedElementType(wrappingClass))));
         }
       }
       return Optional.absent();
-    }
-
-    /**
-     * Optionally extract a {@link Key} for a {@code Map<K, Provider<V>>} if the given key is for
-     * {@code Map<K, Producer<V>>}.
-     */
-    Optional<Key> implicitProviderMapKeyFromProducer(Key possibleMapOfProducerKey) {
-      return maybeRewrapMapValue(possibleMapOfProducerKey, Producer.class, Provider.class);
     }
   }
 }

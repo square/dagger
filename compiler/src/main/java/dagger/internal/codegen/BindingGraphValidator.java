@@ -937,6 +937,7 @@ final class BindingGraphValidator {
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
+    // TODO(b/29509141): Clarify the error.
     private void reportProviderMayNotDependOnProducer(DependencyPath path) {
       StringBuilder errorMessage = new StringBuilder();
       if (path.size() == 1) {

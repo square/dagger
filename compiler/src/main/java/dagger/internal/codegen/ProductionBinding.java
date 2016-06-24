@@ -155,7 +155,7 @@ abstract class ProductionBinding extends ContributionBinding {
           keyFactory.implicitMapProducerKeyFrom(requestForMapOfValuesOrProduced.key());
       checkArgument(
           mapOfProducersKey.isPresent(),
-          "%s is not for a Map<K, V>",
+          "%s is not for a Map<K, V> or Map<K, Produced<V>>",
           requestForMapOfValuesOrProduced);
       DependencyRequest requestForMapOfProducers =
           dependencyRequestFactory.forImplicitMapBinding(
