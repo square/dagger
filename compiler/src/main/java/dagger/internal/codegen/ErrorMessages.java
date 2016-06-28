@@ -231,7 +231,7 @@ final class ErrorMessages {
       "Map key annotations with unwrapped values cannot use arrays";
 
   /* collection binding errors */
-  static final String MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT =
+  static final String MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT =
       "%s has incompatible bindings or declarations:\n";
 
   static final String PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT =

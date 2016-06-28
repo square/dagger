@@ -43,6 +43,7 @@ import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
+import dagger.internal.codegen.ContributionBinding.Kind;
 import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -72,8 +73,10 @@ import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.auto.common.MoreTypes.asTypeElements;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Predicates.or;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
@@ -94,6 +97,7 @@ import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FO
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
@@ -1017,8 +1021,11 @@ final class BindingGraphValidator {
       ResolvedBindings resolvedBindings = path.currentResolvedBindings();
       if (FluentIterable.from(resolvedBindings.contributionBindings())
           .transform(ContributionBinding.KIND)
-          .anyMatch(IS_SYNTHETIC_KIND)) {
-        reportMultipleBindingTypes(path);
+          // TODO(dpb): Kill with fire.
+          .anyMatch(or(Kind.IS_SYNTHETIC_MULTIBINDING_KIND, equalTo(Kind.SYNTHETIC_MAP)))) {
+        // If any of the duplicate bindings results from multibinding contributions or declarations,
+        // report the conflict using those contributions and declarations.
+        reportMultipleContributionTypes(path);
         return;
       }
       StringBuilder builder = new StringBuilder();
@@ -1068,25 +1075,25 @@ final class BindingGraphValidator {
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
-    private void reportMultipleBindingTypes(DependencyPath path) {
+    private void reportMultipleContributionTypes(DependencyPath path) {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
-          .format(ErrorMessages.MULTIPLE_BINDING_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
+          .format(MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ResolvedBindings resolvedBindings = path.currentResolvedBindings();
       ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType =
           declarationsByType(resolvedBindings);
       verify(
           declarationsByType.keySet().size() > 1,
-          "expected multiple binding types for %s: %s",
+          "expected multiple contribution types for %s: %s",
           resolvedBindings.bindingKey(),
           declarationsByType);
-      for (ContributionType type :
+      for (ContributionType contributionType :
           Ordering.natural().immutableSortedCopy(declarationsByType.keySet())) {
         builder.append(INDENT);
-        builder.append(formatContributionType(type));
+        builder.append(formatContributionType(contributionType));
         builder.append(" bindings and declarations:");
         bindingDeclarationFormatter.formatIndentedList(
-            builder, declarationsByType.get(type), 2, DUPLICATE_SIZE_LIMIT);
+            builder, declarationsByType.get(contributionType), 2, DUPLICATE_SIZE_LIMIT);
         builder.append('\n');
       }
       reportBuilder.addError(builder.toString(), path.entryPointElement());
