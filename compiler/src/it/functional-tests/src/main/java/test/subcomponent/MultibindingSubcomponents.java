@@ -15,6 +15,7 @@
  */
 package test.subcomponent;
 
+import dagger.Binds;
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
@@ -22,9 +23,11 @@ import dagger.Subcomponent;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import dagger.multibindings.StringKey;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
 import javax.inject.Inject;
 
 final class MultibindingSubcomponents {
@@ -83,7 +86,7 @@ final class MultibindingSubcomponents {
   }
 
   @Module
-  static final class ParentMultibindingModule {
+  abstract static class ParentMultibindingModule {
 
     @Provides
     @IntoSet
@@ -113,13 +116,11 @@ final class MultibindingSubcomponents {
 
     /* This is not static because otherwise we have no tests that cover the case where a
      * subcomponent uses a module instance installed onto a parent component. */
-    @Provides
+    @Binds
     @IntoSet
-    static RequiresMultibindings<BoundInParentAndChild>
+    abstract RequiresMultibindings<BoundInParentAndChild>
         requiresMultibindingsInParentAndChildElement(
-            RequiresMultibindings<BoundInParentAndChild> requiresMultibindingsInParentAndChild) {
-      return requiresMultibindingsInParentAndChild;
-    }
+            RequiresMultibindings<BoundInParentAndChild> requiresMultibindingsInParentAndChild);
   }
 
   @Module

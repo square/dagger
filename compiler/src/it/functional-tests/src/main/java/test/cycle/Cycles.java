@@ -15,6 +15,7 @@
  */
 package test.cycle;
 
+import dagger.Binds;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.Module;
@@ -22,7 +23,9 @@ import dagger.Provides;
 import dagger.Subcomponent;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.StringKey;
+
 import java.util.Map;
+
 import javax.inject.Inject;
 import javax.inject.Provider;
 
@@ -117,20 +120,16 @@ final class Cycles {
   }
 
   @Module
-  static class CycleMapModule {
-    @Provides
+  abstract static class CycleMapModule {
+    @Binds
     @IntoMap
     @StringKey("X")
-    static X x(X x) {
-      return x;
-    }
+    abstract X x(X x);
 
-    @Provides
+    @Binds
     @IntoMap
     @StringKey("Y")
-    static Y y(Y y) {
-      return y;
-    }
+    abstract Y y(Y y);
   }
 
   @SuppressWarnings("dependency-cycle")
