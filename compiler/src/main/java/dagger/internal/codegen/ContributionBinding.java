@@ -207,6 +207,10 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    */
   protected abstract Kind bindingKind();
 
+  BindingKey bindingKey() {
+    return BindingKey.contribution(key());
+  }
+
   /**
    * The strategy for getting an instance of a factory for a {@link ContributionBinding}.
    */

@@ -67,7 +67,6 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.isEmpty;
-import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 import static dagger.internal.codegen.BindingType.isOfType;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
@@ -635,8 +634,7 @@ abstract class BindingGraph {
         if (binding.scope().isPresent() && binding.scope().get().equals(reusableScope(elements))) {
           for (Resolver requestResolver : getResolverLineage().reverse()) {
             // If a @Reusable binding was resolved in an ancestor, use that component.
-            if (requestResolver.resolvedBindings.containsKey(
-                BindingKey.create(CONTRIBUTION, binding.key()))) {
+            if (requestResolver.resolvedBindings.containsKey(binding.bindingKey())) {
               return Optional.of(requestResolver);
             }
           }

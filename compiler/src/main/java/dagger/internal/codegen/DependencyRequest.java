@@ -141,11 +141,11 @@ abstract class DependencyRequest {
       case PRODUCER:
       case PRODUCED:
       case FUTURE:
-        return BindingKey.create(BindingKey.Kind.CONTRIBUTION, key());
+        return BindingKey.contribution(key());
       case MEMBERS_INJECTOR:
-        return BindingKey.create(BindingKey.Kind.MEMBERS_INJECTION, key());
+        return BindingKey.membersInjection(key());
       default:
-        throw new AssertionError();
+        throw new AssertionError(this);
     }
   }
 
