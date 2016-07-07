@@ -72,6 +72,7 @@ import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.auto.common.MoreTypes.asTypeElements;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.in;
@@ -81,6 +82,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
 import static com.google.common.collect.Maps.filterKeys;
+import static dagger.internal.codegen.BindingDeclaration.HAS_BINDING_ELEMENT;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
@@ -88,8 +90,6 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDepen
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
-import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_DELEGATE_BINDING;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_INJECT_WILDCARD_TYPE;
@@ -425,10 +425,7 @@ final class BindingGraphValidator {
             }
           }
           if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
-            ImmutableSet<ContributionBinding> multibindings =
-                inlineSyntheticNondelegateContributions(resolvedBindings).contributionBindings();
-            validateMapKeySet(path, multibindings);
-            validateMapKeyAnnotationTypes(path, multibindings);
+            validateMapKeys(path, contributionBinding);
           }
           break;
         case MEMBERS_INJECTION:
@@ -451,32 +448,28 @@ final class BindingGraphValidator {
 
     /**
      * Returns an object that contains all the same bindings as {@code resolvedBindings}, except
-     * that any synthetic {@link ContributionBinding}s are replaced by the contribution bindings and
-     * multibinding declarations of their dependencies.
+     * that any {@link ContributionBinding}s without {@linkplain Binding#bindingElement() binding
+     * elements} are replaced by the contribution bindings and multibinding declarations of their
+     * dependencies.
      *
      * <p>For example, if:
      *
      * <ul>
      * <li>The bindings for {@code key1} are {@code A} and {@code B}, with multibinding declaration
      *     {@code X}.
-     * <li>{@code B} is a synthetic binding with a dependency on {@code key2}.
+     * <li>{@code B} is a binding without a binding element that has a dependency on {@code key2}.
      * <li>The bindings for {@code key2} are {@code C} and {@code D}, with multibinding declaration
      *     {@code Y}.
      * </ul>
      *
-     * then {@code inlineSyntheticNondelegateContributions(bindingsForKey1)} has bindings {@code A},
-     * {@code C}, and {@code D}, with multibinding declarations {@code X} and {@code Y}.
+     * then {@code inlineContributionsWithoutBindingElements(bindingsForKey1)} has bindings {@code
+     * A}, {@code C}, and {@code D}, with multibinding declarations {@code X} and {@code Y}.
      *
-     * <p>The replacement is repeated until none of the bindings are synthetic.
+     * <p>The replacement is repeated until all of the bindings have elements.
      */
-    // TODO(dpb): The actual operation we want is to inline bindings without real binding elements.
-    // Delegate bindings are the first example of synthetic bindings that have real binding elements
-    // and nonsynthetic dependencies.
-    private ResolvedBindings inlineSyntheticNondelegateContributions(
+    private ResolvedBindings inlineContributionsWithoutBindingElements(
         ResolvedBindings resolvedBinding) {
-      if (!FluentIterable.from(resolvedBinding.contributionBindings())
-          .transform(ContributionBinding.KIND)
-          .anyMatch(IS_SYNTHETIC_KIND)) {
+      if (Iterables.all(resolvedBinding.bindings(), HAS_BINDING_ELEMENT)) {
         return resolvedBinding;
       }
 
@@ -494,13 +487,12 @@ final class BindingGraphValidator {
             queued.allContributionBindings().entries()) {
           BindingGraph owningGraph = validationForComponent(bindingEntry.getKey()).subject;
           ContributionBinding binding = bindingEntry.getValue();
-          if (binding.isSyntheticBinding()
-              && !binding.bindingKind().equals(SYNTHETIC_DELEGATE_BINDING)) {
+          if (binding.bindingElement().isPresent()) {
+            contributions.put(bindingEntry);
+          } else {
             for (DependencyRequest dependency : binding.dependencies()) {
               queue.add(owningGraph.resolvedBindings().get(dependency.bindingKey()));
             }
-          } else {
-            contributions.put(bindingEntry);
           }
         }
       }
@@ -513,7 +505,7 @@ final class BindingGraphValidator {
 
     private ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType(
         ResolvedBindings resolvedBinding) {
-      ResolvedBindings inlined = inlineSyntheticNondelegateContributions(resolvedBinding);
+      ResolvedBindings inlined = inlineContributionsWithoutBindingElements(resolvedBinding);
       return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
           .putAll(indexByContributionType(inlined.contributionBindings()))
           .putAll(indexByContributionType(inlined.multibindingDeclarations()))
@@ -543,6 +535,23 @@ final class BindingGraphValidator {
               request.requestElement());
         }
       }
+    }
+
+    private void validateMapKeys(
+        DependencyPath path, ContributionBinding binding) {
+      checkArgument(binding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP),
+          "binding must be a synthetic multibound map: %s",
+          binding);
+      ImmutableSet.Builder<ContributionBinding> multibindingContributionsBuilder =
+          ImmutableSet.builder();
+      for (DependencyRequest dependency : binding.dependencies()) {
+        multibindingContributionsBuilder.add(
+            subject.resolvedBindings().get(dependency.bindingKey()).contributionBinding());
+      }
+      ImmutableSet<ContributionBinding> multibindingContributions =
+          multibindingContributionsBuilder.build();
+      validateMapKeySet(path, multibindingContributions);
+      validateMapKeyAnnotationTypes(path, multibindingContributions);
     }
 
     /**
@@ -904,13 +913,13 @@ final class BindingGraphValidator {
               case PROVISION:
                 incompatiblyScopedMethodsBuilder.add(
                     methodSignatureFormatter.format(
-                        contributionBinding.bindingElementAsExecutable()));
+                        MoreElements.asExecutable(contributionBinding.bindingElement().get())));
                 break;
               case INJECTION:
                 incompatiblyScopedMethodsBuilder.add(
                     bindingScope.get().getReadableSource()
                         + " class "
-                        + contributionBinding.bindingTypeElement().getQualifiedName());
+                        + contributionBinding.bindingTypeElement().get().getQualifiedName());
                 break;
               default:
                 throw new IllegalStateException();
@@ -1032,7 +1041,7 @@ final class BindingGraphValidator {
       new Formatter(builder)
           .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
       ImmutableSet<ContributionBinding> duplicateBindings =
-          inlineSyntheticNondelegateContributions(resolvedBindings).contributionBindings();
+          inlineContributionsWithoutBindingElements(resolvedBindings).contributionBindings();
       bindingDeclarationFormatter.formatIndentedList(
           builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
       owningReportBuilder(duplicateBindings).addError(builder.toString(), path.entryPointElement());

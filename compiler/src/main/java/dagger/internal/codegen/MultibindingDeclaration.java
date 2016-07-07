@@ -146,7 +146,7 @@ abstract class MultibindingDeclaration extends BindingDeclaration
           "%s must return a set or map",
           method);
       return new AutoValue_MultibindingDeclaration(
-          method,
+          Optional.<Element>of(method),
           Optional.of(contributingType),
           keyFactory.forMultibindsMethod(bindingType, methodType, method),
           contributionType(returnType),

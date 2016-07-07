@@ -20,7 +20,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -35,7 +34,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.ContributionType.indexByContributionType;
 
 /**
  * The collection of bindings that have been resolved for a binding key. For valid graphs, contains
@@ -288,38 +286,12 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   /**
    * The contribution type for these bindings.
    *
-   * @throws IllegalStateException if {@link #isEmpty()} or the contribution types conflict
+   * @throws IllegalStateException if there is not exactly one element in {@link
+   *     #contributionBindings()}, which will never happen for contributions in valid graphs
    */
   @Override
   public ContributionType contributionType() {
-    ImmutableSet<ContributionType> types = contributionTypes();
-    checkState(!types.isEmpty(), "no bindings or declarations for %s", bindingKey());
-    checkState(
-        types.size() == 1,
-        "More than one binding present of different types for %s: %s",
-        bindingKey(),
-        bindingsAndDeclarationsByContributionType());
-    return getOnlyElement(types);
-  }
-
-  /**
-   * The contribution types represented by {@link #contributionBindings()} and
-   * {@link #multibindingDeclarations()}.
-   */
-  ImmutableSet<ContributionType> contributionTypes() {
-    return bindingsAndDeclarationsByContributionType().keySet();
-  }
-
-  /**
-   * The {@link #contributionBindings()} and {@link #multibindingDeclarations()}, indexed by
-   * {@link ContributionType}.
-   */
-  ImmutableListMultimap<ContributionType, BindingDeclaration>
-      bindingsAndDeclarationsByContributionType() {
-    return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
-        .putAll(indexByContributionType(contributionBindings()))
-        .putAll(indexByContributionType(multibindingDeclarations()))
-        .build();
+    return contributionBinding().contributionType();
   }
 
   /**

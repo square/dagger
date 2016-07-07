@@ -91,8 +91,8 @@ abstract class FrameworkField {
   private static String frameworkFieldName(ResolvedBindings resolvedBindings) {
     if (resolvedBindings.bindingKey().kind().equals(BindingKey.Kind.CONTRIBUTION)) {
       ContributionBinding binding = resolvedBindings.contributionBinding();
-      if (!binding.isSyntheticBinding()) {
-        return BINDING_ELEMENT_NAME.visit(binding.bindingElement(), binding);
+      if (binding.bindingElement().isPresent()) {
+        return BINDING_ELEMENT_NAME.visit(binding.bindingElement().get(), binding);
       }
     }
     return BindingVariableNamer.name(resolvedBindings.binding());
