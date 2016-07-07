@@ -133,7 +133,7 @@ final class InjectBindingRegistry {
       // We only cache resolved bindings or unresolved bindings w/o type arguments.
       // Unresolved bindings w/ type arguments aren't valid for the object graph.
       if (binding.unresolved().isPresent()
-          || binding.bindingTypeElement().get().getTypeParameters().isEmpty()) {
+          || binding.bindingTypeElement().getTypeParameters().isEmpty()) {
         Key key = binding.key();
         Binding previousValue = bindingsByKey.put(key, binding);
         checkState(previousValue == null || binding.equals(previousValue),

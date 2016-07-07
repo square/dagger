@@ -147,8 +147,8 @@ class SourceFiles {
       case PROVISION:
       case PRODUCTION:
         ContributionBinding contribution = (ContributionBinding) binding;
-        checkArgument(contribution.bindingTypeElement().isPresent());
-        ClassName enclosingClassName = ClassName.get(contribution.bindingTypeElement().get());
+        checkArgument(!contribution.isSyntheticBinding());
+        ClassName enclosingClassName = ClassName.get(contribution.bindingTypeElement());
         switch (contribution.bindingKind()) {
           case INJECTION:
           case PROVISION:
@@ -203,7 +203,7 @@ class SourceFiles {
             // the module, not the types of the binding.
             // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
             // The binding is just parameterized on <B>, but we need all of <A, B, C>.
-            return Optional.of(contributionBinding.bindingTypeElement().get().asType());
+            return Optional.of(contributionBinding.bindingTypeElement().asType());
 
           case IMMEDIATE:
           case FUTURE_PRODUCTION:
@@ -267,7 +267,7 @@ class SourceFiles {
       case IMMEDIATE:
       case FUTURE_PRODUCTION:
         return CaseFormat.LOWER_CAMEL.to(
-            UPPER_CAMEL, binding.bindingElement().get().getSimpleName().toString());
+            UPPER_CAMEL, binding.bindingElement().getSimpleName().toString());
 
       default:
         throw new IllegalArgumentException();
@@ -276,8 +276,7 @@ class SourceFiles {
 
   static ImmutableList<TypeVariableName> bindingTypeElementTypeVariableNames(Binding binding) {
     ImmutableList.Builder<TypeVariableName> builder = ImmutableList.builder();
-    for (TypeParameterElement typeParameter :
-        binding.bindingTypeElement().get().getTypeParameters()) {
+    for (TypeParameterElement typeParameter : binding.bindingTypeElement().getTypeParameters()) {
       builder.add(TypeVariableName.get(typeParameter));
     }
     return builder.build();

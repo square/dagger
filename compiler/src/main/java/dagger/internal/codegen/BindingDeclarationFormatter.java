@@ -15,12 +15,7 @@
  */
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
-import javax.lang.model.element.Element;
-
-import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.Util.AS_DECLARED_TYPE;
 
 /**
  * Formats a {@link BindingDeclaration} into a {@link String} suitable for use in error messages.
@@ -34,20 +29,16 @@ final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
 
   @Override
   public String format(BindingDeclaration bindingDeclaration) {
-    checkArgument(
-        bindingDeclaration.bindingElement().isPresent(),
-        "Cannot format bindings without source elements: %s",
-        bindingDeclaration);
-    Element bindingElement = bindingDeclaration.bindingElement().get();
-    switch (bindingElement.asType().getKind()) {
+    switch (bindingDeclaration.bindingElement().asType().getKind()) {
       case EXECUTABLE:
         return methodSignatureFormatter.format(
-            MoreElements.asExecutable(bindingElement),
-            bindingDeclaration.contributingModule().transform(AS_DECLARED_TYPE));
+            bindingDeclaration.bindingElementAsExecutable(),
+            bindingDeclaration.contributingModuleType());
       case DECLARED:
-        return stripCommonTypePrefixes(bindingElement.asType().toString());
+        return stripCommonTypePrefixes(bindingDeclaration.bindingElement().asType().toString());
       default:
-        throw new IllegalArgumentException("Formatting unsupported for element: " + bindingElement);
+        throw new IllegalArgumentException(
+            "Formatting unsupported for element: " + bindingDeclaration.bindingElement());
     }
   }
 }

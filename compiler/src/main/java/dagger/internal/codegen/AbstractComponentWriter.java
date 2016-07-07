@@ -76,6 +76,7 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
@@ -116,6 +117,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -934,11 +936,14 @@ abstract class AbstractComponentWriter {
 
       case COMPONENT_PROVISION:
         {
-          TypeElement dependencyType = dependencyTypeForBinding(binding);
-          String dependencyVariable = simpleVariableName(dependencyType);
+          TypeElement bindingTypeElement =
+              graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
+          String localFactoryVariable = simpleVariableName(bindingTypeElement);
           CodeBlock callFactoryMethod =
               CodeBlock.of(
-                  "$L.$L()", dependencyVariable, binding.bindingElement().get().getSimpleName());
+                  "$L.$L()",
+                  localFactoryVariable,
+                  binding.bindingElement().getSimpleName().toString());
           // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
           // help to figure out what the method or return type is.  If we include a string
           // of the return type or method name in the error message, that can defeat obfuscation.
@@ -964,10 +969,10 @@ abstract class AbstractComponentWriter {
                       "}"),
               /* 1 */ FACTORY,
               /* 2 */ bindingKeyTypeName,
-              /* 3 */ getComponentContributionExpression(dependencyType),
+              /* 3 */ getComponentContributionExpression(bindingTypeElement),
               /* 4 */ nullableAnnotation(binding.nullableType()),
-              /* 5 */ TypeName.get(dependencyType.asType()),
-              /* 6 */ dependencyVariable,
+              /* 5 */ TypeName.get(bindingTypeElement.asType()),
+              /* 6 */ localFactoryVariable,
               /* 7 */ getMethodBody);
         }
 
@@ -982,14 +987,15 @@ abstract class AbstractComponentWriter {
                     "}"),
             /* 1 */ FACTORY,
             /* 2 */ bindingKeyTypeName,
-            /* 3 */ binding.bindingElement().get().getSimpleName());
+            /* 3 */ binding.bindingElement().getSimpleName().toString());
 
       case INJECTION:
       case PROVISION:
         {
           List<CodeBlock> arguments =
               Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-          if (binding.requiresModuleInstance()) {
+          if (binding.bindingKind().equals(PROVISION)
+              && !binding.bindingElement().getModifiers().contains(STATIC)) {
             arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
           arguments.addAll(getDependencyArguments(binding));
@@ -1006,7 +1012,8 @@ abstract class AbstractComponentWriter {
 
       case COMPONENT_PRODUCTION:
         {
-          TypeElement dependencyType = dependencyTypeForBinding(binding);
+          TypeElement bindingTypeElement =
+              graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
           return CodeBlock.of(
               Joiner.on('\n')
                   .join(
@@ -1019,10 +1026,10 @@ abstract class AbstractComponentWriter {
               /* 1 */ PRODUCER,
               /* 2 */ TypeName.get(binding.key().type()),
               /* 3 */ LISTENABLE_FUTURE,
-              /* 4 */ getComponentContributionExpression(dependencyType),
-              /* 5 */ binding.bindingElement().get().getSimpleName(),
-              /* 6 */ TypeName.get(dependencyType.asType()),
-              /* 7 */ simpleVariableName(dependencyType));
+              /* 4 */ getComponentContributionExpression(bindingTypeElement),
+              /* 5 */ binding.bindingElement().getSimpleName().toString(),
+              /* 6 */ TypeName.get(bindingTypeElement.asType()),
+              /* 7 */ simpleVariableName(bindingTypeElement));
         }
 
       case IMMEDIATE:
@@ -1030,8 +1037,8 @@ abstract class AbstractComponentWriter {
         {
           List<CodeBlock> arguments =
               Lists.newArrayListWithCapacity(binding.implicitDependencies().size() + 2);
-          if (binding.requiresModuleInstance()) {
-            arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
+          if (!binding.bindingElement().getModifiers().contains(STATIC)) {
+            arguments.add(getComponentContributionExpression(binding.bindingTypeElement()));
           }
           arguments.addAll(getDependencyArguments(binding));
 
@@ -1056,10 +1063,6 @@ abstract class AbstractComponentWriter {
       default:
         throw new AssertionError(binding.toString());
     }
-  }
-
-  private TypeElement dependencyTypeForBinding(ContributionBinding binding) {
-    return graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement().get());
   }
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {

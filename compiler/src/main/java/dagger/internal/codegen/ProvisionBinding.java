@@ -209,9 +209,13 @@ abstract class ProvisionBinding extends ContributionBinding {
               requestForMapOfValues, mapOfProvidersKey.get());
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
+          .bindingElement(requestForMapOfProviders.requestElement())
           .key(requestForMapOfValues.key())
           .dependencies(requestForMapOfProviders)
+          .wrappedMapKey(
+              wrapOptionalInEquivalence(getMapKey(requestForMapOfProviders.requestElement())))
           .bindingKind(Kind.SYNTHETIC_MAP)
+          .scope(Scope.uniqueScopeOf(requestForMapOfProviders.requestElement()))
           .build();
     }
 
@@ -225,11 +229,13 @@ abstract class ProvisionBinding extends ContributionBinding {
         DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
+          .bindingElement(request.requestElement())
           .key(request.key())
           .dependencies(
               dependencyRequestFactory.forMultibindingContributions(
                   request, multibindingContributions))
           .bindingKind(Kind.forMultibindingRequest(request))
+          .scope(Scope.uniqueScopeOf(request.requestElement()))
           .build();
     }
 
@@ -276,14 +282,14 @@ abstract class ProvisionBinding extends ContributionBinding {
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
       return ProvisionBinding.builder()
           .contributionType(delegateDeclaration.contributionType())
-          .bindingElement(delegateDeclaration.bindingElement().get())
+          .bindingElement(delegateDeclaration.bindingElement())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Provider.class))
           .dependencies(delegateDeclaration.delegateRequest())
           .nullableType(delegate.nullableType())
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
-          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()))
+          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement()))
           .build();
     }
   }

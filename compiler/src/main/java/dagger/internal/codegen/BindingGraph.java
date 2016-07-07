@@ -79,6 +79,7 @@ import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULT
 import static dagger.internal.codegen.Key.indexByKey;
 import static dagger.internal.codegen.Scope.reusableScope;
 import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * The canonical representation of a full-resolved graph.
@@ -128,7 +129,8 @@ abstract class BindingGraph {
         .preOrderTraversal(this)
         .transformAndConcat(RESOLVED_BINDINGS)
         .transformAndConcat(ResolvedBindings.CONTRIBUTION_BINDINGS)
-        .filter(BindingDeclaration.REQUIRES_MODULE_INSTANCE)
+        .filter(not(BindingDeclaration.bindingElementHasModifier(STATIC)))
+        .filter(not(BindingDeclaration.bindingElementHasModifier(ABSTRACT)))
         .transformAndConcat(BindingDeclaration.CONTRIBUTING_MODULE)
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())

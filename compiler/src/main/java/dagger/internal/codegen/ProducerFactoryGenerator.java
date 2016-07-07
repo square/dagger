@@ -35,7 +35,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.squareup.javapoet.ClassName.OBJECT;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
@@ -57,6 +56,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PROTECTED;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * Generates {@link Producer} implementations from {@link ProductionBinding} instances.
@@ -79,13 +79,11 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(ProductionBinding binding) {
-    return binding.bindingElement();
+    return Optional.of(binding.bindingElement());
   }
 
   @Override
   Optional<TypeSpec.Builder> write(ClassName generatedTypeName, ProductionBinding binding) {
-    checkArgument(binding.bindingElement().isPresent());
-
     TypeName providedTypeName = TypeName.get(binding.factoryType());
     TypeName futureTypeName = listenableFutureOf(providedTypeName);
 
@@ -105,8 +103,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 fields.get(binding.monitorRequest().get().bindingKey()).name(),
                 producerTokenConstruction(generatedTypeName, binding));
 
-    if (binding.requiresModuleInstance()) {
-      TypeName moduleType = TypeName.get(binding.bindingTypeElement().get().asType());
+    if (!binding.bindingElement().getModifiers().contains(STATIC)) {
+      TypeName moduleType = TypeName.get(binding.bindingTypeElement().asType());
       addFieldAndConstructorParameter(factoryBuilder, constructorBuilder, "module", moduleType);
     }
 
@@ -217,8 +215,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                 "$S",
                 String.format(
                     "%s#%s",
-                    ClassName.get(binding.bindingTypeElement().get()),
-                    binding.bindingElement().get().getSimpleName()))
+                    ClassName.get(binding.bindingTypeElement()),
+                    binding.bindingElement().getSimpleName()))
             : CodeBlock.of("$T.class", generatedTypeName);
     return CodeBlock.of("$T.create($L)", PRODUCER_TOKEN, producerTokenArgs);
   }
@@ -459,10 +457,10 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     CodeBlock moduleCodeBlock =
         CodeBlock.of(
             "$L.$L($L)",
-            binding.requiresModuleInstance()
-                ? CodeBlock.of("$T.this.module", generatedTypeName)
-                : CodeBlock.of("$T", ClassName.get(binding.bindingTypeElement().get())),
-            binding.bindingElement().get().getSimpleName(),
+            binding.bindingElement().getModifiers().contains(STATIC)
+                ? CodeBlock.of("$T", ClassName.get(binding.bindingTypeElement()))
+                : CodeBlock.of("$T.this.module", generatedTypeName),
+            binding.bindingElement().getSimpleName(),
             makeParametersCodeBlock(parameterCodeBlocks));
 
     // NOTE(beder): We don't worry about catching exceptions from the monitor methods themselves

@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import dagger.Binds;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ExecutableType;
@@ -68,7 +67,7 @@ abstract class DelegateDeclaration extends BindingDeclaration implements HasCont
       return new AutoValue_DelegateDeclaration(
           ContributionType.fromBindingMethod(bindsMethod),
           keyFactory.forBindsMethod(bindsMethod, contributingElement),
-          Optional.<Element>of(bindsMethod),
+          bindsMethod,
           Optional.of(contributingElement),
           delegateRequest,
           wrapOptionalInEquivalence(getMapKey(bindsMethod)));
