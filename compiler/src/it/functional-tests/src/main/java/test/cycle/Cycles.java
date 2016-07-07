@@ -64,6 +64,7 @@ final class Cycles {
   static class C {
     public final Provider<A> aProvider;
     @Inject public Lazy<A> aLazy;
+    @Inject public Provider<Lazy<A>> aLazyProvider;
 
     @Inject
     C(Provider<A> aProvider) {

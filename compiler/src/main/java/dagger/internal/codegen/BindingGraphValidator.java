@@ -1177,6 +1177,7 @@ final class BindingGraphValidator {
                   switch (dependencyRequest.kind()) {
                     case PROVIDER:
                     case LAZY:
+                    case PROVIDER_OF_LAZY:
                       return true;
 
                     case INSTANCE:
