@@ -38,7 +38,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
@@ -90,13 +90,14 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(ProvisionBinding binding) {
-    return Optional.of(binding.bindingElement());
+    return binding.bindingElement();
   }
 
   @Override
   Optional<TypeSpec.Builder> write(ClassName generatedTypeName, ProvisionBinding binding) {
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.unresolved().isPresent());
+    checkArgument(!binding.unresolved().isPresent());
+    checkArgument(binding.bindingElement().isPresent());
 
     if (binding.bindingKind().equals(INJECTION)
         && !injectValidator.isValidType(binding.factoryType())) {
@@ -128,14 +129,11 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         break;
       case CLASS_CONSTRUCTOR:
         factoryBuilder =
-            classBuilder(generatedTypeName)
-                .addTypeVariables(typeParameters)
-                .addModifiers(FINAL);
+            classBuilder(generatedTypeName).addTypeVariables(typeParameters).addModifiers(FINAL);
         constructorBuilder = Optional.of(constructorBuilder().addModifiers(PUBLIC));
-        if (binding.bindingKind().equals(PROVISION)
-            && !binding.bindingElement().getModifiers().contains(STATIC)) {
+        if (binding.requiresModuleInstance()) {
           addConstructorParameterAndTypeField(
-              TypeName.get(binding.bindingTypeElement().asType()),
+              TypeName.get(binding.bindingTypeElement().get().asType()),
               "module",
               factoryBuilder,
               constructorBuilder.get());
@@ -228,13 +226,14 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
     if (binding.bindingKind().equals(PROVISION)) {
       CodeBlock.Builder providesMethodInvocationBuilder = CodeBlock.builder();
-      if (binding.bindingElement().getModifiers().contains(STATIC)) {
-        providesMethodInvocationBuilder.add("$T", ClassName.get(binding.bindingTypeElement()));
-      } else {
+      if (binding.requiresModuleInstance()) {
         providesMethodInvocationBuilder.add("module");
+      } else {
+        providesMethodInvocationBuilder.add(
+            "$T", ClassName.get(binding.bindingTypeElement().get()));
       }
       providesMethodInvocationBuilder.add(
-          ".$L($L)", binding.bindingElement().getSimpleName(), parametersCodeBlock);
+          ".$L($L)", binding.bindingElement().get().getSimpleName(), parametersCodeBlock);
       CodeBlock providesMethodInvocation = providesMethodInvocationBuilder.build();
 
       if (binding.nullableType().isPresent()

@@ -162,7 +162,6 @@ abstract class ProductionBinding extends ContributionBinding {
               requestForMapOfValuesOrProduced, mapOfProducersKey.get());
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .bindingElement(requestForMapOfProducers.requestElement())
           .key(requestForMapOfValuesOrProduced.key())
           .dependencies(requestForMapOfProducers)
           .bindingKind(Kind.SYNTHETIC_MAP)
@@ -179,7 +178,6 @@ abstract class ProductionBinding extends ContributionBinding {
         DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .bindingElement(request.requestElement())
           .key(request.key())
           .dependencies(
               dependencyRequestFactory.forMultibindingContributions(
@@ -206,7 +204,7 @@ abstract class ProductionBinding extends ContributionBinding {
         DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
       return ProductionBinding.builder()
           .contributionType(delegateDeclaration.contributionType())
-          .bindingElement(delegateDeclaration.bindingElement())
+          .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Producer.class))
           .dependencies(delegateDeclaration.delegateRequest())

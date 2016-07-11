@@ -50,7 +50,6 @@ import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND
 import static dagger.internal.codegen.ContributionType.SET;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
-import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be
@@ -239,7 +238,7 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
       case SYNTHETIC_DELEGATE_BINDING:
         return DELEGATE;
       case PROVISION:
-        return implicitDependencies().isEmpty() && bindingElement().getModifiers().contains(STATIC)
+        return implicitDependencies().isEmpty() && !requiresModuleInstance()
             ? ENUM_INSTANCE
             : CLASS_CONSTRUCTOR;
       case INJECTION:

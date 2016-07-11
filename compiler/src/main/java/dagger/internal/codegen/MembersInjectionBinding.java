@@ -62,12 +62,15 @@ import static javax.lang.model.element.Modifier.STATIC;
 @AutoValue
 abstract class MembersInjectionBinding extends Binding {
   @Override
+  Optional<Element> bindingElement() {
+    return Optional.<Element>of(membersInjectedType());
+  }
+
+  abstract TypeElement membersInjectedType();
+
+  @Override
   abstract Optional<MembersInjectionBinding> unresolved();
 
-  TypeElement membersInjectedType() {
-    return MoreElements.asType(bindingElement());
-  }
-  
   @Override
   Optional<TypeElement> contributingModule() {
     return Optional.absent();
@@ -225,9 +228,9 @@ abstract class MembersInjectionBinding extends Binding {
       Key key = keyFactory.forMembersInjectedType(declaredType);
       TypeElement typeElement = MoreElements.asType(declaredType.asElement());
       return new AutoValue_MembersInjectionBinding(
-          typeElement,
           key,
           dependencies,
+          typeElement,
           hasNonDefaultTypeParameters(typeElement, key.type(), types)
               ? Optional.of(
                   forInjectedType(
