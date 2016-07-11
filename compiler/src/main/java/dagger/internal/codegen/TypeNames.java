@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
 
 import com.google.common.util.concurrent.AsyncFunction;
@@ -91,11 +92,14 @@ final class TypeNames {
   static final ClassName VOID_CLASS = ClassName.get(Void.class);
 
   static final TypeName SET_OF_FACTORIES =
-      ParameterizedTypeName.get(
-          ClassName.get(Set.class), ClassName.get(ProductionComponentMonitor.Factory.class));
+      ParameterizedTypeName.get(Set.class, ProductionComponentMonitor.Factory.class);
 
   static ParameterizedTypeName listOf(TypeName typeName) {
     return ParameterizedTypeName.get(LIST, typeName);
+  }
+
+  static ParameterizedTypeName setOf(TypeName elementType) {
+    return ParameterizedTypeName.get(SET, elementType);
   }
 
   static ParameterizedTypeName abstractProducerOf(TypeName typeName) {

@@ -1055,7 +1055,8 @@ final class BindingGraphValidator {
         Iterable<ContributionBinding> duplicateBindings) {
       ImmutableSet.Builder<ComponentDescriptor> owningComponentsBuilder = ImmutableSet.builder();
       for (ContributionBinding binding : duplicateBindings) {
-        ResolvedBindings resolvedBindings = subject.resolvedBindings().get(binding.bindingKey());
+        ResolvedBindings resolvedBindings =
+            subject.resolvedBindings().get(BindingKey.contribution(binding.key()));
         owningComponentsBuilder.addAll(
             resolvedBindings.allContributionBindings().inverse().get(binding));
       }

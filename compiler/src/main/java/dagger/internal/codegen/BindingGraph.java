@@ -632,7 +632,8 @@ abstract class BindingGraph {
         if (binding.scope().isPresent() && binding.scope().get().equals(reusableScope(elements))) {
           for (Resolver requestResolver : getResolverLineage().reverse()) {
             // If a @Reusable binding was resolved in an ancestor, use that component.
-            if (requestResolver.resolvedBindings.containsKey(binding.bindingKey())) {
+            if (requestResolver.resolvedBindings.containsKey(
+                BindingKey.contribution(binding.key()))) {
               return Optional.of(requestResolver);
             }
           }

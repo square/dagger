@@ -47,7 +47,6 @@ import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrateg
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
-import static dagger.internal.codegen.ContributionType.SET;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 
@@ -206,10 +205,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    */
   protected abstract Kind bindingKind();
 
-  BindingKey bindingKey() {
-    return BindingKey.contribution(key());
-  }
-
   /**
    * The strategy for getting an instance of a factory for a {@link ContributionBinding}.
    */
@@ -225,11 +220,10 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
   /**
    * Returns the {@link FactoryCreationStrategy} appropriate for a binding.
    *
-   * <p>Delegate bindings
-   * use the {@link FactoryCreationStrategy#DELEGATE} strategy.
+   * <p>Delegate bindings use the {@link FactoryCreationStrategy#DELEGATE} strategy.
    *
-   * <p>Bindings without dependencies that don't require a module instance use the
-   * {@link FactoryCreationStrategy#ENUM_INSTANCE} strategy.
+   * <p>Bindings without dependencies that don't require a module instance use the {@link
+   * FactoryCreationStrategy#ENUM_INSTANCE} strategy.
    *
    * <p>All other bindings use the {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR} strategy.
    */
