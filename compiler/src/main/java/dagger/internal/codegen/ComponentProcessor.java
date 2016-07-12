@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.ModuleProcessingStep.moduleProcessingStep;
+import static dagger.internal.codegen.ModuleProcessingStep.producerModuleProcessingStep;
+
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -26,9 +29,6 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static dagger.internal.codegen.ModuleProcessingStep.moduleProcessingStep;
-import static dagger.internal.codegen.ModuleProcessingStep.producerModuleProcessingStep;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0

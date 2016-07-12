@@ -16,11 +16,11 @@
 
 package test;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
 
 /**
  * @see <a href="http://b/19435358">Bug 19435358</a>

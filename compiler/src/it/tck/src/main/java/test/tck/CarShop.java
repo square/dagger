@@ -17,8 +17,8 @@
 package test.tck;
 
 import dagger.Component;
-import org.atinject.tck.auto.Car;
 import javax.inject.Singleton;
+import org.atinject.tck.auto.Car;
 
 @Singleton
 @Component(

@@ -16,6 +16,14 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
+import static dagger.internal.codegen.MapKeys.unwrapValue;
+import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
+
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
@@ -33,7 +41,6 @@ import dagger.MapKey;
 import dagger.Provides;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.producers.Produces;
-import dagger.producers.ProductionComponent;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -42,14 +49,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-
-import static com.google.common.collect.Sets.immutableEnumSet;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
-import static dagger.internal.codegen.MapKeys.unwrapValue;
-import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be

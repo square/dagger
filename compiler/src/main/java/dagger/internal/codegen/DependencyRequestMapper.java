@@ -16,14 +16,14 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import dagger.MembersInjector;
 import dagger.producers.Producer;
 import javax.inject.Provider;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
  * A mapper for associating a {@link DependencyRequest} to a framework class, dependent on

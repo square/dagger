@@ -16,6 +16,8 @@
 
 package dagger.producers.internal;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -25,8 +27,6 @@ import dagger.producers.Produced;
 import dagger.producers.Producer;
 import java.util.Set;
 import javax.inject.Provider;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Utility methods for use in generated producer code.

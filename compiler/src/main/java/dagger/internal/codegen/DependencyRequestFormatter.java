@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.asExecutable;
+import static dagger.internal.codegen.ErrorMessages.INDENT;
+
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -34,9 +37,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor7;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.asExecutable;
-import static dagger.internal.codegen.ErrorMessages.INDENT;
 
 /**
  * Formats a {@link DependencyRequest} into a {@link String} suitable for an error message listing

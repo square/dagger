@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatMethodInUnannotatedClass;
+import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatModuleMethod;
+
 import com.google.common.collect.ImmutableList;
 import dagger.Module;
 import dagger.producers.ProducerModule;
@@ -26,9 +29,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatMethodInUnannotatedClass;
-import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatModuleMethod;
 
 @RunWith(Parameterized.class)
 public class MultibindsValidatorTest {

@@ -16,10 +16,10 @@
 
 package dagger.producers.monitoring;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
-
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * A monitor that measures the timing of the execution of a producer method, and logs those timings

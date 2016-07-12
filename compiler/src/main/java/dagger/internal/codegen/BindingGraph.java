@@ -16,6 +16,26 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreElements.hasModifiers;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.isEmpty;
+import static dagger.internal.codegen.BindingType.isOfType;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
+import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
+import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULTIBINDING_KIND;
+import static dagger.internal.codegen.Key.indexByKey;
+import static dagger.internal.codegen.Scope.reusableScope;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
@@ -36,7 +56,6 @@ import com.google.common.collect.TreeTraverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Reusable;
-import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.Key.HasKey;
 import dagger.producers.Produced;
@@ -60,26 +79,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.auto.common.MoreElements.hasModifiers;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.isEmpty;
-import static dagger.internal.codegen.BindingType.isOfType;
-import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
-import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
-import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
-import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULTIBINDING_KIND;
-import static dagger.internal.codegen.Key.indexByKey;
-import static dagger.internal.codegen.Scope.reusableScope;
-import static javax.lang.model.element.Modifier.ABSTRACT;
 
 /**
  * The canonical representation of a full-resolved graph.

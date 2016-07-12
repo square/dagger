@@ -16,6 +16,10 @@
 
 package dagger.producers.internal;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.DaggerCollections.hasDuplicates;
+import static dagger.internal.DaggerCollections.presizedList;
+
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -27,10 +31,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.DaggerCollections.hasDuplicates;
-import static dagger.internal.DaggerCollections.presizedList;
 
 /**
  * A {@link Producer} implementation used to implement {@link Set} bindings. This producer returns a

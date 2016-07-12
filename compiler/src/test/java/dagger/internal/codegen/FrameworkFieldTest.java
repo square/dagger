@@ -16,6 +16,12 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.truth.Truth.assertThat;
+import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTOR;
+import static dagger.internal.codegen.TypeNames.PROVIDER;
+import static dagger.internal.codegen.TypeNames.membersInjectorOf;
+import static dagger.internal.codegen.TypeNames.providerOf;
+
 import com.google.testing.compile.CompilationRule;
 import com.squareup.javapoet.ClassName;
 import javax.inject.Inject;
@@ -24,12 +30,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
-import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTOR;
-import static dagger.internal.codegen.TypeNames.PROVIDER;
-import static dagger.internal.codegen.TypeNames.membersInjectorOf;
-import static dagger.internal.codegen.TypeNames.providerOf;
 
 /**
  * Test case for {@link FrameworkField}.

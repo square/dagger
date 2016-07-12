@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -28,8 +30,6 @@ import com.google.common.collect.Maps;
 import java.util.Collection;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
  * The framework class and binding key for a resolved dependency of a binding. If a binding has

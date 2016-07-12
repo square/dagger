@@ -16,13 +16,13 @@
 
 package producerstest.builder;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
 
 /** Tests for {@link dagger.producers.ProductionComponent.Builder}. */
 @RunWith(JUnit4.class)

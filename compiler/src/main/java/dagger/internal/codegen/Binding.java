@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static javax.lang.model.element.Modifier.PUBLIC;
+
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -35,8 +37,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * An abstract type for classes representing a Dagger binding.  Particularly, contains the

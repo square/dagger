@@ -16,13 +16,13 @@
 
 package dagger.internal;
 
+import static dagger.internal.DaggerCollections.newLinkedHashMapWithExpectedSize;
+import static java.util.Collections.unmodifiableMap;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.inject.Provider;
-
-import static dagger.internal.DaggerCollections.newLinkedHashMapWithExpectedSize;
-import static java.util.Collections.unmodifiableMap;
 
 /**
  * A {@link Factory} implementation used to implement {@link Map} bindings. This factory returns a

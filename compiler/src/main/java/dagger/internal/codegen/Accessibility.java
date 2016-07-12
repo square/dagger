@@ -16,6 +16,11 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.getPackage;
+import static com.google.common.base.Preconditions.checkArgument;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+
 import com.google.auto.common.MoreElements;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -34,11 +39,6 @@ import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.SimpleElementVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
-
-import static com.google.auto.common.MoreElements.getPackage;
-import static com.google.common.base.Preconditions.checkArgument;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
  * Utility methods for determining whether a {@linkplain TypeMirror type} or an {@linkplain Element

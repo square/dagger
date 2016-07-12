@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
@@ -45,8 +47,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Tests {@link Key}.

@@ -16,6 +16,8 @@
 
 package producerstest.subcomponent;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,8 +29,6 @@ import producerstest.subcomponent.SubcomponentsWithBoundExecutor.GrandchildCompo
 import producerstest.subcomponent.SubcomponentsWithBoundExecutor.GrandchildComponentWithoutBuilder;
 import producerstest.subcomponent.SubcomponentsWithBoundExecutor.ParentComponent;
 import producerstest.subcomponent.SubcomponentsWithBoundExecutor.ParentProductionComponent;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public final class SubcomponentWithBoundExecutorTest {

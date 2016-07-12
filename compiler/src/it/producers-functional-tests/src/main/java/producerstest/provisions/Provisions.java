@@ -22,9 +22,8 @@ import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import dagger.producers.ProductionComponent;
 import javax.inject.Inject;
-import producerstest.ExecutorModule;
-
 import javax.inject.Qualifier;
+import producerstest.ExecutorModule;
 
 /** Tests for requesting provisions from producers. */
 final class Provisions {

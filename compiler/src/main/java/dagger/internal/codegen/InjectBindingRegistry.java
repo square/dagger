@@ -16,6 +16,14 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static javax.lang.model.util.ElementFilter.constructorsIn;
+
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
@@ -42,14 +50,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
-import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
-import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members

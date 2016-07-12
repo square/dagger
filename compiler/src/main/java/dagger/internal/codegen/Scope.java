@@ -16,6 +16,10 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.InjectionAnnotations.getScopes;
+
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
@@ -31,10 +35,6 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.InjectionAnnotations.getScopes;
 
 /**
  * A representation of the scope (or lack of it) associated with a component, providing method

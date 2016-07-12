@@ -16,6 +16,8 @@
 
 package test.subcomponent;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.Before;
@@ -30,8 +32,6 @@ import test.subcomponent.MultibindingSubcomponents.ParentWithProvisionHasChildWi
 import test.subcomponent.MultibindingSubcomponents.ParentWithoutProvisionHasChildWithProvision;
 import test.subcomponent.MultibindingSubcomponents.ParentWithoutProvisionHasChildWithoutProvision;
 import test.subcomponent.MultibindingSubcomponents.RequiresMultibindings;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class SubcomponentMultibindingsTest {

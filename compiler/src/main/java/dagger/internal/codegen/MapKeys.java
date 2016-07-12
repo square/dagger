@@ -16,6 +16,15 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
+import static com.google.auto.common.AnnotationMirrors.getAnnotationValuesWithDefaults;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.transform;
+import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.SourceFiles.classFileName;
+import static javax.lang.model.util.ElementFilter.methodsIn;
+
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -42,15 +51,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
-import static com.google.auto.common.AnnotationMirrors.getAnnotationValuesWithDefaults;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.SourceFiles.classFileName;
-import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
  * Methods for extracting {@link MapKey} annotations and key code blocks from binding elements.

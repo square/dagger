@@ -16,13 +16,13 @@
 
 package test;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import test.ComponentWithReusableBindings.ChildOne;
 import test.ComponentWithReusableBindings.ChildTwo;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class ReusableTest {

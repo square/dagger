@@ -16,6 +16,10 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
+
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
@@ -30,10 +34,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.util.Types;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.MapKeys.getMapKey;
-import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
 
 /**
  * The declaration for a delegate binding established by a {@link Binds} method.

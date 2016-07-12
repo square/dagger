@@ -16,10 +16,10 @@
 
 package dagger.internal;
 
+import static dagger.internal.Preconditions.checkNotNull;
+
 import dagger.MembersInjector;
 import javax.inject.Inject;
-
-import static dagger.internal.Preconditions.checkNotNull;
 
 /**
  * Basic {@link MembersInjector} implementations used by the framework.

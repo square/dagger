@@ -16,12 +16,12 @@
 
 package dagger.internal;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import javax.inject.Provider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Tests {@link SingleCheck}.

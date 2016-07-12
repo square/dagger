@@ -16,6 +16,8 @@
 
 package test.cycle;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,8 +28,6 @@ import test.cycle.Cycles.CycleComponent;
 import test.cycle.Cycles.CycleMapComponent;
 import test.cycle.Cycles.S;
 import test.cycle.Cycles.SelfCycleComponent;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class CycleTest {

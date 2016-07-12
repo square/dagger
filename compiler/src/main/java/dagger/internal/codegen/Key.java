@@ -16,6 +16,18 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asExecutable;
+import static com.google.common.base.Optional.presentInstances;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
+import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
+import static javax.lang.model.element.ElementKind.METHOD;
+
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -41,7 +53,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import javax.inject.Provider;
-import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -55,18 +66,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.auto.common.MoreTypes.asExecutable;
-import static com.google.common.base.Optional.presentInstances;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.MapKeys.getMapKey;
-import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
-import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
  * Represents a unique combination of {@linkplain TypeMirror type} and

@@ -16,16 +16,6 @@
 
 package dagger.internal.codegen;
 
-import com.google.common.collect.ImmutableList;
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
-import dagger.MembersInjector;
-import dagger.internal.MapProviderFactory;
-import dagger.producers.internal.MapOfProducerProducer;
-import java.util.List;
-import java.util.Set;
-import javax.lang.model.type.TypeMirror;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.Accessibility.isTypeAccessibleFrom;
@@ -37,6 +27,16 @@ import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
 import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTOR;
 import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
 import static dagger.internal.codegen.TypeNames.SET;
+
+import com.google.common.collect.ImmutableList;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
+import dagger.MembersInjector;
+import dagger.internal.MapProviderFactory;
+import dagger.producers.internal.MapOfProducerProducer;
+import java.util.List;
+import java.util.Set;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Represents a {@link com.sun.source.tree.MemberSelectTree} as a {@link CodeBlock}.

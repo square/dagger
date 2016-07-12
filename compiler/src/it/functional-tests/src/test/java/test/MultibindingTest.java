@@ -14,6 +14,8 @@
 
 package test;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,8 +29,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(Parameterized.class)
 public class MultibindingTest {

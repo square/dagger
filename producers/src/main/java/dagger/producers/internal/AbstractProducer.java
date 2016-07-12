@@ -16,15 +16,14 @@
 
 package dagger.producers.internal;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Producer;
 import dagger.producers.monitoring.ProducerMonitor;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
 import dagger.producers.monitoring.internal.Monitors;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import javax.annotation.Nullable;
 import javax.inject.Provider;
 

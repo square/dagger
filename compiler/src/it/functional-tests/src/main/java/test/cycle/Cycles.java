@@ -24,9 +24,7 @@ import dagger.Provides;
 import dagger.Subcomponent;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.StringKey;
-
 import java.util.Map;
-
 import javax.inject.Inject;
 import javax.inject.Provider;
 

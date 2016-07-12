@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.truth.Truth.assertThat;
+import static dagger.internal.codegen.Accessibility.isElementAccessibleFrom;
+
 import com.google.testing.compile.CompilationRule;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -25,9 +28,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
-import static dagger.internal.codegen.Accessibility.isElementAccessibleFrom;
 
 @RunWith(JUnit4.class)
 @SuppressWarnings("unused") // contains a variety things used by the compilation rule for testing

@@ -16,13 +16,13 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.tools.Diagnostic.Kind.ERROR;
+
 import com.google.common.base.Optional;
 import com.squareup.javapoet.ClassName;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * An exception thrown to indicate that a source file could not be generated.

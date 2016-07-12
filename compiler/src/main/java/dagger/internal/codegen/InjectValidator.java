@@ -16,6 +16,34 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static dagger.internal.codegen.Accessibility.isElementAccessibleFromOwnPackage;
+import static dagger.internal.codegen.ErrorMessages.ABSTRACT_INJECT_METHOD;
+import static dagger.internal.codegen.ErrorMessages.CHECKED_EXCEPTIONS_ON_CONSTRUCTORS;
+import static dagger.internal.codegen.ErrorMessages.FINAL_INJECT_FIELD;
+import static dagger.internal.codegen.ErrorMessages.GENERIC_INJECT_METHOD;
+import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS;
+import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_INNER_CLASS;
+import static dagger.internal.codegen.ErrorMessages.INJECT_INTO_PRIVATE_CLASS;
+import static dagger.internal.codegen.ErrorMessages.INJECT_ON_PRIVATE_CONSTRUCTOR;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_INJECT_CONSTRUCTORS;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
+import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
+import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
+import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
+import static dagger.internal.codegen.ErrorMessages.SCOPE_ON_INJECT_CONSTRUCTOR;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_FIELD;
+import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_METHOD;
+import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
+import static dagger.internal.codegen.InjectionAnnotations.getScopes;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.type.TypeKind.DECLARED;
+
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
@@ -35,34 +63,6 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static dagger.internal.codegen.Accessibility.isElementAccessibleFromOwnPackage;
-import static dagger.internal.codegen.ErrorMessages.ABSTRACT_INJECT_METHOD;
-import static dagger.internal.codegen.ErrorMessages.CHECKED_EXCEPTIONS_ON_CONSTRUCTORS;
-import static dagger.internal.codegen.ErrorMessages.FINAL_INJECT_FIELD;
-import static dagger.internal.codegen.ErrorMessages.GENERIC_INJECT_METHOD;
-import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_ABSTRACT_CLASS;
-import static dagger.internal.codegen.ErrorMessages.INJECT_CONSTRUCTOR_ON_INNER_CLASS;
-import static dagger.internal.codegen.ErrorMessages.INJECT_INTO_PRIVATE_CLASS;
-import static dagger.internal.codegen.ErrorMessages.INJECT_ON_PRIVATE_CONSTRUCTOR;
-import static dagger.internal.codegen.ErrorMessages.MULTIPLE_INJECT_CONSTRUCTORS;
-import static dagger.internal.codegen.ErrorMessages.MULTIPLE_QUALIFIERS;
-import static dagger.internal.codegen.ErrorMessages.MULTIPLE_SCOPES;
-import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_FIELD;
-import static dagger.internal.codegen.ErrorMessages.PRIVATE_INJECT_METHOD;
-import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
-import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUCTOR;
-import static dagger.internal.codegen.ErrorMessages.SCOPE_ON_INJECT_CONSTRUCTOR;
-import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_FIELD;
-import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_METHOD;
-import static dagger.internal.codegen.InjectionAnnotations.getQualifiers;
-import static dagger.internal.codegen.InjectionAnnotations.getScopes;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.type.TypeKind.DECLARED;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Inject}-annotated elements and the types

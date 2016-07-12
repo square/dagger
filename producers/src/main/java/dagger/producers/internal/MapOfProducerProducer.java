@@ -16,15 +16,15 @@
 
 package dagger.producers.internal;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Maps.newLinkedHashMapWithExpectedSize;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.internal.Beta;
 import dagger.producers.Producer;
 import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Maps.newLinkedHashMapWithExpectedSize;
 
 /**
  * A {@link Producer} implementation used to implement {@link Map} bindings. This factory returns an

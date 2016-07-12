@@ -16,14 +16,14 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+
 import com.google.common.collect.ImmutableSet;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
 
 /**
  * Utility methods related to processing {@link IntoSet}, {@link ElementsIntoSet}, and {@link

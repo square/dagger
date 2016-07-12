@@ -16,9 +16,8 @@
 
 package test.nullables;
 
-import javax.inject.Provider;
-
 import dagger.Component;
+import javax.inject.Provider;
 
 @Component(modules = NullModule.class)
 interface NullComponent {

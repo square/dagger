@@ -16,6 +16,15 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_CONCRETE;
+import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.EXCEPTION;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_NULLABLE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SCOPE;
+import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
+
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,15 +37,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_CONCRETE;
-import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.EXCEPTION;
-import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_NULLABLE;
-import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
-import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RETURN_TYPE;
-import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SCOPE;
-import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_SET_VALUES_RETURN_SET;
 
 /**
  * A validator for {@link Produces} methods.

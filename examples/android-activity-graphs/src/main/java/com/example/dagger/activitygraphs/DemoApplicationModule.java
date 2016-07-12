@@ -16,13 +16,13 @@
 
 package com.example.dagger.activitygraphs;
 
+import static android.content.Context.LOCATION_SERVICE;
+
 import android.app.Application;
 import android.location.LocationManager;
 import dagger.Module;
 import dagger.Provides;
 import javax.inject.Singleton;
-
-import static android.content.Context.LOCATION_SERVICE;
 
 /**
  * A module for Android-specific dependencies which require a {@link Context} or

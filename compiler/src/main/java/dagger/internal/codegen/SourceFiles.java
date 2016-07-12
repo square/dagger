@@ -14,6 +14,12 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
+import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
+import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
+
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -33,12 +39,6 @@ import java.util.Iterator;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
-
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
-import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
-import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
 
 /**
  * Utilities for generating files.

@@ -16,6 +16,9 @@
 
 package test.subcomponent;
 
+import static com.google.common.collect.Sets.intersection;
+import static com.google.common.truth.Truth.assertThat;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
@@ -23,9 +26,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import static com.google.common.collect.Sets.intersection;
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(Parameterized.class)
 public class SubcomponentTest {

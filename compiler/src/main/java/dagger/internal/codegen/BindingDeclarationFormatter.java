@@ -16,12 +16,12 @@
 
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
-import javax.lang.model.element.Element;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Util.AS_DECLARED_TYPE;
+
+import com.google.auto.common.MoreElements;
+import javax.lang.model.element.Element;
 
 /**
  * Formats a {@link BindingDeclaration} into a {@link String} suitable for use in error messages.

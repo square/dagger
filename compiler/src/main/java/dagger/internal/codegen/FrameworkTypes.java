@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreTypes.isType;
+
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableSet;
 import dagger.Lazy;
@@ -25,8 +27,6 @@ import dagger.producers.Producer;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.lang.model.type.TypeMirror;
-
-import static com.google.auto.common.MoreTypes.isType;
 
 /**
  * A collection of utility methods for dealing with Dagger framework types. A framework type is any

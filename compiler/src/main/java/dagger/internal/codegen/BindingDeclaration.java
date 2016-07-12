@@ -16,6 +16,10 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.Util.ENCLOSING_TYPE_ELEMENT;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.STATIC;
+
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -24,10 +28,6 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-
-import static dagger.internal.codegen.Util.ENCLOSING_TYPE_ELEMENT;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.STATIC;
 
 /** An object that declares or specifies a binding. */
 abstract class BindingDeclaration implements HasKey {

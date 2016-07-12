@@ -16,12 +16,12 @@
 
 package dagger.producers.internal;
 
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
 import dagger.internal.Beta;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import javax.inject.Qualifier;
-
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * Qualifies a type that will be used as an internal implementation detail in the framework.

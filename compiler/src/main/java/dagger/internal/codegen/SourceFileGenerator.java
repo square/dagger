@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
@@ -34,8 +36,6 @@ import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.tools.JavaFileObject;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * A template class that provides a framework for properly handling IO while generating source files

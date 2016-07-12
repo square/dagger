@@ -18,9 +18,7 @@ package test.multipackage.a;
 
 import java.util.Map;
 import java.util.Set;
-
 import javax.inject.Inject;
-
 import test.multipackage.a.AModule.Inaccessible;
 
 @SuppressWarnings("unused")

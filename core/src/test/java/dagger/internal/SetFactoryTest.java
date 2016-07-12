@@ -16,6 +16,8 @@
 
 package dagger.internal;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -27,8 +29,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 @SuppressWarnings("unchecked")

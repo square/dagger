@@ -18,11 +18,9 @@ package test.tck;
 
 import dagger.Binds;
 import dagger.Module;
-
+import javax.inject.Named;
 import org.atinject.tck.auto.Tire;
 import org.atinject.tck.auto.accessories.SpareTire;
-
-import javax.inject.Named;
 
 @Module
 abstract class TireModule {
