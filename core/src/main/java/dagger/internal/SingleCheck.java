@@ -22,39 +22,43 @@ import dagger.Lazy;
 import javax.inject.Provider;
 
 /**
- * A {@link Provider} implementation that memoizes the result of a {@link Factory} instance using
+ * A {@link Provider} implementation that memoizes the result of another {@link Provider} using
  * simple lazy initialization, not the double-checked lock pattern.
  */
 public final class SingleCheck<T> implements Provider<T>, Lazy<T> {
   private static final Object UNINITIALIZED = new Object();
 
-  private volatile Factory<T> factory;
+  private volatile Provider<T> provider;
   private volatile Object instance = UNINITIALIZED;
 
-  private SingleCheck(Factory<T> factory) {
-    assert factory != null;
-    this.factory = factory;
+  private SingleCheck(Provider<T> provider) {
+    assert provider != null;
+    this.provider = provider;
   }
 
-  @SuppressWarnings("unchecked") // cast only happens when result comes from the factory
+  @SuppressWarnings("unchecked") // cast only happens when result comes from the delegate provider
   @Override
   public T get() {
-    // factory is volatile and might become null afer the check to instance == UNINITIALIZED
-    // retrieve the factory first, which should not be null if instance is UNINITIALIZED.
+    // provider is volatile and might become null after the check to instance == UNINITIALIZED, so
+    // retrieve the provider first, which should not be null if instance is UNINITIALIZED.
     // This relies upon instance also being volatile so that the reads and writes of both variables
     // cannot be reordered.
-    Factory<T> factoryReference = factory;
+    Provider<T> providerReference = provider;
     if (instance == UNINITIALIZED) {
-      instance = factoryReference.get();
+      instance = providerReference.get();
       // Null out the reference to the provider. We are never going to need it again, so we can make
-      // it eligble for GC.
-      factory = null;
+      // it eligible for GC.
+      provider = null;
     }
     return (T) instance;
   }
 
-  /** Returns a new provider for the given factory. */
-  public static <T> Provider<T> provider(Factory<T> factory) {
-    return new SingleCheck<T>(checkNotNull(factory));
+  /** Returns a {@link Provider} that caches the value from the given delegate provider. */
+  public static <T> Provider<T> provider(Provider<T> provider) {
+    // If a scoped @Binds delegates to a scoped binding, don't cache the value again.
+    if (provider instanceof SingleCheck || provider instanceof DoubleCheck) {
+      return provider;
+    }
+    return new SingleCheck<T>(checkNotNull(provider));
   }
 }

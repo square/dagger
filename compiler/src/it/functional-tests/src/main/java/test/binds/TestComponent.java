@@ -28,6 +28,9 @@ import test.SomeQualifier;
 public interface TestComponent {
   Object object();
 
+  @SomeQualifier
+  Object reusableObject();
+
   Foo<String> fooOfStrings();
 
   Foo<Object> fooOfObjects();
