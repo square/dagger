@@ -57,7 +57,7 @@ public class DependencyRequestMapperTest {
   @Before public void setUp() {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
-    this.keyFactory = new Key.Factory(types, elements, new MethodSignatureFormatter(types));
+    this.keyFactory = new Key.Factory(types, elements);
     this.dependencyRequestFactory = new DependencyRequest.Factory(elements, keyFactory);
   }
 

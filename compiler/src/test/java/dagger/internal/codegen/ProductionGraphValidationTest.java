@@ -337,9 +337,8 @@ public class ProductionGraphValidationTest {
             "  }",
             "}");
     String expectedError =
-        "@Provides @dagger.multibindings.IntoSet"
-            + " dagger.producers.monitoring.ProductionComponentMonitor.Factory"
-            + " test.TestClass.MonitoringModule.monitorFactory(test.TestClass.A) is a provision,"
+        "java.util.Set<dagger.producers.monitoring.ProductionComponentMonitor.Factory>"
+            + " test.TestClass.MonitoringModule#monitorFactory is a provision,"
             + " which cannot depend on a production.";
     assertAbout(javaSources()).that(ImmutableList.of(EXECUTOR_MODULE, component))
         .processedWith(new ComponentProcessor())

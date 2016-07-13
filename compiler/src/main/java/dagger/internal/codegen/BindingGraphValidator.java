@@ -42,10 +42,14 @@ import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapK
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_INJECT_WILDCARD_TYPE;
 import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
@@ -957,15 +961,17 @@ final class BindingGraphValidator {
       if (path.size() == 1) {
         new Formatter(errorMessage)
             .format(
-                ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                formatRootRequestKey(path));
+                PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                formatCurrentDependencyRequestKey(path));
       } else {
         ImmutableSet<? extends Binding> dependentProvisions =
             provisionsDependingOnLatestRequest(path);
         // TODO(beder): Consider displaying all dependent provisions in the error message. If we do
         // that, should we display all productions that depend on them also?
-        new Formatter(errorMessage).format(ErrorMessages.PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-            keyFormatter.format(dependentProvisions.iterator().next().key()));
+        new Formatter(errorMessage)
+            .format(
+                PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                dependentProvisions.iterator().next().key());
       }
       reportBuilder.addError(errorMessage.toString(), path.entryPointElement());
     }
@@ -993,8 +999,9 @@ final class BindingGraphValidator {
               : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
         }
       }
-      StringBuilder errorMessage = new StringBuilder(
-          String.format(requiresErrorMessageFormat, keyFormatter.format(key)));
+      StringBuilder errorMessage =
+          new StringBuilder(
+              String.format(requiresErrorMessageFormat, formatCurrentDependencyRequestKey(path)));
       if (key.isValidMembersInjectionKey()) {
         Optional<MembersInjectionBinding> membersInjectionBinding =
             injectBindingRegistry.getOrFindMembersInjectionBinding(key);
@@ -1020,10 +1027,10 @@ final class BindingGraphValidator {
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
     private void reportDependsOnProductionExecutor(DependencyPath path) {
-      StringBuilder builder = new StringBuilder();
-      new Formatter(builder)
-          .format(ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatRootRequestKey(path));
-      reportBuilder.addError(builder.toString(), path.entryPointElement());
+      reportBuilder.addError(
+          String.format(
+              DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatCurrentDependencyRequestKey(path)),
+          path.entryPointElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
@@ -1040,7 +1047,7 @@ final class BindingGraphValidator {
       }
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
-          .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
+          .format(DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
       ImmutableSet<ContributionBinding> duplicateBindings =
           inlineContributionsWithoutBindingElements(resolvedBindings).contributionBindings();
       bindingDeclarationFormatter.formatIndentedList(
@@ -1088,7 +1095,8 @@ final class BindingGraphValidator {
     private void reportMultipleContributionTypes(DependencyPath path) {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
-          .format(MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
+          .format(
+              MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
       ResolvedBindings resolvedBindings = path.currentResolvedBindings();
       ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType =
           declarationsByType(resolvedBindings);
@@ -1112,7 +1120,7 @@ final class BindingGraphValidator {
     private void reportDuplicateMapKeys(
         DependencyPath path, Collection<ContributionBinding> mapBindings) {
       StringBuilder builder = new StringBuilder();
-      builder.append(duplicateMapKeysError(formatRootRequestKey(path)));
+      builder.append(duplicateMapKeysError(formatCurrentDependencyRequestKey(path)));
       bindingDeclarationFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
       reportBuilder.addError(builder.toString(), path.entryPointElement());
     }
@@ -1122,7 +1130,8 @@ final class BindingGraphValidator {
         Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
             mapBindingsByAnnotationType) {
       StringBuilder builder =
-          new StringBuilder(inconsistentMapKeyAnnotationsError(formatRootRequestKey(path)));
+          new StringBuilder(
+              inconsistentMapKeyAnnotationsError(formatCurrentDependencyRequestKey(path)));
       for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
           mapBindingsByAnnotationType.asMap().entrySet()) {
         DeclaredType annotationType = entry.getKey().get();
@@ -1285,7 +1294,7 @@ final class BindingGraphValidator {
     }
   }
 
-  private String formatRootRequestKey(DependencyPath path) {
+  private String formatCurrentDependencyRequestKey(DependencyPath path) {
     return keyFormatter.format(path.currentDependencyRequest().key());
   }
 

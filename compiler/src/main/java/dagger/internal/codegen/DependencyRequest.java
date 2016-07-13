@@ -225,8 +225,8 @@ abstract class DependencyRequest {
     DependencyRequest forMultibindingContribution(
         DependencyRequest request, ContributionBinding multibindingContribution) {
       checkArgument(
-          multibindingContribution.key().bindingIdentifier().isPresent(),
-          "multibindingContribution's key must have a binding identifier: %s",
+          multibindingContribution.key().multibindingContributionIdentifier().isPresent(),
+          "multibindingContribution's key must have a multibinding contribution identifier: %s",
           multibindingContribution);
       return new AutoValue_DependencyRequest(
           multibindingContributionRequestKind(multibindingContribution),

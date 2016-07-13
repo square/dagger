@@ -315,9 +315,9 @@ abstract class BindingGraph {
         this.delegateDeclarations = delegateDeclarations;
         this.resolvedBindings = Maps.newLinkedHashMap();
         this.explicitMultibindings =
-            multibindingsKeyedWithoutBindingIdentifiers(explicitBindingsSet);
+            multibindingContributionsByMultibindingKey(explicitBindingsSet);
         this.delegateMultibindingDeclarations =
-            multibindingsKeyedWithoutBindingIdentifiers(delegateDeclarations.values());
+            multibindingContributionsByMultibindingKey(delegateDeclarations.values());
       }
 
       /**
@@ -684,9 +684,8 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the explicit multibinding contributions whose key (minus its
-       * {@link Key#bindingIdentifier()}) matches the {@code requestKey} from this and all ancestor
-       * resolvers.
+       * Returns the explicit multibinding contributions that contribute to the map or set requested
+       * by {@code requestKey} from this and all ancestor resolvers.
        */
       private ImmutableSet<ContributionBinding> getExplicitMultibindingContributions(
           Key requestKey) {
@@ -721,6 +720,10 @@ abstract class BindingGraph {
         return delegateBindings.build();
       }
 
+      /**
+       * Returns the delegate multibinding contribution declarations that contribute to the map or
+       * set requested by {@code requestKey} from this and all ancestor resolvers.
+       */
       private ImmutableSet<ContributionBinding> getDelegateMultibindingContributions(
           Key requestKey) {
         if (MapType.isMap(requestKey) && !MapType.from(requestKey).valuesAreFrameworkType()) {
@@ -931,16 +934,16 @@ abstract class BindingGraph {
     }
 
     /**
-     * Selects each item in {@code haveKeys} that has a {@link Key#bindingIdentifier()} and indexes
-     * them by its {@link HasKey#key()}, where each key has its binding identifier removed.
+     * A multimap of those {@code declarations} that are multibinding contribution declarations,
+     * indexed by the key of the set or map to which they contribute.
      */
     static <T extends HasKey>
-        ImmutableSetMultimap<Key, T> multibindingsKeyedWithoutBindingIdentifiers(
-            Iterable<T> haveKeys) {
+        ImmutableSetMultimap<Key, T> multibindingContributionsByMultibindingKey(
+            Iterable<T> declarations) {
       ImmutableSetMultimap.Builder<Key, T> builder = ImmutableSetMultimap.builder();
-      for (T hasKey : haveKeys) {
-        if (hasKey.key().bindingIdentifier().isPresent()) {
-          builder.put(hasKey.key().withoutBindingIdentifier(), hasKey);
+      for (T declaration : declarations) {
+        if (declaration.key().multibindingContributionIdentifier().isPresent()) {
+          builder.put(declaration.key().withoutMultibindingContributionIdentifier(), declaration);
         }
       }
       return builder.build();

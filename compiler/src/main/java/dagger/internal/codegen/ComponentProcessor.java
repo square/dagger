@@ -69,7 +69,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new BindingDeclarationFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter =
         new DependencyRequestFormatter(types, elements);
-    KeyFormatter keyFormatter = new KeyFormatter(methodSignatureFormatter);
+    KeyFormatter keyFormatter = new KeyFormatter();
 
     InjectValidator injectValidator = new InjectValidator(types, elements, compilerOptions);
     InjectValidator injectValidatorWhenGeneratingCode = injectValidator.whenGeneratingCode();
@@ -91,7 +91,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MultibindingsMethodValidator multibindingsMethodValidator =
         new MultibindingsMethodValidator(elements, types);
 
-    Key.Factory keyFactory = new Key.Factory(types, elements, methodSignatureFormatter);
+    Key.Factory keyFactory = new Key.Factory(types, elements);
 
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(

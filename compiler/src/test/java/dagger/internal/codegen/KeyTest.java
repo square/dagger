@@ -26,7 +26,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.testing.compile.CompilationRule;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.Key.BindingIdentifier;
+import dagger.internal.codegen.Key.MultibindingContributionIdentifier;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoSet;
 import dagger.producers.ProducerModule;
@@ -57,14 +57,12 @@ public class KeyTest {
 
   private Elements elements;
   private Types types;
-  private MethodSignatureFormatter methodSignatureFormatter;
   private Key.Factory keyFactory;
 
   @Before public void setUp() {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
-    this.methodSignatureFormatter = new MethodSignatureFormatter(types);
-    this.keyFactory = new Key.Factory(types, elements, methodSignatureFormatter);
+    this.keyFactory = new Key.Factory(types, elements);
   }
 
   @Test public void forInjectConstructorWithResolvedType() {
@@ -72,14 +70,15 @@ public class KeyTest {
         compilationRule.getElements().getTypeElement(InjectedClass.class.getCanonicalName());
     ExecutableElement constructor =
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
-    assertThat(
-            keyFactory.forInjectConstructorWithResolvedType(
-                constructor.getEnclosingElement().asType()))
+    Key key =
+        keyFactory.forInjectConstructorWithResolvedType(constructor.getEnclosingElement().asType());
+    assertThat(key)
         .isEqualTo(
             new AutoValue_Key(
                 Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                 MoreTypes.equivalence().wrap(typeElement.asType()),
-                Optional.<BindingIdentifier>absent()));
+                Optional.<MultibindingContributionIdentifier>absent()));
+    assertThat(key.toString()).isEqualTo("dagger.internal.codegen.KeyTest.InjectedClass");
   }
 
   static final class InjectedClass {
@@ -93,12 +92,14 @@ public class KeyTest {
         elements.getTypeElement(ProvidesMethodModule.class.getCanonicalName());
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
-    assertThat(keyFactory.forProvidesMethod(providesMethod, moduleElement))
+    Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
+    assertThat(key)
         .isEqualTo(
             new AutoValue_Key(
                 Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                 MoreTypes.equivalence().wrap(stringType),
-                Optional.<BindingIdentifier>absent()));
+                Optional.<MultibindingContributionIdentifier>absent()));
+    assertThat(key.toString()).isEqualTo("java.lang.String");
   }
 
   @Module
@@ -120,6 +121,10 @@ public class KeyTest {
     assertThat(MoreTypes.equivalence().wrap(key.qualifier().get().getAnnotationType()))
         .isEqualTo(MoreTypes.equivalence().wrap(qualifierElement.asType()));
     assertThat(key.wrappedType()).isEqualTo(MoreTypes.equivalence().wrap(stringType));
+    assertThat(key.toString())
+        .isEqualTo(
+            "@dagger.internal.codegen.KeyTest.TestQualifier("
+                + "{@dagger.internal.codegen.KeyTest.InnerAnnotation}) java.lang.String");
   }
 
   @Test public void qualifiedKeyEquivalents() {
@@ -138,6 +143,10 @@ public class KeyTest {
     Key injectionKey = keyFactory.forQualifiedType(Optional.<AnnotationMirror>of(qualifier), type);
 
     assertThat(provisionKey).isEqualTo(injectionKey);
+    assertThat(injectionKey.toString())
+        .isEqualTo(
+            "@dagger.internal.codegen.KeyTest.TestQualifier("
+                + "{@dagger.internal.codegen.KeyTest.InnerAnnotation}) java.lang.String");
   }
 
   @Module
@@ -168,16 +177,20 @@ public class KeyTest {
         elements.getTypeElement(SetProvidesMethodsModule.class.getCanonicalName());
     for (ExecutableElement providesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
-      assertThat(keyFactory.forProvidesMethod(providesMethod, moduleElement))
+      Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
+      assertThat(key)
           .isEqualTo(
               new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(setOfStringsType),
                   Optional.of(
-                      BindingIdentifier.create(
-                          methodSignatureFormatter.format(
-                              providesMethod,
-                              Optional.of(MoreTypes.asDeclared(moduleElement.asType())))))));
+                      new MultibindingContributionIdentifier(providesMethod, moduleElement))));
+      assertThat(key.toString())
+          .isEqualTo(
+              String.format(
+                  "java.util.Set<java.lang.String> "
+                      + "dagger.internal.codegen.KeyTest.SetProvidesMethodsModule#%s",
+                  providesMethod.getSimpleName()));
     }
   }
 
@@ -224,6 +237,8 @@ public class KeyTest {
     Key intKey = keyFactory.forProvidesMethod(intMethod, primitiveHolder);
     Key integerKey = keyFactory.forProvidesMethod(integerMethod, boxedPrimitiveHolder);
     assertThat(intKey).isEqualTo(integerKey);
+    assertThat(intKey.toString()).isEqualTo("java.lang.Integer");
+    assertThat(integerKey.toString()).isEqualTo("java.lang.Integer");
   }
 
   @Test public void forProducesMethod() {
@@ -232,12 +247,14 @@ public class KeyTest {
         elements.getTypeElement(ProducesMethodsModule.class.getCanonicalName());
     for (ExecutableElement producesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
-      assertThat(keyFactory.forProducesMethod(producesMethod, moduleElement))
+      Key key = keyFactory.forProducesMethod(producesMethod, moduleElement);
+      assertThat(key)
           .isEqualTo(
               new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(stringType),
-                  Optional.<BindingIdentifier>absent()));
+                  Optional.<MultibindingContributionIdentifier>absent()));
+      assertThat(key.toString()).isEqualTo("java.lang.String");
     }
   }
 
@@ -260,16 +277,20 @@ public class KeyTest {
         elements.getTypeElement(SetProducesMethodsModule.class.getCanonicalName());
     for (ExecutableElement producesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
-      assertThat(keyFactory.forProducesMethod(producesMethod, moduleElement))
+      Key key = keyFactory.forProducesMethod(producesMethod, moduleElement);
+      assertThat(key)
           .isEqualTo(
               new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(setOfStringsType),
                   Optional.of(
-                      BindingIdentifier.create(
-                          methodSignatureFormatter.format(
-                              producesMethod,
-                              Optional.of(MoreTypes.asDeclared(moduleElement.asType())))))));
+                      new MultibindingContributionIdentifier(producesMethod, moduleElement))));
+      assertThat(key.toString())
+          .isEqualTo(
+              String.format(
+                  "java.util.Set<java.lang.String> "
+                      + "dagger.internal.codegen.KeyTest.SetProducesMethodsModule#%s",
+                  producesMethod.getSimpleName()));
     }
   }
 
