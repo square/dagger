@@ -210,6 +210,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
       case INSTANCE:
       case LAZY:
       case PROVIDER:
+      case PROVIDER_OF_LAZY:
         return "provided";
 
       case MEMBERS_INJECTOR:

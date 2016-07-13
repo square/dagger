@@ -922,10 +922,12 @@ public class GraphValidationTest {
             "package test;",
             "",
             "import dagger.Component;",
+            "import dagger.Lazy;",
             "import dagger.Module;",
             "import dagger.Provides;",
             "import javax.inject.Inject;",
             "import javax.inject.Named;",
+            "import javax.inject.Provider;",
             "",
             "final class TestClass {",
             "  interface A {}",
@@ -958,44 +960,59 @@ public class GraphValidationTest {
             "  interface AComponent {",
             "    @Named(\"slim shady\") D getFoo();",
             "    C injectC(C c);",
+            "    Provider<C> cProvider();",
+            "    Lazy<C> lazyC();",
+            "    Provider<Lazy<C>> lazyCProvider();",
             "  }",
             "}");
     String errorText = "test.TestClass.A cannot be provided without an @Provides-annotated method.";
     String firstError =
-        Joiner.on('\n')
+        Joiner.on("\n      ")
             .join(
                 errorText,
-                "      test.TestClass.A is injected at",
-                "          test.TestClass.B.<init>(a)",
-                "      test.TestClass.B is injected at",
-                "          test.TestClass.C.b",
-                "      test.TestClass.C is injected at",
-                "          test.TestClass.DImpl.<init>(c, …)",
-                "      test.TestClass.DImpl is injected at",
-                "          test.TestClass.DModule.d(…, impl, …)",
-                "      @javax.inject.Named(\"slim shady\") test.TestClass.D is provided at",
-                "          test.TestClass.AComponent.getFoo()");
-    String secondError =
-        Joiner.on('\n')
+                "test.TestClass.A is injected at",
+                "    test.TestClass.B.<init>(a)",
+                "test.TestClass.B is injected at",
+                "    test.TestClass.C.b",
+                "test.TestClass.C is injected at",
+                "    test.TestClass.DImpl.<init>(c, …)",
+                "test.TestClass.DImpl is injected at",
+                "    test.TestClass.DModule.d(…, impl, …)",
+                "@javax.inject.Named(\"slim shady\") test.TestClass.D is provided at",
+                "    test.TestClass.AComponent.getFoo()");
+    String otherErrorFormat =
+        Joiner.on("\n      ")
             .join(
                 errorText,
-                "      test.TestClass.A is injected at",
-                "          test.TestClass.B.<init>(a)",
-                "      test.TestClass.B is injected at",
-                "          test.TestClass.C.b",
-                "      test.TestClass.C is injected at",
-                "          test.TestClass.AComponent.injectC(c)");
+                "test.TestClass.A is injected at",
+                "    test.TestClass.B.<init>(a)",
+                "test.TestClass.B is injected at",
+                "    test.TestClass.C.b",
+                "test.TestClass.C is %s at",
+                "    test.TestClass.AComponent.%s");
     assertAbout(javaSource())
         .that(component)
         .processedWith(new ComponentProcessor())
         .failsToCompile()
         .withErrorContaining(firstError)
         .in(component)
-        .onLine(38)
+        .onLine(40)
         .and()
-        .withErrorContaining(secondError)
+        .withErrorContaining(String.format(otherErrorFormat, "injected", "injectC(c)"))
         .in(component)
-        .onLine(39);
+        .onLine(41)
+        .and()
+        .withErrorContaining(String.format(otherErrorFormat, "provided", "cProvider()"))
+        .in(component)
+        .onLine(42)
+        .and()
+        .withErrorContaining(String.format(otherErrorFormat, "provided", "lazyC()"))
+        .in(component)
+        .onLine(43)
+        .and()
+        .withErrorContaining(String.format(otherErrorFormat, "provided", "lazyCProvider()"))
+        .in(component)
+        .onLine(44);
   }
 
   @Test
