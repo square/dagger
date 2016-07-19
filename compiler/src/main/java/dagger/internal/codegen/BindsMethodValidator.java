@@ -71,15 +71,6 @@ final class BindsMethodValidator extends BindingMethodValidator {
     checkParameters(builder);
   }
 
-  @Override // TODO(dpb, ronshapiro): When @Binds methods support @IntoMap, stop overriding.
-  protected void checkMapKeys(ValidationReport.Builder<ExecutableElement> builder) {
-    if (!isAnnotationPresent(builder.getSubject(), IntoMap.class)) {
-      for (AnnotationMirror mapKey : getMapKeys(builder.getSubject())) {
-        builder.addError(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY, builder.getSubject(), mapKey);
-      }
-    }
-  }
-
   private void checkParameters(ValidationReport.Builder<ExecutableElement> builder) {
     ExecutableElement method = builder.getSubject();
     List<? extends VariableElement> parameters = method.getParameters();

@@ -21,6 +21,8 @@ import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertTh
 
 import com.google.common.collect.ImmutableList;
 import dagger.Module;
+import dagger.multibindings.IntKey;
+import dagger.multibindings.LongKey;
 import dagger.producers.ProducerModule;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -117,6 +119,20 @@ public class BindsMethodValidatorTest {
   public void elementsIntoSet_withRawSets() {
     assertThatMethod("@Binds @ElementsIntoSet abstract Set bindRawSet(HashSet hashSet);")
         .hasError("cannot return a raw Set");
+  }
+
+  @Test
+  public void intoMap_noMapKey() {
+    assertThatMethod("@Binds @IntoMap abstract Object bindNoMapKey(String string);")
+         .hasError("methods of type map must declare a map key");
+  }
+
+  @Test
+  public void intoMap_multipleMapKeys() {
+    assertThatMethod(
+            "@Binds @IntoMap @IntKey(1) @LongKey(2L) abstract Object manyMapKeys(String string);")
+        .importing(IntKey.class, LongKey.class)
+        .hasError("may not have more than one @MapKey-marked annotation");
   }
 
   private DaggerModuleMethodSubject assertThatMethod(String method) {

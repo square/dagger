@@ -193,7 +193,7 @@ final class ErrorMessages {
   static final String BINDING_METHOD_WITH_NO_MAP_KEY =
       "@%s methods of type map must declare a map key";
 
-  static final String BINDING_METHOD_WITH_MULTIPLE_MAP_KEY =
+  static final String BINDING_METHOD_WITH_MULTIPLE_MAP_KEYS =
       "@%s methods may not have more than one @MapKey-marked annotation";
 
   static final String BINDING_METHOD_WITH_SAME_NAME =

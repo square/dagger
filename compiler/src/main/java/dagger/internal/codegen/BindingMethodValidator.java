@@ -32,7 +32,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS_ANY;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS_CHECKED;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEYS;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_NO_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.MULTIBINDING_ANNOTATION_CONFLICTS_WITH_BINDING_ANNOTATION_ENUM;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_MULTIBINDING_ANNOTATIONS_ON_METHOD;
@@ -346,7 +346,7 @@ abstract class BindingMethodValidator {
         case 1:
           break;
         default:
-          builder.addError(formatErrorMessage(BINDING_METHOD_WITH_MULTIPLE_MAP_KEY));
+          builder.addError(formatErrorMessage(BINDING_METHOD_WITH_MULTIPLE_MAP_KEYS));
           break;
       }
     } else if (!mapKeys.isEmpty()) {
