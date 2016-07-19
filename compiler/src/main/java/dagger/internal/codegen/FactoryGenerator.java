@@ -43,6 +43,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -56,6 +57,7 @@ import dagger.internal.Factory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.Preconditions;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.element.Element;
@@ -111,7 +113,9 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     TypeSpec.Builder factoryBuilder;
     Optional<MethodSpec.Builder> constructorBuilder = Optional.absent();
     ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
-    ImmutableMap<BindingKey, FrameworkField> fields = generateBindingFieldsForDependencies(binding);
+    UniqueNameSet uniqueFieldNames = new UniqueNameSet();
+    ImmutableMap.Builder<BindingKey, FieldSpec> fieldsBuilder = ImmutableMap.builder();
+
     boolean useRawType =
         binding.factoryCreationStrategy() == ENUM_INSTANCE
             && binding.bindingKind() == INJECTION
@@ -139,12 +143,17 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
               factoryBuilder,
               constructorBuilder.get());
         }
-        for (FrameworkField bindingField : fields.values()) {
-          addConstructorParameterAndTypeField(
-              bindingField.type(),
-              bindingField.name(),
-              factoryBuilder,
-              constructorBuilder.get());
+        for (Map.Entry<BindingKey, FrameworkField> entry :
+            generateBindingFieldsForDependencies(binding).entrySet()) {
+          BindingKey bindingKey = entry.getKey();
+          FrameworkField bindingField = entry.getValue();
+          FieldSpec field =
+              addConstructorParameterAndTypeField(
+                  bindingField.type(),
+                  uniqueFieldNames.getUniqueName(bindingField.name()),
+                  factoryBuilder,
+                  constructorBuilder.get());
+          fieldsBuilder.put(bindingKey, field);
         }
         break;
       case DELEGATE:
@@ -152,6 +161,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
       default:
         throw new AssertionError();
     }
+    ImmutableMap<BindingKey, FieldSpec> fields = fieldsBuilder.build();
 
     factoryBuilder
         .addModifiers(PUBLIC)
@@ -214,8 +224,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     for (DependencyRequest dependency : binding.dependencies()) {
       parameters.add(
           frameworkTypeUsageStatement(
-              CodeBlock.of("$L", fields.get(dependency.bindingKey()).name()),
-              dependency.kind()));
+              CodeBlock.of("$N", fields.get(dependency.bindingKey())), dependency.kind()));
     }
     CodeBlock parametersCodeBlock = makeParametersCodeBlock(parameters);
 
@@ -250,9 +259,10 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
             CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD);
       }
     } else if (binding.membersInjectionRequest().isPresent()) {
-      getMethodBuilder.addStatement("return $T.injectMembers($L, new $T($L))",
+      getMethodBuilder.addStatement(
+          "return $T.injectMembers($N, new $T($L))",
           MembersInjectors.class,
-          fields.get(binding.membersInjectionRequest().get().bindingKey()).name(),
+          fields.get(binding.membersInjectionRequest().get().bindingKey()),
           providedTypeName,
           parametersCodeBlock);
     } else {
@@ -268,7 +278,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     return Optional.of(factoryBuilder);
   }
 
-  private void addConstructorParameterAndTypeField(
+  @CanIgnoreReturnValue
+  private FieldSpec addConstructorParameterAndTypeField(
       TypeName typeName,
       String variableName,
       TypeSpec.Builder factoryBuilder,
@@ -278,5 +289,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     ParameterSpec parameter = ParameterSpec.builder(typeName, variableName).build();
     constructorBuilder.addParameter(parameter);
     constructorBuilder.addCode("assert $1N != null; this.$2N = $1N;", parameter, field);
+    return field;
   }
 }

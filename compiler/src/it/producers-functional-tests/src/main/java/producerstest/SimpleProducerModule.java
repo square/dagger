@@ -269,4 +269,13 @@ final class SimpleProducerModule {
     return Futures.<Set<String>>immediateFuture(
         ImmutableSet.of("set of str with arg 1", "set of str with arg 2 throwing exception"));
   }
+
+  /**
+   * A binding method that might result in a generated factory with conflicting field and parameter
+   * names.
+   */
+  @Produces
+  static Object object(int foo, Provider<String> fooProvider) {
+    return foo + fooProvider.get();
+  }
 }
