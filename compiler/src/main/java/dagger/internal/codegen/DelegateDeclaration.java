@@ -57,20 +57,20 @@ abstract class DelegateDeclaration extends BindingDeclaration implements HasCont
     }
 
     DelegateDeclaration create(
-        ExecutableElement bindsMethod, TypeElement contributingElement) {
+        ExecutableElement bindsMethod, TypeElement contributingModule) {
       checkArgument(MoreElements.isAnnotationPresent(bindsMethod, Binds.class));
       ExecutableType resolvedMethod =
           MoreTypes.asExecutable(
-              types.asMemberOf(MoreTypes.asDeclared(contributingElement.asType()), bindsMethod));
+              types.asMemberOf(MoreTypes.asDeclared(contributingModule.asType()), bindsMethod));
       DependencyRequest delegateRequest =
           dependencyRequestFactory.forRequiredResolvedVariable(
               Iterables.getOnlyElement(bindsMethod.getParameters()),
               Iterables.getOnlyElement(resolvedMethod.getParameterTypes()));
       return new AutoValue_DelegateDeclaration(
           ContributionType.fromBindingMethod(bindsMethod),
-          keyFactory.forBindsMethod(bindsMethod, contributingElement),
+          keyFactory.forBindsMethod(bindsMethod, contributingModule),
           Optional.<Element>of(bindsMethod),
-          Optional.of(contributingElement),
+          Optional.of(contributingModule),
           delegateRequest,
           wrapOptionalInEquivalence(getMapKey(bindsMethod)));
     }

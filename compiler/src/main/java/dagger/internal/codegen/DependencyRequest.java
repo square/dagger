@@ -33,6 +33,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Provides;
@@ -41,6 +42,7 @@ import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.internal.AbstractProducer;
 import java.util.List;
+import javax.annotation.CheckReturnValue;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -173,6 +175,35 @@ abstract class DependencyRequest {
         }
       };
 
+  private static DependencyRequest.Builder builder() {
+    return new AutoValue_DependencyRequest.Builder()
+        .isNullable(false)
+        .isSynthetic(false);
+  }
+
+  @CanIgnoreReturnValue
+  @AutoValue.Builder
+  abstract static class Builder {
+    abstract Builder kind(Kind kind);
+
+    abstract Builder key(Key key);
+
+    abstract Builder requestElement(Element element);
+
+    abstract Builder isNullable(boolean isNullable);
+
+    abstract Builder overriddenVariableName(Optional<String> overriddenVariableName);
+
+    abstract Builder isSynthetic(boolean isSynthetic);
+
+    Builder isSynthetic() {
+      return isSynthetic(true);
+    }
+
+    @CheckReturnValue
+    abstract DependencyRequest build();
+  }
+
   /**
    * Factory for {@link DependencyRequest}s.
    *
@@ -209,13 +240,12 @@ abstract class DependencyRequest {
     DependencyRequest forImplicitMapBinding(
         DependencyRequest mapOfValueRequest, Key mapOfFactoryKey) {
       checkNotNull(mapOfValueRequest);
-      return new AutoValue_DependencyRequest(
-          Kind.PROVIDER,
-          mapOfFactoryKey,
-          mapOfValueRequest.requestElement(),
-          false /* doesn't allow null */,
-          Optional.<String>absent(),
-          true /* synthetic */);
+      return DependencyRequest.builder()
+          .kind(Kind.PROVIDER)
+          .key(mapOfFactoryKey)
+          .requestElement(mapOfValueRequest.requestElement())
+          .isSynthetic()
+          .build();
     }
 
     /**
@@ -228,13 +258,12 @@ abstract class DependencyRequest {
           multibindingContribution.key().multibindingContributionIdentifier().isPresent(),
           "multibindingContribution's key must have a multibinding contribution identifier: %s",
           multibindingContribution);
-      return new AutoValue_DependencyRequest(
-          multibindingContributionRequestKind(multibindingContribution),
-          multibindingContribution.key(),
-          request.requestElement(),
-          false /* doesn't allow null */,
-          Optional.<String>absent(),
-          true /* synthetic */);
+      return DependencyRequest.builder()
+          .kind(multibindingContributionRequestKind(multibindingContribution))
+          .key(multibindingContribution.key())
+          .requestElement(request.requestElement())
+          .isSynthetic()
+          .build();
     }
 
     private Kind multibindingContributionRequestKind(ContributionBinding multibindingContribution) {
@@ -314,14 +343,12 @@ abstract class DependencyRequest {
       // Only a component production method can be a request for a ListenableFuture, so we
       // special-case it here.
       if (isTypeOf(ListenableFuture.class, type)) {
-        return new AutoValue_DependencyRequest(
-            Kind.FUTURE,
-            keyFactory.forQualifiedType(
-                qualifier, Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())),
-            productionMethod,
-            false /* doesn't allow null */,
-            Optional.<String>absent(),
-            false /* not synthetic */);
+        return DependencyRequest.builder()
+            .kind(Kind.FUTURE)
+            .key(keyFactory.forQualifiedType(
+                qualifier, Iterables.getOnlyElement(((DeclaredType) type).getTypeArguments())))
+            .requestElement(productionMethod)
+            .build();
       } else {
         return newDependencyRequest(productionMethod, type, qualifier, Optional.<String>absent());
       }
@@ -339,34 +366,28 @@ abstract class DependencyRequest {
           MoreTypes.isType(returnType) && MoreTypes.isTypeOf(MembersInjector.class, returnType)
               ? getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments())
               : getOnlyElement(membersInjectionMethodType.getParameterTypes());
-      return new AutoValue_DependencyRequest(
-          Kind.MEMBERS_INJECTOR,
-          keyFactory.forMembersInjectedType(membersInjectedType),
-          membersInjectionMethod,
-          false /* doesn't allow null */,
-          Optional.<String>absent(),
-          false /* not synthetic */);
+      return DependencyRequest.builder()
+          .kind(Kind.MEMBERS_INJECTOR)
+          .key(keyFactory.forMembersInjectedType(membersInjectedType))
+          .requestElement(membersInjectionMethod)
+          .build();
     }
 
     DependencyRequest forMembersInjectedType(DeclaredType type) {
-      return new AutoValue_DependencyRequest(
-          Kind.MEMBERS_INJECTOR,
-          keyFactory.forMembersInjectedType(type),
-          type.asElement(),
-          false /* doesn't allow null */,
-          Optional.<String>absent(),
-          false /* not synthetic */);
+      return DependencyRequest.builder()
+          .kind(Kind.MEMBERS_INJECTOR)
+          .key(keyFactory.forMembersInjectedType(type))
+          .requestElement(type.asElement())
+          .build();
     }
 
     DependencyRequest forProductionImplementationExecutor() {
       Key key = keyFactory.forProductionImplementationExecutor();
-      return new AutoValue_DependencyRequest(
-          Kind.PROVIDER,
-          key,
-          MoreTypes.asElement(key.type()),
-          false /* doesn't allow null */,
-          Optional.<String>absent(),
-          false /* not synthetic */);
+      return DependencyRequest.builder()
+          .kind(Kind.PROVIDER)
+          .key(key)
+          .requestElement(MoreTypes.asElement(key.type()))
+          .build();
     }
 
     DependencyRequest forProductionComponentMonitorProvider() {
@@ -394,13 +415,13 @@ abstract class DependencyRequest {
       // TODO(sameb): should Produced/Producer always require non-nullable?
       boolean allowsNull = !kindAndType.kind().equals(Kind.INSTANCE)
           || ConfigurationAnnotations.getNullableType(requestElement).isPresent();
-      return new AutoValue_DependencyRequest(
-          kindAndType.kind(),
-          keyFactory.forQualifiedType(qualifier, kindAndType.type()),
-          requestElement,
-          allowsNull,
-          name,
-          false /* not synthetic */);
+      return DependencyRequest.builder()
+          .kind(kindAndType.kind())
+          .key(keyFactory.forQualifiedType(qualifier, kindAndType.type()))
+          .requestElement(requestElement)
+          .isNullable(allowsNull)
+          .overriddenVariableName(name)
+          .build();
     }
 
     @AutoValue
