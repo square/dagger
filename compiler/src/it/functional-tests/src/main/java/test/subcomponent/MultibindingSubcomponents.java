@@ -152,6 +152,37 @@ final class MultibindingSubcomponents {
     }
   }
 
+  @Module
+  abstract static class ChildMultibindingModuleWithOnlyBindsMultibindings {
+    @Provides
+    static BoundInParentAndChild provideBoundInParentAndChildForBinds() {
+      return BoundInParentAndChild.IN_CHILD;
+    }
+
+    @Binds
+    @IntoSet
+    abstract BoundInParentAndChild bindsLocalContribution(BoundInParentAndChild instance);
+
+    @Binds
+    @IntoMap
+    @StringKey("child key")
+    abstract BoundInParentAndChild inParentAndChildEntry(BoundInParentAndChild instance);
+
+    @Provides
+    static BoundInChild provideBoundInChildForBinds() {
+      return BoundInChild.INSTANCE;
+    }
+
+    @Binds
+    @IntoSet
+    abstract BoundInChild inChild(BoundInChild instance);
+
+    @Binds
+    @IntoMap
+    @StringKey("child key")
+    abstract BoundInChild inChildEntry(BoundInChild instance);
+  }
+
   interface ProvidesBoundInParent {
     RequiresMultibindings<BoundInParent> requiresMultibindingsBoundInParent();
   }
@@ -211,4 +242,13 @@ final class MultibindingSubcomponents {
   interface Grandchild
       extends ProvidesBoundInParent, ProvidesBoundInParentAndChild, ProvidesBoundInChild,
           ProvidesSetOfRequiresMultibindings {}
+
+  @Component(modules = ParentMultibindingModule.class)
+  interface ParentWithProvisionHasChildWithBinds extends ParentWithProvision {
+    ChildWithBinds childWithBinds();
+  }
+
+  @Subcomponent(modules = ChildMultibindingModuleWithOnlyBindsMultibindings.class)
+  interface ChildWithBinds extends ChildWithProvision {}
+
 }

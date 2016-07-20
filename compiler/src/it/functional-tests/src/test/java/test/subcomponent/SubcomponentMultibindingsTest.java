@@ -225,6 +225,13 @@ public class SubcomponentMultibindingsTest {
                 .requiresMultibindingsBoundInParentAndChild())
         .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
 
+    // https://github.com/google/dagger/issues/401
+    assertThat(
+        DaggerMultibindingSubcomponents_ParentWithProvisionHasChildWithBinds.create()
+            .childWithBinds()
+            .requiresMultibindingsBoundInParentAndChild())
+        .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
+
     /*
      * Even though the multibinding for Set<RequiresMultiboundObjects> does not itself have a
      * contribution from the child, it must be pushed down to (not duplicated in) the child because

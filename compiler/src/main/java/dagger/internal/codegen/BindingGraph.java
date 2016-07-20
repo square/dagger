@@ -19,6 +19,7 @@ package dagger.internal.codegen;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.hasModifiers;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
@@ -302,17 +303,12 @@ abstract class BindingGraph {
           ImmutableSetMultimap<Key, ContributionBinding> explicitBindings,
           ImmutableSetMultimap<Key, MultibindingDeclaration> multibindingDeclarations,
           ImmutableSetMultimap<Key, DelegateDeclaration> delegateDeclarations) {
-        assert parentResolver != null;
-        this.parentResolver = parentResolver;
-        assert componentDescriptor != null;
-        this.componentDescriptor = componentDescriptor;
-        assert explicitBindings != null;
-        this.explicitBindings = explicitBindings;
+        this.parentResolver = checkNotNull(parentResolver);
+        this.componentDescriptor = checkNotNull(componentDescriptor);
+        this.explicitBindings = checkNotNull(explicitBindings);
         this.explicitBindingsSet = ImmutableSet.copyOf(explicitBindings.values());
-        assert multibindingDeclarations != null;
-        this.multibindingDeclarations = multibindingDeclarations;
-        assert delegateDeclarations != null;
-        this.delegateDeclarations = delegateDeclarations;
+        this.multibindingDeclarations = checkNotNull(multibindingDeclarations);
+        this.delegateDeclarations = checkNotNull(delegateDeclarations);
         this.resolvedBindings = Maps.newLinkedHashMap();
         this.explicitMultibindings =
             multibindingContributionsByMultibindingKey(explicitBindingsSet);
@@ -361,11 +357,7 @@ abstract class BindingGraph {
 
             for (Key key : keysMatchingRequest(requestKey)) {
               contributionBindings.addAll(getExplicitBindings(key));
-              contributionBindings.addAll(getDelegateBindings(key));
-
-              multibindingContributionsBuilder.addAll(getExplicitMultibindingContributions(key));
-              multibindingContributionsBuilder.addAll(getDelegateMultibindingContributions(key));
-
+              multibindingContributionsBuilder.addAll(getExplicitMultibindings(key));
               multibindingDeclarationsBuilder.addAll(getMultibindingDeclarations(key));
             }
 
@@ -463,9 +455,7 @@ abstract class BindingGraph {
                 new Function<Key, Iterable<ContributionBinding>>() {
                   @Override
                   public Iterable<ContributionBinding> apply(Key key) {
-                    return Iterables.concat(
-                        getExplicitMultibindingContributions(key),
-                        getDelegateMultibindingContributions(key));
+                    return getExplicitMultibindings(key);
                   }
                 });
       }
@@ -676,25 +666,36 @@ abstract class BindingGraph {
        * this and all ancestor resolvers.
        */
       private ImmutableSet<ContributionBinding> getExplicitBindings(Key requestKey) {
-        ImmutableSet.Builder<ContributionBinding> explicitBindingsForKey = ImmutableSet.builder();
+        ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
+        Key delegateDeclarationKey = keyFactory.convertToDelegateKey(requestKey);
         for (Resolver resolver : getResolverLineage()) {
-          explicitBindingsForKey.addAll(resolver.explicitBindings.get(requestKey));
+          bindings
+              .addAll(resolver.explicitBindings.get(requestKey))
+              .addAll(
+                  createDelegateBindings(
+                      resolver.delegateDeclarations.get(delegateDeclarationKey)));
         }
-        return explicitBindingsForKey.build();
+        return bindings.build();
       }
 
       /**
        * Returns the explicit multibinding contributions that contribute to the map or set requested
        * by {@code requestKey} from this and all ancestor resolvers.
        */
-      private ImmutableSet<ContributionBinding> getExplicitMultibindingContributions(
-          Key requestKey) {
-        ImmutableSet.Builder<ContributionBinding> explicitMultibindingsForKey =
-            ImmutableSet.builder();
+      private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key requestKey) {
+        ImmutableSet.Builder<ContributionBinding> multibindings = ImmutableSet.builder();
+        Key delegateDeclarationKey = keyFactory.convertToDelegateKey(requestKey);
         for (Resolver resolver : getResolverLineage()) {
-          explicitMultibindingsForKey.addAll(resolver.explicitMultibindings.get(requestKey));
+          multibindings.addAll(resolver.explicitMultibindings.get(requestKey));
+          if (!MapType.isMap(requestKey) || MapType.from(requestKey).valuesAreFrameworkType()) {
+            // There are no @Binds @IntoMap delegate declarations for Map<K, V> requests. All
+            // @IntoMap requests must be for Map<K, Framework<V>>.
+            multibindings.addAll(
+                createDelegateBindings(
+                    resolver.delegateMultibindingDeclarations.get(delegateDeclarationKey)));
+          }
         }
-        return explicitMultibindingsForKey.build();
+        return multibindings.build();
       }
 
       /**
@@ -708,37 +709,6 @@ abstract class BindingGraph {
           multibindingDeclarations.addAll(resolver.multibindingDeclarations.get(key));
         }
         return multibindingDeclarations.build();
-      }
-
-      private ImmutableSet<ContributionBinding> getDelegateBindings(Key requestKey) {
-        Key delegateDeclarationKey = keyFactory.convertToDelegateKey(requestKey);
-        ImmutableSet.Builder<ContributionBinding> delegateBindings = ImmutableSet.builder();
-        for (Resolver resolver : getResolverLineage()) {
-          delegateBindings.addAll(
-              createDelegateBindings(resolver.delegateDeclarations.get(delegateDeclarationKey)));
-        }
-        return delegateBindings.build();
-      }
-
-      /**
-       * Returns the delegate multibinding contribution declarations that contribute to the map or
-       * set requested by {@code requestKey} from this and all ancestor resolvers.
-       */
-      private ImmutableSet<ContributionBinding> getDelegateMultibindingContributions(
-          Key requestKey) {
-        if (MapType.isMap(requestKey) && !MapType.from(requestKey).valuesAreFrameworkType()) {
-          // There are no @Binds @IntoMap delegate declarations for Map<K, V> requests. All @IntoMap
-          // requests must be for Map<K, Framework<V>>.
-          return ImmutableSet.of();
-        }
-        Key delegateDeclarationKey = keyFactory.convertToDelegateKey(requestKey);
-        ImmutableSet.Builder<ContributionBinding> delegateMultibindings = ImmutableSet.builder();
-        for (Resolver resolver : getResolverLineage()) {
-          delegateMultibindings.addAll(
-              createDelegateBindings(
-                  resolver.delegateMultibindingDeclarations.get(delegateDeclarationKey)));
-        }
-        return delegateMultibindings.build();
       }
 
       private Optional<ResolvedBindings> getPreviouslyResolvedBindings(
@@ -925,10 +895,12 @@ abstract class BindingGraph {
         }
 
         private boolean isMultibindingsWithLocalContributions(ResolvedBindings resolvedBindings) {
+          Key key = resolvedBindings.key();
           return FluentIterable.from(resolvedBindings.contributionBindings())
                   .transform(ContributionBinding.KIND)
                   .anyMatch(IS_SYNTHETIC_MULTIBINDING_KIND)
-              && explicitMultibindings.containsKey(resolvedBindings.key());
+              && !getExplicitMultibindings(key)
+                  .equals(parentResolver.get().getExplicitMultibindings(key));
         }
       }
     }
