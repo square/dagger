@@ -13,11 +13,11 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+
 package test.nullables;
 
-import javax.inject.Provider;
-
 import dagger.Component;
+import javax.inject.Provider;
 
 @Component(modules = NullModule.class)
 interface NullComponent {

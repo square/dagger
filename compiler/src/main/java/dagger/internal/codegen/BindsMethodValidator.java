@@ -13,7 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.BINDS_ELEMENTS_INTO_SET_METHOD_RETURN_SET;
+import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER;
+import static dagger.internal.codegen.MapKeys.getMapKeys;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -30,20 +40,11 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
-import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_NOT_MAP_HAS_MAP_KEY;
-import static dagger.internal.codegen.ErrorMessages.BINDS_ELEMENTS_INTO_SET_METHOD_RETURN_SET;
-import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER;
-import static dagger.internal.codegen.MapKeys.getMapKeys;
 
 /**
  * A validator for {@link Binds} methods.
@@ -68,15 +69,6 @@ final class BindsMethodValidator extends BindingMethodValidator {
   protected void checkMethod(ValidationReport.Builder<ExecutableElement> builder) {
     super.checkMethod(builder);
     checkParameters(builder);
-  }
-
-  @Override // TODO(dpb, ronshapiro): When @Binds methods support @IntoMap, stop overriding.
-  protected void checkMapKeys(ValidationReport.Builder<ExecutableElement> builder) {
-    if (!isAnnotationPresent(builder.getSubject(), IntoMap.class)) {
-      for (AnnotationMirror mapKey : getMapKeys(builder.getSubject())) {
-        builder.addError(BINDING_METHOD_NOT_MAP_HAS_MAP_KEY, builder.getSubject(), mapKey);
-      }
-    }
   }
 
   private void checkParameters(ValidationReport.Builder<ExecutableElement> builder) {

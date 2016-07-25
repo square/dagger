@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package producerstest.multibindings;
 
 import com.google.common.collect.ImmutableSet;
@@ -28,8 +29,8 @@ import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
 import java.util.Map;
 import java.util.Set;
-import producerstest.multibindings.Qualifiers.ObjCount;
 import producerstest.multibindings.Qualifiers.EmptyButDeclaredInModuleAndProducerModule;
+import producerstest.multibindings.Qualifiers.ObjCount;
 import producerstest.multibindings.Qualifiers.PossiblyThrowingMap;
 import producerstest.multibindings.Qualifiers.PossiblyThrowingSet;
 

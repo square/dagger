@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.truth.Truth.assertThat;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -27,9 +31,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertThat;
-import static javax.lang.model.util.ElementFilter.methodsIn;
 
 @RunWith(JUnit4.class)
 public class MethodSignatureFormatterTest {

@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static dagger.internal.codegen.ErrorMessages.MULTIBINDING_ANNOTATION_NOT_ON_BINDING_METHOD;
+import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.common.collect.ImmutableSet;
@@ -31,10 +36,6 @@ import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.tools.Diagnostic.Kind;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static dagger.internal.codegen.ErrorMessages.MULTIBINDING_ANNOTATION_NOT_ON_BINDING_METHOD;
-import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
 
 /**
  * Processing step which verifies that {@link IntoSet @IntoSet}, {@link ElementsIntoSet

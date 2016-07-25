@@ -13,7 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.ErrorMessages.MAPKEY_WITHOUT_MEMBERS;
+import static dagger.internal.codegen.ErrorMessages.UNWRAPPED_MAP_KEY_WITH_ARRAY_MEMBER;
+import static dagger.internal.codegen.ErrorMessages.UNWRAPPED_MAP_KEY_WITH_TOO_MANY_MEMBERS;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 import dagger.MapKey;
 import java.util.List;
@@ -21,11 +27,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
-
-import static dagger.internal.codegen.ErrorMessages.MAPKEY_WITHOUT_MEMBERS;
-import static dagger.internal.codegen.ErrorMessages.UNWRAPPED_MAP_KEY_WITH_ARRAY_MEMBER;
-import static dagger.internal.codegen.ErrorMessages.UNWRAPPED_MAP_KEY_WITH_TOO_MANY_MEMBERS;
-import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
  * A validator for {@link MapKey} annotations.

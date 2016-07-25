@@ -13,7 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -41,14 +50,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
-import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
-import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 /**
  * Maintains the collection of provision bindings from {@link Inject} constructors and members
@@ -133,7 +134,7 @@ final class InjectBindingRegistry {
       // We only cache resolved bindings or unresolved bindings w/o type arguments.
       // Unresolved bindings w/ type arguments aren't valid for the object graph.
       if (binding.unresolved().isPresent()
-          || binding.bindingTypeElement().getTypeParameters().isEmpty()) {
+          || binding.bindingTypeElement().get().getTypeParameters().isEmpty()) {
         Key key = binding.key();
         Binding previousValue = bindingsByKey.put(key, binding);
         checkState(previousValue == null || binding.equals(previousValue),

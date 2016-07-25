@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.example.dagger.activitygraphs;
 
 import android.app.Application;
 import android.location.LocationManager;
-import javax.inject.Singleton;
 import javax.inject.Inject;
 
 public class DemoApplication extends Application {

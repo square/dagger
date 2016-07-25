@@ -13,7 +13,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreTypes.asDeclared;
+import static com.google.auto.common.MoreTypes.asExecutable;
+import static com.google.auto.common.MoreTypes.asTypeElements;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Predicates.or;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.indexOf;
+import static com.google.common.collect.Maps.filterKeys;
+import static dagger.internal.codegen.BindingDeclaration.HAS_BINDING_ELEMENT;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
+import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
+import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
+import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
+import static dagger.internal.codegen.ContributionType.indexByContributionType;
+import static dagger.internal.codegen.ErrorMessages.CANNOT_INJECT_WILDCARD_TYPE;
+import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
+import static dagger.internal.codegen.ErrorMessages.INDENT;
+import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
+import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
+import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
+import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
+import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.Scope.reusableScope;
+import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static javax.tools.Diagnostic.Kind.ERROR;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -67,48 +114,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.auto.common.MoreTypes.asDeclared;
-import static com.google.auto.common.MoreTypes.asExecutable;
-import static com.google.auto.common.MoreTypes.asTypeElements;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Predicates.or;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.indexOf;
-import static com.google.common.collect.Maps.filterKeys;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
-import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
-import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
-import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
-import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
-import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_DELEGATE_BINDING;
-import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
-import static dagger.internal.codegen.ContributionType.indexByContributionType;
-import static dagger.internal.codegen.ErrorMessages.CANNOT_INJECT_WILDCARD_TYPE;
-import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
-import static dagger.internal.codegen.ErrorMessages.INDENT;
-import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
-import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
-import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
-import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
-import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
-import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
-import static dagger.internal.codegen.Scope.reusableScope;
-import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
-import static javax.tools.Diagnostic.Kind.ERROR;
 
 /** Reports errors in the shape of the binding graph. */
 final class BindingGraphValidator {
@@ -425,10 +430,7 @@ final class BindingGraphValidator {
             }
           }
           if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
-            ImmutableSet<ContributionBinding> multibindings =
-                inlineSyntheticNondelegateContributions(resolvedBindings).contributionBindings();
-            validateMapKeySet(path, multibindings);
-            validateMapKeyAnnotationTypes(path, multibindings);
+            validateMapKeys(path, contributionBinding);
           }
           break;
         case MEMBERS_INJECTION:
@@ -451,32 +453,28 @@ final class BindingGraphValidator {
 
     /**
      * Returns an object that contains all the same bindings as {@code resolvedBindings}, except
-     * that any synthetic {@link ContributionBinding}s are replaced by the contribution bindings and
-     * multibinding declarations of their dependencies.
+     * that any {@link ContributionBinding}s without {@linkplain Binding#bindingElement() binding
+     * elements} are replaced by the contribution bindings and multibinding declarations of their
+     * dependencies.
      *
      * <p>For example, if:
      *
      * <ul>
      * <li>The bindings for {@code key1} are {@code A} and {@code B}, with multibinding declaration
      *     {@code X}.
-     * <li>{@code B} is a synthetic binding with a dependency on {@code key2}.
+     * <li>{@code B} is a binding without a binding element that has a dependency on {@code key2}.
      * <li>The bindings for {@code key2} are {@code C} and {@code D}, with multibinding declaration
      *     {@code Y}.
      * </ul>
      *
-     * then {@code inlineSyntheticNondelegateContributions(bindingsForKey1)} has bindings {@code A},
-     * {@code C}, and {@code D}, with multibinding declarations {@code X} and {@code Y}.
+     * then {@code inlineContributionsWithoutBindingElements(bindingsForKey1)} has bindings {@code
+     * A}, {@code C}, and {@code D}, with multibinding declarations {@code X} and {@code Y}.
      *
-     * <p>The replacement is repeated until none of the bindings are synthetic.
+     * <p>The replacement is repeated until all of the bindings have elements.
      */
-    // TODO(dpb): The actual operation we want is to inline bindings without real binding elements.
-    // Delegate bindings are the first example of synthetic bindings that have real binding elements
-    // and nonsynthetic dependencies.
-    private ResolvedBindings inlineSyntheticNondelegateContributions(
+    private ResolvedBindings inlineContributionsWithoutBindingElements(
         ResolvedBindings resolvedBinding) {
-      if (!FluentIterable.from(resolvedBinding.contributionBindings())
-          .transform(ContributionBinding.KIND)
-          .anyMatch(IS_SYNTHETIC_KIND)) {
+      if (Iterables.all(resolvedBinding.bindings(), HAS_BINDING_ELEMENT)) {
         return resolvedBinding;
       }
 
@@ -494,13 +492,12 @@ final class BindingGraphValidator {
             queued.allContributionBindings().entries()) {
           BindingGraph owningGraph = validationForComponent(bindingEntry.getKey()).subject;
           ContributionBinding binding = bindingEntry.getValue();
-          if (binding.isSyntheticBinding()
-              && !binding.bindingKind().equals(SYNTHETIC_DELEGATE_BINDING)) {
+          if (binding.bindingElement().isPresent()) {
+            contributions.put(bindingEntry);
+          } else {
             for (DependencyRequest dependency : binding.dependencies()) {
               queue.add(owningGraph.resolvedBindings().get(dependency.bindingKey()));
             }
-          } else {
-            contributions.put(bindingEntry);
           }
         }
       }
@@ -513,7 +510,7 @@ final class BindingGraphValidator {
 
     private ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType(
         ResolvedBindings resolvedBinding) {
-      ResolvedBindings inlined = inlineSyntheticNondelegateContributions(resolvedBinding);
+      ResolvedBindings inlined = inlineContributionsWithoutBindingElements(resolvedBinding);
       return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
           .putAll(indexByContributionType(inlined.contributionBindings()))
           .putAll(indexByContributionType(inlined.multibindingDeclarations()))
@@ -543,6 +540,23 @@ final class BindingGraphValidator {
               request.requestElement());
         }
       }
+    }
+
+    private void validateMapKeys(
+        DependencyPath path, ContributionBinding binding) {
+      checkArgument(binding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP),
+          "binding must be a synthetic multibound map: %s",
+          binding);
+      ImmutableSet.Builder<ContributionBinding> multibindingContributionsBuilder =
+          ImmutableSet.builder();
+      for (DependencyRequest dependency : binding.dependencies()) {
+        multibindingContributionsBuilder.add(
+            subject.resolvedBindings().get(dependency.bindingKey()).contributionBinding());
+      }
+      ImmutableSet<ContributionBinding> multibindingContributions =
+          multibindingContributionsBuilder.build();
+      validateMapKeySet(path, multibindingContributions);
+      validateMapKeyAnnotationTypes(path, multibindingContributions);
     }
 
     /**
@@ -904,13 +918,13 @@ final class BindingGraphValidator {
               case PROVISION:
                 incompatiblyScopedMethodsBuilder.add(
                     methodSignatureFormatter.format(
-                        contributionBinding.bindingElementAsExecutable()));
+                        MoreElements.asExecutable(contributionBinding.bindingElement().get())));
                 break;
               case INJECTION:
                 incompatiblyScopedMethodsBuilder.add(
                     bindingScope.get().getReadableSource()
                         + " class "
-                        + contributionBinding.bindingTypeElement().getQualifiedName());
+                        + contributionBinding.bindingTypeElement().get().getQualifiedName());
                 break;
               default:
                 throw new IllegalStateException();
@@ -947,15 +961,17 @@ final class BindingGraphValidator {
       if (path.size() == 1) {
         new Formatter(errorMessage)
             .format(
-                ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                formatRootRequestKey(path));
+                PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                formatCurrentDependencyRequestKey(path));
       } else {
         ImmutableSet<? extends Binding> dependentProvisions =
             provisionsDependingOnLatestRequest(path);
         // TODO(beder): Consider displaying all dependent provisions in the error message. If we do
         // that, should we display all productions that depend on them also?
-        new Formatter(errorMessage).format(ErrorMessages.PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-            keyFormatter.format(dependentProvisions.iterator().next().key()));
+        new Formatter(errorMessage)
+            .format(
+                PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                dependentProvisions.iterator().next().key());
       }
       reportBuilder.addError(errorMessage.toString(), path.entryPointElement());
     }
@@ -983,8 +999,9 @@ final class BindingGraphValidator {
               : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
         }
       }
-      StringBuilder errorMessage = new StringBuilder(
-          String.format(requiresErrorMessageFormat, keyFormatter.format(key)));
+      StringBuilder errorMessage =
+          new StringBuilder(
+              String.format(requiresErrorMessageFormat, formatCurrentDependencyRequestKey(path)));
       if (key.isValidMembersInjectionKey()) {
         Optional<MembersInjectionBinding> membersInjectionBinding =
             injectBindingRegistry.getOrFindMembersInjectionBinding(key);
@@ -1010,10 +1027,10 @@ final class BindingGraphValidator {
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
     private void reportDependsOnProductionExecutor(DependencyPath path) {
-      StringBuilder builder = new StringBuilder();
-      new Formatter(builder)
-          .format(ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatRootRequestKey(path));
-      reportBuilder.addError(builder.toString(), path.entryPointElement());
+      reportBuilder.addError(
+          String.format(
+              DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatCurrentDependencyRequestKey(path)),
+          path.entryPointElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
@@ -1030,9 +1047,9 @@ final class BindingGraphValidator {
       }
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
-          .format(ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatRootRequestKey(path));
+          .format(DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
       ImmutableSet<ContributionBinding> duplicateBindings =
-          inlineSyntheticNondelegateContributions(resolvedBindings).contributionBindings();
+          inlineContributionsWithoutBindingElements(resolvedBindings).contributionBindings();
       bindingDeclarationFormatter.formatIndentedList(
           builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
       owningReportBuilder(duplicateBindings).addError(builder.toString(), path.entryPointElement());
@@ -1046,8 +1063,8 @@ final class BindingGraphValidator {
         Iterable<ContributionBinding> duplicateBindings) {
       ImmutableSet.Builder<ComponentDescriptor> owningComponentsBuilder = ImmutableSet.builder();
       for (ContributionBinding binding : duplicateBindings) {
-        BindingKey bindingKey = BindingKey.create(BindingKey.Kind.CONTRIBUTION, binding.key());
-        ResolvedBindings resolvedBindings = subject.resolvedBindings().get(bindingKey);
+        ResolvedBindings resolvedBindings =
+            subject.resolvedBindings().get(BindingKey.contribution(binding.key()));
         owningComponentsBuilder.addAll(
             resolvedBindings.allContributionBindings().inverse().get(binding));
       }
@@ -1078,7 +1095,8 @@ final class BindingGraphValidator {
     private void reportMultipleContributionTypes(DependencyPath path) {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
-          .format(MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatRootRequestKey(path));
+          .format(
+              MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
       ResolvedBindings resolvedBindings = path.currentResolvedBindings();
       ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType =
           declarationsByType(resolvedBindings);
@@ -1102,7 +1120,7 @@ final class BindingGraphValidator {
     private void reportDuplicateMapKeys(
         DependencyPath path, Collection<ContributionBinding> mapBindings) {
       StringBuilder builder = new StringBuilder();
-      builder.append(duplicateMapKeysError(formatRootRequestKey(path)));
+      builder.append(duplicateMapKeysError(formatCurrentDependencyRequestKey(path)));
       bindingDeclarationFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
       reportBuilder.addError(builder.toString(), path.entryPointElement());
     }
@@ -1112,7 +1130,8 @@ final class BindingGraphValidator {
         Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
             mapBindingsByAnnotationType) {
       StringBuilder builder =
-          new StringBuilder(inconsistentMapKeyAnnotationsError(formatRootRequestKey(path)));
+          new StringBuilder(
+              inconsistentMapKeyAnnotationsError(formatCurrentDependencyRequestKey(path)));
       for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
           mapBindingsByAnnotationType.asMap().entrySet()) {
         DeclaredType annotationType = entry.getKey().get();
@@ -1169,6 +1188,7 @@ final class BindingGraphValidator {
                   switch (dependencyRequest.kind()) {
                     case PROVIDER:
                     case LAZY:
+                    case PROVIDER_OF_LAZY:
                       return true;
 
                     case INSTANCE:
@@ -1274,7 +1294,7 @@ final class BindingGraphValidator {
     }
   }
 
-  private String formatRootRequestKey(DependencyPath path) {
+  private String formatCurrentDependencyRequestKey(DependencyPath path) {
     return keyFormatter.format(path.currentDependencyRequest().key());
   }
 

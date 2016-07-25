@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.truth.Truth.assertAbout;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.JavaFileObjects;
@@ -21,9 +25,6 @@ import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.common.truth.Truth.assertAbout;
-import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 /**
  * Unit tests for {@link BindingGraphValidator} that exercise producer-specific logic.
@@ -336,9 +337,8 @@ public class ProductionGraphValidationTest {
             "  }",
             "}");
     String expectedError =
-        "@Provides @dagger.multibindings.IntoSet"
-            + " dagger.producers.monitoring.ProductionComponentMonitor.Factory"
-            + " test.TestClass.MonitoringModule.monitorFactory(test.TestClass.A) is a provision,"
+        "java.util.Set<dagger.producers.monitoring.ProductionComponentMonitor.Factory>"
+            + " test.TestClass.MonitoringModule#monitorFactory is a provision,"
             + " which cannot depend on a production.";
     assertAbout(javaSources()).that(ImmutableList.of(EXECUTOR_MODULE, component))
         .processedWith(new ComponentProcessor())

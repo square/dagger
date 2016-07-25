@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.membersinject;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import dagger.MembersInjector;
 import javax.inject.Provider;
@@ -25,8 +28,6 @@ import test.multipackage.MembersInjectionVisibilityComponent;
 import test.multipackage.a.AGrandchild;
 import test.multipackage.a.AParent;
 import test.multipackage.b.BChild;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class MembersInjectTest {

@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger;
+
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import dagger.internal.Beta;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import javax.inject.Scope;
-
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * A scope that indicates that the object returned by a binding may be (but might not be) reused.

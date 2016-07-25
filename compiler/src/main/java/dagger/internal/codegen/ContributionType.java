@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;
@@ -24,8 +27,6 @@ import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
 import dagger.producers.Produces;
 import javax.lang.model.element.ExecutableElement;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 
 /**
  * Whether a binding or declaration is for a unique contribution or a map or set multibinding.

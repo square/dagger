@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.multipackage.a;
 
 import java.util.Map;
 import java.util.Set;
-
 import javax.inject.Inject;
-
 import test.multipackage.a.AModule.Inaccessible;
 
 @SuppressWarnings("unused")

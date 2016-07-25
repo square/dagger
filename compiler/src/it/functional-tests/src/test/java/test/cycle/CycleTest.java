@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.cycle;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,8 +28,6 @@ import test.cycle.Cycles.CycleComponent;
 import test.cycle.Cycles.CycleMapComponent;
 import test.cycle.Cycles.S;
 import test.cycle.Cycles.SelfCycleComponent;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class CycleTest {

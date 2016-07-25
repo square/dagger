@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal;
+
+import static dagger.internal.Preconditions.checkNotNull;
 
 import dagger.Lazy;
 import javax.inject.Provider;
-
-import static dagger.internal.Preconditions.checkNotNull;
 
 /**
  * A {@link Lazy} and {@link Provider} implementation that memoizes the value returned from a

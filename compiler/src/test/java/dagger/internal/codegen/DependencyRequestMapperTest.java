@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
 import com.google.testing.compile.CompilationRule;
@@ -39,8 +42,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static com.google.common.truth.Truth.assertThat;
-
 /**
  * Test case for {@link DependencyRequestMapper}.
  */
@@ -56,7 +57,7 @@ public class DependencyRequestMapperTest {
   @Before public void setUp() {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
-    this.keyFactory = new Key.Factory(types, elements, new MethodSignatureFormatter(types));
+    this.keyFactory = new Key.Factory(types, elements);
     this.dependencyRequestFactory = new DependencyRequest.Factory(elements, keyFactory);
   }
 

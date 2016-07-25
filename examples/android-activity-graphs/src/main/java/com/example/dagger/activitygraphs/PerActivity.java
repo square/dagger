@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.example.dagger.activitygraphs;
+
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import javax.inject.Scope;
-
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * A scoping annotation to permit objects whose lifetime should

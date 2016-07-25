@@ -13,14 +13,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-package test;
 
-import dagger.Lazy;
-import javax.inject.Provider;
-import org.junit.experimental.theories.DataPoint;
-import org.junit.experimental.theories.Theories;
-import org.junit.experimental.theories.Theory;
-import org.junit.runner.RunWith;
+package test;
 
 import static com.google.common.truth.Truth.assertThat;
 import static test.PrimitivesModule.BOUND_BOOLEAN;
@@ -39,6 +33,13 @@ import static test.PrimitivesModule.BOUND_LONG;
 import static test.PrimitivesModule.BOUND_LONG_ARRAY;
 import static test.PrimitivesModule.BOUND_SHORT;
 import static test.PrimitivesModule.BOUND_SHORT_ARRAY;
+
+import dagger.Lazy;
+import javax.inject.Provider;
+import org.junit.experimental.theories.DataPoint;
+import org.junit.experimental.theories.Theories;
+import org.junit.experimental.theories.Theory;
+import org.junit.runner.RunWith;
 
 @RunWith(Theories.class)
 public class BasicTest {

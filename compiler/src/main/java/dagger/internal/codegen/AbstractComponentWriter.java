@@ -13,7 +13,63 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.squareup.javapoet.MethodSpec.constructorBuilder;
+import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
+import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
+import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
+import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
+import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
+import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
+import static dagger.internal.codegen.MemberSelect.emptySetProvider;
+import static dagger.internal.codegen.MemberSelect.localField;
+import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
+import static dagger.internal.codegen.MemberSelect.staticMethod;
+import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
+import static dagger.internal.codegen.Scope.reusableScope;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
+import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
+import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
+import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
+import static dagger.internal.codegen.TypeNames.FACTORY;
+import static dagger.internal.codegen.TypeNames.ILLEGAL_STATE_EXCEPTION;
+import static dagger.internal.codegen.TypeNames.INSTANCE_FACTORY;
+import static dagger.internal.codegen.TypeNames.LISTENABLE_FUTURE;
+import static dagger.internal.codegen.TypeNames.MAP_FACTORY;
+import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCED_PRODUCER;
+import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCER_PRODUCER;
+import static dagger.internal.codegen.TypeNames.MAP_PRODUCER;
+import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
+import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
+import static dagger.internal.codegen.TypeNames.PRODUCER;
+import static dagger.internal.codegen.TypeNames.PRODUCERS;
+import static dagger.internal.codegen.TypeNames.SET_FACTORY;
+import static dagger.internal.codegen.TypeNames.SET_OF_PRODUCED_PRODUCER;
+import static dagger.internal.codegen.TypeNames.SET_PRODUCER;
+import static dagger.internal.codegen.TypeNames.SINGLE_CHECK;
+import static dagger.internal.codegen.TypeNames.STRING;
+import static dagger.internal.codegen.TypeNames.UNSUPPORTED_OPERATION_EXCEPTION;
+import static dagger.internal.codegen.TypeSpecs.addSupertype;
+import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static dagger.internal.codegen.Util.requiresAPassedInstance;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.type.TypeKind.DECLARED;
+import static javax.lang.model.type.TypeKind.VOID;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -63,63 +119,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-
-import static com.google.common.base.CaseFormat.LOWER_CAMEL;
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.squareup.javapoet.MethodSpec.constructorBuilder;
-import static com.squareup.javapoet.MethodSpec.methodBuilder;
-import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
-import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
-import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
-import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
-import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
-import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
-import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
-import static dagger.internal.codegen.MemberSelect.emptySetProvider;
-import static dagger.internal.codegen.MemberSelect.localField;
-import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
-import static dagger.internal.codegen.MemberSelect.staticMethod;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
-import static dagger.internal.codegen.Scope.reusableScope;
-import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
-import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
-import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
-import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
-import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
-import static dagger.internal.codegen.TypeNames.FACTORY;
-import static dagger.internal.codegen.TypeNames.ILLEGAL_STATE_EXCEPTION;
-import static dagger.internal.codegen.TypeNames.INSTANCE_FACTORY;
-import static dagger.internal.codegen.TypeNames.LISTENABLE_FUTURE;
-import static dagger.internal.codegen.TypeNames.MAP_FACTORY;
-import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCED_PRODUCER;
-import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCER_PRODUCER;
-import static dagger.internal.codegen.TypeNames.MAP_PRODUCER;
-import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
-import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
-import static dagger.internal.codegen.TypeNames.PRODUCER;
-import static dagger.internal.codegen.TypeNames.PRODUCERS;
-import static dagger.internal.codegen.TypeNames.SET_FACTORY;
-import static dagger.internal.codegen.TypeNames.SET_OF_PRODUCED_PRODUCER;
-import static dagger.internal.codegen.TypeNames.SET_PRODUCER;
-import static dagger.internal.codegen.TypeNames.SINGLE_CHECK;
-import static dagger.internal.codegen.TypeNames.STRING;
-import static dagger.internal.codegen.TypeNames.UNSUPPORTED_OPERATION_EXCEPTION;
-import static dagger.internal.codegen.TypeSpecs.addSupertype;
-import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
-import static dagger.internal.codegen.Util.requiresAPassedInstance;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.type.TypeKind.DECLARED;
-import static javax.lang.model.type.TypeKind.VOID;
 
 /**
  * Creates the implementation class for a component or subcomponent.
@@ -936,14 +935,11 @@ abstract class AbstractComponentWriter {
 
       case COMPONENT_PROVISION:
         {
-          TypeElement bindingTypeElement =
-              graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
-          String localFactoryVariable = simpleVariableName(bindingTypeElement);
+          TypeElement dependencyType = dependencyTypeForBinding(binding);
+          String dependencyVariable = simpleVariableName(dependencyType);
           CodeBlock callFactoryMethod =
               CodeBlock.of(
-                  "$L.$L()",
-                  localFactoryVariable,
-                  binding.bindingElement().getSimpleName().toString());
+                  "$L.$L()", dependencyVariable, binding.bindingElement().get().getSimpleName());
           // TODO(sameb): This throws a very vague NPE right now.  The stack trace doesn't
           // help to figure out what the method or return type is.  If we include a string
           // of the return type or method name in the error message, that can defeat obfuscation.
@@ -969,10 +965,10 @@ abstract class AbstractComponentWriter {
                       "}"),
               /* 1 */ FACTORY,
               /* 2 */ bindingKeyTypeName,
-              /* 3 */ getComponentContributionExpression(bindingTypeElement),
+              /* 3 */ getComponentContributionExpression(dependencyType),
               /* 4 */ nullableAnnotation(binding.nullableType()),
-              /* 5 */ TypeName.get(bindingTypeElement.asType()),
-              /* 6 */ localFactoryVariable,
+              /* 5 */ TypeName.get(dependencyType.asType()),
+              /* 6 */ dependencyVariable,
               /* 7 */ getMethodBody);
         }
 
@@ -987,15 +983,14 @@ abstract class AbstractComponentWriter {
                     "}"),
             /* 1 */ FACTORY,
             /* 2 */ bindingKeyTypeName,
-            /* 3 */ binding.bindingElement().getSimpleName().toString());
+            /* 3 */ binding.bindingElement().get().getSimpleName());
 
       case INJECTION:
       case PROVISION:
         {
           List<CodeBlock> arguments =
               Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
-          if (binding.bindingKind().equals(PROVISION)
-              && !binding.bindingElement().getModifiers().contains(STATIC)) {
+          if (binding.requiresModuleInstance()) {
             arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
           arguments.addAll(getDependencyArguments(binding));
@@ -1012,8 +1007,7 @@ abstract class AbstractComponentWriter {
 
       case COMPONENT_PRODUCTION:
         {
-          TypeElement bindingTypeElement =
-              graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement());
+          TypeElement dependencyType = dependencyTypeForBinding(binding);
           return CodeBlock.of(
               Joiner.on('\n')
                   .join(
@@ -1026,10 +1020,10 @@ abstract class AbstractComponentWriter {
               /* 1 */ PRODUCER,
               /* 2 */ TypeName.get(binding.key().type()),
               /* 3 */ LISTENABLE_FUTURE,
-              /* 4 */ getComponentContributionExpression(bindingTypeElement),
-              /* 5 */ binding.bindingElement().getSimpleName().toString(),
-              /* 6 */ TypeName.get(bindingTypeElement.asType()),
-              /* 7 */ simpleVariableName(bindingTypeElement));
+              /* 4 */ getComponentContributionExpression(dependencyType),
+              /* 5 */ binding.bindingElement().get().getSimpleName(),
+              /* 6 */ TypeName.get(dependencyType.asType()),
+              /* 7 */ simpleVariableName(dependencyType));
         }
 
       case IMMEDIATE:
@@ -1037,8 +1031,8 @@ abstract class AbstractComponentWriter {
         {
           List<CodeBlock> arguments =
               Lists.newArrayListWithCapacity(binding.implicitDependencies().size() + 2);
-          if (!binding.bindingElement().getModifiers().contains(STATIC)) {
-            arguments.add(getComponentContributionExpression(binding.bindingTypeElement()));
+          if (binding.requiresModuleInstance()) {
+            arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
           arguments.addAll(getDependencyArguments(binding));
 
@@ -1063,6 +1057,10 @@ abstract class AbstractComponentWriter {
       default:
         throw new AssertionError(binding.toString());
     }
+  }
+
+  private TypeElement dependencyTypeForBinding(ContributionBinding binding) {
+    return graph.componentDescriptor().dependencyMethodIndex().get(binding.bindingElement().get());
   }
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {

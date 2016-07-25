@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.producers;
 
-import dagger.internal.Beta;
-import com.google.common.util.concurrent.ListenableFuture;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+package dagger.producers;
 
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import dagger.internal.Beta;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
 /**
  * Annotates methods of a producer module to create a production binding. If the method returns

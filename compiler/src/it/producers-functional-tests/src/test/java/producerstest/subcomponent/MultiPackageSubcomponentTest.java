@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package producerstest.subcomponent;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import producerstest.subcomponent.MultiPackageSubcomponents.ParentComponent;
-import producerstest.subcomponent.sub.ChildComponent;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import producerstest.subcomponent.MultiPackageSubcomponents.ParentComponent;
+import producerstest.subcomponent.sub.ChildComponent;
 
 @RunWith(JUnit4.class)
 public final class MultiPackageSubcomponentTest {

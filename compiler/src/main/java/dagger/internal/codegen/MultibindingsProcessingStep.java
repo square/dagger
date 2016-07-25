@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static javax.lang.model.util.ElementFilter.typesIn;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.common.collect.ImmutableSet;
@@ -24,8 +27,6 @@ import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
-
-import static javax.lang.model.util.ElementFilter.typesIn;
 
 /**
  * Processes elements annotated with {@link Multibindings @Multibindings}.

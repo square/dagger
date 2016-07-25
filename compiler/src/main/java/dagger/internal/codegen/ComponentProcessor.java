@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.ModuleProcessingStep.moduleProcessingStep;
+import static dagger.internal.codegen.ModuleProcessingStep.producerModuleProcessingStep;
 
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
@@ -25,9 +29,6 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static dagger.internal.codegen.ModuleProcessingStep.moduleProcessingStep;
-import static dagger.internal.codegen.ModuleProcessingStep.producerModuleProcessingStep;
 
 /**
  * The annotation processor responsible for generating the classes that drive the Dagger 2.0
@@ -68,7 +69,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new BindingDeclarationFormatter(methodSignatureFormatter);
     DependencyRequestFormatter dependencyRequestFormatter =
         new DependencyRequestFormatter(types, elements);
-    KeyFormatter keyFormatter = new KeyFormatter(methodSignatureFormatter);
+    KeyFormatter keyFormatter = new KeyFormatter();
 
     InjectValidator injectValidator = new InjectValidator(types, elements, compilerOptions);
     InjectValidator injectValidatorWhenGeneratingCode = injectValidator.whenGeneratingCode();
@@ -90,7 +91,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MultibindingsMethodValidator multibindingsMethodValidator =
         new MultibindingsMethodValidator(elements, types);
 
-    Key.Factory keyFactory = new Key.Factory(types, elements, methodSignatureFormatter);
+    Key.Factory keyFactory = new Key.Factory(types, elements);
 
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.cycle;
 
 import dagger.Binds;
@@ -23,9 +24,7 @@ import dagger.Provides;
 import dagger.Subcomponent;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.StringKey;
-
 import java.util.Map;
-
 import javax.inject.Inject;
 import javax.inject.Provider;
 
@@ -64,6 +63,7 @@ final class Cycles {
   static class C {
     public final Provider<A> aProvider;
     @Inject public Lazy<A> aLazy;
+    @Inject public Provider<Lazy<A>> aLazyProvider;
 
     @Inject
     C(Provider<A> aProvider) {

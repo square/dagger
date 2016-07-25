@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static javax.tools.Diagnostic.Kind.ERROR;
+import static javax.tools.Diagnostic.Kind.NOTE;
+import static javax.tools.Diagnostic.Kind.WARNING;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
@@ -27,10 +32,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.SimpleElementVisitor6;
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
-
-import static javax.tools.Diagnostic.Kind.ERROR;
-import static javax.tools.Diagnostic.Kind.NOTE;
-import static javax.tools.Diagnostic.Kind.WARNING;
 
 /**
  * A collection of items describing contractual issues with the code as presented to an annotation

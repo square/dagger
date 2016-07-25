@@ -13,7 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asExecutable;
+import static com.google.common.base.Optional.presentInstances;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
+import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
+import static javax.lang.model.element.ElementKind.METHOD;
 
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
@@ -21,7 +34,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
-import com.google.common.base.MoreObjects;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +53,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import javax.inject.Provider;
-import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -54,18 +66,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.auto.common.MoreTypes.asExecutable;
-import static com.google.common.base.Optional.presentInstances;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.MapKeys.getMapKey;
-import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
-import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
  * Represents a unique combination of {@linkplain TypeMirror type} and
@@ -101,29 +101,55 @@ abstract class Key {
   abstract Equivalence.Wrapper<TypeMirror> wrappedType();
 
   /**
-   * Absent except for multibinding contributions. Each multibound map and set is represented by a
-   * {@linkplain ProvisionBinding.Factory#syntheticMultibinding(DependencyRequest, Iterable)
-   * synthetic binding} that depends on the specific contributions to that map or set. Each such
-   * contribution binding therefore needs a key that identifies the specific binding, and not only
-   * the qualified type that is bound.
+   * Distinguishes keys for multibinding contributions that share a {@link #type()} and {@link
+   * #qualifier()}.
    *
-   * <p>For nonsynthetic multibinding contributions, this should be a human-readable string that
-   * identifies the method and contributing module.
+   * <p>Each multibound map and set has a {@linkplain
+   * ProvisionBinding.Factory#syntheticMultibinding(DependencyRequest, Iterable) synthetic
+   * multibinding} that depends on the specific contributions to that map or set using keys that
+   * identify those multibinding contributions.
+   *
+   * <p>Absent except for multibinding contributions.
    */
-  abstract Optional<BindingIdentifier> bindingIdentifier();
+  abstract Optional<MultibindingContributionIdentifier> multibindingContributionIdentifier();
 
-  /** An object that uniquely identifies a multibinding contribution binding. */
-  @AutoValue
-  abstract static class BindingIdentifier {
-    abstract String string();
+  /**
+   * An object that identifies a multibinding contribution method and the module class that
+   * contributes it to the graph.
+   *
+   * @see Key#multibindingContributionIdentifier()
+   */
+  static final class MultibindingContributionIdentifier {
+    private final String identifierString;
 
-    @Override
-    public final String toString() {
-      return string();
+    MultibindingContributionIdentifier(
+        ExecutableElement bindingMethod, TypeElement contributingModule) {
+      this.identifierString =
+          String.format(
+              "%s#%s", contributingModule.getQualifiedName(), bindingMethod.getSimpleName());
     }
 
-    static BindingIdentifier create(String string) {
-      return new AutoValue_Key_BindingIdentifier(string);
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The returned string is human-readable and distinguishes the keys in the same way as the
+     * whole object.
+     */
+    @Override
+    public String toString() {
+      return identifierString;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof MultibindingContributionIdentifier
+          && ((MultibindingContributionIdentifier) obj)
+              .identifierString.equals(this.identifierString);
+    }
+
+    @Override
+    public int hashCode() {
+      return identifierString.hashCode();
     }
   }
 
@@ -148,34 +174,32 @@ abstract class Key {
   }
 
   /**
-   * A key whose {@link #qualifier()} and {@link #bindingIdentifier()} are equivalent to this
-   * one's, but with {@code newType} (normalized) as its {@link #type()}.
+   * A key whose {@link #qualifier()} and {@link #multibindingContributionIdentifier()} are
+   * equivalent to this one's, but with {@code newType} (normalized) as its {@link #type()}.
    */
   private Key withType(Types types, TypeMirror newType) {
     return new AutoValue_Key(
         wrappedQualifier(),
         MoreTypes.equivalence().wrap(normalize(types, newType)),
-        bindingIdentifier());
+        multibindingContributionIdentifier());
   }
 
   /**
    * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but with
-   * {@code bindingIdentifier} as its {@link #bindingIdentifier()}.
+   * {@code identifier} as its {@link #multibindingContributionIdentifier()}.
    */
-  private Key withBindingIdentifier(String bindingIdentifier) {
-    return new AutoValue_Key(
-        wrappedQualifier(),
-        wrappedType(),
-        Optional.of(BindingIdentifier.create(bindingIdentifier)));
+  private Key withMultibindingContributionIdentifier(
+      MultibindingContributionIdentifier identifier) {
+    return new AutoValue_Key(wrappedQualifier(), wrappedType(), Optional.of(identifier));
   }
 
   /**
-   * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but with an
-   * absent {@link #bindingIdentifier()}.
+   * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but without
+   * a {@link #multibindingContributionIdentifier()}.
    */
-  Key withoutBindingIdentifier() {
+  Key withoutMultibindingContributionIdentifier() {
     return new AutoValue_Key(
-        wrappedQualifier(), wrappedType(), Optional.<BindingIdentifier>absent());
+        wrappedQualifier(), wrappedType(), Optional.<MultibindingContributionIdentifier>absent());
   }
 
   boolean isValidMembersInjectionKey() {
@@ -224,14 +248,17 @@ abstract class Key {
     }, null);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The returned string is equal to another key's if and only if this key is {@link
+   * #equal(Object)} to it.
+   */
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(Key.class)
-        .omitNullValues()
-        .add("qualifier", qualifier().orNull())
-        .add("type", type())
-        .add("bindingIdentifier", bindingIdentifier().orNull())
-        .toString();
+    return Joiner.on(' ')
+        .skipNulls()
+        .join(qualifier().orNull(), type(), multibindingContributionIdentifier().orNull());
   }
 
   /**
@@ -252,12 +279,10 @@ abstract class Key {
   static final class Factory {
     private final Types types;
     private final Elements elements;
-    private final MethodSignatureFormatter methodSignatureFormatter;
 
-    Factory(Types types, Elements elements, MethodSignatureFormatter methodSignatureFormatter) {
+    Factory(Types types, Elements elements) {
       this.types = checkNotNull(types);
       this.elements = checkNotNull(elements);
-      this.methodSignatureFormatter = checkNotNull(methodSignatureFormatter);
     }
 
     private DeclaredType setOf(TypeMirror elementType) {
@@ -335,7 +360,8 @@ abstract class Key {
       Key key = forMethod(method, keyType);
       return contributionType.equals(ContributionType.UNIQUE)
           ? key
-          : key.withBindingIdentifier(bindingIdentifier(method, contributingModule));
+          : key.withMultibindingContributionIdentifier(
+              new MultibindingContributionIdentifier(method, contributingModule));
     }
 
     /**
@@ -377,12 +403,8 @@ abstract class Key {
       Key key = forMethod(method, keyType);
       return contributionType.equals(ContributionType.UNIQUE)
           ? key
-          : key.withBindingIdentifier(bindingIdentifier(method, contributingModule));
-    }
-
-    private String bindingIdentifier(ExecutableElement method, TypeElement contributingModule) {
-      return methodSignatureFormatter.format(
-          method, Optional.of(MoreTypes.asDeclared(contributingModule.asType())));
+          : key.withMultibindingContributionIdentifier(
+              new MultibindingContributionIdentifier(method, contributingModule));
     }
 
     private TypeMirror bindingMethodKeyType(
@@ -443,35 +465,35 @@ abstract class Key {
       return new AutoValue_Key(
           wrapOptionalInEquivalence(getQualifier(method)),
           MoreTypes.equivalence().wrap(keyType),
-          Optional.<BindingIdentifier>absent());
+          Optional.<MultibindingContributionIdentifier>absent());
     }
 
     Key forInjectConstructorWithResolvedType(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
           MoreTypes.equivalence().wrap(type),
-          Optional.<BindingIdentifier>absent());
+          Optional.<MultibindingContributionIdentifier>absent());
     }
 
     Key forComponent(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
           MoreTypes.equivalence().wrap(normalize(types, type)),
-          Optional.<BindingIdentifier>absent());
+          Optional.<MultibindingContributionIdentifier>absent());
     }
 
     Key forMembersInjectedType(TypeMirror type) {
       return new AutoValue_Key(
           Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
           MoreTypes.equivalence().wrap(normalize(types, type)),
-          Optional.<BindingIdentifier>absent());
+          Optional.<MultibindingContributionIdentifier>absent());
     }
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
       return new AutoValue_Key(
           wrapOptionalInEquivalence(qualifier),
           MoreTypes.equivalence().wrap(normalize(types, type)),
-          Optional.<BindingIdentifier>absent());
+          Optional.<MultibindingContributionIdentifier>absent());
     }
 
     Key forProductionExecutor() {

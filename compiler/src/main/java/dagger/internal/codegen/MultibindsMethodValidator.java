@@ -13,7 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.METHOD_MUST_RETURN_MAP_OR_SET;
+import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.NO_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.PARAMETERS;
+import static dagger.internal.codegen.FrameworkTypes.isFrameworkType;
+import static dagger.internal.codegen.MapKeys.getMapKeys;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableSet;
@@ -31,13 +39,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.METHOD_MUST_RETURN_MAP_OR_SET;
-import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.NO_MAP_KEY;
-import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.PARAMETERS;
-import static dagger.internal.codegen.FrameworkTypes.isFrameworkType;
-import static dagger.internal.codegen.MapKeys.getMapKeys;
 
 /**
  * A validator for {@link Multibinds @Multibinds} methods or methods in {@link Multibindings

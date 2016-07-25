@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification.unwrappedMapKeyWithAnnotationValue;
+import static dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification.wrappedMapKey;
+import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
 
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.common.MoreElements;
@@ -29,10 +34,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.Types;
-
-import static dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification.unwrappedMapKeyWithAnnotationValue;
-import static dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification.wrappedMapKey;
-import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
 
 /**
  * The annotation processor responsible for validating the mapKey annotation and auto-generate

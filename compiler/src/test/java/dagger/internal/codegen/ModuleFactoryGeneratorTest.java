@@ -13,16 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
 
-import com.google.common.collect.ImmutableList;
-import com.google.testing.compile.CompileTester;
-import com.google.testing.compile.JavaFileObjects;
-import com.squareup.javapoet.CodeBlock;
-import javax.tools.JavaFileObject;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+package dagger.internal.codegen;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
@@ -44,6 +36,15 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETE
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+
+import com.google.common.collect.ImmutableList;
+import com.google.testing.compile.CompileTester;
+import com.google.testing.compile.JavaFileObjects;
+import com.squareup.javapoet.CodeBlock;
+import javax.tools.JavaFileObject;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ModuleFactoryGeneratorTest {

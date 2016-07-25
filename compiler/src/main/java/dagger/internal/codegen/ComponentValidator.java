@@ -13,7 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
+import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
+import static dagger.internal.codegen.ErrorMessages.COMPONENT_ANNOTATED_REUSABLE;
+import static javax.lang.model.element.ElementKind.CLASS;
+import static javax.lang.model.element.ElementKind.INTERFACE;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.type.TypeKind.VOID;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -46,16 +57,6 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
-import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
-import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
-import static dagger.internal.codegen.ErrorMessages.COMPONENT_ANNOTATED_REUSABLE;
-import static javax.lang.model.element.ElementKind.CLASS;
-import static javax.lang.model.element.ElementKind.INTERFACE;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.type.TypeKind.VOID;
 
 /**
  * Performs superficial validation of the contract of the {@link Component} and

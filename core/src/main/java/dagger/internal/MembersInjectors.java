@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal;
+
+import static dagger.internal.Preconditions.checkNotNull;
 
 import dagger.MembersInjector;
 import javax.inject.Inject;
-
-import static dagger.internal.Preconditions.checkNotNull;
 
 /**
  * Basic {@link MembersInjector} implementations used by the framework.

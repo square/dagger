@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.producers.internal;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.DaggerCollections.hasDuplicates;
+import static dagger.internal.DaggerCollections.presizedList;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
@@ -24,10 +29,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.DaggerCollections.hasDuplicates;
-import static dagger.internal.DaggerCollections.presizedList;
 
 /**
  * A {@link Producer} implementation used to implement {@link Set} bindings. This producer returns

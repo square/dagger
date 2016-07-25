@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.truth.Truth.assertAbout;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
@@ -31,9 +35,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
-
-import static com.google.common.truth.Truth.assertAbout;
-import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 /** A {@link Truth} subject for testing Dagger module methods. */
 final class DaggerModuleMethodSubject extends Subject<DaggerModuleMethodSubject, String> {

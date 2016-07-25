@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.common.AnnotationMirrors;
 import com.google.common.base.Optional;
@@ -22,8 +25,6 @@ import javax.inject.Qualifier;
 import javax.inject.Scope;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Utilities relating to annotations defined in the {@code javax.inject} package.

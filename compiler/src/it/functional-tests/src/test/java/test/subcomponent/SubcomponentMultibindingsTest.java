@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.subcomponent;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,8 +32,6 @@ import test.subcomponent.MultibindingSubcomponents.ParentWithProvisionHasChildWi
 import test.subcomponent.MultibindingSubcomponents.ParentWithoutProvisionHasChildWithProvision;
 import test.subcomponent.MultibindingSubcomponents.ParentWithoutProvisionHasChildWithoutProvision;
 import test.subcomponent.MultibindingSubcomponents.RequiresMultibindings;
-
-import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class SubcomponentMultibindingsTest {
@@ -222,6 +223,13 @@ public class SubcomponentMultibindingsTest {
             parentWithProvisionHasChildWithProvision
                 .childWithProvision()
                 .requiresMultibindingsBoundInParentAndChild())
+        .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
+
+    // https://github.com/google/dagger/issues/401
+    assertThat(
+        DaggerMultibindingSubcomponents_ParentWithProvisionHasChildWithBinds.create()
+            .childWithBinds()
+            .requiresMultibindingsBoundInParentAndChild())
         .isEqualTo(BOUND_IN_PARENT_AND_CHILD);
 
     /*

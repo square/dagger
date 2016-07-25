@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.producers.monitoring;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import dagger.producers.Produces;
 import java.util.Objects;
 import javax.annotation.Nullable;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /** A token that represents an individual {@linkplain Produces producer method}. */
 public final class ProducerToken {

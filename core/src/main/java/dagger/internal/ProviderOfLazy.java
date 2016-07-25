@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal;
+
+import static dagger.internal.Preconditions.checkNotNull;
 
 import dagger.Lazy;
 import javax.inject.Provider;
-
-import static dagger.internal.Preconditions.checkNotNull;
 
 /**
  * A {@link Provider} of {@link Lazy} instances that each delegate to a given {@link Provider}.

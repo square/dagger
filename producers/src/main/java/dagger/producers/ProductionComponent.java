@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.producers;
+
+import static java.lang.annotation.ElementType.TYPE;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Module;
@@ -23,8 +26,6 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Target;
 import javax.inject.Inject;
 import javax.inject.Qualifier;
-
-import static java.lang.annotation.ElementType.TYPE;
 
 /**
  * Annotates an interface or abstract class for which a fully-formed, dependency-injected

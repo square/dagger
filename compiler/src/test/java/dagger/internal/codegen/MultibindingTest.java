@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 
 @RunWith(JUnit4.class)
 public class MultibindingTest {

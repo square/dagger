@@ -13,7 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -46,13 +54,6 @@ import javax.lang.model.util.ElementKindVisitor6;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.STATIC;
-
 /**
  * Represents the full members injection of a particular type.
  *
@@ -62,12 +63,15 @@ import static javax.lang.model.element.Modifier.STATIC;
 @AutoValue
 abstract class MembersInjectionBinding extends Binding {
   @Override
+  Optional<Element> bindingElement() {
+    return Optional.<Element>of(membersInjectedType());
+  }
+
+  abstract TypeElement membersInjectedType();
+
+  @Override
   abstract Optional<MembersInjectionBinding> unresolved();
 
-  TypeElement membersInjectedType() {
-    return MoreElements.asType(bindingElement());
-  }
-  
   @Override
   Optional<TypeElement> contributingModule() {
     return Optional.absent();
@@ -225,9 +229,9 @@ abstract class MembersInjectionBinding extends Binding {
       Key key = keyFactory.forMembersInjectedType(declaredType);
       TypeElement typeElement = MoreElements.asType(declaredType.asElement());
       return new AutoValue_MembersInjectionBinding(
-          typeElement,
           key,
           dependencies,
+          typeElement,
           hasNonDefaultTypeParameters(typeElement, key.type(), types)
               ? Optional.of(
                   forInjectedType(

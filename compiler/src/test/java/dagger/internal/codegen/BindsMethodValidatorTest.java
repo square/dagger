@@ -13,10 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatMethodInUnannotatedClass;
+import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatModuleMethod;
 
 import com.google.common.collect.ImmutableList;
 import dagger.Module;
+import dagger.multibindings.IntKey;
+import dagger.multibindings.LongKey;
 import dagger.producers.ProducerModule;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -27,9 +33,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatMethodInUnannotatedClass;
-import static dagger.internal.codegen.DaggerModuleMethodSubject.Factory.assertThatModuleMethod;
 
 @RunWith(Parameterized.class)
 public class BindsMethodValidatorTest {
@@ -116,6 +119,20 @@ public class BindsMethodValidatorTest {
   public void elementsIntoSet_withRawSets() {
     assertThatMethod("@Binds @ElementsIntoSet abstract Set bindRawSet(HashSet hashSet);")
         .hasError("cannot return a raw Set");
+  }
+
+  @Test
+  public void intoMap_noMapKey() {
+    assertThatMethod("@Binds @IntoMap abstract Object bindNoMapKey(String string);")
+         .hasError("methods of type map must declare a map key");
+  }
+
+  @Test
+  public void intoMap_multipleMapKeys() {
+    assertThatMethod(
+            "@Binds @IntoMap @IntKey(1) @LongKey(2L) abstract Object manyMapKeys(String string);")
+        .importing(IntKey.class, LongKey.class)
+        .hasError("may not have more than one @MapKey-marked annotation");
   }
 
   private DaggerModuleMethodSubject assertThatMethod(String method) {

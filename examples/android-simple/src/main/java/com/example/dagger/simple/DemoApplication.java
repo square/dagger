@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.example.dagger.simple;
 
 import android.app.Application;
 import android.location.LocationManager;
 import com.example.dagger.simple.ui.HomeActivity;
 import dagger.Component;
-import java.util.Arrays;
-import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 

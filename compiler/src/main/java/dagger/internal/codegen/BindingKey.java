@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
 
 import com.google.auto.value.AutoValue;
@@ -31,8 +32,12 @@ abstract class BindingKey {
     CONTRIBUTION, MEMBERS_INJECTION;
   }
 
-  static BindingKey create(Kind kind, Key key) {
-    return new AutoValue_BindingKey(kind, key);
+  static BindingKey contribution(Key key) {
+    return new AutoValue_BindingKey(Kind.CONTRIBUTION, key);
+  }
+
+  static BindingKey membersInjection(Key key) {
+    return new AutoValue_BindingKey(Kind.MEMBERS_INJECTION, key);
   }
 
   abstract Kind kind();

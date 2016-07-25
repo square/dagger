@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal;
+
+import static dagger.internal.DaggerCollections.newLinkedHashMapWithExpectedSize;
+import static java.util.Collections.unmodifiableMap;
 
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.inject.Provider;
-
-import static dagger.internal.DaggerCollections.newLinkedHashMapWithExpectedSize;
-import static java.util.Collections.unmodifiableMap;
 
 /**
  * A {@link Factory} implementation used to implement {@link Map} bindings. This factory returns a

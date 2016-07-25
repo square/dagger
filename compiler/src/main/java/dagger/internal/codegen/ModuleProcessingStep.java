@@ -13,7 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static dagger.internal.codegen.Util.elementsWithAnnotation;
+import static javax.lang.model.util.ElementFilter.methodsIn;
+import static javax.lang.model.util.ElementFilter.typesIn;
 
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
 import com.google.common.collect.ImmutableSet;
@@ -30,11 +36,6 @@ import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static dagger.internal.codegen.Util.elementsWithAnnotation;
-import static javax.lang.model.util.ElementFilter.methodsIn;
-import static javax.lang.model.util.ElementFilter.typesIn;
 
 /**
  * A {@link ProcessingStep} that validates module classes and generates factories for binding

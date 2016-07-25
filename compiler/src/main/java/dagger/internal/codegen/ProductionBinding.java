@@ -13,7 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
+import static javax.lang.model.element.ElementKind.METHOD;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
@@ -31,12 +38,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static dagger.internal.codegen.MapKeys.getMapKey;
-import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be produced. New instances
@@ -162,7 +163,6 @@ abstract class ProductionBinding extends ContributionBinding {
               requestForMapOfValuesOrProduced, mapOfProducersKey.get());
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .bindingElement(requestForMapOfProducers.requestElement())
           .key(requestForMapOfValuesOrProduced.key())
           .dependencies(requestForMapOfProducers)
           .bindingKind(Kind.SYNTHETIC_MAP)
@@ -179,7 +179,6 @@ abstract class ProductionBinding extends ContributionBinding {
         DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .bindingElement(request.requestElement())
           .key(request.key())
           .dependencies(
               dependencyRequestFactory.forMultibindingContributions(
@@ -206,7 +205,7 @@ abstract class ProductionBinding extends ContributionBinding {
         DelegateDeclaration delegateDeclaration, ProductionBinding delegateBinding) {
       return ProductionBinding.builder()
           .contributionType(delegateDeclaration.contributionType())
-          .bindingElement(delegateDeclaration.bindingElement())
+          .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Producer.class))
           .dependencies(delegateDeclaration.delegateRequest())

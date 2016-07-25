@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.multibindings;
+
+import static java.lang.annotation.ElementType.METHOD;
 
 import dagger.internal.Beta;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.METHOD;
 
 /**
  * Annotates abstract module methods that declare multibindings.

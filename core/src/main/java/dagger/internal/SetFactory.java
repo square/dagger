@@ -13,13 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import javax.inject.Provider;
+package dagger.internal;
 
 import static dagger.internal.DaggerCollections.hasDuplicates;
 import static dagger.internal.DaggerCollections.newHashSetWithExpectedSize;
@@ -27,6 +22,12 @@ import static dagger.internal.DaggerCollections.presizedList;
 import static dagger.internal.Preconditions.checkNotNull;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import javax.inject.Provider;
 
 /**
  * A {@link Factory} implementation used to implement {@link Set} bindings. This factory always

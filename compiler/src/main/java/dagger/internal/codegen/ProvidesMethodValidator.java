@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_CONCRETE;
+import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
+import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
 
 import com.google.common.collect.ImmutableSet;
 import dagger.Module;
@@ -23,10 +28,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_CONCRETE;
-import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
-import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
 
 /**
  * A validator for {@link Provides} methods.

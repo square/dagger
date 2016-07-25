@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.staticprovides;
 
 import static java.util.Collections.emptySet;
@@ -21,7 +22,6 @@ import dagger.Module;
 import dagger.Provides;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoSet;
-
 import java.util.Set;
 
 @Module

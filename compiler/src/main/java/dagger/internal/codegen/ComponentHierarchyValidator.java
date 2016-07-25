@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.base.Functions.constant;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableMap;
@@ -23,8 +26,6 @@ import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-
-import static com.google.common.base.Functions.constant;
 
 /**
  * Validates the relationships between parent components and subcomponents.

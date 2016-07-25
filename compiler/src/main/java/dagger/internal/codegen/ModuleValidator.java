@@ -13,7 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.Visibility.PRIVATE;
+import static com.google.auto.common.Visibility.PUBLIC;
+import static com.google.auto.common.Visibility.effectiveVisibilityOfElement;
+import static com.google.common.collect.Iterables.any;
+import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
+import static dagger.internal.codegen.ErrorMessages.INCOMPATIBLE_MODULE_METHODS;
+import static dagger.internal.codegen.ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD;
+import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER;
+import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS;
+import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED;
+import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.Visibility;
@@ -47,24 +66,6 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.auto.common.Visibility.PRIVATE;
-import static com.google.auto.common.Visibility.PUBLIC;
-import static com.google.auto.common.Visibility.effectiveVisibilityOfElement;
-import static com.google.common.collect.Iterables.any;
-import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
-import static dagger.internal.codegen.ErrorMessages.INCOMPATIBLE_MODULE_METHODS;
-import static dagger.internal.codegen.ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD;
-import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
-import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER;
-import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS;
-import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED;
-import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Module}s or {@link ProducerModule}s.

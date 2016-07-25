@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.Util.ELEMENT_SIMPLE_NAME;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Functions;
@@ -28,10 +33,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.Util.ELEMENT_SIMPLE_NAME;
-import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /** A representation of an annotation. */
 final class SimpleAnnotationMirror implements AnnotationMirror {

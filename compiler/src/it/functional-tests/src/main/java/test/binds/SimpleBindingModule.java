@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package test.binds;
 
 import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
+import dagger.Reusable;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntKey;
 import dagger.multibindings.IntoMap;
@@ -35,6 +37,11 @@ import test.SomeQualifier;
 abstract class SimpleBindingModule {
   @Binds
   abstract Object bindObject(FooOfStrings impl);
+
+  @Binds
+  @Reusable
+  @SomeQualifier
+  abstract Object bindReusableObject(FooOfStrings impl);
 
   @Binds
   abstract Foo<String> bindFooOfStrings(FooOfStrings impl);

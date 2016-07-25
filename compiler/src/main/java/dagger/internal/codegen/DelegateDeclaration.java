@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -24,14 +29,11 @@ import com.google.common.collect.Iterables;
 import dagger.Binds;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.util.Types;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.MapKeys.getMapKey;
-import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
 
 /**
  * The declaration for a delegate binding established by a {@link Binds} method.
@@ -55,20 +57,20 @@ abstract class DelegateDeclaration extends BindingDeclaration implements HasCont
     }
 
     DelegateDeclaration create(
-        ExecutableElement bindsMethod, TypeElement contributingElement) {
+        ExecutableElement bindsMethod, TypeElement contributingModule) {
       checkArgument(MoreElements.isAnnotationPresent(bindsMethod, Binds.class));
       ExecutableType resolvedMethod =
           MoreTypes.asExecutable(
-              types.asMemberOf(MoreTypes.asDeclared(contributingElement.asType()), bindsMethod));
+              types.asMemberOf(MoreTypes.asDeclared(contributingModule.asType()), bindsMethod));
       DependencyRequest delegateRequest =
           dependencyRequestFactory.forRequiredResolvedVariable(
               Iterables.getOnlyElement(bindsMethod.getParameters()),
               Iterables.getOnlyElement(resolvedMethod.getParameterTypes()));
       return new AutoValue_DelegateDeclaration(
           ContributionType.fromBindingMethod(bindsMethod),
-          keyFactory.forBindsMethod(bindsMethod, contributingElement),
-          bindsMethod,
-          Optional.of(contributingElement),
+          keyFactory.forBindsMethod(bindsMethod, contributingModule),
+          Optional.<Element>of(bindsMethod),
+          Optional.of(contributingModule),
           delegateRequest,
           wrapOptionalInEquivalence(getMapKey(bindsMethod)));
     }

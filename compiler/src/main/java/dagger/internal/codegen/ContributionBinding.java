@@ -13,7 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
+import static dagger.internal.codegen.MapKeys.unwrapValue;
+import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
@@ -32,7 +41,6 @@ import dagger.MapKey;
 import dagger.Provides;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.producers.Produces;
-import dagger.producers.ProductionComponent;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -41,16 +49,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-
-import static com.google.common.collect.Sets.immutableEnumSet;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
-import static dagger.internal.codegen.ContributionType.SET;
-import static dagger.internal.codegen.MapKeys.unwrapValue;
-import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
-import static javax.lang.model.element.Modifier.STATIC;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be
@@ -222,11 +220,10 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
   /**
    * Returns the {@link FactoryCreationStrategy} appropriate for a binding.
    *
-   * <p>Delegate bindings
-   * use the {@link FactoryCreationStrategy#DELEGATE} strategy.
+   * <p>Delegate bindings use the {@link FactoryCreationStrategy#DELEGATE} strategy.
    *
-   * <p>Bindings without dependencies that don't require a module instance use the
-   * {@link FactoryCreationStrategy#ENUM_INSTANCE} strategy.
+   * <p>Bindings without dependencies that don't require a module instance use the {@link
+   * FactoryCreationStrategy#ENUM_INSTANCE} strategy.
    *
    * <p>All other bindings use the {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR} strategy.
    */
@@ -235,7 +232,7 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
       case SYNTHETIC_DELEGATE_BINDING:
         return DELEGATE;
       case PROVISION:
-        return implicitDependencies().isEmpty() && bindingElement().getModifiers().contains(STATIC)
+        return implicitDependencies().isEmpty() && !requiresModuleInstance()
             ? ENUM_INSTANCE
             : CLASS_CONSTRUCTOR;
       case INJECTION:

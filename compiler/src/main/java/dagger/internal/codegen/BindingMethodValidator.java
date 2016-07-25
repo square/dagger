@@ -13,31 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import dagger.MapKey;
-import dagger.Provides;
-import dagger.multibindings.ElementsIntoSet;
-import dagger.multibindings.IntoMap;
-import dagger.producers.Produces;
-import java.lang.annotation.Annotation;
-import javax.annotation.OverridingMethodsMustInvokeSuper;
-import javax.annotation.processing.Messager;
-import javax.inject.Qualifier;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
+package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_ABSTRACT;
@@ -55,7 +32,7 @@ import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS_ANY;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_THROWS_CHECKED;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_TYPE_PARAMETER;
-import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEY;
+import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_MULTIPLE_MAP_KEYS;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_NO_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.MULTIBINDING_ANNOTATION_CONFLICTS_WITH_BINDING_ANNOTATION_ENUM;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_MULTIBINDING_ANNOTATIONS_ON_METHOD;
@@ -68,6 +45,29 @@ import static javax.lang.model.type.TypeKind.ARRAY;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.TYPEVAR;
 import static javax.lang.model.type.TypeKind.VOID;
+
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import dagger.MapKey;
+import dagger.Provides;
+import dagger.multibindings.ElementsIntoSet;
+import dagger.multibindings.IntoMap;
+import dagger.producers.Produces;
+import java.lang.annotation.Annotation;
+import javax.annotation.OverridingMethodsMustInvokeSuper;
+import javax.annotation.processing.Messager;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /** A validator for methods that represent binding declarations. */
 abstract class BindingMethodValidator {
@@ -346,7 +346,7 @@ abstract class BindingMethodValidator {
         case 1:
           break;
         default:
-          builder.addError(formatErrorMessage(BINDING_METHOD_WITH_MULTIPLE_MAP_KEY));
+          builder.addError(formatErrorMessage(BINDING_METHOD_WITH_MULTIPLE_MAP_KEYS));
           break;
       }
     } else if (!mapKeys.isEmpty()) {

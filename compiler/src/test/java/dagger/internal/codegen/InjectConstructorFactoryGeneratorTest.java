@@ -13,14 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dagger.internal.codegen;
 
-import com.google.common.collect.ImmutableList;
-import com.google.testing.compile.JavaFileObjects;
-import javax.tools.JavaFileObject;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+package dagger.internal.codegen;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
@@ -42,6 +36,13 @@ import static dagger.internal.codegen.ErrorMessages.QUALIFIER_ON_INJECT_CONSTRUC
 import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_FIELD;
 import static dagger.internal.codegen.ErrorMessages.STATIC_INJECT_METHOD;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+
+import com.google.common.collect.ImmutableList;
+import com.google.testing.compile.JavaFileObjects;
+import javax.tools.JavaFileObject;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 // TODO(gak): add tests for generation in the default package.

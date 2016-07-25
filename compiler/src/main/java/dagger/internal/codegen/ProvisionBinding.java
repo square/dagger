@@ -13,7 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asDeclared;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
+import static dagger.internal.codegen.MapKeys.getMapKey;
+import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.ElementKind.FIELD;
+import static javax.lang.model.element.ElementKind.METHOD;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -34,18 +47,6 @@ import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.auto.common.MoreTypes.asDeclared;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
-import static dagger.internal.codegen.MapKeys.getMapKey;
-import static dagger.internal.codegen.MoreAnnotationMirrors.wrapOptionalInEquivalence;
-import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
-import static javax.lang.model.element.ElementKind.FIELD;
-import static javax.lang.model.element.ElementKind.METHOD;
 
 /**
  * A value object representing the mechanism by which a {@link Key} can be provided. New instances
@@ -209,13 +210,9 @@ abstract class ProvisionBinding extends ContributionBinding {
               requestForMapOfValues, mapOfProvidersKey.get());
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .bindingElement(requestForMapOfProviders.requestElement())
           .key(requestForMapOfValues.key())
           .dependencies(requestForMapOfProviders)
-          .wrappedMapKey(
-              wrapOptionalInEquivalence(getMapKey(requestForMapOfProviders.requestElement())))
           .bindingKind(Kind.SYNTHETIC_MAP)
-          .scope(Scope.uniqueScopeOf(requestForMapOfProviders.requestElement()))
           .build();
     }
 
@@ -229,13 +226,11 @@ abstract class ProvisionBinding extends ContributionBinding {
         DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .bindingElement(request.requestElement())
           .key(request.key())
           .dependencies(
               dependencyRequestFactory.forMultibindingContributions(
                   request, multibindingContributions))
           .bindingKind(Kind.forMultibindingRequest(request))
-          .scope(Scope.uniqueScopeOf(request.requestElement()))
           .build();
     }
 
@@ -282,14 +277,14 @@ abstract class ProvisionBinding extends ContributionBinding {
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
       return ProvisionBinding.builder()
           .contributionType(delegateDeclaration.contributionType())
-          .bindingElement(delegateDeclaration.bindingElement())
+          .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Provider.class))
           .dependencies(delegateDeclaration.delegateRequest())
           .nullableType(delegate.nullableType())
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
-          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement()))
+          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()))
           .build();
     }
   }

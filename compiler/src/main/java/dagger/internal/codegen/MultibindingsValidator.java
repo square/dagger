@@ -13,7 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.asExecutable;
+import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
+import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.MUST_BE_INTERFACE;
+import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.MUST_BE_IN_MODULE;
+import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.MUST_NOT_HAVE_TYPE_PARAMETERS;
+import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.tooManyMethodsForKey;
+import static javax.lang.model.element.ElementKind.INTERFACE;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
@@ -25,16 +36,6 @@ import java.util.Map;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
-
-import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static com.google.auto.common.MoreTypes.asExecutable;
-import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
-import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.MUST_BE_INTERFACE;
-import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.MUST_BE_IN_MODULE;
-import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.MUST_NOT_HAVE_TYPE_PARAMETERS;
-import static dagger.internal.codegen.ErrorMessages.MultibindingsMessages.tooManyMethodsForKey;
-import static javax.lang.model.element.ElementKind.INTERFACE;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Multibindings @Multibindings}-annotated

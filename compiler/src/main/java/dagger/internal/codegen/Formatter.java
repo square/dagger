@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dagger.internal.codegen;
+
+import static dagger.internal.codegen.ErrorMessages.INDENT;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
-
-import static dagger.internal.codegen.ErrorMessages.INDENT;
 
 /**
  * A formatter which transforms an instance of a particular type into a string
