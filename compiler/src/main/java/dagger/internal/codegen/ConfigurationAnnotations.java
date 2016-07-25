@@ -130,6 +130,14 @@ final class ConfigurationAnnotations {
           throw new IllegalArgumentException(elementName + " is not an array: " + o);
         }
       };
+      
+  /**
+   * Returns the value named {@code elementName} from {@code annotation}, which must be a member
+   * that contains a single type.
+   */
+  static TypeMirror typeValue(AnnotationMirror annotation, String elementName) {
+    return TO_TYPE.visit(getAnnotationValue(annotation, elementName));
+  }
 
   private static final AnnotationValueVisitor<TypeMirror, Void> TO_TYPE =
       new SimpleAnnotationValueVisitor6<TypeMirror, Void>() {

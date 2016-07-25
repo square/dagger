@@ -2054,6 +2054,7 @@ public class ComponentProcessorTest {
         .withErrorContaining(
             "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
+
   @Test
   public void componentImplicitlyDependsOnGeneratedType() {
     JavaFileObject injectableTypeFile = JavaFileObjects.forSourceLines("test.SomeInjectableType",
@@ -2090,6 +2091,7 @@ public class ComponentProcessorTest {
         .and()
         .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
   }
+
   @Test
   public void componentSupertypeDependsOnGeneratedType() {
     JavaFileObject componentFile =

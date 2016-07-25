@@ -15,13 +15,15 @@
  */
 package test.subcomponent;
 
+import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import dagger.multibindings.IntoSet;
+
 import javax.inject.Singleton;
 
 @Module
-final class ParentModule {
+abstract class ParentModule {
   @Provides
   @IntoSet
   static Object provideUnscopedObject() {
@@ -43,10 +45,8 @@ final class ParentModule {
     };
   }
 
-  @Provides
+  @Binds
   @Singleton
   @BoundAsSingleton
-  static UnscopedType provideUnscopedTypeBoundAsSingleton(UnscopedType unscopedType) {
-    return unscopedType;
-  }
+  abstract UnscopedType provideUnscopedTypeBoundAsSingleton(UnscopedType unscopedType);
 }

@@ -285,7 +285,7 @@ abstract class ComponentDescriptor {
   abstract Optional<BuilderSpec> builderSpec();
 
   @AutoValue
-  static abstract class ComponentMethodDescriptor {
+  abstract static class ComponentMethodDescriptor {
     abstract ComponentMethodKind kind();
     abstract Optional<DependencyRequest> dependencyRequest();
     abstract ExecutableElement methodElement();
@@ -356,7 +356,7 @@ abstract class ComponentDescriptor {
   }
 
   @AutoValue
-  static abstract class BuilderSpec {
+  abstract static class BuilderSpec {
     abstract TypeElement builderDefinitionType();
     abstract Map<TypeElement, ExecutableElement> methodMap();
     abstract ExecutableElement buildMethod();
@@ -465,7 +465,6 @@ abstract class ComponentDescriptor {
             break;
           default: // nothing special to do for other methods.
         }
-
       }
 
       ImmutableList<DeclaredType> enclosedBuilders = kind.builderAnnotationType() == null

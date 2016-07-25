@@ -15,12 +15,13 @@
  */
 package test.subcomponent;
 
+import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import dagger.multibindings.IntoSet;
 
 @Module
-final class GrandchildModule {
+abstract class GrandchildModule {
   @Provides
   @IntoSet
   static Object provideUnscopedObject() {
@@ -31,10 +32,8 @@ final class GrandchildModule {
     };
   }
 
-  @Provides
-  static AnInterface provideAnInterface(ImplementsAnInterface implementsAnInterface) {
-    return implementsAnInterface;
-  }
+  @Binds
+  abstract AnInterface provideAnInterface(ImplementsAnInterface implementsAnInterface);
 
   @Provides
   static NeedsAnInterface provideNeedsAnInterface(AnInterface anInterface) {

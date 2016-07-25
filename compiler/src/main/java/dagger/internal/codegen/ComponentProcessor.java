@@ -90,7 +90,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MultibindingsMethodValidator multibindingsMethodValidator =
         new MultibindingsMethodValidator(elements, types);
 
-    Key.Factory keyFactory = new Key.Factory(types, elements);
+    Key.Factory keyFactory = new Key.Factory(types, elements, methodSignatureFormatter);
 
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(
@@ -201,6 +201,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         producerModuleProcessingStep(
             messager,
             moduleValidator,
+            provisionBindingFactory,
+            factoryGenerator,
+            providesMethodValidator,
             productionBindingFactory,
             producerFactoryGenerator,
             producesMethodValidator,

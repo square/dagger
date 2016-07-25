@@ -22,7 +22,10 @@ import dagger.producers.ProductionComponent;
 import java.util.Map;
 import java.util.Set;
 import producerstest.ExecutorModule;
+import producerstest.multibindings.Qualifiers.EmptyButDeclaredInModule;
+import producerstest.multibindings.Qualifiers.EmptyButDeclaredInModuleAndProducerModule;
 import producerstest.multibindings.Qualifiers.ObjCount;
+import producerstest.multibindings.Qualifiers.OnlyProvisionMultibindings;
 import producerstest.multibindings.Qualifiers.PossiblyThrowingMap;
 import producerstest.multibindings.Qualifiers.PossiblyThrowingSet;
 
@@ -65,4 +68,13 @@ interface MultibindingComponent {
 
   @ObjCount
   ListenableFuture<Integer> objCount();
+
+  @EmptyButDeclaredInModuleAndProducerModule
+  ListenableFuture<Map<String, Object>> emptyButDeclaredInModuleAndProducerModule();
+
+  @EmptyButDeclaredInModule
+  ListenableFuture<Map<String, Object>> emptyButDeclaredInModule();
+
+  @OnlyProvisionMultibindings
+  ListenableFuture<Map<String, Object>> onlyProvisionMultibindings();
 }

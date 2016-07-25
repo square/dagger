@@ -588,6 +588,56 @@ public class GraphValidationTest {
         .withErrorContaining(expectedError).in(component).onLine(24);
   }
   
+  @Test
+  public void duplicateExplicitBindings_ProvidesVsBinds() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Outer",
+            "package test;",
+            "",
+            "import dagger.Binds;",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "final class Outer {",
+            "  interface A {}",
+            "",
+            "  static final class B implements A {",
+            "    @Inject B() {}",
+            "  }",
+            "",
+            "  @Module",
+            "  static class Module1 {",
+            "    @Provides A provideA1() { return new A() {}; }",
+            "  }",
+            "",
+            "  @Module",
+            "  static abstract class Module2 {",
+            "    @Binds abstract A bindA2(B b);",
+            "  }",
+            "",
+            "  @Component(modules = { Module1.class, Module2.class})",
+            "  interface TestComponent {",
+            "    A getA();",
+            "  }",
+            "}");
+
+    assertAbout(javaSource())
+        .that(component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            Joiner.on("\n      ")
+                .join(
+                    "test.Outer.A is bound multiple times:",
+                    "@Provides test.Outer.A test.Outer.Module1.provideA1()",
+                    "@Binds test.Outer.A test.Outer.Module2.bindA2(test.Outer.B)"))
+        .in(component)
+        .onLine(28);
+  }
+  
   @Test public void duplicateExplicitBindings_MultipleProvisionTypes() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",

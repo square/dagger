@@ -15,17 +15,16 @@
  */
 package test.tck;
 
+import dagger.Binds;
 import dagger.Module;
-import dagger.Provides;
+
 import org.atinject.tck.auto.Drivers;
 import org.atinject.tck.auto.DriversSeat;
 import org.atinject.tck.auto.Seat;
 
 @Module
-class SeatModule {
-  @Provides
+abstract class SeatModule {
+  @Binds
   @Drivers
-  static Seat provideSeat(DriversSeat seat) {
-    return seat;
-  }
+  abstract Seat provideSeat(DriversSeat seat);
 }

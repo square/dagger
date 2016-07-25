@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Component;
 import dagger.MapKey;
 import dagger.Provides;
@@ -36,11 +37,17 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
+import static dagger.internal.codegen.ContributionType.SET;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -213,26 +220,30 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
   }
 
   /**
-   * Returns {@link FactoryCreationStrategy#ENUM_INSTANCE} if the binding has no dependencies and
-   * is a static provision binding or an {@link Inject @Inject} constructor binding. Otherwise
-   * returns {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR}.
+   * Returns the {@link FactoryCreationStrategy} appropriate for a binding.
+   *
+   * <p>Delegate bindings
+   * use the {@link FactoryCreationStrategy#DELEGATE} strategy.
+   *
+   * <p>Bindings without dependencies that don't require a module instance use the
+   * {@link FactoryCreationStrategy#ENUM_INSTANCE} strategy.
+   *
+   * <p>All other bindings use the {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR} strategy.
    */
   FactoryCreationStrategy factoryCreationStrategy() {
     switch (bindingKind()) {
       case SYNTHETIC_DELEGATE_BINDING:
-        return FactoryCreationStrategy.DELEGATE;
+        return DELEGATE;
       case PROVISION:
         return implicitDependencies().isEmpty() && bindingElement().getModifiers().contains(STATIC)
-            ? FactoryCreationStrategy.ENUM_INSTANCE
-            : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+            ? ENUM_INSTANCE
+            : CLASS_CONSTRUCTOR;
       case INJECTION:
       case SYNTHETIC_MULTIBOUND_SET:
       case SYNTHETIC_MULTIBOUND_MAP:
-        return implicitDependencies().isEmpty()
-            ? FactoryCreationStrategy.ENUM_INSTANCE
-            : FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+        return implicitDependencies().isEmpty() ? ENUM_INSTANCE : CLASS_CONSTRUCTOR;
       default:
-        return FactoryCreationStrategy.CLASS_CONSTRUCTOR;
+        return CLASS_CONSTRUCTOR;
     }
   }
 
@@ -290,5 +301,32 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
                     .wrap(mapBinding.mapKey().get().getAnnotationType());
               }
             }));
+  }
+
+  /**
+   * Base builder for {@link com.google.auto.value.AutoValue @AutoValue} subclasses of
+   * {@link ContributionBinding}.
+   */
+  @CanIgnoreReturnValue
+  abstract static class Builder<B extends Builder<B>> {
+    abstract B contributionType(ContributionType contributionType);
+
+    abstract B bindingElement(Element bindingElement);
+
+    abstract B contributingModule(TypeElement contributingModule);
+
+    abstract B key(Key key);
+
+    abstract B dependencies(Iterable<DependencyRequest> dependencies);
+
+    abstract B dependencies(DependencyRequest... dependencies);
+
+    abstract B nullableType(Optional<DeclaredType> nullableType);
+
+    abstract B membersInjectionRequest(Optional<DependencyRequest> membersInjectionRequest);
+
+    abstract B wrappedMapKey(Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey);
+
+    abstract B bindingKind(ContributionBinding.Kind kind);
   }
 }

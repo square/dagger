@@ -15,15 +15,14 @@
  */
 package test.tck;
 
+import dagger.Binds;
 import dagger.Module;
-import dagger.Provides;
+
 import org.atinject.tck.auto.Car;
 import org.atinject.tck.auto.Convertible;
 
 @Module
-class CarModule {
-  @Provides
-  static Car provideConvertible(Convertible convertible) {
-    return convertible;
-  }
+abstract class CarModule {
+  @Binds
+  abstract Car provideConvertible(Convertible convertible);
 }

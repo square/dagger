@@ -21,6 +21,9 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertThat;
 
+/**
+ * @see <a href="http://b/19435358">Bug 19435358</a>
+ */
 @RunWith(JUnit4.class)
 public class DependsOnGeneratedCodeTest {
   @Test public void testComponentDependsOnGeneratedCode() {

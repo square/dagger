@@ -23,7 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.testing.compile.CompilationRule;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.Key.BindingMethodIdentifier;
+import dagger.internal.codegen.Key.BindingIdentifier;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoSet;
 import dagger.producers.ProducerModule;
@@ -56,12 +56,14 @@ public class KeyTest {
 
   private Elements elements;
   private Types types;
+  private MethodSignatureFormatter methodSignatureFormatter;
   private Key.Factory keyFactory;
 
   @Before public void setUp() {
     this.types = compilationRule.getTypes();
     this.elements = compilationRule.getElements();
-    this.keyFactory = new Key.Factory(types, elements);
+    this.methodSignatureFormatter = new MethodSignatureFormatter(types);
+    this.keyFactory = new Key.Factory(types, elements, methodSignatureFormatter);
   }
 
   @Test public void forInjectConstructorWithResolvedType() {
@@ -76,7 +78,7 @@ public class KeyTest {
             new AutoValue_Key(
                 Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                 MoreTypes.equivalence().wrap(typeElement.asType()),
-                Optional.<BindingMethodIdentifier>absent()));
+                Optional.<BindingIdentifier>absent()));
   }
 
   static final class InjectedClass {
@@ -95,7 +97,7 @@ public class KeyTest {
             new AutoValue_Key(
                 Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                 MoreTypes.equivalence().wrap(stringType),
-                Optional.<BindingMethodIdentifier>absent()));
+                Optional.<BindingIdentifier>absent()));
   }
 
   @Module
@@ -170,7 +172,11 @@ public class KeyTest {
               new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(setOfStringsType),
-                  Optional.of(BindingMethodIdentifier.create(providesMethod, moduleElement))));
+                  Optional.of(
+                      BindingIdentifier.create(
+                          methodSignatureFormatter.format(
+                              providesMethod,
+                              Optional.of(MoreTypes.asDeclared(moduleElement.asType())))))));
     }
   }
 
@@ -230,7 +236,7 @@ public class KeyTest {
               new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(stringType),
-                  Optional.<BindingMethodIdentifier>absent()));
+                  Optional.<BindingIdentifier>absent()));
     }
   }
 
@@ -258,7 +264,11 @@ public class KeyTest {
               new AutoValue_Key(
                   Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
                   MoreTypes.equivalence().wrap(setOfStringsType),
-                  Optional.of(BindingMethodIdentifier.create(producesMethod, moduleElement))));
+                  Optional.of(
+                      BindingIdentifier.create(
+                          methodSignatureFormatter.format(
+                              producesMethod,
+                              Optional.of(MoreTypes.asDeclared(moduleElement.asType())))))));
     }
   }
 

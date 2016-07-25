@@ -22,10 +22,16 @@ import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntKey;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
+import dagger.multibindings.Multibinds;
+import dagger.multibindings.StringKey;
+import java.util.Map;
 import java.util.Set;
+import producerstest.multibindings.Qualifiers.EmptyButDeclaredInModule;
+import producerstest.multibindings.Qualifiers.OnlyProvisionMultibindings;
+import producerstest.multibindings.Qualifiers.EmptyButDeclaredInModuleAndProducerModule;
 
 @Module
-final class MultibindingModule {
+abstract class MultibindingModule {
   @Provides
   @IntoSet
   static String providedStr() {
@@ -43,5 +49,21 @@ final class MultibindingModule {
   @IntKey(3)
   static String providedValueFor3() {
     return "provided three";
+  }
+  
+  @Multibinds
+  @EmptyButDeclaredInModuleAndProducerModule
+  abstract Map<String, Object> emptyButDeclaredInModuleAndProducerModule();
+
+  @Multibinds
+  @EmptyButDeclaredInModule
+  abstract Map<String, Object> emptyButDeclaredInModule();
+
+  @Provides
+  @IntoMap
+  @StringKey("a")
+  @OnlyProvisionMultibindings
+  static Object onlyProvisionMultibindings() {
+    return "only multibinding";
   }
 }

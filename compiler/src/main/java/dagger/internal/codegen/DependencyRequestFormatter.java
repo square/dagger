@@ -78,7 +78,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
     return Joiner.on('\n')
         .join(
             dependencyPath
-                .requests()
+                .dependencyRequests()
                 .filter(Predicates.not(DependencyRequest.IS_SYNTHETIC))
                 .transform(this)
                 .filter(Predicates.not(Predicates.equalTo("")))

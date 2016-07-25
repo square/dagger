@@ -15,8 +15,8 @@
  */
 package producerstest.multibindings;
 
-import java.lang.annotation.Retention;
 import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
 import javax.inject.Qualifier;
 
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -36,6 +36,21 @@ final class Qualifiers {
   @Retention(RUNTIME)
   @Qualifier
   @interface ObjCount {}
+
+  @Documented
+  @Retention(RUNTIME)
+  @Qualifier
+  @interface EmptyButDeclaredInModule {}
+
+  @Documented
+  @Retention(RUNTIME)
+  @Qualifier
+  @interface EmptyButDeclaredInModuleAndProducerModule {}
+
+  @Documented
+  @Retention(RUNTIME)
+  @Qualifier
+  @interface OnlyProvisionMultibindings {}
 
   private Qualifiers() {}
 }
