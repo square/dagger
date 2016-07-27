@@ -38,6 +38,7 @@ import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
 import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
@@ -110,6 +111,7 @@ import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
@@ -139,7 +141,6 @@ abstract class AbstractComponentWriter {
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
   private final Map<BindingKey, MemberSelect> memberSelects = new HashMap<>();
   private final Map<BindingKey, MemberSelect> producerFromProviderMemberSelects = new HashMap<>();
-  private final Map<BindingKey, RequestFulfillment> requestFulfillments = Maps.newLinkedHashMap();
   protected final MethodSpec.Builder constructor = constructorBuilder().addModifiers(PRIVATE);
   protected Optional<ClassName> builderName = Optional.absent();
 
@@ -653,33 +654,6 @@ abstract class AbstractComponentWriter {
         ? MAP_OF_PRODUCER_PRODUCER : MAP_PROVIDER_FACTORY;
   }
 
-  // TODO(gak): extract this into a proper factory class
-  private RequestFulfillment getOrCreateRequestFulfillment(BindingKey bindingKey) {
-    RequestFulfillment requestFulfillment = requestFulfillments.get(bindingKey);
-    if (requestFulfillment == null) {
-      /* TODO(gak): it is super convoluted that we create the member selects separately and then
-       * look them up again this way. Now that we have RequestFulfillment, the next step is to
-       * create it and the MemberSelect and the field on demand rather than in a first pass. */
-      MemberSelect memberSelect = getMemberSelect(bindingKey);
-      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-      switch (resolvedBindings.bindingType()) {
-        case MEMBERS_INJECTION:
-          requestFulfillment = new MembersInjectorRequestFulfillment(bindingKey, memberSelect);
-          break;
-        case PRODUCTION:
-          requestFulfillment = new ProducerFieldRequestFulfillment(bindingKey, memberSelect);
-          break;
-        case PROVISION:
-          requestFulfillment = new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
-          break;
-        default:
-          throw new AssertionError();
-      }
-      requestFulfillments.put(bindingKey, requestFulfillment);
-    }
-    return requestFulfillment;
-  }
-
   private void implementInterfaceMethods() {
     Set<MethodSignature> interfaceMethods = Sets.newHashSet();
     for (ComponentMethodDescriptor componentMethod :
@@ -688,36 +662,51 @@ abstract class AbstractComponentWriter {
         DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
         ExecutableElement requestElement =
             MoreElements.asExecutable(interfaceRequest.requestElement());
-        DeclaredType declaringType = MoreTypes.asDeclared(componentDefinitionType().asType());
-        ExecutableType requestType =
-            MoreTypes.asExecutable(types.asMemberOf(declaringType, requestElement));
+        ExecutableType requestType = MoreTypes.asExecutable(types.asMemberOf(
+            MoreTypes.asDeclared(componentDefinitionType().asType()), requestElement));
         MethodSignature signature = MethodSignature.fromExecutableType(
             requestElement.getSimpleName().toString(), requestType);
         if (!interfaceMethods.contains(signature)) {
           interfaceMethods.add(signature);
           MethodSpec.Builder interfaceMethod =
-              MethodSpec.overriding(requestElement, declaringType, types);
-          RequestFulfillment fulfillment =
-              getOrCreateRequestFulfillment(interfaceRequest.bindingKey());
-          CodeBlock codeBlock = fulfillment.getSnippetForDependencyRequest(interfaceRequest, name);
-          switch (componentMethod.kind()) {
-              /* TODO(gak): we should figure out a way to avoid having to special-case members
-               * injection */
-            case MEMBERS_INJECTION:
-              if (requestElement.getParameters().isEmpty()) {
-                interfaceMethod.addStatement("return $L", codeBlock);
+              methodBuilder(requestElement.getSimpleName().toString())
+                  .addAnnotation(Override.class)
+                  .addModifiers(PUBLIC)
+                  .returns(TypeName.get(requestType.getReturnType()));
+          BindingKey bindingKey = interfaceRequest.bindingKey();
+          MemberSelect memberSelect = getMemberSelect(bindingKey);
+          CodeBlock memberSelectCodeBlock = memberSelect.getExpressionFor(name);
+          switch (interfaceRequest.kind()) {
+            case MEMBERS_INJECTOR:
+              List<? extends VariableElement> parameters = requestElement.getParameters();
+              if (parameters.isEmpty()) {
+                // we're returning the framework type
+                interfaceMethod.addStatement("return $L", memberSelectCodeBlock);
               } else {
-                Name parameterName =
-                    Iterables.getOnlyElement(requestElement.getParameters()).getSimpleName();
-                interfaceMethod.addStatement("$L.injectMembers($L)", codeBlock, parameterName);
+                Name parameterName = Iterables.getOnlyElement(parameters).getSimpleName();
+                interfaceMethod.addParameter(
+                    TypeName.get(Iterables.getOnlyElement(requestType.getParameterTypes())),
+                    parameterName.toString());
+                interfaceMethod.addStatement(
+                    "$L.injectMembers($L)", memberSelectCodeBlock, parameterName);
                 if (!requestType.getReturnType().getKind().equals(VOID)) {
                   interfaceMethod.addStatement("return $L", parameterName);
                 }
               }
               break;
-            default:
-              interfaceMethod.addStatement("return $L", codeBlock);
+            case INSTANCE:
+            case LAZY:
+            case PRODUCED:
+            case PRODUCER:
+            case PROVIDER:
+            case PROVIDER_OF_LAZY:
+            case FUTURE:
+              interfaceMethod.addStatement(
+                  "return $L",
+                  frameworkTypeUsageStatement(memberSelectCodeBlock, interfaceRequest.kind()));
               break;
+            default:
+              throw new AssertionError();
           }
           component.addMethod(interfaceMethod.build());
         }
