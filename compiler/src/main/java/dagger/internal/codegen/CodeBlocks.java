@@ -40,8 +40,8 @@ final class CodeBlocks {
     return join(codeBlocks, "\n");
   }
 
-  static CodeBlock join(Iterable<CodeBlock> codeBlocks, String delimiter) {
-    CodeBlock.Builder builder = CodeBlock.builder();
+  static CodeBlock.Builder join(
+      CodeBlock.Builder builder, Iterable<CodeBlock> codeBlocks, String delimiter) {
     Iterator<CodeBlock> iterator = codeBlocks.iterator();
     while (iterator.hasNext()) {
       builder.add(iterator.next());
@@ -49,7 +49,11 @@ final class CodeBlocks {
         builder.add(delimiter);
       }
     }
-    return builder.build();
+    return builder;
+  }
+
+  static CodeBlock join(Iterable<CodeBlock> codeBlocks, String delimiter) {
+    return join(CodeBlock.builder(), codeBlocks, delimiter).build();
   }
 
   static FluentIterable<CodeBlock> toCodeBlocks(Iterable<? extends TypeMirror> typeMirrors) {
@@ -68,12 +72,12 @@ final class CodeBlocks {
         }
       };
 
-  static Function<ParameterSpec, CodeBlock> PARAMETER_NAME =
+  static final Function<ParameterSpec, CodeBlock> PARAMETER_NAME =
       new Function<ParameterSpec, CodeBlock>() {
-          @Override
-          public CodeBlock apply(ParameterSpec input) {
-            return CodeBlock.of("$N", input);
-          }
+        @Override
+        public CodeBlock apply(ParameterSpec input) {
+          return CodeBlock.of("$N", input);
+        }
       };
 
   private CodeBlocks() {}
