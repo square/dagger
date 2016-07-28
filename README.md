@@ -17,6 +17,11 @@ This github project represents the Dagger 2 development stream.  The earlier
 development stream. Both versions have benefitted from strong involvement from
 Square, Google, and other contributors.
 
+Dagger is currently in active development, primarily internally at Google,
+with regular pushes to the open-source community. Snapshot releases are
+auto-deployed to sonatype's central maven repository on every clean build with
+the version `HEAD-SNAPSHOT`.
+
 > [Dagger 2's main documentation website can be found here.][website]
 
 ## Documentation
@@ -80,8 +85,8 @@ plugins {
 
 // Add Dagger dependencies
 dependencies {
-  compile 'com.google.dagger:dagger:2.0.2'
-  apt 'com.google.dagger:dagger-compiler:2.0.2'
+  compile 'com.google.dagger:dagger:2.x'
+  apt 'com.google.dagger:dagger-compiler:2.x'
 }
 ```
 
@@ -102,8 +107,8 @@ apply plugin: 'com.neenbedankt.android-apt'
 
 // Add Dagger dependencies
 dependencies {
-  compile 'com.google.dagger:dagger:2.0.2'
-  apt 'com.google.dagger:dagger-compiler:2.0.2'
+  compile 'com.google.dagger:dagger:2.x'
+  apt 'com.google.dagger:dagger-compiler:2.x'
 }
 ```
 
