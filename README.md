@@ -1,5 +1,7 @@
 # Dagger 2
 
+[![Maven Central][mavenbadge-svg]][mavenbadge]
+
 A fast dependency injector for Android and Java.
 
 ## About Google's Fork
@@ -17,16 +19,6 @@ Square, Google, and other contributors.
 
 > [Dagger 2's main documentation website can be found here.][website]
 
-## Status
-
-  - ***Release Version:* 2.2**
-  - ***Snapshot Version:* 2.3-SNAPSHOT**
-
-Dagger is currently in active development, primarily internally at Google,
-with regular pushes to the open-source community. Snapshot releases are
-auto-deployed to sonatype's central maven repository on a clean build with
-the version `2.3-SNAPSHOT`.
-
 ## Documentation
 
 You can [find the dagger documentation here][website] which has extended usage
@@ -39,9 +31,9 @@ mailing list.
 
 ## Installation
 
-You will need to include the `dagger-2.1.jar` in your application's runtime.
+You will need to include the `dagger-2.x.jar` in your application's runtime.
 In order to activate code generation and generate implementations to manage
-your graph you will need to include `dagger-compiler-2.1.jar` in your build
+your graph you will need to include `dagger-compiler-2.x.jar` in your build
 at compile time.
 
 ### Maven
@@ -55,12 +47,12 @@ of your `pom.xml` and the `dagger-compiler` artifact as either an `optional` or
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger</artifactId>
-    <version>2.2</version>
+    <version>2.x</version>
   </dependency>
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-compiler</artifactId>
-    <version>2.2</version>
+    <version>2.x</version>
     <optional>true</optional>
   </dependency>
 </dependencies>
@@ -74,7 +66,7 @@ parallelizable execution graphs), then add this to your maven configuration:
   <dependency>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-producers</artifactId>
-    <version>2.2</version>
+    <version>2.x</version>
   </dependency>
 </dependencies>
 ```
@@ -159,6 +151,8 @@ the GitHub project's master branch.
 
 
  [mavensearch]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.dagger%22
+ [mavenbadge]: https://maven-badges.herokuapp.com/maven-central/com.google.dagger/dagger
+ [mavenbadge-svg]: https://maven-badges.herokuapp.com/maven-central/com.google.dagger/dagger/badge.svg
  [dagger-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/
  [website]: http://google.github.io/dagger
  [latestapi]: http://google.github.io/dagger/api/latest/
@@ -169,4 +163,3 @@ the GitHub project's master branch.
  [community]: https://plus.google.com/communities/111933036769103367883
  [square]: http://github.com/square/dagger/
  [squarecommunity]: https://plus.google.com/communities/109244258569782858265
-
