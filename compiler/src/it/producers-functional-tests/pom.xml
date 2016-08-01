@@ -22,7 +22,7 @@ limitations under the License.
   <parent>
     <groupId>com.google.dagger</groupId>
     <artifactId>dagger-parent</artifactId>
-    <version>2.6-snapshot</version>
+    <version>HEAD-SNAPSHOT</version>
   </parent>
   <groupId>dagger.tests</groupId>
   <artifactId>producers-functional-tests</artifactId>

@@ -74,10 +74,17 @@ abstract class ProductionBinding extends ContributionBinding {
   /** Returns the list of types in the throws clause of the method. */
   abstract ImmutableList<? extends TypeMirror> thrownTypes();
 
-  /** If this production requires an executor, this will be the corresponding request. */
+  /**
+   * If this production requires an executor, this will be the corresponding request.  All
+   * production bindings from {@code @Produces} methods will have an executor request, but
+   * synthetic production bindings may not.
+   */
   abstract Optional<DependencyRequest> executorRequest();
 
-  /** If this production requires a monitor, this will be the corresponding request. */
+  /** If this production requires a monitor, this will be the corresponding request.  All
+   * production bindings from {@code @Produces} methods will have a monitor request, but synthetic
+   * production bindings may not.
+   */
   abstract Optional<DependencyRequest> monitorRequest();
 
   private static Builder builder() {

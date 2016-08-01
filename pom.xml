@@ -27,7 +27,7 @@
   <groupId>com.google.dagger</groupId>
   <artifactId>dagger-parent</artifactId>
   <packaging>pom</packaging>
-  <version>2.6-snapshot</version>
+  <version>HEAD-SNAPSHOT</version>
   <name>Dagger (Parent)</name>
   <description>A fast dependency injector for Android and Java.</description>
   <url>https://github.com/square/dagger</url>
