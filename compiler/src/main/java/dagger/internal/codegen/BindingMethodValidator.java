@@ -422,7 +422,7 @@ abstract class BindingMethodValidator {
    */
   protected enum ExceptionSuperclass {
     /** Methods may not declare any throwable types. */
-    NONE {
+    NO_EXCEPTIONS {
       @Override
       protected void checkThrows(
           BindingMethodValidator validator, ValidationReport.Builder<ExecutableElement> builder) {
