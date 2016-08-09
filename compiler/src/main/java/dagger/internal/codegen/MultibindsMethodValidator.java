@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.NO_EXCEPTIONS;
 import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.METHOD_MUST_RETURN_MAP_OR_SET;
 import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.NO_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.PARAMETERS;
@@ -62,7 +63,7 @@ class MultibindsMethodValidator extends BindingMethodValidator {
         methodAnnotation,
         enclosingElementAnnotations,
         MUST_BE_ABSTRACT,
-        ExceptionSuperclass.NONE);
+        NO_EXCEPTIONS);
   }
   
   @Override
