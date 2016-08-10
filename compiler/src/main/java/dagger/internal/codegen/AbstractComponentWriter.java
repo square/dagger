@@ -19,6 +19,7 @@ package dagger.internal.codegen;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
@@ -38,7 +39,6 @@ import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
 import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.Scope.reusableScope;
-import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
@@ -87,6 +87,7 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
@@ -103,12 +104,14 @@ import dagger.producers.internal.MapOfProducerProducer;
 import dagger.producers.internal.MapProducer;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -141,6 +144,7 @@ abstract class AbstractComponentWriter {
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
   private final Map<BindingKey, MemberSelect> memberSelects = new HashMap<>();
   private final Map<BindingKey, MemberSelect> producerFromProviderMemberSelects = new HashMap<>();
+  private final Map<BindingKey, RequestFulfillment> requestFulfillments = Maps.newLinkedHashMap();
   protected final MethodSpec.Builder constructor = constructorBuilder().addModifiers(PRIVATE);
   protected Optional<ClassName> builderName = Optional.absent();
 
@@ -654,11 +658,39 @@ abstract class AbstractComponentWriter {
         ? MAP_OF_PRODUCER_PRODUCER : MAP_PROVIDER_FACTORY;
   }
 
+  // TODO(gak): extract this into a proper factory class
+  private RequestFulfillment getOrCreateRequestFulfillment(BindingKey bindingKey) {
+    RequestFulfillment requestFulfillment = requestFulfillments.get(bindingKey);
+    if (requestFulfillment == null) {
+      /* TODO(gak): it is super convoluted that we create the member selects separately and then
+       * look them up again this way. Now that we have RequestFulfillment, the next step is to
+       * create it and the MemberSelect and the field on demand rather than in a first pass. */
+      MemberSelect memberSelect = getMemberSelect(bindingKey);
+      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
+      switch (resolvedBindings.bindingType()) {
+        case MEMBERS_INJECTION:
+          requestFulfillment = new MembersInjectorRequestFulfillment(bindingKey, memberSelect);
+          break;
+        case PRODUCTION:
+          requestFulfillment = new ProducerFieldRequestFulfillment(bindingKey, memberSelect);
+          break;
+        case PROVISION:
+          requestFulfillment = new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
+          break;
+        default:
+          throw new AssertionError();
+      }
+      requestFulfillments.put(bindingKey, requestFulfillment);
+    }
+    return requestFulfillment;
+  }
+
   private void implementInterfaceMethods() {
     Set<MethodSignature> interfaceMethods = Sets.newHashSet();
     for (ComponentMethodDescriptor componentMethod :
         graph.componentDescriptor().componentMethods()) {
       if (componentMethod.dependencyRequest().isPresent()) {
+        DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
         ExecutableElement methodElement =
             MoreElements.asExecutable(componentMethod.methodElement());
         ExecutableType requestType =
@@ -671,50 +703,65 @@ abstract class AbstractComponentWriter {
         if (!interfaceMethods.contains(signature)) {
           interfaceMethods.add(signature);
           MethodSpec.Builder interfaceMethod =
-              methodBuilder(methodElement.getSimpleName().toString())
-                  .addAnnotation(Override.class)
-                  .addModifiers(PUBLIC)
-                  .returns(TypeName.get(requestType.getReturnType()));
-          DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
-          BindingKey bindingKey = interfaceRequest.bindingKey();
-          MemberSelect memberSelect = getMemberSelect(bindingKey);
-          CodeBlock memberSelectCodeBlock = memberSelect.getExpressionFor(name);
+              methodSpecForComponentMethod(methodElement, requestType);
+          RequestFulfillment fulfillment =
+              getOrCreateRequestFulfillment(interfaceRequest.bindingKey());
+          CodeBlock codeBlock = fulfillment.getSnippetForDependencyRequest(interfaceRequest, name);
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
               List<? extends VariableElement> parameters = methodElement.getParameters();
               if (parameters.isEmpty()) {
                 // we're returning the framework type
-                interfaceMethod.addStatement("return $L", memberSelectCodeBlock);
+                interfaceMethod.addStatement("return $L", codeBlock);
               } else {
-                Name parameterName = Iterables.getOnlyElement(parameters).getSimpleName();
-                interfaceMethod.addParameter(
-                    TypeName.get(Iterables.getOnlyElement(requestType.getParameterTypes())),
-                    parameterName.toString());
-                interfaceMethod.addStatement(
-                    "$L.injectMembers($L)", memberSelectCodeBlock, parameterName);
+                Name parameterName =
+                    Iterables.getOnlyElement(methodElement.getParameters()).getSimpleName();
+                interfaceMethod.addStatement("$L.injectMembers($L)", codeBlock, parameterName);
                 if (!requestType.getReturnType().getKind().equals(VOID)) {
                   interfaceMethod.addStatement("return $L", parameterName);
                 }
               }
               break;
-            case INSTANCE:
-            case LAZY:
-            case PRODUCED:
-            case PRODUCER:
-            case PROVIDER:
-            case PROVIDER_OF_LAZY:
-            case FUTURE:
-              interfaceMethod.addStatement(
-                  "return $L",
-                  frameworkTypeUsageStatement(memberSelectCodeBlock, interfaceRequest.kind()));
-              break;
             default:
-              throw new AssertionError();
+              interfaceMethod.addStatement("return $L", codeBlock);
+              break;
           }
           component.addMethod(interfaceMethod.build());
         }
       }
     }
+  }
+
+  public MethodSpec.Builder methodSpecForComponentMethod(
+      ExecutableElement method, ExecutableType methodType) {
+    String methodName = method.getSimpleName().toString();
+    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
+
+    methodBuilder.addAnnotation(Override.class);
+
+    Set<Modifier> modifiers = EnumSet.copyOf(method.getModifiers());
+    modifiers.remove(Modifier.ABSTRACT);
+    methodBuilder.addModifiers(modifiers);
+
+    methodBuilder.returns(TypeName.get(methodType.getReturnType()));
+
+    List<? extends VariableElement> parameters = method.getParameters();
+    List<? extends TypeMirror> resolvedParameterTypes = methodType.getParameterTypes();
+    verify(parameters.size() == resolvedParameterTypes.size());
+    for (int i = 0; i < parameters.size(); i++) {
+      VariableElement parameter = parameters.get(i);
+      TypeName type = TypeName.get(resolvedParameterTypes.get(i));
+      String name = parameter.getSimpleName().toString();
+      Set<Modifier> parameterModifiers = parameter.getModifiers();
+      ParameterSpec.Builder parameterBuilder =
+          ParameterSpec.builder(type, name)
+              .addModifiers(parameterModifiers.toArray(new Modifier[0]));
+      methodBuilder.addParameter(parameterBuilder.build());
+    }
+    for (TypeMirror thrownType : method.getThrownTypes()) {
+      methodBuilder.addException(TypeName.get(thrownType));
+    }
+    return methodBuilder;
   }
 
   private void addSubcomponents() {
