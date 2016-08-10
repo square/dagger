@@ -273,17 +273,27 @@ abstract class ProvisionBinding extends ContributionBinding {
 
     ProvisionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
+      return delegateBuilder(delegateDeclaration).nullableType(delegate.nullableType()).build();
+    }
+
+    /**
+     * A form of {@link #delegate(DelegateDeclaration, ProvisionBinding)} when the right-hand-side
+     * of a {@link dagger.Binds} method cannot be resolved.
+     */
+    ProvisionBinding missingDelegate(DelegateDeclaration delegateDeclaration) {
+      return delegateBuilder(delegateDeclaration).build();
+    }
+
+    private ProvisionBinding.Builder delegateBuilder(DelegateDeclaration delegateDeclaration) {
       return ProvisionBinding.builder()
           .contributionType(delegateDeclaration.contributionType())
           .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Provider.class))
           .dependencies(delegateDeclaration.delegateRequest())
-          .nullableType(delegate.nullableType())
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
-          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()))
-          .build();
+          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()));
     }
   }
 }

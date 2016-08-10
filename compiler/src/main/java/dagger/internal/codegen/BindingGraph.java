@@ -547,26 +547,47 @@ abstract class BindingGraph {
           ImmutableSet<DelegateDeclaration> delegateDeclarations) {
         ImmutableSet.Builder<ContributionBinding> builder = ImmutableSet.builder();
         for (DelegateDeclaration delegateDeclaration : delegateDeclarations) {
-          DependencyRequest delegateRequest = delegateDeclaration.delegateRequest();
-          ResolvedBindings resolvedDelegate = lookUpBindings(delegateRequest);
-          for (ContributionBinding explicitDelegate : resolvedDelegate.contributionBindings()) {
-            switch (explicitDelegate.bindingType()) {
-              case PRODUCTION:
-                builder.add(
-                    productionBindingFactory.delegate(
-                        delegateDeclaration, (ProductionBinding) explicitDelegate));
-                break;
-              case PROVISION:
-                builder.add(
-                    provisionBindingFactory.delegate(
-                        delegateDeclaration, (ProvisionBinding) explicitDelegate));
-                break;
-              default:
-                throw new AssertionError();
-            }
-          }
+          builder.add(createDelegateBinding(delegateDeclaration));
         }
         return builder.build();
+      }
+
+      /**
+       * Creates one (and only one) delegate binding for a delegate declaration, based on the
+       * resolved bindings of the right-hand-side of a {@link dagger.Binds} method. If there are
+       * duplicate bindings for the dependency key, there should still be only one binding for the
+       * delegate key.
+       */
+      private ContributionBinding createDelegateBinding(DelegateDeclaration delegateDeclaration) {
+        ResolvedBindings resolvedDelegate = lookUpBindings(delegateDeclaration.delegateRequest());
+        if (resolvedDelegate.contributionBindings().isEmpty()) {
+          // This is guaranteed to result in a missing binding error, so it doesn't matter if the
+          // binding is a Provision or Production, except if it is a @IntoMap method, in which
+          // case the key will be of type Map<K, Provider<V>>, which will be "upgraded" into a
+          // Map<K, Producer<V>> if it's requested in a ProductionComponent. This may result in a
+          // strange error, that the RHS needs to be provided with an @Inject or @Provides
+          // annotated method, but a user should be able to figure out if a @Produces annotation
+          // is needed.
+          // TODO(gak): revisit how we model missing delegates if/when we clean up how we model
+          // binding declarations
+          return provisionBindingFactory.missingDelegate(delegateDeclaration);
+        }
+        // It doesn't matter which of these is selected, since they will later on produce a
+        // duplicate binding error.
+        // TODO(ronshapiro): Once compile-testing has a CompilationResult, add a test which asserts
+        // that a duplicate binding for the RHS does not result in a duplicate binding for the LHS.
+        ContributionBinding explicitDelegate =
+            resolvedDelegate.contributionBindings().iterator().next();
+        switch (explicitDelegate.bindingType()) {
+          case PRODUCTION:
+            return productionBindingFactory.delegate(
+                delegateDeclaration, (ProductionBinding) explicitDelegate);
+          case PROVISION:
+            return provisionBindingFactory.delegate(
+                delegateDeclaration, (ProvisionBinding) explicitDelegate);
+          default:
+            throw new AssertionError("bindingType: " + explicitDelegate);
+        }
       }
 
       private ImmutableSetMultimap<ComponentDescriptor, ContributionBinding>
