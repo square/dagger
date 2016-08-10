@@ -206,8 +206,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           "%s is not a request for Map<K, V>",
           requestForMapOfValues);
       DependencyRequest requestForMapOfProviders =
-          dependencyRequestFactory.forImplicitMapBinding(
-              requestForMapOfValues, mapOfProvidersKey.get());
+          dependencyRequestFactory.forImplicitMapBinding(mapOfProvidersKey.get());
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(requestForMapOfValues.key())
@@ -228,8 +227,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           .contributionType(ContributionType.UNIQUE)
           .key(request.key())
           .dependencies(
-              dependencyRequestFactory.forMultibindingContributions(
-                  request, multibindingContributions))
+              dependencyRequestFactory.forMultibindingContributions(multibindingContributions))
           .bindingKind(Kind.forMultibindingRequest(request))
           .build();
     }

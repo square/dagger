@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
@@ -42,7 +44,8 @@ final class DependencyVariableNamer implements Function<DependencyRequest, Strin
     if (dependency.overriddenVariableName().isPresent()) {
       return dependency.overriddenVariableName().get();
     }
-    String variableName = dependency.requestElement().getSimpleName().toString();
+    checkArgument(dependency.requestElement().isPresent());
+    String variableName = dependency.requestElement().get().getSimpleName().toString();
     if (Ascii.isUpperCase(variableName.charAt(0))) {
       variableName = toLowerCamel(variableName);
     }

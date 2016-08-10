@@ -152,7 +152,8 @@ abstract class DependencyRequest {
     }
   }
 
-  abstract Element requestElement();
+  /** The element that declares this dependency request. Absent for synthetic requests. */
+  abstract Optional<Element> requestElement();
 
   /** Returns true if this request allows null objects. */
   abstract boolean isNullable();
@@ -163,22 +164,17 @@ abstract class DependencyRequest {
    */
   abstract Optional<String> overriddenVariableName();
 
-  /** {@code true} if this is a synthetic request, which should not appear in dependency traces. */
-  abstract boolean isSynthetic();
-
-  /** A predicate that passes for synthetic requests. */
-  static final Predicate<DependencyRequest> IS_SYNTHETIC =
+  /** A predicate that passes for requests with elements. */
+  static final Predicate<DependencyRequest> HAS_REQUEST_ELEMENT =
       new Predicate<DependencyRequest>() {
         @Override
         public boolean apply(DependencyRequest request) {
-          return request.isSynthetic();
+          return request.requestElement().isPresent();
         }
       };
 
   private static DependencyRequest.Builder builder() {
-    return new AutoValue_DependencyRequest.Builder()
-        .isNullable(false)
-        .isSynthetic(false);
+    return new AutoValue_DependencyRequest.Builder().isNullable(false);
   }
 
   @CanIgnoreReturnValue
@@ -193,12 +189,6 @@ abstract class DependencyRequest {
     abstract Builder isNullable(boolean isNullable);
 
     abstract Builder overriddenVariableName(Optional<String> overriddenVariableName);
-
-    abstract Builder isSynthetic(boolean isSynthetic);
-
-    Builder isSynthetic() {
-      return isSynthetic(true);
-    }
 
     @CheckReturnValue
     abstract DependencyRequest build();
@@ -230,30 +220,23 @@ abstract class DependencyRequest {
     }
 
     /**
-     * Creates a implicit {@link DependencyRequest} for {@code mapOfFactoryKey}, which will be used
-     * to satisfy the {@code mapOfValueRequest}.
+     * Creates a implicit {@link DependencyRequest} for {@code mapOfFactoryKey}.
      *
-     * @param mapOfValueRequest a request for {@code Map<K, V>}
      * @param mapOfFactoryKey a key equivalent to {@code mapOfValueRequest}'s key, whose type is
      *     {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}
      */
-    DependencyRequest forImplicitMapBinding(
-        DependencyRequest mapOfValueRequest, Key mapOfFactoryKey) {
-      checkNotNull(mapOfValueRequest);
+    DependencyRequest forImplicitMapBinding(Key mapOfFactoryKey) {
       return DependencyRequest.builder()
           .kind(Kind.PROVIDER)
           .key(mapOfFactoryKey)
-          .requestElement(mapOfValueRequest.requestElement())
-          .isSynthetic()
           .build();
     }
 
     /**
-     * Creates a dependency request, with the same element as {@code request}, for one individual
-     * {@code multibindingContribution}.
+     * Creates a synthetic dependency request for one individual {@code multibindingContribution}.
      */
-    DependencyRequest forMultibindingContribution(
-        DependencyRequest request, ContributionBinding multibindingContribution) {
+    private DependencyRequest forMultibindingContribution(
+        ContributionBinding multibindingContribution) {
       checkArgument(
           multibindingContribution.key().multibindingContributionIdentifier().isPresent(),
           "multibindingContribution's key must have a multibinding contribution identifier: %s",
@@ -261,8 +244,6 @@ abstract class DependencyRequest {
       return DependencyRequest.builder()
           .kind(multibindingContributionRequestKind(multibindingContribution))
           .key(multibindingContribution.key())
-          .requestElement(request.requestElement())
-          .isSynthetic()
           .build();
     }
 
@@ -284,14 +265,14 @@ abstract class DependencyRequest {
     }
 
     /**
-     * Creates dependency requests, with the same element as {@code request}, for each individual
-     * multibinding contribution in {@code multibindingContributions}.
+     * Creates synthetic dependency requests for each individual multibinding contribution in {@code
+     * multibindingContributions}.
      */
     ImmutableSet<DependencyRequest> forMultibindingContributions(
-        DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+        Iterable<ContributionBinding> multibindingContributions) {
       ImmutableSet.Builder<DependencyRequest> requests = ImmutableSet.builder();
       for (ContributionBinding multibindingContribution : multibindingContributions) {
-        requests.add(forMultibindingContribution(request, multibindingContribution));
+        requests.add(forMultibindingContribution(multibindingContribution));
       }
       return requests.build();
     }

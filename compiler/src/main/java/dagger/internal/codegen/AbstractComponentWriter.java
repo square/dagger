@@ -659,26 +659,29 @@ abstract class AbstractComponentWriter {
     for (ComponentMethodDescriptor componentMethod :
         graph.componentDescriptor().componentMethods()) {
       if (componentMethod.dependencyRequest().isPresent()) {
-        DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
-        ExecutableElement requestElement =
-            MoreElements.asExecutable(interfaceRequest.requestElement());
-        ExecutableType requestType = MoreTypes.asExecutable(types.asMemberOf(
-            MoreTypes.asDeclared(componentDefinitionType().asType()), requestElement));
-        MethodSignature signature = MethodSignature.fromExecutableType(
-            requestElement.getSimpleName().toString(), requestType);
+        ExecutableElement methodElement =
+            MoreElements.asExecutable(componentMethod.methodElement());
+        ExecutableType requestType =
+            MoreTypes.asExecutable(
+                types.asMemberOf(
+                    MoreTypes.asDeclared(componentDefinitionType().asType()), methodElement));
+        MethodSignature signature =
+            MethodSignature.fromExecutableType(
+                methodElement.getSimpleName().toString(), requestType);
         if (!interfaceMethods.contains(signature)) {
           interfaceMethods.add(signature);
           MethodSpec.Builder interfaceMethod =
-              methodBuilder(requestElement.getSimpleName().toString())
+              methodBuilder(methodElement.getSimpleName().toString())
                   .addAnnotation(Override.class)
                   .addModifiers(PUBLIC)
                   .returns(TypeName.get(requestType.getReturnType()));
+          DependencyRequest interfaceRequest = componentMethod.dependencyRequest().get();
           BindingKey bindingKey = interfaceRequest.bindingKey();
           MemberSelect memberSelect = getMemberSelect(bindingKey);
           CodeBlock memberSelectCodeBlock = memberSelect.getExpressionFor(name);
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
-              List<? extends VariableElement> parameters = requestElement.getParameters();
+              List<? extends VariableElement> parameters = methodElement.getParameters();
               if (parameters.isEmpty()) {
                 // we're returning the framework type
                 interfaceMethod.addStatement("return $L", memberSelectCodeBlock);
