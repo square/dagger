@@ -83,7 +83,7 @@ public final class ProducerToken {
     if (methodName != null) {
       return methodName;
     } else if (classToken != null) {
-      return classToken.toString();
+      return classToken.getCanonicalName();
     } else {
       throw new IllegalStateException();
     }
