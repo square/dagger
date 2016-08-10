@@ -160,7 +160,7 @@ final class BindingGraphValidator {
 
     /** The entry point. */
     Element entryPointElement() {
-      return path.getFirst().dependencyRequest().requestElement();
+      return path.getFirst().dependencyRequest().requestElement().get();
     }
 
     /** The current dependency request, which is a transitive dependency of the entry point. */
@@ -392,8 +392,7 @@ final class BindingGraphValidator {
             throw new AssertionError(
                 "contribution binding keys should never have members injection bindings");
           }
-          validateNullability(
-              path.currentDependencyRequest(), resolvedBindings.contributionBindings());
+          validateNullability(path, resolvedBindings.contributionBindings());
           if (resolvedBindings.contributionBindings().size() > 1) {
             reportDuplicateBindings(path);
             return;
@@ -517,9 +516,12 @@ final class BindingGraphValidator {
           .build();
     }
 
-    /** Ensures that if the request isn't nullable, then each contribution is also not nullable. */
-    private void validateNullability(DependencyRequest request, Set<ContributionBinding> bindings) {
-      if (request.isNullable()) {
+    /**
+     * Ensures that if the current request isn't nullable, then each contribution is also not
+     * nullable.
+     */
+    private void validateNullability(DependencyPath path, Set<ContributionBinding> bindings) {
+      if (path.currentDependencyRequest().isNullable()) {
         return;
       }
 
@@ -528,16 +530,16 @@ final class BindingGraphValidator {
        * (Maybe this happens if the code was already compiled before this point?)
        * ... we manually print out the request in that case, otherwise the error
        * message is kind of useless. */
-      String typeName = TypeName.get(request.key().type()).toString();
+      String typeName = TypeName.get(path.currentDependencyRequest().key().type()).toString();
 
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
           reportBuilder.addItem(
               nullableToNonNullable(typeName, bindingDeclarationFormatter.format(binding))
                   + "\n at: "
-                  + dependencyRequestFormatter.format(request),
+                  + dependencyRequestFormatter.toDependencyTrace(path),
               compilerOptions.nullableValidationKind(),
-              request.requestElement());
+              path.entryPointElement());
         }
       }
     }
@@ -583,10 +585,9 @@ final class BindingGraphValidator {
       }
     }
 
-    /**
-     * Reports errors if a members injection binding is invalid.
-     */
-    private void validateMembersInjectionBinding(Binding binding, final DependencyPath path) {
+    /** Reports errors if a members injection binding is invalid. */
+    private void validateMembersInjectionBinding(
+        final MembersInjectionBinding binding, final DependencyPath path) {
       binding
           .key()
           .type()
@@ -595,8 +596,7 @@ final class BindingGraphValidator {
                 @Override
                 protected Void defaultAction(TypeMirror e, Void p) {
                   reportBuilder.addError(
-                      "Invalid members injection request.",
-                      path.currentDependencyRequest().requestElement());
+                      "Invalid members injection request.", binding.membersInjectedType());
                   return null;
                 }
 
@@ -1180,7 +1180,7 @@ final class BindingGraphValidator {
       return FluentIterable.from(cycle)
           .skip(1)
           .transform(ResolvedRequest.DEPENDENCY_REQUEST)
-          .filter(not(DependencyRequest.IS_SYNTHETIC))
+          .filter(DependencyRequest.HAS_REQUEST_ELEMENT)
           .filter(
               new Predicate<DependencyRequest>() {
                 @Override

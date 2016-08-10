@@ -27,6 +27,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
@@ -34,8 +35,10 @@ import dagger.Binds;
 import dagger.Provides;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
+import java.util.Comparator;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -210,6 +213,37 @@ final class Util {
           return element.getSimpleName().toString();
         }
       };
+
+  /** A function that returns the kind of an element. */
+  static final Function<Element, ElementKind> ELEMENT_KIND =
+      new Function<Element, ElementKind>() {
+        @Override
+        public ElementKind apply(Element element) {
+          return element.getKind();
+        }
+      };
+
+  @SuppressWarnings("rawtypes")
+  private static final Comparator OPTIONAL_COMPARATOR =
+      new Comparator<Optional<Comparable>>() {
+        @SuppressWarnings("unchecked") // Only used as a Comparator<Optional<SomeType>>.
+        @Override
+        public int compare(Optional<Comparable> o1, Optional<Comparable> o2) {
+          if (o1.isPresent() && o2.isPresent()) {
+            return o1.get().compareTo(o2.get());
+          }
+          return o1.isPresent() ? -1 : 1;
+        }
+      };
+
+  /**
+   * A {@link Comparator} that puts absent {@link Optional}s before present ones, and compares
+   * present {@link Optional}s by their values.
+   */
+  @SuppressWarnings("unchecked") // Fully covariant.
+  static <C extends Comparable<C>> Comparator<Optional<C>> optionalComparator() {
+    return OPTIONAL_COMPARATOR;
+  }
 
   private Util() {}
 }

@@ -20,7 +20,6 @@ import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 
@@ -33,7 +32,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Component;
@@ -59,27 +57,8 @@ import javax.lang.model.type.TypeMirror;
  */
 abstract class ContributionBinding extends Binding implements HasContributionType {
 
-  @Override
-  Set<DependencyRequest> implicitDependencies() {
-    // Optimization: If we don't need the memberInjectionRequest, don't create more objects.
-    if (!membersInjectionRequest().isPresent()) {
-      return dependencies();
-    } else {
-      // Optimization: Avoid creating an ImmutableSet+Builder just to union two things together.
-      return Sets.union(membersInjectionRequest().asSet(), dependencies());
-    }
-  }
-
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
-
-  /**
-   * Returns whether this binding is synthetic, i.e., not explicitly tied to code, but generated
-   * implicitly by the framework.
-   */
-  boolean isSyntheticBinding() {
-    return IS_SYNTHETIC_KIND.apply(bindingKind());
-  }
 
   /**
    * A function that returns the kind of a binding.
@@ -91,9 +70,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
           return binding.bindingKind();
         }
       };
-
-  /** If this provision requires members injection, this will be the corresponding request. */
-  abstract Optional<DependencyRequest> membersInjectionRequest();
 
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey();
 
@@ -165,17 +141,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      */
     COMPONENT_PRODUCTION,
     ;
-
-    /**
-     * A predicate that tests whether a kind is for synthetic bindings.
-     */
-    static final Predicate<Kind> IS_SYNTHETIC_KIND =
-        Predicates.in(
-            immutableEnumSet(
-                SYNTHETIC_MAP,
-                SYNTHETIC_MULTIBOUND_SET,
-                SYNTHETIC_MULTIBOUND_MAP,
-                SYNTHETIC_DELEGATE_BINDING));
 
     /**
      * A predicate that tests whether a kind is for synthetic multibindings.
@@ -319,8 +284,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
     abstract B dependencies(DependencyRequest... dependencies);
 
     abstract B nullableType(Optional<DeclaredType> nullableType);
-
-    abstract B membersInjectionRequest(Optional<DependencyRequest> membersInjectionRequest);
 
     abstract B wrappedMapKey(Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey);
 

@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import java.util.List;
 import java.util.Set;
@@ -61,15 +62,31 @@ abstract class Binding extends BindingDeclaration implements HasBindingType {
   public abstract Key key();
 
   /**
-   * The explicit set of {@link DependencyRequest dependencies} required to satisfy this binding.
+   * The explicit set of {@link DependencyRequest dependencies} required to satisfy this binding as
+   * defined by the user-defined injection sites.
    */
   abstract ImmutableSet<DependencyRequest> dependencies();
 
   /**
-   * The set of {@link DependencyRequest dependencies} required to satisfy this binding. This is a
-   * superset of {@link #dependencies()}.  This returns an unmodifiable set.
+   * The set of {@link DependencyRequest dependencies} that are added by the framework rather than a
+   * user-defined injection site. This returns an unmodifiable set.
    */
-  abstract Set<DependencyRequest> implicitDependencies();
+  // TODO(gak): this will eventually get migrated to FrameworkDependency
+  Set<DependencyRequest> frameworkDependencies() {
+    return ImmutableSet.of();
+  }
+
+  /**
+   * The set of {@link DependencyRequest dependencies} required to satisfy this binding. This is the
+   * union of {@link #dependencies()} and {@link #frameworkDependencies()}. This returns an
+   * unmodifiable set.
+   */
+  final Set<DependencyRequest> implicitDependencies() {
+    Set<DependencyRequest> frameworkDependencies = frameworkDependencies();
+    return frameworkDependencies.isEmpty()
+        ? dependencies()
+        : Sets.union(frameworkDependencies, dependencies());
+  }
 
   /**
    * Returns the name of the package in which this binding must be managed. E.g.: a binding
@@ -129,7 +146,7 @@ abstract class Binding extends BindingDeclaration implements HasBindingType {
   }
 
   /**
-   * if this binding's key's type parameters are different from those of the
+   * If this binding's key's type parameters are different from those of the
    * {@link #bindingTypeElement()}, this is the binding for the {@link #bindingTypeElement()}'s
    * unresolved type.
    */

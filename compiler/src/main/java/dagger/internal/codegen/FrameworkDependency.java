@@ -19,17 +19,14 @@ package dagger.internal.codegen;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Maps;
 import java.util.Collection;
+import java.util.Iterator;
 import javax.inject.Provider;
-import javax.lang.model.element.Element;
 
 /**
  * The framework class and binding key for a resolved dependency of a binding. If a binding has
@@ -137,43 +134,14 @@ abstract class FrameworkDependency {
    */
   private static ImmutableList<Collection<DependencyRequest>> groupByUnresolvedKey(
       Binding binding) {
-    // If the binding has no unresolved version, just group the dependencies by binding key.
-    if (!binding.unresolved().isPresent()) {
-      return groupByKey(binding, Functions.<DependencyRequest>identity());
-    }
-
-    // Group the unresolved dependencies, replacing each one with its resolved version by looking it
-    // up by request element.
-    final ImmutableMap<Element, DependencyRequest> resolvedDependencies =
-        Maps.uniqueIndex(
-            binding.implicitDependencies(),
-            new Function<DependencyRequest, Element>() {
-              @Override
-              public Element apply(DependencyRequest dependencyRequest) {
-                return dependencyRequest.requestElement();
-              }
-            });
-    return groupByKey(
-        binding.unresolved().get(),
-        new Function<DependencyRequest, DependencyRequest>() {
-          @Override
-          public DependencyRequest apply(DependencyRequest unresolvedRequest) {
-            return resolvedDependencies.get(unresolvedRequest.requestElement());
-          }
-        });
-  }
-
-  /**
-   * Groups a binding's dependency requests by their binding key.
-   *
-   * @param transformer applied to each dependency before inserting into the group
-   */
-  private static ImmutableList<Collection<DependencyRequest>> groupByKey(
-      Binding binding, Function<DependencyRequest, DependencyRequest> transformer) {
     ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
         ImmutableSetMultimap.builder();
-    for (DependencyRequest dependency : binding.implicitDependencies()) {
-      dependenciesByKeyBuilder.put(dependency.bindingKey(), transformer.apply(dependency));
+    Iterator<DependencyRequest> dependencies = binding.implicitDependencies().iterator();
+    Binding unresolved = binding.unresolved().isPresent() ? binding.unresolved().get() : binding;
+    Iterator<DependencyRequest> unresolvedDependencies =
+        unresolved.implicitDependencies().iterator();
+    while (dependencies.hasNext()) {
+      dependenciesByKeyBuilder.put(unresolvedDependencies.next().bindingKey(), dependencies.next());
     }
     return ImmutableList.copyOf(
         dependenciesByKeyBuilder

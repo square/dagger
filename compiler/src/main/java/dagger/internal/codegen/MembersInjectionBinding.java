@@ -77,11 +77,6 @@ abstract class MembersInjectionBinding extends Binding {
     return Optional.absent();
   }
 
-  @Override
-  Set<DependencyRequest> implicitDependencies() {
-    return dependencies();
-  }
-
   /** The set of individual sites where {@link Inject} is applied. */
   abstract ImmutableSortedSet<InjectionSite> injectionSites();
 

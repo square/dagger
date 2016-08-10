@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 
@@ -1063,6 +1064,89 @@ public class GraphValidationTest {
                     "    TestComponent.testInterface()"))
         .in(component)
         .onLine(5);
+  }
+
+  @Test
+  public void bindsMissingRightHandSide() {
+    JavaFileObject duplicates =
+        JavaFileObjects.forSourceLines(
+            "test.Duplicates",
+            "package test;",
+            "",
+            "import dagger.Binds;",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.multibindings.IntKey;",
+            "import dagger.multibindings.IntoSet;",
+            "import dagger.multibindings.IntoMap;",
+            "import dagger.multibindings.LongKey;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "interface Duplicates {",
+            "",
+            "  interface BoundTwice {}",
+            "",
+            "  class BoundImpl implements BoundTwice {",
+            "    @Inject BoundImpl() {}",
+            "  }",
+            "",
+            "  class NotBound implements BoundTwice {}",
+            "",
+            "  @Module",
+            "  abstract class DuplicatesModule {",
+            "    @Binds abstract BoundTwice bindWithResolvedKey(BoundImpl impl);",
+            "    @Binds abstract BoundTwice bindWithUnresolvedKey(NotBound notBound);",
+            "",
+            "    @Binds abstract Object bindObject(NotBound notBound);",
+            "",
+            "    @Binds @IntoSet abstract BoundTwice bindWithUnresolvedKey_set(NotBound notBound);",
+            "",
+            "    @Binds @IntoMap @IntKey(1)",
+            "    abstract BoundTwice bindWithUnresolvedKey_intMap(NotBound notBound);",
+            "",
+            "    @Provides @IntoMap @LongKey(2L)",
+            "    static BoundTwice provideWithUnresolvedKey_longMap(BoundImpl impl) {",
+            "      return impl;",
+            "    }",
+            "    @Binds @IntoMap @LongKey(2L)",
+            "    abstract BoundTwice bindWithUnresolvedKey_longMap(NotBound notBound);",
+            "  }",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.C",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import java.util.Set;",
+            "import java.util.Map;",
+            "import test.Duplicates.BoundTwice;",
+            "",
+            "@Component(modules = Duplicates.DuplicatesModule.class)",
+            "interface C {",
+            "  BoundTwice boundTwice();",
+            "  Object object();",
+            "  Set<BoundTwice> set();",
+            "  Map<Integer, BoundTwice> intMap();",
+            "  Map<Long, BoundTwice> longMap();",
+            "}");
+
+    assertThat(duplicates, component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("test.Duplicates.BoundTwice is bound multiple times:")
+            .in(component).onLine(10)
+        .and().withErrorContaining("test.Duplicates.DuplicatesModule.bindWithUnresolvedKey")
+            .in(component).onLine(10)
+        .and().withErrorContaining("test.Duplicates.NotBound cannot be provided")
+            .in(component).onLine(11)
+        .and().withErrorContaining("test.Duplicates.NotBound cannot be provided")
+            .in(component).onLine(12)
+        .and().withErrorContaining("test.Duplicates.NotBound cannot be provided")
+            .in(component).onLine(13)
+        .and().withErrorContaining("same map key is bound more than once")
+            .in(component).onLine(14);
   }
 
   @Test public void resolvedParametersInDependencyTrace() {

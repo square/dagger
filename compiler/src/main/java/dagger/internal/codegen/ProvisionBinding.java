@@ -35,6 +35,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Set;
 import javax.annotation.CheckReturnValue;
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -59,6 +60,14 @@ import javax.lang.model.util.Types;
 abstract class ProvisionBinding extends ContributionBinding {
 
   @Override
+  Set<DependencyRequest> frameworkDependencies() {
+    return membersInjectionRequest().asSet();
+  }
+
+  /** If this provision requires members injection, this will be the corresponding request. */
+  abstract Optional<DependencyRequest> membersInjectionRequest();
+
+  @Override
   public BindingType bindingType() {
     return BindingType.PROVISION;
   }
@@ -77,6 +86,8 @@ abstract class ProvisionBinding extends ContributionBinding {
   @AutoValue.Builder
   @CanIgnoreReturnValue
   abstract static class Builder extends ContributionBinding.Builder<Builder> {
+
+    abstract Builder membersInjectionRequest(Optional<DependencyRequest> membersInjectionRequest);
 
     abstract Builder unresolved(ProvisionBinding unresolved);
 
@@ -206,8 +217,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           "%s is not a request for Map<K, V>",
           requestForMapOfValues);
       DependencyRequest requestForMapOfProviders =
-          dependencyRequestFactory.forImplicitMapBinding(
-              requestForMapOfValues, mapOfProvidersKey.get());
+          dependencyRequestFactory.forImplicitMapBinding(mapOfProvidersKey.get());
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(requestForMapOfValues.key())
@@ -228,8 +238,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           .contributionType(ContributionType.UNIQUE)
           .key(request.key())
           .dependencies(
-              dependencyRequestFactory.forMultibindingContributions(
-                  request, multibindingContributions))
+              dependencyRequestFactory.forMultibindingContributions(multibindingContributions))
           .bindingKind(Kind.forMultibindingRequest(request))
           .build();
     }
@@ -275,17 +284,27 @@ abstract class ProvisionBinding extends ContributionBinding {
 
     ProvisionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
+      return delegateBuilder(delegateDeclaration).nullableType(delegate.nullableType()).build();
+    }
+
+    /**
+     * A form of {@link #delegate(DelegateDeclaration, ProvisionBinding)} when the right-hand-side
+     * of a {@link dagger.Binds} method cannot be resolved.
+     */
+    ProvisionBinding missingDelegate(DelegateDeclaration delegateDeclaration) {
+      return delegateBuilder(delegateDeclaration).build();
+    }
+
+    private ProvisionBinding.Builder delegateBuilder(DelegateDeclaration delegateDeclaration) {
       return ProvisionBinding.builder()
           .contributionType(delegateDeclaration.contributionType())
           .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Provider.class))
           .dependencies(delegateDeclaration.delegateRequest())
-          .nullableType(delegate.nullableType())
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
-          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()))
-          .build();
+          .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()));
     }
   }
 }

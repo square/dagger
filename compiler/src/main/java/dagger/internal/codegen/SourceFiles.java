@@ -19,6 +19,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
 import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
+import static dagger.internal.codegen.Util.ELEMENT_KIND;
+import static dagger.internal.codegen.Util.ELEMENT_SIMPLE_NAME;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
@@ -36,6 +38,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
 import java.util.Iterator;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
@@ -54,19 +57,26 @@ class SourceFiles {
    * Sorts {@link DependencyRequest} instances in an order likely to reflect their logical
    * importance.
    */
-  static final Ordering<DependencyRequest> DEPENDENCY_ORDERING = new Ordering<DependencyRequest>() {
-    @Override
-    public int compare(DependencyRequest left, DependencyRequest right) {
-      return ComparisonChain.start()
-      // put fields before parameters
-          .compare(left.requestElement().getKind(), right.requestElement().getKind())
-          // order by dependency kind
-          .compare(left.kind(), right.kind())
-          // then sort by name
-          .compare(left.requestElement().getSimpleName().toString(),
-              right.requestElement().getSimpleName().toString()).result();
-    }
-  };
+  static final Ordering<DependencyRequest> DEPENDENCY_ORDERING =
+      new Ordering<DependencyRequest>() {
+        @Override
+        public int compare(DependencyRequest left, DependencyRequest right) {
+          return ComparisonChain.start()
+              // put fields before parameters
+              .compare(
+                  left.requestElement().transform(ELEMENT_KIND),
+                  right.requestElement().transform(ELEMENT_KIND),
+                  Util.<ElementKind>optionalComparator())
+              // order by dependency kind
+              .compare(left.kind(), right.kind())
+              // then sort by name
+              .compare(
+                  left.requestElement().transform(ELEMENT_SIMPLE_NAME),
+                  right.requestElement().transform(ELEMENT_SIMPLE_NAME),
+                  Util.<String>optionalComparator())
+              .result();
+        }
+      };
 
   /**
    * Generates names and keys for the factory class fields needed to hold the framework classes for

@@ -357,7 +357,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
   private String staticInjectMethodDependencyParameterName(
       Set<String> parameterNames, DependencyRequest dependency, FieldSpec field) {
     StringBuilder parameterName =
-        new StringBuilder(dependency.requestElement().getSimpleName().toString());
+        new StringBuilder(dependency.requestElement().get().getSimpleName().toString());
     switch (dependency.kind()) {
       case LAZY:
       case INSTANCE:

@@ -80,7 +80,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
         .join(
             dependencyPath
                 .dependencyRequests()
-                .filter(Predicates.not(DependencyRequest.IS_SYNTHETIC))
+                .filter(DependencyRequest.HAS_REQUEST_ELEMENT)
                 .transform(this)
                 .filter(Predicates.not(Predicates.equalTo("")))
                 .toList()
@@ -93,6 +93,7 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
   public String format(DependencyRequest request) {
     return request
         .requestElement()
+        .get()
         .accept(
             new ElementKindVisitor7<String, DependencyRequest>() {
 
@@ -117,8 +118,8 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
 
               /**
                * Returns the description for {@link javax.inject.Inject @Inject} constructor and
-               * method parameters and for {@link dagger.Provides @Provides} and
-               * {@link dagger.producers.Produces @Produces} method parameters.
+               * method parameters and for {@link dagger.Provides @Provides} and {@link
+               * dagger.producers.Produces @Produces} method parameters.
                */
               @Override
               public String visitVariableAsParameter(
