@@ -32,7 +32,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Component;
@@ -58,17 +57,6 @@ import javax.lang.model.type.TypeMirror;
  */
 abstract class ContributionBinding extends Binding implements HasContributionType {
 
-  @Override
-  Set<DependencyRequest> implicitDependencies() {
-    // Optimization: If we don't need the memberInjectionRequest, don't create more objects.
-    if (!membersInjectionRequest().isPresent()) {
-      return dependencies();
-    } else {
-      // Optimization: Avoid creating an ImmutableSet+Builder just to union two things together.
-      return Sets.union(membersInjectionRequest().asSet(), dependencies());
-    }
-  }
-
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
 
@@ -82,9 +70,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
           return binding.bindingKind();
         }
       };
-
-  /** If this provision requires members injection, this will be the corresponding request. */
-  abstract Optional<DependencyRequest> membersInjectionRequest();
 
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey();
 
@@ -299,8 +284,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
     abstract B dependencies(DependencyRequest... dependencies);
 
     abstract B nullableType(Optional<DeclaredType> nullableType);
-
-    abstract B membersInjectionRequest(Optional<DependencyRequest> membersInjectionRequest);
 
     abstract B wrappedMapKey(Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey);
 

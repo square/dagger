@@ -35,6 +35,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Set;
 import javax.annotation.CheckReturnValue;
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -59,6 +60,14 @@ import javax.lang.model.util.Types;
 abstract class ProvisionBinding extends ContributionBinding {
 
   @Override
+  Set<DependencyRequest> frameworkDependencies() {
+    return membersInjectionRequest().asSet();
+  }
+
+  /** If this provision requires members injection, this will be the corresponding request. */
+  abstract Optional<DependencyRequest> membersInjectionRequest();
+
+  @Override
   public BindingType bindingType() {
     return BindingType.PROVISION;
   }
@@ -77,6 +86,8 @@ abstract class ProvisionBinding extends ContributionBinding {
   @AutoValue.Builder
   @CanIgnoreReturnValue
   abstract static class Builder extends ContributionBinding.Builder<Builder> {
+
+    abstract Builder membersInjectionRequest(Optional<DependencyRequest> membersInjectionRequest);
 
     abstract Builder unresolved(ProvisionBinding unresolved);
 

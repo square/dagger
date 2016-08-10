@@ -27,7 +27,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.producers.Producer;
@@ -60,15 +59,11 @@ abstract class ProductionBinding extends ContributionBinding {
   }
 
   @Override
-  Set<DependencyRequest> implicitDependencies() {
-    // Similar optimizations to ContributionBinding.implicitDependencies().
-    if (!executorRequest().isPresent() && !monitorRequest().isPresent()) {
-      return super.implicitDependencies();
-    } else {
-      return Sets.union(
-          Sets.union(executorRequest().asSet(), monitorRequest().asSet()),
-          super.implicitDependencies());
-    }
+  Set<DependencyRequest> frameworkDependencies() {
+    return new ImmutableSet.Builder<DependencyRequest>()
+        .addAll(executorRequest().asSet())
+        .addAll(monitorRequest().asSet())
+        .build();
   }
 
   /** Returns the list of types in the throws clause of the method. */
