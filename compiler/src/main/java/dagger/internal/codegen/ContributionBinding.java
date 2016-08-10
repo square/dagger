@@ -20,7 +20,6 @@ import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_KIND;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 
@@ -72,14 +71,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
 
   /** Returns the type that specifies this' nullability, absent if not nullable. */
   abstract Optional<DeclaredType> nullableType();
-
-  /**
-   * Returns whether this binding is synthetic, i.e., not explicitly tied to code, but generated
-   * implicitly by the framework.
-   */
-  boolean isSyntheticBinding() {
-    return IS_SYNTHETIC_KIND.apply(bindingKind());
-  }
 
   /**
    * A function that returns the kind of a binding.
@@ -165,17 +156,6 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
      */
     COMPONENT_PRODUCTION,
     ;
-
-    /**
-     * A predicate that tests whether a kind is for synthetic bindings.
-     */
-    static final Predicate<Kind> IS_SYNTHETIC_KIND =
-        Predicates.in(
-            immutableEnumSet(
-                SYNTHETIC_MAP,
-                SYNTHETIC_MULTIBOUND_SET,
-                SYNTHETIC_MULTIBOUND_MAP,
-                SYNTHETIC_DELEGATE_BINDING));
 
     /**
      * A predicate that tests whether a kind is for synthetic multibindings.
