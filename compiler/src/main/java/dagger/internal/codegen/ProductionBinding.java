@@ -128,7 +128,7 @@ abstract class ProductionBinding extends ContributionBinding {
       DependencyRequest executorRequest =
           dependencyRequestFactory.forProductionImplementationExecutor();
       DependencyRequest monitorRequest =
-          dependencyRequestFactory.forProductionComponentMonitorProvider();
+          dependencyRequestFactory.forProductionComponentMonitor();
       Kind kind = MoreTypes.isTypeOf(ListenableFuture.class, producesMethod.getReturnType())
           ? Kind.FUTURE_PRODUCTION
           : Kind.IMMEDIATE;

@@ -115,7 +115,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProductionExecutorModuleGenerator(filer, elements);
 
     DependencyRequest.Factory dependencyRequestFactory =
-        new DependencyRequest.Factory(elements, keyFactory);
+        new DependencyRequest.Factory(keyFactory);
     ProvisionBinding.Factory provisionBindingFactory =
         new ProvisionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
     ProductionBinding.Factory productionBindingFactory =

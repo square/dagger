@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
@@ -40,7 +39,6 @@ import dagger.Provides;
 import dagger.internal.codegen.DependencyRequest.Factory.KindAndType;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
-import dagger.producers.internal.AbstractProducer;
 import java.util.List;
 import javax.annotation.CheckReturnValue;
 import javax.inject.Inject;
@@ -48,14 +46,12 @@ import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor7;
 
 /**
@@ -201,11 +197,9 @@ abstract class DependencyRequest {
    * which may mean that the type will be generated in a later round of processing.
    */
   static final class Factory {
-    private final Elements elements;
     private final Key.Factory keyFactory;
 
-    Factory(Elements elements, Key.Factory keyFactory) {
-      this.elements = elements;
+    Factory(Key.Factory keyFactory) {
       this.keyFactory = keyFactory;
     }
 
@@ -371,15 +365,14 @@ abstract class DependencyRequest {
           .build();
     }
 
-    DependencyRequest forProductionComponentMonitorProvider() {
-      TypeElement element = elements.getTypeElement(AbstractProducer.class.getCanonicalName());
-      for (ExecutableElement constructor : constructorsIn(element.getEnclosedElements())) {
-        if (constructor.getParameters().size() == 2) {
-          // the 2-arg constructor has the appropriate dependency as its first arg
-          return forRequiredVariable(constructor.getParameters().get(0), Optional.of("monitor"));
-        }
-      }
-      throw new AssertionError("expected 2-arg constructor in AbstractProducer");
+    DependencyRequest forProductionComponentMonitor() {
+      Key key = keyFactory.forProductionComponentMonitor();
+      return DependencyRequest.builder()
+          .kind(Kind.PROVIDER)
+          .key(key)
+          .requestElement(MoreTypes.asElement(key.type()))
+          .overriddenVariableName(Optional.of("monitor"))
+          .build();
     }
 
     private DependencyRequest newDependencyRequest(

@@ -49,6 +49,7 @@ import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.Production;
 import dagger.producers.internal.ProductionImplementation;
+import dagger.producers.monitoring.ProductionComponentMonitor;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -506,6 +507,12 @@ abstract class Key {
       return forQualifiedType(
           Optional.of(SimpleAnnotationMirror.of(getClassElement(ProductionImplementation.class))),
           getClassElement(Executor.class).asType());
+    }
+
+    Key forProductionComponentMonitor() {
+      return forQualifiedType(
+          Optional.<AnnotationMirror>absent(),
+          getClassElement(ProductionComponentMonitor.class).asType());
     }
 
     /**
