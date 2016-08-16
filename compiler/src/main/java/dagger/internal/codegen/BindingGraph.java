@@ -293,9 +293,9 @@ abstract class BindingGraph {
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
       final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
-          CacheBuilder.newBuilder().<BindingKey, Boolean>build();
+          CacheBuilder.newBuilder().build();
       final Cache<Binding, Boolean> bindingDependsOnLocalMultibindingsCache =
-          CacheBuilder.newBuilder().<Binding, Boolean>build();
+          CacheBuilder.newBuilder().build();
 
       Resolver(
           Optional<Resolver> parentResolver,
