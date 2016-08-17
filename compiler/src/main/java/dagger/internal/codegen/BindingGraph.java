@@ -54,7 +54,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeTraverser;
-import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Reusable;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
@@ -488,9 +487,6 @@ abstract class BindingGraph {
        * the following types, returns a {@link ProductionBinding}.
        *
        * <ul>
-       * <li>{@link Producer Producer<SetOrMap>}
-       * <li>{@link Produced Produced<SetOrMap>}
-       * <li>{@link ListenableFuture ListenableFuture<SetOrMap>}
        * <li>{@code Set<Produced<T>>}
        * <li>{@code Map<K, Producer<V>>}
        * <li>{@code Map<K, Produced<V>>}
@@ -504,7 +500,7 @@ abstract class BindingGraph {
           Iterable<MultibindingDeclaration> multibindingDeclarations) {
         if (isEmpty(multibindingContributions) && isEmpty(multibindingDeclarations)) {
           return Optional.absent();
-        } else if (multibindingsRequireProduction(multibindingContributions, request)) {
+        } else if (multibindingsRequireProduction(multibindingContributions, request.key())) {
           return Optional.of(
               productionBindingFactory.syntheticMultibinding(request, multibindingContributions));
         } else {
@@ -514,33 +510,17 @@ abstract class BindingGraph {
       }
 
       private boolean multibindingsRequireProduction(
-          Iterable<ContributionBinding> multibindingContributions, DependencyRequest request) {
-        switch (request.kind()) {
-          case PRODUCER:
-          case PRODUCED:
-          case FUTURE:
+          Iterable<ContributionBinding> multibindingContributions, Key requestKey) {
+        if (MapType.isMap(requestKey)) {
+          MapType mapType = MapType.from(requestKey);
+          if (mapType.valuesAreTypeOf(Producer.class) || mapType.valuesAreTypeOf(Produced.class)) {
             return true;
-
-          case INSTANCE:
-          case LAZY:
-          case PROVIDER:
-          case PROVIDER_OF_LAZY:
-            if (MapType.isMap(request.key())) {
-              MapType mapType = MapType.from(request.key());
-              if (mapType.valuesAreTypeOf(Producer.class)
-                  || mapType.valuesAreTypeOf(Produced.class)) {
-                return true;
-              }
-            } else if (SetType.isSet(request.key())
-                && SetType.from(request.key()).elementsAreTypeOf(Produced.class)) {
-              return true;
-            }
-            return Iterables.any(multibindingContributions, isOfType(BindingType.PRODUCTION));
-
-          case MEMBERS_INJECTOR:
-          default:
-            throw new AssertionError(request.kind());
+          }
+        } else if (SetType.isSet(requestKey)
+            && SetType.from(requestKey).elementsAreTypeOf(Produced.class)) {
+          return true;
         }
+        return Iterables.any(multibindingContributions, isOfType(BindingType.PRODUCTION));
       }
 
       private ImmutableSet<ContributionBinding> createDelegateBindings(
