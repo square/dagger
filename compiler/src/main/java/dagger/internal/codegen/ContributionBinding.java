@@ -134,8 +134,8 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
     FUTURE_PRODUCTION,
 
     /**
-     * A production method on a production component's
-     * {@linkplain ProductionComponent#dependencies() dependency} that returns a
+     * A production method on a production component's {@linkplain
+     * dagger.producers.ProductionComponent#dependencies()} dependency} that returns a
      * {@link ListenableFuture}. Methods on production component dependencies that don't return a
      * {@link ListenableFuture} are considered {@linkplain #PROVISION provision bindings}.
      */
@@ -149,18 +149,15 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
         Predicates.in(immutableEnumSet(SYNTHETIC_MULTIBOUND_SET, SYNTHETIC_MULTIBOUND_MAP));
 
     /**
-     * {@link #SYNTHETIC_MULTIBOUND_SET} or {@link #SYNTHETIC_MULTIBOUND_MAP}, depending on the
-     * request's key.
+     * {@link #SYNTHETIC_MULTIBOUND_SET} or {@link #SYNTHETIC_MULTIBOUND_MAP}, depending on the key.
      */
-    static Kind forMultibindingRequest(DependencyRequest request) {
-      Key key = request.key();
+    static Kind forMultibindingKey(Key key) {
       if (SetType.isSet(key)) {
         return SYNTHETIC_MULTIBOUND_SET;
       } else if (MapType.isMap(key)) {
         return SYNTHETIC_MULTIBOUND_MAP;
       } else {
-        throw new IllegalArgumentException(
-            String.format("request is not for a set or map: %s", request));
+        throw new IllegalArgumentException(String.format("key is not for a set or map: %s", key));
       }
     }
   }

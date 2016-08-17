@@ -151,20 +151,19 @@ abstract class ProductionBinding extends ContributionBinding {
      * A synthetic binding of {@code Map<K, V>} or {@code Map<K, Produced<V>>} that depends on
      * {@code Map<K, Producer<V>>}.
      */
-    ProductionBinding syntheticMapOfValuesOrProducedBinding(
-        DependencyRequest requestForMapOfValuesOrProduced) {
-      checkNotNull(requestForMapOfValuesOrProduced);
+    ProductionBinding syntheticMapOfValuesOrProducedBinding(Key mapOfValuesOrProducedKey) {
+      checkNotNull(mapOfValuesOrProducedKey);
       Optional<Key> mapOfProducersKey =
-          keyFactory.implicitMapProducerKeyFrom(requestForMapOfValuesOrProduced.key());
+          keyFactory.implicitMapProducerKeyFrom(mapOfValuesOrProducedKey);
       checkArgument(
           mapOfProducersKey.isPresent(),
-          "%s is not for a Map<K, V> or Map<K, Produced<V>>",
-          requestForMapOfValuesOrProduced);
+          "%s is not a key for of Map<K, V> or Map<K, Produced<V>>",
+          mapOfValuesOrProducedKey);
       DependencyRequest requestForMapOfProducers =
           dependencyRequestFactory.forImplicitMapBinding(mapOfProducersKey.get());
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .key(requestForMapOfValuesOrProduced.key())
+          .key(mapOfValuesOrProducedKey)
           .dependencies(requestForMapOfProducers)
           .bindingKind(Kind.SYNTHETIC_MAP)
           .build();
@@ -177,13 +176,13 @@ abstract class ProductionBinding extends ContributionBinding {
      * <p>Note that these could be set multibindings or map multibindings.
      */
     ProductionBinding syntheticMultibinding(
-        DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+        Key key, Iterable<ContributionBinding> multibindingContributions) {
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .key(request.key())
+          .key(key)
           .dependencies(
               dependencyRequestFactory.forMultibindingContributions(multibindingContributions))
-          .bindingKind(Kind.forMultibindingRequest(request))
+          .bindingKind(Kind.forMultibindingKey(key))
           .build();
     }
 
