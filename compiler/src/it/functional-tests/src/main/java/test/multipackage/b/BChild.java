@@ -31,6 +31,7 @@ public class BChild extends AParent {
     this.aChildMethod = aChildMethod;
   }
 
+  @SuppressWarnings("OverridesJavaxInjectableMethod")
   @Override
   protected void aParentMethod(APublicObject aParentMethod) {
     super.aParentMethod(aParentMethod);

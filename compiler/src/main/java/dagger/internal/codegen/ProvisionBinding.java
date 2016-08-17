@@ -205,22 +205,16 @@ abstract class ProvisionBinding extends ContributionBinding {
           .build();
     }
 
-    /**
-     * A synthetic binding of {@code Map<K, V>} that depends on {@code Map<K, Provider<V>>}.
-     */
-    ProvisionBinding syntheticMapOfValuesBinding(DependencyRequest requestForMapOfValues) {
-      checkNotNull(requestForMapOfValues);
-      Optional<Key> mapOfProvidersKey =
-          keyFactory.implicitMapProviderKeyFrom(requestForMapOfValues.key());
-      checkArgument(
-          mapOfProvidersKey.isPresent(),
-          "%s is not a request for Map<K, V>",
-          requestForMapOfValues);
+    /** A synthetic binding of {@code Map<K, V>} that depends on {@code Map<K, Provider<V>>}. */
+    ProvisionBinding syntheticMapOfValuesBinding(Key mapOfValuesKey) {
+      checkNotNull(mapOfValuesKey);
+      Optional<Key> mapOfProvidersKey = keyFactory.implicitMapProviderKeyFrom(mapOfValuesKey);
+      checkArgument(mapOfProvidersKey.isPresent(), "%s is not a key for Map<K, V>", mapOfValuesKey);
       DependencyRequest requestForMapOfProviders =
           dependencyRequestFactory.forImplicitMapBinding(mapOfProvidersKey.get());
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .key(requestForMapOfValues.key())
+          .key(mapOfValuesKey)
           .dependencies(requestForMapOfProviders)
           .bindingKind(Kind.SYNTHETIC_MAP)
           .build();
@@ -233,13 +227,13 @@ abstract class ProvisionBinding extends ContributionBinding {
      * <p>Note that these could be set multibindings or map multibindings.
      */
     ProvisionBinding syntheticMultibinding(
-        DependencyRequest request, Iterable<ContributionBinding> multibindingContributions) {
+        Key key, Iterable<ContributionBinding> multibindingContributions) {
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
-          .key(request.key())
+          .key(key)
           .dependencies(
               dependencyRequestFactory.forMultibindingContributions(multibindingContributions))
-          .bindingKind(Kind.forMultibindingRequest(request))
+          .bindingKind(Kind.forMultibindingKey(key))
           .build();
     }
 

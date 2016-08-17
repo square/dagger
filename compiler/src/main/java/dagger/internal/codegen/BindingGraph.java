@@ -54,7 +54,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeTraverser;
-import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Component;
 import dagger.Reusable;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
@@ -253,7 +252,7 @@ abstract class BindingGraph {
       for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
         Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
         if (componentMethodRequest.isPresent()) {
-          requestResolver.resolve(componentMethodRequest.get());
+          requestResolver.resolve(componentMethodRequest.get().bindingKey());
         }
       }
 
@@ -293,9 +292,9 @@ abstract class BindingGraph {
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
       final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
-          CacheBuilder.newBuilder().<BindingKey, Boolean>build();
+          CacheBuilder.newBuilder().build();
       final Cache<Binding, Boolean> bindingDependsOnLocalMultibindingsCache =
-          CacheBuilder.newBuilder().<Binding, Boolean>build();
+          CacheBuilder.newBuilder().build();
 
       Resolver(
           Optional<Resolver> parentResolver,
@@ -317,35 +316,33 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the bindings that satisfy a given dependency request.
+       * Returns the bindings for the given {@link BindingKey}.
        *
        * <p>For {@link BindingKey.Kind#CONTRIBUTION} requests, returns all of:
+       *
        * <ul>
        * <li>All explicit bindings for:
        *     <ul>
        *     <li>the requested key
        *     <li>{@code Set<T>} if the requested key's type is {@code Set<Produced<T>>}
-       *     <li>{@code Map<K, Provider<V>>} if the requested key's type is
-       *         {@code Map<K, Producer<V>>}.
+       *     <li>{@code Map<K, Provider<V>>} if the requested key's type is {@code Map<K,
+       *         Producer<V>>}.
        *     </ul>
        *
        * <li>A synthetic binding that depends on {@code Map<K, Producer<V>>} if the requested key's
-       *     type is {@code Map<K, V>} and there are some explicit bindings for
-       *     {@code Map<K, Producer<V>>}.
-       *
+       *     type is {@code Map<K, V>} and there are some explicit bindings for {@code Map<K,
+       *     Producer<V>>}.
        * <li>A synthetic binding that depends on {@code Map<K, Provider<V>>} if the requested key's
-       *     type is {@code Map<K, V>} and there are some explicit bindings for
-       *     {@code Map<K, Provider<V>>} but no explicit bindings for {@code Map<K, Producer<V>>}.
-       *
+       *     type is {@code Map<K, V>} and there are some explicit bindings for {@code Map<K,
+       *     Provider<V>>} but no explicit bindings for {@code Map<K, Producer<V>>}.
        * <li>An implicit {@link Inject @Inject}-annotated constructor binding if there is one and
        *     there are no explicit bindings or synthetic bindings.
        * </ul>
        *
-       * <p>For {@link BindingKey.Kind#MEMBERS_INJECTION} requests, returns the
-       * {@link MembersInjectionBinding} for the type.
+       * <p>For {@link BindingKey.Kind#MEMBERS_INJECTION} requests, returns the {@link
+       * MembersInjectionBinding} for the type.
        */
-      ResolvedBindings lookUpBindings(DependencyRequest request) {
-        BindingKey bindingKey = request.bindingKey();
+      ResolvedBindings lookUpBindings(BindingKey bindingKey) {
         Key requestKey = bindingKey.key();
         switch (bindingKey.kind()) {
           case CONTRIBUTION:
@@ -366,9 +363,10 @@ abstract class BindingGraph {
             ImmutableSet<MultibindingDeclaration> multibindingDeclarations =
                 multibindingDeclarationsBuilder.build();
 
-            contributionBindings.addAll(syntheticMapOfValuesBinding(request).asSet());
+            contributionBindings.addAll(syntheticMapOfValuesBinding(bindingKey.key()).asSet());
             contributionBindings.addAll(
-                syntheticMultibinding(request, multibindingContributions, multibindingDeclarations)
+                syntheticMultibinding(
+                        bindingKey.key(), multibindingContributions, multibindingDeclarations)
                     .asSet());
 
             /* If there are no bindings, add the implicit @Inject-constructed binding if there is
@@ -381,7 +379,8 @@ abstract class BindingGraph {
             return ResolvedBindings.forContributionBindings(
                 bindingKey,
                 componentDescriptor,
-                indexBindingsByOwningComponent(request, ImmutableSet.copyOf(contributionBindings)),
+                indexBindingsByOwningComponent(
+                    bindingKey, ImmutableSet.copyOf(contributionBindings)),
                 multibindingDeclarations);
 
           case MEMBERS_INJECTION:
@@ -408,32 +407,29 @@ abstract class BindingGraph {
       }
 
       /**
-       * If {@code request} is for a {@code Map<K, V>} or {@code Map<K, Produced<V>>}, and there are
-       * any multibinding contributions or declarations that apply to that map, returns a synthetic
-       * binding for the {@code request} that depends on an {@linkplain
-       * #syntheticMultibinding(DependencyRequest, Iterable, Iterable) underlying synthetic
-       * multibinding}.
+       * If {@code key} is a {@code Map<K, V>} or {@code Map<K, Produced<V>>}, and there are any
+       * multibinding contributions or declarations that apply to that map, returns a synthetic
+       * binding for the {@code key} that depends on an {@linkplain #syntheticMultibinding(Key,
+       * Iterable, Iterable) underlying synthetic multibinding}.
        *
        * <p>The returned binding has the same {@link BindingType} as the underlying synthetic
        * multibinding.
        */
-      private Optional<ContributionBinding> syntheticMapOfValuesBinding(
-          final DependencyRequest request) {
+      private Optional<ContributionBinding> syntheticMapOfValuesBinding(final Key key) {
         return syntheticMultibinding(
-                request,
-                multibindingContributionsForValueMap(request.key()),
-                multibindingDeclarationsForValueMap(request.key()))
+                key,
+                multibindingContributionsForValueMap(key),
+                multibindingDeclarationsForValueMap(key))
             .transform(
                 new Function<ContributionBinding, ContributionBinding>() {
                   @Override
                   public ContributionBinding apply(ContributionBinding syntheticMultibinding) {
                     switch (syntheticMultibinding.bindingType()) {
                       case PROVISION:
-                        return provisionBindingFactory.syntheticMapOfValuesBinding(request);
+                        return provisionBindingFactory.syntheticMapOfValuesBinding(key);
 
                       case PRODUCTION:
-                        return productionBindingFactory.syntheticMapOfValuesOrProducedBinding(
-                            request);
+                        return productionBindingFactory.syntheticMapOfValuesOrProducedBinding(key);
 
                       default:
                         throw new VerifyException(syntheticMultibinding.toString());
@@ -488,9 +484,6 @@ abstract class BindingGraph {
        * the following types, returns a {@link ProductionBinding}.
        *
        * <ul>
-       * <li>{@link Producer Producer<SetOrMap>}
-       * <li>{@link Produced Produced<SetOrMap>}
-       * <li>{@link ListenableFuture ListenableFuture<SetOrMap>}
        * <li>{@code Set<Produced<T>>}
        * <li>{@code Map<K, Producer<V>>}
        * <li>{@code Map<K, Produced<V>>}
@@ -499,48 +492,32 @@ abstract class BindingGraph {
        * Otherwise, returns a {@link ProvisionBinding}.
        */
       private Optional<? extends ContributionBinding> syntheticMultibinding(
-          DependencyRequest request,
+          Key key,
           Iterable<ContributionBinding> multibindingContributions,
           Iterable<MultibindingDeclaration> multibindingDeclarations) {
         if (isEmpty(multibindingContributions) && isEmpty(multibindingDeclarations)) {
           return Optional.absent();
-        } else if (multibindingsRequireProduction(multibindingContributions, request)) {
+        } else if (multibindingsRequireProduction(multibindingContributions, key)) {
           return Optional.of(
-              productionBindingFactory.syntheticMultibinding(request, multibindingContributions));
+              productionBindingFactory.syntheticMultibinding(key, multibindingContributions));
         } else {
           return Optional.of(
-              provisionBindingFactory.syntheticMultibinding(request, multibindingContributions));
+              provisionBindingFactory.syntheticMultibinding(key, multibindingContributions));
         }
       }
 
       private boolean multibindingsRequireProduction(
-          Iterable<ContributionBinding> multibindingContributions, DependencyRequest request) {
-        switch (request.kind()) {
-          case PRODUCER:
-          case PRODUCED:
-          case FUTURE:
+          Iterable<ContributionBinding> multibindingContributions, Key requestKey) {
+        if (MapType.isMap(requestKey)) {
+          MapType mapType = MapType.from(requestKey);
+          if (mapType.valuesAreTypeOf(Producer.class) || mapType.valuesAreTypeOf(Produced.class)) {
             return true;
-
-          case INSTANCE:
-          case LAZY:
-          case PROVIDER:
-          case PROVIDER_OF_LAZY:
-            if (MapType.isMap(request.key())) {
-              MapType mapType = MapType.from(request.key());
-              if (mapType.valuesAreTypeOf(Producer.class)
-                  || mapType.valuesAreTypeOf(Produced.class)) {
-                return true;
-              }
-            } else if (SetType.isSet(request.key())
-                && SetType.from(request.key()).elementsAreTypeOf(Produced.class)) {
-              return true;
-            }
-            return Iterables.any(multibindingContributions, isOfType(BindingType.PRODUCTION));
-
-          case MEMBERS_INJECTOR:
-          default:
-            throw new AssertionError(request.kind());
+          }
+        } else if (SetType.isSet(requestKey)
+            && SetType.from(requestKey).elementsAreTypeOf(Produced.class)) {
+          return true;
         }
+        return Iterables.any(multibindingContributions, isOfType(BindingType.PRODUCTION));
       }
 
       private ImmutableSet<ContributionBinding> createDelegateBindings(
@@ -559,7 +536,8 @@ abstract class BindingGraph {
        * delegate key.
        */
       private ContributionBinding createDelegateBinding(DelegateDeclaration delegateDeclaration) {
-        ResolvedBindings resolvedDelegate = lookUpBindings(delegateDeclaration.delegateRequest());
+        ResolvedBindings resolvedDelegate =
+            lookUpBindings(delegateDeclaration.delegateRequest().bindingKey());
         if (resolvedDelegate.contributionBindings().isEmpty()) {
           // This is guaranteed to result in a missing binding error, so it doesn't matter if the
           // binding is a Provision or Production, except if it is a @IntoMap method, in which
@@ -592,11 +570,11 @@ abstract class BindingGraph {
 
       private ImmutableSetMultimap<ComponentDescriptor, ContributionBinding>
           indexBindingsByOwningComponent(
-              DependencyRequest request, Iterable<? extends ContributionBinding> bindings) {
+              BindingKey bindingKey, Iterable<? extends ContributionBinding> bindings) {
         ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> index =
             ImmutableSetMultimap.builder();
         for (ContributionBinding binding : bindings) {
-          index.put(getOwningComponent(request, binding), binding);
+          index.put(getOwningComponent(bindingKey, binding), binding);
         }
         return index.build();
       }
@@ -608,15 +586,15 @@ abstract class BindingGraph {
        * multibinding contributions in this component, returns this component.
        *
        * <p>Otherwise, resolves {@code request} in this component's parent in order to resolve any
-       * multibinding contributions in the parent, and returns the parent-resolved
-       * {@link ResolvedBindings#owningComponent(ContributionBinding)}.
+       * multibinding contributions in the parent, and returns the parent-resolved {@link
+       * ResolvedBindings#owningComponent(ContributionBinding)}.
        */
       private ComponentDescriptor getOwningComponent(
-          DependencyRequest request, ContributionBinding binding) {
-        if (isResolvedInParent(request, binding)
+          BindingKey bindingKey, ContributionBinding binding) {
+        if (isResolvedInParent(bindingKey, binding)
             && !new MultibindingDependencies().dependsOnLocalMultibindings(binding)) {
           ResolvedBindings parentResolvedBindings =
-              parentResolver.get().resolvedBindings.get(request.bindingKey());
+              parentResolver.get().resolvedBindings.get(bindingKey);
           return parentResolvedBindings.owningComponent(binding);
         } else {
           return componentDescriptor;
@@ -624,15 +602,15 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns {@code true} if {@code binding} is owned by an ancestor. If so,
-       * {@linkplain #resolve(DependencyRequest) resolves} the request in this component's parent.
-       * Don't resolve directly in the owning component in case it depends on multibindings in any
-       * of its descendants.
+       * Returns {@code true} if {@code binding} is owned by an ancestor. If so, {@linkplain
+       * #resolve resolves} the {@link BindingKey} in this component's parent. Don't resolve
+       * directly in the owning component in case it depends on multibindings in any of its
+       * descendants.
        */
-      private boolean isResolvedInParent(DependencyRequest request, ContributionBinding binding) {
+      private boolean isResolvedInParent(BindingKey bindingKey, ContributionBinding binding) {
         Optional<Resolver> owningResolver = getOwningResolver(binding);
         if (owningResolver.isPresent() && !owningResolver.get().equals(this)) {
-          parentResolver.get().resolve(request);
+          parentResolver.get().resolve(bindingKey);
           return true;
         } else {
           return false;
@@ -744,9 +722,7 @@ abstract class BindingGraph {
         }
       }
 
-      void resolve(DependencyRequest request) {
-        BindingKey bindingKey = request.bindingKey();
-
+      void resolve(BindingKey bindingKey) {
         // If we find a cycle, stop resolving. The original request will add it with all of the
         // other resolved deps.
         if (cycleStack.contains(bindingKey)) {
@@ -770,7 +746,7 @@ abstract class BindingGraph {
         if (getPreviouslyResolvedBindings(bindingKey).isPresent()) {
           /* Resolve in the parent in case there are multibinding contributions or conflicts in some
            * component between this one and the previously-resolved one. */
-          parentResolver.get().resolve(request);
+          parentResolver.get().resolve(bindingKey);
           if (!new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
               && getExplicitBindings(bindingKey.key()).isEmpty()) {
             /* Cache the inherited parent component's bindings in case resolving at the parent found
@@ -784,10 +760,10 @@ abstract class BindingGraph {
 
         cycleStack.push(bindingKey);
         try {
-          ResolvedBindings bindings = lookUpBindings(request);
+          ResolvedBindings bindings = lookUpBindings(bindingKey);
           for (Binding binding : bindings.ownedBindings()) {
             for (DependencyRequest dependency : binding.implicitDependencies()) {
-              resolve(dependency);
+              resolve(dependency.bindingKey());
             }
           }
           resolvedBindings.put(bindingKey, bindings);
