@@ -45,7 +45,7 @@ enum BindingType {
 
   private final Class<?> frameworkClass;
 
-  private BindingType(Class<?> frameworkClass) {
+  BindingType(Class<?> frameworkClass) {
     this.frameworkClass = frameworkClass;
   }
 
