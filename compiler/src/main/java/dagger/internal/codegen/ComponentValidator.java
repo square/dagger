@@ -18,8 +18,10 @@ package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static dagger.internal.codegen.ConfigurationAnnotations.enclosedBuilders;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModules;
 import static dagger.internal.codegen.ConfigurationAnnotations.getTransitiveModules;
+import static dagger.internal.codegen.ConfigurationAnnotations.validateComponentDependencies;
 import static dagger.internal.codegen.ErrorMessages.COMPONENT_ANNOTATED_REUSABLE;
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.ElementKind.INTERFACE;
@@ -239,6 +241,9 @@ final class ComponentValidator {
 
     AnnotationMirror componentMirror =
         getAnnotationMirror(subject, componentKind.annotationType()).get();
+    if (componentKind.isTopLevel()) {
+      validateComponentDependencies(builder, getComponentDependencies(componentMirror));
+    }
     ImmutableList<TypeMirror> moduleTypes = getComponentModules(componentMirror);
     moduleValidator.validateReferencedModules(
         subject, builder, moduleTypes, componentKind.moduleKinds());
