@@ -50,13 +50,6 @@ import javax.lang.model.util.Types;
  */
 abstract class Binding extends BindingDeclaration implements HasBindingType {
 
-  /**
-   * Returns the framework class associated with this binding.
-   */
-  Class<?> frameworkClass() {
-    return bindingType().frameworkClass();
-  }
-
   /** The {@link Key} that is provided by this binding. */
   @Override
   public abstract Key key();

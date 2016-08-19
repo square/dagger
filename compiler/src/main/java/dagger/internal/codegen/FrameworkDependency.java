@@ -57,10 +57,13 @@ abstract class FrameworkDependency {
    */
   abstract BindingKey bindingKey();
 
-  /**
-   * The framework class to use for these requests.
-   */
-  abstract Class<?> frameworkClass();
+  /** The binding type of the framework dependency. */
+  abstract BindingType bindingType();
+
+  /** The framework class to use for these requests. */
+  final Class<?> frameworkClass() {
+    return bindingType().frameworkClass();
+  }
 
   /**
    * The dependency requests that are all satisfied by one framework instance.
@@ -99,8 +102,8 @@ abstract class FrameworkDependency {
    * instances of Binding, because it really depends on the order of the binding's dependencies,
    * and two equal instances of Binding may have the same dependencies in a different order. */
   static ImmutableSet<FrameworkDependency> frameworkDependenciesForBinding(Binding binding) {
-    DependencyRequestMapper dependencyRequestMapper =
-        DependencyRequestMapper.forBindingType(binding.bindingType());
+    BindingTypeMapper bindingTypeMapper =
+        BindingTypeMapper.forBindingType(binding.bindingType());
     ImmutableSet.Builder<FrameworkDependency> frameworkDependencies = ImmutableSet.builder();
     for (Collection<DependencyRequest> requests : groupByUnresolvedKey(binding)) {
       frameworkDependencies.add(
@@ -109,7 +112,7 @@ abstract class FrameworkDependency {
                   FluentIterable.from(requests)
                       .transform(DependencyRequest.BINDING_KEY_FUNCTION)
                       .toSet()),
-              dependencyRequestMapper.getFrameworkClass(requests),
+              bindingTypeMapper.getBindingType(requests),
               ImmutableSet.copyOf(requests)));
     }
     return frameworkDependencies.build();

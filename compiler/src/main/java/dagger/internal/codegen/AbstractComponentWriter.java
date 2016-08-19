@@ -839,7 +839,7 @@ abstract class AbstractComponentWriter {
       case DELEGATE:
         CodeBlock delegatingCodeBlock = CodeBlock.of(
             "($T) $L",
-            binding.frameworkClass(),
+            binding.bindingType().frameworkClass(),
             getMemberSelect(
                 Iterables.getOnlyElement(binding.dependencies()).bindingKey())
                     .getExpressionFor(name));
