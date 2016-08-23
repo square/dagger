@@ -19,6 +19,8 @@ package dagger.internal.codegen;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import dagger.MembersInjector;
 import dagger.producers.Producer;
 import javax.inject.Provider;
@@ -37,6 +39,9 @@ enum BindingType {
   PRODUCTION(Producer.class),
   ;
 
+  static final ImmutableSet<BindingType> CONTRIBUTION_TYPES =
+      Sets.immutableEnumSet(PROVISION, PRODUCTION);
+
   /** An object that is associated with a {@link BindingType}. */
   interface HasBindingType {
     /** The binding type of this object. */
@@ -45,7 +50,7 @@ enum BindingType {
 
   private final Class<?> frameworkClass;
 
-  private BindingType(Class<?> frameworkClass) {
+  BindingType(Class<?> frameworkClass) {
     this.frameworkClass = frameworkClass;
   }
 

@@ -48,6 +48,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 
 /**
@@ -108,6 +109,30 @@ final class ConfigurationAnnotations {
   static ImmutableList<TypeMirror> convertClassArrayToListOfTypes(
       AnnotationMirror annotationMirror, String elementName) {
     return TO_LIST_OF_TYPES.visit(getAnnotationValue(annotationMirror, elementName), elementName);
+  }
+
+  static <T extends Element> void validateComponentDependencies(
+      ValidationReport.Builder<T> report, Iterable<TypeMirror> types) {
+    validateTypesAreDeclared(report, types, "component dependency");
+  }
+
+  private static <T extends Element> void validateTypesAreDeclared(
+      final ValidationReport.Builder<T> report, Iterable<TypeMirror> types, final String typeName) {
+    for (TypeMirror type : types) {
+      type.accept(new SimpleTypeVisitor6<Void, Void>(){
+        @Override
+        protected Void defaultAction(TypeMirror e, Void aVoid) {
+          report.addError(String.format("%s is not a valid %s type", e, typeName));
+          return null;
+        }
+
+        @Override
+        public Void visitDeclared(DeclaredType t, Void aVoid) {
+          // Declared types are valid
+          return null;
+        }
+      }, null);
+    }
   }
 
   private static final AnnotationValueVisitor<ImmutableList<TypeMirror>, String> TO_LIST_OF_TYPES =

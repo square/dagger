@@ -2388,6 +2388,42 @@ public class ComponentProcessorTest {
         .onLine(10);
   }
 
+  @Test
+  public void invalidComponentDependencies() {
+    JavaFileObject testComponent =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(dependencies = int.class)",
+            "interface TestComponent {}");
+    assertAbout(javaSources())
+        .that(asList(testComponent))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("int is not a valid component dependency type");
+  }
+
+  @Test
+  public void invalidComponentModules() {
+    JavaFileObject testComponent =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = int.class)",
+            "interface TestComponent {}");
+    assertAbout(javaSources())
+        .that(asList(testComponent))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("int is not a valid module type");
+  }
+
   /**
    * A {@link ComponentProcessor} that excludes elements using a {@link Predicate}.
    */
