@@ -148,11 +148,7 @@ final class ModuleProcessingStep implements ProcessingStep {
           for (ModuleMethodFactoryGenerator generator : moduleMethodFactoryGenerators) {
             for (ExecutableElement method :
                 elementsWithAnnotation(moduleMethods, generator.factoryMethodAnnotation())) {
-              try {
-                generator.generate(method, moduleElement);
-              } catch (SourceFileGenerationException e) {
-                e.printMessageTo(messager);
-              }
+              generator.generate(method, moduleElement, messager);
             }
           }
         }
@@ -197,8 +193,7 @@ final class ModuleProcessingStep implements ProcessingStep {
     Class<? extends Annotation> factoryMethodAnnotation();
 
     /** Generates the factory source file for the given method and module. */
-    void generate(ExecutableElement method, TypeElement moduleElement)
-        throws SourceFileGenerationException;
+    void generate(ExecutableElement method, TypeElement moduleElement, Messager messager);
   }
 
   private static final class ProvisionModuleMethodFactoryGenerator
@@ -219,9 +214,9 @@ final class ModuleProcessingStep implements ProcessingStep {
     }
 
     @Override
-    public void generate(ExecutableElement method, TypeElement moduleElement)
-        throws SourceFileGenerationException {
-      factoryGenerator.generate(provisionBindingFactory.forProvidesMethod(method, moduleElement));
+    public void generate(ExecutableElement method, TypeElement moduleElement, Messager messager) {
+      factoryGenerator.generate(
+          provisionBindingFactory.forProvidesMethod(method, moduleElement), messager);
     }
   }
 
@@ -244,10 +239,9 @@ final class ModuleProcessingStep implements ProcessingStep {
     }
 
     @Override
-    public void generate(ExecutableElement method, TypeElement moduleElement)
-        throws SourceFileGenerationException {
+    public void generate(ExecutableElement method, TypeElement moduleElement, Messager messager) {
       producerFactoryGenerator.generate(
-          productionBindingFactory.forProducesMethod(method, moduleElement));
+          productionBindingFactory.forProducesMethod(method, moduleElement), messager);
     }
   }
 }

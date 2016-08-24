@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.io.Writer;
 import javax.annotation.Generated;
 import javax.annotation.processing.Filer;
+import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.tools.JavaFileObject;
@@ -59,6 +60,18 @@ abstract class SourceFileGenerator<T> {
   SourceFileGenerator(Filer filer, Elements elements) {
     this.filer = checkNotNull(filer);
     generatedAnnotationAvailable = elements.getTypeElement("javax.annotation.Generated") != null;
+  }
+
+  /**
+   * Generates a source file to be compiled for {@code T}. Writes any generation exception to {@code
+   * messager} and does not throw.
+   */
+  void generate(T input, Messager messager) {
+    try {
+      generate(input);
+    } catch (SourceFileGenerationException e) {
+      e.printMessageTo(messager);
+    }
   }
 
   /** Generates a source file to be compiled for {@code T}. */
