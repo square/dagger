@@ -129,7 +129,7 @@ abstract class BindingGraph {
         .preOrderTraversal(this)
         .transformAndConcat(RESOLVED_BINDINGS)
         .transformAndConcat(ResolvedBindings.CONTRIBUTION_BINDINGS)
-        .filter(BindingDeclaration.REQUIRES_MODULE_INSTANCE)
+        .filter(ContributionBinding.REQUIRES_MODULE_INSTANCE)
         .transformAndConcat(BindingDeclaration.CONTRIBUTING_MODULE)
         .filter(in(ownedModuleTypes()))
         .append(componentDescriptor().dependencies())

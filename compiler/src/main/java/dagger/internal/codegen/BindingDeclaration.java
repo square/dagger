@@ -17,8 +17,6 @@
 package dagger.internal.codegen;
 
 import static dagger.internal.codegen.Util.ENCLOSING_TYPE_ELEMENT;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -26,7 +24,6 @@ import com.google.common.base.Predicate;
 import dagger.internal.codegen.Key.HasKey;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 /** An object that declares or specifies a binding. */
@@ -69,30 +66,6 @@ abstract class BindingDeclaration implements HasKey {
         @Override
         public Set<TypeElement> apply(BindingDeclaration bindingDeclaration) {
           return bindingDeclaration.contributingModule().asSet();
-        }
-      };
-
-  /**
-   * {@code true} if {@link #contributingModule()} is present and this is a nonabstract instance
-   * method.
-   */
-  boolean requiresModuleInstance() {
-    if (!bindingElement().isPresent() || !contributingModule().isPresent()) {
-      return false;
-    }
-    Set<Modifier> modifiers = bindingElement().get().getModifiers();
-    return !modifiers.contains(ABSTRACT) && !modifiers.contains(STATIC);
-  }
-
-  /**
-   * A predicate that passes for binding declarations for which {@link #requiresModuleInstance()} is
-   * {@code true}.
-   */
-  static final Predicate<BindingDeclaration> REQUIRES_MODULE_INSTANCE =
-      new Predicate<BindingDeclaration>() {
-        @Override
-        public boolean apply(BindingDeclaration bindingDeclaration) {
-          return bindingDeclaration.requiresModuleInstance();
         }
       };
 
