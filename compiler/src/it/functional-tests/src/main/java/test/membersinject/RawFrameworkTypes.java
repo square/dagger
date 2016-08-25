@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Dagger Authors.
+ * Copyright (C) 2016 The Dagger Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 package test.membersinject;
 
-import dagger.Component;
+import dagger.Lazy;
+import dagger.MembersInjector;
+import javax.inject.Provider;
 
-@Component(modules = {MembersInjectModule.class})
-interface MembersInjectComponent {
-  
-  void inject(ChildOfStringArray subfoo);
-  void inject(ChildOfArrayOfParentOfStringArray subfoo);
-  void inject(ChildOfPrimitiveIntArray subfoo);
-  void inject(RawFrameworkTypes rawFrameworkTypes);
-
+// https://github.com/google/dagger/issues/419
+@SuppressWarnings({"rawtypes", "unused"})
+class RawFrameworkTypes {
+  void nonInjectMethodWithARawProvider(Provider rawProvider) {}
+  void nonInjectMethodWithARawLazy(Lazy rawLazy) {}
+  void nonInjectMethodWithARawMembersInjector(MembersInjector rawMembersInjector) {}
 }

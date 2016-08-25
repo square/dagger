@@ -115,9 +115,14 @@ abstract class DependencyRequest {
      * this kind that represents the dependency request.
      */
     Optional<KindAndType> from(TypeMirror type) {
-      return frameworkClass.isPresent() && isType(type) && isTypeOf(frameworkClass.get(), type)
-          ? Optional.of(this.ofType(getOnlyElement(asDeclared(type).getTypeArguments())))
-          : Optional.<KindAndType>absent();
+      if (frameworkClass.isPresent() && isType(type) && isTypeOf(frameworkClass.get(), type)) {
+        List<? extends TypeMirror> typeArguments = asDeclared(type).getTypeArguments();
+        if (typeArguments.isEmpty()) {
+          return Optional.absent();
+        }
+        return Optional.of(this.ofType(getOnlyElement(typeArguments)));
+      }
+      return Optional.<KindAndType>absent();
     }
 
     /**
