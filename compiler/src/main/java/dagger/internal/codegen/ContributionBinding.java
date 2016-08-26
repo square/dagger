@@ -22,6 +22,8 @@ import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrateg
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Equivalence;
@@ -44,6 +46,7 @@ import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -166,6 +169,30 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    * The kind of this contribution binding.
    */
   protected abstract Kind bindingKind();
+
+  /**
+   * {@code true} if {@link #contributingModule()} is present and this is a nonabstract instance
+   * method.
+   */
+  boolean requiresModuleInstance() {
+    if (!bindingElement().isPresent() || !contributingModule().isPresent()) {
+      return false;
+    }
+    Set<Modifier> modifiers = bindingElement().get().getModifiers();
+    return !modifiers.contains(ABSTRACT) && !modifiers.contains(STATIC);
+  }
+
+  /**
+   * A predicate that passes for binding declarations for which {@link #requiresModuleInstance()} is
+   * {@code true}.
+   */
+  static final Predicate<ContributionBinding> REQUIRES_MODULE_INSTANCE =
+      new Predicate<ContributionBinding>() {
+        @Override
+        public boolean apply(ContributionBinding bindingDeclaration) {
+          return bindingDeclaration.requiresModuleInstance();
+        }
+      };
 
   /**
    * The strategy for getting an instance of a factory for a {@link ContributionBinding}.

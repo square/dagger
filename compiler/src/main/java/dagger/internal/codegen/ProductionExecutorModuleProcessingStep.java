@@ -50,11 +50,7 @@ final class ProductionExecutorModuleProcessingStep implements ProcessingStep {
   public Set<Element> process(
       SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
     for (Element element : elementsByAnnotation.values()) {
-      try {
-        productionExecutorModuleGenerator.generate(MoreElements.asType(element));
-      } catch (SourceFileGenerationException e) {
-        e.printMessageTo(messager);
-      }
+      productionExecutorModuleGenerator.generate(MoreElements.asType(element), messager);
     }
     return ImmutableSet.of();
   }

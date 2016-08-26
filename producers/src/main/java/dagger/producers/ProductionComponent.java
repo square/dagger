@@ -29,8 +29,8 @@ import javax.inject.Qualifier;
 
 /**
  * Annotates an interface or abstract class for which a fully-formed, dependency-injected
- * implementation is to be generated from a set of {@linkplain #modules}. The generated class will
- * have the name of the type annotated with {@code @ProductionComponent} prepended with
+ * implementation is to be generated from a set of {@linkplain #modules modules}. The generated
+ * class will have the name of the type annotated with {@code @ProductionComponent} prepended with
  * {@code Dagger}.  For example, {@code @ProductionComponent interface MyComponent {...}} will
  * produce an implementation named {@code DaggerMyComponent}.
  *

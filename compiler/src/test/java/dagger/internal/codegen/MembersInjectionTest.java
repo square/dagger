@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.ErrorMessages.INJECT_INTO_PRIVATE_CLASS;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
@@ -1081,5 +1082,36 @@ public class MembersInjectionTest {
         .that(file)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError();
+  }
+
+  @Test public void rawFrameworkTypes() {
+    JavaFileObject file =
+        JavaFileObjects.forSourceLines(
+            "test.RawFrameworkTypes",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "class RawProviderField {",
+            "  @Inject Provider fieldWithRawProvider;",
+            "}",
+            "",
+            "class RawProviderParameter {",
+            "  @Inject void methodInjection(Provider rawProviderParameter) {}",
+            "}",
+            "",
+            "@Component",
+            "interface C {",
+            "  void inject(RawProviderField rawProviderField);",
+            "  void inject(RawProviderParameter rawProviderParameter);",
+            "}");
+    assertThat(file)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("javax.inject.Provider cannot be provided").in(file).onLine(17)
+        .and()
+        .withErrorContaining("javax.inject.Provider cannot be provided").in(file).onLine(18);
   }
 }

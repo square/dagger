@@ -151,11 +151,7 @@ final class ComponentProcessingStep implements ProcessingStep {
   }
 
   private void generateComponent(BindingGraph bindingGraph) {
-    try {
-      componentGenerator.generate(bindingGraph);
-    } catch (SourceFileGenerationException e) {
-      e.printMessageTo(messager);
-    }
+    componentGenerator.generate(bindingGraph, messager);
   }
 
   private ImmutableSet<Element> getElementsFromAnnotations(
