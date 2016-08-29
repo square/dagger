@@ -158,7 +158,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             productionBindingFactory);
 
-    MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer, elements);
+    AnnotationCreatorGenerator annotationCreatorGenerator =
+        new AnnotationCreatorGenerator(filer, elements);
+    UnwrappedMapKeyGenerator unwrappedMapKeyGenerator =
+        new UnwrappedMapKeyGenerator(filer, elements);
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(
@@ -174,7 +177,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             keyFactory);
 
     return ImmutableList.of(
-        new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
+        new MapKeyProcessingStep(
+            messager, types, mapKeyValidator, annotationCreatorGenerator, unwrappedMapKeyGenerator),
         new InjectProcessingStep(injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
         new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),

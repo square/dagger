@@ -20,7 +20,7 @@ import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.MapKeys.getMapKeyCreatorClassName;
+import static dagger.internal.codegen.SourceFiles.classFileName;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -29,7 +29,6 @@ import static javax.lang.model.util.ElementFilter.methodsIn;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoAnnotation;
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -38,8 +37,6 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import dagger.MapKey;
-import dagger.internal.codegen.MapKeyGenerator.MapKeyCreatorSpecification;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.processing.Filer;
@@ -52,81 +49,75 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor6;
 
 /**
- * Generates classes that create annotations required to instantiate {@link MapKey}s.
+ * Generates classes that create annotation instances for an annotation type. The generated class
+ * will have a private empty constructor, a static method that creates the annotation type itself,
+ * and a static method that creates each annotation type that is nested in the top-level annotation
+ * type.
  *
- * @since 2.0
+ * <p>So for an example annotation:
+ *
+ * <pre>
+ *   {@literal @interface} Foo {
+ *     String s();
+ *     int i();
+ *     Bar bar(); // an annotation defined elsewhere
+ *   }
+ * </pre>
+ *
+ * the generated class will look like:
+ *
+ * <pre>
+ *   public final class FooCreator {
+ *     private FooCreator() {}
+ *
+ *     public static Foo createFoo(String s, int i, Bar bar) { … }
+ *     public static Bar createBar(…) { … }
+ *   }
+ * </pre>
  */
-final class MapKeyGenerator extends SourceFileGenerator<MapKeyCreatorSpecification> {
+class AnnotationCreatorGenerator extends SourceFileGenerator<TypeElement> {
 
   /**
-   * Specification of the {@link MapKey} annotation and the annotation type to generate.
+   * Returns the name of the generated class that contains the static {@code create} methods for an
+   * annotation type.
    */
-  @AutoValue
-  abstract static class MapKeyCreatorSpecification {
-    /**
-     * The {@link MapKey}-annotated annotation.
-     */
-    abstract TypeElement mapKeyElement();
-
-    /**
-     * The annotation type to write create methods for. For wrapped {@link MapKey}s, this is
-     * {@link #mapKeyElement()}. For unwrapped {@code MapKey}s whose single element is an
-     * annotation, this is that annotation element.
-     */
-    abstract TypeElement annotationElement();
-
-    /**
-     * Returns a specification for a wrapped {@link MapKey}-annotated annotation.
-     */
-    static MapKeyCreatorSpecification wrappedMapKey(TypeElement mapKeyElement) {
-      return new AutoValue_MapKeyGenerator_MapKeyCreatorSpecification(mapKeyElement, mapKeyElement);
-    }
-
-    /**
-     * Returns a specification for an unwrapped {@link MapKey}-annotated annotation whose single
-     * element is a nested annotation.
-     */
-    static MapKeyCreatorSpecification unwrappedMapKeyWithAnnotationValue(
-        TypeElement mapKeyElement, TypeElement annotationElement) {
-      return new AutoValue_MapKeyGenerator_MapKeyCreatorSpecification(
-          mapKeyElement, annotationElement);
-    }
+  static ClassName getAnnotationCreatorClassName(TypeElement annotationType) {
+    ClassName annotationTypeName = ClassName.get(annotationType);
+    return annotationTypeName
+        .topLevelClassName()
+        .peerClass(classFileName(annotationTypeName) + "Creator");
   }
 
-  MapKeyGenerator(Filer filer, Elements elements) {
+  AnnotationCreatorGenerator(Filer filer, Elements elements) {
     super(filer, elements);
   }
 
   @Override
-  ClassName nameGeneratedType(MapKeyCreatorSpecification mapKeyCreatorType) {
-    return getMapKeyCreatorClassName(mapKeyCreatorType.mapKeyElement());
+  ClassName nameGeneratedType(TypeElement annotationType) {
+    return getAnnotationCreatorClassName(annotationType);
   }
 
   @Override
-  Optional<? extends Element> getElementForErrorReporting(
-      MapKeyCreatorSpecification mapKeyCreatorType) {
-    return Optional.of(mapKeyCreatorType.mapKeyElement());
+  Optional<? extends Element> getElementForErrorReporting(TypeElement annotationType) {
+    return Optional.of(annotationType);
   }
 
   @Override
-  Optional<TypeSpec.Builder> write(
-      ClassName generatedTypeName, MapKeyCreatorSpecification mapKeyCreatorType) {
-    TypeSpec.Builder mapKeyCreatorBuilder =
-        classBuilder(generatedTypeName).addModifiers(PUBLIC, FINAL);
+  Optional<TypeSpec.Builder> write(ClassName generatedTypeName, TypeElement annotationType) {
+    TypeSpec.Builder annotationCreatorBuilder =
+        classBuilder(generatedTypeName)
+            .addModifiers(PUBLIC, FINAL)
+            .addMethod(constructorBuilder().addModifiers(PRIVATE).build());
 
-    mapKeyCreatorBuilder.addMethod(constructorBuilder().addModifiers(PRIVATE).build());
-
-    for (TypeElement annotationElement :
-        nestedAnnotationElements(mapKeyCreatorType.annotationElement())) {
-      mapKeyCreatorBuilder.addMethod(buildCreateMethod(generatedTypeName, annotationElement));
+    for (TypeElement annotationElement : annotationsToCreate(annotationType)) {
+      annotationCreatorBuilder.addMethod(buildCreateMethod(generatedTypeName, annotationElement));
     }
 
-    return Optional.of(mapKeyCreatorBuilder);
+    return Optional.of(annotationCreatorBuilder);
   }
 
-  private MethodSpec buildCreateMethod(
-      ClassName mapKeyGeneratedTypeName, TypeElement annotationElement) {
-    String createMethodName = "create" + annotationElement.getSimpleName();
+  private MethodSpec buildCreateMethod(ClassName generatedTypeName, TypeElement annotationElement) {
+    String createMethodName = createMethodName(annotationElement);
     MethodSpec.Builder createMethod =
         methodBuilder(createMethodName)
             .addAnnotation(AutoAnnotation.class)
@@ -141,14 +132,23 @@ final class MapKeyGenerator extends SourceFileGenerator<MapKeyCreatorSpecificati
       parameters.add(CodeBlock.of("$L", parameterName));
     }
 
-    ClassName autoAnnotationClass = mapKeyGeneratedTypeName.peerClass(
-        "AutoAnnotation_" + mapKeyGeneratedTypeName.simpleName() + "_" + createMethodName);
+    ClassName autoAnnotationClass =
+        generatedTypeName.peerClass(
+            "AutoAnnotation_" + generatedTypeName.simpleName() + "_" + createMethodName);
     createMethod.addStatement(
         "return new $T($L)", autoAnnotationClass, makeParametersCodeBlock(parameters.build()));
     return createMethod.build();
   }
 
-  private static Set<TypeElement> nestedAnnotationElements(TypeElement annotationElement) {
+  static String createMethodName(TypeElement annotationType) {
+    return "create" + annotationType.getSimpleName();
+  }
+
+  /**
+   * Returns the annotation types for which {@code @AutoAnnotation static Foo createFoo(…)} methods
+   * should be written.
+   */
+  protected Set<TypeElement> annotationsToCreate(TypeElement annotationElement) {
     return nestedAnnotationElements(annotationElement, new LinkedHashSet<TypeElement>());
   }
 
