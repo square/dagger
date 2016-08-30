@@ -37,12 +37,14 @@ import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SU
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_OPTIONAL_BINDING;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByAnnotationType;
 import static dagger.internal.codegen.ContributionBinding.indexMapBindingsByMapKey;
 import static dagger.internal.codegen.ContributionType.indexByContributionType;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_INJECT_WILDCARD_TYPE;
 import static dagger.internal.codegen.ErrorMessages.CONTAINS_DEPENDENCY_CYCLE_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT;
+import static dagger.internal.codegen.ErrorMessages.DOUBLE_INDENT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
@@ -197,25 +199,30 @@ final class BindingGraphValidator {
 
     /**
      * If there is a cycle, the segment of the path that represents the cycle. The first request's
-     * and the last request's binding keys are equal. The last request is the
-     * {@linkplain #currentDependencyRequest() current request}.
+     * and the last request's binding keys are equal. The last request is the {@linkplain
+     * #currentDependencyRequest() current request}.
      *
      * @throws IllegalStateException if {@link #hasCycle()} is {@code false}
      */
-    ImmutableList<ResolvedRequest> cycle() {
+    FluentIterable<ResolvedRequest> cycle() {
       checkState(hasCycle(), "no cycle");
-      return FluentIterable.from(path)
-          .skip(indexOf(keyPath, Predicates.equalTo(currentDependencyRequest().bindingKey())))
-          .toList();
+      return resolvedRequests()
+          .skip(indexOf(keyPath, Predicates.equalTo(currentDependencyRequest().bindingKey())));
     }
 
     /**
      * Makes {@code request} the current request. Be sure to call {@link #pop()} to back up to the
      * previous request in the path.
      */
-    void push(ResolvedRequest request) {
-      path.addLast(request);
-      keyPath.add(request.dependencyRequest().bindingKey());
+    void push(DependencyRequest request, ResolvedBindings resolvedBindings) {
+      path.add(
+          ResolvedRequest.create(
+              request,
+              resolvedBindings,
+              path.isEmpty()
+                  ? Optional.<ResolvedBindings>absent()
+                  : Optional.of(currentResolvedBindings())));
+      keyPath.add(request.bindingKey());
     }
 
     /** Makes the previous request the current request. */
@@ -235,9 +242,9 @@ final class BindingGraphValidator {
       return path.size();
     }
 
-    /** The dependency requests in this path, starting with the entry point. */
-    FluentIterable<DependencyRequest> dependencyRequests() {
-      return FluentIterable.from(path).transform(ResolvedRequest.DEPENDENCY_REQUEST);
+    /** Returns the resolved dependency requests in this path, starting with the entry point. */
+    FluentIterable<ResolvedRequest> resolvedRequests() {
+      return FluentIterable.from(path);
     }
   }
 
@@ -335,7 +342,7 @@ final class BindingGraphValidator {
      * @param request the current dependency request
      */
     private void traverseDependencyRequest(DependencyRequest request, DependencyPath path) {
-      path.push(ResolvedRequest.create(request, subject));
+      path.push(request, resolvedBindings(request));
       try {
         if (path.hasCycle()) {
           reportCycle(path);
@@ -358,6 +365,14 @@ final class BindingGraphValidator {
       } finally {
         path.pop();
       }
+    }
+
+    private ResolvedBindings resolvedBindings(DependencyRequest request) {
+      BindingKey bindingKey = request.bindingKey();
+      ResolvedBindings resolvedBindings = subject.resolvedBindings().get(bindingKey);
+      return resolvedBindings == null
+          ? ResolvedBindings.noBindings(bindingKey, subject.componentDescriptor())
+          : resolvedBindings;
     }
 
     private Validation validationForComponent(ComponentDescriptor component) {
@@ -481,12 +496,15 @@ final class BindingGraphValidator {
           ImmutableSetMultimap.builder();
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
           ImmutableSet.builder();
+      ImmutableSet.Builder<OptionalBindingDeclaration> optionalBindingDeclarations =
+          ImmutableSet.builder();
 
       Queue<ResolvedBindings> queue = new ArrayDeque<>();
       queue.add(resolvedBinding);
 
       for (ResolvedBindings queued = queue.poll(); queued != null; queued = queue.poll()) {
         multibindingDeclarations.addAll(queued.multibindingDeclarations());
+        optionalBindingDeclarations.addAll(queued.optionalBindingDeclarations());
         for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry :
             queued.allContributionBindings().entries()) {
           BindingGraph owningGraph = validationForComponent(bindingEntry.getKey()).subject;
@@ -504,7 +522,8 @@ final class BindingGraphValidator {
           resolvedBinding.bindingKey(),
           resolvedBinding.owningComponent(),
           contributions.build(),
-          multibindingDeclarations.build());
+          multibindingDeclarations.build(),
+          optionalBindingDeclarations.build());
     }
 
     private ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType(
@@ -964,14 +983,31 @@ final class BindingGraphValidator {
                 PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
                 formatCurrentDependencyRequestKey(path));
       } else {
-        ImmutableSet<? extends Binding> dependentProvisions =
+        FluentIterable<ContributionBinding> dependentProvisions =
             provisionsDependingOnLatestRequest(path);
-        // TODO(beder): Consider displaying all dependent provisions in the error message. If we do
-        // that, should we display all productions that depend on them also?
-        new Formatter(errorMessage)
-            .format(
-                PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                dependentProvisions.iterator().next().key());
+        if (dependentProvisions
+            .transform(ContributionBinding.KIND)
+            .contains(SYNTHETIC_OPTIONAL_BINDING)) {
+          // TODO(dpb): Implement @BindsOptionalOf for producers.
+          errorMessage
+              .append("Using optional bindings with @Produces bindings is not yet supported.\n")
+              .append(INDENT)
+              .append(formatCurrentDependencyRequestKey(path))
+              .append(" is produced at\n")
+              .append(DOUBLE_INDENT)
+              .append(
+                  bindingDeclarationFormatter.format(
+                      path.currentResolvedBindings().contributionBinding()))
+              .append('\n')
+              .append(dependencyRequestFormatter.toDependencyTrace(path));
+        } else {
+          // TODO(beder): Consider displaying all dependent provisions in the error message. If we
+          // do that, should we display all productions that depend on them also?
+          new Formatter(errorMessage)
+              .format(
+                  PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                  dependentProvisions.iterator().next().key());
+        }
       }
       reportBuilder.addError(errorMessage.toString(), path.entryPointElement());
     }
@@ -1149,7 +1185,7 @@ final class BindingGraphValidator {
     }
 
     private void reportCycle(DependencyPath path) {
-      if (!providersBreakingCycle(path.cycle()).isEmpty()) {
+      if (!providersBreakingCycle(path).isEmpty()) {
         return;
       }
       // TODO(cgruber): Provide a hint for the start and end of the cycle.
@@ -1166,40 +1202,62 @@ final class BindingGraphValidator {
     }
 
     /**
-     * Returns any steps in a dependency cycle that "break" the cycle. These are any
-     * {@link Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first
-     * request in the cycle.
+     * Returns any steps in a dependency cycle that "break" the cycle. These are any {@link
+     * Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first request in
+     * the cycle.
      *
      * <p>If an implicit {@link Provider} dependency on {@code Map<K, Provider<V>>} is immediately
      * preceded by a dependency on {@code Map<K, V>}, which means that the map's {@link Provider}s'
      * {@link Provider#get() get()} methods are called during provision and so the cycle is not
      * really broken.
+     *
+     * <p>A request for an instance of {@code Optional} breaks the cycle if a request for the {@code
+     * Optional}'s type parameter would.
      */
-    private ImmutableSet<DependencyRequest> providersBreakingCycle(
-        ImmutableList<ResolvedRequest> cycle) {
-      return FluentIterable.from(cycle)
+    private ImmutableSet<DependencyRequest> providersBreakingCycle(DependencyPath path) {
+      return path.cycle()
           .skip(1)
-          .transform(ResolvedRequest.DEPENDENCY_REQUEST)
-          .filter(DependencyRequest.HAS_REQUEST_ELEMENT)
           .filter(
-              new Predicate<DependencyRequest>() {
+              new Predicate<ResolvedRequest>() {
                 @Override
-                public boolean apply(DependencyRequest dependencyRequest) {
-                  switch (dependencyRequest.kind()) {
+                public boolean apply(ResolvedRequest resolvedRequest) {
+                  DependencyRequest dependencyRequest = resolvedRequest.dependencyRequest();
+                  if (dependencyRequest.requestElement().isPresent()) {
+                    // Non-synthetic request
+                    return breaksCycle(dependencyRequest.key().type(), dependencyRequest.kind());
+                  } else if (!resolvedRequest.dependentOptionalBindingDeclarations().isEmpty()) {
+                    // Synthetic request from a @BindsOptionalOf: test the type inside the Optional.
+                    // Optional<Provider or Lazy or Provider of Lazy> breaks the cycle.
+                    TypeMirror requestedOptionalType =
+                        resolvedRequest.dependentBindings().get().key().type();
+                    DependencyRequest.KindAndType kindAndType =
+                        DependencyRequest.extractKindAndType(
+                            OptionalType.from(requestedOptionalType).valueType());
+                    return breaksCycle(kindAndType.type(), kindAndType.kind());
+                  } else {
+                    // Other synthetic requests.
+                    return false;
+                  }
+                }
+
+                private boolean breaksCycle(
+                    TypeMirror requestedType, DependencyRequest.Kind requestKind) {
+                  switch (requestKind) {
                     case PROVIDER:
                     case LAZY:
                     case PROVIDER_OF_LAZY:
                       return true;
 
                     case INSTANCE:
-                      return MapType.isMap(dependencyRequest.key())
-                          && MapType.from(dependencyRequest.key()).valuesAreTypeOf(Provider.class);
+                      return MapType.isMap(requestedType)
+                          && MapType.from(requestedType).valuesAreTypeOf(Provider.class);
 
                     default:
                       return false;
                   }
                 }
               })
+          .transform(ResolvedRequest.DEPENDENCY_REQUEST)
           .toSet();
     }
   }
@@ -1266,7 +1324,7 @@ final class BindingGraphValidator {
    * Returns any provision bindings resolved for the second-most-recent request in the given path;
    * that is, returns those provision bindings that depend on the latest request in the path.
    */
-  private ImmutableSet<? extends Binding> provisionsDependingOnLatestRequest(
+  private FluentIterable<ContributionBinding> provisionsDependingOnLatestRequest(
       final DependencyPath path) {
     return FluentIterable.from(path.previousResolvedBindings().bindings())
         .filter(BindingType.isOfType(BindingType.PROVISION))
@@ -1277,7 +1335,7 @@ final class BindingGraphValidator {
                 return binding.implicitDependencies().contains(path.currentDependencyRequest());
               }
             })
-        .toSet();
+        .filter(ContributionBinding.class);
   }
 
   private String formatContributionType(ContributionType type) {
@@ -1304,15 +1362,36 @@ final class BindingGraphValidator {
     abstract DependencyRequest dependencyRequest();
 
     abstract ResolvedBindings resolvedBindings();
+    
+    /**
+     * The {@link #resolvedBindings()} of the previous entry in the {@link DependencyPath}. One of
+     * these bindings depends directly on {@link #dependencyRequest()}.
+     */
+    abstract Optional<ResolvedBindings> dependentBindings();
 
-    static ResolvedRequest create(DependencyRequest request, BindingGraph graph) {
-      BindingKey bindingKey = request.bindingKey();
-      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
+    /**
+     * If the binding that depends on {@link #dependencyRequest()} is a synthetic optional binding,
+     * returns its {@code @BindsOptionalOf} methods.
+     */
+    ImmutableSet<OptionalBindingDeclaration> dependentOptionalBindingDeclarations() {
+      if (dependentBindings().isPresent()) {
+        ResolvedBindings dependentBindings = dependentBindings().get();
+        for (ContributionBinding dependentBinding : dependentBindings.contributionBindings()) {
+          if (dependentBinding.bindingKind().equals(SYNTHETIC_OPTIONAL_BINDING)
+              && dependentBinding.dependencies().contains(dependencyRequest())) {
+            return dependentBindings.optionalBindingDeclarations();
+          }
+        }
+      }
+      return ImmutableSet.<OptionalBindingDeclaration>of();
+    }
+
+    private static ResolvedRequest create(
+        DependencyRequest request,
+        ResolvedBindings resolvedBindings,
+        Optional<ResolvedBindings> dependentBindings) {
       return new AutoValue_BindingGraphValidator_ResolvedRequest(
-          request,
-          resolvedBindings == null
-              ? ResolvedBindings.noBindings(bindingKey, graph.componentDescriptor())
-              : resolvedBindings);
+          request, resolvedBindings, dependentBindings);
     }
 
     static final Function<ResolvedRequest, DependencyRequest> DEPENDENCY_REQUEST =

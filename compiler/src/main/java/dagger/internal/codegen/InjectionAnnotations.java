@@ -16,15 +16,22 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 import com.google.auto.common.AnnotationMirrors;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
+import javax.inject.Inject;
 import javax.inject.Qualifier;
 import javax.inject.Scope;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Utilities relating to annotations defined in the {@code javax.inject} package.
@@ -53,6 +60,19 @@ final class InjectionAnnotations {
 
   static ImmutableSet<? extends AnnotationMirror> getScopes(Element element) {
     return AnnotationMirrors.getAnnotatedAnnotations(element, Scope.class);
+  }
+
+  /** Returns the constructors in {@code type} that are annotated with {@link Inject}. */
+  static ImmutableSet<ExecutableElement> injectedConstructors(TypeElement type) {
+    return FluentIterable.from(constructorsIn(type.getEnclosedElements()))
+        .filter(
+            new Predicate<ExecutableElement>() {
+              @Override
+              public boolean apply(ExecutableElement constructor) {
+                return isAnnotationPresent(constructor, Inject.class);
+              }
+            })
+        .toSet();
   }
 
   private InjectionAnnotations() {}

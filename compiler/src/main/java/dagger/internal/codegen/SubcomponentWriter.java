@@ -41,6 +41,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.internal.Preconditions;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
+import dagger.internal.codegen.DependencyRequest.Kind;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
@@ -54,8 +55,8 @@ import javax.lang.model.type.TypeMirror;
  */
 final class SubcomponentWriter extends AbstractComponentWriter {
 
-  private AbstractComponentWriter parent;
-  private ExecutableElement subcomponentFactoryMethod;
+  private final AbstractComponentWriter parent;
+  private final ExecutableElement subcomponentFactoryMethod;
 
   public SubcomponentWriter(
       AbstractComponentWriter parent,
@@ -161,6 +162,11 @@ final class SubcomponentWriter extends AbstractComponentWriter {
       writeSubcomponentWithoutBuilder(componentMethod, resolvedMethod);
     }
     parent.component.addMethod(componentMethod.build());
+  }
+
+  @Override
+  protected TypeSpec optionalFactoryClass(Optional<Kind> optionalValueKind) {
+    return parent.optionalFactoryClass(optionalValueKind);
   }
 
   private void writeSubcomponentWithoutBuilder(

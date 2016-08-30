@@ -1424,6 +1424,190 @@ public class GraphValidationTest {
         .compilesWithoutError();
   }
 
+  @Test
+  public void nullCheckForOptionalInstance() {
+    JavaFileObject a =
+        JavaFileObjects.forSourceLines(
+            "test.A",
+            "package test;",
+            "",
+            "import com.google.common.base.Optional;",
+            "import javax.inject.Inject;",
+            "",
+            "final class A {",
+            "  @Inject A(Optional<String> optional) {}",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.BindsOptionalOf;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "@dagger.Module",
+            "abstract class TestModule {",
+            "  @Nullable @Provides static String provideString() { return null; }",
+            "  @BindsOptionalOf abstract String optionalString();",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  A a();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            nullableToNonNullable(
+                "java.lang.String",
+                "@test.Nullable @Provides String test.TestModule.provideString()"));
+  }
+
+  @Test
+  public void nullCheckForOptionalProvider() {
+    JavaFileObject a =
+        JavaFileObjects.forSourceLines(
+            "test.A",
+            "package test;",
+            "",
+            "import com.google.common.base.Optional;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "final class A {",
+            "  @Inject A(Optional<Provider<String>> optional) {}",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.BindsOptionalOf;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "@dagger.Module",
+            "abstract class TestModule {",
+            "  @Nullable @Provides static String provideString() { return null; }",
+            "  @BindsOptionalOf abstract String optionalString();",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  A a();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void nullCheckForOptionalLazy() {
+    JavaFileObject a =
+        JavaFileObjects.forSourceLines(
+            "test.A",
+            "package test;",
+            "",
+            "import com.google.common.base.Optional;",
+            "import dagger.Lazy;",
+            "import javax.inject.Inject;",
+            "",
+            "final class A {",
+            "  @Inject A(Optional<Lazy<String>> optional) {}",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.BindsOptionalOf;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "@dagger.Module",
+            "abstract class TestModule {",
+            "  @Nullable @Provides static String provideString() { return null; }",
+            "  @BindsOptionalOf abstract String optionalString();",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  A a();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void nullCheckForOptionalProviderOfLazy() {
+    JavaFileObject a =
+        JavaFileObjects.forSourceLines(
+            "test.A",
+            "package test;",
+            "",
+            "import com.google.common.base.Optional;",
+            "import dagger.Lazy;",
+            "import javax.inject.Inject;",
+            "import javax.inject.Provider;",
+            "",
+            "final class A {",
+            "  @Inject A(Optional<Provider<Lazy<String>>> optional) {}",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.BindsOptionalOf;",
+            "import dagger.Provides;",
+            "import javax.inject.Inject;",
+            "",
+            "@dagger.Module",
+            "abstract class TestModule {",
+            "  @Nullable @Provides static String provideString() { return null; }",
+            "  @BindsOptionalOf abstract String optionalString();",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  A a();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(NULLABLE, a, module, component))
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError();
+  }
+
   @Test public void componentDependencyMustNotCycle_Direct() {
     JavaFileObject shortLifetime = JavaFileObjects.forSourceLines("test.ComponentShort",
         "package test;",

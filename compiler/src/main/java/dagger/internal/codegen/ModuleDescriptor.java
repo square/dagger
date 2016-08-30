@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Binds;
+import dagger.BindsOptionalOf;
 import dagger.Module;
 import dagger.Multibindings;
 import dagger.Provides;
@@ -68,15 +69,14 @@ abstract class ModuleDescriptor {
 
   abstract ImmutableSet<ContributionBinding> bindings();
 
-  /**
-   * The multibinding declarations contained in this module.
-   */
+  /** The multibinding declarations contained in this module. */
   abstract ImmutableSet<MultibindingDeclaration> multibindingDeclarations();
 
-  /**
-   * The {@link Binds} method declarations that define delegate bindings.
-   */
+  /** The {@link Binds} method declarations that define delegate bindings. */
   abstract ImmutableSet<DelegateDeclaration> delegateDeclarations();
+
+  /** The {@link BindsOptionalOf} method declarations that define optional bindings. */
+  abstract ImmutableSet<OptionalBindingDeclaration> optionalDeclarations();
 
   enum Kind {
     MODULE(
@@ -137,18 +137,21 @@ abstract class ModuleDescriptor {
     private final ProductionBinding.Factory productionBindingFactory;
     private final MultibindingDeclaration.Factory multibindingDeclarationFactory;
     private final DelegateDeclaration.Factory bindingDelegateDeclarationFactory;
+    private final OptionalBindingDeclaration.Factory optionalBindingDeclarationFactory;
 
     Factory(
         Elements elements,
         ProvisionBinding.Factory provisionBindingFactory,
         ProductionBinding.Factory productionBindingFactory,
         MultibindingDeclaration.Factory multibindingDeclarationFactory,
-        DelegateDeclaration.Factory bindingDelegateDeclarationFactory) {
+        DelegateDeclaration.Factory bindingDelegateDeclarationFactory,
+        OptionalBindingDeclaration.Factory optionalBindingDeclarationFactory) {
       this.elements = elements;
       this.provisionBindingFactory = provisionBindingFactory;
       this.productionBindingFactory = productionBindingFactory;
       this.multibindingDeclarationFactory = multibindingDeclarationFactory;
       this.bindingDelegateDeclarationFactory = bindingDelegateDeclarationFactory;
+      this.optionalBindingDeclarationFactory = optionalBindingDeclarationFactory;
     }
 
     ModuleDescriptor create(TypeElement moduleElement) {
@@ -160,6 +163,9 @@ abstract class ModuleDescriptor {
       ImmutableSet.Builder<DelegateDeclaration> delegates = ImmutableSet.builder();
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
           ImmutableSet.builder();
+      ImmutableSet.Builder<OptionalBindingDeclaration> optionalDeclarations =
+          ImmutableSet.builder();
+
       for (ExecutableElement moduleMethod : methodsIn(elements.getAllMembers(moduleElement))) {
         if (isAnnotationPresent(moduleMethod, Provides.class)) {
           bindings.add(provisionBindingFactory.forProvidesMethod(moduleMethod, moduleElement));
@@ -173,6 +179,10 @@ abstract class ModuleDescriptor {
         if (isAnnotationPresent(moduleMethod, Multibinds.class)) {
           multibindingDeclarations.add(
               multibindingDeclarationFactory.forMultibindsMethod(moduleMethod, moduleElement));
+        }
+        if (isAnnotationPresent(moduleMethod, BindsOptionalOf.class)) {
+          optionalDeclarations.add(
+              optionalBindingDeclarationFactory.forMethod(moduleMethod, moduleElement));
         }
       }
 
@@ -189,7 +199,8 @@ abstract class ModuleDescriptor {
               collectIncludedModules(new LinkedHashSet<ModuleDescriptor>(), moduleElement)),
           bindings.build(),
           multibindingDeclarations.build(),
-          delegates.build());
+          delegates.build(),
+          optionalDeclarations.build());
     }
 
     private static Optional<AnnotationMirror> getModuleAnnotation(TypeElement moduleElement) {

@@ -162,6 +162,13 @@ abstract class AbstractComponentWriter {
    */
   protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
 
+  /**
+   * The factory classes that implement {@code Provider<Optional<T>>} within the component. If the
+   * key is {@link Optional#absent()}, the class provides absent values.
+   */
+  private final Map<Optional<DependencyRequest.Kind>, TypeSpec> optionalFactoryClasses =
+      new HashMap<>();
+
   AbstractComponentWriter(
       Types types,
       Elements elements,
@@ -570,12 +577,12 @@ abstract class AbstractComponentWriter {
                       generatedClassNameForBinding(contributionBinding), typeArguments));
                 }
               }
+              // fall through
 
             default:
               return Optional.of(
                   staticMethod(
-                      generatedClassNameForBinding(contributionBinding),
-                      CodeBlock.of("create()")));
+                      generatedClassNameForBinding(contributionBinding), CodeBlock.of("create()")));
           }
         }
         break;
@@ -710,18 +717,16 @@ abstract class AbstractComponentWriter {
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
               List<? extends VariableElement> parameters = methodElement.getParameters();
-              if (parameters.isEmpty()) {
-                // we're returning the framework type
-                interfaceMethod.addStatement("return $L", codeBlock);
-              } else {
+              if (!parameters.isEmpty()) {
                 Name parameterName =
                     Iterables.getOnlyElement(methodElement.getParameters()).getSimpleName();
                 interfaceMethod.addStatement("$L.injectMembers($L)", codeBlock, parameterName);
                 if (!requestType.getReturnType().getKind().equals(VOID)) {
                   interfaceMethod.addStatement("return $L", parameterName);
                 }
+                break;
               }
-              break;
+              // fall through
             default:
               interfaceMethod.addStatement("return $L", codeBlock);
               break;
@@ -1104,8 +1109,11 @@ abstract class AbstractComponentWriter {
       case SYNTHETIC_MULTIBOUND_MAP:
         return initializeFactoryForMapMultibinding(binding);
 
+      case SYNTHETIC_OPTIONAL_BINDING:
+        return initializeFactoryForSyntheticOptionalBinding(binding);
+
       default:
-        throw new AssertionError(binding.toString());
+        throw new AssertionError(binding);
     }
   }
 
@@ -1146,22 +1154,20 @@ abstract class AbstractComponentWriter {
   private ImmutableList<CodeBlock> getDependencyArguments(Binding binding) {
     ImmutableList.Builder<CodeBlock> parameters = ImmutableList.builder();
     for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
-      parameters.add(getDependencyArgument(frameworkDependency));
+      parameters.add(getDependencyArgument(frameworkDependency).getExpressionFor(name));
     }
     return parameters.build();
   }
 
-  /**
-   * The expression to use as an argument for a dependency.
-   */
-  private CodeBlock getDependencyArgument(FrameworkDependency frameworkDependency) {
+  /** Returns the member select to use as an argument for a dependency. */
+  private MemberSelect getDependencyArgument(FrameworkDependency frameworkDependency) {
     BindingKey requestedKey = frameworkDependency.bindingKey();
     ResolvedBindings resolvedBindings = graph.resolvedBindings().get(requestedKey);
     if (resolvedBindings.frameworkClass().equals(Provider.class)
         && frameworkDependency.frameworkClass().equals(Producer.class)) {
-      return producerFromProviderMemberSelects.get(requestedKey).getExpressionFor(name);
+      return producerFromProviderMemberSelects.get(requestedKey);
     } else {
-      return getMemberSelectExpression(requestedKey);
+      return getMemberSelect(requestedKey);
     }
   }
 
@@ -1204,7 +1210,7 @@ abstract class AbstractComponentWriter {
           potentiallyCast(
               useRawTypes,
               frameworkDependency.frameworkClass(),
-              getDependencyArgument(frameworkDependency)));
+              getDependencyArgument(frameworkDependency).getExpressionFor(name)));
     }
     builder.add("builder($L, $L)", individualProviders, setProviders);
     builder.add(builderMethodCalls.build());
@@ -1235,7 +1241,7 @@ abstract class AbstractComponentWriter {
           potentiallyCast(
               useRawTypes,
               frameworkDependency.frameworkClass(),
-              getDependencyArgument(frameworkDependency));
+              getDependencyArgument(frameworkDependency).getExpressionFor(name));
       if (binding.bindingType().frameworkClass().equals(Producer.class)
           && frameworkDependency.frameworkClass().equals(Provider.class)) {
         value = CodeBlock.of("$T.producerFromProvider($L)", PRODUCERS, value);
@@ -1254,6 +1260,50 @@ abstract class AbstractComponentWriter {
       return notCasted;
     }
     return CodeBlock.of("($T) $L", classToCast, notCasted);
+  }
+
+  /** Returns an expression that initializes a {@link Provider} for an optional binding. */
+  private CodeBlock initializeFactoryForSyntheticOptionalBinding(ContributionBinding binding) {
+    if (binding.bindingType().equals(BindingType.PRODUCTION)) {
+      throw new UnsupportedOperationException("optional producers are not supported yet");
+    }
+
+    if (binding.dependencies().isEmpty()) {
+      return CodeBlock.of(
+          "$N.instance()", optionalFactoryClass(Optional.<DependencyRequest.Kind>absent()));
+    } else {
+      TypeMirror valueType = OptionalType.from(binding.key()).valueType();
+      DependencyRequest.Kind optionalValueKind =
+          DependencyRequest.extractKindAndType(valueType).kind();
+      FrameworkDependency frameworkDependency =
+          getOnlyElement(frameworkDependenciesForBinding(binding));
+      CodeBlock dependencyArgument =
+          getDependencyArgument(frameworkDependency).getExpressionFor(name);
+      return CodeBlock.of(
+          "$N.of($L)", optionalFactoryClass(Optional.of(optionalValueKind)), dependencyArgument);
+    }
+  }
+
+  /**
+   * Returns the nested class that implements {@code Provider<Optional<T>>} for optional bindings.
+   * Adds it to the root component if it hasn't already been added.
+   *
+   * <p>If {@code optionalValueKind} is absent, returns a {@link Provider} class that returns {@link
+   * Optional#absent()}.
+   *
+   * <p>If {@code optionalValueKind} is present, returns a {@link Provider} class where {@code T}
+   * represents dependency requests of that kind.
+   */
+  protected TypeSpec optionalFactoryClass(Optional<DependencyRequest.Kind> optionalValueKind) {
+    if (!optionalFactoryClasses.containsKey(optionalValueKind)) {
+      TypeSpec factory =
+          optionalValueKind.isPresent()
+              ? OptionalFactoryClasses.presentFactoryClass(optionalValueKind.get())
+              : OptionalFactoryClasses.ABSENT_FACTORY_CLASS;
+      component.addType(factory);
+      optionalFactoryClasses.put(optionalValueKind, factory);
+    }
+    return optionalFactoryClasses.get(optionalValueKind);
   }
 
   private static String simpleVariableName(TypeElement typeElement) {

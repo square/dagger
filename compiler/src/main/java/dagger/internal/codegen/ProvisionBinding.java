@@ -83,6 +83,8 @@ abstract class ProvisionBinding extends ContributionBinding {
         .dependencies(ImmutableSet.<DependencyRequest>of());
   }
 
+  abstract Builder toBuilder();
+
   @AutoValue.Builder
   @CanIgnoreReturnValue
   abstract static class Builder extends ContributionBinding.Builder<Builder> {
@@ -299,6 +301,31 @@ abstract class ProvisionBinding extends ContributionBinding {
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
           .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()));
+    }
+
+    /**
+     * Returns a synthetic binding for an {@linkplain dagger.BindsOptionalOf optional binding} in a
+     * component with no binding for the underlying key.
+     */
+    ProvisionBinding syntheticAbsentBinding(Key key) {
+      return ProvisionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .key(key)
+          .bindingKind(Kind.SYNTHETIC_OPTIONAL_BINDING)
+          .build();
+    }
+
+    /**
+     * Returns a synthetic binding for an {@linkplain dagger.BindsOptionalOf optional binding} in a
+     * component with a binding for the underlying key.
+     */
+    ProvisionBinding syntheticPresentBinding(Key key) {
+      return syntheticAbsentBinding(key)
+          .toBuilder()
+          .dependencies(
+              dependencyRequestFactory.forSyntheticPresentOptionalBinding(
+                  key, DependencyRequest.Kind.PROVIDER))
+          .build();
     }
   }
 }

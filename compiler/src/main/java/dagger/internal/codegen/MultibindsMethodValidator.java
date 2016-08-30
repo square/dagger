@@ -17,25 +17,19 @@
 package dagger.internal.codegen;
 
 import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.BindingMethodValidator.AllowsMultibindings.NO_MULTIBINDINGS;
 import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.NO_EXCEPTIONS;
 import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.METHOD_MUST_RETURN_MAP_OR_SET;
-import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.NO_MAP_KEY;
 import static dagger.internal.codegen.ErrorMessages.MultibindsMessages.PARAMETERS;
 import static dagger.internal.codegen.FrameworkTypes.isFrameworkType;
-import static dagger.internal.codegen.MapKeys.getMapKeys;
 
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableSet;
-import dagger.MapKey;
 import dagger.Module;
 import dagger.Multibindings;
-import dagger.multibindings.ElementsIntoSet;
-import dagger.multibindings.IntoMap;
-import dagger.multibindings.IntoSet;
 import dagger.multibindings.Multibinds;
 import dagger.producers.ProducerModule;
 import java.lang.annotation.Annotation;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -63,7 +57,8 @@ class MultibindsMethodValidator extends BindingMethodValidator {
         methodAnnotation,
         enclosingElementAnnotations,
         MUST_BE_ABSTRACT,
-        NO_EXCEPTIONS);
+        NO_EXCEPTIONS,
+        NO_MULTIBINDINGS);
   }
   
   @Override
@@ -86,25 +81,6 @@ class MultibindsMethodValidator extends BindingMethodValidator {
         && !isPlainSet(builder.getSubject().getReturnType())) {
       builder.addError(formatErrorMessage(METHOD_MUST_RETURN_MAP_OR_SET));
     }
-  }
-
-  /** Adds an error if the method has any {@link MapKey @MapKey} annotations. */
-  @Override
-  protected void checkMapKeys(ValidationReport.Builder<ExecutableElement> builder) {
-    ImmutableSet<? extends AnnotationMirror> mapKeys = getMapKeys(builder.getSubject());
-    if (!mapKeys.isEmpty()) {
-      builder.addError(formatErrorMessage(NO_MAP_KEY));
-    }
-  }
-
-  /**
-   * {@link MultibindingAnnotationsProcessingStep} reports an error if {@link IntoMap @IntoMap},
-   * {@link IntoSet @IntoSet}, or {@link ElementsIntoSet @ElementsIntoSet} are applied to the method
-   * at all, so no need to check again.
-   */
-  @Override
-  protected void checkMultibindings(ValidationReport.Builder<ExecutableElement> builder) {
-    // no-op
   }
 
   private boolean isPlainMap(TypeMirror returnType) {

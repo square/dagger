@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_CONCRETE;
+import static dagger.internal.codegen.BindingMethodValidator.AllowsMultibindings.ALLOWS_MULTIBINDINGS;
 import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
 import static dagger.internal.codegen.ErrorMessages.provisionMayNotDependOnProducerType;
 
@@ -44,7 +45,8 @@ final class ProvidesMethodValidator extends BindingMethodValidator {
         Provides.class,
         ImmutableSet.of(Module.class, ProducerModule.class),
         MUST_BE_CONCRETE,
-        RUNTIME_EXCEPTION);
+        RUNTIME_EXCEPTION,
+        ALLOWS_MULTIBINDINGS);
   }
 
   @Override

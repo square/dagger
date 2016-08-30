@@ -43,6 +43,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Binds;
+import dagger.BindsOptionalOf;
 import dagger.Multibindings;
 import dagger.multibindings.Multibinds;
 import dagger.producers.Produced;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import javax.inject.Provider;
+import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -208,45 +210,54 @@ abstract class Key {
   }
 
   /**
-   * Returns true if the key is valid as an implicit key (that is, if it's valid for a just-in-time
-   * binding by discovering an {@code @Inject} constructor).
+   * Returns {@code true} if this is valid as an implicit key (that is, if it's valid for a
+   * just-in-time binding by discovering an {@code @Inject} constructor).
    */
-  boolean isValidImplicitProvisionKey(final Types types) {
+  boolean isValidImplicitProvisionKey(Types types) {
+    return isValidImplicitProvisionKey(qualifier(), type(), types);
+  }
+
+  /**
+   * Returns {@code true} if a key with {@code qualifier} and {@code type} is valid as an implicit
+   * key (that is, if it's valid for a just-in-time binding by discovering an {@code @Inject}
+   * constructor).
+   */
+  static boolean isValidImplicitProvisionKey(
+      Optional<? extends AnnotationMirror> qualifier, TypeMirror type, final Types types) {
     // Qualifiers disqualify implicit provisioning.
-    if (qualifier().isPresent()) {
+    if (qualifier.isPresent()) {
       return false;
     }
 
-    return type().accept(new SimpleTypeVisitor6<Boolean, Void>() {
-      @Override protected Boolean defaultAction(TypeMirror e, Void p) {
-        return false; // Only declared types are allowed.
-      }
+    return type.accept(
+        new SimpleTypeVisitor6<Boolean, Void>(false) {
+          @Override
+          public Boolean visitDeclared(DeclaredType type, Void ignored) {
+            // Non-classes or abstract classes aren't allowed.
+            TypeElement element = MoreElements.asType(type.asElement());
+            if (!element.getKind().equals(ElementKind.CLASS)
+                || element.getModifiers().contains(Modifier.ABSTRACT)) {
+              return false;
+            }
 
-      @Override public Boolean visitDeclared(DeclaredType type, Void ignored) {
-        // Non-classes or abstract classes aren't allowed.
-        TypeElement element = MoreElements.asType(type.asElement());
-        if (!element.getKind().equals(ElementKind.CLASS)
-            || element.getModifiers().contains(Modifier.ABSTRACT)) {
-          return false;
-        }
+            // If the key has type arguments, validate that each type argument is declared.
+            // Otherwise the type argument may be a wildcard (or other type), and we can't
+            // resolve that to actual types.
+            for (TypeMirror arg : type.getTypeArguments()) {
+              if (arg.getKind() != TypeKind.DECLARED) {
+                return false;
+              }
+            }
 
-        // If the key has type arguments, validate that each type argument is declared.
-        // Otherwise the type argument may be a wildcard (or other type), and we can't
-        // resolve that to actual types.
-        for (TypeMirror arg : type.getTypeArguments()) {
-          if (arg.getKind() != TypeKind.DECLARED) {
-            return false;
+            // Also validate that the key is not the erasure of a generic type.
+            // If it is, that means the user referred to Foo<T> as just 'Foo',
+            // which we don't allow.  (This is a judgement call -- we *could*
+            // allow it and instantiate the type bounds... but we don't.)
+            return MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
+                || !types.isSameType(types.erasure(element.asType()), type);
           }
-        }
-
-        // Also validate that the key is not the erasure of a generic type.
-        // If it is, that means the user referred to Foo<T> as just 'Foo',
-        // which we don't allow.  (This is a judgement call -- we *could*
-        // allow it and instantiate the type bounds... but we don't.)
-        return MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
-            || !types.isSameType(types.erasure(element.asType()), type());
-      }
-    }, null);
+        },
+        null);
   }
 
   /**
@@ -337,27 +348,42 @@ abstract class Key {
     }
 
     Key forProvidesMethod(ExecutableElement method, TypeElement contributingModule) {
-      return forProvidesOrProducesMethod(method, contributingModule, getProviderElement());
+      return forBindingMethod(method, contributingModule, Optional.of(getProviderElement()));
     }
 
     Key forProducesMethod(ExecutableElement method, TypeElement contributingModule) {
-      return forProvidesOrProducesMethod(method, contributingModule, getProducerElement());
+      return forBindingMethod(method, contributingModule, Optional.of(getProducerElement()));
     }
 
-    private Key forProvidesOrProducesMethod(
-        ExecutableElement method, TypeElement contributingModule, TypeElement frameworkType) {
+    /** Returns the key bound by a {@link Binds} method. */
+    Key forBindsMethod(ExecutableElement method, TypeElement contributingModule) {
+      checkArgument(isAnnotationPresent(method, Binds.class));
+      return forBindingMethod(method, contributingModule, Optional.<TypeElement>absent());
+    }
+
+    /** Returns the base key bound by a {@link BindsOptionalOf} method. */
+    Key forBindsOptionalOfMethod(ExecutableElement method, TypeElement contributingModule) {
+      checkArgument(isAnnotationPresent(method, BindsOptionalOf.class));
+      return forBindingMethod(method, contributingModule, Optional.<TypeElement>absent());
+    }
+
+    private Key forBindingMethod(
+        ExecutableElement method,
+        TypeElement contributingModule,
+        Optional<TypeElement> frameworkType) {
       checkArgument(method.getKind().equals(METHOD));
       ExecutableType methodType =
           MoreTypes.asExecutable(
               types.asMemberOf(MoreTypes.asDeclared(contributingModule.asType()), method));
       ContributionType contributionType = ContributionType.fromBindingMethod(method);
       TypeMirror returnType = normalize(types, methodType.getReturnType());
-      if (frameworkType.equals(getProducerElement())
+      if (frameworkType.isPresent()
+          && frameworkType.get().equals(getProducerElement())
           && MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
         returnType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
       }
       TypeMirror keyType =
-          bindingMethodKeyType(returnType, method, contributionType, Optional.of(frameworkType));
+          bindingMethodKeyType(returnType, method, contributionType, frameworkType);
       Key key = forMethod(method, keyType);
       return contributionType.equals(ContributionType.UNIQUE)
           ? key
@@ -386,26 +412,6 @@ abstract class Key {
                   MapType.from(returnType).valueType())
               : returnType;
       return forMethod(method, keyType);
-    }
-
-    /** Returns the key bound by a {@link Binds} method. */
-    Key forBindsMethod(ExecutableElement method, TypeElement contributingModule) {
-      checkArgument(isAnnotationPresent(method, Binds.class));
-      ContributionType contributionType = ContributionType.fromBindingMethod(method);
-      TypeMirror returnType =
-          normalize(
-              types,
-              MoreTypes.asExecutable(
-                      types.asMemberOf(MoreTypes.asDeclared(contributingModule.asType()), method))
-                  .getReturnType());
-      TypeMirror keyType =
-          bindingMethodKeyType(
-              returnType, method, contributionType, Optional.<TypeElement>absent());
-      Key key = forMethod(method, keyType);
-      return contributionType.equals(ContributionType.UNIQUE)
-          ? key
-          : key.withMultibindingContributionIdentifier(
-              new MultibindingContributionIdentifier(method, contributingModule));
     }
 
     private TypeMirror bindingMethodKeyType(
@@ -652,6 +658,20 @@ abstract class Key {
         }
       }
       return Optional.absent();
+    }
+
+    /**
+     * If {@code key}'s type is {@code Optional<T>} for some {@code T}, returns a key with the same
+     * qualifier whose type is {@linkplain DependencyRequest#extractKindAndType(TypeMirror)
+     * extracted} from {@code T}.
+     */
+    Optional<Key> unwrapOptional(Key key) {
+      if (!OptionalType.isOptional(key)) {
+        return Optional.absent();
+      }
+      TypeMirror underlyingType =
+          DependencyRequest.extractKindAndType(OptionalType.from(key).valueType()).type();
+      return Optional.of(key.withType(types, underlyingType));
     }
   }
 }

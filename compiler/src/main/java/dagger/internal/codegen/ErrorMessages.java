@@ -36,6 +36,7 @@ final class ErrorMessages {
    * Common constants.
    */
   static final String INDENT = "    ";
+  static final String DOUBLE_INDENT = INDENT + INDENT;
   static final int DUPLICATE_SIZE_LIMIT = 10;
 
   /*
@@ -181,8 +182,15 @@ final class ErrorMessages {
   static final String BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER =
       "@Binds methods must have only one parameter whose type is assignable to the return type";
 
-  static final String BINDING_METHOD_NOT_IN_MODULE =
-      "@%s methods can only be present within a @%s";
+  static final String BINDS_OPTIONAL_OF_METHOD_HAS_PARAMETER =
+      "@BindsOptionalOf methods must not have parameters";
+
+  static final String BINDS_OPTIONAL_OF_METHOD_RETURNS_IMPLICITLY_PROVIDED_TYPE =
+      "@BindsOptionalOf methods cannot "
+          + "return unqualified types that have an @Inject-annotated constructor because those are "
+          + "always present";
+
+  static final String BINDING_METHOD_NOT_IN_MODULE = "@%s methods can only be present within a @%s";
 
   static final String BINDS_ELEMENTS_INTO_SET_METHOD_RETURN_SET =
       "@Binds @ElementsIntoSet methods must return a Set and take a Set parameter";
@@ -490,8 +498,6 @@ final class ErrorMessages {
   static final class MultibindsMessages {
     static final String METHOD_MUST_RETURN_MAP_OR_SET =
         "@%s methods must return Map<K, V> or Set<T>";
-
-    static final String NO_MAP_KEY = "@%s methods must not have a @MapKey annotation";
 
     static final String PARAMETERS = "@%s methods cannot have parameters";
 

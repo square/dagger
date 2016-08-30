@@ -18,16 +18,9 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
-import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
 
-import com.google.common.util.concurrent.Futures;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
-import dagger.MembersInjector;
-import dagger.internal.DoubleCheck;
-import dagger.producers.Produced;
-import dagger.producers.internal.Producers;
-import javax.inject.Provider;
 
 /** Fulfills requests for {@link ProvisionBinding} instances. */
 final class ProviderFieldRequestFulfillment extends RequestFulfillment {
@@ -42,43 +35,7 @@ final class ProviderFieldRequestFulfillment extends RequestFulfillment {
   @Override
   public CodeBlock getSnippetForDependencyRequest(
       DependencyRequest request, ClassName requestingClass) {
-    switch (request.kind()) {
-      case FUTURE:
-        return CodeBlock.of(
-            "$T.immediateFuture($L.get())",
-            Futures.class,
-            providerFieldSelect.getExpressionFor(requestingClass));
-      case INSTANCE:
-        return CodeBlock.of("$L.get()", providerFieldSelect.getExpressionFor(requestingClass));
-      case LAZY:
-        return CodeBlock.of(
-            "$T.lazy($L)",
-            DoubleCheck.class,
-            providerFieldSelect.getExpressionFor(requestingClass));
-      case MEMBERS_INJECTOR:
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot request a %s from a %s",
-                MembersInjector.class.getSimpleName(), Provider.class.getSimpleName()));
-      case PRODUCED:
-        return CodeBlock.of(
-            "$T.successful($L.get())",
-            Produced.class,
-            providerFieldSelect.getExpressionFor(requestingClass));
-      case PRODUCER:
-        return CodeBlock.of(
-            "$T.producerFromProvider($L)",
-            Producers.class,
-            providerFieldSelect.getExpressionFor(requestingClass));
-      case PROVIDER:
-        return CodeBlock.of("$L", providerFieldSelect.getExpressionFor(requestingClass));
-      case PROVIDER_OF_LAZY:
-        return CodeBlock.of(
-            "$T.create($L)",
-            PROVIDER_OF_LAZY,
-            providerFieldSelect.getExpressionFor(requestingClass));
-      default:
-        throw new AssertionError();
-    }
+    return FrameworkType.PROVIDER.to(
+        request.kind(), providerFieldSelect.getExpressionFor(requestingClass));
   }
 }

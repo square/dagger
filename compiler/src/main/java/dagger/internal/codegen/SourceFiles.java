@@ -142,11 +142,11 @@ class SourceFiles {
       case PROVIDER:
       case PRODUCER:
       case MEMBERS_INJECTOR:
-        return CodeBlock.of("$L", frameworkTypeMemberSelect);
+        return frameworkTypeMemberSelect;
       case PROVIDER_OF_LAZY:
         return CodeBlock.of("$T.create($L)", PROVIDER_OF_LAZY, frameworkTypeMemberSelect);
-      default:
-        throw new AssertionError();
+      default: // including PRODUCED
+        throw new AssertionError(dependencyKind);
     }
   }
 
