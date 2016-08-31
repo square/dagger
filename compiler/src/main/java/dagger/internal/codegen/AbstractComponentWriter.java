@@ -770,9 +770,14 @@ abstract class AbstractComponentWriter {
   }
 
   private void addSubcomponents() {
-    for (Map.Entry<ExecutableElement, BindingGraph> subgraphEntry : graph.subgraphs().entrySet()) {
+    for (BindingGraph subgraph : graph.subgraphs()) {
+      ComponentMethodDescriptor componentMethodDescriptor =
+          graph.componentDescriptor()
+              .subcomponentsByFactoryMethod()
+              .inverse()
+              .get(subgraph.componentDescriptor());
       SubcomponentWriter subcomponent =
-          new SubcomponentWriter(this, subgraphEntry.getKey(), subgraphEntry.getValue());
+          new SubcomponentWriter(this, Optional.fromNullable(componentMethodDescriptor), subgraph);
       component.addType(subcomponent.write().build());
     }
   }
@@ -1028,17 +1033,22 @@ abstract class AbstractComponentWriter {
         }
 
       case SUBCOMPONENT_BUILDER:
+        String subcomponentName =
+            subcomponentNames.get(
+                graph.componentDescriptor()
+                    .subcomponentsByBuilderType()
+                    .get(MoreTypes.asTypeElement(binding.key().type())));
         return CodeBlock.of(
             Joiner.on('\n')
                 .join(
                     "new $1T<$2T>() {",
                     "  @Override public $2T get() {",
-                    "    return $3L();",
+                    "    return new $3LBuilder();",
                     "  }",
                     "}"),
             /* 1 */ FACTORY,
             /* 2 */ bindingKeyTypeName,
-            /* 3 */ binding.bindingElement().get().getSimpleName());
+            /* 3 */ subcomponentName);
 
       case INJECTION:
       case PROVISION:

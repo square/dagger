@@ -278,6 +278,16 @@ abstract class ProvisionBinding extends ContributionBinding {
           .build();
     }
 
+    ProvisionBinding syntheticSubcomponentBuilder(
+        ImmutableSet<SubcomponentDeclaration> subcomponentDeclarations) {
+      SubcomponentDeclaration subcomponentDeclaration = subcomponentDeclarations.iterator().next();
+      return ProvisionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .key(subcomponentDeclaration.key())
+          .bindingKind(Kind.SUBCOMPONENT_BUILDER)
+          .build();
+    }
+
     ProvisionBinding delegate(
         DelegateDeclaration delegateDeclaration, ProvisionBinding delegate) {
       return delegateBuilder(delegateDeclaration).nullableType(delegate.nullableType()).build();

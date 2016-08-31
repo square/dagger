@@ -17,6 +17,8 @@
 package dagger.internal.codegen;
 
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 
@@ -876,12 +878,19 @@ public final class SubcomponentValidationTest {
             "test.DaggerC",
             "package test;",
             "",
+            "import dagger.internal.Factory;",
             "import javax.annotation.Generated;",
+            "import javax.inject.Provider;",
             "",
             GENERATED_ANNOTATION,
             "public final class DaggerC implements C {",
+            "",
+            "  private Provider<C.Foo.Sub.Builder> fooBuilderProvider;",
+            "  private Provider<C.Bar.Sub.Builder> barBuilderProvider;",
+            "",
             "  private DaggerC(Builder builder) {",
             "    assert builder != null;",
+            "    initialize(builder);",
             "  }",
             "",
             "  public static Builder builder() {",
@@ -892,14 +901,33 @@ public final class SubcomponentValidationTest {
             "    return builder().build();",
             "  }",
             "",
+            "  @SuppressWarnings(\"unchecked\")",
+            "  private void initialize(final Builder builder) {",
+            "    this.fooBuilderProvider = ",
+            "        new Factory<C.Foo.Sub.Builder>() {",
+            "          @Override",
+            "          public C.Foo.Sub.Builder get() {",
+            "            return new Foo_SubBuilder();",
+            "          }",
+            "        };",
+            "",
+            "    this.barBuilderProvider = ",
+            "        new Factory<C.Bar.Sub.Builder>() {",
+            "          @Override",
+            "          public C.Bar.Sub.Builder get() {",
+            "            return new Bar_SubBuilder();",
+            "          }",
+            "        };",
+            "  }",
+            "",
             "  @Override",
             "  public C.Foo.Sub.Builder fooBuilder() {",
-            "    return new Foo_SubBuilder();",
+            "    return fooBuilderProvider.get();",
             "  }",
             "",
             "  @Override",
             "  public C.Bar.Sub.Builder barBuilder() {",
-            "    return new Bar_SubBuilder();",
+            "    return barBuilderProvider.get();",
             "  }",
             "",
             "  public static final class Builder {",
@@ -943,5 +971,61 @@ public final class SubcomponentValidationTest {
         .compilesWithoutError()
         .and()
         .generatesSources(componentGeneratedFile);
+  }
+
+  @Test
+  public void duplicateBindingWithSubcomponentDeclaration() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module(subcomponents = Sub.class)",
+            "class TestModule {",
+            "  @Provides Sub.Builder providesConflictsWithModuleSubcomponents() { return null; }",
+            "  @Provides Object usesSubcomponentBuilder(Sub.Builder builder) {",
+            "    return builder.toString();",
+            "  }",
+            "}");
+
+    JavaFileObject subcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.Sub",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent",
+            "interface Sub {",
+            "  @Subcomponent.Builder",
+            "  interface Builder {",
+            "    Sub build();",
+            "  }",
+            "}");
+
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Sub",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface C {",
+            "  Object dependsOnBuilder();",
+            "}");
+
+    assertThat(module, component, subcomponent)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("test.Sub.Builder is bound multiple times:")
+        .and()
+        .withErrorContaining(
+            "@Provides test.Sub.Builder test.TestModule.providesConflictsWithModuleSubcomponents()")
+        .and()
+        .withErrorContaining("@Module(subcomponents = test.Sub.class) for test.TestModule");
   }
 }

@@ -20,6 +20,7 @@ import com.google.auto.common.AnnotationMirrors;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Name;
 
 /**
  * A utility class for working with {@link AnnotationMirror} instances, similar to {@link
@@ -49,5 +50,9 @@ final class MoreAnnotationMirrors {
     return wrappedOptional.isPresent()
         ? Optional.of(wrappedOptional.get().get())
         : Optional.<AnnotationMirror>absent();
+  }
+
+  static Name simpleName(AnnotationMirror annotationMirror) {
+    return annotationMirror.getAnnotationType().asElement().getSimpleName();
   }
 }

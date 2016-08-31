@@ -29,11 +29,8 @@ import static com.google.common.base.Predicates.or;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.indexOf;
-import static com.google.common.collect.Maps.filterKeys;
 import static dagger.internal.codegen.BindingDeclaration.HAS_BINDING_ELEMENT;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT;
+import static dagger.internal.codegen.ConfigurationAnnotations.getComponentAnnotation;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_MAP;
@@ -93,7 +90,6 @@ import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionBinding.Kind;
-import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -252,12 +248,15 @@ final class BindingGraphValidator {
     final BindingGraph subject;
     final ValidationReport.Builder<TypeElement> reportBuilder;
     final Optional<Validation> parent;
+    final ImmutableMap<ComponentDescriptor, BindingGraph> subgraphsByComponentDescriptor;
 
     Validation(BindingGraph subject, Optional<Validation> parent) {
       this.subject = subject;
       this.reportBuilder =
           ValidationReport.about(subject.componentDescriptor().componentDefinitionType());
       this.parent = parent;
+      this.subgraphsByComponentDescriptor =
+          Maps.uniqueIndex(subject.subgraphs(), BindingGraph.COMPONENT_DESCRIPTOR);
     }
 
     Validation(BindingGraph topLevelGraph) {
@@ -287,15 +286,12 @@ final class BindingGraphValidator {
       }
 
       for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> entry :
-          filterKeys(
-                  subject.componentDescriptor().subcomponents(),
-                  isOfKind(SUBCOMPONENT, PRODUCTION_SUBCOMPONENT))
-              .entrySet()) {
+          subject.componentDescriptor().subcomponentsByFactoryMethod().entrySet()) {
         validateSubcomponentFactoryMethod(
-            entry.getKey().methodElement(), entry.getValue().componentDefinitionType());
+            entry.getKey().methodElement(), subgraphsByComponentDescriptor.get(entry.getValue()));
       }
 
-      for (BindingGraph subgraph : subject.subgraphs().values()) {
+      for (BindingGraph subgraph : subject.subgraphs()) {
         Validation subgraphValidation = new Validation(subgraph, Optional.of(this));
         subgraphValidation.validateSubgraph();
         reportBuilder.addSubreport(subgraphValidation.buildReport());
@@ -303,8 +299,7 @@ final class BindingGraphValidator {
     }
 
     private void validateSubcomponentFactoryMethod(
-        ExecutableElement factoryMethod, TypeElement subcomponentType) {
-      BindingGraph subgraph = subject.subgraphs().get(factoryMethod);
+        ExecutableElement factoryMethod, BindingGraph subgraph) {
       FluentIterable<TypeElement> missingModules =
           FluentIterable.from(subgraph.componentRequirements())
               .filter(not(in(subgraphFactoryMethodParameters(factoryMethod))))
@@ -320,7 +315,7 @@ final class BindingGraphValidator {
             String.format(
                 "%s requires modules which have no visible default constructors. "
                     + "Add the following modules as parameters to this method: %s",
-                subcomponentType.getQualifiedName(),
+                subgraph.componentDescriptor().componentDefinitionType().getQualifiedName(),
                 Joiner.on(", ").join(missingModules.toSet())),
             factoryMethod);
       }
@@ -496,6 +491,8 @@ final class BindingGraphValidator {
           ImmutableSetMultimap.builder();
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
           ImmutableSet.builder();
+      ImmutableSet.Builder<SubcomponentDeclaration> subcomponentDeclarations =
+          ImmutableSet.builder();
       ImmutableSet.Builder<OptionalBindingDeclaration> optionalBindingDeclarations =
           ImmutableSet.builder();
 
@@ -504,6 +501,7 @@ final class BindingGraphValidator {
 
       for (ResolvedBindings queued = queue.poll(); queued != null; queued = queue.poll()) {
         multibindingDeclarations.addAll(queued.multibindingDeclarations());
+        subcomponentDeclarations.addAll(queued.subcomponentDeclarations());
         optionalBindingDeclarations.addAll(queued.optionalBindingDeclarations());
         for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry :
             queued.allContributionBindings().entries()) {
@@ -523,6 +521,7 @@ final class BindingGraphValidator {
           resolvedBinding.owningComponent(),
           contributions.build(),
           multibindingDeclarations.build(),
+          subcomponentDeclarations.build(),
           optionalBindingDeclarations.build());
     }
 
@@ -728,10 +727,9 @@ final class BindingGraphValidator {
             message.toString(),
             compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
             rootComponent,
-            getAnnotationMirror(rootComponent, Component.class).get());
+            getComponentAnnotation(rootComponent).get());
       } else {
-        Optional<AnnotationMirror> componentAnnotation =
-            getAnnotationMirror(componentType, Component.class);
+        Optional<AnnotationMirror> componentAnnotation = getComponentAnnotation(componentType);
         if (componentAnnotation.isPresent()) {
           componentStack.push(componentType);
 
@@ -879,9 +877,7 @@ final class BindingGraphValidator {
               message.toString(),
               compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
               rootComponent,
-              getAnnotationMirror(rootComponent, Component.class)
-                  .or(getAnnotationMirror(rootComponent, ProductionComponent.class))
-                  .get());
+              getComponentAnnotation(rootComponent).get());
         }
         scopedDependencyStack.pop();
       } else {
@@ -1084,10 +1080,12 @@ final class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       new Formatter(builder)
           .format(DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
-      ImmutableSet<ContributionBinding> duplicateBindings =
-          inlineContributionsWithoutBindingElements(resolvedBindings).contributionBindings();
+      ResolvedBindings inlined = inlineContributionsWithoutBindingElements(resolvedBindings);
+      ImmutableSet<ContributionBinding> duplicateBindings = inlined.contributionBindings();
+      Set<BindingDeclaration> conflictingDeclarations =
+          Sets.union(duplicateBindings, inlined.subcomponentDeclarations());
       bindingDeclarationFormatter.formatIndentedList(
-          builder, duplicateBindings, 1, DUPLICATE_SIZE_LIMIT);
+          builder, conflictingDeclarations, 1, DUPLICATE_SIZE_LIMIT);
       owningReportBuilder(duplicateBindings).addError(builder.toString(), path.entryPointElement());
     }
 

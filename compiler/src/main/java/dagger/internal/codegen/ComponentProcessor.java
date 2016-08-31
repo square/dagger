@@ -124,6 +124,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProductionBinding.Factory(types, keyFactory, dependencyRequestFactory);
     MultibindingDeclaration.Factory multibindingDeclarationFactory =
         new MultibindingDeclaration.Factory(elements, types, keyFactory);
+    SubcomponentDeclaration.Factory subcomponentDeclarationFactory =
+        new SubcomponentDeclaration.Factory(keyFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
@@ -150,6 +152,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             productionBindingFactory,
             multibindingDeclarationFactory,
             bindingDelegateDeclarationFactory,
+            subcomponentDeclarationFactory,
             optionalBindingDeclarationFactory);
 
     ComponentDescriptor.Factory componentDescriptorFactory = new ComponentDescriptor.Factory(

@@ -347,6 +347,14 @@ abstract class Key {
       return forMethod(subcomponentBuilderMethod, returnType);
     }
 
+    Key forSubcomponentBuilder(TypeMirror builderType) {
+      checkNotNull(builderType);
+      return new AutoValue_Key(
+          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
+          MoreTypes.equivalence().wrap(builderType),
+          Optional.<MultibindingContributionIdentifier>absent());
+    }
+
     Key forProvidesMethod(ExecutableElement method, TypeElement contributingModule) {
       return forBindingMethod(method, contributingModule, Optional.of(getProviderElement()));
     }

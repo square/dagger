@@ -18,7 +18,10 @@ package dagger.internal.codegen;
 
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.Util.isAnyAnnotationPresent;
+import static javax.lang.model.util.ElementFilter.typesIn;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -31,7 +34,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Module;
+import dagger.Subcomponent;
 import dagger.producers.ProducerModule;
+import dagger.producers.ProductionComponent;
+import dagger.producers.ProductionSubcomponent;
 import java.lang.annotation.Annotation;
 import java.util.ArrayDeque;
 import java.util.List;
@@ -45,7 +51,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleAnnotationValueVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor6;
@@ -58,6 +63,35 @@ import javax.lang.model.util.Types;
  * @author Gregory Kick
  */
 final class ConfigurationAnnotations {
+
+  static Optional<AnnotationMirror> getComponentAnnotation(TypeElement component) {
+    return getAnnotationMirror(component, Component.class)
+        .or(getAnnotationMirror(component, ProductionComponent.class));
+  }
+
+  static Optional<AnnotationMirror> getSubcomponentAnnotation(TypeElement subcomponent) {
+    return getAnnotationMirror(subcomponent, Subcomponent.class)
+        .or(getAnnotationMirror(subcomponent, ProductionSubcomponent.class));
+  }
+
+  static boolean isSubcomponent(Element element) {
+    return isAnyAnnotationPresent(element, Subcomponent.class, ProductionSubcomponent.class);
+  }
+
+  static Optional<TypeElement> getSubcomponentBuilder(TypeElement subcomponent) {
+    checkArgument(isSubcomponent(subcomponent));
+    for (TypeElement nestedType : typesIn(subcomponent.getEnclosedElements())) {
+      if (isSubcomponentBuilder(nestedType)) {
+        return Optional.of(nestedType);
+      }
+    }
+    return Optional.absent();
+  }
+
+  static boolean isSubcomponentBuilder(Element element) {
+    return isAnyAnnotationPresent(
+        element, Subcomponent.Builder.class, ProductionSubcomponent.Builder.class);
+  }
 
   private static final String MODULES_ATTRIBUTE = "modules";
 
@@ -73,11 +107,23 @@ final class ConfigurationAnnotations {
     return convertClassArrayToListOfTypes(componentAnnotation, DEPENDENCIES_ATTRIBUTE);
   }
 
+  static Optional<AnnotationMirror> getModuleAnnotation(TypeElement moduleElement) {
+    return getAnnotationMirror(moduleElement, Module.class)
+        .or(getAnnotationMirror(moduleElement, ProducerModule.class));
+  }
+
   private static final String INCLUDES_ATTRIBUTE = "includes";
 
   static ImmutableList<TypeMirror> getModuleIncludes(AnnotationMirror moduleAnnotation) {
     checkNotNull(moduleAnnotation);
     return convertClassArrayToListOfTypes(moduleAnnotation, INCLUDES_ATTRIBUTE);
+  }
+
+  private static final String SUBCOMPONENTS_ATTRIBUTE = "subcomponents";
+
+  static ImmutableList<TypeMirror> getModuleSubcomponents(AnnotationMirror moduleAnnotation) {
+    checkNotNull(moduleAnnotation);
+    return convertClassArrayToListOfTypes(moduleAnnotation, SUBCOMPONENTS_ATTRIBUTE);
   }
 
   private static final String INJECTS_ATTRIBUTE = "injects";
@@ -156,7 +202,7 @@ final class ConfigurationAnnotations {
           throw new IllegalArgumentException(elementName + " is not an array: " + o);
         }
       };
-      
+
   /**
    * Returns the value named {@code elementName} from {@code annotation}, which must be a member
    * that contains a single type.
@@ -195,8 +241,7 @@ final class ConfigurationAnnotations {
     for (TypeElement moduleElement = moduleQueue.poll();
         moduleElement != null;
         moduleElement = moduleQueue.poll()) {
-      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(moduleElement, Module.class)
-          .or(getAnnotationMirror(moduleElement, ProducerModule.class));
+      Optional<AnnotationMirror> moduleMirror = getModuleAnnotation(moduleElement);
       if (moduleMirror.isPresent()) {
         ImmutableSet.Builder<TypeElement> moduleDependenciesBuilder = ImmutableSet.builder();
         moduleDependenciesBuilder.addAll(
@@ -221,7 +266,7 @@ final class ConfigurationAnnotations {
   static ImmutableList<DeclaredType> enclosedBuilders(TypeElement typeElement,
       final Class<? extends Annotation> annotation) {
     final ImmutableList.Builder<DeclaredType> builders = ImmutableList.builder();
-    for (TypeElement element : ElementFilter.typesIn(typeElement.getEnclosedElements())) {
+    for (TypeElement element : typesIn(typeElement.getEnclosedElements())) {
       if (MoreElements.isAnnotationPresent(element, annotation)) {
         builders.add(MoreTypes.asDeclared(element.asType()));
       }
@@ -237,8 +282,7 @@ final class ConfigurationAnnotations {
     while (!types.isSameType(objectType, superclass)
         && superclass.getKind().equals(TypeKind.DECLARED)) {
       element = MoreElements.asType(types.asElement(superclass));
-      Optional<AnnotationMirror> moduleMirror = getAnnotationMirror(element, Module.class)
-          .or(getAnnotationMirror(element, ProducerModule.class));
+      Optional<AnnotationMirror> moduleMirror = getModuleAnnotation(element);
       if (moduleMirror.isPresent()) {
         builder.addAll(MoreTypes.asTypeElements(getModuleIncludes(moduleMirror.get())));
       }

@@ -19,8 +19,8 @@ package dagger.internal.codegen;
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static dagger.internal.codegen.ConfigurationAnnotations.getModuleAnnotation;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.NONE;
@@ -72,6 +72,9 @@ abstract class ModuleDescriptor {
   /** The multibinding declarations contained in this module. */
   abstract ImmutableSet<MultibindingDeclaration> multibindingDeclarations();
 
+  /** The {@link Module#subcomponents() subcomponent declarations} contained in this module. */
+  abstract ImmutableSet<SubcomponentDeclaration> subcomponentDeclarations();
+
   /** The {@link Binds} method declarations that define delegate bindings. */
   abstract ImmutableSet<DelegateDeclaration> delegateDeclarations();
 
@@ -118,6 +121,10 @@ abstract class ModuleDescriptor {
       this.includesTypes = includesTypes;
     }
 
+    Optional<AnnotationMirror> getModuleAnnotationMirror(TypeElement element) {
+      return getAnnotationMirror(element, moduleAnnotation);
+    }
+
     Class<? extends Annotation> moduleAnnotation() {
       return moduleAnnotation;
     }
@@ -137,6 +144,7 @@ abstract class ModuleDescriptor {
     private final ProductionBinding.Factory productionBindingFactory;
     private final MultibindingDeclaration.Factory multibindingDeclarationFactory;
     private final DelegateDeclaration.Factory bindingDelegateDeclarationFactory;
+    private final SubcomponentDeclaration.Factory subcomponentDeclarationFactory;
     private final OptionalBindingDeclaration.Factory optionalBindingDeclarationFactory;
 
     Factory(
@@ -145,20 +153,18 @@ abstract class ModuleDescriptor {
         ProductionBinding.Factory productionBindingFactory,
         MultibindingDeclaration.Factory multibindingDeclarationFactory,
         DelegateDeclaration.Factory bindingDelegateDeclarationFactory,
+        SubcomponentDeclaration.Factory subcomponentDeclarationFactory,
         OptionalBindingDeclaration.Factory optionalBindingDeclarationFactory) {
       this.elements = elements;
       this.provisionBindingFactory = provisionBindingFactory;
       this.productionBindingFactory = productionBindingFactory;
       this.multibindingDeclarationFactory = multibindingDeclarationFactory;
       this.bindingDelegateDeclarationFactory = bindingDelegateDeclarationFactory;
+      this.subcomponentDeclarationFactory = subcomponentDeclarationFactory;
       this.optionalBindingDeclarationFactory = optionalBindingDeclarationFactory;
     }
 
     ModuleDescriptor create(TypeElement moduleElement) {
-      checkState(getModuleAnnotation(moduleElement).isPresent(),
-          "%s did not have an AnnotationMirror for @Module",
-          moduleElement.getQualifiedName());
-
       ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
       ImmutableSet.Builder<DelegateDeclaration> delegates = ImmutableSet.builder();
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
@@ -199,13 +205,9 @@ abstract class ModuleDescriptor {
               collectIncludedModules(new LinkedHashSet<ModuleDescriptor>(), moduleElement)),
           bindings.build(),
           multibindingDeclarations.build(),
+          subcomponentDeclarationFactory.forModule(moduleElement),
           delegates.build(),
           optionalDeclarations.build());
-    }
-
-    private static Optional<AnnotationMirror> getModuleAnnotation(TypeElement moduleElement) {
-      return getAnnotationMirror(moduleElement, Module.class)
-          .or(getAnnotationMirror(moduleElement, ProducerModule.class));
     }
 
     @CanIgnoreReturnValue

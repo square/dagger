@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.difference;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
@@ -40,11 +41,10 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.internal.Preconditions;
-import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
+import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.DependencyRequest.Kind;
 import java.util.List;
 import java.util.Set;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ExecutableType;
@@ -56,11 +56,16 @@ import javax.lang.model.type.TypeMirror;
 final class SubcomponentWriter extends AbstractComponentWriter {
 
   private final AbstractComponentWriter parent;
-  private final ExecutableElement subcomponentFactoryMethod;
 
-  public SubcomponentWriter(
+  /**
+   * The parent's factory method to create this subcomponent, or {@link Optional#absent()} if the
+   * subcomponent was added via {@link dagger.Module#subcomponents()}.
+   */
+  private final Optional<ComponentMethodDescriptor> subcomponentFactoryMethod;
+
+  SubcomponentWriter(
       AbstractComponentWriter parent,
-      ExecutableElement subcomponentFactoryMethod,
+      Optional<ComponentMethodDescriptor> subcomponentFactoryMethod,
       BindingGraph subgraph) {
     super(
         parent.types,
@@ -101,10 +106,15 @@ final class SubcomponentWriter extends AbstractComponentWriter {
   }
 
   private ExecutableType resolvedSubcomponentFactoryMethod() {
+    checkState(
+        subcomponentFactoryMethod.isPresent(),
+        "%s does not have a factory method for %s",
+        parent.componentDefinitionType(),
+        componentDefinitionType());
     return MoreTypes.asExecutable(
         types.asMemberOf(
             MoreTypes.asDeclared(parent.componentDefinitionType().asType()),
-            subcomponentFactoryMethod));
+            subcomponentFactoryMethod.get().methodElement()));
   }
 
   @Override
@@ -147,20 +157,19 @@ final class SubcomponentWriter extends AbstractComponentWriter {
 
   @Override
   protected void addFactoryMethods() {
+    if (!subcomponentFactoryMethod.isPresent()
+        || !subcomponentFactoryMethod.get().kind().isSubcomponentKind()) {
+      // subcomponent builder methods are implemented in
+      // AbstractComponentWriter.implementInterfaceMethods
+      return;
+    }
     MethodSpec.Builder componentMethod =
-        methodBuilder(subcomponentFactoryMethod.getSimpleName().toString())
+        methodBuilder(subcomponentFactoryMethod.get().methodElement().getSimpleName().toString())
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class);
-    if (graph.componentDescriptor().builderSpec().isPresent()) {
-      BuilderSpec spec = graph.componentDescriptor().builderSpec().get();
-      componentMethod
-          .returns(ClassName.get(spec.builderDefinitionType()))
-          .addStatement("return new $T()", builderName.get());
-    } else {
-      ExecutableType resolvedMethod = resolvedSubcomponentFactoryMethod();
-      componentMethod.returns(ClassName.get(resolvedMethod.getReturnType()));
-      writeSubcomponentWithoutBuilder(componentMethod, resolvedMethod);
-    }
+    ExecutableType resolvedMethod = resolvedSubcomponentFactoryMethod();
+    componentMethod.returns(ClassName.get(resolvedMethod.getReturnType()));
+    writeSubcomponentWithoutBuilder(componentMethod, resolvedMethod);
     parent.component.addMethod(componentMethod.build());
   }
 
@@ -172,7 +181,8 @@ final class SubcomponentWriter extends AbstractComponentWriter {
   private void writeSubcomponentWithoutBuilder(
       MethodSpec.Builder componentMethod, ExecutableType resolvedMethod) {
     ImmutableList.Builder<CodeBlock> subcomponentConstructorParameters = ImmutableList.builder();
-    List<? extends VariableElement> params = subcomponentFactoryMethod.getParameters();
+    List<? extends VariableElement> params =
+        subcomponentFactoryMethod.get().methodElement().getParameters();
     List<? extends TypeMirror> paramTypes = resolvedMethod.getParameterTypes();
     for (int i = 0; i < params.size(); i++) {
       VariableElement moduleVariable = params.get(i);

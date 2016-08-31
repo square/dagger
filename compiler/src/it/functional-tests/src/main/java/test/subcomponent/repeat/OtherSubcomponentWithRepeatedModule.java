@@ -18,7 +18,13 @@ package test.subcomponent.repeat;
 
 import dagger.Subcomponent;
 
-@Subcomponent
-interface SubcomponentWithoutRepeatedModule {
-  OtherSubcomponentWithRepeatedModule.Builder newGrandchildBuilder();
+@Subcomponent(modules = RepeatedModule.class)
+interface OtherSubcomponentWithRepeatedModule extends SubcomponentWithRepeatedModule {
+
+  @Subcomponent.Builder
+  interface Builder {
+    Builder repeatedModule(RepeatedModule repeatedModule);
+
+    OtherSubcomponentWithRepeatedModule build();
+  }
 }

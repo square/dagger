@@ -33,6 +33,7 @@ import dagger.Provides;
 import dagger.internal.codegen.BindingGraphValidator.DependencyPath;
 import dagger.internal.codegen.BindingGraphValidator.ResolvedRequest;
 import dagger.producers.Produces;
+import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -152,14 +153,11 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
                 ExecutableElement methodOrConstructor =
                     asExecutable(variable.getEnclosingElement());
                 appendEnclosingTypeAndMemberName(methodOrConstructor, builder).append('(');
-                int parameterIndex = methodOrConstructor.getParameters().indexOf(variable);
-                if (parameterIndex > 0) {
-                  builder.append("…, ");
-                }
-                builder.append(variable.getSimpleName());
-                if (parameterIndex < methodOrConstructor.getParameters().size() - 1) {
-                  builder.append(", …");
-                }
+                List<? extends VariableElement> parameters = methodOrConstructor.getParameters();
+                int parameterIndex = parameters.indexOf(variable);
+                builder.append(
+                    formatArgumentInList(
+                        parameterIndex, parameters.size(), variable.getSimpleName()));
                 builder.append(')');
                 return builder.toString();
               }

@@ -16,6 +16,7 @@
 
 package dagger;
 
+import dagger.internal.Beta;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -34,4 +35,12 @@ public @interface Module {
    * to the object graph.
    */
   Class<?>[] includes() default {};
+
+  /**
+   * Any {@link Subcomponent}- or {@link dagger.producers.ProductionSubcomponent}-annotated classes
+   * which should be children of the component in which this module is installed. A subcomponent may
+   * be listed in more than one module in a component.
+   */
+  @Beta
+  Class<?>[] subcomponents() default {};
 }

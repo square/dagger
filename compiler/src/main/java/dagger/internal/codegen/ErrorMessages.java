@@ -16,6 +16,10 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.ConfigurationAnnotations.getSubcomponentAnnotation;
+import static dagger.internal.codegen.MoreAnnotationMirrors.simpleName;
+
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import dagger.Multibindings;
 import dagger.Provides;
@@ -23,6 +27,7 @@ import dagger.multibindings.Multibinds;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -502,6 +507,33 @@ final class ErrorMessages {
     static final String PARAMETERS = "@%s methods cannot have parameters";
 
     private MultibindsMessages() {}
+  }
+
+  static class ModuleMessages {
+    static String moduleSubcomponentsIncludesBuilder(TypeElement moduleSubcomponentsAttribute) {
+      TypeElement subcomponentType =
+          MoreElements.asType(moduleSubcomponentsAttribute.getEnclosingElement());
+      return String.format(
+          "%s is a @%s.Builder. Did you mean to use %s?",
+          moduleSubcomponentsAttribute.getQualifiedName(),
+          simpleName(getSubcomponentAnnotation(subcomponentType).get()),
+          subcomponentType.getQualifiedName());
+    }
+
+    static String moduleSubcomponentsIncludesNonSubcomponent(
+        TypeElement moduleSubcomponentsAttribute) {
+      return moduleSubcomponentsAttribute.getQualifiedName()
+          + " is not a @Subcomponent or @ProductionSubcomponent";
+    }
+
+    static String moduleSubcomponentsDoesntHaveBuilder(
+        TypeElement subcomponent, AnnotationMirror moduleAnnotation) {
+      return String.format(
+          "%s doesn't have a @%s.Builder, which is required when used with @%s.subcomponents",
+          subcomponent.getQualifiedName(),
+          simpleName(getSubcomponentAnnotation(subcomponent).get()),
+          simpleName(moduleAnnotation));
+    }
   }
 
   /**
