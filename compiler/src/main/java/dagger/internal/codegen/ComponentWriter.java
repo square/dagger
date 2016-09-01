@@ -64,7 +64,8 @@ final class ComponentWriter extends AbstractComponentWriter {
         compilerOptions,
         name,
         graph,
-        new UniqueSubcomponentNamesGenerator(graph).generate());
+        new UniqueSubcomponentNamesGenerator(graph).generate(),
+        new OptionalFactories());
   }
 
   /**
@@ -142,10 +143,9 @@ final class ComponentWriter extends AbstractComponentWriter {
   }
 
   @Override
-  protected TypeSpec.Builder createComponentClass() {
-    TypeSpec.Builder component = classBuilder(name).addModifiers(PUBLIC, FINAL);
+  protected void decorateComponent() {
+    component.addModifiers(PUBLIC, FINAL);
     addSupertype(component, componentDefinitionType());
-    return component;
   }
 
   @Override

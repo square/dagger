@@ -42,7 +42,6 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.internal.Preconditions;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
-import dagger.internal.codegen.DependencyRequest.Kind;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.TypeElement;
@@ -67,14 +66,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
       AbstractComponentWriter parent,
       Optional<ComponentMethodDescriptor> subcomponentFactoryMethod,
       BindingGraph subgraph) {
-    super(
-        parent.types,
-        parent.elements,
-        parent.keyFactory,
-        parent.compilerOptions,
-        subcomponentName(parent, subgraph),
-        subgraph,
-        parent.subcomponentNames);
+    super(parent, subcomponentName(parent, subgraph), subgraph);
     this.parent = parent;
     this.subcomponentFactoryMethod = subcomponentFactoryMethod;
   }
@@ -118,16 +110,14 @@ final class SubcomponentWriter extends AbstractComponentWriter {
   }
 
   @Override
-  protected TypeSpec.Builder createComponentClass() {
-    TypeSpec.Builder subcomponent = classBuilder(name).addModifiers(PRIVATE, FINAL);
-
+  protected void decorateComponent() {
+    component.addModifiers(PRIVATE, FINAL);
     addSupertype(
-        subcomponent,
+        component,
         MoreTypes.asTypeElement(
             graph.componentDescriptor().builderSpec().isPresent()
                 ? graph.componentDescriptor().builderSpec().get().componentType()
                 : resolvedSubcomponentFactoryMethod().getReturnType()));
-    return subcomponent;
   }
 
   @Override
@@ -171,11 +161,6 @@ final class SubcomponentWriter extends AbstractComponentWriter {
     componentMethod.returns(ClassName.get(resolvedMethod.getReturnType()));
     writeSubcomponentWithoutBuilder(componentMethod, resolvedMethod);
     parent.component.addMethod(componentMethod.build());
-  }
-
-  @Override
-  protected TypeSpec optionalFactoryClass(Optional<Kind> optionalValueKind) {
-    return parent.optionalFactoryClass(optionalValueKind);
   }
 
   private void writeSubcomponentWithoutBuilder(

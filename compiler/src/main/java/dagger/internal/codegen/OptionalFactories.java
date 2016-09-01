@@ -23,6 +23,7 @@ import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.TypeNames.PROVIDER;
 import static dagger.internal.codegen.TypeNames.lazyOf;
 import static dagger.internal.codegen.TypeNames.optionalOf;
 import static dagger.internal.codegen.TypeNames.providerOf;
@@ -34,59 +35,87 @@ import static javax.lang.model.element.Modifier.STATIC;
 import com.google.common.base.Optional;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
+import dagger.internal.InstanceFactory;
 import dagger.internal.Preconditions;
+import java.util.EnumMap;
+import java.util.Map;
 import javax.inject.Provider;
 
-/** Factory class specifications for optional bindings. */
+/**
+ * The nested class and static methods required by the component to implement optional bindings.
+ */
 // TODO(dpb): Name classes correctly if a component uses both Guava and JDK Optional.
-final class OptionalFactoryClasses {
+final class OptionalFactories {
 
   /**
-   * The class specification for a {@link Provider<Optional<T>>} that always returns {@code
+   * A field specification for a {@link Provider<Optional<T>>} that always returns {@code
    * Optional.absent()}.
    */
-  static final TypeSpec ABSENT_FACTORY_CLASS = absentFactoryClass();
+  private static final FieldSpec ABSENT_OPTIONAL_PROVIDER_FIELD =
+      FieldSpec.builder(PROVIDER, "ABSENT_OPTIONAL_PROVIDER", PRIVATE, STATIC, FINAL)
+          .addAnnotation(SUPPRESS_WARNINGS_RAWTYPES)
+          .initializer("$T.create($T.absent())", InstanceFactory.class, Optional.class)
+          .addJavadoc(
+              "A {@link $T} that returns {@code $T.absent()}.", Provider.class, Optional.class)
+          .build();
 
-  private static TypeSpec absentFactoryClass() {
-    String className = "AbsentOptionalFactory";
-    TypeVariableName typeVariable = TypeVariableName.get("T");
-    
-    return classBuilder(className)
-        .addTypeVariable(typeVariable)
-        .addModifiers(PRIVATE, STATIC, FINAL)
-        .addSuperinterface(providerOf(optionalOf(typeVariable)))
-        .addJavadoc("A {@link $T} that returns {$T.absent()}.", Provider.class, Optional.class)
-        .addField(FieldSpec.builder(Provider.class, "INSTANCE", PRIVATE, STATIC, FINAL)
-            .addAnnotation(SUPPRESS_WARNINGS_RAWTYPES)
-            .initializer("new $L()", className)
-            .build())
-        .addMethod(
-            methodBuilder("instance")
-                .addModifiers(PRIVATE, STATIC)
-                .addTypeVariable(typeVariable)
-                .returns(providerOf(optionalOf(typeVariable)))
-                .addCode("$L // safe covariant cast\n", SUPPRESS_WARNINGS_UNCHECKED)
-                .addCode("$1T provider = ($1T) INSTANCE;", providerOf(optionalOf(typeVariable)))
-                .addCode("return provider;")
-                .build())
-        .addMethod(
-            methodBuilder("get")
-                .addAnnotation(Override.class)
-                .addModifiers(PUBLIC)
-                .returns(optionalOf(typeVariable))
-                .addCode("return $T.absent();", Optional.class)
-                .build())
-        .build();
+  /**
+   * A method specification for a {@link Provider<Optional<T>>} that always returns {@code
+   * Optional.absent()}.
+   */
+  private static final MethodSpec ABSENT_OPTIONAL_PROVIDER_METHOD =
+      methodBuilder("absentOptionalProvider")
+          .addModifiers(PRIVATE, STATIC)
+          .addTypeVariable(TypeVariableName.get("T"))
+          .returns(providerOf(optionalOf(TypeVariableName.get("T"))))
+          .addJavadoc(
+              "Returns a {@link $T} that returns {@code $T.absent()}.",
+              Provider.class,
+              Optional.class)
+          .addCode("$L // safe covariant cast\n", SUPPRESS_WARNINGS_UNCHECKED)
+          .addCode(
+              "$1T provider = ($1T) $2N;",
+              providerOf(optionalOf(TypeVariableName.get("T"))),
+              ABSENT_OPTIONAL_PROVIDER_FIELD)
+          .addCode("return provider;")
+          .build();
+
+  /**
+   * The factory classes that implement present optional bindings for a given kind of dependency
+   * request within the component.
+   */
+  private final Map<DependencyRequest.Kind, TypeSpec> presentFactoryClasses =
+      new EnumMap<>(DependencyRequest.Kind.class);
+
+  /**
+   * If the component contains any absent optional bindings, this will be the member select for a
+   * static method that returns a Provider<Optional<T>> that always returns {@link
+   * Optional#absent()}.
+   */
+  private Optional<CodeBlock> absentOptionalProviderMethod = Optional.absent();
+
+  /**
+   * Returns an expression that calls a static method that returns a {@code Provider<Optional<T>>}
+   * for absent optional bindings.
+   */
+  CodeBlock absentOptionalProvider() {
+    if (!absentOptionalProviderMethod.isPresent()) {
+      absentOptionalProviderMethod =
+          Optional.of(CodeBlock.of("$N()", ABSENT_OPTIONAL_PROVIDER_METHOD));
+    }
+    return absentOptionalProviderMethod.get();
   }
 
   /**
-   * Returns the class specification for a {@link Provider} that returns a present value. The class
-   * is generic in {@code T}.
+   * Returns an expression for an instance of a nested class that implements {@code
+   * Provider<Optional<T>>} for a present optional binding, where {@code T} represents dependency
+   * requests of that kind.
    *
    * <ul>
    * <li>If {@code optionalRequestKind} is {@link DependencyRequest.Kind#INSTANCE}, the class
@@ -100,23 +129,44 @@ final class OptionalFactoryClasses {
    * </ul>
    *
    * <p>Production requests are not yet supported.
+   *
+   * @param delegateProvider an expression for a {@link Provider} of the underlying type
    */
-  static TypeSpec presentFactoryClass(DependencyRequest.Kind optionalValueKind) {
+  CodeBlock presentOptionalProvider(DependencyRequest.Kind valueKind, CodeBlock delegateProvider) {
+    if (!presentFactoryClasses.containsKey(valueKind)) {
+      presentFactoryClasses.put(valueKind, createPresentFactoryClass(valueKind));
+    }
+    return CodeBlock.of("$N.of($L)", presentFactoryClasses.get(valueKind), delegateProvider);
+  }
+  
+  /**
+   * Adds classes and methods required by previous calls to {@link #absentOptionalProvider()} and
+   * {@link #presentOptionalProvider(DependencyRequest.Kind, CodeBlock)} to the top-level {@code
+   * component}.
+   */
+  void addMembers(TypeSpec.Builder component) {
+    if (absentOptionalProviderMethod.isPresent()) {
+      component.addField(ABSENT_OPTIONAL_PROVIDER_FIELD).addMethod(ABSENT_OPTIONAL_PROVIDER_METHOD);
+    }
+    for (TypeSpec presentFactoryClass : presentFactoryClasses.values()) {
+      component.addType(presentFactoryClass);
+    }
+  }
+
+  private TypeSpec createPresentFactoryClass(DependencyRequest.Kind valueKind) {
     String factoryClassName =
         String.format(
-            "PresentOptional%sFactory",
-            UPPER_UNDERSCORE.to(UPPER_CAMEL, optionalValueKind.toString()));
-    
+            "PresentOptional%sFactory", UPPER_UNDERSCORE.to(UPPER_CAMEL, valueKind.toString()));
+
     TypeVariableName typeVariable = TypeVariableName.get("T");
-    
+
     FieldSpec providerField =
         FieldSpec.builder(providerOf(typeVariable), "provider", PRIVATE, FINAL).build();
-    
+
     ParameterSpec providerParameter =
         ParameterSpec.builder(providerOf(typeVariable), "provider").build();
-    
-    ParameterizedTypeName optionalType = optionalType(optionalValueKind, typeVariable);
-    
+
+    ParameterizedTypeName optionalType = optionalType(valueKind, typeVariable);
     return classBuilder(factoryClassName)
         .addTypeVariable(typeVariable)
         .addModifiers(PRIVATE, STATIC, FINAL)
@@ -144,7 +194,7 @@ final class OptionalFactoryClasses {
                 .addCode(
                     "return $T.of($L);",
                     Optional.class,
-                    FrameworkType.PROVIDER.to(optionalValueKind, CodeBlock.of("$N", providerField)))
+                    FrameworkType.PROVIDER.to(valueKind, CodeBlock.of("$N", providerField)))
                 .build())
         .addMethod(
             methodBuilder("of")
@@ -157,7 +207,7 @@ final class OptionalFactoryClasses {
         .build();
   }
 
-  private static ParameterizedTypeName optionalType(
+  private ParameterizedTypeName optionalType(
       DependencyRequest.Kind optionalValueKind, TypeName valueType) {
     switch (optionalValueKind) {
       case INSTANCE:
