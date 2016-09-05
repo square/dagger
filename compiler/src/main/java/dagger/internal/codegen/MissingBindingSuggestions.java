@@ -40,7 +40,7 @@ class MissingBindingSuggestions {
       BindingGraph graph = graphsToTry.removeLast();
       ResolvedBindings bindings = graph.resolvedBindings().get(key);
       if ((bindings == null) || bindings.bindings().isEmpty()) {
-        graphsToTry.addAll(graph.subgraphs().values());
+        graphsToTry.addAll(graph.subgraphs());
       } else {
         resolutions.add("A binding with matching key exists in component: "
             + graph.componentDescriptor().componentDefinitionType().getQualifiedName());

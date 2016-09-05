@@ -23,12 +23,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.ConfigurationAnnotations.getNullableType;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,7 +36,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.Provides;
-import dagger.internal.codegen.DependencyRequest.Factory.KindAndType;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import java.util.List;
@@ -125,11 +124,9 @@ abstract class DependencyRequest {
       return Optional.<KindAndType>absent();
     }
 
-    /**
-     * Returns a {@link KindAndType} with this kind and {@code type} type.
-     */
+    /** Returns a {@link KindAndType} with this kind and {@code type} type. */
     KindAndType ofType(TypeMirror type) {
-      return new AutoValue_DependencyRequest_Factory_KindAndType(this, type);
+      return new AutoValue_DependencyRequest_KindAndType(this, type);
     }
   }
 
@@ -165,17 +162,73 @@ abstract class DependencyRequest {
    */
   abstract Optional<String> overriddenVariableName();
 
-  /** A predicate that passes for requests with elements. */
-  static final Predicate<DependencyRequest> HAS_REQUEST_ELEMENT =
-      new Predicate<DependencyRequest>() {
-        @Override
-        public boolean apply(DependencyRequest request) {
-          return request.requestElement().isPresent();
-        }
-      };
-
   private static DependencyRequest.Builder builder() {
     return new AutoValue_DependencyRequest.Builder().isNullable(false);
+  }
+
+  /**
+   * Extracts the dependency request type and kind from the type of a dependency request element.
+   * For example, if a user requests {@code Provider<Foo>}, this will return ({@link Kind#PROVIDER},
+   * {@code Foo}).
+   *
+   * @throws TypeNotPresentException if {@code type}'s kind is {@link TypeKind#ERROR}, which may
+   *     mean that the type will be generated in a later round of processing
+   */
+  static KindAndType extractKindAndType(TypeMirror type) {
+    return type.accept(
+        new SimpleTypeVisitor7<KindAndType, Void>() {
+          @Override
+          public KindAndType visitError(ErrorType errorType, Void p) {
+            throw new TypeNotPresentException(errorType.toString(), null);
+          }
+
+          @Override
+          public KindAndType visitExecutable(ExecutableType executableType, Void p) {
+            return executableType.getReturnType().accept(this, null);
+          }
+
+          @Override
+          public KindAndType visitDeclared(DeclaredType declaredType, Void p) {
+            return KindAndType.from(declaredType).or(defaultAction(declaredType, p));
+          }
+
+          @Override
+          protected KindAndType defaultAction(TypeMirror otherType, Void p) {
+            return Kind.INSTANCE.ofType(otherType);
+          }
+        },
+        null);
+  }
+
+  @AutoValue
+  abstract static class KindAndType {
+    abstract Kind kind();
+
+    abstract TypeMirror type();
+
+    static Optional<KindAndType> from(TypeMirror type) {
+      for (Kind kind : Kind.values()) {
+        Optional<KindAndType> kindAndType = kind.from(type);
+        if (kindAndType.isPresent()) {
+          return kindAndType.get().maybeProviderOfLazy().or(kindAndType);
+        }
+      }
+      return Optional.absent();
+    }
+
+    /**
+     * If {@code kindAndType} represents a {@link Kind#PROVIDER} of a {@code Lazy<T>} for some type
+     * {@code T}, then this method returns ({@link Kind#PROVIDER_OF_LAZY}, {@code T}).
+     */
+    private Optional<KindAndType> maybeProviderOfLazy() {
+      if (kind().equals(Kind.PROVIDER)) {
+        Optional<KindAndType> providedKindAndType = from(type());
+        if (providedKindAndType.isPresent() && providedKindAndType.get().kind().equals(Kind.LAZY)) {
+          return Optional.of(Kind.PROVIDER_OF_LAZY.ofType(providedKindAndType.get().type()));
+        }
+      }
+      return Optional.absent();
+    }
   }
 
   @CanIgnoreReturnValue
@@ -380,6 +433,23 @@ abstract class DependencyRequest {
           .build();
     }
 
+    /**
+     * Returns a synthetic request for the present value of an optional binding generated from a
+     * {@link dagger.BindsOptionalOf} declaration.
+     */
+    DependencyRequest forSyntheticPresentOptionalBinding(Key requestKey, Kind kind) {
+      Optional<Key> key = keyFactory.unwrapOptional(requestKey);
+      checkArgument(key.isPresent(), "not a request for optional: %s", requestKey);
+      return builder()
+          .kind(kind)
+          .key(key.get())
+          .isNullable(
+              allowsNull(
+                  extractKindAndType(OptionalType.from(requestKey).valueType()).kind(),
+                  Optional.<DeclaredType>absent()))
+          .build();
+    }
+
     private DependencyRequest newDependencyRequest(
         Element requestElement,
         TypeMirror type,
@@ -389,83 +459,24 @@ abstract class DependencyRequest {
       if (kindAndType.kind().equals(Kind.MEMBERS_INJECTOR)) {
         checkArgument(!qualifier.isPresent());
       }
-      // Only instance types can be non-null -- all other requests are wrapped
-      // inside something (e.g, Provider, Lazy, etc..).
-      // TODO(sameb): should Produced/Producer always require non-nullable?
-      boolean allowsNull = !kindAndType.kind().equals(Kind.INSTANCE)
-          || ConfigurationAnnotations.getNullableType(requestElement).isPresent();
       return DependencyRequest.builder()
           .kind(kindAndType.kind())
           .key(keyFactory.forQualifiedType(qualifier, kindAndType.type()))
           .requestElement(requestElement)
-          .isNullable(allowsNull)
+          .isNullable(allowsNull(kindAndType.kind(), getNullableType(requestElement)))
           .overriddenVariableName(name)
           .build();
     }
 
-    @AutoValue
-    abstract static class KindAndType {
-      abstract Kind kind();
-      abstract TypeMirror type();
-
-      static Optional<KindAndType> from(TypeMirror type) {
-        for (Kind kind : Kind.values()) {
-          Optional<KindAndType> kindAndType = kind.from(type);
-          if (kindAndType.isPresent()) {
-            return kindAndType.get().maybeProviderOfLazy().or(kindAndType);
-          }
-        }
-        return Optional.absent();
-      }
-
-      /**
-       * If {@code kindAndType} represents a {@link Kind#PROVIDER} of a {@code Lazy<T>} for some
-       * type {@code T}, then this method returns ({@link Kind#PROVIDER_OF_LAZY}, {@code T}).
-       */
-      private Optional<KindAndType> maybeProviderOfLazy() {
-        if (kind().equals(Kind.PROVIDER)) {
-          Optional<KindAndType> providedKindAndType = from(type());
-          if (providedKindAndType.isPresent()
-              && providedKindAndType.get().kind().equals(Kind.LAZY)) {
-            return Optional.of(Kind.PROVIDER_OF_LAZY.ofType(providedKindAndType.get().type()));
-          }
-        }
-        return Optional.absent();
-      }
-    }
-
     /**
-     * Extracts the dependency request type and kind from the type of a dependency request element.
-     * For example, if a user requests {@code Provider<Foo>}, this will return
-     * ({@link Kind#PROVIDER}, {@code Foo}).
-     *
-     * @throws TypeNotPresentException if {@code type}'s kind is {@link TypeKind#ERROR}, which may
-     *     mean that the type will be generated in a later round of processing
+     * Returns {@code true} if a given request element allows null values. {@link Kind#INSTANCE}
+     * requests must be annotated with {@code @Nullable} in order to allow null values. All other
+     * request kinds implicitly allow null values because they are are wrapped inside {@link
+     * Provider}, {@link Lazy}, etc.
      */
-    static KindAndType extractKindAndType(TypeMirror type) {
-      return type.accept(
-          new SimpleTypeVisitor7<KindAndType, Void>() {
-            @Override
-            public KindAndType visitError(ErrorType errorType, Void p) {
-              throw new TypeNotPresentException(errorType.toString(), null);
-            }
-
-            @Override
-            public KindAndType visitExecutable(ExecutableType executableType, Void p) {
-              return executableType.getReturnType().accept(this, null);
-            }
-
-            @Override
-            public KindAndType visitDeclared(DeclaredType declaredType, Void p) {
-              return KindAndType.from(declaredType).or(defaultAction(declaredType, p));
-            }
-
-            @Override
-            protected KindAndType defaultAction(TypeMirror otherType, Void p) {
-              return new AutoValue_DependencyRequest_Factory_KindAndType(Kind.INSTANCE, otherType);
-            }
-          },
-          null);
+    // TODO(sameb): should Produced/Producer always require non-nullable?
+    private boolean allowsNull(Kind kind, Optional<DeclaredType> nullableType) {
+      return kind.equals(Kind.INSTANCE) ? nullableType.isPresent() : true;
     }
   }
 }

@@ -44,8 +44,8 @@ import javax.lang.model.element.TypeElement;
 final class ModuleProcessingStep implements ProcessingStep {
 
   /**
-   * A {@link ProcessingStep} for {@code @Module} classes that generates factories for {@code
-   * @Provides} methods.
+   * A {@link ProcessingStep} for {@code @Module} classes that generates factories for
+   * {@code @Provides} methods.
    */
   static ModuleProcessingStep moduleProcessingStep(
       Messager messager,
@@ -54,14 +54,19 @@ final class ModuleProcessingStep implements ProcessingStep {
       FactoryGenerator factoryGenerator,
       ProvidesMethodValidator providesMethodValidator,
       BindsMethodValidator bindsMethodValidator,
-      MultibindsMethodValidator multibindsMethodValidator) {
+      MultibindsMethodValidator multibindsMethodValidator,
+      BindsOptionalOfMethodValidator bindsOptionalOfMethodValidator) {
     return new ModuleProcessingStep(
         messager,
         Module.class,
         moduleValidator,
         ImmutableSet.<ModuleMethodFactoryGenerator>of(
             new ProvisionModuleMethodFactoryGenerator(provisionBindingFactory, factoryGenerator)),
-        ImmutableSet.of(providesMethodValidator, bindsMethodValidator, multibindsMethodValidator));
+        ImmutableSet.of(
+            providesMethodValidator,
+            bindsMethodValidator,
+            multibindsMethodValidator,
+            bindsOptionalOfMethodValidator));
   }
 
   /**
@@ -78,7 +83,8 @@ final class ModuleProcessingStep implements ProcessingStep {
       ProducerFactoryGenerator producerFactoryGenerator,
       ProducesMethodValidator producesMethodValidator,
       BindsMethodValidator bindsMethodValidator,
-      MultibindsMethodValidator multibindsMethodValidator) {
+      MultibindsMethodValidator multibindsMethodValidator,
+      BindsOptionalOfMethodValidator bindsOptionalOfMethodValidator) {
     return new ModuleProcessingStep(
         messager,
         ProducerModule.class,
@@ -91,7 +97,8 @@ final class ModuleProcessingStep implements ProcessingStep {
             providesMethodValidator,
             producesMethodValidator,
             bindsMethodValidator,
-            multibindsMethodValidator));
+            multibindsMethodValidator,
+            bindsOptionalOfMethodValidator));
   }
 
   private final Messager messager;

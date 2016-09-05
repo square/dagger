@@ -16,19 +16,16 @@
 
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.InjectionAnnotations.injectedConstructors;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
-import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -303,18 +300,6 @@ final class InjectBindingRegistry {
         throw new IllegalStateException("Found multiple @Inject constructors: "
             + injectConstructors);
     }
-  }
-
-  private ImmutableSet<ExecutableElement> injectedConstructors(TypeElement element) {
-    return FluentIterable.from(constructorsIn(element.getEnclosedElements()))
-        .filter(
-            new Predicate<ExecutableElement>() {
-              @Override
-              public boolean apply(ExecutableElement constructor) {
-                return isAnnotationPresent(constructor, Inject.class);
-              }
-            })
-        .toSet();
   }
 
   /**

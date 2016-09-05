@@ -68,7 +68,7 @@ public final class RepeatedModuleTest {
   public void repeatedModuleBuilderThrowsInGrandchildSubcomponent() {
     SubcomponentWithoutRepeatedModule childComponent =
         parentComponent.newChildComponentWithoutRepeatedModule();
-    SubcomponentWithRepeatedModule.Builder grandchildComponentBuilder =
+    OtherSubcomponentWithRepeatedModule.Builder grandchildComponentBuilder =
         childComponent.newGrandchildBuilder();
     try {
       grandchildComponentBuilder.repeatedModule(new RepeatedModule());

@@ -90,6 +90,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new MultibindsMethodValidator(elements, types);
     MultibindingsMethodValidator multibindingsMethodValidator =
         new MultibindingsMethodValidator(elements, types);
+    BindsOptionalOfMethodValidator bindsOptionalOfMethodValidator =
+        new BindsOptionalOfMethodValidator(elements, types);
 
     Key.Factory keyFactory = new Key.Factory(types, elements);
 
@@ -122,12 +124,16 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new ProductionBinding.Factory(types, keyFactory, dependencyRequestFactory);
     MultibindingDeclaration.Factory multibindingDeclarationFactory =
         new MultibindingDeclaration.Factory(elements, types, keyFactory);
+    SubcomponentDeclaration.Factory subcomponentDeclarationFactory =
+        new SubcomponentDeclaration.Factory(keyFactory);
 
     MembersInjectionBinding.Factory membersInjectionBindingFactory =
         new MembersInjectionBinding.Factory(elements, types, keyFactory, dependencyRequestFactory);
 
     DelegateDeclaration.Factory bindingDelegateDeclarationFactory =
         new DelegateDeclaration.Factory(types, keyFactory, dependencyRequestFactory);
+    OptionalBindingDeclaration.Factory optionalBindingDeclarationFactory =
+        new OptionalBindingDeclaration.Factory(keyFactory);
 
     this.injectBindingRegistry =
         new InjectBindingRegistry(
@@ -145,7 +151,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             productionBindingFactory,
             multibindingDeclarationFactory,
-            bindingDelegateDeclarationFactory);
+            bindingDelegateDeclarationFactory,
+            subcomponentDeclarationFactory,
+            optionalBindingDeclarationFactory);
 
     ComponentDescriptor.Factory componentDescriptorFactory = new ComponentDescriptor.Factory(
         elements, types, dependencyRequestFactory, moduleDescriptorFactory);
@@ -158,7 +166,10 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             provisionBindingFactory,
             productionBindingFactory);
 
-    MapKeyGenerator mapKeyGenerator = new MapKeyGenerator(filer, elements);
+    AnnotationCreatorGenerator annotationCreatorGenerator =
+        new AnnotationCreatorGenerator(filer, elements);
+    UnwrappedMapKeyGenerator unwrappedMapKeyGenerator =
+        new UnwrappedMapKeyGenerator(filer, elements);
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(
@@ -174,7 +185,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             keyFactory);
 
     return ImmutableList.of(
-        new MapKeyProcessingStep(messager, types, mapKeyValidator, mapKeyGenerator),
+        new MapKeyProcessingStep(
+            messager, types, mapKeyValidator, annotationCreatorGenerator, unwrappedMapKeyGenerator),
         new InjectProcessingStep(injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
         new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),
@@ -187,7 +199,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             factoryGenerator,
             providesMethodValidator,
             bindsMethodValidator,
-            multibindsMethodValidator),
+            multibindsMethodValidator,
+            bindsOptionalOfMethodValidator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.COMPONENT,
             messager,
@@ -209,7 +222,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
             producerFactoryGenerator,
             producesMethodValidator,
             bindsMethodValidator,
-            multibindsMethodValidator),
+            multibindsMethodValidator,
+            bindsOptionalOfMethodValidator),
         new ComponentProcessingStep(
             ComponentDescriptor.Kind.PRODUCTION_COMPONENT,
             messager,

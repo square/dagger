@@ -21,9 +21,6 @@ import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
-import dagger.MembersInjector;
-import dagger.producers.Producer;
-import javax.inject.Provider;
 
 /** Fulfills requests for {@link ProductionBinding} instances. */
 final class ProducerFieldRequestFulfillment extends RequestFulfillment {
@@ -38,31 +35,7 @@ final class ProducerFieldRequestFulfillment extends RequestFulfillment {
   @Override
   public CodeBlock getSnippetForDependencyRequest(
       DependencyRequest request, ClassName requestingClass) {
-    switch (request.kind()) {
-      case FUTURE:
-        return CodeBlock.of("$L.get()", producerFieldSelect.getExpressionFor(requestingClass));
-      case PRODUCER:
-        return CodeBlock.of("$L", producerFieldSelect.getExpressionFor(requestingClass));
-      case INSTANCE:
-      case LAZY:
-      case PRODUCED:
-      case PROVIDER_OF_LAZY:
-        throw new IllegalArgumentException(
-            String.format(
-                "The framework should never request a %s from a producer: %s",
-                request.kind(), request));
-      case MEMBERS_INJECTOR:
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot request a %s from a %s",
-                MembersInjector.class.getSimpleName(), Producer.class.getSimpleName()));
-      case PROVIDER:
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot request a %s from a %s",
-                Provider.class.getSimpleName(), Producer.class.getSimpleName()));
-      default:
-        throw new AssertionError(request.kind().toString());
-    }
+    return FrameworkType.PRODUCER.to(
+        request.kind(), producerFieldSelect.getExpressionFor(requestingClass));
   }
 }

@@ -20,5 +20,5 @@ import dagger.Subcomponent;
 
 @Subcomponent
 interface SubcomponentWithoutRepeatedModule {
-  SubcomponentWithRepeatedModule.Builder newGrandchildBuilder();
+  OtherSubcomponentWithRepeatedModule.Builder newGrandchildBuilder();
 }

@@ -30,6 +30,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Binds;
 import dagger.Provides;
@@ -187,6 +188,15 @@ final class Util {
       }
     }
     return false;
+  }
+
+  @SafeVarargs
+  static boolean isAnyAnnotationPresent(
+      Element element,
+      Class<? extends Annotation> first,
+      Class<? extends Annotation>... otherAnnotations) {
+    return isAnnotationPresent(element, first)
+        || isAnyAnnotationPresent(element, ImmutableList.copyOf(otherAnnotations));
   }
 
   /**

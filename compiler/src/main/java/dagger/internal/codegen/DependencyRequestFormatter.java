@@ -17,22 +17,31 @@
 package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.asExecutable;
+import static dagger.internal.codegen.ErrorMessages.DOUBLE_INDENT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 
 import com.google.auto.common.MoreElements;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import dagger.Lazy;
 import dagger.Provides;
 import dagger.internal.codegen.BindingGraphValidator.DependencyPath;
+import dagger.internal.codegen.BindingGraphValidator.ResolvedRequest;
 import dagger.producers.Produces;
+import java.util.List;
 import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor7;
 import javax.lang.model.util.Elements;
@@ -79,9 +88,18 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
     return Joiner.on('\n')
         .join(
             dependencyPath
-                .dependencyRequests()
-                .filter(DependencyRequest.HAS_REQUEST_ELEMENT)
-                .transform(this)
+                .resolvedRequests()
+                .transform(
+                    new Function<ResolvedRequest, String>() {
+                      @Override
+                      public String apply(ResolvedRequest resolvedRequest) {
+                        ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations =
+                            resolvedRequest.dependentOptionalBindingDeclarations();
+                        return optionalBindingDeclarations.isEmpty()
+                            ? format(resolvedRequest.dependencyRequest())
+                            : formatSyntheticOptionalBindingDependency(optionalBindingDeclarations);
+                      }
+                    })
                 .filter(Predicates.not(Predicates.equalTo("")))
                 .toList()
                 .reverse());
@@ -91,6 +109,9 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
   // TODO(cgruber): consider returning a small structure containing strings to be indented later.
   @Override
   public String format(DependencyRequest request) {
+    if (!request.requestElement().isPresent()) {
+      return "";
+    }
     return request
         .requestElement()
         .get()
@@ -101,12 +122,14 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
               @Override
               public String visitExecutableAsMethod(
                   ExecutableElement method, DependencyRequest request) {
-                StringBuilder builder = new StringBuilder(INDENT);
-                appendRequestedKeyAndVerb(
-                    builder,
-                    request.key().qualifier(),
-                    request.key().type(),
-                    componentMethodRequestVerb(request));
+                StringBuilder builder = new StringBuilder();
+                builder
+                    .append(INDENT)
+                    .append(formatKey(request.key()))
+                    .append(" is ")
+                    .append(componentMethodRequestVerb(request))
+                    .append(" at\n")
+                    .append(DOUBLE_INDENT);
                 appendEnclosingTypeAndMemberName(method, builder);
                 builder.append('(');
                 for (VariableElement parameter : method.getParameters()) {
@@ -123,21 +146,18 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
                */
               @Override
               public String visitVariableAsParameter(
-                  final VariableElement variable, DependencyRequest request) {
-                StringBuilder builder = new StringBuilder(INDENT);
-                appendRequestedKeyAndVerb(request, builder);
+                  VariableElement variable, DependencyRequest request) {
+                StringBuilder builder = new StringBuilder();
+                appendRequestedTypeIsInjectedAt(builder, request);
 
                 ExecutableElement methodOrConstructor =
                     asExecutable(variable.getEnclosingElement());
                 appendEnclosingTypeAndMemberName(methodOrConstructor, builder).append('(');
-                int parameterIndex = methodOrConstructor.getParameters().indexOf(variable);
-                if (parameterIndex > 0) {
-                  builder.append("…, ");
-                }
-                builder.append(variable.getSimpleName());
-                if (parameterIndex < methodOrConstructor.getParameters().size() - 1) {
-                  builder.append(", …");
-                }
+                List<? extends VariableElement> parameters = methodOrConstructor.getParameters();
+                int parameterIndex = parameters.indexOf(variable);
+                builder.append(
+                    formatArgumentInList(
+                        parameterIndex, parameters.size(), variable.getSimpleName()));
                 builder.append(')');
                 return builder.toString();
               }
@@ -146,8 +166,8 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
               @Override
               public String visitVariableAsField(
                   VariableElement variable, DependencyRequest request) {
-                StringBuilder builder = new StringBuilder(INDENT);
-                appendRequestedKeyAndVerb(request, builder);
+                StringBuilder builder = new StringBuilder();
+                appendRequestedTypeIsInjectedAt(builder, request);
                 appendEnclosingTypeAndMemberName(variable, builder);
                 return builder.toString();
               }
@@ -166,36 +186,50 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
             request);
   }
 
-  private void appendRequestedKeyAndVerb(DependencyRequest request, StringBuilder builder) {
-    appendRequestedKeyAndVerb(
-        builder, request.key().qualifier(), requestedTypeWithFrameworkClass(request), "injected");
+  @CanIgnoreReturnValue
+  private StringBuilder appendRequestedTypeIsInjectedAt(
+      StringBuilder builder, DependencyRequest request) {
+    return builder
+        .append(INDENT)
+        .append(formatKey(request.key().qualifier(), requestedType(request)))
+        .append(" is injected at\n")
+        .append(DOUBLE_INDENT);
   }
 
-  private void appendRequestedKeyAndVerb(
-      StringBuilder builder,
-      Optional<AnnotationMirror> qualifier,
-      TypeMirror requestedType,
-      String verb) {
-    appendQualifiedType(builder, qualifier, requestedType);
-    builder.append(" is ").append(verb).append(" at\n    ").append(INDENT);
-  }
+  private TypeMirror requestedType(DependencyRequest request) {
+    TypeMirror keyType = request.key().type();
+    switch (request.kind()) {
+      case FUTURE:
+        return wrapType(ListenableFuture.class, keyType);
 
-  private TypeMirror requestedTypeWithFrameworkClass(DependencyRequest request) {
-    Optional<Class<?>> requestFrameworkClass = request.kind().frameworkClass;
-    if (requestFrameworkClass.isPresent()) {
-      return types.getDeclaredType(
-          elements.getTypeElement(requestFrameworkClass.get().getCanonicalName()),
-          request.key().type());
+      case PROVIDER_OF_LAZY:
+        return wrapType(Provider.class, wrapType(Lazy.class, keyType));
+
+      default:
+        if (request.kind().frameworkClass.isPresent()) {
+          return wrapType(request.kind().frameworkClass.get(), keyType);
+        } else {
+          return keyType;
+        }
     }
-    return request.key().type();
   }
 
-  private void appendQualifiedType(
-      StringBuilder builder, Optional<AnnotationMirror> qualifier, TypeMirror type) {
+  private DeclaredType wrapType(Class<?> wrapperType, TypeMirror wrappedType) {
+    return types.getDeclaredType(
+        elements.getTypeElement(wrapperType.getCanonicalName()), wrappedType);
+  }
+
+  private String formatKey(Key key) {
+    return formatKey(key.qualifier(), key.type());
+  }
+
+  private String formatKey(Optional<AnnotationMirror> qualifier, TypeMirror type) {
+    StringBuilder builder = new StringBuilder();
     if (qualifier.isPresent()) {
       builder.append(qualifier.get()).append(' ');
     }
     builder.append(type);
+    return builder.toString();
   }
 
   /**
@@ -230,5 +264,31 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
         .append(type.getQualifiedName())
         .append('.')
         .append(member.getSimpleName());
+  }
+
+  /**
+   * Returns a string of the form "{@code @BindsOptionalOf SomeKey is declared at Module.method()}",
+   * where {@code Module.method()} is the declaration. If there is more than one such declaration,
+   * one is chosen arbitrarily, and ", among others" is appended.
+   */
+  private String formatSyntheticOptionalBindingDependency(
+      ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations) {
+    OptionalBindingDeclaration optionalBindingDeclaration =
+        optionalBindingDeclarations.iterator().next();
+    StringBuilder builder = new StringBuilder();
+    builder
+        .append(INDENT)
+        .append("@BindsOptionalOf ")
+        .append(formatKey(optionalBindingDeclaration.key()))
+        .append(" is declared at\n")
+        .append(DOUBLE_INDENT);
+
+    appendEnclosingTypeAndMemberName(optionalBindingDeclaration.bindingElement().get(), builder);
+    builder.append("()");
+    if (optionalBindingDeclarations.size() > 1) {
+      builder.append(", among others");
+    }
+
+    return builder.toString();
   }
 }

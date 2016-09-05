@@ -23,16 +23,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.isEmpty;
 import static dagger.internal.codegen.BindingType.isOfType;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor.isOfKind;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.PRODUCTION_SUBCOMPONENT_BUILDER;
-import static dagger.internal.codegen.ComponentDescriptor.ComponentMethodKind.SUBCOMPONENT_BUILDER;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.Kind.IS_SYNTHETIC_MULTIBINDING_KIND;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_OPTIONAL_BINDING;
 import static dagger.internal.codegen.Key.indexByKey;
 import static dagger.internal.codegen.Scope.reusableScope;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -41,6 +40,7 @@ import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -58,6 +58,7 @@ import dagger.Component;
 import dagger.Reusable;
 import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
+import dagger.internal.codegen.ContributionBinding.Kind;
 import dagger.internal.codegen.Key.HasKey;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
@@ -69,7 +70,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -90,7 +91,7 @@ import javax.lang.model.util.Elements;
 abstract class BindingGraph {
   abstract ComponentDescriptor componentDescriptor();
   abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
-  abstract ImmutableMap<ExecutableElement, BindingGraph> subgraphs();
+  abstract ImmutableSet<BindingGraph> subgraphs();
 
   /**
    * Returns the set of modules that are owned by this graph regardless of whether or not any of
@@ -112,7 +113,7 @@ abstract class BindingGraph {
       new TreeTraverser<BindingGraph>() {
         @Override
         public Iterable<BindingGraph> children(BindingGraph node) {
-          return node.subgraphs().values();
+          return node.subgraphs();
         }
       };
 
@@ -148,17 +149,16 @@ abstract class BindingGraph {
    * Returns the {@link ComponentDescriptor}s for this component and its subcomponents.
    */
   ImmutableSet<ComponentDescriptor> componentDescriptors() {
-    return SUBGRAPH_TRAVERSER
-        .preOrderTraversal(this)
-        .transform(
-            new Function<BindingGraph, ComponentDescriptor>() {
-              @Override
-              public ComponentDescriptor apply(BindingGraph graph) {
-                return graph.componentDescriptor();
-              }
-            })
-        .toSet();
+    return SUBGRAPH_TRAVERSER.preOrderTraversal(this).transform(COMPONENT_DESCRIPTOR).toSet();
   }
+
+  static final Function<BindingGraph, ComponentDescriptor> COMPONENT_DESCRIPTOR =
+      new Function<BindingGraph, ComponentDescriptor>() {
+        @Override
+        public ComponentDescriptor apply(BindingGraph graph) {
+          return graph.componentDescriptor();
+        }
+      };
 
   ImmutableSet<TypeElement> availableDependencies() {
     return FluentIterable.from(componentDescriptor().transitiveModuleTypes())
@@ -174,7 +174,8 @@ abstract class BindingGraph {
     private final ProvisionBinding.Factory provisionBindingFactory;
     private final ProductionBinding.Factory productionBindingFactory;
 
-    Factory(Elements elements,
+    Factory(
+        Elements elements,
         InjectBindingRegistry injectBindingRegistry,
         Key.Factory keyFactory,
         ProvisionBinding.Factory provisionBindingFactory,
@@ -194,6 +195,7 @@ abstract class BindingGraph {
         Optional<Resolver> parentResolver, ComponentDescriptor componentDescriptor) {
       ImmutableSet.Builder<ContributionBinding> explicitBindingsBuilder = ImmutableSet.builder();
       ImmutableSet.Builder<DelegateDeclaration> delegatesBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<OptionalBindingDeclaration> optionalsBuilder = ImmutableSet.builder();
 
       // binding for the component itself
       TypeElement componentDefinitionType = componentDescriptor.componentDefinitionType();
@@ -222,34 +224,42 @@ abstract class BindingGraph {
         }
       }
 
-      // Bindings for subcomponent builders.
-      for (ComponentMethodDescriptor subcomponentMethodDescriptor :
-          Iterables.filter(
-              componentDescriptor.subcomponents().keySet(),
-              isOfKind(SUBCOMPONENT_BUILDER, PRODUCTION_SUBCOMPONENT_BUILDER))) {
-        explicitBindingsBuilder.add(
-            provisionBindingFactory.forSubcomponentBuilderMethod(
-                subcomponentMethodDescriptor.methodElement(),
-                componentDescriptor.componentDefinitionType()));
+      for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor>
+          componentMethodAndSubcomponent :
+              componentDescriptor.subcomponentsByBuilderMethod().entrySet()) {
+        ComponentMethodDescriptor componentMethod = componentMethodAndSubcomponent.getKey();
+        ComponentDescriptor subcomponentDescriptor = componentMethodAndSubcomponent.getValue();
+        if (!componentDescriptor.subcomponentsFromModules().contains(subcomponentDescriptor)) {
+          explicitBindingsBuilder.add(
+              provisionBindingFactory.forSubcomponentBuilderMethod(
+                  componentMethod.methodElement(),
+                  componentDescriptor.componentDefinitionType()));
+        }
       }
 
       ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
+          ImmutableSet.builder();
+      ImmutableSet.Builder<SubcomponentDeclaration> subcomponentDeclarations =
           ImmutableSet.builder();
 
       // Collect transitive module bindings and multibinding declarations.
       for (ModuleDescriptor moduleDescriptor : componentDescriptor.transitiveModules()) {
         explicitBindingsBuilder.addAll(moduleDescriptor.bindings());
         multibindingDeclarations.addAll(moduleDescriptor.multibindingDeclarations());
+        subcomponentDeclarations.addAll(moduleDescriptor.subcomponentDeclarations());
         delegatesBuilder.addAll(moduleDescriptor.delegateDeclarations());
+        optionalsBuilder.addAll(moduleDescriptor.optionalDeclarations());
       }
 
-      Resolver requestResolver =
+      final Resolver requestResolver =
           new Resolver(
               parentResolver,
               componentDescriptor,
               indexByKey(explicitBindingsBuilder.build()),
               indexByKey(multibindingDeclarations.build()),
-              indexByKey(delegatesBuilder.build()));
+              indexByKey(subcomponentDeclarations.build()),
+              indexByKey(delegatesBuilder.build()),
+              indexByKey(optionalsBuilder.build()));
       for (ComponentMethodDescriptor componentMethod : componentDescriptor.componentMethods()) {
         Optional<DependencyRequest> componentMethodRequest = componentMethod.dependencyRequest();
         if (componentMethodRequest.isPresent()) {
@@ -257,13 +267,18 @@ abstract class BindingGraph {
         }
       }
 
-      ImmutableMap.Builder<ExecutableElement, BindingGraph> subgraphsBuilder =
-          ImmutableMap.builder();
-      for (Entry<ComponentMethodDescriptor, ComponentDescriptor> subcomponentEntry :
-          componentDescriptor.subcomponents().entrySet()) {
-        subgraphsBuilder.put(
-            subcomponentEntry.getKey().methodElement(),
-            create(Optional.of(requestResolver), subcomponentEntry.getValue()));
+      // Resolve all bindings for subcomponents, creating subgraphs for all subcomponents that have
+      // been detected during binding resolution. If a binding for a subcomponent is never resolved,
+      // no BindingGraph will be created for it and no implementation will be generated. This is
+      // done in a queue since resolving one subcomponent might resolve a key for a subcomponent
+      // from a parent graph. This is done until no more new subcomponents are resolved.
+      Set<ComponentDescriptor> resolvedSubcomponents = new HashSet<>();
+      ImmutableSet.Builder<BindingGraph> subgraphs = ImmutableSet.builder();
+      for (ComponentDescriptor subcomponent :
+          Iterables.consumingIterable(requestResolver.subcomponentsToResolve)) {
+        if (resolvedSubcomponents.add(subcomponent)) {
+          subgraphs.add(create(Optional.of(requestResolver), subcomponent));
+        }
       }
 
       for (ResolvedBindings resolvedBindings : requestResolver.getResolvedBindings().values()) {
@@ -277,7 +292,7 @@ abstract class BindingGraph {
       return new AutoValue_BindingGraph(
           componentDescriptor,
           requestResolver.getResolvedBindings(),
-          subgraphsBuilder.build(),
+          subgraphs.build(),
           requestResolver.getOwnedModules());
     }
 
@@ -288,7 +303,9 @@ abstract class BindingGraph {
       final ImmutableSet<ContributionBinding> explicitBindingsSet;
       final ImmutableSetMultimap<Key, ContributionBinding> explicitMultibindings;
       final ImmutableSetMultimap<Key, MultibindingDeclaration> multibindingDeclarations;
+      final ImmutableSetMultimap<Key, SubcomponentDeclaration> subcomponentDeclarations;
       final ImmutableSetMultimap<Key, DelegateDeclaration> delegateDeclarations;
+      final ImmutableSetMultimap<Key, OptionalBindingDeclaration> optionalBindingDeclarations;
       final ImmutableSetMultimap<Key, DelegateDeclaration> delegateMultibindingDeclarations;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
@@ -296,24 +313,30 @@ abstract class BindingGraph {
           CacheBuilder.newBuilder().build();
       final Cache<Binding, Boolean> bindingDependsOnLocalMultibindingsCache =
           CacheBuilder.newBuilder().build();
+      final Queue<ComponentDescriptor> subcomponentsToResolve = new ArrayDeque<>();
 
       Resolver(
           Optional<Resolver> parentResolver,
           ComponentDescriptor componentDescriptor,
           ImmutableSetMultimap<Key, ContributionBinding> explicitBindings,
           ImmutableSetMultimap<Key, MultibindingDeclaration> multibindingDeclarations,
-          ImmutableSetMultimap<Key, DelegateDeclaration> delegateDeclarations) {
+          ImmutableSetMultimap<Key, SubcomponentDeclaration> subcomponentDeclarations,
+          ImmutableSetMultimap<Key, DelegateDeclaration> delegateDeclarations,
+          ImmutableSetMultimap<Key, OptionalBindingDeclaration> optionalBindingDeclarations) {
         this.parentResolver = checkNotNull(parentResolver);
         this.componentDescriptor = checkNotNull(componentDescriptor);
         this.explicitBindings = checkNotNull(explicitBindings);
         this.explicitBindingsSet = ImmutableSet.copyOf(explicitBindings.values());
         this.multibindingDeclarations = checkNotNull(multibindingDeclarations);
+        this.subcomponentDeclarations = checkNotNull(subcomponentDeclarations);
         this.delegateDeclarations = checkNotNull(delegateDeclarations);
+        this.optionalBindingDeclarations = checkNotNull(optionalBindingDeclarations);
         this.resolvedBindings = Maps.newLinkedHashMap();
         this.explicitMultibindings =
             multibindingContributionsByMultibindingKey(explicitBindingsSet);
         this.delegateMultibindingDeclarations =
             multibindingContributionsByMultibindingKey(delegateDeclarations.values());
+        subcomponentsToResolve.addAll(componentDescriptor.subcomponentsFromEntryPoints());
       }
 
       /**
@@ -352,23 +375,41 @@ abstract class BindingGraph {
                 ImmutableSet.builder();
             ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarationsBuilder =
                 ImmutableSet.builder();
+            ImmutableSet.Builder<SubcomponentDeclaration> subcomponentDeclarationsBuilder =
+                ImmutableSet.builder();
+            ImmutableSet.Builder<OptionalBindingDeclaration> optionalBindingDeclarationsBuilder =
+                ImmutableSet.builder();
 
             for (Key key : keysMatchingRequest(requestKey)) {
               contributionBindings.addAll(getExplicitBindings(key));
               multibindingContributionsBuilder.addAll(getExplicitMultibindings(key));
               multibindingDeclarationsBuilder.addAll(getMultibindingDeclarations(key));
+              subcomponentDeclarationsBuilder.addAll(getSubcomponentDeclarations(key));
+              optionalBindingDeclarationsBuilder.addAll(getOptionalBindingDeclarations(key));
             }
 
             ImmutableSet<ContributionBinding> multibindingContributions =
                 multibindingContributionsBuilder.build();
             ImmutableSet<MultibindingDeclaration> multibindingDeclarations =
                 multibindingDeclarationsBuilder.build();
+            ImmutableSet<SubcomponentDeclaration> subcomponentDeclarations =
+                subcomponentDeclarationsBuilder.build();
+            ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations =
+                optionalBindingDeclarationsBuilder.build();
 
-            contributionBindings.addAll(syntheticMapOfValuesBinding(bindingKey.key()).asSet());
+            contributionBindings.addAll(syntheticMapOfValuesBinding(requestKey).asSet());
             contributionBindings.addAll(
                 syntheticMultibinding(
-                        bindingKey.key(), multibindingContributions, multibindingDeclarations)
+                        requestKey, multibindingContributions, multibindingDeclarations)
                     .asSet());
+            Optional<ProvisionBinding> subcomponentBuilderBinding =
+                syntheticSubcomponentBuilderBinding(subcomponentDeclarations);
+            if (subcomponentBuilderBinding.isPresent()) {
+              contributionBindings.add(subcomponentBuilderBinding.get());
+              addSubcomponentToOwningResolver(subcomponentBuilderBinding.get());
+            }
+            contributionBindings.addAll(
+                syntheticOptionalBinding(requestKey, optionalBindingDeclarations).asSet());
 
             /* If there are no bindings, add the implicit @Inject-constructed binding if there is
              * one. */
@@ -382,7 +423,9 @@ abstract class BindingGraph {
                 componentDescriptor,
                 indexBindingsByOwningComponent(
                     bindingKey, ImmutableSet.copyOf(contributionBindings)),
-                multibindingDeclarations);
+                multibindingDeclarations,
+                subcomponentDeclarations,
+                optionalBindingDeclarations);
 
           case MEMBERS_INJECTION:
             // no explicit deps for members injection, so just look it up
@@ -396,6 +439,20 @@ abstract class BindingGraph {
           default:
             throw new AssertionError();
         }
+      }
+
+      /**
+       * When a binding is resolved for a {@link SubcomponentDeclaration}, adds corresponding
+       * {@link ComponentDescriptor subcomponent} to a queue in the owning component's resolver.
+       * The queue will be used to detect which subcomponents need to be resolved.
+       */
+      private void addSubcomponentToOwningResolver(ProvisionBinding subcomponentBuilderBinding) {
+        checkArgument(subcomponentBuilderBinding.bindingKind().equals(Kind.SUBCOMPONENT_BUILDER));
+        Resolver owningResolver = getOwningResolver(subcomponentBuilderBinding).get();
+
+        TypeElement builderType = MoreTypes.asTypeElement(subcomponentBuilderBinding.key().type());
+        owningResolver.subcomponentsToResolve.add(
+            owningResolver.componentDescriptor.subcomponentsByBuilderType().get(builderType));
       }
 
       private Iterable<Key> keysMatchingRequest(Key requestKey) {
@@ -521,6 +578,34 @@ abstract class BindingGraph {
         return Iterables.any(multibindingContributions, isOfType(BindingType.PRODUCTION));
       }
 
+      private Optional<ProvisionBinding> syntheticSubcomponentBuilderBinding(
+          ImmutableSet<SubcomponentDeclaration> subcomponentDeclarations) {
+        return subcomponentDeclarations.isEmpty()
+            ? Optional.<ProvisionBinding>absent()
+            : Optional.of(
+            provisionBindingFactory.syntheticSubcomponentBuilder(subcomponentDeclarations));
+      }
+
+      /**
+       * Returns a synthetic binding for {@code @Qualifier Optional<Type>} if there are any {@code
+       * optionalBindingDeclarations}.
+       */
+      private Optional<? extends ContributionBinding> syntheticOptionalBinding(
+          Key key, ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations) {
+        if (optionalBindingDeclarations.isEmpty()) {
+          return Optional.absent();
+        }
+        ContributionBinding syntheticPresentBinding =
+            provisionBindingFactory.syntheticPresentBinding(key);
+        ResolvedBindings bindings =
+            lookUpBindings(getOnlyElement(syntheticPresentBinding.dependencies()).bindingKey());
+        if (bindings.isEmpty()) {
+          return Optional.of(provisionBindingFactory.syntheticAbsentBinding(key));
+        } else { // TODO(dpb): Support producers.
+          return Optional.of(syntheticPresentBinding);
+        }
+      }
+
       private ImmutableSet<ContributionBinding> createDelegateBindings(
           ImmutableSet<DelegateDeclaration> delegateDeclarations) {
         ImmutableSet.Builder<ContributionBinding> builder = ImmutableSet.builder();
@@ -632,7 +717,8 @@ abstract class BindingGraph {
         }
 
         for (Resolver requestResolver : getResolverLineage().reverse()) {
-          if (requestResolver.explicitBindingsSet.contains(binding)) {
+          if (requestResolver.explicitBindingsSet.contains(binding)
+              || requestResolver.subcomponentDeclarations.containsKey(binding.key())) {
             return Optional.of(requestResolver);
           }
         }
@@ -667,15 +753,23 @@ abstract class BindingGraph {
        */
       private ImmutableSet<ContributionBinding> getExplicitBindings(Key requestKey) {
         ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
-        Key delegateDeclarationKey = keyFactory.convertToDelegateKey(requestKey);
         for (Resolver resolver : getResolverLineage()) {
-          bindings
-              .addAll(resolver.explicitBindings.get(requestKey))
-              .addAll(
-                  createDelegateBindings(
-                      resolver.delegateDeclarations.get(delegateDeclarationKey)));
+          bindings.addAll(resolver.getLocalExplicitBindings(requestKey));
         }
         return bindings.build();
+      }
+
+      /**
+       * Returns the explicit {@link ContributionBinding}s that match the {@code requestKey} from
+       * this resolver.
+       */
+      private ImmutableSet<ContributionBinding> getLocalExplicitBindings(Key requestKey) {
+        return new ImmutableSet.Builder<ContributionBinding>()
+            .addAll(explicitBindings.get(requestKey))
+            .addAll(
+                createDelegateBindings(
+                    delegateDeclarations.get(keyFactory.convertToDelegateKey(requestKey))))
+            .build();
       }
 
       /**
@@ -711,6 +805,34 @@ abstract class BindingGraph {
         return multibindingDeclarations.build();
       }
 
+      /**
+       * Returns the {@link SubcomponentDeclaration}s that match the {@code key} from this and all
+       * ancestor resolvers.
+       */
+      private ImmutableSet<SubcomponentDeclaration> getSubcomponentDeclarations(Key key) {
+        ImmutableSet.Builder<SubcomponentDeclaration> subcomponentDeclarations =
+            ImmutableSet.builder();
+        for (Resolver resolver : getResolverLineage()) {
+          subcomponentDeclarations.addAll(resolver.subcomponentDeclarations.get(key));
+        }
+        return subcomponentDeclarations.build();
+      }
+      /**
+       * Returns the {@link OptionalBindingDeclaration}s that match the {@code key} from this and
+       * all ancestor resolvers.
+       */
+      private ImmutableSet<OptionalBindingDeclaration> getOptionalBindingDeclarations(Key key) {
+        Optional<Key> unwrapped = keyFactory.unwrapOptional(key);
+        if (!unwrapped.isPresent()) {
+          return ImmutableSet.of();
+        }
+        ImmutableSet.Builder<OptionalBindingDeclaration> declarations = ImmutableSet.builder();
+        for (Resolver resolver : getResolverLineage()) {
+          declarations.addAll(resolver.optionalBindingDeclarations.get(unwrapped.get()));
+        }
+        return declarations.build();
+      }
+
       private Optional<ResolvedBindings> getPreviouslyResolvedBindings(
           final BindingKey bindingKey) {
         Optional<ResolvedBindings> result = Optional.fromNullable(resolvedBindings.get(bindingKey));
@@ -743,13 +865,18 @@ abstract class BindingGraph {
          *
          * 2. If there are any explicit bindings in this component, they may conflict with those in
          *    the supercomponent, so resolve them here so that conflicts can be caught.
+         *
+         * 3. If the previously resolved binding is an optional binding, and there are any explicit
+         *    bindings for the underlying key in this component, resolve here so that absent
+         *    bindings in the parent can be overridden by present bindings here.
          */
         if (getPreviouslyResolvedBindings(bindingKey).isPresent()) {
           /* Resolve in the parent in case there are multibinding contributions or conflicts in some
            * component between this one and the previously-resolved one. */
           parentResolver.get().resolve(bindingKey);
           if (!new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
-              && getExplicitBindings(bindingKey.key()).isEmpty()) {
+              && getLocalExplicitBindings(bindingKey.key()).isEmpty()
+              && !hasLocallyPresentOptionalBinding(bindingKey)) {
             /* Cache the inherited parent component's bindings in case resolving at the parent found
              * bindings in some component between this one and the previously-resolved one. */
             ResolvedBindings inheritedBindings =
@@ -803,6 +930,23 @@ abstract class BindingGraph {
       ImmutableSet<ModuleDescriptor> getOwnedModules() {
         return Sets.difference(componentDescriptor.transitiveModules(), getInheritedModules())
             .immutableCopy();
+      }
+
+      /**
+       * Returns {@code true} if {@code bindingKey} was previously resolved to an optional binding
+       * for which there is an explicit present binding in this component.
+       */
+      private boolean hasLocallyPresentOptionalBinding(BindingKey bindingKey) {
+        return Iterables.any(
+            getPreviouslyResolvedBindings(bindingKey).get().contributionBindings(),
+            new Predicate<ContributionBinding>() {
+              @Override
+              public boolean apply(ContributionBinding binding) {
+                return binding.bindingKind().equals(SYNTHETIC_OPTIONAL_BINDING)
+                    && !getLocalExplicitBindings(keyFactory.unwrapOptional(binding.key()).get())
+                        .isEmpty();
+              }
+            });
       }
 
       private final class MultibindingDependencies {

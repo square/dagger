@@ -16,12 +16,14 @@
 
 package dagger.internal.codegen;
 
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
+import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.internal.DelegateFactory;
 import dagger.internal.DoubleCheck;
@@ -61,6 +63,7 @@ final class TypeNames {
   static final ClassName FUTURES = ClassName.get(Futures.class);
   static final ClassName ILLEGAL_STATE_EXCEPTION = ClassName.get(IllegalStateException.class);
   static final ClassName INSTANCE_FACTORY = ClassName.get(InstanceFactory.class);
+  static final ClassName LAZY = ClassName.get(Lazy.class);
   static final ClassName LIST = ClassName.get(List.class);
   static final ClassName LISTENABLE_FUTURE = ClassName.get(ListenableFuture.class);
   static final ClassName MAP_FACTORY = ClassName.get(MapFactory.class);
@@ -70,6 +73,7 @@ final class TypeNames {
   static final ClassName MAP_PROVIDER_FACTORY = ClassName.get(MapProviderFactory.class);
   static final ClassName MEMBERS_INJECTOR = ClassName.get(MembersInjector.class);
   static final ClassName MEMBERS_INJECTORS = ClassName.get(MembersInjectors.class);
+  static final ClassName OPTIONAL = ClassName.get(Optional.class);
   static final ClassName PRODUCER_TOKEN = ClassName.get(ProducerToken.class);
   static final ClassName PRODUCED = ClassName.get(Produced.class);
   static final ClassName PRODUCER = ClassName.get(Producer.class);
@@ -94,36 +98,48 @@ final class TypeNames {
   static final TypeName SET_OF_FACTORIES =
       ParameterizedTypeName.get(Set.class, ProductionComponentMonitor.Factory.class);
 
-  static ParameterizedTypeName listOf(TypeName typeName) {
-    return ParameterizedTypeName.get(LIST, typeName);
-  }
-
-  static ParameterizedTypeName setOf(TypeName elementType) {
-    return ParameterizedTypeName.get(SET, elementType);
-  }
-
   static ParameterizedTypeName abstractProducerOf(TypeName typeName) {
     return ParameterizedTypeName.get(ABSTRACT_PRODUCER, typeName);
   }
 
-  static ParameterizedTypeName producedOf(TypeName typeName) {
-    return ParameterizedTypeName.get(PRODUCED, typeName);
+  static ParameterizedTypeName factoryOf(TypeName factoryType) {
+    return ParameterizedTypeName.get(FACTORY, factoryType);
+  }
+
+  static ParameterizedTypeName lazyOf(TypeName typeName) {
+    return ParameterizedTypeName.get(LAZY, typeName);
+  }
+
+  static ParameterizedTypeName listOf(TypeName typeName) {
+    return ParameterizedTypeName.get(LIST, typeName);
   }
 
   static ParameterizedTypeName listenableFutureOf(TypeName typeName) {
     return ParameterizedTypeName.get(LISTENABLE_FUTURE, typeName);
   }
 
-  static ParameterizedTypeName providerOf(TypeName typeName) {
-    return ParameterizedTypeName.get(PROVIDER, typeName);
-  }
-
   static ParameterizedTypeName membersInjectorOf(TypeName membersInjectorType) {
     return ParameterizedTypeName.get(MEMBERS_INJECTOR, membersInjectorType);
   }
 
-  static ParameterizedTypeName factoryOf(TypeName factoryType) {
-    return ParameterizedTypeName.get(FACTORY, factoryType);
+  static ParameterizedTypeName optionalOf(TypeName type) {
+    return ParameterizedTypeName.get(OPTIONAL, type);
+  }
+
+  static ParameterizedTypeName producedOf(TypeName typeName) {
+    return ParameterizedTypeName.get(PRODUCED, typeName);
+  }
+
+  static ParameterizedTypeName producerOf(TypeName typeName) {
+    return ParameterizedTypeName.get(PRODUCER, typeName);
+  }
+
+  static ParameterizedTypeName providerOf(TypeName typeName) {
+    return ParameterizedTypeName.get(PROVIDER, typeName);
+  }
+
+  static ParameterizedTypeName setOf(TypeName elementType) {
+    return ParameterizedTypeName.get(SET, elementType);
   }
 
   private TypeNames() {}

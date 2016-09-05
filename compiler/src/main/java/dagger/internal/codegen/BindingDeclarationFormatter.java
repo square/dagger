@@ -17,11 +17,17 @@
 package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.ConfigurationAnnotations.getModuleSubcomponents;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
+import static dagger.internal.codegen.MoreAnnotationMirrors.simpleName;
 import static dagger.internal.codegen.Util.AS_DECLARED_TYPE;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Formats a {@link BindingDeclaration} into a {@link String} suitable for use in error messages.
@@ -35,10 +41,14 @@ final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
 
   @Override
   public String format(BindingDeclaration bindingDeclaration) {
+    if (bindingDeclaration instanceof SubcomponentDeclaration) {
+      return formatSubcomponentDeclaration((SubcomponentDeclaration) bindingDeclaration);
+    }
     checkArgument(
         bindingDeclaration.bindingElement().isPresent(),
         "Cannot format bindings without source elements: %s",
         bindingDeclaration);
+
     Element bindingElement = bindingDeclaration.bindingElement().get();
     switch (bindingElement.asType().getKind()) {
       case EXECUTABLE:
@@ -50,5 +60,33 @@ final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
       default:
         throw new IllegalArgumentException("Formatting unsupported for element: " + bindingElement);
     }
+  }
+
+  private String formatSubcomponentDeclaration(SubcomponentDeclaration subcomponentDeclaration) {
+    ImmutableList<TypeMirror> moduleSubcomponents =
+        getModuleSubcomponents(subcomponentDeclaration.moduleAnnotation());
+    int index =
+        Iterables.indexOf(
+            moduleSubcomponents,
+            MoreTypes.equivalence()
+                .equivalentTo(subcomponentDeclaration.subcomponentType().asType()));
+    StringBuilder annotationValue = new StringBuilder();
+    if (moduleSubcomponents.size() != 1) {
+      annotationValue.append("{");
+    }
+    annotationValue.append(
+        formatArgumentInList(
+            index,
+            moduleSubcomponents.size(),
+            subcomponentDeclaration.subcomponentType().getQualifiedName() + ".class"));
+    if (moduleSubcomponents.size() != 1) {
+      annotationValue.append("}");
+    }
+
+    return String.format(
+        "@%s(subcomponents = %s) for %s",
+        simpleName(subcomponentDeclaration.moduleAnnotation()),
+        annotationValue,
+        subcomponentDeclaration.contributingModule().get());
   }
 }

@@ -62,6 +62,7 @@ import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
 import javax.annotation.OverridingMethodsMustInvokeSuper;
 import javax.annotation.processing.Messager;
+import javax.inject.Qualifier;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeKind;
@@ -75,7 +76,7 @@ abstract class BindingMethodValidator {
   private final Elements elements;
   private final Types types;
   private final Class<? extends Annotation> methodAnnotation;
-  private final ImmutableSet<Class<? extends Annotation>> enclosingElementAnnotations;
+  private final ImmutableSet<? extends Class<? extends Annotation>> enclosingElementAnnotations;
   private final Abstractness abstractness;
   private final ExceptionSuperclass exceptionSuperclass;
   private final LoadingCache<ExecutableElement, ValidationReport<ExecutableElement>> cache =
@@ -90,6 +91,7 @@ abstract class BindingMethodValidator {
                   return builder.build();
                 }
               });
+  private final AllowsMultibindings allowsMultibindings;
 
   /**
    * Creates a validator object.
@@ -104,14 +106,16 @@ abstract class BindingMethodValidator {
       Class<? extends Annotation> methodAnnotation,
       Class<? extends Annotation> enclosingElementAnnotation,
       Abstractness abstractness,
-      ExceptionSuperclass exceptionSuperclass) {
+      ExceptionSuperclass exceptionSuperclass,
+      AllowsMultibindings allowsMultibindings) {
     this(
         elements,
         types,
         methodAnnotation,
         ImmutableSet.of(enclosingElementAnnotation),
         abstractness,
-        exceptionSuperclass);
+        exceptionSuperclass,
+        allowsMultibindings);
   }
 
   /**
@@ -127,14 +131,15 @@ abstract class BindingMethodValidator {
       Class<? extends Annotation> methodAnnotation,
       Iterable<? extends Class<? extends Annotation>> enclosingElementAnnotations,
       Abstractness abstractness,
-      ExceptionSuperclass exceptionSuperclass) {
+      ExceptionSuperclass exceptionSuperclass,
+      AllowsMultibindings allowsMultibindings) {
     this.elements = elements;
     this.types = types;
     this.methodAnnotation = methodAnnotation;
-    this.enclosingElementAnnotations =
-        ImmutableSet.<Class<? extends Annotation>>copyOf(enclosingElementAnnotations);
+    this.enclosingElementAnnotations = ImmutableSet.copyOf(enclosingElementAnnotations);
     this.abstractness = abstractness;
     this.exceptionSuperclass = exceptionSuperclass;
+    this.allowsMultibindings = allowsMultibindings;
   }
   
   /** The annotation that identifies methods validated by this object. */
@@ -337,6 +342,9 @@ abstract class BindingMethodValidator {
    * {@code MAP} has any.
    */
   protected void checkMapKeys(ValidationReport.Builder<ExecutableElement> builder) {
+    if (!allowsMultibindings.allowsMultibindings()) {
+      return;
+    }
     ImmutableSet<? extends AnnotationMirror> mapKeys = getMapKeys(builder.getSubject());
     if (ContributionType.fromBindingMethod(builder.getSubject()).equals(ContributionType.MAP)) {
       switch (mapKeys.size()) {
@@ -360,6 +368,9 @@ abstract class BindingMethodValidator {
    * annotation has a {@code type} parameter.
    */
   protected void checkMultibindings(ValidationReport.Builder<ExecutableElement> builder) {
+    if (!allowsMultibindings.allowsMultibindings()) {
+      return;
+    }
     ImmutableSet<AnnotationMirror> multibindingAnnotations =
         MultibindingAnnotations.forMethod(builder.getSubject());
     if (multibindingAnnotations.size() > 1) {
@@ -471,6 +482,24 @@ abstract class BindingMethodValidator {
           break;
         }
       }
+    }
+  }
+
+  /** Whether to check multibinding annotations. */
+  protected enum AllowsMultibindings {
+    /**
+     * This method disallows multibinding annotations, so don't bother checking for their validity.
+     * {@link MultibindingAnnotationsProcessingStep} will add errors if the method has any
+     * multibinding annotations.
+     */
+    NO_MULTIBINDINGS,
+
+    /** This method allows multibinding annotations, so validate them. */
+    ALLOWS_MULTIBINDINGS,
+    ;
+
+    private boolean allowsMultibindings() {
+      return this == ALLOWS_MULTIBINDINGS;
     }
   }
 }

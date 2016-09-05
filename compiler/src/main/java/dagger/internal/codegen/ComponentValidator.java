@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import dagger.Component;
 import dagger.Reusable;
@@ -157,7 +157,7 @@ final class ComponentValidator {
     // TODO(gak): This should use Util.findLocalAndInheritedMethods, otherwise
     // it can return a logical method multiple times (including overrides, etc.)
     List<? extends Element> members = elements.getAllMembers(subject);
-    Multimap<Element, ExecutableElement> referencedSubcomponents = LinkedHashMultimap.create();
+    SetMultimap<Element, ExecutableElement> referencedSubcomponents = LinkedHashMultimap.create();
     for (ExecutableElement method : ElementFilter.methodsIn(members)) {
       if (method.getModifiers().contains(ABSTRACT)) {
         ExecutableType resolvedMethod =

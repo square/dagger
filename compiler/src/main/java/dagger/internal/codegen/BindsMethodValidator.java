@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.BindingMethodValidator.AllowsMultibindings.ALLOWS_MULTIBINDINGS;
 import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.RUNTIME_EXCEPTION;
 import static dagger.internal.codegen.ErrorMessages.BINDS_ELEMENTS_INTO_SET_METHOD_RETURN_SET;
 import static dagger.internal.codegen.ErrorMessages.BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER;
@@ -55,7 +56,8 @@ final class BindsMethodValidator extends BindingMethodValidator {
         Binds.class,
         ImmutableSet.of(Module.class, ProducerModule.class),
         MUST_BE_ABSTRACT,
-        RUNTIME_EXCEPTION);
+        RUNTIME_EXCEPTION,
+        ALLOWS_MULTIBINDINGS);
     this.types = types;
     this.elements = elements;
   }

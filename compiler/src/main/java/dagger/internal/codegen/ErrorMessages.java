@@ -16,6 +16,10 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.ConfigurationAnnotations.getSubcomponentAnnotation;
+import static dagger.internal.codegen.MoreAnnotationMirrors.simpleName;
+
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import dagger.Multibindings;
 import dagger.Provides;
@@ -23,6 +27,7 @@ import dagger.multibindings.Multibinds;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -36,6 +41,7 @@ final class ErrorMessages {
    * Common constants.
    */
   static final String INDENT = "    ";
+  static final String DOUBLE_INDENT = INDENT + INDENT;
   static final int DUPLICATE_SIZE_LIMIT = 10;
 
   /*
@@ -181,8 +187,15 @@ final class ErrorMessages {
   static final String BINDS_METHOD_ONE_ASSIGNABLE_PARAMETER =
       "@Binds methods must have only one parameter whose type is assignable to the return type";
 
-  static final String BINDING_METHOD_NOT_IN_MODULE =
-      "@%s methods can only be present within a @%s";
+  static final String BINDS_OPTIONAL_OF_METHOD_HAS_PARAMETER =
+      "@BindsOptionalOf methods must not have parameters";
+
+  static final String BINDS_OPTIONAL_OF_METHOD_RETURNS_IMPLICITLY_PROVIDED_TYPE =
+      "@BindsOptionalOf methods cannot "
+          + "return unqualified types that have an @Inject-annotated constructor because those are "
+          + "always present";
+
+  static final String BINDING_METHOD_NOT_IN_MODULE = "@%s methods can only be present within a @%s";
 
   static final String BINDS_ELEMENTS_INTO_SET_METHOD_RETURN_SET =
       "@Binds @ElementsIntoSet methods must return a Set and take a Set parameter";
@@ -491,11 +504,36 @@ final class ErrorMessages {
     static final String METHOD_MUST_RETURN_MAP_OR_SET =
         "@%s methods must return Map<K, V> or Set<T>";
 
-    static final String NO_MAP_KEY = "@%s methods must not have a @MapKey annotation";
-
     static final String PARAMETERS = "@%s methods cannot have parameters";
 
     private MultibindsMessages() {}
+  }
+
+  static class ModuleMessages {
+    static String moduleSubcomponentsIncludesBuilder(TypeElement moduleSubcomponentsAttribute) {
+      TypeElement subcomponentType =
+          MoreElements.asType(moduleSubcomponentsAttribute.getEnclosingElement());
+      return String.format(
+          "%s is a @%s.Builder. Did you mean to use %s?",
+          moduleSubcomponentsAttribute.getQualifiedName(),
+          simpleName(getSubcomponentAnnotation(subcomponentType).get()),
+          subcomponentType.getQualifiedName());
+    }
+
+    static String moduleSubcomponentsIncludesNonSubcomponent(
+        TypeElement moduleSubcomponentsAttribute) {
+      return moduleSubcomponentsAttribute.getQualifiedName()
+          + " is not a @Subcomponent or @ProductionSubcomponent";
+    }
+
+    static String moduleSubcomponentsDoesntHaveBuilder(
+        TypeElement subcomponent, AnnotationMirror moduleAnnotation) {
+      return String.format(
+          "%s doesn't have a @%s.Builder, which is required when used with @%s.subcomponents",
+          subcomponent.getQualifiedName(),
+          simpleName(getSubcomponentAnnotation(subcomponent).get()),
+          simpleName(moduleAnnotation));
+    }
   }
 
   /**

@@ -45,40 +45,24 @@ final class ComponentHierarchyValidator {
     ValidationReport.Builder<TypeElement> reportBuilder =
         ValidationReport.about(componentDescriptor.componentDefinitionType());
     for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> subcomponentEntry :
-        componentDescriptor.subcomponents().entrySet()) {
+        componentDescriptor.subcomponentsByFactoryMethod().entrySet()) {
       ComponentMethodDescriptor subcomponentMethodDescriptor = subcomponentEntry.getKey();
       ComponentDescriptor subcomponentDescriptor = subcomponentEntry.getValue();
       // validate the way that we create subcomponents
-      switch (subcomponentMethodDescriptor.kind()) {
-        case SUBCOMPONENT:
-        case PRODUCTION_SUBCOMPONENT:
-          for (VariableElement factoryMethodParameter :
-              subcomponentMethodDescriptor.methodElement().getParameters()) {
-            TypeElement moduleType = MoreTypes.asTypeElement(factoryMethodParameter.asType());
-            TypeElement originatingComponent = existingModuleToOwners.get(moduleType);
-            if (originatingComponent != null) {
-              /* Factory method tries to pass a module that is already present in the parent.
-               * This is an error. */
-              reportBuilder.addError(
-                  String.format(
-                      "%s is present in %s. A subcomponent cannot use an instance of a "
-                          + "module that differs from its parent.",
-                      moduleType.getSimpleName(),
-                      originatingComponent.getQualifiedName()),
-                  factoryMethodParameter);
-            }
-          }
-          break;
-          
-        case SUBCOMPONENT_BUILDER:
-        case PRODUCTION_SUBCOMPONENT_BUILDER:
-          /* A subcomponent builder allows you to pass a module that is already present in the
-           * parent.  This can't be an error because it might be valid in _other_ components. Don't
-           * bother warning, because there's nothing to do except suppress the warning. */
-          break;
-          
-        default:
-          throw new AssertionError();
+      for (VariableElement factoryMethodParameter :
+          subcomponentMethodDescriptor.methodElement().getParameters()) {
+        TypeElement moduleType = MoreTypes.asTypeElement(factoryMethodParameter.asType());
+        TypeElement originatingComponent = existingModuleToOwners.get(moduleType);
+        if (originatingComponent != null) {
+          /* Factory method tries to pass a module that is already present in the parent.
+           * This is an error. */
+          reportBuilder.addError(
+              String.format(
+                  "%s is present in %s. A subcomponent cannot use an instance of a "
+                      + "module that differs from its parent.",
+                  moduleType.getSimpleName(), originatingComponent.getQualifiedName()),
+              factoryMethodParameter);
+        }
       }
       reportBuilder.addSubreport(
           validateSubcomponentMethods(

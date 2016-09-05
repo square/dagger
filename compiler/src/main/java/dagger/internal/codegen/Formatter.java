@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
 
 import com.google.common.base.Function;
@@ -84,5 +85,18 @@ abstract class Formatter<T> implements Function<T, String> {
     for (int i = 0; i < indentLevel; i++) {
       builder.append(INDENT);
     }
+  }
+
+  protected String formatArgumentInList(int index, int size, CharSequence name) {
+    checkElementIndex(index, size);
+    StringBuilder builder = new StringBuilder();
+    if (index > 0) {
+      builder.append("…, ");
+    }
+    builder.append(name);
+    if (index < size - 1) {
+      builder.append(", …");
+    }
+    return builder.toString();
   }
 }

@@ -82,7 +82,19 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
    * {@link BindingKey.Kind#CONTRIBUTION}, this is empty.
    */
   abstract ImmutableSet<MultibindingDeclaration> multibindingDeclarations();
-  
+
+  /**
+   * The subcomponent declarations for {@link #bindingKey()}. If {@link #bindingKey()}'s kind is not
+   * {@link BindingKey.Kind#CONTRIBUTION}, this is empty.
+   */
+  abstract ImmutableSet<SubcomponentDeclaration> subcomponentDeclarations();
+
+  /**
+   * The optional binding declarations for {@link #bindingKey()}. If {@link #bindingKey()}'s kind is
+   * not {@link BindingKey.Kind#CONTRIBUTION}, this is empty.
+   */
+  abstract ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations();
+
   /**
    * All bindings for {@link #bindingKey()}, regardless of in which component they were resolved.
    */
@@ -121,10 +133,13 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
-   * {@code true} if there are no {@link #bindings()} or {@link #multibindingDeclarations()}.
+   * {@code true} if there are no {@link #bindings()}, {@link #multibindingDeclarations()}, or
+   * {@link #subcomponentDeclarations()}.
    */
   boolean isEmpty() {
-    return bindings().isEmpty() && multibindingDeclarations().isEmpty();
+    return bindings().isEmpty()
+        && multibindingDeclarations().isEmpty()
+        && subcomponentDeclarations().isEmpty();
   }
 
   /**
@@ -189,21 +204,23 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
     return Optional.fromNullable(allMembersInjectionBindings().get(owningComponent()));
   }
 
-  /**
-   * Creates a {@link ResolvedBindings} for contribution bindings.
-   */
+  /** Creates a {@link ResolvedBindings} for contribution bindings. */
   static ResolvedBindings forContributionBindings(
       BindingKey bindingKey,
       ComponentDescriptor owningComponent,
       Multimap<ComponentDescriptor, ? extends ContributionBinding> contributionBindings,
-      Iterable<MultibindingDeclaration> multibindings) {
+      Iterable<MultibindingDeclaration> multibindings,
+      Iterable<SubcomponentDeclaration> subcomponentDeclarations,
+      Iterable<OptionalBindingDeclaration> optionalBindingDeclarations) {
     checkArgument(bindingKey.kind().equals(BindingKey.Kind.CONTRIBUTION));
     return new AutoValue_ResolvedBindings(
         bindingKey,
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>copyOf(contributionBindings),
         ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of(),
-        ImmutableSet.copyOf(multibindings));
+        ImmutableSet.copyOf(multibindings),
+        ImmutableSet.copyOf(subcomponentDeclarations),
+        ImmutableSet.copyOf(optionalBindingDeclarations));
   }
   
   /**
@@ -219,7 +236,9 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>of(),
         ImmutableMap.of(owningComponent, ownedMembersInjectionBinding),
-        ImmutableSet.<MultibindingDeclaration>of());
+        ImmutableSet.<MultibindingDeclaration>of(),
+        ImmutableSet.<SubcomponentDeclaration>of(),
+        ImmutableSet.<OptionalBindingDeclaration>of());
   }
 
   /**
@@ -231,7 +250,9 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         owningComponent,
         ImmutableSetMultimap.<ComponentDescriptor, ContributionBinding>of(),
         ImmutableMap.<ComponentDescriptor, MembersInjectionBinding>of(),
-        ImmutableSet.<MultibindingDeclaration>of());
+        ImmutableSet.<MultibindingDeclaration>of(),
+        ImmutableSet.<SubcomponentDeclaration>of(),
+        ImmutableSet.<OptionalBindingDeclaration>of());
   }
 
   /**
@@ -244,7 +265,9 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
         owningComponent,
         allContributionBindings(),
         allMembersInjectionBindings(),
-        multibindingDeclarations());
+        multibindingDeclarations(),
+        subcomponentDeclarations(),
+        optionalBindingDeclarations());
   }
 
   /**
@@ -266,15 +289,16 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
-   * The binding type for these bindings. If there are {@link #multibindingDeclarations()} but no
-   * {@link #bindings()}, returns {@link BindingType#PROVISION}.
+   * The binding type for these bindings. If there are {@link #multibindingDeclarations()} or {@link
+   * #subcomponentDeclarations()} but no {@link #bindings()}, returns {@link BindingType#PROVISION}.
    *
    * @throws IllegalStateException if {@link #isEmpty()} or the binding types conflict
    */
   @Override
   public BindingType bindingType() {
     checkState(!isEmpty(), "empty bindings for %s", bindingKey());
-    if (bindings().isEmpty() && !multibindingDeclarations().isEmpty()) {
+    if (bindings().isEmpty()
+        && (!multibindingDeclarations().isEmpty() || !subcomponentDeclarations().isEmpty())) {
       // Only multibinding declarations, so assume provision.
       return BindingType.PROVISION;
     }

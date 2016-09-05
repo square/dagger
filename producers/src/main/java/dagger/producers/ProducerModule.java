@@ -41,4 +41,11 @@ public @interface ProducerModule {
    * inclusions recursively, are all contributed to the object graph.
    */
   Class<?>[] includes() default {};
+
+  /**
+   * Any {@link dagger.Subcomponent}- or {@link ProductionSubcomponent}-annotated classes which
+   * should be children of the component in which this module is installed. A subcomponent may be
+   * listed in more than one module in a component.
+   */
+  Class<?>[] subcomponents() default {};
 }

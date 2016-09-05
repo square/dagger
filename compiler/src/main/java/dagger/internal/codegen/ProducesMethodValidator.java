@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.BindingMethodValidator.Abstractness.MUST_BE_CONCRETE;
+import static dagger.internal.codegen.BindingMethodValidator.AllowsMultibindings.ALLOWS_MULTIBINDINGS;
 import static dagger.internal.codegen.BindingMethodValidator.ExceptionSuperclass.EXCEPTION;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_NULLABLE;
 import static dagger.internal.codegen.ErrorMessages.PRODUCES_METHOD_RAW_FUTURE;
@@ -49,7 +50,14 @@ import javax.lang.model.util.Types;
 final class ProducesMethodValidator extends BindingMethodValidator {
 
   ProducesMethodValidator(Elements elements, Types types) {
-    super(elements, types, Produces.class, ProducerModule.class, MUST_BE_CONCRETE, EXCEPTION);
+    super(
+        elements,
+        types,
+        Produces.class,
+        ProducerModule.class,
+        MUST_BE_CONCRETE,
+        EXCEPTION,
+        ALLOWS_MULTIBINDINGS);
   }
   
   @Override

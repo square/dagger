@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubject.assertThat;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 import static java.util.Arrays.asList;
@@ -1027,7 +1028,101 @@ public class ComponentProcessorTest {
         .generatesSources(expected);
   }
 
-  @Test public void testDefaultPackage() {
+  @Test
+  public void subcomponentNotGeneratedIfNotUsedInGraph() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = ParentModule.class)",
+            "interface Parent {",
+            "  String notSubcomponent();",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module(subcomponents = Child.class)",
+            "class ParentModule {",
+            "  @Provides static String notSubcomponent() { return new String(); }",
+            "}");
+
+    JavaFileObject subcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.Child",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent",
+            "interface Child {",
+            "  @Subcomponent.Builder",
+            "  interface Builder {",
+            "    Child build();",
+            "  }",
+            "}");
+
+    JavaFileObject generatedComponentWithoutSubcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.DaggerParent",
+            "package test;",
+            "",
+            "import dagger.internal.Preconditions;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class DaggerParent implements Parent {",
+            "",
+            "  private DaggerParent(Builder builder) {",
+            "    assert builder != null;",
+            "  }",
+            "",
+            "  public static Builder builder() {",
+            "    return new Builder();",
+            "  }",
+            "",
+            "  public static Parent create() {",
+            "    return builder().build();",
+            "  }",
+            "",
+            "  @Override",
+            "  public String notSubcomponent() {",
+            "    return ParentModule_NotSubcomponentFactory.create().get();",
+            "  }",
+            "",
+            "  public static final class Builder {",
+            "",
+            "    private Builder() {",
+            "    }",
+            "",
+            "    public Parent build() {",
+            "      return new DaggerParent(this);",
+            "    }",
+            "",
+            "    @Deprecated",
+            "    public Builder parentModule(ParentModule parentModule) {",
+            "      Preconditions.checkNotNull(parentModule);",
+            "      return this;",
+            "    }",
+            "  }",
+            "}");
+
+    assertThat(component, module, subcomponent)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(generatedComponentWithoutSubcomponent);
+  }
+
+  @Test
+  public void testDefaultPackage() {
     JavaFileObject aClass = JavaFileObjects.forSourceLines("AClass", "class AClass {}");
     JavaFileObject bClass = JavaFileObjects.forSourceLines("BClass",
         "import javax.inject.Inject;",
@@ -2389,6 +2484,102 @@ public class ComponentProcessorTest {
   }
 
   @Test
+  public void unusedSubcomponents_dontResolveExtraBindingsInParentComponents() {
+    JavaFileObject foo =
+        JavaFileObjects.forSourceLines(
+            "test.Foo",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Singleton",
+            "class Foo {",
+            "  @Inject Foo() {}",
+            "}");
+
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "",
+            "@Module(subcomponents = Pruned.class)",
+            "class TestModule {}");
+
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Singleton",
+            "@Component(modules = TestModule.class)",
+            "interface Parent {}");
+
+    JavaFileObject prunedSubcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.Pruned",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent",
+            "interface Pruned {",
+            "  @Subcomponent.Builder",
+            "  interface Builder {",
+            "    Pruned build();",
+            "  }",
+            "",
+            "  Foo foo();",
+            "}");
+    JavaFileObject generated =
+        JavaFileObjects.forSourceLines(
+            "test.DaggerParent",
+            "package test;",
+            "",
+            "import dagger.internal.Preconditions;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class DaggerParent implements Parent {",
+            "  private DaggerParent(Builder builder) {",
+            "    assert builder != null;",
+            "  }",
+            "",
+            "  public static Builder builder() {",
+            "    return new Builder();",
+            "  }",
+            "",
+            "  public static Parent create() {",
+            "    return builder().build();",
+            "  }",
+            "",
+            "  public static final class Builder {",
+            "    private Builder() {}",
+            "",
+            "    public Parent build() {",
+            "      return new DaggerParent(this);",
+            "    }",
+            "",
+            "    @Deprecated",
+            "    public Builder testModule(TestModule testModule) {",
+            "      Preconditions.checkNotNull(testModule);",
+            "      return this;",
+            "    }",
+            "  }",
+            "}");
+
+    assertThat(foo, module, component, prunedSubcomponent)
+        .processedWith(new ComponentProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(generated);
+  }
+
   public void invalidComponentDependencies() {
     JavaFileObject testComponent =
         JavaFileObjects.forSourceLines(

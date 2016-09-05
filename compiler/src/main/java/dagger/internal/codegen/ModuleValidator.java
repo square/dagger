@@ -23,10 +23,15 @@ import static com.google.auto.common.Visibility.PUBLIC;
 import static com.google.auto.common.Visibility.effectiveVisibilityOfElement;
 import static com.google.common.collect.Iterables.any;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleIncludes;
+import static dagger.internal.codegen.ConfigurationAnnotations.getModuleSubcomponents;
+import static dagger.internal.codegen.ConfigurationAnnotations.getSubcomponentBuilder;
 import static dagger.internal.codegen.ErrorMessages.BINDING_METHOD_WITH_SAME_NAME;
 import static dagger.internal.codegen.ErrorMessages.INCOMPATIBLE_MODULE_METHODS;
 import static dagger.internal.codegen.ErrorMessages.METHOD_OVERRIDES_PROVIDES_METHOD;
 import static dagger.internal.codegen.ErrorMessages.MODULES_WITH_TYPE_PARAMS_MUST_BE_ABSTRACT;
+import static dagger.internal.codegen.ErrorMessages.ModuleMessages.moduleSubcomponentsDoesntHaveBuilder;
+import static dagger.internal.codegen.ErrorMessages.ModuleMessages.moduleSubcomponentsIncludesBuilder;
+import static dagger.internal.codegen.ErrorMessages.ModuleMessages.moduleSubcomponentsIncludesNonSubcomponent;
 import static dagger.internal.codegen.ErrorMessages.PROVIDES_METHOD_OVERRIDES_ANOTHER;
 import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_MUST_NOT_HAVE_TYPE_PARAMS;
 import static dagger.internal.codegen.ErrorMessages.REFERENCED_MODULE_NOT_ANNOTATED;
@@ -35,6 +40,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.auto.common.Visibility;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -47,8 +53,10 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import dagger.Binds;
 import dagger.Module;
+import dagger.Subcomponent;
 import dagger.multibindings.Multibinds;
 import dagger.producers.ProducerModule;
+import dagger.producers.ProductionSubcomponent;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -74,6 +82,11 @@ import javax.lang.model.util.Types;
  * @since 2.0
  */
 final class ModuleValidator {
+  private static final ImmutableSet<Class<? extends Annotation>> SUBCOMPONENT_TYPES =
+      ImmutableSet.of(Subcomponent.class, ProductionSubcomponent.class);
+  private static final ImmutableSet<Class<? extends Annotation>> SUBCOMPONENT_BUILDER_TYPES =
+      ImmutableSet.of(Subcomponent.Builder.class, ProductionSubcomponent.Builder.class);
+
   private final Types types;
   private final Elements elements;
   private final MethodSignatureFormatter methodSignatureFormatter;
@@ -121,9 +134,58 @@ final class ModuleValidator {
     }
     validateModifiers(subject, builder);
     validateReferencedModules(subject, moduleKind, builder);
+    validateReferencedSubcomponents(subject, moduleKind, builder);
 
     // TODO(gak): port the dagger 1 module validation?
     return builder.build();
+  }
+
+  private void validateReferencedSubcomponents(
+      final TypeElement subject,
+      ModuleDescriptor.Kind moduleKind,
+      final ValidationReport.Builder<TypeElement> builder) {
+    final AnnotationMirror moduleAnnotation = moduleKind.getModuleAnnotationMirror(subject).get();
+    // TODO(ronshapiro): use validateTypesAreDeclared when it is checked in
+    for (TypeMirror subcomponentAttribute : getModuleSubcomponents(moduleAnnotation)) {
+      subcomponentAttribute.accept(
+          new SimpleTypeVisitor6<Void, Void>(){
+            @Override
+            protected Void defaultAction(TypeMirror e, Void aVoid) {
+              builder.addError(e + " is not a valid subcomponent type", subject, moduleAnnotation);
+              return null;
+            }
+
+            @Override
+            public Void visitDeclared(DeclaredType declaredType, Void aVoid) {
+              TypeElement attributeType = MoreTypes.asTypeElement(declaredType);
+              if (isAnyAnnotationPresent(attributeType, SUBCOMPONENT_TYPES)) {
+                validateSubcomponentHasBuilder(attributeType, moduleAnnotation, builder);
+              } else {
+                builder.addError(
+                    isAnyAnnotationPresent(attributeType, SUBCOMPONENT_BUILDER_TYPES)
+                        ? moduleSubcomponentsIncludesBuilder(attributeType)
+                        : moduleSubcomponentsIncludesNonSubcomponent(attributeType),
+                    attributeType,
+                    moduleAnnotation);
+              }
+
+              return null;
+            }
+          }, null);
+    }
+  }
+
+  private void validateSubcomponentHasBuilder(
+      TypeElement subcomponentAttribute,
+      AnnotationMirror moduleAnnotation,
+      ValidationReport.Builder<TypeElement> builder) {
+    if (getSubcomponentBuilder(subcomponentAttribute).isPresent()) {
+      return;
+    }
+    builder.addError(
+        moduleSubcomponentsDoesntHaveBuilder(subcomponentAttribute, moduleAnnotation),
+        subcomponentAttribute,
+        moduleAnnotation);
   }
 
   enum ModuleMethodKind {
@@ -174,7 +236,7 @@ final class ModuleValidator {
       ModuleDescriptor.Kind moduleKind,
       ValidationReport.Builder<TypeElement> builder) {
     // Validate that all the modules we include are valid for inclusion.
-    AnnotationMirror mirror = getAnnotationMirror(subject, moduleKind.moduleAnnotation()).get();
+    AnnotationMirror mirror = moduleKind.getModuleAnnotationMirror(subject).get();
     ImmutableList<TypeMirror> includes = getModuleIncludes(mirror);
     validateReferencedModules(subject, builder, includes, ImmutableSet.of(moduleKind));
   }
