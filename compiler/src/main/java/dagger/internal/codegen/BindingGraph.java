@@ -622,8 +622,19 @@ abstract class BindingGraph {
        * delegate key.
        */
       private ContributionBinding createDelegateBinding(DelegateDeclaration delegateDeclaration) {
-        ResolvedBindings resolvedDelegate =
-            lookUpBindings(delegateDeclaration.delegateRequest().bindingKey());
+        BindingKey delegateBindingKey = delegateDeclaration.delegateRequest().bindingKey();
+
+        if (cycleStack.contains(delegateBindingKey)) {
+          return provisionBindingFactory.missingDelegate(delegateDeclaration);
+        }
+
+        ResolvedBindings resolvedDelegate;
+        try {
+          cycleStack.push(delegateBindingKey);
+          resolvedDelegate = lookUpBindings(delegateBindingKey);
+        } finally {
+          cycleStack.pop();
+        }
         if (resolvedDelegate.contributionBindings().isEmpty()) {
           // This is guaranteed to result in a missing binding error, so it doesn't matter if the
           // binding is a Provision or Production, except if it is a @IntoMap method, in which
