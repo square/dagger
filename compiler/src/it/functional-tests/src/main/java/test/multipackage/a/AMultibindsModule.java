@@ -16,36 +16,17 @@
 
 package test.multipackage.a;
 
-import dagger.Binds;
 import dagger.Module;
-import dagger.Provides;
-import dagger.multibindings.ElementsIntoSet;
-import dagger.multibindings.IntoMap;
-import dagger.multibindings.IntoSet;
-import dagger.multibindings.StringKey;
-import java.util.HashSet;
+import dagger.multibindings.Multibinds;
+import java.util.Map;
 import java.util.Set;
 
+/** A module that {@code @Multibinds} a set and a map of {@link Inaccessible}. */
 @Module
-public abstract class AModule {
-  @Provides
-  @IntoSet
-  static String provideString() {
-    return "a";
-  }
+public abstract class AMultibindsModule {
+  @Multibinds
+  abstract Set<Inaccessible> inaccessibleSet();
 
-  @Binds
-  @IntoSet
-  abstract Inaccessible provideInaccessible(Inaccessible inaccessible);
-
-  @Provides
-  @ElementsIntoSet
-  static Set<Inaccessible> provideSetOfInaccessibles() {
-    return new HashSet<>();
-  }
-
-  @Binds
-  @IntoMap
-  @StringKey("inaccessible")
-  abstract Inaccessible provideInaccessibleToMap(Inaccessible inaccessible);
+  @Multibinds
+  abstract Map<String, Inaccessible> inaccessibleMap();
 }

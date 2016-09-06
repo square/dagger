@@ -26,7 +26,6 @@ import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCER_PRODUCER;
 import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
 import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTOR;
 import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
-import static dagger.internal.codegen.TypeNames.SET;
 
 import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.ClassName;
@@ -144,10 +143,7 @@ abstract class MemberSelect {
    */
   static MemberSelect emptySetProvider(ClassName setFactoryType, SetType setType) {
     return new ParameterizedStaticMethod(
-        setFactoryType,
-        ImmutableList.of(setType.elementType()),
-        CodeBlock.of("empty()"),
-        SET);
+        setFactoryType, ImmutableList.of(setType.elementType()), CodeBlock.of("empty()"), FACTORY);
   }
 
   private static final class ParameterizedStaticMethod extends MemberSelect {

@@ -16,15 +16,8 @@
 
 package test.multipackage.a;
 
-import java.util.Map;
-import java.util.Set;
 import javax.inject.Inject;
 
-@SuppressWarnings("unused")
-public class UsesInaccessible {
-  @Inject
-  UsesInaccessible(
-      Inaccessible inaccessible,
-      Set<Inaccessible> inaccessibleSet,
-      Map<String, Inaccessible> inaccessibleMap) {}
+final class Inaccessible {
+  @Inject Inaccessible() {}
 }

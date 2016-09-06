@@ -23,6 +23,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
@@ -140,13 +141,15 @@ abstract class AbstractComponentWriter {
   protected final BindingGraph graph;
   protected final ImmutableMap<ComponentDescriptor, String> subcomponentNames;
   private final Map<BindingKey, InitializationState> initializationStates = new HashMap<>();
-  protected TypeSpec.Builder component;
+  protected final TypeSpec.Builder component;
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
   private final Map<BindingKey, MemberSelect> memberSelects = new HashMap<>();
   private final Map<BindingKey, MemberSelect> producerFromProviderMemberSelects = new HashMap<>();
   private final Map<BindingKey, RequestFulfillment> requestFulfillments = Maps.newLinkedHashMap();
   protected final MethodSpec.Builder constructor = constructorBuilder().addModifiers(PRIVATE);
   protected Optional<ClassName> builderName = Optional.absent();
+  private final OptionalFactories optionalFactories;
+  private boolean done;
 
   /**
    * For each component requirement, the builder field. This map is empty for subcomponents that do
@@ -162,13 +165,6 @@ abstract class AbstractComponentWriter {
    */
   protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
 
-  /**
-   * The factory classes that implement {@code Provider<Optional<T>>} within the component. If the
-   * key is {@link Optional#absent()}, the class provides absent values.
-   */
-  private final Map<Optional<DependencyRequest.Kind>, TypeSpec> optionalFactoryClasses =
-      new HashMap<>();
-
   AbstractComponentWriter(
       Types types,
       Elements elements,
@@ -176,14 +172,30 @@ abstract class AbstractComponentWriter {
       CompilerOptions compilerOptions,
       ClassName name,
       BindingGraph graph,
-      ImmutableMap<ComponentDescriptor, String> subcomponentNames) {
+      ImmutableMap<ComponentDescriptor, String> subcomponentNames,
+      OptionalFactories optionalFactories) {
     this.types = types;
     this.elements = elements;
     this.keyFactory = keyFactory;
     this.compilerOptions = compilerOptions;
+    this.component = classBuilder(name);
     this.name = name;
     this.graph = graph;
     this.subcomponentNames = subcomponentNames;
+    this.optionalFactories = optionalFactories;
+  }
+
+  protected AbstractComponentWriter(
+      AbstractComponentWriter parent, ClassName name, BindingGraph graph) {
+    this(
+        parent.types,
+        parent.elements,
+        parent.keyFactory,
+        parent.compilerOptions,
+        name,
+        graph,
+        parent.subcomponentNames,
+        parent.optionalFactories);
   }
 
   protected final TypeElement componentDefinitionType() {
@@ -267,8 +279,8 @@ abstract class AbstractComponentWriter {
    * component must be regenerated, use a new instance.
    */
   final TypeSpec.Builder write() {
-    checkState(component == null, "ComponentWriter has already been generated.");
-    component = createComponentClass();
+    checkState(!done, "ComponentWriter has already been generated.");
+    decorateComponent();
     addBuilder();
     addFactoryMethods();
     addFrameworkFields();
@@ -276,13 +288,18 @@ abstract class AbstractComponentWriter {
     implementInterfaceMethods();
     addSubcomponents();
     component.addMethod(constructor.build());
+    if (graph.componentDescriptor().kind().isTopLevel()) {
+      optionalFactories.addMembers(component);
+    }
+    done = true;
     return component;
   }
 
   /**
-   * Creates the component implementation class.
+   * Adds Javadoc, modifiers, supertypes, and annotations to the component implementation class
+   * declaration.
    */
-  protected abstract TypeSpec.Builder createComponentClass();
+  protected abstract void decorateComponent();
 
   /**
    * Adds a builder type.
@@ -737,7 +754,7 @@ abstract class AbstractComponentWriter {
     }
   }
 
-  public MethodSpec.Builder methodSpecForComponentMethod(
+  private MethodSpec.Builder methodSpecForComponentMethod(
       ExecutableElement method, ExecutableType methodType) {
     String methodName = method.getSimpleName().toString();
     MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
@@ -1279,41 +1296,16 @@ abstract class AbstractComponentWriter {
     }
 
     if (binding.dependencies().isEmpty()) {
-      return CodeBlock.of(
-          "$N.instance()", optionalFactoryClass(Optional.<DependencyRequest.Kind>absent()));
+      return optionalFactories.absentOptionalProvider();
     } else {
       TypeMirror valueType = OptionalType.from(binding.key()).valueType();
-      DependencyRequest.Kind optionalValueKind =
-          DependencyRequest.extractKindAndType(valueType).kind();
+      DependencyRequest.Kind valueKind = DependencyRequest.extractKindAndType(valueType).kind();
       FrameworkDependency frameworkDependency =
           getOnlyElement(frameworkDependenciesForBinding(binding));
       CodeBlock dependencyArgument =
           getDependencyArgument(frameworkDependency).getExpressionFor(name);
-      return CodeBlock.of(
-          "$N.of($L)", optionalFactoryClass(Optional.of(optionalValueKind)), dependencyArgument);
+      return optionalFactories.presentOptionalProvider(valueKind, dependencyArgument);
     }
-  }
-
-  /**
-   * Returns the nested class that implements {@code Provider<Optional<T>>} for optional bindings.
-   * Adds it to the root component if it hasn't already been added.
-   *
-   * <p>If {@code optionalValueKind} is absent, returns a {@link Provider} class that returns {@link
-   * Optional#absent()}.
-   *
-   * <p>If {@code optionalValueKind} is present, returns a {@link Provider} class where {@code T}
-   * represents dependency requests of that kind.
-   */
-  protected TypeSpec optionalFactoryClass(Optional<DependencyRequest.Kind> optionalValueKind) {
-    if (!optionalFactoryClasses.containsKey(optionalValueKind)) {
-      TypeSpec factory =
-          optionalValueKind.isPresent()
-              ? OptionalFactoryClasses.presentFactoryClass(optionalValueKind.get())
-              : OptionalFactoryClasses.ABSENT_FACTORY_CLASS;
-      component.addType(factory);
-      optionalFactoryClasses.put(optionalValueKind, factory);
-    }
-    return optionalFactoryClasses.get(optionalValueKind);
   }
 
   private static String simpleVariableName(TypeElement typeElement) {
