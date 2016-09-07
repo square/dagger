@@ -50,8 +50,8 @@
     <auto.common.version>0.6</auto.common.version>
     <auto.factory.version>1.0-beta3</auto.factory.version>
     <auto.service.version>1.0-rc2</auto.service.version>
-    <auto.value.version>1.3-rc2</auto.value.version>
-    <errorprone.version>2.0.8</errorprone.version>
+    <auto.value.version>1.3</auto.value.version>
+    <errorprone.version>2.0.12</errorprone.version>
     <guava.version>19.0</guava.version>
     <google.java.format.version>1.0</google.java.format.version>
 
@@ -60,7 +60,7 @@
     <compile-testing.version>0.9</compile-testing.version>
     <junit.version>4.11</junit.version>
     <mockito.version>1.9.5</mockito.version>
-    <truth.version>0.28</truth.version>
+    <truth.version>0.29</truth.version>
   </properties>
 
   <scm>
