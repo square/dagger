@@ -46,6 +46,8 @@ public @interface ProducerModule {
    * Any {@link dagger.Subcomponent}- or {@link ProductionSubcomponent}-annotated classes which
    * should be children of the component in which this module is installed. A subcomponent may be
    * listed in more than one module in a component.
+   *
+   * @since 2.7
    */
   Class<?>[] subcomponents() default {};
 }
