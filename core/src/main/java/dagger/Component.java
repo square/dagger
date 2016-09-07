@@ -171,9 +171,13 @@ import javax.inject.Singleton;
  * inherit the <em>entire</em> binding graph from its parent when it is declared. For that reason,
  * a subcomponent isn't evaluated for completeness until it is associated with a parent.
  *
- * <p>Subcomponents are declared via a factory method on a parent component or subcomponent. The
- * method may have any name, but must return the subcomponent. The factory method's parameters may
- * be any number of the subcomponent's modules, but must at least include those without visible
+ * <p>Subcomponents are declared by listing the class in the {@link Module#subcomponents()}
+ * attribute of one of the parent component's modules. This binds the {@link Subcomponent.Builder}
+ * within the parent component.
+ *
+ * <p>Subcomponents may also be declared via a factory method on a parent component or subcomponent.
+ * The method may have any name, but must return the subcomponent. The factory method's parameters
+ * may be any number of the subcomponent's modules, but must at least include those without visible
  * no-arg constructors. The following is an example of a factory method that creates a
  * request-scoped subcomponent from a singleton-scoped parent: <pre><code>
  *   {@literal @}Singleton {@literal @}Component

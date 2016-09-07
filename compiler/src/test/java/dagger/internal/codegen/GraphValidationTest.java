@@ -506,6 +506,109 @@ public class GraphValidationTest {
         .onLine(28);
   }
 
+  @Test
+  public void circularBindsMethods() {
+    JavaFileObject qualifier =
+        JavaFileObjects.forSourceLines(
+            "test.SomeQualifier",
+            "package test;",
+            "",
+            "import javax.inject.Qualifier;",
+            "",
+            "@Qualifier @interface SomeQualifier {}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Binds;",
+            "import dagger.Module;",
+            "",
+            "@Module",
+            "abstract class TestModule {",
+            "  @Binds abstract Object bindUnqualified(@SomeQualifier Object qualified);",
+            "  @Binds @SomeQualifier abstract Object bindQualified(Object unqualified);",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  Object unqualified();",
+            "  @SomeQualifier Object qualified();",
+            "}");
+
+    assertThat(qualifier, module, component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "test.TestComponent.unqualified() contains a dependency cycle:\n"
+                + "      java.lang.Object is injected at\n"
+                + "          test.TestModule.bindQualified(unqualified)\n"
+                + "      @test.SomeQualifier java.lang.Object is injected at\n"
+                + "          test.TestModule.bindUnqualified(qualified)\n"
+                + "      java.lang.Object is provided at\n"
+                + "          test.TestComponent.unqualified()")
+        .in(component)
+        .onLine(7)
+        .and()
+        .withErrorContaining(
+            "test.TestComponent.qualified() contains a dependency cycle:\n"
+                + "      @test.SomeQualifier java.lang.Object is injected at\n"
+                + "          test.TestModule.bindUnqualified(qualified)\n"
+                + "      java.lang.Object is injected at\n"
+                + "          test.TestModule.bindQualified(unqualified)\n"
+                + "      @test.SomeQualifier java.lang.Object is provided at\n"
+                + "          test.TestComponent.qualified()")
+        .in(component)
+        .onLine(8);
+  }
+
+  @Test
+  public void selfReferentialBinds() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Binds;",
+            "import dagger.Module;",
+            "",
+            "@Module",
+            "abstract class TestModule {",
+            "  @Binds abstract Object bindToSelf(Object sameKey);",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  Object selfReferential();",
+            "}");
+
+    assertThat(module, component)
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            // TODO(gak): cl/126230644 produces a better error message in this case. Here it isn't
+            // unclear what is going wrong.
+            "test.TestComponent.selfReferential() contains a dependency cycle:\n"
+                + "      java.lang.Object is injected at\n"
+                + "          test.TestModule.bindToSelf(sameKey)\n"
+                + "      java.lang.Object is provided at\n"
+                + "          test.TestComponent.selfReferential()")
+        .in(component)
+        .onLine(7);
+  }
+
   @Test public void duplicateExplicitBindings_ProvidesAndComponentProvision() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",
