@@ -28,6 +28,7 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
@@ -487,6 +488,10 @@ abstract class AbstractComponentWriter {
    * Adds component factory methods.
    */
   protected abstract void addFactoryMethods();
+
+  private boolean graphHasContributionBinding(Key key) {
+    return graph.resolvedBindings().containsKey(contribution(key));
+  }
 
   private void addFrameworkFields() {
     for (ResolvedBindings resolvedBindings : graph.resolvedBindings().values()) {

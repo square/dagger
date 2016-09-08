@@ -16,12 +16,15 @@
 
 package dagger.internal.codegen;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopes;
 
 import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
@@ -36,28 +39,45 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 
-/**
- * A representation of the scope (or lack of it) associated with a component, providing method
- * or injection location.
- */
-final class Scope {
-  /**
-   * The underlying {@link AnnotationMirror} that represents the scope annotation.
-   */
-  private final AnnotationMirror annotationMirror;
+/** A javax.inject.Scope. */
+@AutoValue
+abstract class Scope {
 
-  private Scope(AnnotationMirror annotationMirror) {
-    this.annotationMirror = checkNotNull(annotationMirror);
+  /** The underlying {@link AnnotationMirror} that represents the scope annotation. */
+  abstract Equivalence.Wrapper<AnnotationMirror> scopeAnnotation();
+
+  /**
+   * Creates a {@link Scope} object from the {@link javax.inject.Scope}-annotated annotation type.
+   */
+  static Scope scope(AnnotationMirror scopeAnnotation) {
+    checkArgument(
+        isAnnotationPresent(
+            scopeAnnotation.getAnnotationType().asElement(), javax.inject.Scope.class));
+    return new AutoValue_Scope(AnnotationMirrors.equivalence().wrap(scopeAnnotation));
   }
 
-  /** Returns all of the associated scoped annotations from the source code element. */
+  /**
+   * Creates a {@link Scope} object from the {@link javax.inject.Scope}-annotated annotation type.
+   */
+  static Scope scope(TypeElement scopeType) {
+    return scope(SimpleAnnotationMirror.of(scopeType));
+  }
+
+  private static Scope scope(Elements elements, Class<? extends Annotation> scopeAnnotationClass) {
+    return scope(elements.getTypeElement(scopeAnnotationClass.getCanonicalName()));
+  }
+
+  /** Returns all of the associated scopes for a source code element. */
   static ImmutableSet<Scope> scopesOf(Element element) {
-    return FluentIterable.from(getScopes(element)).
-        transform(new Function<AnnotationMirror, Scope>() {
-          @Override public Scope apply(AnnotationMirror annotationMirror) {
-            return new Scope(annotationMirror);
-          }
-        }).toSet();
+    return FluentIterable.from(getScopes(element))
+        .transform(
+            new Function<AnnotationMirror, Scope>() {
+              @Override
+              public Scope apply(AnnotationMirror annotationMirror) {
+                return scope(annotationMirror);
+              }
+            })
+        .toSet();
   }
 
   /**
@@ -69,7 +89,7 @@ final class Scope {
     if (scopeAnnotations.isEmpty()) {
       return Optional.absent();
     }
-    return Optional.of(new Scope(Iterables.getOnlyElement(scopeAnnotations)));
+    return Optional.of(scope(Iterables.getOnlyElement(scopeAnnotations)));
   }
 
   /**
@@ -91,12 +111,6 @@ final class Scope {
    */
   static Scope reusableScope(Elements elements) {
     return scope(elements, Reusable.class);
-  }
-
-  private static Scope scope(Elements elements, Class<? extends Annotation> scopeAnnotationClass) {
-    return new Scope(
-        SimpleAnnotationMirror.of(
-            elements.getTypeElement(scopeAnnotationClass.getCanonicalName())));
   }
 
   /**
@@ -123,29 +137,7 @@ final class Scope {
    * The scope annotation element.
    */
   public TypeElement scopeAnnotationElement() {
-    return MoreTypes.asTypeElement(annotationMirror.getAnnotationType());
-  }
-
-  /**
-   * Scopes are equal if the underlying {@link AnnotationMirror} are equivalent according to
-   * {@link AnnotationMirrors#equivalence()}.
-   */
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    } else if (obj instanceof Scope) {
-      Scope that = (Scope) obj;
-      return AnnotationMirrors.equivalence()
-        .equivalent(this.annotationMirror, that.annotationMirror);
-    } else {
-      return false;
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    return AnnotationMirrors.equivalence().hash(annotationMirror);
+    return MoreTypes.asTypeElement(scopeAnnotation().get().getAnnotationType());
   }
 
   /**
@@ -153,6 +145,6 @@ final class Scope {
    */
   @Override
   public String toString() {
-    return annotationMirror.toString();
+    return scopeAnnotation().get().toString();
   }
 }

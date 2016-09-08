@@ -297,26 +297,16 @@ abstract class Key {
       this.elements = checkNotNull(elements);
     }
 
+    private TypeElement getClassElement(Class<?> cls) {
+      return elements.getTypeElement(cls.getCanonicalName());
+    }
+
     private DeclaredType setOf(TypeMirror elementType) {
-      return types.getDeclaredType(
-          elements.getTypeElement(Set.class.getCanonicalName()), elementType);
+      return types.getDeclaredType(getClassElement(Set.class), elementType);
     }
 
     private DeclaredType mapOf(TypeMirror keyType, TypeMirror valueType) {
-      return types.getDeclaredType(
-          elements.getTypeElement(Map.class.getCanonicalName()), keyType, valueType);
-    }
-
-    private TypeElement getProviderElement() {
-      return elements.getTypeElement(Provider.class.getCanonicalName());
-    }
-
-    private TypeElement getProducerElement() {
-      return elements.getTypeElement(Producer.class.getCanonicalName());
-    }
-
-    private TypeElement getClassElement(Class<?> cls) {
-      return elements.getTypeElement(cls.getName());
+      return types.getDeclaredType(getClassElement(Map.class), keyType, valueType);
     }
 
     Key forComponentMethod(ExecutableElement componentMethod) {
@@ -356,11 +346,13 @@ abstract class Key {
     }
 
     Key forProvidesMethod(ExecutableElement method, TypeElement contributingModule) {
-      return forBindingMethod(method, contributingModule, Optional.of(getProviderElement()));
+      return forBindingMethod(
+          method, contributingModule, Optional.of(getClassElement(Provider.class)));
     }
 
     Key forProducesMethod(ExecutableElement method, TypeElement contributingModule) {
-      return forBindingMethod(method, contributingModule, Optional.of(getProducerElement()));
+      return forBindingMethod(
+          method, contributingModule, Optional.of(getClassElement(Producer.class)));
     }
 
     /** Returns the key bound by a {@link Binds} method. */
@@ -386,7 +378,7 @@ abstract class Key {
       ContributionType contributionType = ContributionType.fromBindingMethod(method);
       TypeMirror returnType = normalize(types, methodType.getReturnType());
       if (frameworkType.isPresent()
-          && frameworkType.get().equals(getProducerElement())
+          && frameworkType.get().equals(getClassElement(Producer.class))
           && MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
         returnType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
       }

@@ -17,7 +17,6 @@
 package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
@@ -77,7 +76,11 @@ abstract class SetType {
         wrappingClass.getTypeParameters().length == 1,
         "%s must have exactly one type parameter",
         wrappingClass);
-    checkState(elementsAreTypeOf(wrappingClass));
+    checkArgument(
+        elementsAreTypeOf(wrappingClass),
+        "expected elements to be %s, but this type is %s",
+        wrappingClass,
+        declaredSetType());
     return MoreTypes.asDeclared(elementType()).getTypeArguments().get(0);
   }
 
