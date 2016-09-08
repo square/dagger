@@ -18,9 +18,12 @@ package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.MoreTypes.asExecutable;
+import static com.google.auto.common.MoreTypes.isType;
+import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Optional.presentInstances;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.MapKeys.getMapKey;
 import static dagger.internal.codegen.MapKeys.getUnwrappedMapKeyType;
@@ -39,7 +42,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Binds;
@@ -116,6 +118,46 @@ abstract class Key {
    */
   abstract Optional<MultibindingContributionIdentifier> multibindingContributionIdentifier();
 
+  abstract Builder toBuilder();
+
+  static Builder builder(TypeMirror type) {
+    return new AutoValue_Key.Builder().type(type);
+  }
+
+  @AutoValue.Builder
+  abstract static class Builder {
+    abstract Builder wrappedType(Equivalence.Wrapper<TypeMirror> wrappedType);
+
+    Builder type(TypeMirror type) {
+      return wrappedType(MoreTypes.equivalence().wrap(checkNotNull(type)));
+    }
+
+    abstract Builder wrappedQualifier(
+        Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedQualifier);
+
+    abstract Builder wrappedQualifier(Equivalence.Wrapper<AnnotationMirror> wrappedQualifier);
+
+    Builder qualifier(AnnotationMirror qualifier) {
+      return wrappedQualifier(AnnotationMirrors.equivalence().wrap(checkNotNull(qualifier)));
+    }
+
+    Builder qualifier(Optional<AnnotationMirror> qualifier) {
+      return wrappedQualifier(wrapOptionalInEquivalence(checkNotNull(qualifier)));
+    }
+
+    Builder qualifier(TypeElement annotationType) {
+      return qualifier(SimpleAnnotationMirror.of(annotationType));
+    }
+
+    abstract Builder multibindingContributionIdentifier(
+        Optional<MultibindingContributionIdentifier> identifier);
+
+    abstract Builder multibindingContributionIdentifier(
+        MultibindingContributionIdentifier identifier);
+
+    abstract Key build();
+  }
+
   /**
    * An object that identifies a multibinding contribution method and the module class that
    * contributes it to the graph.
@@ -171,38 +213,14 @@ abstract class Key {
     return wrappedType().get();
   }
 
-  private static TypeMirror normalize(Types types, TypeMirror type) {
-    TypeKind kind = type.getKind();
-    return kind.isPrimitive() ? types.boxedClass((PrimitiveType) type).asType() : type;
-  }
-
-  /**
-   * A key whose {@link #qualifier()} and {@link #multibindingContributionIdentifier()} are
-   * equivalent to this one's, but with {@code newType} (normalized) as its {@link #type()}.
-   */
-  private Key withType(Types types, TypeMirror newType) {
-    return new AutoValue_Key(
-        wrappedQualifier(),
-        MoreTypes.equivalence().wrap(normalize(types, newType)),
-        multibindingContributionIdentifier());
-  }
-
-  /**
-   * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but with
-   * {@code identifier} as its {@link #multibindingContributionIdentifier()}.
-   */
-  private Key withMultibindingContributionIdentifier(
-      MultibindingContributionIdentifier identifier) {
-    return new AutoValue_Key(wrappedQualifier(), wrappedType(), Optional.of(identifier));
-  }
-
   /**
    * A key whose {@link #qualifier()} and {@link #type()} are equivalent to this one's, but without
    * a {@link #multibindingContributionIdentifier()}.
    */
   Key withoutMultibindingContributionIdentifier() {
-    return new AutoValue_Key(
-        wrappedQualifier(), wrappedType(), Optional.<MultibindingContributionIdentifier>absent());
+    return toBuilder()
+        .multibindingContributionIdentifier(Optional.<MultibindingContributionIdentifier>absent())
+        .build();
   }
 
   boolean isValidMembersInjectionKey() {
@@ -301,48 +319,50 @@ abstract class Key {
       return elements.getTypeElement(cls.getCanonicalName());
     }
 
+    private TypeMirror boxPrimitives(TypeMirror type) {
+      return type.getKind().isPrimitive() ? types.boxedClass((PrimitiveType) type).asType() : type;
+    }
+
     private DeclaredType setOf(TypeMirror elementType) {
-      return types.getDeclaredType(getClassElement(Set.class), elementType);
+      return types.getDeclaredType(getClassElement(Set.class), boxPrimitives(elementType));
     }
 
     private DeclaredType mapOf(TypeMirror keyType, TypeMirror valueType) {
-      return types.getDeclaredType(getClassElement(Map.class), keyType, valueType);
+      return types.getDeclaredType(
+          getClassElement(Map.class), boxPrimitives(keyType), boxPrimitives(valueType));
+    }
+
+    /** Returns {@code Map<KeyType, FrameworkType<ValueType>>}. */
+    private TypeMirror mapOfFrameworkType(
+        TypeMirror keyType, TypeElement frameworkType, TypeMirror valueType) {
+      return mapOf(keyType, types.getDeclaredType(frameworkType, boxPrimitives(valueType)));
     }
 
     Key forComponentMethod(ExecutableElement componentMethod) {
-      checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
-      TypeMirror returnType = normalize(types, componentMethod.getReturnType());
-      return forMethod(componentMethod, returnType);
+      return forMethod(componentMethod, componentMethod.getReturnType());
     }
 
     Key forProductionComponentMethod(ExecutableElement componentMethod) {
-      checkNotNull(componentMethod);
       checkArgument(componentMethod.getKind().equals(METHOD));
-      TypeMirror returnType = normalize(types, componentMethod.getReturnType());
-      TypeMirror keyType = returnType;
-      if (MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
-        keyType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
-      }
+      TypeMirror returnType = componentMethod.getReturnType();
+      TypeMirror keyType =
+          isTypeOf(ListenableFuture.class, returnType)
+              ? getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments())
+              : returnType;
       return forMethod(componentMethod, keyType);
     }
 
     Key forSubcomponentBuilderMethod(
         ExecutableElement subcomponentBuilderMethod, DeclaredType declaredContainer) {
-      checkNotNull(subcomponentBuilderMethod);
       checkArgument(subcomponentBuilderMethod.getKind().equals(METHOD));
       ExecutableType resolvedMethod =
           asExecutable(types.asMemberOf(declaredContainer, subcomponentBuilderMethod));
-      TypeMirror returnType = normalize(types, resolvedMethod.getReturnType());
-      return forMethod(subcomponentBuilderMethod, returnType);
+      return builder(resolvedMethod.getReturnType()).build();
     }
 
     Key forSubcomponentBuilder(TypeMirror builderType) {
-      checkNotNull(builderType);
-      return new AutoValue_Key(
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(builderType),
-          Optional.<MultibindingContributionIdentifier>absent());
+      return builder(builderType).build();
     }
 
     Key forProvidesMethod(ExecutableElement method, TypeElement contributingModule) {
@@ -376,19 +396,22 @@ abstract class Key {
           MoreTypes.asExecutable(
               types.asMemberOf(MoreTypes.asDeclared(contributingModule.asType()), method));
       ContributionType contributionType = ContributionType.fromBindingMethod(method);
-      TypeMirror returnType = normalize(types, methodType.getReturnType());
+      TypeMirror returnType = methodType.getReturnType();
       if (frameworkType.isPresent()
           && frameworkType.get().equals(getClassElement(Producer.class))
-          && MoreTypes.isTypeOf(ListenableFuture.class, returnType)) {
-        returnType = Iterables.getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
+          && isType(returnType)
+          && isTypeOf(ListenableFuture.class, returnType)) {
+        returnType = getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
       }
       TypeMirror keyType =
           bindingMethodKeyType(returnType, method, contributionType, frameworkType);
       Key key = forMethod(method, keyType);
       return contributionType.equals(ContributionType.UNIQUE)
           ? key
-          : key.withMultibindingContributionIdentifier(
-              new MultibindingContributionIdentifier(method, contributingModule));
+          : key.toBuilder()
+              .multibindingContributionIdentifier(
+                  new MultibindingContributionIdentifier(method, contributingModule))
+              .build();
     }
 
     /**
@@ -403,7 +426,7 @@ abstract class Key {
       checkArgument(method.getKind().equals(METHOD), "%s must be a method", method);
       TypeElement factoryType =
           elements.getTypeElement(bindingType.frameworkClass().getCanonicalName());
-      TypeMirror returnType = normalize(types, executableType.getReturnType());
+      TypeMirror returnType = executableType.getReturnType();
       TypeMirror keyType =
           MapType.isMap(returnType)
               ? mapOfFrameworkType(
@@ -453,14 +476,6 @@ abstract class Key {
           : delegateDeclaration.key();
     }
 
-    /**
-     * Returns {@code Map<KeyType, FrameworkType<ValueType>>}.
-     */
-    private TypeMirror mapOfFrameworkType(
-        TypeMirror keyType, TypeElement frameworkType, TypeMirror valueType) {
-      return mapOf(keyType, types.getDeclaredType(frameworkType, valueType));
-    }
-
     private TypeMirror mapKeyType(ExecutableElement method) {
       AnnotationMirror mapKeyAnnotation = getMapKey(method).get();
       return MapKeys.unwrapValue(mapKeyAnnotation).isPresent()
@@ -469,56 +484,39 @@ abstract class Key {
     }
 
     private Key forMethod(ExecutableElement method, TypeMirror keyType) {
-      return new AutoValue_Key(
-          wrapOptionalInEquivalence(getQualifier(method)),
-          MoreTypes.equivalence().wrap(keyType),
-          Optional.<MultibindingContributionIdentifier>absent());
+      return forQualifiedType(getQualifier(method), keyType);
     }
 
     Key forInjectConstructorWithResolvedType(TypeMirror type) {
-      return new AutoValue_Key(
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(type),
-          Optional.<MultibindingContributionIdentifier>absent());
+      return builder(type).build();
     }
 
     Key forComponent(TypeMirror type) {
-      return new AutoValue_Key(
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(types, type)),
-          Optional.<MultibindingContributionIdentifier>absent());
+      return builder(type).build();
     }
 
     Key forMembersInjectedType(TypeMirror type) {
-      return new AutoValue_Key(
-          Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-          MoreTypes.equivalence().wrap(normalize(types, type)),
-          Optional.<MultibindingContributionIdentifier>absent());
+      return builder(type).build();
     }
 
     Key forQualifiedType(Optional<AnnotationMirror> qualifier, TypeMirror type) {
-      return new AutoValue_Key(
-          wrapOptionalInEquivalence(qualifier),
-          MoreTypes.equivalence().wrap(normalize(types, type)),
-          Optional.<MultibindingContributionIdentifier>absent());
+      return builder(boxPrimitives(type)).qualifier(qualifier).build();
     }
 
     Key forProductionExecutor() {
-      return forQualifiedType(
-          Optional.of(SimpleAnnotationMirror.of(getClassElement(Production.class))),
-          getClassElement(Executor.class).asType());
+      return builder(getClassElement(Executor.class).asType())
+          .qualifier(getClassElement(Production.class))
+          .build();
     }
 
     Key forProductionImplementationExecutor() {
-      return forQualifiedType(
-          Optional.of(SimpleAnnotationMirror.of(getClassElement(ProductionImplementation.class))),
-          getClassElement(Executor.class).asType());
+      return builder(getClassElement(Executor.class).asType())
+          .qualifier(getClassElement(ProductionImplementation.class))
+          .build();
     }
 
     Key forProductionComponentMonitor() {
-      return forQualifiedType(
-          Optional.<AnnotationMirror>absent(),
-          getClassElement(ProductionComponentMonitor.class).asType());
+      return builder(getClassElement(ProductionComponentMonitor.class).asType()).build();
     }
 
     /**
@@ -574,7 +572,7 @@ abstract class Key {
       } else {
         return possibleMapKey;
       }
-      return possibleMapKey.withType(types, mapOf(mapType.keyType(), wrappedValueType));
+      return possibleMapKey.toBuilder().type(mapOf(mapType.keyType(), wrappedValueType)).build();
     }
 
     /**
@@ -613,7 +611,7 @@ abstract class Key {
               types.getDeclaredType(
                   wrappingElement, mapType.unwrappedValueType(currentWrappingClass));
           return Optional.of(
-              possibleMapKey.withType(types, mapOf(mapType.keyType(), wrappedValueType)));
+              possibleMapKey.toBuilder().type(mapOf(mapType.keyType(), wrappedValueType)).build());
         }
       }
       return Optional.absent();
@@ -639,7 +637,7 @@ abstract class Key {
           DeclaredType wrappedValueType =
               types.getDeclaredType(wrappingElement, mapType.valueType());
           return Optional.of(
-              possibleMapKey.withType(types, mapOf(mapType.keyType(), wrappedValueType)));
+              possibleMapKey.toBuilder().type(mapOf(mapType.keyType(), wrappedValueType)).build());
         }
       }
       return Optional.absent();
@@ -654,7 +652,7 @@ abstract class Key {
         SetType setType = SetType.from(key);
         if (setType.elementsAreTypeOf(wrappingClass)) {
           return Optional.of(
-              key.withType(types, setOf(setType.unwrappedElementType(wrappingClass))));
+              key.toBuilder().type(setOf(setType.unwrappedElementType(wrappingClass))).build());
         }
       }
       return Optional.absent();
@@ -671,7 +669,7 @@ abstract class Key {
       }
       TypeMirror underlyingType =
           DependencyRequest.extractKindAndType(OptionalType.from(key).valueType()).type();
-      return Optional.of(key.withType(types, underlyingType));
+      return Optional.of(key.toBuilder().type(underlyingType).build());
     }
   }
 }
