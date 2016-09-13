@@ -171,8 +171,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new AnnotationCreatorGenerator(filer, elements);
     UnwrappedMapKeyGenerator unwrappedMapKeyGenerator =
         new UnwrappedMapKeyGenerator(filer, elements);
-    ComponentHierarchyValidator componentHierarchyValidator =
-        new ComponentHierarchyValidator(compilerOptions, elements);
+
+    ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(
             elements,
