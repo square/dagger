@@ -19,8 +19,6 @@ package dagger.internal.codegen;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.auto.common.MoreTypes;
-import com.google.common.base.Equivalence;
-import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.testing.compile.CompilationRule;
@@ -72,12 +70,7 @@ public class KeyTest {
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
     Key key =
         keyFactory.forInjectConstructorWithResolvedType(constructor.getEnclosingElement().asType());
-    assertThat(key)
-        .isEqualTo(
-            new AutoValue_Key(
-                Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-                MoreTypes.equivalence().wrap(typeElement.asType()),
-                Optional.<MultibindingContributionIdentifier>absent()));
+    assertThat(key).isEqualTo(Key.builder(typeElement.asType()).build());
     assertThat(key.toString()).isEqualTo("dagger.internal.codegen.KeyTest.InjectedClass");
   }
 
@@ -93,12 +86,7 @@ public class KeyTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
-    assertThat(key)
-        .isEqualTo(
-            new AutoValue_Key(
-                Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-                MoreTypes.equivalence().wrap(stringType),
-                Optional.<MultibindingContributionIdentifier>absent()));
+    assertThat(key).isEqualTo(Key.builder(stringType).build());
     assertThat(key.toString()).isEqualTo("java.lang.String");
   }
 
@@ -140,7 +128,7 @@ public class KeyTest {
     Element injectionField =
         Iterables.getOnlyElement(ElementFilter.fieldsIn(injectableElement.getEnclosedElements()));
     AnnotationMirror qualifier = Iterables.getOnlyElement(injectionField.getAnnotationMirrors());
-    Key injectionKey = keyFactory.forQualifiedType(Optional.<AnnotationMirror>of(qualifier), type);
+    Key injectionKey = Key.builder(type).qualifier(qualifier).build();
 
     assertThat(provisionKey).isEqualTo(injectionKey);
     assertThat(injectionKey.toString())
@@ -180,11 +168,10 @@ public class KeyTest {
       Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
       assertThat(key)
           .isEqualTo(
-              new AutoValue_Key(
-                  Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-                  MoreTypes.equivalence().wrap(setOfStringsType),
-                  Optional.of(
-                      new MultibindingContributionIdentifier(providesMethod, moduleElement))));
+              Key.builder(setOfStringsType)
+                  .multibindingContributionIdentifier(
+                      new MultibindingContributionIdentifier(providesMethod, moduleElement))
+                  .build());
       assertThat(key.toString())
           .isEqualTo(
               String.format(
@@ -248,12 +235,7 @@ public class KeyTest {
     for (ExecutableElement producesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
       Key key = keyFactory.forProducesMethod(producesMethod, moduleElement);
-      assertThat(key)
-          .isEqualTo(
-              new AutoValue_Key(
-                  Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-                  MoreTypes.equivalence().wrap(stringType),
-                  Optional.<MultibindingContributionIdentifier>absent()));
+      assertThat(key).isEqualTo(Key.builder(stringType).build());
       assertThat(key.toString()).isEqualTo("java.lang.String");
     }
   }
@@ -280,11 +262,10 @@ public class KeyTest {
       Key key = keyFactory.forProducesMethod(producesMethod, moduleElement);
       assertThat(key)
           .isEqualTo(
-              new AutoValue_Key(
-                  Optional.<Equivalence.Wrapper<AnnotationMirror>>absent(),
-                  MoreTypes.equivalence().wrap(setOfStringsType),
-                  Optional.of(
-                      new MultibindingContributionIdentifier(producesMethod, moduleElement))));
+              Key.builder(setOfStringsType)
+                  .multibindingContributionIdentifier(
+                      new MultibindingContributionIdentifier(producesMethod, moduleElement))
+                  .build());
       assertThat(key.toString())
           .isEqualTo(
               String.format(

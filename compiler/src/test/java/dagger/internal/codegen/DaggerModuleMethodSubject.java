@@ -159,7 +159,7 @@ final class DaggerModuleMethodSubject extends Subject<DaggerModuleMethodSubject,
   }
 
   private int methodLine(String source) {
-    String beforeMethod = source.substring(0, source.indexOf(getSubject()));
+    String beforeMethod = source.substring(0, source.indexOf(actual()));
     int methodLine = 1;
     for (int nextNewlineIndex = beforeMethod.indexOf('\n');
         nextNewlineIndex >= 0;
@@ -178,7 +178,7 @@ final class DaggerModuleMethodSubject extends Subject<DaggerModuleMethodSubject,
       writer.println(importLine);
     }
     writer.println();
-    writer.printf(declaration, "TestModule", "\n" + getSubject() + "\n");
+    writer.printf(declaration, "TestModule", "\n" + actual() + "\n");
     writer.println();
     return stringWriter.toString();
   }

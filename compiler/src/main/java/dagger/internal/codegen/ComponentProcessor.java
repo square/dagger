@@ -26,6 +26,7 @@ import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.Processor;
+import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -170,6 +171,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new AnnotationCreatorGenerator(filer, elements);
     UnwrappedMapKeyGenerator unwrappedMapKeyGenerator =
         new UnwrappedMapKeyGenerator(filer, elements);
+
     ComponentHierarchyValidator componentHierarchyValidator = new ComponentHierarchyValidator();
     BindingGraphValidator bindingGraphValidator =
         new BindingGraphValidator(
@@ -238,12 +240,14 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
   }
 
   @Override
-  protected void postProcess() {
-    try {
-      injectBindingRegistry.generateSourcesForRequiredBindings(
-          factoryGenerator, membersInjectorGenerator);
-    } catch (SourceFileGenerationException e) {
-      e.printMessageTo(processingEnv.getMessager());
+  protected void postRound(RoundEnvironment roundEnv) {
+    if (!roundEnv.processingOver()) {
+      try {
+        injectBindingRegistry.generateSourcesForRequiredBindings(
+            factoryGenerator, membersInjectorGenerator);
+      } catch (SourceFileGenerationException e) {
+        e.printMessageTo(processingEnv.getMessager());
+      }
     }
   }
 }

@@ -28,6 +28,7 @@ import static dagger.internal.codegen.AbstractComponentWriter.InitializationStat
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
@@ -487,6 +488,10 @@ abstract class AbstractComponentWriter {
    * Adds component factory methods.
    */
   protected abstract void addFactoryMethods();
+
+  private boolean graphHasContributionBinding(Key key) {
+    return graph.resolvedBindings().containsKey(contribution(key));
+  }
 
   private void addFrameworkFields() {
     for (ResolvedBindings resolvedBindings : graph.resolvedBindings().values()) {
@@ -1289,22 +1294,20 @@ abstract class AbstractComponentWriter {
     return CodeBlock.of("($T) $L", classToCast, notCasted);
   }
 
-  /** Returns an expression that initializes a {@link Provider} for an optional binding. */
+  /**
+   * Returns an expression that initializes a {@link Provider} or {@link Producer} for an optional
+   * binding.
+   */
   private CodeBlock initializeFactoryForSyntheticOptionalBinding(ContributionBinding binding) {
-    if (binding.bindingType().equals(BindingType.PRODUCTION)) {
-      throw new UnsupportedOperationException("optional producers are not supported yet");
-    }
-
     if (binding.dependencies().isEmpty()) {
+      verify(
+          binding.bindingType().equals(BindingType.PROVISION),
+          "Absent optional bindings should be provisions: %s",
+          binding);
       return optionalFactories.absentOptionalProvider();
     } else {
-      TypeMirror valueType = OptionalType.from(binding.key()).valueType();
-      DependencyRequest.Kind valueKind = DependencyRequest.extractKindAndType(valueType).kind();
-      FrameworkDependency frameworkDependency =
-          getOnlyElement(frameworkDependenciesForBinding(binding));
-      CodeBlock dependencyArgument =
-          getDependencyArgument(frameworkDependency).getExpressionFor(name);
-      return optionalFactories.presentOptionalProvider(valueKind, dependencyArgument);
+      return optionalFactories.presentOptionalFactory(
+          binding, getOnlyElement(getDependencyArguments(binding)));
     }
   }
 
