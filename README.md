@@ -1,14 +1,19 @@
-Dagger
-======
+Dagger 1
+========
 
 A fast dependency injector for Android and Java.
 
-For more information please see [the website][1].
+
+Deprecated – Please upgrade to Dagger 2
+---------------------------------------
+
+Square's Dagger 1.x is deprecated in favor of [Google's Dagger 2](https://github.com/google/dagger).
+Please see [the migration guide](http://google.github.io/dagger/dagger-1-migration.html) for help
+with the upgrade.
 
 
-
-Download
---------
+Download Dagger 1
+-----------------
 
 You will need to include the `dagger-${dagger.version}.jar` in your
 application's runtime.  In order to activate code generation you will need to
