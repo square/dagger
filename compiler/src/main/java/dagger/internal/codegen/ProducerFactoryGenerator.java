@@ -484,11 +484,21 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
     codeBlocks.add(CodeBlock.of("monitor.methodStarting();"));
 
-    CodeBlock returnCodeBlock =
-        binding.bindingKind().equals(ContributionBinding.Kind.FUTURE_PRODUCTION)
-            ? moduleCodeBlock
-            : CodeBlock.of(
-                "$T.<$T>immediateFuture($L)", FUTURES, providedTypeName, moduleCodeBlock);
+    final CodeBlock returnCodeBlock;
+    switch (binding.productionKind().get()) {
+      case IMMEDIATE:
+        returnCodeBlock =
+            CodeBlock.of("$T.<$T>immediateFuture($L)", FUTURES, providedTypeName, moduleCodeBlock);
+        break;
+      case FUTURE:
+        returnCodeBlock = moduleCodeBlock;
+        break;
+      case SET_OF_FUTURE:
+        returnCodeBlock = CodeBlock.of("$T.allAsSet($L)", PRODUCERS, moduleCodeBlock);
+        break;
+      default:
+        throw new AssertionError();
+    }
     return CodeBlock.of(
         Joiner.on('\n')
             .join(

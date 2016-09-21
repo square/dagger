@@ -390,9 +390,19 @@ abstract class Key {
       TypeMirror returnType = methodType.getReturnType();
       if (frameworkType.isPresent()
           && frameworkType.get().equals(getClassElement(Producer.class))
-          && isType(returnType)
-          && isTypeOf(ListenableFuture.class, returnType)) {
-        returnType = getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
+          && isType(returnType)) {
+        if (isTypeOf(ListenableFuture.class, returnType)) {
+          returnType = getOnlyElement(MoreTypes.asDeclared(returnType).getTypeArguments());
+        } else if (contributionType.equals(ContributionType.SET_VALUES)
+            && SetType.isSet(returnType)) {
+          SetType setType = SetType.from(returnType);
+          if (setType.elementsAreTypeOf(ListenableFuture.class)) {
+            returnType =
+                types.getDeclaredType(
+                    getClassElement(Set.class),
+                    setType.unwrappedElementType(ListenableFuture.class));
+          }
+        }
       }
       TypeMirror keyType =
           bindingMethodKeyType(returnType, method, contributionType, frameworkType);

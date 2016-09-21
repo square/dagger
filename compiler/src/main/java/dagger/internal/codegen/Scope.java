@@ -22,6 +22,7 @@ import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.InjectionAnnotations.getScopes;
 
 import com.google.auto.common.AnnotationMirrors;
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
@@ -49,10 +50,20 @@ abstract class Scope {
    * Creates a {@link Scope} object from the {@link javax.inject.Scope}-annotated annotation type.
    */
   static Scope scope(AnnotationMirror scopeAnnotation) {
-    checkArgument(
-        isAnnotationPresent(
-            scopeAnnotation.getAnnotationType().asElement(), javax.inject.Scope.class));
+    checkArgument(isScope(scopeAnnotation));
     return new AutoValue_Scope(AnnotationMirrors.equivalence().wrap(scopeAnnotation));
+  }
+
+  /** Returns {@code true} if {@code scopeAnnotation} is a {@link javax.inject.Scope} annotation. */
+  static boolean isScope(AnnotationMirror scopeAnnotation) {
+    return isScope(MoreElements.asType(scopeAnnotation.getAnnotationType().asElement()));
+  }
+
+  /**
+   * Returns {@code true} if {@code scopeAnnotationType} is a {@link javax.inject.Scope} annotation.
+   */
+  static boolean isScope(TypeElement scopeAnnotationType) {
+    return isAnnotationPresent(scopeAnnotationType, javax.inject.Scope.class);
   }
 
   /**

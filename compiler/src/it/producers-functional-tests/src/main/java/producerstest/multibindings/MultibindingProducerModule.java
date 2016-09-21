@@ -56,6 +56,12 @@ abstract class MultibindingProducerModule {
 
   @Produces
   @ElementsIntoSet
+  static Set<ListenableFuture<String>> strFutures() {
+    return ImmutableSet.of(Futures.immediateFuture("baz1"), Futures.immediateFuture("baz2"));
+  }
+
+  @Produces
+  @ElementsIntoSet
   static Set<String> strs() {
     return ImmutableSet.of("bar1", "bar2");
   }

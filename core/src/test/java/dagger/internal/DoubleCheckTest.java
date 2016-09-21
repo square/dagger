@@ -17,7 +17,6 @@
 package dagger.internal;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -102,12 +101,12 @@ public class DoubleCheckTest {
 
     List<Future<Object>> futures = executor.invokeAll(tasks);
 
-    assert_().that(provider.provisions.get()).isEqualTo(1);
+    assertThat(provider.provisions.get()).isEqualTo(1);
     Set<Object> results = Sets.newIdentityHashSet();
     for (Future<Object> future : futures) {
       results.add(future.get());
     }
-    assert_().that(results.size()).isEqualTo(1);
+    assertThat(results).hasSize(1);
   }
 
   private static class LatchedProvider implements Provider<Object> {

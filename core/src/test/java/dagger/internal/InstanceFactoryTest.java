@@ -16,7 +16,7 @@
 
 package dagger.internal;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -31,9 +31,9 @@ public final class InstanceFactoryTest {
   @Test public void instanceFactory() {
     Object instance = new Object();
     Factory<Object> factory = InstanceFactory.create(instance);
-    assert_().that(factory.get()).isEqualTo(instance);
-    assert_().that(factory.get()).isEqualTo(instance);
-    assert_().that(factory.get()).isEqualTo(instance);
+    assertThat(factory.get()).isEqualTo(instance);
+    assertThat(factory.get()).isEqualTo(instance);
+    assertThat(factory.get()).isEqualTo(instance);
   }
 
   @Test public void create_throwsNullPointerException() {

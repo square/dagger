@@ -16,7 +16,7 @@
 
 package dagger.tests.integration.operation;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
 import static java.util.Arrays.asList;
@@ -133,10 +133,11 @@ public final class PrimitiveInjectionTest {
       "}");
 
   @Test public void primitiveArrayTypesAllInjected() {
-    assert_().about(javaSources())
+    assertAbout(javaSources())
         .that(asList(component, primitiveInjectable, primitiveModule))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
-        .and().generatesSources(expectedComponent);
+        .and()
+        .generatesSources(expectedComponent);
   }
 }

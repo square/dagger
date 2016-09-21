@@ -19,6 +19,7 @@ package dagger.producers.internal;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -94,6 +95,32 @@ public class ProducersTest {
       fail();
     } catch (ExecutionException e) {
       assertThat(e.getCause()).hasMessage("monkey");
+    }
+  }
+
+  @Test
+  public void allAsSet_success() throws Exception {
+    ListenableFuture<Set<String>> future =
+        Producers.allAsSet(
+            ImmutableList.of(
+                Futures.immediateFuture("monkey"), Futures.immediateFuture("gorilla")));
+    assertThat(future.isDone()).isTrue();
+    assertThat(future.get()).containsExactly("monkey", "gorilla");
+  }
+
+  @Test
+  public void allAsSet_failure() throws Exception {
+    ListenableFuture<Set<String>> future =
+        Producers.allAsSet(
+            ImmutableList.of(
+                Futures.immediateFuture("monkey"),
+                Futures.<String>immediateFailedFuture(new RuntimeException("gorilla"))));
+    assertThat(future.isDone()).isTrue();
+    try {
+      future.get();
+      fail();
+    } catch (ExecutionException e) {
+      assertThat(e.getCause()).hasMessage("gorilla");
     }
   }
 

@@ -41,13 +41,15 @@ public class MultibindingTest {
             "foo",
             "foo1",
             "foo2",
+            "baz1",
+            "baz2",
             "bar",
             "bar1",
             "bar2",
             "providedStr",
             "providedStr1",
             "providedStr2");
-    assertThat(multibindingComponent.strCount().get()).isEqualTo(9);
+    assertThat(multibindingComponent.strCount().get()).isEqualTo(11);
   }
 
   @Test
@@ -58,6 +60,8 @@ public class MultibindingTest {
             Produced.successful("foo"),
             Produced.successful("foo1"),
             Produced.successful("foo2"),
+            Produced.successful("baz1"),
+            Produced.successful("baz2"),
             Produced.successful("bar"),
             Produced.successful("bar1"),
             Produced.successful("bar2"),
