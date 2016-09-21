@@ -27,10 +27,13 @@ import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
+import static dagger.internal.codegen.Accessibility.isElementAccessibleFrom;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
+import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
@@ -686,30 +689,38 @@ abstract class AbstractComponentWriter {
   }
 
   // TODO(gak): extract this into a proper factory class
-  private RequestFulfillment getOrCreateRequestFulfillment(BindingKey bindingKey) {
-    RequestFulfillment requestFulfillment = requestFulfillments.get(bindingKey);
-    if (requestFulfillment == null) {
-      /* TODO(gak): it is super convoluted that we create the member selects separately and then
-       * look them up again this way. Now that we have RequestFulfillment, the next step is to
-       * create it and the MemberSelect and the field on demand rather than in a first pass. */
-      MemberSelect memberSelect = getMemberSelect(bindingKey);
-      ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-      switch (resolvedBindings.bindingType()) {
-        case MEMBERS_INJECTION:
-          requestFulfillment = new MembersInjectorRequestFulfillment(bindingKey, memberSelect);
-          break;
-        case PRODUCTION:
-          requestFulfillment = new ProducerFieldRequestFulfillment(bindingKey, memberSelect);
-          break;
-        case PROVISION:
-          requestFulfillment = new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
-          break;
-        default:
-          throw new AssertionError();
-      }
-      requestFulfillments.put(bindingKey, requestFulfillment);
+  private RequestFulfillment createRequestFulfillment(BindingKey bindingKey) {
+    /* TODO(gak): it is super convoluted that we create the member selects separately and then
+     * look them up again this way. Now that we have RequestFulfillment, the next step is to
+     * create it and the MemberSelect and the field on demand rather than in a first pass. */
+    MemberSelect memberSelect = getMemberSelect(bindingKey);
+    ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
+    switch (resolvedBindings.bindingType()) {
+      case MEMBERS_INJECTION:
+        return new MembersInjectorRequestFulfillment(bindingKey, memberSelect);
+      case PRODUCTION:
+        return new ProducerFieldRequestFulfillment(bindingKey, memberSelect);
+      case PROVISION:
+        ProvisionBinding provisionBinding =
+            (ProvisionBinding) resolvedBindings.contributionBinding();
+        ProviderFieldRequestFulfillment providerFieldRequestFulfillment =
+            new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
+        if (provisionBinding.implicitDependencies().isEmpty()
+            && !provisionBinding.scope().isPresent()
+            && !provisionBinding.requiresModuleInstance()
+            && provisionBinding.bindingElement().isPresent()
+            && (provisionBinding.bindingKind().equals(INJECTION)
+                || provisionBinding.bindingKind().equals(PROVISION))
+            // TODO(gak): the accessibility limitation here needs to be addressed
+            && isElementAccessibleFrom(
+                provisionBinding.bindingElement().get(), name.packageName())) {
+          return new SimpleMethodRequestFulfillment(
+              bindingKey, provisionBinding, providerFieldRequestFulfillment);
+        }
+        return providerFieldRequestFulfillment;
+      default:
+        throw new AssertionError();
     }
-    return requestFulfillment;
   }
 
   private void implementInterfaceMethods() {
@@ -732,7 +743,8 @@ abstract class AbstractComponentWriter {
           MethodSpec.Builder interfaceMethod =
               methodSpecForComponentMethod(methodElement, requestType);
           RequestFulfillment fulfillment =
-              getOrCreateRequestFulfillment(interfaceRequest.bindingKey());
+              requestFulfillments.computeIfAbsent(
+                  interfaceRequest.bindingKey(), this::createRequestFulfillment);
           CodeBlock codeBlock = fulfillment.getSnippetForDependencyRequest(interfaceRequest, name);
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
@@ -1111,8 +1123,7 @@ abstract class AbstractComponentWriter {
               /* 7 */ simpleVariableName(dependencyType));
         }
 
-      case IMMEDIATE:
-      case FUTURE_PRODUCTION:
+      case PRODUCTION:
         {
           List<CodeBlock> arguments =
               Lists.newArrayListWithCapacity(binding.implicitDependencies().size() + 2);

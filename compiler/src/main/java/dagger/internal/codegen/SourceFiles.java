@@ -20,25 +20,24 @@ import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesF
 import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
 import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
 import static dagger.internal.codegen.Util.ELEMENT_SIMPLE_NAME;
+import static dagger.internal.codegen.Util.optionalComparator;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
+import java.util.Comparator;
 import java.util.Iterator;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
@@ -57,26 +56,17 @@ class SourceFiles {
    * Sorts {@link DependencyRequest} instances in an order likely to reflect their logical
    * importance.
    */
-  static final Ordering<DependencyRequest> DEPENDENCY_ORDERING =
-      new Ordering<DependencyRequest>() {
-        @Override
-        public int compare(DependencyRequest left, DependencyRequest right) {
-          return ComparisonChain.start()
-              // put fields before parameters
-              .compare(
-                  left.requestElement().transform(Element::getKind),
-                  right.requestElement().transform(Element::getKind),
-                  Util.<ElementKind>optionalComparator())
-              // order by dependency kind
-              .compare(left.kind(), right.kind())
-              // then sort by name
-              .compare(
-                  left.requestElement().transform(ELEMENT_SIMPLE_NAME),
-                  right.requestElement().transform(ELEMENT_SIMPLE_NAME),
-                  Util.<String>optionalComparator())
-              .result();
-        }
-      };
+  static final Comparator<DependencyRequest> DEPENDENCY_ORDERING =
+      // put fields before parameters
+      Comparator.comparing(
+              (DependencyRequest request) -> request.requestElement().transform(Element::getKind),
+              optionalComparator())
+          // order by dependency kind
+          .thenComparing(DependencyRequest::kind)
+          // then sort by name
+          .thenComparing(
+              request -> request.requestElement().transform(ELEMENT_SIMPLE_NAME),
+              optionalComparator());
 
   /**
    * Generates names and keys for the factory class fields needed to hold the framework classes for
@@ -87,7 +77,7 @@ class SourceFiles {
    * <li>is <i>probably</i> associated with the type being bound
    * <li>is unique within the class
    * </ul>
-   * 
+   *
    * @param binding must be an unresolved binding (type parameters must match its type element's)
    */
   static ImmutableMap<BindingKey, FrameworkField> generateBindingFieldsForDependencies(
@@ -163,8 +153,7 @@ class SourceFiles {
         switch (contribution.bindingKind()) {
           case INJECTION:
           case PROVISION:
-          case IMMEDIATE:
-          case FUTURE_PRODUCTION:
+          case PRODUCTION:
             return enclosingClassName
                 .topLevelClassName()
                 .peerClass(
@@ -216,8 +205,7 @@ class SourceFiles {
             // The binding is just parameterized on <B>, but we need all of <A, B, C>.
             return Optional.of(contributionBinding.bindingTypeElement().get().asType());
 
-          case IMMEDIATE:
-          case FUTURE_PRODUCTION:
+          case PRODUCTION:
             // TODO(beder): Can these be treated just like PROVISION?
             throw new UnsupportedOperationException();
             
@@ -275,8 +263,7 @@ class SourceFiles {
         return "";
 
       case PROVISION:
-      case IMMEDIATE:
-      case FUTURE_PRODUCTION:
+      case PRODUCTION:
         return CaseFormat.LOWER_CAMEL.to(
             UPPER_CAMEL, binding.bindingElement().get().getSimpleName().toString());
 

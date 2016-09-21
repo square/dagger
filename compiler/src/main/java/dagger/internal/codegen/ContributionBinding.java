@@ -124,11 +124,8 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
 
     // Production kinds
 
-    /** A {@link Produces}-annotated method that doesn't return a {@link ListenableFuture}. */
-    IMMEDIATE,
-
-    /** A {@link Produces}-annotated method that returns a {@link ListenableFuture}. */
-    FUTURE_PRODUCTION,
+    /** A {@link Produces}-annotated method. */
+    PRODUCTION,
 
     /**
      * A production method on a production component's {@linkplain

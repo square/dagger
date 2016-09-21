@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import java.util.List;
 import java.util.Set;
 import javax.inject.Provider;
 
@@ -86,6 +87,24 @@ public final class Producers {
         return ImmutableSet.of(value);
       }
     });
+  }
+
+  /**
+   * Creates a new {@code ListenableFuture} whose value is a set containing the values of all its
+   * input futures, if all succeed. If any input fails, the returned future fails immediately.
+   *
+   * <p>This is the set equivalent of {@link Futures#allAsList}.
+   */
+  public static <T> ListenableFuture<Set<T>> allAsSet(
+      Iterable<? extends ListenableFuture<? extends T>> futures) {
+    return Futures.transform(
+        Futures.allAsList(futures),
+        new Function<List<T>, Set<T>>() {
+          @Override
+          public Set<T> apply(List<T> values) {
+            return ImmutableSet.copyOf(values);
+          }
+        });
   }
 
   /**

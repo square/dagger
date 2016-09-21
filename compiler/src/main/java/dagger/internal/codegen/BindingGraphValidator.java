@@ -266,6 +266,10 @@ final class BindingGraphValidator {
       return parent.isPresent() ? parent.get().topLevelGraph() : subject;
     }
 
+    ValidationReport.Builder<TypeElement> topLevelReport() {
+      return parent.isPresent() ? parent.get().topLevelReport() : reportBuilder;
+    }
+
     ValidationReport<TypeElement> buildReport() {
       return reportBuilder.build();
     }
@@ -1326,7 +1330,7 @@ final class BindingGraphValidator {
     abstract DependencyRequest dependencyRequest();
 
     abstract ResolvedBindings resolvedBindings();
-    
+
     /**
      * The {@link #resolvedBindings()} of the previous entry in the {@link DependencyPath}. One of
      * these bindings depends directly on {@link #dependencyRequest()}.

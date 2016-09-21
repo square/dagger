@@ -18,18 +18,18 @@ package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
 import static com.google.auto.common.MoreElements.hasModifiers;
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.MoreTypes.asDeclared;
+import static com.google.common.collect.Lists.asList;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.auto.common.MoreElements;
+import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Binds;
 import dagger.Provides;
@@ -42,6 +42,7 @@ import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleElementVisitor6;
 
@@ -58,13 +59,13 @@ final class Util {
         MoreElements.getLocalAndInheritedMethods(typeElement, elements);
     boolean foundInstanceMethod = false;
     for (ExecutableElement method : methods) {
-      if (method.getModifiers().contains(ABSTRACT) && !isAnnotationPresent(method, Binds.class)) {
+      if (method.getModifiers().contains(ABSTRACT)
+          && !MoreElements.isAnnotationPresent(method, Binds.class)) {
         /* We found an abstract method that isn't a @Binds method.  That automatically means that
          * a user will have to provide an instance because we don't know which subclass to use. */
         return true;
       } else if (!method.getModifiers().contains(STATIC)
-          && (isAnnotationPresent(method, Provides.class)
-              || isAnnotationPresent(method, Produces.class))) {
+          && isAnyAnnotationPresent(method, Provides.class, Produces.class)) {
         foundInstanceMethod = true;
       }
     }
@@ -165,7 +166,7 @@ final class Util {
   static boolean isAnyAnnotationPresent(
       Element element, Iterable<? extends Class<? extends Annotation>> annotationClasses) {
     for (Class<? extends Annotation> annotation : annotationClasses) {
-      if (isAnnotationPresent(element, annotation)) {
+      if (MoreElements.isAnnotationPresent(element, annotation)) {
         return true;
       }
     }
@@ -177,8 +178,20 @@ final class Util {
       Element element,
       Class<? extends Annotation> first,
       Class<? extends Annotation>... otherAnnotations) {
-    return isAnnotationPresent(element, first)
-        || isAnyAnnotationPresent(element, ImmutableList.copyOf(otherAnnotations));
+    return isAnyAnnotationPresent(element, asList(first, otherAnnotations));
+  }
+
+  /**
+   * Returns {@code true} iff the given element has an {@link AnnotationMirror} whose {@linkplain
+   * AnnotationMirror#getAnnotationType() annotation type} is equivalent to {@code annotationType}.
+   */
+  // TODO(dpb): Move to MoreElements.
+  static boolean isAnnotationPresent(Element element, TypeMirror annotationType) {
+    return element
+        .getAnnotationMirrors()
+        .stream()
+        .map(AnnotationMirror::getAnnotationType)
+        .anyMatch(candidate -> MoreTypes.equivalence().equivalent(candidate, annotationType));
   }
 
   /**

@@ -66,6 +66,23 @@ abstract class ProductionBinding extends ContributionBinding {
         .build();
   }
 
+  /** What kind of object this produces method returns. */
+  enum ProductionKind {
+    /** A value. */
+    IMMEDIATE,
+    /** A {@code ListenableFuture<T>}. */
+    FUTURE,
+    /** A {@code Set<ListenableFuture<T>>}. */
+    SET_OF_FUTURE;
+  }
+
+  /**
+   * Returns the kind of object the produces method returns. All production bindings from
+   * {@code @Produces} methods will have a production kind, but synthetic production bindings may
+   * not.
+   */
+  abstract Optional<ProductionKind> productionKind();
+
   /** Returns the list of types in the throws clause of the method. */
   abstract ImmutableList<? extends TypeMirror> thrownTypes();
 
@@ -91,6 +108,7 @@ abstract class ProductionBinding extends ContributionBinding {
   @AutoValue.Builder
   @CanIgnoreReturnValue
   abstract static class Builder extends ContributionBinding.Builder<Builder> {
+    abstract Builder productionKind(ProductionKind productionKind);
 
     abstract Builder thrownTypes(Iterable<? extends TypeMirror> thrownTypes);
 
@@ -117,6 +135,7 @@ abstract class ProductionBinding extends ContributionBinding {
     ProductionBinding forProducesMethod(
         ExecutableElement producesMethod, TypeElement contributedBy) {
       checkArgument(producesMethod.getKind().equals(METHOD));
+      ContributionType contributionType = ContributionType.fromBindingMethod(producesMethod);
       Key key = keyFactory.forProducesMethod(producesMethod, contributedBy);
       ExecutableType resolvedMethod =
           MoreTypes.asExecutable(
@@ -127,20 +146,27 @@ abstract class ProductionBinding extends ContributionBinding {
               resolvedMethod.getParameterTypes());
       DependencyRequest executorRequest =
           dependencyRequestFactory.forProductionImplementationExecutor();
-      DependencyRequest monitorRequest =
-          dependencyRequestFactory.forProductionComponentMonitor();
-      Kind kind = MoreTypes.isTypeOf(ListenableFuture.class, producesMethod.getReturnType())
-          ? Kind.FUTURE_PRODUCTION
-          : Kind.IMMEDIATE;
+      DependencyRequest monitorRequest = dependencyRequestFactory.forProductionComponentMonitor();
+      final ProductionKind productionKind;
+      if (MoreTypes.isTypeOf(ListenableFuture.class, producesMethod.getReturnType())) {
+        productionKind = ProductionKind.FUTURE;
+      } else if (contributionType.equals(ContributionType.SET_VALUES)
+          && SetType.from(producesMethod.getReturnType())
+              .elementsAreTypeOf(ListenableFuture.class)) {
+        productionKind = ProductionKind.SET_OF_FUTURE;
+      } else {
+        productionKind = ProductionKind.IMMEDIATE;
+      }
       // TODO(beder): Add nullability checking with Java 8.
       return ProductionBinding.builder()
-          .contributionType(ContributionType.fromBindingMethod(producesMethod))
+          .contributionType(contributionType)
           .bindingElement(producesMethod)
           .contributingModule(contributedBy)
           .key(key)
           .dependencies(dependencies)
           .wrappedMapKey(wrapOptionalInEquivalence(getMapKey(producesMethod)))
-          .bindingKind(kind)
+          .bindingKind(Kind.PRODUCTION)
+          .productionKind(productionKind)
           .thrownTypes(producesMethod.getThrownTypes())
           .executorRequest(executorRequest)
           .monitorRequest(monitorRequest)

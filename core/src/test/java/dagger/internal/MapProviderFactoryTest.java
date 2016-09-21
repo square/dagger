@@ -16,7 +16,7 @@
 
 package dagger.internal;
 
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertThat;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -69,8 +69,7 @@ public class MapProviderFactoryTest {
     expectedMap.put("three", p3);
     expectedMap.put("one", p5);
     expectedMap.put("four", p4);
-    assert_()
-        .that(factory.get().entrySet())
+    assertThat(factory.get().entrySet())
         .containsExactlyElementsIn(expectedMap.entrySet())
         .inOrder();
   }

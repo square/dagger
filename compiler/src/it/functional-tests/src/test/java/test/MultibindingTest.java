@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import dagger.multibindings.ClassKey;
 import dagger.multibindings.StringKey;
 import java.math.BigDecimal;
@@ -98,16 +97,15 @@ public class MultibindingTest {
   }
 
   @Test public void nestedKeyMap() {
-    assertThat(multibindingComponent.nestedKeyMap()).isEqualTo(
-        ImmutableMap.of(
-            nestedWrappedKey(Integer.class), "integer",
-            nestedWrappedKey(Long.class), "long"));
+    assertThat(multibindingComponent.nestedKeyMap())
+        .containsExactly(
+            nestedWrappedKey(Integer.class), "integer", nestedWrappedKey(Long.class), "long");
   }
 
   @Test
   public void unwrappedAnnotationKeyMap() {
     assertThat(multibindingComponent.unwrappedAnnotationKeyMap())
-        .isEqualTo(ImmutableMap.of(testStringKey("foo\n"), "foo annotation"));
+        .containsExactly(testStringKey("foo\n"), "foo annotation");
   }
 
   @Test
@@ -115,63 +113,53 @@ public class MultibindingTest {
     @SuppressWarnings("unchecked")
     Class<? extends Number>[] classes = new Class[] {Long.class, Integer.class};
     assertThat(multibindingComponent.wrappedAnnotationKeyMap())
-        .isEqualTo(
-            ImmutableMap.of(
-                testWrappedAnnotationKey(
-                    testStringKey("foo"), new int[] {1, 2, 3}, new ClassKey[] {}, classes),
-                "wrapped foo annotation"));
+        .containsExactly(
+            testWrappedAnnotationKey(
+                testStringKey("foo"), new int[] {1, 2, 3}, new ClassKey[] {}, classes),
+            "wrapped foo annotation");
   }
 
   @Test
   public void booleanKeyMap() {
-    assertThat(multibindingComponent.booleanKeyMap()).isEqualTo(ImmutableMap.of(true, "true"));
+    assertThat(multibindingComponent.booleanKeyMap()).containsExactly(true, "true");
   }
 
   @Test
   public void byteKeyMap() {
-    assertThat(multibindingComponent.byteKeyMap())
-        .isEqualTo(ImmutableMap.of((byte) 100, "100 byte"));
+    assertThat(multibindingComponent.byteKeyMap()).containsExactly((byte) 100, "100 byte");
   }
 
   @Test
   public void charKeyMap() {
     assertThat(multibindingComponent.characterKeyMap())
-        .isEqualTo(ImmutableMap.of('a', "a char", '\n', "newline char"));
+        .containsExactly('a', "a char", '\n', "newline char");
   }
 
   @Test
   public void classKeyMap() {
     assertThat(multibindingComponent.classKeyMap())
-        .isEqualTo(
-            ImmutableMap.of(
-                Integer.class, "integer",
-                Long.class, "long"));
+        .containsExactly(Integer.class, "integer", Long.class, "long");
   }
 
   @Test
   public void numberClassKeyMap() {
     assertThat(multibindingComponent.numberClassKeyMap())
-        .isEqualTo(
-            ImmutableMap.of(
-                BigDecimal.class, "bigdecimal",
-                BigInteger.class, "biginteger"));
+        .containsExactly(BigDecimal.class, "bigdecimal", BigInteger.class, "biginteger");
   }
 
   @Test
   public void intKeyMap() {
-    assertThat(multibindingComponent.integerKeyMap()).isEqualTo(ImmutableMap.of(100, "100 int"));
+    assertThat(multibindingComponent.integerKeyMap()).containsExactly(100, "100 int");
   }
 
   @Test
   public void longKeyMap() {
-    assertThat(multibindingComponent.longKeyMap())
-        .isEqualTo(ImmutableMap.of((long) 100, "100 long"));
+    assertThat(multibindingComponent.longKeyMap()).containsExactly((long) 100, "100 long");
   }
 
   @Test
   public void shortKeyMap() {
-    assertThat(multibindingComponent.shortKeyMap())
-        .isEqualTo(ImmutableMap.of((short) 100, "100 short"));
+    assertThat(multibindingComponent.shortKeyMap()).containsExactly((short) 100, "100 short");
   }
 
   @Test public void setBindings() {

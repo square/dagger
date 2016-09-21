@@ -19,6 +19,7 @@ package dagger.internal;
 import static dagger.internal.DaggerCollections.newLinkedHashMapWithExpectedSize;
 import static java.util.Collections.unmodifiableMap;
 
+import dagger.Lazy;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,9 +31,9 @@ import javax.inject.Provider;
  *
  * @author Chenying Hou
  * @since 2.0
- *
  */
-public final class MapProviderFactory<K, V> implements Factory<Map<K, Provider<V>>> {
+public final class MapProviderFactory<K, V>
+    implements Factory<Map<K, Provider<V>>>, Lazy<Map<K, Provider<V>>> {
   private static final MapProviderFactory<Object, Object> EMPTY =
       new MapProviderFactory<Object, Object>(Collections.<Object, Provider<Object>>emptyMap());
 

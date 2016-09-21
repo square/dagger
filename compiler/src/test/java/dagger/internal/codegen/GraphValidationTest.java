@@ -35,7 +35,10 @@ import org.junit.runners.JUnit4;
 public class GraphValidationTest {
   private static final JavaFileObject NULLABLE =
       JavaFileObjects.forSourceLines(
-          "test.Nullable", "package test;", "public @interface Nullable {}");
+          "test.Nullable", // force one-string-per-line format
+          "package test;",
+          "",
+          "public @interface Nullable {}");
 
   @Test public void componentOnConcreteClass() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.MyComponent",
