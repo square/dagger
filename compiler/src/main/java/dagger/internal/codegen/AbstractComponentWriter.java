@@ -1283,10 +1283,6 @@ abstract class AbstractComponentWriter {
               useRawTypes,
               frameworkDependency.frameworkClass(),
               getDependencyArgument(frameworkDependency).getExpressionFor(name));
-      if (binding.bindingType().frameworkClass().equals(Producer.class)
-          && frameworkDependency.frameworkClass().equals(Provider.class)) {
-        value = CodeBlock.of("$T.producerFromProvider($L)", PRODUCERS, value);
-      }
       codeBlocks.add(
           CodeBlock.of(
               ".put($L, $L)", getMapKeyExpression(contributionBinding.mapKey().get()), value));
