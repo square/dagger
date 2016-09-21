@@ -579,7 +579,7 @@ abstract class AbstractComponentWriter {
               MapType mapType = MapType.from(contributionBinding.key());
               return Optional.of(
                   emptyFrameworkMapFactory(
-                      frameworkMapFactoryClassName(bindingType),
+                      bindingType,
                       mapType.keyType(),
                       mapType.unwrappedValueType(bindingType.frameworkClass())));
 
