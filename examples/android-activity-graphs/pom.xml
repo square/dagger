@@ -40,6 +40,7 @@
     <dependency>
       <groupId>com.google.dagger</groupId>
       <artifactId>dagger-compiler</artifactId>
+      <scope>provided</scope>
       <optional>true</optional>
     </dependency>
 
