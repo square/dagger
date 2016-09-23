@@ -360,14 +360,18 @@ final class BindingGraphValidator {
           validateResolvedBindings(path);
 
           // Validate all dependencies within the component that owns the binding.
-          for (Map.Entry<ComponentDescriptor, ? extends Binding> entry :
-              path.currentResolvedBindings().bindingsByComponent()) {
-            Validation validation = validationForComponent(entry.getKey());
-            Binding binding = entry.getValue();
-            for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-              validation.traverseDependencyRequest(nextRequest, path);
-            }
-          }
+          path.currentResolvedBindings()
+              .allBindings()
+              .asMap()
+              .forEach(
+                  (component, bindings) -> {
+                    Validation validation = validationForComponent(component);
+                    for (Binding binding : bindings) {
+                      for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+                        validation.traverseDependencyRequest(nextRequest, path);
+                      }
+                    }
+                  });
         }
       } finally {
         path.pop();

@@ -23,7 +23,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -32,7 +31,6 @@ import com.google.common.collect.Multimap;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
-import java.util.Map;
 
 /**
  * The collection of bindings that have been resolved for a binding key. For valid graphs, contains
@@ -125,17 +123,6 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
    */
   Binding binding() {
     return getOnlyElement(bindings());
-  }
-
-  /**
-   * All bindings for {@link #bindingKey()}, together with the component in which they were
-   * resolved.
-   */
-  ImmutableList<Map.Entry<ComponentDescriptor, ? extends Binding>> bindingsByComponent() {
-    return new ImmutableList.Builder<Map.Entry<ComponentDescriptor, ? extends Binding>>()
-        .addAll(allContributionBindings().entries())
-        .addAll(allMembersInjectionBindings().entrySet())
-        .build();
   }
 
   /**
