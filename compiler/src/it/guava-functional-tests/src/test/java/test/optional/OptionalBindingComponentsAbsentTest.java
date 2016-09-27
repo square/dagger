@@ -36,41 +36,41 @@ public final class OptionalBindingComponentsAbsentTest {
 
   @Test
   public void optional() {
-    assertThat(absent.optionalInstance()).isAbsent();
+    assertThat(absent.values().optionalInstance()).isAbsent();
   }
 
   @Test
   public void optionalProvider() {
-    assertThat(absent.optionalProvider()).isAbsent();
+    assertThat(absent.values().optionalProvider()).isAbsent();
   }
 
   @Test
   public void optionalLazy() {
-    assertThat(absent.optionalLazy()).isAbsent();
+    assertThat(absent.values().optionalLazy()).isAbsent();
   }
 
   @Test
   public void optionalLazyProvider() {
-    assertThat(absent.optionalLazyProvider()).isAbsent();
+    assertThat(absent.values().optionalLazyProvider()).isAbsent();
   }
 
   @Test
   public void qualifiedOptional() {
-    assertThat(absent.qualifiedOptionalInstance()).isAbsent();
+    assertThat(absent.qualifiedValues().optionalInstance()).isAbsent();
   }
 
   @Test
   public void qualifiedOptionalProvider() {
-    assertThat(absent.qualifiedOptionalProvider()).isAbsent();
+    assertThat(absent.qualifiedValues().optionalProvider()).isAbsent();
   }
 
   @Test
   public void qualifiedOptionalLazy() {
-    assertThat(absent.qualifiedOptionalLazy()).isAbsent();
+    assertThat(absent.qualifiedValues().optionalLazy()).isAbsent();
   }
 
   @Test
   public void qualifiedOptionalLazyProvider() {
-    assertThat(absent.qualifiedOptionalLazyProvider()).isAbsent();
+    assertThat(absent.qualifiedValues().optionalLazyProvider()).isAbsent();
   }
 }

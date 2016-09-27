@@ -48,37 +48,38 @@ public final class OptionalBindingComponentsPresentTest {
 
   @Test
   public void optionalProvider() {
-    assertThat(component.optionalProvider().get().get()).isEqualTo(VALUE);
+    assertThat(component.values().optionalProvider().get().get()).isEqualTo(VALUE);
   }
 
   @Test
   public void optionalLazy() {
-    assertThat(component.optionalLazy().get().get()).isEqualTo(VALUE);
+    assertThat(component.values().optionalLazy().get().get()).isEqualTo(VALUE);
   }
 
   @Test
   public void optionalLazyProvider() {
-    assertThat(component.optionalLazyProvider().get().get().get()).isEqualTo(VALUE);
+    assertThat(component.values().optionalLazyProvider().get().get().get()).isEqualTo(VALUE);
   }
 
   @Test
   public void qualifiedOptional() {
-    assertThat(component.qualifiedOptionalInstance()).hasValue(QUALIFIED_VALUE);
+    assertThat(component.qualifiedValues().optionalInstance()).hasValue(QUALIFIED_VALUE);
   }
 
   @Test
   public void qualifiedOptionalProvider() {
-    assertThat(component.qualifiedOptionalProvider().get().get()).isEqualTo(QUALIFIED_VALUE);
+    assertThat(component.qualifiedValues().optionalProvider().get().get())
+        .isEqualTo(QUALIFIED_VALUE);
   }
 
   @Test
   public void qualifiedOptionalLazy() {
-    assertThat(component.qualifiedOptionalLazy().get().get()).isEqualTo(QUALIFIED_VALUE);
+    assertThat(component.qualifiedValues().optionalLazy().get().get()).isEqualTo(QUALIFIED_VALUE);
   }
 
   @Test
   public void qualifiedOptionalLazyProvider() {
-    assertThat(component.qualifiedOptionalLazyProvider().get().get().get())
+    assertThat(component.qualifiedValues().optionalLazyProvider().get().get().get())
         .isEqualTo(QUALIFIED_VALUE);
   }
 }

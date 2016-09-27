@@ -116,31 +116,12 @@ public final class OptionalBindingComponents {
     }
   }
 
-  interface OptionalBindingComponent {
+  /** Interface for components used to test optional bindings. */
+  public interface OptionalBindingComponent {
     Values values();
-
-    Optional<Value> optionalInstance();
-
-    Optional<Provider<Value>> optionalProvider();
-
-    Optional<Lazy<Value>> optionalLazy();
-
-    Optional<Provider<Lazy<Value>>> optionalLazyProvider();
 
     @SomeQualifier
     Values qualifiedValues();
-
-    @SomeQualifier
-    Optional<Value> qualifiedOptionalInstance();
-
-    @SomeQualifier
-    Optional<Provider<Value>> qualifiedOptionalProvider();
-
-    @SomeQualifier
-    Optional<Lazy<Value>> qualifiedOptionalLazy();
-
-    @SomeQualifier
-    Optional<Provider<Lazy<Value>>> qualifiedOptionalLazyProvider();
   }
 
   @Component(modules = OptionalBindingModule.class)

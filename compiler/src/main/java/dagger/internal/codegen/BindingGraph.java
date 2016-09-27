@@ -33,6 +33,7 @@ import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBO
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_OPTIONAL_BINDING;
 import static dagger.internal.codegen.Key.indexByKey;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static java.util.function.Predicate.isEqual;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 
 import com.google.auto.common.MoreTypes;
@@ -289,9 +290,9 @@ abstract class BindingGraph {
       final ImmutableSetMultimap<Key, DelegateDeclaration> delegateMultibindingDeclarations;
       final Map<BindingKey, ResolvedBindings> resolvedBindings;
       final Deque<BindingKey> cycleStack = new ArrayDeque<>();
-      final Cache<BindingKey, Boolean> dependsOnLocalMultibindingsCache =
+      final Cache<BindingKey, Boolean> bindingKeyDependsOnLocalBindingsCache =
           CacheBuilder.newBuilder().build();
-      final Cache<Binding, Boolean> bindingDependsOnLocalMultibindingsCache =
+      final Cache<Binding, Boolean> bindingDependsOnLocalBindingsCache =
           CacheBuilder.newBuilder().build();
       final Queue<ComponentDescriptor> subcomponentsToResolve = new ArrayDeque<>();
 
@@ -474,26 +475,24 @@ abstract class BindingGraph {
       }
 
       /**
-       * If {@code requestKey} is for {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns all
+       * If {@code key} is for {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns all
        * multibinding contributions whose key is for {@code Map<K, Provider<V>>} or {@code Map<K,
        * Producer<V>>} with the same qualifier and {@code K} and {@code V}.
        */
-      private FluentIterable<ContributionBinding> multibindingContributionsForValueMap(
-          Key requestKey) {
+      private FluentIterable<ContributionBinding> multibindingContributionsForValueMap(Key key) {
         return keyFactory
-            .implicitFrameworkMapKeys(requestKey)
+            .implicitFrameworkMapKeys(key)
             .transformAndConcat(this::getExplicitMultibindings);
       }
 
       /**
-       * If {@code requestKey} is for {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns all
+       * If {@code key} is for {@code Map<K, V>} or {@code Map<K, Produced<V>>}, returns all
        * multibinding declarations whose key is for {@code Map<K, Provider<V>>} or {@code Map<K,
        * Producer<V>>} with the same qualifier and {@code K} and {@code V}.
        */
-      private FluentIterable<MultibindingDeclaration> multibindingDeclarationsForValueMap(
-          Key requestKey) {
+      private FluentIterable<MultibindingDeclaration> multibindingDeclarationsForValueMap(Key key) {
         return keyFactory
-            .implicitFrameworkMapKeys(requestKey)
+            .implicitFrameworkMapKeys(key)
             .transformAndConcat(this::getMultibindingDeclarations);
       }
 
@@ -530,14 +529,13 @@ abstract class BindingGraph {
       }
 
       private boolean multibindingsRequireProduction(
-          Iterable<ContributionBinding> multibindingContributions, Key requestKey) {
-        if (MapType.isMap(requestKey)) {
-          MapType mapType = MapType.from(requestKey);
+          Iterable<ContributionBinding> multibindingContributions, Key key) {
+        if (MapType.isMap(key)) {
+          MapType mapType = MapType.from(key);
           if (mapType.valuesAreTypeOf(Producer.class) || mapType.valuesAreTypeOf(Produced.class)) {
             return true;
           }
-        } else if (SetType.isSet(requestKey)
-            && SetType.from(requestKey).elementsAreTypeOf(Produced.class)) {
+        } else if (SetType.isSet(key) && SetType.from(key).elementsAreTypeOf(Produced.class)) {
           return true;
         }
         return Iterables.any(multibindingContributions,
@@ -651,8 +649,8 @@ abstract class BindingGraph {
       /**
        * Returns the component that should contain the framework field for {@code binding}.
        *
-       * <p>If {@code binding} is either not bound in an ancestor component or depends on
-       * multibinding contributions in this component, returns this component.
+       * <p>If {@code binding} is either not bound in an ancestor component or depends transitively
+       * on bindings in this component, returns this component.
        *
        * <p>Otherwise, resolves {@code request} in this component's parent in order to resolve any
        * multibinding contributions in the parent, and returns the parent-resolved {@link
@@ -661,7 +659,7 @@ abstract class BindingGraph {
       private ComponentDescriptor getOwningComponent(
           BindingKey bindingKey, ContributionBinding binding) {
         if (isResolvedInParent(bindingKey, binding)
-            && !new MultibindingDependencies().dependsOnLocalMultibindings(binding)) {
+            && !new LocalDependencyChecker().dependsOnLocalBindings(binding)) {
           ResolvedBindings parentResolvedBindings =
               parentResolver.get().resolvedBindings.get(bindingKey);
           return parentResolvedBindings.owningComponent(binding);
@@ -731,46 +729,55 @@ abstract class BindingGraph {
       }
 
       /**
-       * Returns the explicit {@link ContributionBinding}s that match the {@code requestKey} from
-       * this and all ancestor resolvers.
+       * Returns the explicit {@link ContributionBinding}s that match the {@code key} from this and
+       * all ancestor resolvers.
        */
-      private ImmutableSet<ContributionBinding> getExplicitBindings(Key requestKey) {
+      private ImmutableSet<ContributionBinding> getExplicitBindings(Key key) {
         ImmutableSet.Builder<ContributionBinding> bindings = ImmutableSet.builder();
         for (Resolver resolver : getResolverLineage()) {
-          bindings.addAll(resolver.getLocalExplicitBindings(requestKey));
+          bindings.addAll(resolver.getLocalExplicitBindings(key));
         }
         return bindings.build();
       }
 
       /**
-       * Returns the explicit {@link ContributionBinding}s that match the {@code requestKey} from
-       * this resolver.
+       * Returns the explicit {@link ContributionBinding}s that match the {@code key} from this
+       * resolver.
        */
-      private ImmutableSet<ContributionBinding> getLocalExplicitBindings(Key requestKey) {
+      private ImmutableSet<ContributionBinding> getLocalExplicitBindings(Key key) {
         return new ImmutableSet.Builder<ContributionBinding>()
-            .addAll(explicitBindings.get(requestKey))
+            .addAll(explicitBindings.get(key))
             .addAll(
                 createDelegateBindings(
-                    delegateDeclarations.get(keyFactory.convertToDelegateKey(requestKey))))
+                    delegateDeclarations.get(keyFactory.convertToDelegateKey(key))))
             .build();
       }
 
       /**
        * Returns the explicit multibinding contributions that contribute to the map or set requested
-       * by {@code requestKey} from this and all ancestor resolvers.
+       * by {@code key} from this and all ancestor resolvers.
        */
-      private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key requestKey) {
+      private ImmutableSet<ContributionBinding> getExplicitMultibindings(Key key) {
         ImmutableSet.Builder<ContributionBinding> multibindings = ImmutableSet.builder();
-        Key delegateDeclarationKey = keyFactory.convertToDelegateKey(requestKey);
         for (Resolver resolver : getResolverLineage()) {
-          multibindings.addAll(resolver.explicitMultibindings.get(requestKey));
-          if (!MapType.isMap(requestKey) || MapType.from(requestKey).valuesAreFrameworkType()) {
-            // There are no @Binds @IntoMap delegate declarations for Map<K, V> requests. All
-            // @IntoMap requests must be for Map<K, Framework<V>>.
-            multibindings.addAll(
-                createDelegateBindings(
-                    resolver.delegateMultibindingDeclarations.get(delegateDeclarationKey)));
-          }
+          multibindings.addAll(resolver.getLocalExplicitMultibindings(key));
+        }
+        return multibindings.build();
+      }
+
+      /**
+       * Returns the explicit multibinding contributions that contribute to the map or set requested
+       * by {@code key} from this resolver.
+       */
+      private ImmutableSet<ContributionBinding> getLocalExplicitMultibindings(Key key) {
+        ImmutableSet.Builder<ContributionBinding> multibindings = ImmutableSet.builder();
+        multibindings.addAll(explicitMultibindings.get(key));
+        if (!MapType.isMap(key) || MapType.from(key).valuesAreFrameworkType()) {
+          // There are no @Binds @IntoMap delegate declarations for Map<K, V> requests. All
+          // @IntoMap requests must be for Map<K, Framework<V>>.
+          multibindings.addAll(
+              createDelegateBindings(
+                  delegateMultibindingDeclarations.get(keyFactory.convertToDelegateKey(key))));
         }
         return multibindings.build();
       }
@@ -843,23 +850,19 @@ abstract class BindingGraph {
         /* If the binding was previously resolved in a supercomponent, then we may be able to avoid
          * resolving it here and just depend on the supercomponent resolution.
          *
-         * 1. If it depends on multibindings with contributions from this subcomponent, then we have
-         *    to resolve it in this subcomponent so that it sees the local contributions.
+         * 1. If it depends transitively on multibinding contributions or optional bindings with
+         *    bindings from this subcomponent, then we have to resolve it in this subcomponent so
+         *    that it sees the local bindings.
          *
          * 2. If there are any explicit bindings in this component, they may conflict with those in
          *    the supercomponent, so resolve them here so that conflicts can be caught.
-         *
-         * 3. If the previously resolved binding is an optional binding, and there are any explicit
-         *    bindings for the underlying key in this component, resolve here so that absent
-         *    bindings in the parent can be overridden by present bindings here.
          */
         if (getPreviouslyResolvedBindings(bindingKey).isPresent()) {
           /* Resolve in the parent in case there are multibinding contributions or conflicts in some
            * component between this one and the previously-resolved one. */
           parentResolver.get().resolve(bindingKey);
-          if (!new MultibindingDependencies().dependsOnLocalMultibindings(bindingKey)
-              && getLocalExplicitBindings(bindingKey.key()).isEmpty()
-              && !hasLocallyPresentOptionalBinding(bindingKey)) {
+          if (!new LocalDependencyChecker().dependsOnLocalBindings(bindingKey)
+              && getLocalExplicitBindings(bindingKey.key()).isEmpty()) {
             /* Cache the inherited parent component's bindings in case resolving at the parent found
              * bindings in some component between this one and the previously-resolved one. */
             ResolvedBindings inheritedBindings =
@@ -915,34 +918,22 @@ abstract class BindingGraph {
             .immutableCopy();
       }
 
-      /**
-       * Returns {@code true} if {@code bindingKey} was previously resolved to an optional binding
-       * for which there is an explicit present binding in this component.
-       */
-      private boolean hasLocallyPresentOptionalBinding(BindingKey bindingKey) {
-        return Iterables.any(
-            getPreviouslyResolvedBindings(bindingKey).get().contributionBindings(),
-            binding ->
-                binding.bindingKind().equals(SYNTHETIC_OPTIONAL_BINDING)
-                    && !getLocalExplicitBindings(keyFactory.unwrapOptional(binding.key()).get())
-                        .isEmpty());
-      }
-
-      private final class MultibindingDependencies {
+      private final class LocalDependencyChecker {
         private final Set<Object> cycleChecker = new HashSet<>();
 
         /**
-         * Returns {@code true} if {@code bindingKey} previously resolved to multibindings with
-         * contributions declared within this component's modules, or if any of its unscoped
-         * dependencies depend on such local multibindings.
+         * Returns {@code true} if any of the bindings resolved for {@code bindingKey} are
+         * multibindings with contributions declared within this component's modules or optional
+         * bindings with present values declared within this component's modules, or if any of its
+         * unscoped dependencies depend on such bindings.
          *
-         * <p>We don't care about scoped dependencies because they will never depend on
-         * multibindings with contributions from subcomponents.
+         * <p>We don't care about scoped dependencies because they will never depend on bindings
+         * from subcomponents.
          *
          * @throws IllegalArgumentException if {@link #getPreviouslyResolvedBindings(BindingKey)} is
          *     absent
          */
-        boolean dependsOnLocalMultibindings(final BindingKey bindingKey) {
+        boolean dependsOnLocalBindings(BindingKey bindingKey) {
           checkArgument(
               getPreviouslyResolvedBindings(bindingKey).isPresent(),
               "no previously resolved bindings in %s for %s",
@@ -954,17 +945,18 @@ abstract class BindingGraph {
             return false;
           }
           try {
-            return dependsOnLocalMultibindingsCache.get(
+            return bindingKeyDependsOnLocalBindingsCache.get(
                 bindingKey,
                 () -> {
                   ResolvedBindings previouslyResolvedBindings =
                       getPreviouslyResolvedBindings(bindingKey).get();
-                  if (isMultibindingsWithLocalContributions(previouslyResolvedBindings)) {
+                  if (hasLocalMultibindingContributions(previouslyResolvedBindings)
+                      || hasLocallyPresentOptionalBinding(previouslyResolvedBindings)) {
                     return true;
                   }
 
                   for (Binding binding : previouslyResolvedBindings.bindings()) {
-                    if (dependsOnLocalMultibindings(binding)) {
+                    if (dependsOnLocalBindings(binding)) {
                       return true;
                     }
                   }
@@ -984,12 +976,12 @@ abstract class BindingGraph {
          * <p>We don't care about non-reusable scoped dependencies because they will never depend on
          * multibindings with contributions from subcomponents.
          */
-        boolean dependsOnLocalMultibindings(final Binding binding) {
+        boolean dependsOnLocalBindings(Binding binding) {
           if (!cycleChecker.add(binding)) {
             return false;
           }
           try {
-            return bindingDependsOnLocalMultibindingsCache.get(
+            return bindingDependsOnLocalBindingsCache.get(
                 binding,
                 () -> {
                   if ((!binding.scope().isPresent()
@@ -997,7 +989,7 @@ abstract class BindingGraph {
                       // TODO(beder): Figure out what happens with production subcomponents.
                       && !binding.bindingType().equals(BindingType.PRODUCTION)) {
                     for (DependencyRequest dependency : binding.implicitDependencies()) {
-                      if (dependsOnLocalMultibindings(dependency.bindingKey())) {
+                      if (dependsOnLocalBindings(dependency.bindingKey())) {
                         return true;
                       }
                     }
@@ -1009,14 +1001,31 @@ abstract class BindingGraph {
           }
         }
 
-        private boolean isMultibindingsWithLocalContributions(ResolvedBindings resolvedBindings) {
-          Key key = resolvedBindings.key();
-          return resolvedBindings.contributionBindings()
-              .stream()
-              .map(ContributionBinding::bindingKind)
-              .anyMatch(SYNTHETIC_MULTIBOUND_KINDS::contains)
-              && !getExplicitMultibindings(key)
-              .equals(parentResolver.get().getExplicitMultibindings(key));
+        /**
+         * Returns {@code true} if {@code resolvedBindings} contains a synthetic multibinding with
+         * at least one contribution declared within this component's modules.
+         */
+        private boolean hasLocalMultibindingContributions(ResolvedBindings resolvedBindings) {
+          return resolvedBindings
+                  .contributionBindings()
+                  .stream()
+                  .map(ContributionBinding::bindingKind)
+                  .anyMatch(SYNTHETIC_MULTIBOUND_KINDS::contains)
+              && !getLocalExplicitMultibindings(resolvedBindings.key()).isEmpty();
+        }
+
+        /**
+         * Returns {@code true} if {@code resolvedBindings} contains a synthetic optional binding
+         * for which there is an explicit present binding in this component.
+         */
+        private boolean hasLocallyPresentOptionalBinding(ResolvedBindings resolvedBindings) {
+          return resolvedBindings
+                  .contributionBindings()
+                  .stream()
+                  .map(ContributionBinding::bindingKind)
+                  .anyMatch(isEqual(SYNTHETIC_OPTIONAL_BINDING))
+              && !getLocalExplicitBindings(keyFactory.unwrapOptional(resolvedBindings.key()).get())
+                  .isEmpty();
         }
       }
     }
