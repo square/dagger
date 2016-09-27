@@ -184,6 +184,19 @@ final class BindingGraphValidator {
     }
 
     /**
+     * Returns the contribution bindings resolved for the second-most-recent request in the given
+     * path; that is, returns those bindings that depend on the latest request in the path.
+     */
+    FluentIterable<ContributionBinding> contributionsDependingOnLatestRequest() {
+      if (size() <= 1) {
+        return FluentIterable.from(ImmutableList.<ContributionBinding>of());
+      }
+      return FluentIterable.from(previousResolvedBindings().bindings())
+          .filter(binding -> binding.implicitDependencies().contains(currentDependencyRequest()))
+          .filter(ContributionBinding.class);
+    }
+
+    /**
      * {@code true} if there is a dependency cycle, which means that the
      * {@linkplain #currentDependencyRequest() current request}'s binding key occurs earlier in the
      * path.
@@ -347,14 +360,18 @@ final class BindingGraphValidator {
           validateResolvedBindings(path);
 
           // Validate all dependencies within the component that owns the binding.
-          for (Map.Entry<ComponentDescriptor, ? extends Binding> entry :
-              path.currentResolvedBindings().bindingsByComponent()) {
-            Validation validation = validationForComponent(entry.getKey());
-            Binding binding = entry.getValue();
-            for (DependencyRequest nextRequest : binding.implicitDependencies()) {
-              validation.traverseDependencyRequest(nextRequest, path);
-            }
-          }
+          path.currentResolvedBindings()
+              .allBindings()
+              .asMap()
+              .forEach(
+                  (component, bindings) -> {
+                    Validation validation = validationForComponent(component);
+                    for (Binding binding : bindings) {
+                      for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+                        validation.traverseDependencyRequest(nextRequest, path);
+                      }
+                    }
+                  });
         }
       } finally {
         path.pop();
@@ -418,9 +435,10 @@ final class BindingGraphValidator {
           }
           if (contributionBinding.bindingType().equals(PRODUCTION)
               && doesPathRequireProvisionOnly(path)) {
-            reportProviderMayNotDependOnProducer(path);
+            reportProviderMayNotDependOnProducer(path, contributionBinding);
             return;
           }
+          // TODO(dpb,beder): Validate this during @Inject/@Provides/@Produces validation.
           if (compilerOptions.usesProducers()) {
             Key productionImplementationExecutorKey =
                 keyFactory.forProductionImplementationExecutor();
@@ -553,12 +571,13 @@ final class BindingGraphValidator {
 
       for (ContributionBinding binding : bindings) {
         if (binding.nullableType().isPresent()) {
-          reportBuilder.addItem(
-              nullableToNonNullable(typeName, bindingDeclarationFormatter.format(binding))
-                  + "\n at: "
-                  + dependencyRequestFormatter.toDependencyTrace(path),
-              compilerOptions.nullableValidationKind(),
-              path.entryPointElement());
+          owningReportBuilder(path.contributionsDependingOnLatestRequest().append(binding))
+              .addItem(
+                  nullableToNonNullable(typeName, bindingDeclarationFormatter.format(binding))
+                      + "\n at: "
+                      + dependencyRequestFormatter.toDependencyTrace(path),
+                  compilerOptions.nullableValidationKind(),
+                  path.entryPointElement());
         }
       }
     }
@@ -605,6 +624,7 @@ final class BindingGraphValidator {
     }
 
     /** Reports errors if a members injection binding is invalid. */
+    // TODO(dpb): Can this be done while validating @Inject?
     private void validateMembersInjectionBinding(
         final MembersInjectionBinding binding, final DependencyPath path) {
       binding
@@ -967,24 +987,26 @@ final class BindingGraphValidator {
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
     // TODO(b/29509141): Clarify the error.
-    private void reportProviderMayNotDependOnProducer(DependencyPath path) {
-      StringBuilder errorMessage = new StringBuilder();
+    private void reportProviderMayNotDependOnProducer(
+        DependencyPath path, ContributionBinding productionBinding) {
       if (path.size() == 1) {
-        new Formatter(errorMessage)
-            .format(
+        reportBuilder.addError(
+            String.format(
                 PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                formatCurrentDependencyRequestKey(path));
+                formatCurrentDependencyRequestKey(path)),
+            path.entryPointElement());
       } else {
         FluentIterable<ContributionBinding> dependentProvisions =
             provisionsDependingOnLatestRequest(path);
         // TODO(beder): Consider displaying all dependent provisions in the error message. If we
         // do that, should we display all productions that depend on them also?
-        new Formatter(errorMessage)
-            .format(
-                PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                dependentProvisions.iterator().next().key());
+        owningReportBuilder(dependentProvisions.append(productionBinding))
+            .addError(
+                String.format(
+                    PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+                    dependentProvisions.iterator().next().key()),
+                path.entryPointElement());
       }
-      reportBuilder.addError(errorMessage.toString(), path.entryPointElement());
     }
 
     /**
@@ -1033,7 +1055,7 @@ final class BindingGraphValidator {
               topLevelGraph(), path.currentDependencyRequest().bindingKey())) {
         errorMessage.append('\n').append(suggestion);
       }
-      reportBuilder.addError(errorMessage.toString(), path.entryPointElement());
+      topLevelReport().addError(errorMessage.toString(), path.entryPointElement());
     }
 
     @SuppressWarnings("resource") // Appendable is a StringBuilder.
@@ -1070,13 +1092,13 @@ final class BindingGraphValidator {
     }
 
     /**
-     * Returns the report builder for the rootmost component that contains any of the duplicate
-     * bindings.
+     * Returns the report builder for the rootmost component that contains any of the {@code
+     * bindings}.
      */
     private ValidationReport.Builder<TypeElement> owningReportBuilder(
-        Iterable<ContributionBinding> duplicateBindings) {
+        Iterable<ContributionBinding> bindings) {
       ImmutableSet.Builder<ComponentDescriptor> owningComponentsBuilder = ImmutableSet.builder();
-      for (ContributionBinding binding : duplicateBindings) {
+      for (ContributionBinding binding : bindings) {
         ResolvedBindings resolvedBindings =
             subject.resolvedBindings().get(BindingKey.contribution(binding.key()));
         owningComponentsBuilder.addAll(
@@ -1088,8 +1110,7 @@ final class BindingGraphValidator {
           return validation.reportBuilder;
         }
       }
-      throw new AssertionError(
-          "cannot find owning component for duplicate bindings: " + duplicateBindings);
+      throw new AssertionError("cannot find owning component for bindings: " + bindings);
     }
 
     /**
@@ -1128,7 +1149,8 @@ final class BindingGraphValidator {
             builder, declarationsByType.get(contributionType), 2, DUPLICATE_SIZE_LIMIT);
         builder.append('\n');
       }
-      reportBuilder.addError(builder.toString(), path.entryPointElement());
+      owningReportBuilder(resolvedBindings.contributionBindings())
+          .addError(builder.toString(), path.entryPointElement());
     }
 
     private void reportDuplicateMapKeys(
@@ -1136,7 +1158,7 @@ final class BindingGraphValidator {
       StringBuilder builder = new StringBuilder();
       builder.append(duplicateMapKeysError(formatCurrentDependencyRequestKey(path)));
       bindingDeclarationFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
-      reportBuilder.addError(builder.toString(), path.entryPointElement());
+      owningReportBuilder(mapBindings).addError(builder.toString(), path.entryPointElement());
     }
 
     private void reportInconsistentMapKeyAnnotations(
@@ -1159,7 +1181,8 @@ final class BindingGraphValidator {
 
         bindingDeclarationFormatter.formatIndentedList(builder, bindings, 2, DUPLICATE_SIZE_LIMIT);
       }
-      reportBuilder.addError(builder.toString(), path.entryPointElement());
+      owningReportBuilder(mapBindingsByAnnotationType.values())
+          .addError(builder.toString(), path.entryPointElement());
     }
 
     private void reportCycle(DependencyPath path) {
@@ -1167,16 +1190,16 @@ final class BindingGraphValidator {
         return;
       }
       // TODO(cgruber): Provide a hint for the start and end of the cycle.
-      TypeElement componentType =
-          MoreElements.asType(path.entryPointElement().getEnclosingElement());
-      reportBuilder.addItem(
-          String.format(
-              CONTAINS_DEPENDENCY_CYCLE_FORMAT,
-              componentType.getQualifiedName(),
-              path.entryPointElement().getSimpleName(),
-              dependencyRequestFormatter.toDependencyTrace(path)),
-          ERROR,
-          path.entryPointElement());
+      owningReportBuilder(
+              path.cycle()
+                  .transform(ResolvedRequest::resolvedBindings)
+                  .transformAndConcat(ResolvedBindings::contributionBindings))
+          .addItem(
+              String.format(
+                  CONTAINS_DEPENDENCY_CYCLE_FORMAT,
+                  dependencyRequestFormatter.toDependencyTrace(path)),
+              ERROR,
+              path.entryPointElement());
     }
 
     /**
@@ -1299,11 +1322,8 @@ final class BindingGraphValidator {
    * that is, returns those provision bindings that depend on the latest request in the path.
    */
   private FluentIterable<ContributionBinding> provisionsDependingOnLatestRequest(
-      final DependencyPath path) {
-    return FluentIterable.from(path.previousResolvedBindings().bindings())
-        .filter(PROVISION::isOfType)
-        .filter(binding -> binding.implicitDependencies().contains(path.currentDependencyRequest()))
-        .filter(ContributionBinding.class);
+      DependencyPath path) {
+    return path.contributionsDependingOnLatestRequest().filter(PROVISION::isOfType);
   }
 
   private String formatContributionType(ContributionType type) {

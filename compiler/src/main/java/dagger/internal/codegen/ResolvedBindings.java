@@ -23,7 +23,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -32,7 +31,6 @@ import com.google.common.collect.Multimap;
 import dagger.internal.codegen.BindingType.HasBindingType;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import dagger.internal.codegen.Key.HasKey;
-import java.util.Map;
 
 /**
  * The collection of bindings that have been resolved for a binding key. For valid graphs, contains
@@ -55,18 +53,18 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   abstract ComponentDescriptor owningComponent();
 
   /**
-   * The contribution bindings for {@link #bindingKey()} that were resolved in
-   * {@link #owningComponent()} or its ancestor components, keyed by the component in which the
-   * binding was resolved. If {@link #bindingKey()}'s kind is not
-   * {@link BindingKey.Kind#CONTRIBUTION}, this is empty.
+   * The contribution bindings for {@link #bindingKey()} that were resolved in {@link
+   * #owningComponent()} or its ancestor components, indexed by the component in which the binding
+   * was resolved. If {@link #bindingKey()}'s kind is not {@link BindingKey.Kind#CONTRIBUTION}, this
+   * is empty.
    */
   abstract ImmutableSetMultimap<ComponentDescriptor, ContributionBinding> allContributionBindings();
 
   /**
-   * The members-injection bindings for {@link #bindingKey()} that were resolved in
-   * {@link #owningComponent()} or its ancestor components, keyed by the component in which the
-   * binding was resolved. If {@link #bindingKey()}'s kind is not
-   * {@link BindingKey.Kind#MEMBERS_INJECTION}, this is empty.
+   * The members-injection bindings for {@link #bindingKey()} that were resolved in {@link
+   * #owningComponent()} or its ancestor components, indexed by the component in which the binding
+   * was resolved. If {@link #bindingKey()}'s kind is not {@link BindingKey.Kind#MEMBERS_INJECTION},
+   * this is empty.
    */
   abstract ImmutableMap<ComponentDescriptor, MembersInjectionBinding> allMembersInjectionBindings();
 
@@ -94,19 +92,27 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   abstract ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations();
 
   /**
-   * All bindings for {@link #bindingKey()}, regardless of in which component they were resolved.
+   * All bindings for {@link #bindingKey()}, indexed by the component in which the binding was
+   * resolved.
    */
-  ImmutableSet<? extends Binding> bindings() {
+  ImmutableSetMultimap<ComponentDescriptor, ? extends Binding> allBindings() {
     switch (bindingKey().kind()) {
       case CONTRIBUTION:
-        return contributionBindings();
+        return allContributionBindings();
 
       case MEMBERS_INJECTION:
-        return ImmutableSet.copyOf(membersInjectionBinding().asSet());
+        return allMembersInjectionBindings().asMultimap();
 
       default:
         throw new AssertionError(bindingKey());
     }
+  }
+  
+  /**
+   * All bindings for {@link #bindingKey()}, regardless of in which component they were resolved.
+   */
+  ImmutableSet<? extends Binding> bindings() {
+    return ImmutableSet.copyOf(allBindings().values());
   }
 
   /**
@@ -117,17 +123,6 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
    */
   Binding binding() {
     return getOnlyElement(bindings());
-  }
-
-  /**
-   * All bindings for {@link #bindingKey()}, together with the component in which they were
-   * resolved.
-   */
-  ImmutableList<Map.Entry<ComponentDescriptor, ? extends Binding>> bindingsByComponent() {
-    return new ImmutableList.Builder<Map.Entry<ComponentDescriptor, ? extends Binding>>()
-        .addAll(allContributionBindings().entries())
-        .addAll(allMembersInjectionBindings().entrySet())
-        .build();
   }
 
   /**
