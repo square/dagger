@@ -92,7 +92,7 @@ final class SubcomponentWriter extends AbstractComponentWriter {
   }
 
   @Override
-  protected MemberSelect getMemberSelect(BindingKey key) {
+  public MemberSelect getMemberSelect(BindingKey key) {
     MemberSelect memberSelect = super.getMemberSelect(key);
     return memberSelect == null ? parent.getMemberSelect(key) : memberSelect;
   }

@@ -27,13 +27,10 @@ import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
-import static dagger.internal.codegen.Accessibility.isElementAccessibleFrom;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
@@ -128,10 +125,8 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
-/**
- * Creates the implementation class for a component or subcomponent.
- */
-abstract class AbstractComponentWriter {
+/** Creates the implementation class for a component or subcomponent. */
+abstract class AbstractComponentWriter implements HasBindingMembers {
   private static final String NOOP_BUILDER_METHOD_JAVADOC =
       "This module is declared, but an instance is not used in the component. This method is a "
           + "no-op. For more, see https://google.github.io/dagger/unused-modules.\n";
@@ -149,7 +144,7 @@ abstract class AbstractComponentWriter {
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
   private final Map<BindingKey, MemberSelect> memberSelects = new HashMap<>();
   private final Map<BindingKey, MemberSelect> producerFromProviderMemberSelects = new HashMap<>();
-  private final Map<BindingKey, RequestFulfillment> requestFulfillments = Maps.newLinkedHashMap();
+  private final RequestFulfillmentRegistry requestFulfillmentRegistry;
   protected final MethodSpec.Builder constructor = constructorBuilder().addModifiers(PRIVATE);
   protected Optional<ClassName> builderName = Optional.absent();
   private final OptionalFactories optionalFactories;
@@ -187,6 +182,8 @@ abstract class AbstractComponentWriter {
     this.graph = graph;
     this.subcomponentNames = subcomponentNames;
     this.optionalFactories = optionalFactories;
+    this.requestFulfillmentRegistry =
+        new RequestFulfillmentRegistry(graph.resolvedBindings(), this);
   }
 
   protected AbstractComponentWriter(
@@ -260,7 +257,8 @@ abstract class AbstractComponentWriter {
     return getMemberSelect(key).getExpressionFor(name);
   }
 
-  protected MemberSelect getMemberSelect(BindingKey key) {
+  @Override
+  public MemberSelect getMemberSelect(BindingKey key) {
     return memberSelects.get(key);
   }
 
@@ -688,41 +686,6 @@ abstract class AbstractComponentWriter {
         ? MAP_OF_PRODUCER_PRODUCER : MAP_PROVIDER_FACTORY;
   }
 
-  // TODO(gak): extract this into a proper factory class
-  private RequestFulfillment createRequestFulfillment(BindingKey bindingKey) {
-    /* TODO(gak): it is super convoluted that we create the member selects separately and then
-     * look them up again this way. Now that we have RequestFulfillment, the next step is to
-     * create it and the MemberSelect and the field on demand rather than in a first pass. */
-    MemberSelect memberSelect = getMemberSelect(bindingKey);
-    ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-    switch (resolvedBindings.bindingType()) {
-      case MEMBERS_INJECTION:
-        return new MembersInjectorRequestFulfillment(bindingKey, memberSelect);
-      case PRODUCTION:
-        return new ProducerFieldRequestFulfillment(bindingKey, memberSelect);
-      case PROVISION:
-        ProvisionBinding provisionBinding =
-            (ProvisionBinding) resolvedBindings.contributionBinding();
-        ProviderFieldRequestFulfillment providerFieldRequestFulfillment =
-            new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
-        if (provisionBinding.implicitDependencies().isEmpty()
-            && !provisionBinding.scope().isPresent()
-            && !provisionBinding.requiresModuleInstance()
-            && provisionBinding.bindingElement().isPresent()
-            && (provisionBinding.bindingKind().equals(INJECTION)
-                || provisionBinding.bindingKind().equals(PROVISION))
-            // TODO(gak): the accessibility limitation here needs to be addressed
-            && isElementAccessibleFrom(
-                provisionBinding.bindingElement().get(), name.packageName())) {
-          return new SimpleMethodRequestFulfillment(
-              bindingKey, provisionBinding, providerFieldRequestFulfillment);
-        }
-        return providerFieldRequestFulfillment;
-      default:
-        throw new AssertionError();
-    }
-  }
-
   private void implementInterfaceMethods() {
     Set<MethodSignature> interfaceMethods = Sets.newHashSet();
     for (ComponentMethodDescriptor componentMethod :
@@ -743,8 +706,7 @@ abstract class AbstractComponentWriter {
           MethodSpec.Builder interfaceMethod =
               methodSpecForComponentMethod(methodElement, requestType);
           RequestFulfillment fulfillment =
-              requestFulfillments.computeIfAbsent(
-                  interfaceRequest.bindingKey(), this::createRequestFulfillment);
+              requestFulfillmentRegistry.getRequestFulfillment(interfaceRequest.bindingKey());
           CodeBlock codeBlock = fulfillment.getSnippetForDependencyRequest(interfaceRequest, name);
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
