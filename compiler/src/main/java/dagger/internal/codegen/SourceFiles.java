@@ -16,7 +16,6 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
 import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
 import static dagger.internal.codegen.Util.ELEMENT_SIMPLE_NAME;
@@ -85,23 +84,22 @@ class SourceFiles {
     checkArgument(!binding.unresolved().isPresent(), "binding must be unresolved: %s", binding);
 
     ImmutableMap.Builder<BindingKey, FrameworkField> bindingFields = ImmutableMap.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (Binding.DependencyAssociation dependencyAssociation : binding.dependencyAssociations()) {
+      FrameworkDependency frameworkDependency = dependencyAssociation.frameworkDependency();
       bindingFields.put(
           frameworkDependency.bindingKey(),
           FrameworkField.create(
               ClassName.get(frameworkDependency.frameworkClass()),
               TypeName.get(frameworkDependency.bindingKey().key().type()),
-              fieldNameForDependency(frameworkDependency)));
+              fieldNameForDependency(dependencyAssociation.dependencyRequests())));
     }
     return bindingFields.build();
   }
 
-  private static String fieldNameForDependency(FrameworkDependency frameworkDependency) {
+  private static String fieldNameForDependency(ImmutableSet<DependencyRequest> dependencyRequests) {
     // collect together all of the names that we would want to call the provider
     ImmutableSet<String> dependencyNames =
-        FluentIterable.from(frameworkDependency.dependencyRequests())
-            .transform(new DependencyVariableNamer())
-            .toSet();
+        FluentIterable.from(dependencyRequests).transform(new DependencyVariableNamer()).toSet();
 
     if (dependencyNames.size() == 1) {
       // if there's only one name, great! use it!

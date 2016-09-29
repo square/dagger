@@ -32,7 +32,6 @@ import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
-import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
 import static dagger.internal.codegen.MemberSelect.emptySetProvider;
@@ -841,11 +840,12 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
      * called before we get the code block that initializes the member. */
     switch (binding.factoryCreationStrategy()) {
       case DELEGATE:
-        CodeBlock delegatingCodeBlock = CodeBlock.of(
-            "($T) $L",
-            binding.bindingType().frameworkClass(),
-            getMemberSelect(
-                Iterables.getOnlyElement(binding.dependencies()).bindingKey())
+        CodeBlock delegatingCodeBlock =
+            CodeBlock.of(
+                "($T) $L",
+                binding.bindingType().frameworkClass(),
+                getMemberSelect(
+                        Iterables.getOnlyElement(binding.explicitDependencies()).bindingKey())
                     .getExpressionFor(name));
         return Optional.of(
             CodeBlocks.concat(
@@ -907,7 +907,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
     ImmutableList.Builder<CodeBlock> initializations = ImmutableList.builder();
 
     for (BindingKey dependencyKey :
-        FluentIterable.from(binding.implicitDependencies())
+        FluentIterable.from(binding.dependencies())
             .transform(DependencyRequest::bindingKey)
             .toSet()) {
       if (!getMemberSelect(dependencyKey).staticMember()
@@ -924,7 +924,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
 
   private CodeBlock initializeProducersFromProviderDependencies(Binding binding) {
     ImmutableList.Builder<CodeBlock> initializations = ImmutableList.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (FrameworkDependency frameworkDependency : binding.frameworkDependencies()) {
       ResolvedBindings resolvedBindings =
           graph.resolvedBindings().get(frameworkDependency.bindingKey());
       if (resolvedBindings.frameworkClass().equals(Provider.class)
@@ -1048,7 +1048,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       case PROVISION:
         {
           List<CodeBlock> arguments =
-              Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
+              Lists.newArrayListWithCapacity(binding.explicitDependencies().size() + 1);
           if (binding.requiresModuleInstance()) {
             arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
@@ -1088,7 +1088,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       case PRODUCTION:
         {
           List<CodeBlock> arguments =
-              Lists.newArrayListWithCapacity(binding.implicitDependencies().size() + 2);
+              Lists.newArrayListWithCapacity(binding.dependencies().size() + 2);
           if (binding.requiresModuleInstance()) {
             arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
@@ -1104,7 +1104,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
         return CodeBlock.of(
             "$T.create($L)",
             mapFactoryClassName(binding),
-            getMemberSelectExpression(getOnlyElement(binding.dependencies()).bindingKey()));
+            getMemberSelectExpression(getOnlyElement(binding.explicitDependencies()).bindingKey()));
 
       case SYNTHETIC_MULTIBOUND_SET:
         return initializeFactoryForSetMultibinding(binding);
@@ -1156,7 +1156,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
    */
   private ImmutableList<CodeBlock> getDependencyArguments(Binding binding) {
     ImmutableList.Builder<CodeBlock> parameters = ImmutableList.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (FrameworkDependency frameworkDependency : binding.frameworkDependencies()) {
       parameters.add(getDependencyArgument(frameworkDependency).getExpressionFor(name));
     }
     return parameters.build();
@@ -1189,7 +1189,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
     int individualProviders = 0;
     int setProviders = 0;
     CodeBlock.Builder builderMethodCalls = CodeBlock.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (FrameworkDependency frameworkDependency : binding.frameworkDependencies()) {
       ContributionType contributionType =
           graph.resolvedBindings().get(frameworkDependency.bindingKey()).contributionType();
       String methodName;
@@ -1221,8 +1221,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
   }
 
   private CodeBlock initializeFactoryForMapMultibinding(ContributionBinding binding) {
-    ImmutableSet<FrameworkDependency> frameworkDependencies =
-        FrameworkDependency.frameworkDependenciesForBinding(binding);
+    ImmutableList<FrameworkDependency> frameworkDependencies = binding.frameworkDependencies();
 
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
     MapType mapType = MapType.from(binding.key().type());
@@ -1266,7 +1265,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
    * binding.
    */
   private CodeBlock initializeFactoryForSyntheticOptionalBinding(ContributionBinding binding) {
-    if (binding.dependencies().isEmpty()) {
+    if (binding.explicitDependencies().isEmpty()) {
       verify(
           binding.bindingType().equals(BindingType.PROVISION),
           "Absent optional bindings should be provisions: %s",

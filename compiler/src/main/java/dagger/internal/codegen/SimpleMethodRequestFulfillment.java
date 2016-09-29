@@ -52,7 +52,7 @@ final class SimpleMethodRequestFulfillment extends RequestFulfillment {
       RequestFulfillmentRegistry registry) {
     super(bindingKey);
     checkArgument(
-        provisionBinding.frameworkDependencies().isEmpty(),
+        provisionBinding.implicitDependencies().isEmpty(),
         "framework deps are not currently supported");
     checkArgument(!provisionBinding.scope().isPresent());
     checkArgument(!provisionBinding.requiresModuleInstance());
@@ -114,7 +114,7 @@ final class SimpleMethodRequestFulfillment extends RequestFulfillment {
     CodeBlock parametersCodeBlock =
         CodeBlocks.makeParametersCodeBlock(
             provisionBinding
-                .dependencies()
+                .explicitDependencies()
                 .stream()
                 .map(
                     request -> {

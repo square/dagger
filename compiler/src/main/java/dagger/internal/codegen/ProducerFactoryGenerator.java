@@ -220,9 +220,8 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
   /** Returns a list of dependencies that are generated asynchronously. */
   private static ImmutableList<DependencyRequest> asyncDependencies(Binding binding) {
     final ImmutableMap<DependencyRequest, FrameworkDependency> frameworkDependencies =
-        FrameworkDependency.indexByDependencyRequest(
-            FrameworkDependency.frameworkDependenciesForBinding(binding));
-    return FluentIterable.from(binding.implicitDependencies())
+        binding.dependenciesToFrameworkDependenciesMap();
+    return FluentIterable.from(binding.dependencies())
         .filter(
             dependency ->
                 isAsyncDependency(dependency)
@@ -317,7 +316,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     @Override
     ImmutableList<CodeBlock> parameterCodeBlocks() {
       ImmutableList.Builder<CodeBlock> parameterCodeBlocks = ImmutableList.builder();
-      for (DependencyRequest dependency : binding.dependencies()) {
+      for (DependencyRequest dependency : binding.explicitDependencies()) {
         parameterCodeBlocks.add(
             frameworkTypeUsageStatement(
                 CodeBlock.of("$N", fields.get(dependency.bindingKey())), dependency.kind()));
@@ -355,7 +354,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
     @Override
     ImmutableList<CodeBlock> parameterCodeBlocks() {
       ImmutableList.Builder<CodeBlock> parameterCodeBlocks = ImmutableList.builder();
-      for (DependencyRequest dependency : binding.dependencies()) {
+      for (DependencyRequest dependency : binding.explicitDependencies()) {
         // We really want to compare instances here, because asyncDependency is an element in the
         // set binding.dependencies().
         if (dependency == asyncDependency) {
@@ -441,7 +440,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
       ProductionBinding binding, ImmutableMap<BindingKey, FieldSpec> fields, String listArgName) {
     int argIndex = 0;
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
-    for (DependencyRequest dependency : binding.dependencies()) {
+    for (DependencyRequest dependency : binding.explicitDependencies()) {
       if (isAsyncDependency(dependency)) {
         codeBlocks.add(
             CodeBlock.of(

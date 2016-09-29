@@ -60,7 +60,7 @@ import javax.lang.model.util.Types;
 abstract class ProvisionBinding extends ContributionBinding {
 
   @Override
-  Set<DependencyRequest> frameworkDependencies() {
+  Set<DependencyRequest> implicitDependencies() {
     return membersInjectionRequest().asSet();
   }
 
@@ -80,7 +80,7 @@ abstract class ProvisionBinding extends ContributionBinding {
 
   private static Builder builder() {
     return new AutoValue_ProvisionBinding.Builder()
-        .dependencies(ImmutableSet.<DependencyRequest>of());
+        .explicitDependencies(ImmutableSet.<DependencyRequest>of());
   }
 
   abstract Builder toBuilder();
@@ -152,7 +152,7 @@ abstract class ProvisionBinding extends ContributionBinding {
               .contributionType(ContributionType.UNIQUE)
               .bindingElement(constructorElement)
               .key(key)
-              .dependencies(dependencies)
+              .explicitDependencies(dependencies)
               .membersInjectionRequest(membersInjectionRequest)
               .bindingKind(Kind.INJECTION)
               .scope(Scope.uniqueScopeOf(constructorElement.getEnclosingElement()));
@@ -199,7 +199,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           .bindingElement(providesMethod)
           .contributingModule(contributedBy)
           .key(key)
-          .dependencies(dependencies)
+          .explicitDependencies(dependencies)
           .nullableType(ConfigurationAnnotations.getNullableType(providesMethod))
           .wrappedMapKey(wrapOptionalInEquivalence(getMapKey(providesMethod)))
           .bindingKind(Kind.PROVISION)
@@ -217,7 +217,7 @@ abstract class ProvisionBinding extends ContributionBinding {
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(mapOfValuesKey)
-          .dependencies(requestForMapOfProviders)
+          .explicitDependencies(requestForMapOfProviders)
           .bindingKind(Kind.SYNTHETIC_MAP)
           .build();
     }
@@ -233,7 +233,7 @@ abstract class ProvisionBinding extends ContributionBinding {
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(key)
-          .dependencies(
+          .explicitDependencies(
               dependencyRequestFactory.forMultibindingContributions(multibindingContributions))
           .bindingKind(Kind.forMultibindingKey(key))
           .build();
@@ -307,7 +307,7 @@ abstract class ProvisionBinding extends ContributionBinding {
           .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Provider.class))
-          .dependencies(delegateDeclaration.delegateRequest())
+          .explicitDependencies(delegateDeclaration.delegateRequest())
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
           .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()));
@@ -332,7 +332,7 @@ abstract class ProvisionBinding extends ContributionBinding {
     ProvisionBinding syntheticPresentBinding(Key key) {
       return syntheticAbsentBinding(key)
           .toBuilder()
-          .dependencies(
+          .explicitDependencies(
               dependencyRequestFactory.forSyntheticPresentOptionalBinding(
                   key, DependencyRequest.Kind.PROVIDER))
           .build();

@@ -335,7 +335,7 @@ final class BindingGraphValidator {
                   (component, bindings) -> {
                     Validation validation = validationForComponent(component);
                     for (Binding binding : bindings) {
-                      for (DependencyRequest nextRequest : binding.implicitDependencies()) {
+                      for (DependencyRequest nextRequest : binding.dependencies()) {
                         validation.traverseDependencyRequest(nextRequest, path);
                       }
                     }
@@ -414,7 +414,7 @@ final class BindingGraphValidator {
             // binding to the implementation
             if (!contributionBinding.key().equals(productionImplementationExecutorKey)) {
               Key productionExecutorKey = keyFactory.forProductionExecutor();
-              for (DependencyRequest request : contributionBinding.dependencies()) {
+              for (DependencyRequest request : contributionBinding.explicitDependencies()) {
                 if (request.key().equals(productionExecutorKey)
                     || request.key().equals(productionImplementationExecutorKey)) {
                   reportDependsOnProductionExecutor(path);
@@ -495,7 +495,7 @@ final class BindingGraphValidator {
           if (binding.bindingElement().isPresent()) {
             contributions.put(bindingEntry);
           } else {
-            for (DependencyRequest dependency : binding.dependencies()) {
+            for (DependencyRequest dependency : binding.explicitDependencies()) {
               queue.add(owningGraph.resolvedBindings().get(dependency.bindingKey()));
             }
           }
@@ -561,7 +561,7 @@ final class BindingGraphValidator {
           binding);
       ImmutableSet.Builder<ContributionBinding> multibindingContributionsBuilder =
           ImmutableSet.builder();
-      for (DependencyRequest dependency : binding.dependencies()) {
+      for (DependencyRequest dependency : binding.explicitDependencies()) {
         multibindingContributionsBuilder.add(
             subject.resolvedBindings().get(dependency.bindingKey()).contributionBinding());
       }
@@ -1343,7 +1343,7 @@ final class BindingGraphValidator {
     FluentIterable<? extends Binding> dependentBindings() {
       return FluentIterable.from(dependentResolvedBindings().asSet())
           .transformAndConcat(ResolvedBindings::bindings)
-          .filter(binding -> binding.implicitDependencies().contains(dependencyRequest()));
+          .filter(binding -> binding.dependencies().contains(dependencyRequest()));
     }
 
     private static ResolvedRequest create(

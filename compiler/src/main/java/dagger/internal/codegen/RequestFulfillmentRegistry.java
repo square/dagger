@@ -64,7 +64,7 @@ final class RequestFulfillmentRegistry {
 
         ProviderFieldRequestFulfillment providerFieldRequestFulfillment =
             new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
-        if (provisionBinding.frameworkDependencies().isEmpty()
+        if (provisionBinding.implicitDependencies().isEmpty()
             && !provisionBinding.scope().isPresent()
             && !provisionBinding.requiresModuleInstance()
             && provisionBinding.bindingElement().isPresent()

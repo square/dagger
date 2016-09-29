@@ -197,13 +197,13 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
       case SYNTHETIC_DELEGATE_BINDING:
         return DELEGATE;
       case PROVISION:
-        return implicitDependencies().isEmpty() && !requiresModuleInstance()
+        return dependencies().isEmpty() && !requiresModuleInstance()
             ? ENUM_INSTANCE
             : CLASS_CONSTRUCTOR;
       case INJECTION:
       case SYNTHETIC_MULTIBOUND_SET:
       case SYNTHETIC_MULTIBOUND_MAP:
-        return implicitDependencies().isEmpty() ? ENUM_INSTANCE : CLASS_CONSTRUCTOR;
+        return dependencies().isEmpty() ? ENUM_INSTANCE : CLASS_CONSTRUCTOR;
       default:
         return CLASS_CONSTRUCTOR;
     }
@@ -271,9 +271,9 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
 
     abstract B key(Key key);
 
-    abstract B dependencies(Iterable<DependencyRequest> dependencies);
+    abstract B explicitDependencies(Iterable<DependencyRequest> dependencies);
 
-    abstract B dependencies(DependencyRequest... dependencies);
+    abstract B explicitDependencies(DependencyRequest... dependencies);
 
     abstract B nullableType(Optional<DeclaredType> nullableType);
 

@@ -876,7 +876,7 @@ abstract class BindingGraph {
         try {
           ResolvedBindings bindings = lookUpBindings(bindingKey);
           for (Binding binding : bindings.ownedBindings()) {
-            for (DependencyRequest dependency : binding.implicitDependencies()) {
+            for (DependencyRequest dependency : binding.dependencies()) {
               resolve(dependency.bindingKey());
             }
           }
@@ -988,7 +988,7 @@ abstract class BindingGraph {
                           || binding.scope().get().equals(reusableScope(elements)))
                       // TODO(beder): Figure out what happens with production subcomponents.
                       && !binding.bindingType().equals(BindingType.PRODUCTION)) {
-                    for (DependencyRequest dependency : binding.implicitDependencies()) {
+                    for (DependencyRequest dependency : binding.dependencies()) {
                       if (dependsOnLocalBindings(dependency.bindingKey())) {
                         return true;
                       }
