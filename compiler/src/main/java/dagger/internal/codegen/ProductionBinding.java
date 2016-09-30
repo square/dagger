@@ -59,7 +59,7 @@ abstract class ProductionBinding extends ContributionBinding {
   }
 
   @Override
-  Set<DependencyRequest> frameworkDependencies() {
+  Set<DependencyRequest> implicitDependencies() {
     return new ImmutableSet.Builder<DependencyRequest>()
         .addAll(executorRequest().asSet())
         .addAll(monitorRequest().asSet())
@@ -101,7 +101,7 @@ abstract class ProductionBinding extends ContributionBinding {
 
   private static Builder builder() {
     return new AutoValue_ProductionBinding.Builder()
-        .dependencies(ImmutableList.<DependencyRequest>of())
+        .explicitDependencies(ImmutableList.<DependencyRequest>of())
         .thrownTypes(ImmutableList.<TypeMirror>of());
   }
 
@@ -163,7 +163,7 @@ abstract class ProductionBinding extends ContributionBinding {
           .bindingElement(producesMethod)
           .contributingModule(contributedBy)
           .key(key)
-          .dependencies(dependencies)
+          .explicitDependencies(dependencies)
           .wrappedMapKey(wrapOptionalInEquivalence(getMapKey(producesMethod)))
           .bindingKind(Kind.PRODUCTION)
           .productionKind(productionKind)
@@ -190,7 +190,7 @@ abstract class ProductionBinding extends ContributionBinding {
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(mapOfValuesOrProducedKey)
-          .dependencies(requestForMapOfProducers)
+          .explicitDependencies(requestForMapOfProducers)
           .bindingKind(Kind.SYNTHETIC_MAP)
           .build();
     }
@@ -206,7 +206,7 @@ abstract class ProductionBinding extends ContributionBinding {
       return ProductionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(key)
-          .dependencies(
+          .explicitDependencies(
               dependencyRequestFactory.forMultibindingContributions(multibindingContributions))
           .bindingKind(Kind.forMultibindingKey(key))
           .build();
@@ -233,7 +233,7 @@ abstract class ProductionBinding extends ContributionBinding {
           .bindingElement(delegateDeclaration.bindingElement().get())
           .contributingModule(delegateDeclaration.contributingModule().get())
           .key(keyFactory.forDelegateBinding(delegateDeclaration, Producer.class))
-          .dependencies(delegateDeclaration.delegateRequest())
+          .explicitDependencies(delegateDeclaration.delegateRequest())
           .nullableType(delegateBinding.nullableType())
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
@@ -249,7 +249,7 @@ abstract class ProductionBinding extends ContributionBinding {
           .contributionType(ContributionType.UNIQUE)
           .key(key)
           .bindingKind(Kind.SYNTHETIC_OPTIONAL_BINDING)
-          .dependencies(
+          .explicitDependencies(
               dependencyRequestFactory.forSyntheticPresentOptionalBinding(
                   key, DependencyRequest.Kind.PRODUCER))
           .build();

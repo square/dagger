@@ -27,15 +27,11 @@ import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
-import static dagger.internal.codegen.Accessibility.isElementAccessibleFrom;
 import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
 import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
-import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
-import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
-import static dagger.internal.codegen.FrameworkDependency.frameworkDependenciesForBinding;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
 import static dagger.internal.codegen.MemberSelect.emptySetProvider;
@@ -128,10 +124,8 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
-/**
- * Creates the implementation class for a component or subcomponent.
- */
-abstract class AbstractComponentWriter {
+/** Creates the implementation class for a component or subcomponent. */
+abstract class AbstractComponentWriter implements HasBindingMembers {
   private static final String NOOP_BUILDER_METHOD_JAVADOC =
       "This module is declared, but an instance is not used in the component. This method is a "
           + "no-op. For more, see https://google.github.io/dagger/unused-modules.\n";
@@ -149,7 +143,7 @@ abstract class AbstractComponentWriter {
   private final UniqueNameSet componentFieldNames = new UniqueNameSet();
   private final Map<BindingKey, MemberSelect> memberSelects = new HashMap<>();
   private final Map<BindingKey, MemberSelect> producerFromProviderMemberSelects = new HashMap<>();
-  private final Map<BindingKey, RequestFulfillment> requestFulfillments = Maps.newLinkedHashMap();
+  private final RequestFulfillmentRegistry requestFulfillmentRegistry;
   protected final MethodSpec.Builder constructor = constructorBuilder().addModifiers(PRIVATE);
   protected Optional<ClassName> builderName = Optional.absent();
   private final OptionalFactories optionalFactories;
@@ -187,6 +181,8 @@ abstract class AbstractComponentWriter {
     this.graph = graph;
     this.subcomponentNames = subcomponentNames;
     this.optionalFactories = optionalFactories;
+    this.requestFulfillmentRegistry =
+        new RequestFulfillmentRegistry(graph.resolvedBindings(), this);
   }
 
   protected AbstractComponentWriter(
@@ -260,7 +256,8 @@ abstract class AbstractComponentWriter {
     return getMemberSelect(key).getExpressionFor(name);
   }
 
-  protected MemberSelect getMemberSelect(BindingKey key) {
+  @Override
+  public MemberSelect getMemberSelect(BindingKey key) {
     return memberSelects.get(key);
   }
 
@@ -688,41 +685,6 @@ abstract class AbstractComponentWriter {
         ? MAP_OF_PRODUCER_PRODUCER : MAP_PROVIDER_FACTORY;
   }
 
-  // TODO(gak): extract this into a proper factory class
-  private RequestFulfillment createRequestFulfillment(BindingKey bindingKey) {
-    /* TODO(gak): it is super convoluted that we create the member selects separately and then
-     * look them up again this way. Now that we have RequestFulfillment, the next step is to
-     * create it and the MemberSelect and the field on demand rather than in a first pass. */
-    MemberSelect memberSelect = getMemberSelect(bindingKey);
-    ResolvedBindings resolvedBindings = graph.resolvedBindings().get(bindingKey);
-    switch (resolvedBindings.bindingType()) {
-      case MEMBERS_INJECTION:
-        return new MembersInjectorRequestFulfillment(bindingKey, memberSelect);
-      case PRODUCTION:
-        return new ProducerFieldRequestFulfillment(bindingKey, memberSelect);
-      case PROVISION:
-        ProvisionBinding provisionBinding =
-            (ProvisionBinding) resolvedBindings.contributionBinding();
-        ProviderFieldRequestFulfillment providerFieldRequestFulfillment =
-            new ProviderFieldRequestFulfillment(bindingKey, memberSelect);
-        if (provisionBinding.implicitDependencies().isEmpty()
-            && !provisionBinding.scope().isPresent()
-            && !provisionBinding.requiresModuleInstance()
-            && provisionBinding.bindingElement().isPresent()
-            && (provisionBinding.bindingKind().equals(INJECTION)
-                || provisionBinding.bindingKind().equals(PROVISION))
-            // TODO(gak): the accessibility limitation here needs to be addressed
-            && isElementAccessibleFrom(
-                provisionBinding.bindingElement().get(), name.packageName())) {
-          return new SimpleMethodRequestFulfillment(
-              bindingKey, provisionBinding, providerFieldRequestFulfillment);
-        }
-        return providerFieldRequestFulfillment;
-      default:
-        throw new AssertionError();
-    }
-  }
-
   private void implementInterfaceMethods() {
     Set<MethodSignature> interfaceMethods = Sets.newHashSet();
     for (ComponentMethodDescriptor componentMethod :
@@ -743,8 +705,7 @@ abstract class AbstractComponentWriter {
           MethodSpec.Builder interfaceMethod =
               methodSpecForComponentMethod(methodElement, requestType);
           RequestFulfillment fulfillment =
-              requestFulfillments.computeIfAbsent(
-                  interfaceRequest.bindingKey(), this::createRequestFulfillment);
+              requestFulfillmentRegistry.getRequestFulfillment(interfaceRequest.bindingKey());
           CodeBlock codeBlock = fulfillment.getSnippetForDependencyRequest(interfaceRequest, name);
           switch (interfaceRequest.kind()) {
             case MEMBERS_INJECTOR:
@@ -879,11 +840,12 @@ abstract class AbstractComponentWriter {
      * called before we get the code block that initializes the member. */
     switch (binding.factoryCreationStrategy()) {
       case DELEGATE:
-        CodeBlock delegatingCodeBlock = CodeBlock.of(
-            "($T) $L",
-            binding.bindingType().frameworkClass(),
-            getMemberSelect(
-                Iterables.getOnlyElement(binding.dependencies()).bindingKey())
+        CodeBlock delegatingCodeBlock =
+            CodeBlock.of(
+                "($T) $L",
+                binding.bindingType().frameworkClass(),
+                getMemberSelect(
+                        Iterables.getOnlyElement(binding.explicitDependencies()).bindingKey())
                     .getExpressionFor(name));
         return Optional.of(
             CodeBlocks.concat(
@@ -945,7 +907,7 @@ abstract class AbstractComponentWriter {
     ImmutableList.Builder<CodeBlock> initializations = ImmutableList.builder();
 
     for (BindingKey dependencyKey :
-        FluentIterable.from(binding.implicitDependencies())
+        FluentIterable.from(binding.dependencies())
             .transform(DependencyRequest::bindingKey)
             .toSet()) {
       if (!getMemberSelect(dependencyKey).staticMember()
@@ -962,7 +924,7 @@ abstract class AbstractComponentWriter {
 
   private CodeBlock initializeProducersFromProviderDependencies(Binding binding) {
     ImmutableList.Builder<CodeBlock> initializations = ImmutableList.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (FrameworkDependency frameworkDependency : binding.frameworkDependencies()) {
       ResolvedBindings resolvedBindings =
           graph.resolvedBindings().get(frameworkDependency.bindingKey());
       if (resolvedBindings.frameworkClass().equals(Provider.class)
@@ -1086,7 +1048,7 @@ abstract class AbstractComponentWriter {
       case PROVISION:
         {
           List<CodeBlock> arguments =
-              Lists.newArrayListWithCapacity(binding.dependencies().size() + 1);
+              Lists.newArrayListWithCapacity(binding.explicitDependencies().size() + 1);
           if (binding.requiresModuleInstance()) {
             arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
@@ -1126,7 +1088,7 @@ abstract class AbstractComponentWriter {
       case PRODUCTION:
         {
           List<CodeBlock> arguments =
-              Lists.newArrayListWithCapacity(binding.implicitDependencies().size() + 2);
+              Lists.newArrayListWithCapacity(binding.dependencies().size() + 2);
           if (binding.requiresModuleInstance()) {
             arguments.add(getComponentContributionExpression(binding.contributingModule().get()));
           }
@@ -1142,7 +1104,7 @@ abstract class AbstractComponentWriter {
         return CodeBlock.of(
             "$T.create($L)",
             mapFactoryClassName(binding),
-            getMemberSelectExpression(getOnlyElement(binding.dependencies()).bindingKey()));
+            getMemberSelectExpression(getOnlyElement(binding.explicitDependencies()).bindingKey()));
 
       case SYNTHETIC_MULTIBOUND_SET:
         return initializeFactoryForSetMultibinding(binding);
@@ -1194,7 +1156,7 @@ abstract class AbstractComponentWriter {
    */
   private ImmutableList<CodeBlock> getDependencyArguments(Binding binding) {
     ImmutableList.Builder<CodeBlock> parameters = ImmutableList.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (FrameworkDependency frameworkDependency : binding.frameworkDependencies()) {
       parameters.add(getDependencyArgument(frameworkDependency).getExpressionFor(name));
     }
     return parameters.build();
@@ -1227,7 +1189,7 @@ abstract class AbstractComponentWriter {
     int individualProviders = 0;
     int setProviders = 0;
     CodeBlock.Builder builderMethodCalls = CodeBlock.builder();
-    for (FrameworkDependency frameworkDependency : frameworkDependenciesForBinding(binding)) {
+    for (FrameworkDependency frameworkDependency : binding.frameworkDependencies()) {
       ContributionType contributionType =
           graph.resolvedBindings().get(frameworkDependency.bindingKey()).contributionType();
       String methodName;
@@ -1259,8 +1221,7 @@ abstract class AbstractComponentWriter {
   }
 
   private CodeBlock initializeFactoryForMapMultibinding(ContributionBinding binding) {
-    ImmutableSet<FrameworkDependency> frameworkDependencies =
-        FrameworkDependency.frameworkDependenciesForBinding(binding);
+    ImmutableList<FrameworkDependency> frameworkDependencies = binding.frameworkDependencies();
 
     ImmutableList.Builder<CodeBlock> codeBlocks = ImmutableList.builder();
     MapType mapType = MapType.from(binding.key().type());
@@ -1304,7 +1265,7 @@ abstract class AbstractComponentWriter {
    * binding.
    */
   private CodeBlock initializeFactoryForSyntheticOptionalBinding(ContributionBinding binding) {
-    if (binding.dependencies().isEmpty()) {
+    if (binding.explicitDependencies().isEmpty()) {
       verify(
           binding.bindingType().equals(BindingType.PROVISION),
           "Absent optional bindings should be provisions: %s",

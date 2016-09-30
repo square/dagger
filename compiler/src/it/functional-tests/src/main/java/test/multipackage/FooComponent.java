@@ -20,6 +20,7 @@ import dagger.Component;
 import java.util.Set;
 import test.multipackage.a.AModule;
 import test.multipackage.a.UsesInaccessible;
+import test.multipackage.a.UsesInaccessibleInGenericsOnly;
 import test.multipackage.sub.FooChildComponent;
 
 /**
@@ -42,4 +43,6 @@ interface FooComponent {
   FooChildComponent fooChildComponent();
 
   UsesInaccessible usesInaccessible();
+
+  UsesInaccessibleInGenericsOnly accessibleConstructorUsesInaccessibleInGenericsOnly();
 }

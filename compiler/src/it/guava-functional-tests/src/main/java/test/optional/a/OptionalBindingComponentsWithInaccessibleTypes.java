@@ -18,18 +18,10 @@ package test.optional.a;
 
 import dagger.Component;
 import test.optional.OptionalBindingComponents.ConcreteBindingModule;
+import test.optional.OptionalBindingComponents.OptionalBindingComponent;
 import test.optional.OptionalBindingComponents.OptionalBindingModule;
-import test.optional.OptionalBindingComponents.SomeQualifier;
-import test.optional.OptionalBindingComponents.Values;
 
 final class OptionalBindingComponentsWithInaccessibleTypes {
-
-  interface OptionalBindingComponent {
-    Values values();
-
-    @SomeQualifier
-    Values qualifiedValues();
-  }
 
   @Component(modules = OptionalBindingModule.class)
   interface AbsentOptionalBindingComponent extends OptionalBindingComponent {}

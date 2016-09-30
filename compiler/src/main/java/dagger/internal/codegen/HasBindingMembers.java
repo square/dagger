@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package test.multipackage.a;
+package dagger.internal.codegen;
 
-import java.util.Map;
-import java.util.Set;
-import javax.inject.Inject;
+import javax.annotation.Nullable;
 
-@SuppressWarnings("unused")
-public class UsesInaccessible {
-  @Inject
-  public UsesInaccessible(
-      Inaccessible inaccessible,
-      Set<Inaccessible> inaccessibleSet,
-      Map<String, Inaccessible> inaccessibleMap) {}
+/** An object which associates a {@link MemberSelect} instance with a {@link BindingKey}. */
+// TODO(gak): this isn't a particularly good abstraction. This should go away when MS is reworked.
+interface HasBindingMembers {
+
+  /**
+   * Returns the {@link MemberSelect} associated with the given {@link BindingKey} or {@code null}
+   * if no association exists.
+   */
+  @Nullable
+  MemberSelect getMemberSelect(BindingKey bindingKey);
 }

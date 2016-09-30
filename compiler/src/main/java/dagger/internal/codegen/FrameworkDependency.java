@@ -16,16 +16,7 @@
 
 package dagger.internal.codegen;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
-
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
-import java.util.Collection;
-import java.util.Iterator;
 import javax.inject.Provider;
 
 /**
@@ -65,90 +56,8 @@ abstract class FrameworkDependency {
     return bindingType().frameworkClass();
   }
 
-  /**
-   * The dependency requests that are all satisfied by one framework instance.
-   */
-  abstract ImmutableSet<DependencyRequest> dependencyRequests();
-
-  /**
-   * The framework dependencies of {@code binding}. There will be one element for each
-   * different binding key in the <em>{@linkplain Binding#unresolved() unresolved}</em> version of
-   * {@code binding}.
-   *
-   * <p>For example, given the following modules:
-   * <pre><code>
-   *   {@literal @Module} abstract class {@literal BaseModule<T>} {
-   *     {@literal @Provides} Foo provideFoo(T t, String string) {
-   *       return …;
-   *     }
-   *   }
-   *
-   *   {@literal @Module} class StringModule extends {@literal BaseModule<String>} {}
-   * </code></pre>
-   *
-   * Both dependencies of {@code StringModule.provideFoo} have the same binding key:
-   * {@code String}. But there are still two dependencies, because in the unresolved binding they
-   * have different binding keys:
-   *
-   * <dl>
-   * <dt>{@code T} <dd>{@code String t}
-   * <dt>{@code String} <dd>{@code String string}
-   * </dl>
-   * 
-   * <p>Note that the sets returned by this method when called on the same binding will be equal,
-   * and their elements will be in the same order.
-   */
-  /* TODO(dpb): The stable-order postcondition is actually hard to verify in code for two equal
-   * instances of Binding, because it really depends on the order of the binding's dependencies,
-   * and two equal instances of Binding may have the same dependencies in a different order. */
-  static ImmutableSet<FrameworkDependency> frameworkDependenciesForBinding(Binding binding) {
-    BindingTypeMapper bindingTypeMapper =
-        BindingTypeMapper.forBindingType(binding.bindingType());
-    ImmutableSet.Builder<FrameworkDependency> frameworkDependencies = ImmutableSet.builder();
-    for (Collection<DependencyRequest> requests : groupByUnresolvedKey(binding)) {
-      frameworkDependencies.add(
-          new AutoValue_FrameworkDependency(
-              getOnlyElement(
-                  FluentIterable.from(requests).transform(DependencyRequest::bindingKey).toSet()),
-              bindingTypeMapper.getBindingType(requests),
-              ImmutableSet.copyOf(requests)));
-    }
-    return frameworkDependencies.build();
-  }
-
-  /** Indexes {@code dependencies} by their {@link #dependencyRequests()}. */
-  static ImmutableMap<DependencyRequest, FrameworkDependency> indexByDependencyRequest(
-      Iterable<FrameworkDependency> dependencies) {
-    ImmutableMap.Builder<DependencyRequest, FrameworkDependency> frameworkDependencyMap =
-        ImmutableMap.builder();
-    for (FrameworkDependency dependency : dependencies) {
-      for (DependencyRequest request : dependency.dependencyRequests()) {
-        frameworkDependencyMap.put(request, dependency);
-      }
-    }
-    return frameworkDependencyMap.build();
-  }
-
-  /**
-   * Groups {@code binding}'s implicit dependencies by their binding key, using the dependency keys
-   * from the {@link Binding#unresolved()} binding if it exists.
-   */
-  private static ImmutableList<Collection<DependencyRequest>> groupByUnresolvedKey(
-      Binding binding) {
-    ImmutableSetMultimap.Builder<BindingKey, DependencyRequest> dependenciesByKeyBuilder =
-        ImmutableSetMultimap.builder();
-    Iterator<DependencyRequest> dependencies = binding.implicitDependencies().iterator();
-    Binding unresolved = binding.unresolved().isPresent() ? binding.unresolved().get() : binding;
-    Iterator<DependencyRequest> unresolvedDependencies =
-        unresolved.implicitDependencies().iterator();
-    while (dependencies.hasNext()) {
-      dependenciesByKeyBuilder.put(unresolvedDependencies.next().bindingKey(), dependencies.next());
-    }
-    return ImmutableList.copyOf(
-        dependenciesByKeyBuilder
-            .orderValuesBy(SourceFiles.DEPENDENCY_ORDERING)
-            .build()
-            .asMap()
-            .values());
+  /** Returns a new instance with the given key and type. */
+  static FrameworkDependency create(BindingKey bindingKey, BindingType bindingType) {
+    return new AutoValue_FrameworkDependency(bindingKey, bindingType);
   }
 }

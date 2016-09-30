@@ -221,7 +221,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     }
 
     List<CodeBlock> parameters = Lists.newArrayList();
-    for (DependencyRequest dependency : binding.dependencies()) {
+    for (DependencyRequest dependency : binding.explicitDependencies()) {
       parameters.add(
           frameworkTypeUsageStatement(
               CodeBlock.of("$N", fields.get(dependency.bindingKey())), dependency.kind()));

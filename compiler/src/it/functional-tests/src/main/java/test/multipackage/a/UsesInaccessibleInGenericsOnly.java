@@ -21,10 +21,8 @@ import java.util.Set;
 import javax.inject.Inject;
 
 @SuppressWarnings("unused")
-public class UsesInaccessible {
+public class UsesInaccessibleInGenericsOnly {
   @Inject
-  public UsesInaccessible(
-      Inaccessible inaccessible,
-      Set<Inaccessible> inaccessibleSet,
-      Map<String, Inaccessible> inaccessibleMap) {}
+  public UsesInaccessibleInGenericsOnly(
+      Set<Inaccessible> inaccessibleSet, Map<String, Inaccessible> inaccessibleMap) {}
 }

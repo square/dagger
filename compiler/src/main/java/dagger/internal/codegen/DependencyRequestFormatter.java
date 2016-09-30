@@ -90,7 +90,10 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
                 .transform(
                     resolvedRequest -> {
                       ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations =
-                          resolvedRequest.dependentOptionalBindingDeclarations();
+                          resolvedRequest
+                              .dependentResolvedBindings()
+                              .transform(ResolvedBindings::optionalBindingDeclarations)
+                              .or(ImmutableSet.of());
                       return optionalBindingDeclarations.isEmpty()
                           ? format(resolvedRequest.dependencyRequest())
                           : formatSyntheticOptionalBindingDependency(optionalBindingDeclarations);
