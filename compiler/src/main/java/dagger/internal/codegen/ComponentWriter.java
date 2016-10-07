@@ -138,7 +138,7 @@ final class ComponentWriter extends AbstractComponentWriter {
   @Override
   protected void decorateComponent() {
     component.addModifiers(PUBLIC, FINAL);
-    addSupertype(component, componentDefinitionType());
+    addSupertype(component, graph.componentType());
   }
 
   @Override

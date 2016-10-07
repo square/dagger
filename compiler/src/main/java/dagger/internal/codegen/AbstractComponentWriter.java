@@ -198,12 +198,8 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
         parent.optionalFactories);
   }
 
-  protected final TypeElement componentDefinitionType() {
-    return graph.componentDescriptor().componentDefinitionType();
-  }
-
   protected final ClassName componentDefinitionTypeName() {
-    return ClassName.get(componentDefinitionType());
+    return ClassName.get(graph.componentType());
   }
 
   /**
@@ -696,7 +692,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
         ExecutableType requestType =
             MoreTypes.asExecutable(
                 types.asMemberOf(
-                    MoreTypes.asDeclared(componentDefinitionType().asType()), methodElement));
+                    MoreTypes.asDeclared(graph.componentType().asType()), methodElement));
         MethodSignature signature =
             MethodSignature.fromExecutableType(
                 methodElement.getSimpleName().toString(), requestType);

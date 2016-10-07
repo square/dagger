@@ -91,6 +91,15 @@ abstract class BindingGraph {
   abstract ImmutableSet<BindingGraph> subgraphs();
 
   /**
+   * The type that defines the component for this graph.
+   *
+   * @see ComponentDescriptor#componentDefinitionType()
+   */
+  TypeElement componentType() {
+    return componentDescriptor().componentDefinitionType();
+  }
+
+  /**
    * Returns the set of modules that are owned by this graph regardless of whether or not any of
    * their bindings are used in this graph. For graphs representing top-level {@link Component
    * components}, this set will be the same as

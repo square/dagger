@@ -230,8 +230,7 @@ final class BindingGraphValidator {
 
     Validation(BindingGraph subject, Optional<Validation> parent) {
       this.subject = subject;
-      this.reportBuilder =
-          ValidationReport.about(subject.componentDescriptor().componentDefinitionType());
+      this.reportBuilder = ValidationReport.about(subject.componentType());
       this.parent = parent;
       this.subgraphsByComponentDescriptor =
           Maps.uniqueIndex(subject.subgraphs(), BindingGraph::componentDescriptor);
@@ -293,7 +292,7 @@ final class BindingGraphValidator {
             String.format(
                 "%s requires modules which have no visible default constructors. "
                     + "Add the following modules as parameters to this method: %s",
-                subgraph.componentDescriptor().componentDefinitionType().getQualifiedName(),
+                subgraph.componentType().getQualifiedName(),
                 missingModules.stream().map(Object::toString).collect(joining(", "))),
             factoryMethod);
       }
@@ -301,8 +300,7 @@ final class BindingGraphValidator {
 
     private ImmutableSet<TypeElement> subgraphFactoryMethodParameters(
         ExecutableElement factoryMethod) {
-      DeclaredType componentType =
-          asDeclared(subject.componentDescriptor().componentDefinitionType().asType());
+      DeclaredType componentType = asDeclared(subject.componentType().asType());
       ExecutableType factoryMethodType =
           asExecutable(types.asMemberOf(componentType, factoryMethod));
       return asTypeElements(factoryMethodType.getParameterTypes());
@@ -362,8 +360,7 @@ final class BindingGraphValidator {
         throw new IllegalArgumentException(
             String.format(
                 "unknown component %s within %s",
-                component.componentDefinitionType(),
-                subject.componentDescriptor().componentDefinitionType()));
+                component.componentDefinitionType(), subject.componentType()));
       }
     }
 
@@ -909,7 +906,7 @@ final class BindingGraphValidator {
 
       ImmutableSet<String> incompatiblyScopedMethods = incompatiblyScopedMethodsBuilder.build();
       if (!incompatiblyScopedMethods.isEmpty()) {
-        TypeElement componentType = subject.componentDescriptor().componentDefinitionType();
+        TypeElement componentType = subject.componentType();
         StringBuilder message = new StringBuilder(componentType.getQualifiedName());
         if (!componentScopes.isEmpty()) {
           message.append(" scoped with ");
