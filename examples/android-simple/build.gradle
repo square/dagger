@@ -1,0 +1,26 @@
+buildscript {
+  dependencies {
+    classpath 'com.android.tools.build:gradle:0.8.+'
+  }
+}
+
+apply plugin: 'android'
+
+dependencies {
+  compile 'com.squareup.dagger:dagger:1.+'
+  provided 'com.squareup.dagger:dagger-compiler:1.+'
+}
+
+android {
+  compileSdkVersion 19
+  buildToolsVersion '19.0.1'
+
+  sourceSets {
+    main {
+      manifest.srcFile 'AndroidManifest.xml'
+      java.srcDirs = ['src']
+      res.srcDirs = ['res']
+    }
+  }
+
+}
