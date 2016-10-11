@@ -80,6 +80,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.squareup.javapoet.TypeName;
+import dagger.BindsOptionalOf;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MapKey;
@@ -1153,17 +1154,17 @@ final class BindingGraphValidator {
     }
 
     /**
-     * Returns any steps in a dependency cycle that "break" the cycle. These are any {@link
-     * Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first request in
-     * the cycle.
+     * Returns any steps in a dependency cycle that "break" the cycle. These are any nonsynthetic
+     * {@link Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first
+     * request in the cycle.
      *
-     * <p>If an implicit {@link Provider} dependency on {@code Map<K, Provider<V>>} is immediately
-     * preceded by a dependency on {@code Map<K, V>}, which means that the map's {@link Provider}s'
-     * {@link Provider#get() get()} methods are called during provision and so the cycle is not
-     * really broken.
+     * <p>The synthetic request for a {@code Map<K, Provider<V>>} as a dependency of a multibound
+     * {@code Map<K, V>} does not break cycles because the map's {@link Provider}s' {@link
+     * Provider#get() get()} methods are called during provision.
      *
-     * <p>A request for an instance of {@code Optional} breaks the cycle if a request for the {@code
-     * Optional}'s type parameter would.
+     * <p>A request for an instance of {@code Optional} breaks the cycle if it is resolved to a
+     * {@link BindsOptionalOf} binding and a request for the {@code Optional}'s type parameter
+     * would.
      */
     private ImmutableSet<DependencyRequest> providersBreakingCycle(DependencyPath path) {
       return path.cycle()
@@ -1174,25 +1175,22 @@ final class BindingGraphValidator {
                 public boolean apply(ResolvedRequest resolvedRequest) {
                   DependencyRequest dependencyRequest = resolvedRequest.dependencyRequest();
                   if (dependencyRequest.requestElement().isPresent()) {
-                    // Non-synthetic request
-                    return breaksCycle(dependencyRequest.key().type(), dependencyRequest.kind());
-                  } else if (!resolvedRequest
-                      .dependentResolvedBindings()
-                      .transform(ResolvedBindings::optionalBindingDeclarations)
-                      .or(ImmutableSet.of())
-                      .isEmpty()) {
-                    // Synthetic request from a @BindsOptionalOf: test the type inside the Optional.
-                    // Optional<Provider or Lazy or Provider of Lazy> breaks the cycle.
-                    TypeMirror requestedOptionalType =
-                        resolvedRequest.dependentResolvedBindings().get().key().type();
-                    DependencyRequest.KindAndType kindAndType =
-                        DependencyRequest.extractKindAndType(
-                            OptionalType.from(requestedOptionalType).valueType());
-                    return breaksCycle(kindAndType.type(), kindAndType.kind());
-                  } else {
-                    // Other synthetic requests.
-                    return false;
+                    if (breaksCycle(dependencyRequest.key().type(), dependencyRequest.kind())) {
+                      return true;
+                    } else if (!resolvedRequest
+                        .resolvedBindings()
+                        .optionalBindingDeclarations()
+                        .isEmpty()) {
+                      /* Request resolved to a @BindsOptionalOf binding, so test the type inside the
+                       * Optional. Optional<Provider or Lazy or Provider of Lazy or Map of Provider>
+                       * breaks the cycle. */
+                      DependencyRequest.KindAndType kindAndType =
+                          DependencyRequest.extractKindAndType(
+                              OptionalType.from(dependencyRequest.key()).valueType());
+                      return breaksCycle(kindAndType.type(), kindAndType.kind());
+                    }
                   }
+                  return false;
                 }
 
                 private boolean breaksCycle(
