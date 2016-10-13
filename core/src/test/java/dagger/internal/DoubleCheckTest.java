@@ -58,13 +58,7 @@ public class DoubleCheckTest {
   }
 
   private static final Provider<Object> DOUBLE_CHECK_OBJECT_PROVIDER =
-      DoubleCheck.provider(
-          new Provider<Object>() {
-            @Override
-            public Object get() {
-              return new Object();
-            }
-          });
+      DoubleCheck.provider(Object::new);
 
   @Test
   public void doubleWrapping_provider() {
@@ -90,12 +84,9 @@ public class DoubleCheckTest {
     List<Callable<Object>> tasks = Lists.newArrayListWithCapacity(numThreads);
     for (int i = 0; i < numThreads; i++) {
       tasks.add(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              latch.countDown();
-              return lazy.get();
-            }
+          () -> {
+            latch.countDown();
+            return lazy.get();
           });
     }
 
@@ -130,13 +121,8 @@ public class DoubleCheckTest {
 
   @Test public void reentranceWithoutCondition_throwsStackOverflow() {
     final AtomicReference<Provider<Object>> doubleCheckReference =
-        new AtomicReference<Provider<Object>>();
-    Provider<Object> doubleCheck = DoubleCheck.provider(new Provider<Object>() {
-      @Override
-      public Object get() {
-        return doubleCheckReference.get().get();
-      }
-    });
+        new AtomicReference<>();
+    Provider<Object> doubleCheck = DoubleCheck.provider(() -> doubleCheckReference.get().get());
     doubleCheckReference.set(doubleCheck);
     try {
       doubleCheck.get();
@@ -146,35 +132,29 @@ public class DoubleCheckTest {
 
   @Test public void reentranceReturningSameInstance() {
     final AtomicReference<Provider<Object>> doubleCheckReference =
-        new AtomicReference<Provider<Object>>();
+        new AtomicReference<>();
     final AtomicInteger invocationCount = new AtomicInteger();
     final Object object = new Object();
-    Provider<Object> doubleCheck = DoubleCheck.provider(new Provider<Object>() {
-     @Override
-      public Object get() {
-         if (invocationCount.incrementAndGet() == 1) {
-          doubleCheckReference.get().get();
-        }
-        return object;
-      }
-    });
+    Provider<Object> doubleCheck = DoubleCheck.provider(() -> {
+        if (invocationCount.incrementAndGet() == 1) {
+         doubleCheckReference.get().get();
+       }
+       return object;
+     });
     doubleCheckReference.set(doubleCheck);
     assertThat(doubleCheck.get()).isSameAs(object);
   }
 
   @Test public void reentranceReturningDifferentInstances_throwsIllegalStateException() {
     final AtomicReference<Provider<Object>> doubleCheckReference =
-        new AtomicReference<Provider<Object>>();
+        new AtomicReference<>();
     final AtomicInteger invocationCount = new AtomicInteger();
-    Provider<Object> doubleCheck = DoubleCheck.provider(new Provider<Object>() {
-     @Override
-      public Object get() {
-        if (invocationCount.incrementAndGet() == 1) {
-          doubleCheckReference.get().get();
-        }
-        return new Object();
-      }
-    });
+    Provider<Object> doubleCheck = DoubleCheck.provider(() -> {
+       if (invocationCount.incrementAndGet() == 1) {
+         doubleCheckReference.get().get();
+       }
+       return new Object();
+     });
     doubleCheckReference.set(doubleCheck);
     try {
       doubleCheck.get();
