@@ -21,7 +21,7 @@ import static com.squareup.javapoet.ClassName.OBJECT;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateBindingFieldsForDependencies;
@@ -89,7 +89,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
   Optional<TypeSpec.Builder> write(ClassName generatedTypeName, ProductionBinding binding) {
     checkArgument(binding.bindingElement().isPresent());
 
-    TypeName providedTypeName = TypeName.get(binding.factoryType());
+    TypeName providedTypeName = TypeName.get(binding.contributedType());
     TypeName futureTypeName = listenableFutureOf(providedTypeName);
 
     TypeSpec.Builder factoryBuilder =
@@ -188,7 +188,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
                     providedTypeName,
                     futureTransform.parameterCodeBlocks()));
     if (futureTransform.hasUncheckedCast()) {
-      applyMethodBuilder.addAnnotation(SUPPRESS_WARNINGS_UNCHECKED);
+      applyMethodBuilder.addAnnotation(AnnotationSpecs.suppressWarnings(UNCHECKED));
     }
 
     factoryBuilder.addMethod(constructorBuilder.build());

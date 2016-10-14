@@ -222,28 +222,30 @@ public final class InjectConstructorFactoryGeneratorTest {
         "class GenericClass<T> {",
         "  @Inject GenericClass() {}",
         "}");
-    JavaFileObject expected = JavaFileObjects.forSourceLines("test.GenericClass_Factory",
-        "package test;",
-        "",
-        "import dagger.internal.Factory;",
-        "import javax.annotation.Generated;",
-        "",
-        "@SuppressWarnings(\"rawtypes\")",
-        GENERATED_ANNOTATION,
-        "public enum GenericClass_Factory implements Factory<GenericClass> {",
-        "  INSTANCE;",
-        "",
-        "  @Override",
-        "  public GenericClass get() {",
-        "    return new GenericClass();",
-        "  }",
-        "",
-        "  @SuppressWarnings(\"unchecked\")",
-        "  public static <T> Factory<GenericClass<T>> create() {",
-        "    return (Factory) INSTANCE;",
-        "  }",
-        "",
-        "}");
+    JavaFileObject expected =
+        JavaFileObjects.forSourceLines(
+            "test.GenericClass_Factory",
+            "package test;",
+            "",
+            "import dagger.internal.Factory;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class GenericClass_Factory<T> implements Factory<GenericClass<T>> {",
+            "  @SuppressWarnings(\"rawtypes\")",
+            "  private static final GenericClass_Factory INSTANCE = new GenericClass_Factory();",
+            "",
+            "  @Override",
+            "  public GenericClass<T> get() {",
+            "    return new GenericClass<T>();",
+            "  }",
+            "",
+            "  @SuppressWarnings({\"rawtypes\", \"unchecked\"})",
+            "  public static <T> Factory<GenericClass<T>> create() {",
+            "    return (Factory) INSTANCE;",
+            "  }",
+            "",
+            "}");
     assertAbout(javaSource()).that(file)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
@@ -1271,24 +1273,26 @@ public final class InjectConstructorFactoryGeneratorTest {
         "final class SimpleType {",
         "  @Inject SimpleType() {}",
         "}");
-    JavaFileObject factory = JavaFileObjects.forSourceLines("test.SimpleType_Factory",
-        "package test;",
-        "",
-        "import dagger.internal.Factory;",
-        "import javax.annotation.Generated;",
-        "",
-        GENERATED_ANNOTATION,
-        "public enum SimpleType_Factory implements Factory<SimpleType> {",
-        "  INSTANCE;",
-        "",
-        "  @Override public SimpleType get() {",
-        "    return new SimpleType();",
-        "  }",
-        "",
-        "  public static Factory<SimpleType> create() {",
-        "    return INSTANCE;",
-        "  }",
-        "}");
+    JavaFileObject factory =
+        JavaFileObjects.forSourceLines(
+            "test.SimpleType_Factory",
+            "package test;",
+            "",
+            "import dagger.internal.Factory;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class SimpleType_Factory implements Factory<SimpleType> {",
+            "  private static final SimpleType_Factory INSTANCE = new SimpleType_Factory();",
+            "",
+            "  @Override public SimpleType get() {",
+            "    return new SimpleType();",
+            "  }",
+            "",
+            "  public static Factory<SimpleType> create() {",
+            "    return INSTANCE;",
+            "  }",
+            "}");
     assertAbout(javaSource())
         .that(simpleType)
         .processedWith(new ComponentProcessor())
@@ -1315,25 +1319,26 @@ public final class InjectConstructorFactoryGeneratorTest {
         "    void inject(B b);",
         "  }",
         "}");
-    JavaFileObject aFactory = JavaFileObjects.forSourceLines(
-        "test.OuterType_A_Factory",
-        "package test;",
-        "",
-        "import dagger.internal.Factory;",
-        "import javax.annotation.Generated;",
-        "",
-        GENERATED_ANNOTATION,
-        "public enum OuterType_A_Factory implements Factory<OuterType.A> {",
-        "  INSTANCE;",
-        "",
-        "  @Override public OuterType.A get() {",
-        "    return new OuterType.A();",
-        "  }",
-        "",
-        "  public static Factory<OuterType.A> create() {",
-        "    return INSTANCE;",
-        "  }",
-        "}");
+    JavaFileObject aFactory =
+        JavaFileObjects.forSourceLines(
+            "test.OuterType_A_Factory",
+            "package test;",
+            "",
+            "import dagger.internal.Factory;",
+            "import javax.annotation.Generated;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class OuterType_A_Factory implements Factory<OuterType.A> {",
+            "  private static final OuterType_A_Factory INSTANCE = new OuterType_A_Factory();",
+            "",
+            "  @Override public OuterType.A get() {",
+            "    return new OuterType.A();",
+            "  }",
+            "",
+            "  public static Factory<OuterType.A> create() {",
+            "    return INSTANCE;",
+            "  }",
+            "}");
     assertAbout(javaSources()).that(ImmutableList.of(nestedTypesFile))
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()

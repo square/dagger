@@ -20,11 +20,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
-import static com.squareup.javapoet.TypeSpec.enumBuilder;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.suppressWarnings;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ContributionBinding.Kind.PROVISION;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_PROVIDES_METHOD;
@@ -103,38 +102,39 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     checkArgument(binding.bindingElement().isPresent());
 
     if (binding.bindingKind().equals(INJECTION)
-        && !injectValidator.isValidType(binding.factoryType())) {
+        && !injectValidator.isValidType(binding.contributedType())) {
       return Optional.absent();
     }
 
-    TypeName providedTypeName = TypeName.get(binding.factoryType());
-    ParameterizedTypeName parameterizedFactoryName = factoryOf(providedTypeName);
-    Optional<ParameterizedTypeName> factoryOfRawTypeName = Optional.absent();
-    TypeSpec.Builder factoryBuilder;
-    Optional<MethodSpec.Builder> constructorBuilder = Optional.absent();
+    TypeName providedTypeName = TypeName.get(binding.contributedType());
+    ParameterizedTypeName factoryTypeName = factoryOf(providedTypeName);
     ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
+    TypeSpec.Builder factoryBuilder = classBuilder(generatedTypeName).addModifiers(FINAL);
+    // Use type parameters from the injected type or the module instance *only* if we require it.
+    boolean factoryHasTypeParameters =
+        (binding.bindingKind().equals(INJECTION) || binding.requiresModuleInstance())
+            && !typeParameters.isEmpty();
+    if (factoryHasTypeParameters) {
+      factoryBuilder.addTypeVariables(typeParameters);
+    }
+    Optional<MethodSpec.Builder> constructorBuilder = Optional.absent();
     UniqueNameSet uniqueFieldNames = new UniqueNameSet();
     ImmutableMap.Builder<BindingKey, FieldSpec> fieldsBuilder = ImmutableMap.builder();
 
-    boolean useRawType =
-        binding.factoryCreationStrategy() == ENUM_INSTANCE
-            && binding.bindingKind() == INJECTION
-            && !typeParameters.isEmpty();
     switch (binding.factoryCreationStrategy()) {
-      case ENUM_INSTANCE:
-        factoryBuilder = enumBuilder(generatedTypeName.simpleName()).addEnumConstant("INSTANCE");
-        // If we have type parameters, then remove the parameters from our providedTypeName,
-        // since we'll be implementing an erased version of it.
-        if (useRawType) {
-          factoryBuilder.addAnnotation(SUPPRESS_WARNINGS_RAWTYPES);
-          // TODO(ronshapiro): instead of reassigning, introduce an optional/second parameter
-          providedTypeName = ((ParameterizedTypeName) providedTypeName).rawType;
-          factoryOfRawTypeName = Optional.of(factoryOf(providedTypeName));
+      case SINGLETON_INSTANCE:
+        FieldSpec.Builder instanceFieldBuilder =
+            FieldSpec.builder(generatedTypeName, "INSTANCE", PRIVATE, STATIC, FINAL)
+                .initializer("new $T()", generatedTypeName);
+
+        // if the factory has type parameters, we're ignoring them in the initializer
+        if (factoryHasTypeParameters) {
+          instanceFieldBuilder.addAnnotation(suppressWarnings(RAWTYPES));
         }
+
+        factoryBuilder.addField(instanceFieldBuilder.build());
         break;
       case CLASS_CONSTRUCTOR:
-        factoryBuilder =
-            classBuilder(generatedTypeName).addTypeVariables(typeParameters).addModifiers(FINAL);
         constructorBuilder = Optional.of(constructorBuilder().addModifiers(PUBLIC));
         if (binding.requiresModuleInstance()) {
           addConstructorParameterAndTypeField(
@@ -163,9 +163,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     }
     ImmutableMap<BindingKey, FieldSpec> fields = fieldsBuilder.build();
 
-    factoryBuilder
-        .addModifiers(PUBLIC)
-        .addSuperinterface(factoryOfRawTypeName.or(parameterizedFactoryName));
+    factoryBuilder.addModifiers(PUBLIC).addSuperinterface(factoryTypeName);
 
     // If constructing a factory for @Inject or @Provides bindings, we use a static create method
     // so that generated components can avoid having to refer to the generic types
@@ -177,26 +175,24 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
         // The return type is usually the same as the implementing type, except in the case
         // of enums with type variables (where we cast).
         MethodSpec.Builder createMethodBuilder =
-            methodBuilder("create")
-                .addModifiers(PUBLIC, STATIC)
-                .returns(parameterizedFactoryName);
-        if (binding.factoryCreationStrategy() != ENUM_INSTANCE
-            || binding.bindingKind() == INJECTION) {
+            methodBuilder("create").addModifiers(PUBLIC, STATIC).returns(factoryTypeName);
+        if (factoryHasTypeParameters) {
           createMethodBuilder.addTypeVariables(typeParameters);
         }
         List<ParameterSpec> params =
             constructorBuilder.isPresent()
-                ? constructorBuilder.get().build().parameters : ImmutableList.<ParameterSpec>of();
+                ? constructorBuilder.get().build().parameters
+                : ImmutableList.of();
         createMethodBuilder.addParameters(params);
         switch (binding.factoryCreationStrategy()) {
-          case ENUM_INSTANCE:
-            if (!useRawType) {
-              createMethodBuilder.addStatement("return INSTANCE");
-            } else {
+          case SINGLETON_INSTANCE:
+            if (factoryHasTypeParameters) {
               // We use an unsafe cast here because the types are different.
               // It's safe because the type is never referenced anywhere.
               createMethodBuilder.addStatement("return ($T) INSTANCE", TypeNames.FACTORY);
-              createMethodBuilder.addAnnotation(SUPPRESS_WARNINGS_UNCHECKED);
+              createMethodBuilder.addAnnotation(suppressWarnings(RAWTYPES, UNCHECKED));
+            } else {
+              createMethodBuilder.addStatement("return INSTANCE");
             }
             break;
 

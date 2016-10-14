@@ -16,6 +16,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.TypeNames.DOUBLE_CHECK;
 import static dagger.internal.codegen.TypeNames.PROVIDER_OF_LAZY;
 import static dagger.internal.codegen.Util.ELEMENT_SIMPLE_NAME;
@@ -23,7 +24,6 @@ import static dagger.internal.codegen.Util.optionalComparator;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +39,6 @@ import java.util.Iterator;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * Utilities for generating files.
@@ -173,62 +172,12 @@ class SourceFiles {
     }
   }
 
-  static TypeName parameterizedGeneratedTypeNameForBinding(
-      Binding binding) {
+  static TypeName parameterizedGeneratedTypeNameForBinding(Binding binding) {
     ClassName className = generatedClassNameForBinding(binding);
-    ImmutableList<TypeName> typeParameters = bindingTypeParameters(binding);
-    if (typeParameters.isEmpty()) {
-      return className;
-    } else {
-      return ParameterizedTypeName.get(
-          className,
-          FluentIterable.from(typeParameters).toArray(TypeName.class));
-    }
-  }
-
-  private static Optional<TypeMirror> typeMirrorForBindingTypeParameters(Binding binding)
-      throws AssertionError {
-    switch (binding.bindingType()) {
-      case PROVISION:
-      case PRODUCTION:
-        ContributionBinding contributionBinding = (ContributionBinding) binding;
-        switch (contributionBinding.bindingKind()) {
-          case INJECTION:
-            return Optional.of(contributionBinding.key().type());
-
-          case PROVISION:
-            // For provision bindings, we parameterize creation on the types of
-            // the module, not the types of the binding.
-            // Consider: Module<A, B, C> { @Provides List<B> provideB(B b) { .. }}
-            // The binding is just parameterized on <B>, but we need all of <A, B, C>.
-            return Optional.of(contributionBinding.bindingTypeElement().get().asType());
-
-          case PRODUCTION:
-            // TODO(beder): Can these be treated just like PROVISION?
-            throw new UnsupportedOperationException();
-            
-          default:
-            return Optional.absent();
-        }
-
-      case MEMBERS_INJECTION:
-        return Optional.of(binding.key().type());
-
-      default:
-        throw new AssertionError();
-    }
-  }
-
-  static ImmutableList<TypeName> bindingTypeParameters(
-      Binding binding) {
-    Optional<TypeMirror> typeMirror = typeMirrorForBindingTypeParameters(binding);
-    if (!typeMirror.isPresent()) {
-      return ImmutableList.of();
-    }
-    TypeName bindingTypeName = TypeName.get(typeMirror.get());
-    return bindingTypeName instanceof ParameterizedTypeName
-        ? ImmutableList.copyOf(((ParameterizedTypeName) bindingTypeName).typeArguments)
-        : ImmutableList.<TypeName>of();
+    ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
+    return typeParameters.isEmpty()
+        ? className
+        : ParameterizedTypeName.get(className, Iterables.toArray(typeParameters, TypeName.class));
   }
 
   static ClassName membersInjectorNameForType(TypeElement typeElement) {
@@ -271,6 +220,13 @@ class SourceFiles {
   }
 
   static ImmutableList<TypeVariableName> bindingTypeElementTypeVariableNames(Binding binding) {
+    if (binding instanceof ContributionBinding) {
+      ContributionBinding contributionBinding = (ContributionBinding) binding;
+      if (!contributionBinding.bindingKind().equals(INJECTION)
+          && !contributionBinding.requiresModuleInstance()) {
+        return ImmutableList.of();
+      }
+    }
     ImmutableList.Builder<TypeVariableName> builder = ImmutableList.builder();
     for (TypeParameterElement typeParameter :
         binding.bindingTypeElement().get().getTypeParameters()) {

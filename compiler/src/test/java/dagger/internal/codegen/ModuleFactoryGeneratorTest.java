@@ -1050,6 +1050,10 @@ public class ModuleFactoryGeneratorTest {
             "  @Provides static Object provideNonGenericType() {",
             "    return new Object();",
             "  }",
+            "",
+            "  @Provides static String provideNonGenericTypeWithDeps(Object o) {",
+            "    return o.toString();",
+            "  }",
             "}");
 
     JavaFileObject provideMapStringNumberFactory =
@@ -1063,9 +1067,10 @@ public class ModuleFactoryGeneratorTest {
             "import javax.annotation.Generated;",
             "",
             GENERATED_ANNOTATION,
-            "public enum ParameterizedModule_ProvideMapStringNumberFactory",
+            "public final class ParameterizedModule_ProvideMapStringNumberFactory",
             "    implements Factory<Map<String, Number>> {",
-            "  INSTANCE;",
+            "  private static final ParameterizedModule_ProvideMapStringNumberFactory INSTANCE =",
+            "      new ParameterizedModule_ProvideMapStringNumberFactory();",
             "",
             "  @Override",
             "  public Map<String, Number> get() {",
@@ -1088,9 +1093,10 @@ public class ModuleFactoryGeneratorTest {
             "import javax.annotation.Generated;",
             "",
             GENERATED_ANNOTATION,
-            "public enum ParameterizedModule_ProvideNonGenericTypeFactory",
+            "public final class ParameterizedModule_ProvideNonGenericTypeFactory",
             "    implements Factory<Object> {",
-            "  INSTANCE;",
+            "  private static final ParameterizedModule_ProvideNonGenericTypeFactory INSTANCE = ",
+            "      new ParameterizedModule_ProvideNonGenericTypeFactory();",
             "",
             "  @Override",
             "  public Object get() {",
@@ -1103,12 +1109,48 @@ public class ModuleFactoryGeneratorTest {
             "  }",
             "}");
 
+    JavaFileObject provideNonGenericTypeWithDepsFactory =
+        JavaFileObjects.forSourceLines(
+            "test.ParameterizedModule_ProvideNonGenericTypeWithDepsFactory;",
+            "package test;",
+            "",
+            "import dagger.internal.Factory;",
+            "import dagger.internal.Preconditions;",
+            "import javax.annotation.Generated;",
+            "import javax.inject.Provider;",
+            "",
+            GENERATED_ANNOTATION,
+            "public final class ParameterizedModule_ProvideNonGenericTypeWithDepsFactory",
+            "    implements Factory<String> {",
+            "  private final Provider<Object> oProvider;",
+            "",
+            "  public ParameterizedModule_ProvideNonGenericTypeWithDepsFactory(",
+            "      Provider<Object> oProvider) {",
+            "    assert oProvider != null;",
+            "    this.oProvider = oProvider;",
+            "  }",
+            "",
+            "  @Override",
+            "  public String get() {",
+            "    return Preconditions.checkNotNull(",
+            "        ParameterizedModule.provideNonGenericTypeWithDeps(oProvider.get()),",
+            "        " + NPE_LITERAL + ");",
+            "  }",
+            "",
+            "  public static Factory<String> create(Provider<Object> oProvider) {",
+            "    return new ParameterizedModule_ProvideNonGenericTypeWithDepsFactory(oProvider);",
+            "  }",
+            "}");
+
     assertAbout(javaSource())
         .that(moduleFile)
         .processedWith(new ComponentProcessor())
         .compilesWithoutError()
         .and()
-        .generatesSources(provideMapStringNumberFactory, provideNonGenericTypeFactory);
+        .generatesSources(
+            provideMapStringNumberFactory,
+            provideNonGenericTypeFactory,
+            provideNonGenericTypeWithDepsFactory);
   }
 
   @Test public void providesMethodMultipleQualifiers() {
