@@ -190,6 +190,7 @@ final class ComponentWriter extends AbstractComponentWriter {
   /** {@code true} if all of the graph's required dependencies can be automatically constructed. */
   private boolean canInstantiateAllRequirements() {
     return !Iterables.any(
-        graph.componentRequirements(), dependency -> requiresAPassedInstance(elements, dependency));
+        graph.componentRequirements(),
+        dependency -> requiresAPassedInstance(elements, types, dependency));
   }
 }

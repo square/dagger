@@ -45,6 +45,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleElementVisitor6;
+import javax.lang.model.util.Types;
 
 /**
  * Utilities for handling types in annotation processors
@@ -54,9 +55,9 @@ final class Util {
    * Returns true if the passed {@link TypeElement} requires a passed instance in order to be used
    * within a component.
    */
-  static boolean requiresAPassedInstance(Elements elements, TypeElement typeElement) {
+  static boolean requiresAPassedInstance(Elements elements, Types types, TypeElement typeElement) {
     ImmutableSet<ExecutableElement> methods =
-        MoreElements.getLocalAndInheritedMethods(typeElement, elements);
+        getLocalAndInheritedMethods(typeElement, types, elements);
     boolean foundInstanceMethod = false;
     for (ExecutableElement method : methods) {
       if (method.getModifiers().contains(ABSTRACT)
@@ -130,8 +131,8 @@ final class Util {
   }
 
   static ImmutableSet<ExecutableElement> getUnimplementedMethods(
-      Elements elements, TypeElement type) {
-    return FluentIterable.from(getLocalAndInheritedMethods(type, elements))
+      Elements elements, Types types, TypeElement type) {
+    return FluentIterable.from(getLocalAndInheritedMethods(type, types, elements))
         .filter(hasModifiers(ABSTRACT))
         .toSet();
   }

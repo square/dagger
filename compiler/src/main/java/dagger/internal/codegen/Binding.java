@@ -22,6 +22,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -112,10 +113,10 @@ abstract class Binding extends BindingDeclaration implements HasBindingType {
    * binding keys:
    *
    * <dl>
-   * <dt>{@code T}
-   * <dd>{@code String t}
-   * <dt>{@code String}
-   * <dd>{@code String string}
+   *   <dt>{@code T}
+   *   <dd>{@code String t}
+   *   <dt>{@code String}
+   *   <dd>{@code String string}
    * </dl>
    *
    * <p>Note that the sets returned by this method when called on the same binding will be equal,
@@ -124,6 +125,7 @@ abstract class Binding extends BindingDeclaration implements HasBindingType {
   /* TODO(dpb): The stable-order postcondition is actually hard to verify in code for two equal
    * instances of Binding, because it really depends on the order of the binding's dependencies,
    * and two equal instances of Binding may have the same dependencies in a different order. */
+  @Memoized
   ImmutableList<FrameworkDependency> frameworkDependencies() {
     return ImmutableList.copyOf(
         dependencyAssociations()
@@ -158,6 +160,7 @@ abstract class Binding extends BindingDeclaration implements HasBindingType {
    * multiple times if the {@linkplain Binding#unresolved() unresolved} binding requires it. If that
    * distinction is not important, the entries can be merged into a single mapping.
    */
+  @Memoized
   ImmutableList<DependencyAssociation> dependencyAssociations() {
     BindingTypeMapper bindingTypeMapper = BindingTypeMapper.forBindingType(bindingType());
     ImmutableList.Builder<DependencyAssociation> frameworkDependencies = ImmutableList.builder();
@@ -179,6 +182,7 @@ abstract class Binding extends BindingDeclaration implements HasBindingType {
    * Returns the mapping from each {@linkplain #dependencies dependency} to its associated {@link
    * FrameworkDependency}.
    */
+  @Memoized
   ImmutableMap<DependencyRequest, FrameworkDependency> dependenciesToFrameworkDependenciesMap() {
     ImmutableMap.Builder<DependencyRequest, FrameworkDependency> frameworkDependencyMap =
         ImmutableMap.builder();

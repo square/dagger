@@ -372,7 +372,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       if (componentCanMakeNewInstances(builderFieldEntry.getKey())) {
         buildMethod.addCode(
             "if ($1N == null) { this.$1N = new $2T(); }", builderField, builderField.type);
-      } else if (requiresAPassedInstance(elements, builderFieldEntry.getKey())) {
+      } else if (requiresAPassedInstance(elements, types, builderFieldEntry.getKey())) {
         buildMethod.addCode(
             "if ($N == null) { throw new $T($T.class.getCanonicalName() + $S); }",
             builderField,

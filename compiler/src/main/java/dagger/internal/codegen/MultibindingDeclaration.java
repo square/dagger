@@ -103,7 +103,8 @@ abstract class MultibindingDeclaration extends BindingDeclaration
       DeclaredType interfaceType = MoreTypes.asDeclared(interfaceElement.asType());
 
       ImmutableSet.Builder<MultibindingDeclaration> declarations = ImmutableSet.builder();
-      for (ExecutableElement method : getLocalAndInheritedMethods(interfaceElement, elements)) {
+      for (ExecutableElement method :
+          getLocalAndInheritedMethods(interfaceElement, types, elements)) {
         if (!method.getEnclosingElement().equals(objectElement)) {
           ExecutableType methodType =
               MoreTypes.asExecutable(types.asMemberOf(interfaceType, method));

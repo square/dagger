@@ -100,6 +100,7 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     MultibindingsValidator multibindingsValidator =
         new MultibindingsValidator(
             elements,
+            types,
             keyFactory,
             keyFormatter,
             methodSignatureFormatter,

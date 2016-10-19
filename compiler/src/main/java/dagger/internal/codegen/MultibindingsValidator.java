@@ -36,6 +36,7 @@ import java.util.Map;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Multibindings @Multibindings}-annotated
@@ -43,6 +44,7 @@ import javax.lang.model.util.Elements;
  */
 final class MultibindingsValidator {
   private final Elements elements;
+  private final Types types;
   private final Key.Factory keyFactory;
   private final KeyFormatter keyFormatter;
   private final MethodSignatureFormatter methodSignatureFormatter;
@@ -51,11 +53,13 @@ final class MultibindingsValidator {
 
   MultibindingsValidator(
       Elements elements,
+      Types types,
       Key.Factory keyFactory,
       KeyFormatter keyFormatter,
       MethodSignatureFormatter methodSignatureFormatter,
       MultibindingsMethodValidator multibindingsMethodValidator) {
     this.elements = elements;
+    this.types = types;
     this.keyFactory = keyFactory;
     this.keyFormatter = keyFormatter;
     this.methodSignatureFormatter = methodSignatureFormatter;
@@ -82,7 +86,8 @@ final class MultibindingsValidator {
 
     ImmutableListMultimap.Builder<Key, ExecutableElement> methodsByKey =
         ImmutableListMultimap.builder();
-    for (ExecutableElement method : getLocalAndInheritedMethods(multibindingsType, elements)) {
+    for (ExecutableElement method :
+        getLocalAndInheritedMethods(multibindingsType, types, elements)) {
       // Skip methods in Object.
       if (method.getEnclosingElement().equals(objectElement)) {
         continue;
