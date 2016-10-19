@@ -460,7 +460,7 @@ abstract class BindingMethodValidator {
      * Adds an error if the method declares throws anything but an {@link Error} or an appropriate
      * subtype of {@link Exception}.
      *
-     * <p>This method is overridden in {@link #NONE}.
+     * <p>This method is overridden in {@link #NO_EXCEPTIONS}.
      */
     protected void checkThrows(
         BindingMethodValidator validator, ValidationReport.Builder<ExecutableElement> builder) {

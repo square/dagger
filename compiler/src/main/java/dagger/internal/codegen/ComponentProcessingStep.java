@@ -188,9 +188,10 @@ final class ComponentProcessingStep implements ProcessingStep {
 
   /**
    * Returns true if the component's report is clean, its builder report is clean, and all
-   * referenced subcomponent reports & subcomponent builder reports are clean.
+   * referenced subcomponent reports and subcomponent builder reports are clean.
    */
-  private boolean isClean(ComponentValidationReport report,
+  private boolean isClean(
+      ComponentValidationReport report,
       Map<Element, ValidationReport<TypeElement>> builderReportsByComponent,
       Map<Element, ValidationReport<TypeElement>> reportsBySubcomponent,
       Map<Element, ValidationReport<TypeElement>> builderReportsBySubcomponent) {

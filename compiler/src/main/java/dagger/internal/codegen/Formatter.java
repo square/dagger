@@ -38,16 +38,16 @@ abstract class Formatter<T> implements Function<T, String> {
   public abstract String format(T object);
 
   /**
-   * Performs the transformation of an object into a string representation in
-   * conformity with the {@link Function}{@code <T, String>} contract, delegating
-   * to {@link #format(Object)}.
+   * Performs the transformation of an object into a string representation in conformity with the
+   * {@link Function}{@code <T, String>} contract, delegating to {@link #format(Object)}.
    *
-   * @deprecated Call {@link #format(T)} instead.  This method exists to make
-   * formatters easy to use when functions are required, but shouldn't be called directly.
+   * @deprecated Call {@link #format(Object)} instead. This method exists to make formatters easy to
+   *     use when functions are required, but shouldn't be called directly.
    */
   @SuppressWarnings("javadoc")
   @Deprecated
-  @Override final public String apply(T object) {
+  @Override
+  public final String apply(T object) {
     return format(object);
   }
 

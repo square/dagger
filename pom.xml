@@ -198,6 +198,7 @@
           <windowtitle>Dagger Dependency Injection ${project.version} API</windowtitle>
           <doctitle>Dagger Dependency Injection ${project.version} API</doctitle>
           <docfilessubdirs>true</docfilessubdirs>
+          <additionalparam>-Xdoclint:html,reference,syntax</additionalparam>
         </configuration>
       </plugin>
     </plugins>

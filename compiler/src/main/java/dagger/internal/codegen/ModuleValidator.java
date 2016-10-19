@@ -247,7 +247,7 @@ final class ModuleValidator {
   }
 
   /**
-   * Used by {@link ModuleValidator} & {@link ComponentValidator} to validate referenced modules.
+   * Used by {@link ModuleValidator} and {@link ComponentValidator} to validate referenced modules.
    */
   void validateReferencedModules(
       final TypeElement subject,

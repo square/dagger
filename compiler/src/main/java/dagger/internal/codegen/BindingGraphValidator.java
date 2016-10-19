@@ -164,9 +164,8 @@ final class BindingGraphValidator {
     }
 
     /**
-     * {@code true} if there is a dependency cycle, which means that the
-     * {@linkplain #currentDependencyRequest() current request}'s binding key occurs earlier in the
-     * path.
+     * {@code true} if there is a dependency cycle, which means that the current request's binding
+     * key occurs earlier in the path.
      */
     boolean hasCycle() {
       return keyPath.count(current().dependencyRequest().bindingKey()) > 1;
@@ -174,8 +173,7 @@ final class BindingGraphValidator {
 
     /**
      * If there is a cycle, the segment of the path that represents the cycle. The first request's
-     * and the last request's binding keys are equal. The last request is the {@linkplain
-     * #currentDependencyRequest() current request}.
+     * and the last request's binding keys are equal. The last request is the current request.
      *
      * @throws IllegalStateException if {@link #hasCycle()} is {@code false}
      */
@@ -206,8 +204,8 @@ final class BindingGraphValidator {
     }
 
     /**
-     * Adds the {@linkplain #currentDependencyRequest() current request} to a set of visited
-     * requests, and returns {@code true} if the set didn't already contain it.
+     * Adds the current request to a set of visited requests, and returns {@code true} if the set
+     * didn't already contain it.
      */
     boolean visitCurrentDependencyRequest() {
       return resolvedDependencyRequests.add(current().dependencyRequest());

@@ -30,13 +30,15 @@ import javax.inject.Provider;
 
 /**
  * Cycle classes used for testing cyclic dependencies.
- * A <- (E <- D <- B <- C <- Provider<A>, Lazy<A>), (B <- C <- Provider<A>, Lazy<A>)
- * S <- Provider<S>, Lazy<S>
+ *
+ * <pre>
+ * {@literal A ← (E ← D ← B ← C ← Provider<A>, Lazy<A>), (B ← C ← Provider<A>, Lazy<A>)}
+ * {@literal S ← Provider<S>, Lazy<S>}
+ * </pre>
  *
  * @author Tony Bentancur
  * @since 2.0
  */
-
 final class Cycles {
   private Cycles() {}
 

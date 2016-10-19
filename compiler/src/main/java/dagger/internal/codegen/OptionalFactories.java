@@ -96,7 +96,7 @@ final class OptionalFactories {
   }
 
   /**
-   * Creates a method specification for a {@link Provider<Optional<T>>} that always returns an
+   * Creates a method specification for a {@code Provider<Optional<T>>} that always returns an
    * absent value.
    */
   private MethodSpec absentOptionalProviderMethod(OptionalKind optionalKind) {
@@ -122,7 +122,7 @@ final class OptionalFactories {
   }
 
   /**
-   * Creates a field specification for a {@link Provider<Optional<T>>} that always returns an absent
+   * Creates a field specification for a {@code Provider<Optional<T>>} that always returns an absent
    * value.
    */
   private FieldSpec absentOptionalProviderField(OptionalKind optionalKind) {
@@ -295,7 +295,7 @@ final class OptionalFactories {
         .addModifiers(PRIVATE, STATIC, FINAL)
         .addSuperinterface(spec.factoryType())
         .addJavadoc(
-            "A {@link $T} that uses a delegate {@code $T}.", spec.factoryType(), delegateField.type)
+            "A {@code $T} that uses a delegate {@code $T}.", spec.factoryType(), delegateField.type)
         .addField(delegateField)
         .addMethod(
             constructorBuilder()

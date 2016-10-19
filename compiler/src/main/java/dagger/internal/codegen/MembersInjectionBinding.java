@@ -176,7 +176,7 @@ abstract class MembersInjectionBinding extends Binding {
 
     /**
      * Returns a MembersInjectionBinding for the given type. If {@code resolvedType} is present,
-     * this will return a resolved binding, with the key & type resolved to the given type (using
+     * this will return a resolved binding, with the key and type resolved to the given type (using
      * {@link Types#asMemberOf(DeclaredType, Element)}).
      */
     MembersInjectionBinding forInjectedType(

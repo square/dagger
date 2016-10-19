@@ -294,7 +294,7 @@ abstract class ComponentDescriptor {
   /**
    * All {@linkplain Subcomponent direct child} components that are declared by an entry point
    * method. This is equivalent to the set of values from {@link #subcomponentsByFactoryMethod()}
-   * and {@link #subcomponentsByBuilderMethod().
+   * and {@link #subcomponentsByBuilderMethod()}.
    */
   ImmutableSet<ComponentDescriptor> subcomponentsFromEntryPoints() {
     return ImmutableSet.<ComponentDescriptor>builder()
