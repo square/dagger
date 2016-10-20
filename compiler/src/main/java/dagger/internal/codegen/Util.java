@@ -20,6 +20,8 @@ import static com.google.auto.common.MoreElements.getLocalAndInheritedMethods;
 import static com.google.auto.common.MoreElements.hasModifiers;
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.common.collect.Lists.asList;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -30,12 +32,14 @@ import com.google.auto.common.MoreTypes;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.Binds;
 import dagger.Provides;
 import dagger.producers.Produces;
 import java.lang.annotation.Annotation;
 import java.util.Comparator;
+import java.util.stream.Collector;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementVisitor;
@@ -216,6 +220,22 @@ final class Util {
   static <C extends Comparable<C>> Comparator<Optional<C>> optionalComparator() {
     return Comparator.comparing((Optional<C> optional) -> optional.isPresent())
         .thenComparing(Optional::get);
+  }
+
+  /**
+   * Returns a {@link Collector} that accumulates the input elements into a new {@link
+   * ImmutableList}, in encounter order.
+   */
+  static <T> Collector<T, ?, ImmutableList<T>> toImmutableList() {
+    return collectingAndThen(toList(), ImmutableList::copyOf);
+  }
+
+  /**
+   * Returns a {@link Collector} that accumulates the input elements into a new {@link
+   * ImmutableSet}, in encounter order.
+   */
+  static <T> Collector<T, ?, ImmutableSet<T>> toImmutableSet() {
+    return collectingAndThen(toList(), ImmutableSet::copyOf);
   }
 
   private Util() {}

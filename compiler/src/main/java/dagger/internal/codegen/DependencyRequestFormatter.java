@@ -19,19 +19,20 @@ package dagger.internal.codegen;
 import static com.google.auto.common.MoreElements.asExecutable;
 import static dagger.internal.codegen.ErrorMessages.DOUBLE_INDENT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
+import static dagger.internal.codegen.Util.toImmutableList;
 
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.Lazy;
 import dagger.Provides;
-import dagger.internal.codegen.BindingGraphValidator.DependencyPath;
+import dagger.internal.codegen.ComponentTreeTraverser.DependencyTrace;
 import dagger.producers.Produces;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
@@ -77,28 +78,24 @@ final class DependencyRequestFormatter extends Formatter<DependencyRequest> {
     this.elements = elements;
   }
 
-  /**
-   * A string representation of the dependency trace, starting with the current request and ending
-   * with the entry point.
-   */
-  String toDependencyTrace(DependencyPath dependencyPath) {
+  /** Returns a representation of the dependency trace, with the entry point at the bottom. */
+  String format(DependencyTrace dependencyTrace) {
+    AtomicReference<ImmutableSet<OptionalBindingDeclaration>> dependentOptionalBindingDeclarations =
+        new AtomicReference<>(ImmutableSet.of());
     return Joiner.on('\n')
         .join(
-            dependencyPath
-                .resolvedRequests()
+            dependencyTrace
                 .transform(
-                    resolvedRequest -> {
+                    (dependencyRequest, resolvedBindings) -> {
                       ImmutableSet<OptionalBindingDeclaration> optionalBindingDeclarations =
-                          resolvedRequest
-                              .dependentResolvedBindings()
-                              .transform(ResolvedBindings::optionalBindingDeclarations)
-                              .or(ImmutableSet.of());
+                          dependentOptionalBindingDeclarations.getAndSet(
+                              resolvedBindings.optionalBindingDeclarations());
                       return optionalBindingDeclarations.isEmpty()
-                          ? format(resolvedRequest.dependencyRequest())
+                          ? format(dependencyRequest)
                           : formatSyntheticOptionalBindingDependency(optionalBindingDeclarations);
                     })
-                .filter(Predicates.not(Predicates.equalTo("")))
-                .toList()
+                .filter(f -> !f.isEmpty())
+                .collect(toImmutableList())
                 .reverse());
   }
 

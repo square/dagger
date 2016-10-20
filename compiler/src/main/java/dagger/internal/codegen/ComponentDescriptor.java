@@ -28,6 +28,7 @@ import static dagger.internal.codegen.ConfigurationAnnotations.isSubcomponent;
 import static dagger.internal.codegen.ConfigurationAnnotations.isSubcomponentBuilder;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
 import static dagger.internal.codegen.Util.getUnimplementedMethods;
+import static dagger.internal.codegen.Util.toImmutableSet;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -317,6 +318,16 @@ abstract class ComponentDescriptor {
   }
 
   abstract ImmutableSet<ComponentMethodDescriptor> componentMethods();
+
+  /** The dependency requests defined by methods on the component type. */
+  ImmutableSet<DependencyRequest> entryPoints() {
+    return componentMethods()
+        .stream()
+        .map(ComponentMethodDescriptor::dependencyRequest)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .collect(toImmutableSet());
+  }
 
   // TODO(gak): Consider making this non-optional and revising the
   // interaction between the spec & generation
