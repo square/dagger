@@ -67,13 +67,14 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.squareup.javapoet.TypeName;
 import dagger.BindsOptionalOf;
@@ -148,6 +149,10 @@ final class BindingGraphValidator {
     final Map<ComponentDescriptor, ValidationReport.Builder<TypeElement>> reports =
         new LinkedHashMap<>();
 
+    /** Bindings whose scopes are not compatible with the component that owns them. */
+    private final SetMultimap<ComponentDescriptor, ContributionBinding> incompatiblyScopedBindings =
+        LinkedHashMultimap.create();
+
     ComponentValidation(BindingGraph rootGraph) {
       super(rootGraph);
       this.rootGraph = rootGraph;
@@ -176,11 +181,11 @@ final class BindingGraphValidator {
 
     @Override
     protected void visitComponent(BindingGraph graph) {
-      validateComponentScope(graph);
       validateDependencyScopes(graph);
       validateComponentDependencyHierarchy(graph);
       validateBuilders(graph);
       super.visitComponent(graph);
+      checkScopedBindings(graph);
     }
 
     @Override
@@ -420,68 +425,68 @@ final class BindingGraphValidator {
     }
 
     /**
-     * Validates that the scope (if any) of this component are compatible with the scopes of the
-     * bindings available in this component.
+     * Collects scoped bindings that are not compatible with their owning component for later
+     * reporting by {@link #checkScopedBindings(BindingGraph)}.
      */
-    // TODO(dpb): Do this instead during visitContributionBindings, building up an error to report
-    // at the end.
-    private void validateComponentScope(BindingGraph graph) {
-      ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = graph.resolvedBindings();
-      ImmutableSet<Scope> componentScopes = graph.componentDescriptor().scopes();
-      ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
-      Scope reusableScope = reusableScope(elements);
-      for (ResolvedBindings bindings : resolvedBindings.values()) {
-        for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
-          Optional<Scope> bindingScope = contributionBinding.scope();
-          if (bindingScope.isPresent()
-              && !bindingScope.get().equals(reusableScope)
-              && !componentScopes.contains(bindingScope.get())) {
-            // Scoped components cannot reference bindings to @Provides methods or @Inject
-            // types decorated by a different scope annotation. Unscoped components cannot
-            // reference to scoped @Provides methods or @Inject types decorated by any
-            // scope annotation.
-            switch (contributionBinding.bindingKind()) {
-              case SYNTHETIC_DELEGATE_BINDING:
-              case PROVISION:
-                incompatiblyScopedMethodsBuilder.add(
-                    methodSignatureFormatter.format(
-                        MoreElements.asExecutable(contributionBinding.bindingElement().get())));
-                break;
-              case INJECTION:
-                incompatiblyScopedMethodsBuilder.add(
-                    bindingScope.get().getReadableSource()
-                        + " class "
-                        + contributionBinding.bindingTypeElement().get().getQualifiedName());
-                break;
-              default:
-                throw new IllegalStateException();
-            }
-          }
-        }
+    private void checkBindingScope(
+        ContributionBinding binding, ComponentDescriptor owningComponent) {
+      if (binding.scope().isPresent()
+          && !binding.scope().get().equals(reusableScope(elements))
+          && !owningComponent.scopes().contains(binding.scope().get())) {
+        incompatiblyScopedBindings.put(owningComponent, binding);
+      }
+    }
+
+    /**
+     * Reports an error if any of the scoped bindings owned by a given component are incompatible
+     * with the component. Must be called after all bindings owned by the given component have been
+     * {@linkplain #checkBindingScope(ContributionBinding, ComponentDescriptor) visited}.
+     */
+    private void checkScopedBindings(BindingGraph graph) {
+      if (!incompatiblyScopedBindings.containsKey(graph.componentDescriptor())) {
+        return;
       }
 
-      ImmutableSet<String> incompatiblyScopedMethods = incompatiblyScopedMethodsBuilder.build();
-      if (!incompatiblyScopedMethods.isEmpty()) {
-        TypeElement componentType = graph.componentType();
-        StringBuilder message = new StringBuilder(componentType.getQualifiedName());
-        if (!componentScopes.isEmpty()) {
-          message.append(" scoped with ");
-          for (Scope scope : componentScopes) {
-            message.append(scope.getReadableSource()).append(' ');
-          }
-          message.append("may not reference bindings with different scopes:\n");
-        } else {
-          message.append(" (unscoped) may not reference scoped bindings:\n");
+      StringBuilder message = new StringBuilder(graph.componentType().getQualifiedName());
+      if (!graph.componentDescriptor().scopes().isEmpty()) {
+        message.append(" scoped with ");
+        for (Scope scope : graph.componentDescriptor().scopes()) {
+          message.append(scope.getReadableSource()).append(' ');
         }
-        for (String method : incompatiblyScopedMethods) {
-          message.append(ErrorMessages.INDENT).append(method).append("\n");
-        }
-        report(graph)
-            .addError(
-                message.toString(),
-                componentType,
-                graph.componentDescriptor().componentAnnotation());
+        message.append("may not reference bindings with different scopes:\n");
+      } else {
+        message.append(" (unscoped) may not reference scoped bindings:\n");
       }
+      for (ContributionBinding binding :
+          incompatiblyScopedBindings.get(graph.componentDescriptor())) {
+        message.append(ErrorMessages.INDENT);
+
+        switch (binding.bindingKind()) {
+          case SYNTHETIC_DELEGATE_BINDING:
+          case PROVISION:
+            message.append(
+                methodSignatureFormatter.format(
+                    MoreElements.asExecutable(binding.bindingElement().get())));
+            break;
+
+          case INJECTION:
+            message
+                .append(binding.scope().get().getReadableSource())
+                .append(" class ")
+                .append(binding.bindingTypeElement().get().getQualifiedName());
+            break;
+
+          default:
+            throw new AssertionError(binding);
+        }
+
+        message.append("\n");
+      }
+      report(graph)
+          .addError(
+              message.toString(),
+              graph.componentType(),
+              graph.componentDescriptor().componentAnnotation());
     }
 
     final class BindingGraphValidation extends BindingGraphTraverser {
@@ -526,6 +531,7 @@ final class BindingGraphValidator {
       @Override
       protected void visitContributionBinding(
           ContributionBinding binding, ComponentDescriptor owningComponent) {
+        checkBindingScope(binding, owningComponent);
         if (!dependencyRequest().isNullable() && binding.nullableType().isPresent()) {
           reportNullableBindingForNonNullableRequest(binding);
         }
