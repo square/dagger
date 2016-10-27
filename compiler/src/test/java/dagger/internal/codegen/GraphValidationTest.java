@@ -207,6 +207,38 @@ public class GraphValidationTest {
         .onLine(7);
   }
 
+  @Test
+  public void invalidMembersInjection() {
+    JavaFileObject injected =
+        JavaFileObjects.forSourceLines(
+            "test.Injected",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "final class Injected {",
+            "  @Inject static Object object;",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "interface TestComponent {",
+            "  void inject(Injected injected);",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(injected, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining("static fields")
+        .in(injected)
+        .onLine(6);
+  }
+
   @Test public void cyclicDependency() {
     JavaFileObject component = JavaFileObjects.forSourceLines("test.Outer",
         "package test;",

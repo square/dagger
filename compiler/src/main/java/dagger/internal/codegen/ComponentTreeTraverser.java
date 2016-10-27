@@ -282,9 +282,11 @@ public class ComponentTreeTraverser {
         throw new AssertionError(
             "members injection binding keys should never have contribution bindings");
       }
-      visitMembersInjectionBinding(
-          resolvedBindings.membersInjectionBinding().get(),
-          getOnlyElement(resolvedBindings.allMembersInjectionBindings().keySet()));
+      if (resolvedBindings.membersInjectionBinding().isPresent()) {
+        visitMembersInjectionBinding(
+            resolvedBindings.membersInjectionBinding().get(),
+            getOnlyElement(resolvedBindings.allMembersInjectionBindings().keySet()));
+      }
     }
 
     /**
