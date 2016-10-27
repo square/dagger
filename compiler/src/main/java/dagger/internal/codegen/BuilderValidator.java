@@ -19,6 +19,7 @@ package dagger.internal.codegen;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static dagger.internal.codegen.Util.getUnimplementedMethods;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -109,7 +110,7 @@ class BuilderValidator {
     ExecutableElement buildMethod = null;
     Multimap<Equivalence.Wrapper<TypeMirror>, ExecutableElement> methodsPerParam =
         LinkedHashMultimap.create();
-    for (ExecutableElement method : Util.getUnimplementedMethods(elements, subject)) {
+    for (ExecutableElement method : getUnimplementedMethods(elements, types, subject)) {
       ExecutableType resolvedMethodType =
           MoreTypes.asExecutable(types.asMemberOf(MoreTypes.asDeclared(subject.asType()), method));
       TypeMirror returnType = resolvedMethodType.getReturnType();

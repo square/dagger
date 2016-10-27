@@ -178,8 +178,8 @@ abstract class ResolvedBindings implements HasBindingType, HasContributionType, 
   }
 
   /**
-   * The members-injection binding, regardless of owning component. Empty if these are contribution
-   * bindings.
+   * The members-injection binding, regardless of owning component. Absent if these are contribution
+   * bindings, or if there is no members-injection binding because the type fails validation.
    */
   Optional<MembersInjectionBinding> membersInjectionBinding() {
     ImmutableSet<MembersInjectionBinding> membersInjectionBindings =

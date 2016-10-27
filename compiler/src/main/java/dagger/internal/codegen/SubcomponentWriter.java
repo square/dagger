@@ -101,11 +101,11 @@ final class SubcomponentWriter extends AbstractComponentWriter {
     checkState(
         subcomponentFactoryMethod.isPresent(),
         "%s does not have a factory method for %s",
-        parent.componentDefinitionType(),
-        componentDefinitionType());
+        parent.graph.componentType(),
+        graph.componentType());
     return MoreTypes.asExecutable(
         types.asMemberOf(
-            MoreTypes.asDeclared(parent.componentDefinitionType().asType()),
+            MoreTypes.asDeclared(parent.graph.componentType().asType()),
             subcomponentFactoryMethod.get().methodElement()));
   }
 

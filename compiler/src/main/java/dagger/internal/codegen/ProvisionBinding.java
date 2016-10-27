@@ -115,11 +115,11 @@ abstract class ProvisionBinding extends ContributionBinding {
 
     /**
      * Returns a ProvisionBinding for the given element. If {@code resolvedType} is present, this
-     * will return a resolved binding, with the key & type resolved to the given type (using
+     * will return a resolved binding, with the key and type resolved to the given type (using
      * {@link Types#asMemberOf(DeclaredType, Element)}).
      */
-    ProvisionBinding forInjectConstructor(ExecutableElement constructorElement,
-        Optional<TypeMirror> resolvedType) {
+    ProvisionBinding forInjectConstructor(
+        ExecutableElement constructorElement, Optional<TypeMirror> resolvedType) {
       checkNotNull(constructorElement);
       checkArgument(constructorElement.getKind().equals(CONSTRUCTOR));
       checkArgument(isAnnotationPresent(constructorElement, Inject.class));

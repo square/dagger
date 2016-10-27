@@ -80,10 +80,7 @@ abstract class MemberSelect {
   static MemberSelect parameterizedFactoryCreateMethod(
       ClassName owningClass, List<? extends TypeMirror> parameters) {
     return new ParameterizedStaticMethod(
-        owningClass,
-        ImmutableList.<TypeMirror>copyOf(parameters),
-        CodeBlock.of("create()"),
-        FACTORY);
+        owningClass, ImmutableList.copyOf(parameters), CodeBlock.of("create()"), FACTORY);
   }
 
   private static final class StaticMethod extends MemberSelect {

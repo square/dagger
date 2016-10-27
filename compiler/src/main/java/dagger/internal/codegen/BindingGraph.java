@@ -33,6 +33,7 @@ import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBO
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_OPTIONAL_BINDING;
 import static dagger.internal.codegen.Key.indexByKey;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static dagger.internal.codegen.Util.toImmutableSet;
 import static java.util.function.Predicate.isEqual;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 
@@ -89,6 +90,29 @@ abstract class BindingGraph {
   abstract ComponentDescriptor componentDescriptor();
   abstract ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings();
   abstract ImmutableSet<BindingGraph> subgraphs();
+
+  /** Returns the resolved bindings for the dependencies of {@code binding}. */
+  ImmutableSet<ResolvedBindings> resolvedDependencies(ContributionBinding binding) {
+    return binding
+        .dependencies()
+        .stream()
+        .map(
+            dependencyRequest ->
+                resolvedBindings()
+                    .getOrDefault(
+                        dependencyRequest.bindingKey(),
+                        ResolvedBindings.noBindings(
+                            dependencyRequest.bindingKey(), componentDescriptor())))
+        .collect(toImmutableSet());
+  }
+  /**
+   * The type that defines the component for this graph.
+   *
+   * @see ComponentDescriptor#componentDefinitionType()
+   */
+  TypeElement componentType() {
+    return componentDescriptor().componentDefinitionType();
+  }
 
   /**
    * Returns the set of modules that are owned by this graph regardless of whether or not any of

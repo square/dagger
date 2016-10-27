@@ -21,11 +21,8 @@ import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.auto.common.MoreTypes.asTypeElements;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.indexOf;
-import static dagger.internal.codegen.BindingType.MEMBERS_INJECTION;
 import static dagger.internal.codegen.BindingType.PRODUCTION;
 import static dagger.internal.codegen.BindingType.PROVISION;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentAnnotation;
@@ -42,6 +39,7 @@ import static dagger.internal.codegen.ErrorMessages.DEPENDS_ON_PRODUCTION_EXECUT
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_BINDINGS_FOR_KEY_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.DUPLICATE_SIZE_LIMIT;
 import static dagger.internal.codegen.ErrorMessages.INDENT;
+import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE;
 import static dagger.internal.codegen.ErrorMessages.MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE;
 import static dagger.internal.codegen.ErrorMessages.MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT;
 import static dagger.internal.codegen.ErrorMessages.PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT;
@@ -55,49 +53,47 @@ import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotation
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static dagger.internal.codegen.Scope.scopesOf;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static dagger.internal.codegen.Util.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
-import static javax.tools.Diagnostic.Kind.ERROR;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.LinkedHashMultiset;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.squareup.javapoet.TypeName;
+import dagger.BindsOptionalOf;
 import dagger.Component;
 import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
-import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.internal.codegen.ContributionType.HasContributionType;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -106,8 +102,9 @@ import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVisitor;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.SimpleTypeVisitor6;
+import javax.lang.model.util.SimpleTypeVisitor8;
 import javax.lang.model.util.Types;
 
 /** Reports errors in the shape of the binding graph. */
@@ -147,490 +144,574 @@ final class BindingGraphValidator {
     this.keyFactory = keyFactory;
   }
 
-  /** A dependency path from an entry point. */
-  static final class DependencyPath {
-    private final Deque<ResolvedRequest> path = new ArrayDeque<>();
-    private final LinkedHashMultiset<BindingKey> keyPath = LinkedHashMultiset.create();
-    private final Set<DependencyRequest> resolvedDependencyRequests = new HashSet<>();
+  private final class ComponentValidation extends ComponentTreeTraverser {
+    final BindingGraph rootGraph;
+    final Map<ComponentDescriptor, ValidationReport.Builder<TypeElement>> reports =
+        new LinkedHashMap<>();
 
-    /** The entry point. */
-    Element entryPointElement() {
-      return path.getFirst().dependencyRequest().requestElement().get();
+    /** Bindings whose scopes are not compatible with the component that owns them. */
+    private final SetMultimap<ComponentDescriptor, ContributionBinding> incompatiblyScopedBindings =
+        LinkedHashMultimap.create();
+
+    ComponentValidation(BindingGraph rootGraph) {
+      super(rootGraph);
+      this.rootGraph = rootGraph;
     }
 
-    /** The the current dependency request and resolved bindings. */
-    ResolvedRequest current() {
-      return path.getLast();
+    @Override
+    protected BindingGraphTraverser bindingGraphTraverser(
+        ComponentTreePath componentPath, DependencyRequest entryPoint) {
+      return new BindingGraphValidation(componentPath, entryPoint);
     }
 
-    /**
-     * {@code true} if there is a dependency cycle, which means that the
-     * {@linkplain #currentDependencyRequest() current request}'s binding key occurs earlier in the
-     * path.
-     */
-    boolean hasCycle() {
-      return keyPath.count(current().dependencyRequest().bindingKey()) > 1;
-    }
-
-    /**
-     * If there is a cycle, the segment of the path that represents the cycle. The first request's
-     * and the last request's binding keys are equal. The last request is the {@linkplain
-     * #currentDependencyRequest() current request}.
-     *
-     * @throws IllegalStateException if {@link #hasCycle()} is {@code false}
-     */
-    FluentIterable<ResolvedRequest> cycle() {
-      checkState(hasCycle(), "no cycle");
-      return resolvedRequests()
-          .skip(indexOf(keyPath, Predicates.equalTo(current().dependencyRequest().bindingKey())));
-    }
-
-    /**
-     * Makes {@code request} the current request. Be sure to call {@link #pop()} to back up to the
-     * previous request in the path.
-     */
-    void push(DependencyRequest request, ResolvedBindings resolvedBindings) {
-      path.add(
-          ResolvedRequest.create(
-              request,
-              resolvedBindings,
-              path.isEmpty()
-                  ? Optional.<ResolvedBindings>absent()
-                  : Optional.of(current().resolvedBindings())));
-      keyPath.add(request.bindingKey());
-    }
-
-    /** Makes the previous request the current request. */
-    void pop() {
-      verify(keyPath.remove(path.removeLast().dependencyRequest().bindingKey()));
-    }
-
-    /**
-     * Adds the {@linkplain #currentDependencyRequest() current request} to a set of visited
-     * requests, and returns {@code true} if the set didn't already contain it.
-     */
-    boolean visitCurrentDependencyRequest() {
-      return resolvedDependencyRequests.add(current().dependencyRequest());
-    }
-
-    int size() {
-      return path.size();
-    }
-
-    /** Returns the resolved dependency requests in this path, starting with the entry point. */
-    FluentIterable<ResolvedRequest> resolvedRequests() {
-      return FluentIterable.from(path);
-    }
-  }
-
-  private final class Validation {
-    final BindingGraph subject;
-    final ValidationReport.Builder<TypeElement> reportBuilder;
-    final Optional<Validation> parent;
-    final ImmutableMap<ComponentDescriptor, BindingGraph> subgraphsByComponentDescriptor;
-
-    Validation(BindingGraph subject, Optional<Validation> parent) {
-      this.subject = subject;
-      this.reportBuilder =
-          ValidationReport.about(subject.componentDescriptor().componentDefinitionType());
-      this.parent = parent;
-      this.subgraphsByComponentDescriptor =
-          Maps.uniqueIndex(subject.subgraphs(), BindingGraph::componentDescriptor);
-    }
-
-    Validation(BindingGraph topLevelGraph) {
-      this(topLevelGraph, Optional.<Validation>absent());
-    }
-
-    BindingGraph topLevelGraph() {
-      return parent.isPresent() ? parent.get().topLevelGraph() : subject;
-    }
-
-    ValidationReport.Builder<TypeElement> topLevelReport() {
-      return parent.isPresent() ? parent.get().topLevelReport() : reportBuilder;
-    }
-
+    /** Returns a report that contains all validation messages found during traversal. */
     ValidationReport<TypeElement> buildReport() {
-      return reportBuilder.build();
+      ValidationReport.Builder<TypeElement> report =
+          ValidationReport.about(rootGraph.componentType());
+      reports.values().forEach(subreport -> report.addSubreport(subreport.build()));
+      return report.build();
     }
 
-    void validateSubgraph() {
-      validateComponentScope();
-      validateDependencyScopes();
-      validateComponentHierarchy();
-      validateBuilders();
-
-      for (ComponentMethodDescriptor componentMethod :
-           subject.componentDescriptor().componentMethods()) {
-        Optional<DependencyRequest> entryPoint = componentMethod.dependencyRequest();
-        if (entryPoint.isPresent()) {
-          traverseDependencyRequest(entryPoint.get(), new DependencyPath());
-        }
-      }
-
-      for (Map.Entry<ComponentMethodDescriptor, ComponentDescriptor> entry :
-          subject.componentDescriptor().subcomponentsByFactoryMethod().entrySet()) {
-        validateSubcomponentFactoryMethod(
-            entry.getKey().methodElement(), subgraphsByComponentDescriptor.get(entry.getValue()));
-      }
-
-      for (BindingGraph subgraph : subject.subgraphs()) {
-        Validation subgraphValidation = new Validation(subgraph, Optional.of(this));
-        subgraphValidation.validateSubgraph();
-        reportBuilder.addSubreport(subgraphValidation.buildReport());
-      }
+    /** Returns the report builder for a (sub)component. */
+    private ValidationReport.Builder<TypeElement> report(BindingGraph graph) {
+      return reports.computeIfAbsent(
+          graph.componentDescriptor(),
+          descriptor -> ValidationReport.about(descriptor.componentDefinitionType()));
     }
 
-    private void validateSubcomponentFactoryMethod(
-        ExecutableElement factoryMethod, BindingGraph subgraph) {
-      Set<TypeElement> missingModules = subgraph.componentRequirements()
-          .stream()
-          .filter(componentRequirement -> !subgraphFactoryMethodParameters(factoryMethod)
-              .contains(componentRequirement))
-          .filter(moduleType -> !componentCanMakeNewInstances(moduleType))
-          .collect(toSet());
+    @Override
+    protected void visitComponent(BindingGraph graph) {
+      validateDependencyScopes(graph);
+      validateComponentDependencyHierarchy(graph);
+      validateBuilders(graph);
+      super.visitComponent(graph);
+      checkScopedBindings(graph);
+    }
+
+    @Override
+    protected void visitSubcomponentFactoryMethod(
+        BindingGraph graph, BindingGraph parent, ExecutableElement factoryMethod) {
+      Set<TypeElement> missingModules =
+          graph
+              .componentRequirements()
+              .stream()
+              .filter(
+                  componentRequirement ->
+                      !subgraphFactoryMethodParameters(parent, factoryMethod)
+                          .contains(componentRequirement))
+              .filter(moduleType -> !componentCanMakeNewInstances(moduleType))
+              .collect(toSet());
       if (!missingModules.isEmpty()) {
-        reportBuilder.addError(
-            String.format(
-                "%s requires modules which have no visible default constructors. "
-                    + "Add the following modules as parameters to this method: %s",
-                subgraph.componentDescriptor().componentDefinitionType().getQualifiedName(),
-                missingModules.stream().map(Object::toString).collect(joining(", "))),
-            factoryMethod);
+        report(parent)
+            .addError(
+                String.format(
+                    "%s requires modules which have no visible default constructors. "
+                        + "Add the following modules as parameters to this method: %s",
+                    graph.componentType().getQualifiedName(),
+                    missingModules.stream().map(Object::toString).collect(joining(", "))),
+                factoryMethod);
       }
     }
 
     private ImmutableSet<TypeElement> subgraphFactoryMethodParameters(
-        ExecutableElement factoryMethod) {
-      DeclaredType componentType =
-          asDeclared(subject.componentDescriptor().componentDefinitionType().asType());
+        BindingGraph parent, ExecutableElement childFactoryMethod) {
+      DeclaredType componentType = asDeclared(parent.componentType().asType());
       ExecutableType factoryMethodType =
-          asExecutable(types.asMemberOf(componentType, factoryMethod));
+          asExecutable(types.asMemberOf(componentType, childFactoryMethod));
       return asTypeElements(factoryMethodType.getParameterTypes());
     }
 
+    /** Validates that component dependencies do not form a cycle. */
+    private void validateComponentDependencyHierarchy(BindingGraph graph) {
+      validateComponentDependencyHierarchy(graph, graph.componentType(), new ArrayDeque<>());
+    }
+
+    /** Recursive method to validate that component dependencies do not form a cycle. */
+    private void validateComponentDependencyHierarchy(
+        BindingGraph graph, TypeElement dependency, Deque<TypeElement> dependencyStack) {
+      if (dependencyStack.contains(dependency)) {
+        // Current component has already appeared in the component chain.
+        StringBuilder message = new StringBuilder();
+        message.append(graph.componentType().getQualifiedName());
+        message.append(" contains a cycle in its component dependencies:\n");
+        dependencyStack.push(dependency);
+        appendIndentedComponentsList(message, dependencyStack);
+        dependencyStack.pop();
+        report(graph)
+            .addItem(
+                message.toString(),
+                compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
+                graph.componentType(),
+                getComponentAnnotation(graph.componentType()).get());
+      } else {
+        Optional<AnnotationMirror> componentAnnotation = getComponentAnnotation(dependency);
+        if (componentAnnotation.isPresent()) {
+          dependencyStack.push(dependency);
+
+          ImmutableSet<TypeElement> dependencies =
+              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get()));
+          for (TypeElement nextDependency : dependencies) {
+            validateComponentDependencyHierarchy(graph, nextDependency, dependencyStack);
+          }
+
+          dependencyStack.pop();
+        }
+      }
+    }
+
     /**
-     * Traverse the resolved dependency requests, validating resolved bindings, and reporting any
-     * cycles found.
-     *
-     * @param request the current dependency request
+     * Validates that among the dependencies are at most one scoped dependency, that there are no
+     * cycles within the scoping chain, and that singleton components have no scoped dependencies.
      */
-    private void traverseDependencyRequest(DependencyRequest request, DependencyPath path) {
-      path.push(request, resolvedBindings(request));
-      try {
-        if (path.hasCycle()) {
-          reportCycle(path);
-          return;
+    private void validateDependencyScopes(BindingGraph graph) {
+      ComponentDescriptor descriptor = graph.componentDescriptor();
+      ImmutableSet<Scope> scopes = descriptor.scopes();
+      ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
+      if (!scopes.isEmpty()) {
+        Scope singletonScope = Scope.singletonScope(elements);
+        // Dagger 1.x scope compatibility requires this be suppress-able.
+        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()
+            && scopes.contains(singletonScope)) {
+          // Singleton is a special-case representing the longest lifetime, and therefore
+          // @Singleton components may not depend on scoped components
+          if (!scopedDependencies.isEmpty()) {
+            StringBuilder message = new StringBuilder(
+                "This @Singleton component cannot depend on scoped components:\n");
+            appendIndentedComponentsList(message, scopedDependencies);
+            report(graph)
+                .addItem(
+                    message.toString(),
+                    compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
+                    descriptor.componentDefinitionType(),
+                    descriptor.componentAnnotation());
+          }
+        } else if (scopedDependencies.size() > 1) {
+          // Scoped components may depend on at most one scoped component.
+          StringBuilder message = new StringBuilder();
+          for (Scope scope : scopes) {
+            message.append(scope.getReadableSource()).append(' ');
+          }
+          message
+              .append(descriptor.componentDefinitionType().getQualifiedName())
+              .append(" depends on more than one scoped component:\n");
+          appendIndentedComponentsList(message, scopedDependencies);
+          report(graph)
+              .addError(
+                  message.toString(),
+                  descriptor.componentDefinitionType(),
+                  descriptor.componentAnnotation());
+        } else {
+          // Dagger 1.x scope compatibility requires this be suppress-able.
+          if (!compilerOptions.scopeCycleValidationType().equals(ValidationType.NONE)) {
+            validateDependencyScopeHierarchy(
+                graph,
+                descriptor.componentDefinitionType(),
+                new ArrayDeque<ImmutableSet<Scope>>(),
+                new ArrayDeque<TypeElement>());
+          }
+        }
+      } else {
+        // Scopeless components may not depend on scoped components.
+        if (!scopedDependencies.isEmpty()) {
+          StringBuilder message =
+              new StringBuilder(descriptor.componentDefinitionType().getQualifiedName())
+                  .append(" (unscoped) cannot depend on scoped components:\n");
+          appendIndentedComponentsList(message, scopedDependencies);
+          report(graph)
+              .addError(
+                  message.toString(),
+                  descriptor.componentDefinitionType(),
+                  descriptor.componentAnnotation());
+        }
+      }
+    }
+
+    private void validateBuilders(BindingGraph graph) {
+      ComponentDescriptor componentDesc = graph.componentDescriptor();
+      if (!componentDesc.builderSpec().isPresent()) {
+        // If no builder, nothing to validate.
+        return;
+      }
+
+      Set<TypeElement> availableDependencies = graph.availableDependencies();
+      Set<TypeElement> requiredDependencies =
+          Sets.filter(availableDependencies, input -> !componentCanMakeNewInstances(input));
+      final BuilderSpec spec = componentDesc.builderSpec().get();
+      Map<TypeElement, ExecutableElement> allSetters = spec.methodMap();
+
+      ErrorMessages.ComponentBuilderMessages msgs =
+          ErrorMessages.builderMsgsFor(graph.componentDescriptor().kind());
+      Set<TypeElement> extraSetters = Sets.difference(allSetters.keySet(), availableDependencies);
+      if (!extraSetters.isEmpty()) {
+        Collection<ExecutableElement> excessMethods =
+            Maps.filterKeys(allSetters, Predicates.in(extraSetters)).values();
+        Optional<DeclaredType> container =
+            Optional.of(MoreTypes.asDeclared(spec.builderDefinitionType().asType()));
+        String formatted =
+            excessMethods
+                .stream()
+                .map(method -> methodSignatureFormatter.format(method, container))
+                .collect(joining(", ", "[", "]"));
+        report(graph)
+            .addError(String.format(msgs.extraSetters(), formatted), spec.builderDefinitionType());
+      }
+
+      Set<TypeElement> missingSetters = Sets.difference(requiredDependencies, allSetters.keySet());
+      if (!missingSetters.isEmpty()) {
+        report(graph)
+            .addError(
+                String.format(msgs.missingSetters(), missingSetters), spec.builderDefinitionType());
+      }
+    }
+
+    /**
+     * Validates that scopes do not participate in a scoping cycle - that is to say, scoped
+     * components are in a hierarchical relationship terminating with Singleton.
+     *
+     * <p>As a side-effect, this means scoped components cannot have a dependency cycle between
+     * themselves, since a component's presence within its own dependency path implies a cyclical
+     * relationship between scopes. However, cycles in component dependencies are explicitly checked
+     * in {@link #validateComponentDependencyHierarchy(BindingGraph)}.
+     */
+    private void validateDependencyScopeHierarchy(
+        BindingGraph graph,
+        TypeElement dependency,
+        Deque<ImmutableSet<Scope>> scopeStack,
+        Deque<TypeElement> scopedDependencyStack) {
+      ImmutableSet<Scope> scopes = Scope.scopesOf(dependency);
+      if (stackOverlaps(scopeStack, scopes)) {
+        scopedDependencyStack.push(dependency);
+        // Current scope has already appeared in the component chain.
+        StringBuilder message = new StringBuilder();
+        message.append(graph.componentType().getQualifiedName());
+        message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
+        appendIndentedComponentsList(message, scopedDependencyStack);
+        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()) {
+          report(graph)
+              .addItem(
+                  message.toString(),
+                  compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
+                  graph.componentType(),
+                  getComponentAnnotation(graph.componentType()).get());
+        }
+        scopedDependencyStack.pop();
+      } else {
+        // TODO(beder): transitively check scopes of production components too.
+        Optional<AnnotationMirror> componentAnnotation =
+            getAnnotationMirror(dependency, Component.class);
+        if (componentAnnotation.isPresent()) {
+          ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(
+              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get())));
+          if (scopedDependencies.size() == 1) {
+            // empty can be ignored (base-case), and > 1 is a different error reported separately.
+            scopeStack.push(scopes);
+            scopedDependencyStack.push(dependency);
+            validateDependencyScopeHierarchy(
+                graph, getOnlyElement(scopedDependencies), scopeStack, scopedDependencyStack);
+            scopedDependencyStack.pop();
+            scopeStack.pop();
+          }
+        } // else: we skip component dependencies which are not components
+      }
+    }
+
+    private <T> boolean stackOverlaps(Deque<ImmutableSet<T>> stack, ImmutableSet<T> set) {
+      for (ImmutableSet<T> entry : stack) {
+        if (!Sets.intersection(entry, set).isEmpty()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * Collects scoped bindings that are not compatible with their owning component for later
+     * reporting by {@link #checkScopedBindings(BindingGraph)}.
+     */
+    private void checkBindingScope(
+        ContributionBinding binding, ComponentDescriptor owningComponent) {
+      if (binding.scope().isPresent()
+          && !binding.scope().get().equals(reusableScope(elements))
+          && !owningComponent.scopes().contains(binding.scope().get())) {
+        incompatiblyScopedBindings.put(owningComponent, binding);
+      }
+    }
+
+    /**
+     * Reports an error if any of the scoped bindings owned by a given component are incompatible
+     * with the component. Must be called after all bindings owned by the given component have been
+     * {@linkplain #checkBindingScope(ContributionBinding, ComponentDescriptor) visited}.
+     */
+    private void checkScopedBindings(BindingGraph graph) {
+      if (!incompatiblyScopedBindings.containsKey(graph.componentDescriptor())) {
+        return;
+      }
+
+      StringBuilder message = new StringBuilder(graph.componentType().getQualifiedName());
+      if (!graph.componentDescriptor().scopes().isEmpty()) {
+        message.append(" scoped with ");
+        for (Scope scope : graph.componentDescriptor().scopes()) {
+          message.append(scope.getReadableSource()).append(' ');
+        }
+        message.append("may not reference bindings with different scopes:\n");
+      } else {
+        message.append(" (unscoped) may not reference scoped bindings:\n");
+      }
+      for (ContributionBinding binding :
+          incompatiblyScopedBindings.get(graph.componentDescriptor())) {
+        message.append(ErrorMessages.INDENT);
+
+        switch (binding.bindingKind()) {
+          case SYNTHETIC_DELEGATE_BINDING:
+          case PROVISION:
+            message.append(
+                methodSignatureFormatter.format(
+                    MoreElements.asExecutable(binding.bindingElement().get())));
+            break;
+
+          case INJECTION:
+            message
+                .append(binding.scope().get().getReadableSource())
+                .append(" class ")
+                .append(binding.bindingTypeElement().get().getQualifiedName());
+            break;
+
+          default:
+            throw new AssertionError(binding);
         }
 
-        if (path.visitCurrentDependencyRequest()) {
-          validateResolvedBindings(path);
+        message.append("\n");
+      }
+      report(graph)
+          .addError(
+              message.toString(),
+              graph.componentType(),
+              graph.componentDescriptor().componentAnnotation());
+    }
 
-          // Validate all dependencies within the component that owns the binding.
-          path.current()
-              .resolvedBindings()
-              .allBindings()
+    final class BindingGraphValidation extends BindingGraphTraverser {
+
+      BindingGraphValidation(ComponentTreePath componentPath, DependencyRequest entryPoint) {
+        super(componentPath, entryPoint);
+      }
+
+      /** Reports an error for the current component at the entry point. */
+      private void reportErrorAtEntryPoint(String format, Object... args) {
+        reportErrorAtEntryPoint(currentGraph(), format, args);
+      }
+
+      /** Reports an error for the given component at the entry point. */
+      private void reportErrorAtEntryPoint(BindingGraph graph, String format, Object... args) {
+        String message = args.length == 0 ? format : String.format(format, args);
+        report(graph).addError(message, entryPointElement());
+      }
+
+      private String formatDependencyTrace() {
+        return dependencyRequestFormatter.format(dependencyTrace());
+      }
+
+      @Override
+      protected void visitDependencyRequest(DependencyRequest dependencyRequest) {
+        if (atDependencyCycle()) {
+          reportDependencyCycle();
+        }
+        super.visitDependencyRequest(dependencyRequest);
+      }
+
+      @Override
+      protected void visitResolvedBindings(ResolvedBindings resolvedBindings) {
+        if (resolvedBindings.isEmpty()) {
+          reportMissingBinding();
+        } else if (resolvedBindings.bindings().size() > 1) {
+          reportDuplicateBindings();
+        }
+        super.visitResolvedBindings(resolvedBindings);
+      }
+
+      @Override
+      protected void visitContributionBinding(
+          ContributionBinding binding, ComponentDescriptor owningComponent) {
+        checkBindingScope(binding, owningComponent);
+        if (!dependencyRequest().isNullable() && binding.nullableType().isPresent()) {
+          reportNullableBindingForNonNullableRequest(binding);
+        }
+        if (binding.bindingKind().equals(INJECTION)) {
+          TypeMirror type = binding.key().type();
+          ValidationReport<TypeElement> report =
+              injectValidator.validateType(MoreTypes.asTypeElement(type));
+          if (!report.isClean()) {
+            report(currentGraph()).addSubreport(report);
+          }
+        }
+        if (binding.bindingType().equals(PRODUCTION) && doesPathRequireProvisionOnly()) {
+          reportProviderMayNotDependOnProducer(binding);
+        }
+        if (compilerOptions.usesProducers()) {
+          // TODO(dpb,beder): Validate this during @Inject/@Provides/@Produces validation.
+          // Only the Dagger-specific binding may depend on the production executor.
+          Key productionImplementationExecutorKey =
+              keyFactory.forProductionImplementationExecutor();
+          if (!binding.key().equals(productionImplementationExecutorKey)) {
+            Key productionExecutorKey = keyFactory.forProductionExecutor();
+            for (DependencyRequest request : binding.explicitDependencies()) {
+              if (request.key().equals(productionExecutorKey)
+                  || request.key().equals(productionImplementationExecutorKey)) {
+                reportDependsOnProductionExecutor();
+              }
+            }
+          }
+        }
+        if (binding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
+          validateMapKeys(binding, owningComponent);
+        }
+        super.visitContributionBinding(binding, owningComponent);
+      }
+
+      @Override
+      protected void visitMembersInjectionBinding(
+          MembersInjectionBinding binding, ComponentDescriptor owningComponent) {
+        validateMembersInjectionBinding(binding);
+        super.visitMembersInjectionBinding(binding, owningComponent);
+      }
+
+      /**
+       * Returns the binding declarations that can be reported for {@code resolvedBindings}, indexed
+       * by the component that owns each declaration.
+       *
+       * <p>Contains all {@link MultibindingDeclaration}s, {@link SubcomponentDeclaration}s, and
+       * {@link OptionalBindingDeclaration}s within {@code resolvedBindings}, as well as all {@link
+       * ContributionBinding}s with present {@linkplain BindingDeclaration#bindingElement() binding
+       * elements}.
+       *
+       *
+       * <p>For other bindings without binding elements, such as the {@link
+       * ContributionBinding.Kind#SYNTHETIC_MULTIBOUND_KINDS}, includes the conflicting declarations
+       * in their resolved dependencies.
+       */
+      private ImmutableSetMultimap<ComponentDescriptor, BindingDeclaration>
+          reportableDeclarations() {
+        ImmutableSetMultimap.Builder<ComponentDescriptor, BindingDeclaration> declarations =
+            ImmutableSetMultimap.builder();
+
+        Queue<ResolvedBindings> queue = new ArrayDeque<>();
+        queue.add(resolvedBindings());
+
+        while (!queue.isEmpty()) {
+          ResolvedBindings queued = queue.remove();
+          declarations
+              .putAll(queued.owningComponent(), queued.multibindingDeclarations())
+              .putAll(queued.owningComponent(), queued.subcomponentDeclarations())
+              .putAll(queued.owningComponent(), queued.optionalBindingDeclarations());
+          queued
+              .allContributionBindings()
               .asMap()
               .forEach(
-                  (component, bindings) -> {
-                    Validation validation = validationForComponent(component);
-                    for (Binding binding : bindings) {
-                      for (DependencyRequest nextRequest : binding.dependencies()) {
-                        validation.traverseDependencyRequest(nextRequest, path);
+                  (owningComponent, bindings) -> {
+                    BindingGraph owningGraph =
+                        componentTreePath().graphForComponent(owningComponent);
+                    for (ContributionBinding binding : bindings) {
+                      if (bindingDeclarationFormatter.canFormat(binding)) {
+                        declarations.put(owningComponent, binding);
+                      } else {
+                        queue.addAll(owningGraph.resolvedDependencies(binding));
                       }
                     }
                   });
         }
-      } finally {
-        path.pop();
-      }
-    }
 
-    private ResolvedBindings resolvedBindings(DependencyRequest request) {
-      BindingKey bindingKey = request.bindingKey();
-      ResolvedBindings resolvedBindings = subject.resolvedBindings().get(bindingKey);
-      return resolvedBindings == null
-          ? ResolvedBindings.noBindings(bindingKey, subject.componentDescriptor())
-          : resolvedBindings;
-    }
-
-    private Validation validationForComponent(ComponentDescriptor component) {
-      if (component.equals(subject.componentDescriptor())) {
-        return this;
-      } else if (parent.isPresent()) {
-        return parent.get().validationForComponent(component);
-      } else {
-        throw new IllegalArgumentException(
-            String.format(
-                "unknown component %s within %s",
-                component.componentDefinitionType(),
-                subject.componentDescriptor().componentDefinitionType()));
-      }
-    }
-
-    /**
-     * Reports errors if the set of bindings resolved is inconsistent with the type of the binding.
-     */
-    private void validateResolvedBindings(DependencyPath path) {
-      ResolvedBindings resolvedBindings = path.current().resolvedBindings();
-      if (resolvedBindings.isEmpty()) {
-        reportMissingBinding(path);
-        return;
+        return declarations.build();
       }
 
-      switch (resolvedBindings.bindingKey().kind()) {
-        case CONTRIBUTION:
-          if (Iterables.any(
-              resolvedBindings.bindings(), MEMBERS_INJECTION::isOfType)) {
-            // TODO(dpb): How could this ever happen, even in an invalid graph?
-            throw new AssertionError(
-                "contribution binding keys should never have members injection bindings");
-          }
-          validateNullability(path, resolvedBindings.contributionBindings());
-          if (resolvedBindings.contributionBindings().size() > 1) {
-            reportDuplicateBindings(path);
-            return;
-          }
-          ContributionBinding contributionBinding = resolvedBindings.contributionBinding();
-          if (contributionBinding.bindingKind().equals(INJECTION)) {
-            TypeMirror type = contributionBinding.key().type();
-            ValidationReport<TypeElement> report =
-                injectValidator.validateType(MoreTypes.asTypeElement(type));
-            if (!report.isClean()) {
-              reportBuilder.addSubreport(report);
-              return;
-            }
-          }
-          if (contributionBinding.bindingType().equals(PRODUCTION)
-              && doesPathRequireProvisionOnly(path)) {
-            reportProviderMayNotDependOnProducer(path, contributionBinding);
-            return;
-          }
-          // TODO(dpb,beder): Validate this during @Inject/@Provides/@Produces validation.
-          if (compilerOptions.usesProducers()) {
-            Key productionImplementationExecutorKey =
-                keyFactory.forProductionImplementationExecutor();
-            // only forbid depending on the production executor if it's not the Dagger-specific
-            // binding to the implementation
-            if (!contributionBinding.key().equals(productionImplementationExecutorKey)) {
-              Key productionExecutorKey = keyFactory.forProductionExecutor();
-              for (DependencyRequest request : contributionBinding.explicitDependencies()) {
-                if (request.key().equals(productionExecutorKey)
-                    || request.key().equals(productionImplementationExecutorKey)) {
-                  reportDependsOnProductionExecutor(path);
-                  return;
-                }
-              }
-            }
-          }
-          if (contributionBinding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP)) {
-            validateMapKeys(path, contributionBinding);
-          }
-          break;
-        case MEMBERS_INJECTION:
-          if (!Iterables.all(resolvedBindings.bindings(), MEMBERS_INJECTION::isOfType)) {
-            // TODO(dpb): How could this ever happen, even in an invalid graph?
-            throw new AssertionError(
-                "members injection binding keys should never have contribution bindings");
-          }
-          if (resolvedBindings.bindings().size() > 1) {
-            reportDuplicateBindings(path);
-            return;
-          }
-          validateMembersInjectionBinding(resolvedBindings.membersInjectionBinding().get(), path);
-          return;
-        default:
-          throw new AssertionError();
-      }
-    }
-
-    /**
-     * Returns an object that contains all the same bindings as {@code resolvedBindings}, except
-     * that any {@link ContributionBinding}s without {@linkplain Binding#bindingElement() binding
-     * elements} are replaced by the contribution bindings and multibinding declarations of their
-     * dependencies.
-     *
-     * <p>For example, if:
-     *
-     * <ul>
-     * <li>The bindings for {@code key1} are {@code A} and {@code B}, with multibinding declaration
-     *     {@code X}.
-     * <li>{@code B} is a binding without a binding element that has a dependency on {@code key2}.
-     * <li>The bindings for {@code key2} are {@code C} and {@code D}, with multibinding declaration
-     *     {@code Y}.
-     * </ul>
-     *
-     * then {@code inlineContributionsWithoutBindingElements(bindingsForKey1)} has bindings {@code
-     * A}, {@code C}, and {@code D}, with multibinding declarations {@code X} and {@code Y}.
-     *
-     * <p>The replacement is repeated until all of the bindings have elements.
-     */
-    private ResolvedBindings inlineContributionsWithoutBindingElements(
-        ResolvedBindings resolvedBinding) {
-      if (Iterables.all(resolvedBinding.bindings(),
-          bindingDeclaration -> bindingDeclaration.bindingElement().isPresent())) {
-        return resolvedBinding;
+      private void reportNullableBindingForNonNullableRequest(ContributionBinding binding) {
+        // Note: the method signature will include the @Nullable in it!
+        /* TODO(sameb): Sometimes javac doesn't include the Element in its output.
+         * (Maybe this happens if the code was already compiled before this point?)
+         * ... we manually print out the request in that case, otherwise the error
+         * message is kind of useless. */
+        FluentIterable<ContributionBinding> dependentContributions =
+            FluentIterable.from(dependentBindings()).filter(ContributionBinding.class);
+        report(owningGraph(dependentContributions.append(binding)))
+            .addItem(
+                nullableToNonNullable(
+                        TypeName.get(dependencyRequest().key().type()).toString(),
+                        bindingDeclarationFormatter.format(binding))
+                    + "\n at: "
+                    + formatDependencyTrace(),
+                compilerOptions.nullableValidationKind(),
+                entryPointElement());
       }
 
-      ImmutableSetMultimap.Builder<ComponentDescriptor, ContributionBinding> contributions =
-          ImmutableSetMultimap.builder();
-      ImmutableSet.Builder<MultibindingDeclaration> multibindingDeclarations =
-          ImmutableSet.builder();
-      ImmutableSet.Builder<SubcomponentDeclaration> subcomponentDeclarations =
-          ImmutableSet.builder();
-      ImmutableSet.Builder<OptionalBindingDeclaration> optionalBindingDeclarations =
-          ImmutableSet.builder();
+      private void validateMapKeys(
+          ContributionBinding binding, ComponentDescriptor owningComponent) {
+        checkArgument(
+            binding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP),
+            "binding must be a synthetic multibound map: %s",
+            binding);
+        ImmutableSet<ContributionBinding> multibindingContributions =
+            componentTreePath()
+                .graphForComponent(owningComponent)
+                .resolvedDependencies(binding)
+                .stream()
+                .map(ResolvedBindings::contributionBinding)
+                .collect(toImmutableSet());
+        validateMapKeySet(multibindingContributions);
+        validateMapKeyAnnotationTypes(multibindingContributions);
+      }
 
-      Queue<ResolvedBindings> queue = new ArrayDeque<>();
-      queue.add(resolvedBinding);
-
-      for (ResolvedBindings queued = queue.poll(); queued != null; queued = queue.poll()) {
-        multibindingDeclarations.addAll(queued.multibindingDeclarations());
-        subcomponentDeclarations.addAll(queued.subcomponentDeclarations());
-        optionalBindingDeclarations.addAll(queued.optionalBindingDeclarations());
-        for (Map.Entry<ComponentDescriptor, ContributionBinding> bindingEntry :
-            queued.allContributionBindings().entries()) {
-          BindingGraph owningGraph = validationForComponent(bindingEntry.getKey()).subject;
-          ContributionBinding binding = bindingEntry.getValue();
-          if (binding.bindingElement().isPresent()) {
-            contributions.put(bindingEntry);
-          } else {
-            for (DependencyRequest dependency : binding.explicitDependencies()) {
-              queue.add(owningGraph.resolvedBindings().get(dependency.bindingKey()));
-            }
+      /**
+       * Reports errors if there is more than one map binding contribution with the same map key.
+       */
+      private void validateMapKeySet(Set<ContributionBinding> mapBindingContributions) {
+        for (Collection<ContributionBinding> mapBindingsForMapKey :
+            indexMapBindingsByMapKey(mapBindingContributions).asMap().values()) {
+          if (mapBindingsForMapKey.size() > 1) {
+            reportDuplicateMapKeys(mapBindingsForMapKey);
           }
         }
       }
-      return ResolvedBindings.forContributionBindings(
-          resolvedBinding.bindingKey(),
-          resolvedBinding.owningComponent(),
-          contributions.build(),
-          multibindingDeclarations.build(),
-          subcomponentDeclarations.build(),
-          optionalBindingDeclarations.build());
-    }
 
-    private ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType(
-        ResolvedBindings resolvedBinding) {
-      ResolvedBindings inlined = inlineContributionsWithoutBindingElements(resolvedBinding);
-      return new ImmutableListMultimap.Builder<ContributionType, BindingDeclaration>()
-          .putAll(Multimaps
-              .index(inlined.contributionBindings(), HasContributionType::contributionType))
-          .putAll(Multimaps
-              .index(inlined.multibindingDeclarations(), HasContributionType::contributionType))
-          .build();
-    }
-
-    /**
-     * Ensures that if the current request isn't nullable, then each contribution is also not
-     * nullable.
-     */
-    private void validateNullability(DependencyPath path, Set<ContributionBinding> bindings) {
-      if (path.current().dependencyRequest().isNullable()) {
-        return;
-      }
-
-      // Note: the method signature will include the @Nullable in it!
-      /* TODO(sameb): Sometimes javac doesn't include the Element in its output.
-       * (Maybe this happens if the code was already compiled before this point?)
-       * ... we manually print out the request in that case, otherwise the error
-       * message is kind of useless. */
-      String typeName = TypeName.get(path.current().dependencyRequest().key().type()).toString();
-
-      for (ContributionBinding binding : bindings) {
-        if (binding.nullableType().isPresent()) {
-          owningReportBuilder(
-                  path.current()
-                      .dependentBindings()
-                      .filter(ContributionBinding.class)
-                      .append(binding))
-              .addItem(
-                  nullableToNonNullable(typeName, bindingDeclarationFormatter.format(binding))
-                      + "\n at: "
-                      + dependencyRequestFormatter.toDependencyTrace(path),
-                  compilerOptions.nullableValidationKind(),
-                  path.entryPointElement());
+      /**
+       * Reports errors if there is more than one {@link MapKey} annotation type within the map
+       * binding contributions' map keys.
+       */
+      private void validateMapKeyAnnotationTypes(Set<ContributionBinding> mapBindingContributions) {
+        ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
+            mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(mapBindingContributions);
+        if (mapBindingsByAnnotationType.keySet().size() > 1) {
+          reportInconsistentMapKeyAnnotations(mapBindingsByAnnotationType);
         }
       }
-    }
 
-    private void validateMapKeys(
-        DependencyPath path, ContributionBinding binding) {
-      checkArgument(binding.bindingKind().equals(SYNTHETIC_MULTIBOUND_MAP),
-          "binding must be a synthetic multibound map: %s",
-          binding);
-      ImmutableSet.Builder<ContributionBinding> multibindingContributionsBuilder =
-          ImmutableSet.builder();
-      for (DependencyRequest dependency : binding.explicitDependencies()) {
-        multibindingContributionsBuilder.add(
-            subject.resolvedBindings().get(dependency.bindingKey()).contributionBinding());
+      /** Reports errors if a members injection binding is invalid. */
+      // TODO(dpb): Can this be done while validating @Inject?
+      private void validateMembersInjectionBinding(MembersInjectionBinding binding) {
+        binding.key().type().accept(membersInjectionBindingValidator, binding);
       }
-      ImmutableSet<ContributionBinding> multibindingContributions =
-          multibindingContributionsBuilder.build();
-      validateMapKeySet(path, multibindingContributions);
-      validateMapKeyAnnotationTypes(path, multibindingContributions);
-    }
 
-    /**
-     * Reports errors if {@code mapBindings} has more than one binding for the same map key.
-     */
-    private void validateMapKeySet(DependencyPath path, Set<ContributionBinding> mapBindings) {
-      for (Collection<ContributionBinding> mapBindingsForMapKey :
-          indexMapBindingsByMapKey(mapBindings).asMap().values()) {
-        if (mapBindingsForMapKey.size() > 1) {
-          reportDuplicateMapKeys(path, mapBindingsForMapKey);
-        }
-      }
-    }
+      private final TypeVisitor<Void, MembersInjectionBinding> membersInjectionBindingValidator =
+          new SimpleTypeVisitor8<Void, MembersInjectionBinding>() {
+            @Override
+            protected Void defaultAction(TypeMirror e, MembersInjectionBinding p) {
+              report(currentGraph())
+                  .addError("Invalid members injection request.", p.membersInjectedType());
+              return null;
+            }
 
-    /**
-     * Reports errors if {@code mapBindings} uses more than one {@link MapKey} annotation type.
-     */
-    private void validateMapKeyAnnotationTypes(
-        DependencyPath path, Set<ContributionBinding> contributionBindings) {
-      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
-          mapBindingsByAnnotationType = indexMapBindingsByAnnotationType(contributionBindings);
-      if (mapBindingsByAnnotationType.keySet().size() > 1) {
-        reportInconsistentMapKeyAnnotations(path, mapBindingsByAnnotationType);
-      }
-    }
-
-    /** Reports errors if a members injection binding is invalid. */
-    // TODO(dpb): Can this be done while validating @Inject?
-    private void validateMembersInjectionBinding(
-        final MembersInjectionBinding binding, final DependencyPath path) {
-      binding
-          .key()
-          .type()
-          .accept(
-              new SimpleTypeVisitor6<Void, Void>() {
-                @Override
-                protected Void defaultAction(TypeMirror e, Void p) {
-                  reportBuilder.addError(
-                      "Invalid members injection request.", binding.membersInjectedType());
-                  return null;
-                }
-
-                @Override
-                public Void visitDeclared(DeclaredType type, Void ignored) {
-                  // If the key has type arguments, validate that each type argument is declared.
-                  // Otherwise the type argument may be a wildcard (or other type), and we can't
-                  // resolve that to actual types.  If the arg was an array, validate the type
-                  // of the array.
-                  for (TypeMirror arg : type.getTypeArguments()) {
-                    boolean declared;
-                    switch (arg.getKind()) {
-                      case ARRAY:
-                        declared =
-                            MoreTypes.asArray(arg)
-                                .getComponentType()
+            @Override
+            public Void visitDeclared(DeclaredType type, MembersInjectionBinding binding) {
+              // If the key has type arguments, validate that each type argument is declared.
+              // Otherwise the type argument may be a wildcard (or other type), and we can't
+              // resolve that to actual types.  If the arg was an array, validate the type
+              // of the array.
+              for (TypeMirror arg : type.getTypeArguments()) {
+                boolean declared =
+                    arg.accept(
+                        new SimpleTypeVisitor8<Boolean, Void>(false) {
+                          @Override
+                          public Boolean visitArray(ArrayType t, Void p) {
+                            return t.getComponentType()
                                 .accept(
-                                    new SimpleTypeVisitor6<Boolean, Void>() {
-                                      @Override
-                                      protected Boolean defaultAction(TypeMirror e, Void p) {
-                                        return false;
-                                      }
-
+                                    new SimpleTypeVisitor8<Boolean, Void>(false) {
                                       @Override
                                       public Boolean visitDeclared(DeclaredType t, Void p) {
                                         for (TypeMirror arg : t.getTypeArguments()) {
@@ -652,596 +733,314 @@ final class BindingGraphValidator {
                                       }
                                     },
                                     null);
-                        break;
-                      case DECLARED:
-                        declared = true;
-                        break;
-                      default:
-                        declared = false;
-                    }
-                    if (!declared) {
-                      reportBuilder.addError(
-                          String.format(
-                              MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
-                              arg.toString(),
-                              type.toString(),
-                              dependencyRequestFormatter.toDependencyTrace(path)),
-                          path.entryPointElement());
-                      return null;
-                    }
-                  }
+                          }
 
-                  TypeElement element = MoreElements.asType(type.asElement());
-                  // Also validate that the key is not the erasure of a generic type.
-                  // If it is, that means the user referred to Foo<T> as just 'Foo',
-                  // which we don't allow.  (This is a judgement call -- we *could*
-                  // allow it and instantiate the type bounds... but we don't.)
-                  if (!MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
-                      && types.isSameType(types.erasure(element.asType()), type)) {
-                    reportBuilder.addError(
-                        String.format(
-                            ErrorMessages.MEMBERS_INJECTION_WITH_RAW_TYPE,
-                            type.toString(),
-                            dependencyRequestFormatter.toDependencyTrace(path)),
-                        path.entryPointElement());
-                  }
+                          @Override
+                          public Boolean visitDeclared(DeclaredType t, Void p) {
+                            return true;
+                          }
+                        },
+                        null);
+                if (!declared) {
+                  reportErrorAtEntryPoint(
+                      MEMBERS_INJECTION_WITH_UNBOUNDED_TYPE,
+                      arg.toString(),
+                      type.toString(),
+                      formatDependencyTrace());
                   return null;
                 }
-              },
-              null);
-    }
+              }
 
-    /**
-     * Validates that component dependencies do not form a cycle.
-     */
-    private void validateComponentHierarchy() {
-      ComponentDescriptor descriptor = subject.componentDescriptor();
-      TypeElement componentType = descriptor.componentDefinitionType();
-      validateComponentHierarchy(componentType, componentType, new ArrayDeque<TypeElement>());
-    }
-
-    /**
-     * Recursive method to validate that component dependencies do not form a cycle.
-     */
-    private void validateComponentHierarchy(
-        TypeElement rootComponent,
-        TypeElement componentType,
-        Deque<TypeElement> componentStack) {
-
-      if (componentStack.contains(componentType)) {
-        // Current component has already appeared in the component chain.
-        StringBuilder message = new StringBuilder();
-        message.append(rootComponent.getQualifiedName());
-        message.append(" contains a cycle in its component dependencies:\n");
-        componentStack.push(componentType);
-        appendIndentedComponentsList(message, componentStack);
-        componentStack.pop();
-        reportBuilder.addItem(
-            message.toString(),
-            compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
-            rootComponent,
-            getComponentAnnotation(rootComponent).get());
-      } else {
-        Optional<AnnotationMirror> componentAnnotation = getComponentAnnotation(componentType);
-        if (componentAnnotation.isPresent()) {
-          componentStack.push(componentType);
-
-          ImmutableSet<TypeElement> dependencies =
-              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get()));
-          for (TypeElement dependency : dependencies) {
-            validateComponentHierarchy(rootComponent, dependency, componentStack);
-          }
-
-          componentStack.pop();
-        }
-      }
-    }
-
-    /**
-     * Validates that among the dependencies are at most one scoped dependency,
-     * that there are no cycles within the scoping chain, and that singleton
-     * components have no scoped dependencies.
-     */
-    private void validateDependencyScopes() {
-      ComponentDescriptor descriptor = subject.componentDescriptor();
-      ImmutableSet<Scope> scopes = descriptor.scopes();
-      ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(descriptor.dependencies());
-      if (!scopes.isEmpty()) {
-        Scope singletonScope = Scope.singletonScope(elements);
-        // Dagger 1.x scope compatibility requires this be suppress-able.
-        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()
-            && scopes.contains(singletonScope)) {
-          // Singleton is a special-case representing the longest lifetime, and therefore
-          // @Singleton components may not depend on scoped components
-          if (!scopedDependencies.isEmpty()) {
-            StringBuilder message = new StringBuilder(
-                "This @Singleton component cannot depend on scoped components:\n");
-            appendIndentedComponentsList(message, scopedDependencies);
-            reportBuilder.addItem(
-                message.toString(),
-                compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
-                descriptor.componentDefinitionType(),
-                descriptor.componentAnnotation());
-          }
-        } else if (scopedDependencies.size() > 1) {
-          // Scoped components may depend on at most one scoped component.
-          StringBuilder message = new StringBuilder();
-          for (Scope scope : scopes) {
-            message.append(scope.getReadableSource()).append(' ');
-          }
-          message
-              .append(descriptor.componentDefinitionType().getQualifiedName())
-              .append(" depends on more than one scoped component:\n");
-          appendIndentedComponentsList(message, scopedDependencies);
-          reportBuilder.addError(
-              message.toString(),
-              descriptor.componentDefinitionType(),
-              descriptor.componentAnnotation());
-        } else {
-          // Dagger 1.x scope compatibility requires this be suppress-able.
-          if (!compilerOptions.scopeCycleValidationType().equals(ValidationType.NONE)) {
-            validateScopeHierarchy(descriptor.componentDefinitionType(),
-                descriptor.componentDefinitionType(),
-                new ArrayDeque<ImmutableSet<Scope>>(),
-                new ArrayDeque<TypeElement>());
-          }
-        }
-      } else {
-        // Scopeless components may not depend on scoped components.
-        if (!scopedDependencies.isEmpty()) {
-          StringBuilder message =
-              new StringBuilder(descriptor.componentDefinitionType().getQualifiedName())
-                  .append(" (unscoped) cannot depend on scoped components:\n");
-          appendIndentedComponentsList(message, scopedDependencies);
-          reportBuilder.addError(
-              message.toString(),
-              descriptor.componentDefinitionType(),
-              descriptor.componentAnnotation());
-        }
-      }
-    }
-
-    private void validateBuilders() {
-      ComponentDescriptor componentDesc = subject.componentDescriptor();
-      if (!componentDesc.builderSpec().isPresent()) {
-        // If no builder, nothing to validate.
-        return;
-      }
-
-      Set<TypeElement> availableDependencies = subject.availableDependencies();
-      Set<TypeElement> requiredDependencies =
-          Sets.filter(availableDependencies, input -> !componentCanMakeNewInstances(input));
-      final BuilderSpec spec = componentDesc.builderSpec().get();
-      Map<TypeElement, ExecutableElement> allSetters = spec.methodMap();
-
-      ErrorMessages.ComponentBuilderMessages msgs =
-          ErrorMessages.builderMsgsFor(subject.componentDescriptor().kind());
-      Set<TypeElement> extraSetters = Sets.difference(allSetters.keySet(), availableDependencies);
-      if (!extraSetters.isEmpty()) {
-        Collection<ExecutableElement> excessMethods =
-            Maps.filterKeys(allSetters, Predicates.in(extraSetters)).values();
-        Iterable<String> formatted =
-            FluentIterable.from(excessMethods)
-                .transform(
-                    method ->
-                        methodSignatureFormatter.format(
-                            method,
-                            Optional.of(
-                                MoreTypes.asDeclared(spec.builderDefinitionType().asType()))));
-        reportBuilder.addError(
-            String.format(msgs.extraSetters(), formatted), spec.builderDefinitionType());
-      }
-
-      Set<TypeElement> missingSetters = Sets.difference(requiredDependencies, allSetters.keySet());
-      if (!missingSetters.isEmpty()) {
-        reportBuilder.addError(
-            String.format(msgs.missingSetters(), missingSetters), spec.builderDefinitionType());
-      }
-    }
-
-    /**
-     * Validates that scopes do not participate in a scoping cycle - that is to say, scoped
-     * components are in a hierarchical relationship terminating with Singleton.
-     *
-     * <p>As a side-effect, this means scoped components cannot have a dependency cycle between
-     * themselves, since a component's presence within its own dependency path implies a cyclical
-     * relationship between scopes. However, cycles in component dependencies are explicitly
-     * checked in {@link #validateComponentHierarchy()}.
-     */
-    private void validateScopeHierarchy(TypeElement rootComponent,
-        TypeElement componentType,
-        Deque<ImmutableSet<Scope>> scopeStack,
-        Deque<TypeElement> scopedDependencyStack) {
-      ImmutableSet<Scope> scopes = Scope.scopesOf(componentType);
-      if (stackOverlaps(scopeStack, scopes)) {
-        scopedDependencyStack.push(componentType);
-        // Current scope has already appeared in the component chain.
-        StringBuilder message = new StringBuilder();
-        message.append(rootComponent.getQualifiedName());
-        message.append(" depends on scoped components in a non-hierarchical scope ordering:\n");
-        appendIndentedComponentsList(message, scopedDependencyStack);
-        if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()) {
-          reportBuilder.addItem(
-              message.toString(),
-              compilerOptions.scopeCycleValidationType().diagnosticKind().get(),
-              rootComponent,
-              getComponentAnnotation(rootComponent).get());
-        }
-        scopedDependencyStack.pop();
-      } else {
-        // TODO(beder): transitively check scopes of production components too.
-        Optional<AnnotationMirror> componentAnnotation =
-            getAnnotationMirror(componentType, Component.class);
-        if (componentAnnotation.isPresent()) {
-          ImmutableSet<TypeElement> scopedDependencies = scopedTypesIn(
-              MoreTypes.asTypeElements(getComponentDependencies(componentAnnotation.get())));
-          if (scopedDependencies.size() == 1) {
-            // empty can be ignored (base-case), and > 1 is a different error reported separately.
-            scopeStack.push(scopes);
-            scopedDependencyStack.push(componentType);
-            validateScopeHierarchy(rootComponent, getOnlyElement(scopedDependencies),
-                scopeStack, scopedDependencyStack);
-            scopedDependencyStack.pop();
-            scopeStack.pop();
-          }
-        } // else: we skip component dependencies which are not components
-      }
-    }
-
-    private <T> boolean stackOverlaps(Deque<ImmutableSet<T>> stack, ImmutableSet<T> set) {
-      for (ImmutableSet<T> entry : stack) {
-        if (!Sets.intersection(entry, set).isEmpty()) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    /**
-     * Validates that the scope (if any) of this component are compatible with the scopes of the
-     * bindings available in this component
-     */
-    void validateComponentScope() {
-      ImmutableMap<BindingKey, ResolvedBindings> resolvedBindings = subject.resolvedBindings();
-      ImmutableSet<Scope> componentScopes = subject.componentDescriptor().scopes();
-      ImmutableSet.Builder<String> incompatiblyScopedMethodsBuilder = ImmutableSet.builder();
-      Scope reusableScope = reusableScope(elements);
-      for (ResolvedBindings bindings : resolvedBindings.values()) {
-        for (ContributionBinding contributionBinding : bindings.ownedContributionBindings()) {
-          Optional<Scope> bindingScope = contributionBinding.scope();
-          if (bindingScope.isPresent()
-              && !bindingScope.get().equals(reusableScope)
-              && !componentScopes.contains(bindingScope.get())) {
-            // Scoped components cannot reference bindings to @Provides methods or @Inject
-            // types decorated by a different scope annotation. Unscoped components cannot
-            // reference to scoped @Provides methods or @Inject types decorated by any
-            // scope annotation.
-            switch (contributionBinding.bindingKind()) {
-              case SYNTHETIC_DELEGATE_BINDING:
-              case PROVISION:
-                incompatiblyScopedMethodsBuilder.add(
-                    methodSignatureFormatter.format(
-                        MoreElements.asExecutable(contributionBinding.bindingElement().get())));
-                break;
-              case INJECTION:
-                incompatiblyScopedMethodsBuilder.add(
-                    bindingScope.get().getReadableSource()
-                        + " class "
-                        + contributionBinding.bindingTypeElement().get().getQualifiedName());
-                break;
-              default:
-                throw new IllegalStateException();
+              TypeElement element = MoreElements.asType(type.asElement());
+              // Also validate that the key is not the erasure of a generic type.
+              // If it is, that means the user referred to Foo<T> as just 'Foo',
+              // which we don't allow.  (This is a judgement call -- we *could*
+              // allow it and instantiate the type bounds... but we don't.)
+              if (!MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
+                  && types.isSameType(types.erasure(element.asType()), type)) {
+                reportErrorAtEntryPoint(
+                    MEMBERS_INJECTION_WITH_RAW_TYPE, type.toString(), formatDependencyTrace());
+              }
+              return null;
             }
+          };
+
+      // TODO(b/29509141): Clarify the error.
+      private void reportProviderMayNotDependOnProducer(ContributionBinding productionBinding) {
+        if (atEntryPoint()) {
+          reportErrorAtEntryPoint(
+              PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+              formatCurrentDependencyRequestKey());
+        } else {
+          // TODO(beder): Consider displaying all dependent provisions in the error message. If we
+          // do that, should we display all productions that depend on them also?
+          reportErrorAtEntryPoint(
+              owningGraph(provisionsDependingOnLatestRequest().append(productionBinding)),
+              PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
+              provisionsDependingOnLatestRequest().iterator().next().key());
+        }
+      }
+
+      /**
+       * Descriptive portion of the error message for when the given request has no binding.
+       * Currently, the only other portions of the message are the dependency path, line number and
+       * filename.
+       */
+      private StringBuilder requiresErrorMessageBase() {
+        Key key = dependencyRequest().key();
+        String requiresErrorMessageFormat;
+        // TODO(dpb): Check for wildcard injection somewhere else first?
+        if (key.type().getKind().equals(TypeKind.WILDCARD)) {
+          requiresErrorMessageFormat = CANNOT_INJECT_WILDCARD_TYPE;
+        } else {
+          boolean requiresProvision = doesPathRequireProvisionOnly();
+          if (!key.isValidImplicitProvisionKey(types)) {
+            requiresErrorMessageFormat =
+                requiresProvision ? REQUIRES_PROVIDER_FORMAT : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
+          } else {
+            requiresErrorMessageFormat =
+                requiresProvision
+                    ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
+                    : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
           }
         }
-      }
-
-      ImmutableSet<String> incompatiblyScopedMethods = incompatiblyScopedMethodsBuilder.build();
-      if (!incompatiblyScopedMethods.isEmpty()) {
-        TypeElement componentType = subject.componentDescriptor().componentDefinitionType();
-        StringBuilder message = new StringBuilder(componentType.getQualifiedName());
-        if (!componentScopes.isEmpty()) {
-          message.append(" scoped with ");
-          for (Scope scope : componentScopes) {
-            message.append(scope.getReadableSource()).append(' ');
+        StringBuilder errorMessage =
+            new StringBuilder(
+                String.format(requiresErrorMessageFormat, formatCurrentDependencyRequestKey()));
+        if (key.isValidMembersInjectionKey()) {
+          Optional<MembersInjectionBinding> membersInjectionBinding =
+              injectBindingRegistry.getOrFindMembersInjectionBinding(key);
+          if (membersInjectionBinding.isPresent()
+              && !membersInjectionBinding.get().injectionSites().isEmpty()) {
+            errorMessage.append(" ");
+            errorMessage.append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
           }
-          message.append("may not reference bindings with different scopes:\n");
-        } else {
-          message.append(" (unscoped) may not reference scoped bindings:\n");
         }
-        for (String method : incompatiblyScopedMethods) {
-          message.append(ErrorMessages.INDENT).append(method).append("\n");
+        return errorMessage.append('\n');
+      }
+
+      private void reportMissingBinding() {
+        StringBuilder errorMessage = requiresErrorMessageBase().append(formatDependencyTrace());
+        for (String suggestion :
+            MissingBindingSuggestions.forKey(rootGraph, dependencyRequest().bindingKey())) {
+          errorMessage.append('\n').append(suggestion);
         }
-        reportBuilder.addError(
-            message.toString(), componentType, subject.componentDescriptor().componentAnnotation());
+        reportErrorAtEntryPoint(rootGraph, errorMessage.toString());
       }
-    }
 
-    @SuppressWarnings("resource") // Appendable is a StringBuilder.
-    // TODO(b/29509141): Clarify the error.
-    private void reportProviderMayNotDependOnProducer(
-        DependencyPath path, ContributionBinding productionBinding) {
-      if (path.size() == 1) {
-        reportBuilder.addError(
-            String.format(
-                PROVIDER_ENTRY_POINT_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                formatCurrentDependencyRequestKey(path)),
-            path.entryPointElement());
-      } else {
-        FluentIterable<ContributionBinding> dependentProvisions =
-            provisionsDependingOnLatestRequest(path);
-        // TODO(beder): Consider displaying all dependent provisions in the error message. If we
-        // do that, should we display all productions that depend on them also?
-        owningReportBuilder(dependentProvisions.append(productionBinding))
-            .addError(
-                String.format(
-                    PROVIDER_MAY_NOT_DEPEND_ON_PRODUCER_FORMAT,
-                    dependentProvisions.iterator().next().key()),
-                path.entryPointElement());
+      @SuppressWarnings("resource") // Appendable is a StringBuilder.
+      private void reportDependsOnProductionExecutor() {
+        reportErrorAtEntryPoint(
+            DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatCurrentDependencyRequestKey());
       }
-    }
 
-    /**
-     * Descriptive portion of the error message for when the given request has no binding.
-     * Currently, the only other portions of the message are the dependency path, line number and
-     * filename. Not static because it uses the instance field types.
-     */
-    private StringBuilder requiresErrorMessageBase(DependencyPath path) {
-      Key key = path.current().dependencyRequest().key();
-      String requiresErrorMessageFormat;
-      // TODO(dpb): Check for wildcard injection somewhere else first?
-      if (key.type().getKind().equals(TypeKind.WILDCARD)) {
-        requiresErrorMessageFormat = CANNOT_INJECT_WILDCARD_TYPE;
-      } else {
-        boolean requiresProvision = doesPathRequireProvisionOnly(path);
-        if (!key.isValidImplicitProvisionKey(types)) {
-          requiresErrorMessageFormat = requiresProvision
-              ? REQUIRES_PROVIDER_FORMAT
-              : REQUIRES_PROVIDER_OR_PRODUCER_FORMAT;
-        } else {
-          requiresErrorMessageFormat = requiresProvision
-              ? REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_FORMAT
-              : REQUIRES_AT_INJECT_CONSTRUCTOR_OR_PROVIDER_OR_PRODUCER_FORMAT;
-        }
-      }
-      StringBuilder errorMessage =
-          new StringBuilder(
-              String.format(requiresErrorMessageFormat, formatCurrentDependencyRequestKey(path)));
-      if (key.isValidMembersInjectionKey()) {
-        Optional<MembersInjectionBinding> membersInjectionBinding =
-            injectBindingRegistry.getOrFindMembersInjectionBinding(key);
-        if (membersInjectionBinding.isPresent()
-            && !membersInjectionBinding.get().injectionSites().isEmpty()) {
-          errorMessage.append(" ");
-          errorMessage.append(ErrorMessages.MEMBERS_INJECTION_DOES_NOT_IMPLY_PROVISION);
-        }
-      }
-      return errorMessage.append('\n');
-    }
-
-    private void reportMissingBinding(DependencyPath path) {
-      StringBuilder errorMessage =
-          requiresErrorMessageBase(path).append(dependencyRequestFormatter.toDependencyTrace(path));
-      for (String suggestion :
-          MissingBindingSuggestions.forKey(
-              topLevelGraph(), path.current().dependencyRequest().bindingKey())) {
-        errorMessage.append('\n').append(suggestion);
-      }
-      topLevelReport().addError(errorMessage.toString(), path.entryPointElement());
-    }
-
-    @SuppressWarnings("resource") // Appendable is a StringBuilder.
-    private void reportDependsOnProductionExecutor(DependencyPath path) {
-      reportBuilder.addError(
-          String.format(
-              DEPENDS_ON_PRODUCTION_EXECUTOR_FORMAT, formatCurrentDependencyRequestKey(path)),
-          path.entryPointElement());
-    }
-
-    @SuppressWarnings("resource") // Appendable is a StringBuilder.
-    private void reportDuplicateBindings(DependencyPath path) {
-      ResolvedBindings resolvedBindings = path.current().resolvedBindings();
-      if (FluentIterable.from(resolvedBindings.contributionBindings())
-          .transform(ContributionBinding::bindingKind)
-          // TODO(dpb): Kill with fire.
-          .anyMatch(
-              kind -> SYNTHETIC_MULTIBOUND_KINDS.contains(kind) || SYNTHETIC_MAP.equals(kind))) {
+      @SuppressWarnings("resource") // Appendable is a StringBuilder.
+      private void reportDuplicateBindings() {
         // If any of the duplicate bindings results from multibinding contributions or declarations,
         // report the conflict using those contributions and declarations.
-        reportMultipleContributionTypes(path);
-        return;
-      }
-      StringBuilder builder = new StringBuilder();
-      new Formatter(builder)
-          .format(DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
-      ResolvedBindings inlined = inlineContributionsWithoutBindingElements(resolvedBindings);
-      ImmutableSet<ContributionBinding> duplicateBindings = inlined.contributionBindings();
-      Set<BindingDeclaration> conflictingDeclarations =
-          Sets.union(duplicateBindings, inlined.subcomponentDeclarations());
-      bindingDeclarationFormatter.formatIndentedList(
-          builder, conflictingDeclarations, 1, DUPLICATE_SIZE_LIMIT);
-      owningReportBuilder(duplicateBindings).addError(builder.toString(), path.entryPointElement());
-    }
-
-    /**
-     * Returns the report builder for the rootmost component that contains any of the {@code
-     * bindings}.
-     */
-    private ValidationReport.Builder<TypeElement> owningReportBuilder(
-        Iterable<ContributionBinding> bindings) {
-      ImmutableSet.Builder<ComponentDescriptor> owningComponentsBuilder = ImmutableSet.builder();
-      for (ContributionBinding binding : bindings) {
-        ResolvedBindings resolvedBindings =
-            subject.resolvedBindings().get(BindingKey.contribution(binding.key()));
-        owningComponentsBuilder.addAll(
-            resolvedBindings.allContributionBindings().inverse().get(binding));
-      }
-      ImmutableSet<ComponentDescriptor> owningComponents = owningComponentsBuilder.build();
-      for (Validation validation : validationPath()) {
-        if (owningComponents.contains(validation.subject.componentDescriptor())) {
-          return validation.reportBuilder;
+        if (resolvedBindings()
+            .contributionBindings()
+            .stream()
+            .map(ContributionBinding::bindingKind)
+            // TODO(dpb): Kill with fire.
+            .anyMatch(
+                kind -> SYNTHETIC_MULTIBOUND_KINDS.contains(kind) || SYNTHETIC_MAP.equals(kind))) {
+          reportMultipleContributionTypes();
+          return;
         }
-      }
-      throw new AssertionError("cannot find owning component for bindings: " + bindings);
-    }
-
-    /**
-     * The path from the {@link Validation} of the root graph down to this {@link Validation}.
-     */
-    private ImmutableList<Validation> validationPath() {
-      ImmutableList.Builder<Validation> validationPath = ImmutableList.builder();
-      for (Optional<Validation> validation = Optional.of(this);
-          validation.isPresent();
-          validation = validation.get().parent) {
-        validationPath.add(validation.get());
-      }
-      return validationPath.build().reverse();
-    }
-
-    @SuppressWarnings("resource") // Appendable is a StringBuilder.
-    private void reportMultipleContributionTypes(DependencyPath path) {
-      StringBuilder builder = new StringBuilder();
-      new Formatter(builder)
-          .format(
-              MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey(path));
-      ResolvedBindings resolvedBindings = path.current().resolvedBindings();
-      ImmutableListMultimap<ContributionType, BindingDeclaration> declarationsByType =
-          declarationsByType(resolvedBindings);
-      verify(
-          declarationsByType.keySet().size() > 1,
-          "expected multiple contribution types for %s: %s",
-          resolvedBindings.bindingKey(),
-          declarationsByType);
-      for (ContributionType contributionType :
-          Ordering.natural().immutableSortedCopy(declarationsByType.keySet())) {
-        builder.append(INDENT);
-        builder.append(formatContributionType(contributionType));
-        builder.append(" bindings and declarations:");
+        StringBuilder builder = new StringBuilder();
+        new Formatter(builder)
+            .format(DUPLICATE_BINDINGS_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey());
+        ImmutableSetMultimap<ComponentDescriptor, BindingDeclaration> duplicateDeclarations =
+            reportableDeclarations();
         bindingDeclarationFormatter.formatIndentedList(
-            builder, declarationsByType.get(contributionType), 2, DUPLICATE_SIZE_LIMIT);
-        builder.append('\n');
+            builder, duplicateDeclarations.values(), 1, DUPLICATE_SIZE_LIMIT);
+        reportErrorAtEntryPoint(
+            componentTreePath().rootmostGraph(duplicateDeclarations.keySet()), builder.toString());
       }
-      owningReportBuilder(resolvedBindings.contributionBindings())
-          .addError(builder.toString(), path.entryPointElement());
-    }
 
-    private void reportDuplicateMapKeys(
-        DependencyPath path, Collection<ContributionBinding> mapBindings) {
-      StringBuilder builder = new StringBuilder();
-      builder.append(duplicateMapKeysError(formatCurrentDependencyRequestKey(path)));
-      bindingDeclarationFormatter.formatIndentedList(builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
-      owningReportBuilder(mapBindings).addError(builder.toString(), path.entryPointElement());
-    }
-
-    private void reportInconsistentMapKeyAnnotations(
-        DependencyPath path,
-        Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
-            mapBindingsByAnnotationType) {
-      StringBuilder builder =
-          new StringBuilder(
-              inconsistentMapKeyAnnotationsError(formatCurrentDependencyRequestKey(path)));
-      for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
-          mapBindingsByAnnotationType.asMap().entrySet()) {
-        DeclaredType annotationType = entry.getKey().get();
-        Collection<ContributionBinding> bindings = entry.getValue();
-
-        builder
-            .append('\n')
-            .append(INDENT)
-            .append(annotationType)
-            .append(':');
-
-        bindingDeclarationFormatter.formatIndentedList(builder, bindings, 2, DUPLICATE_SIZE_LIMIT);
+      @SuppressWarnings("resource") // Appendable is a StringBuilder.
+      private void reportMultipleContributionTypes() {
+        StringBuilder builder = new StringBuilder();
+        new Formatter(builder)
+            .format(
+                MULTIPLE_CONTRIBUTION_TYPES_FOR_KEY_FORMAT, formatCurrentDependencyRequestKey());
+        ImmutableSetMultimap<ComponentDescriptor, BindingDeclaration> duplicateDeclarations =
+            reportableDeclarations();
+        ImmutableListMultimap<ContributionType, BindingDeclaration> duplicateDeclarationsByType =
+            Multimaps.index(
+                duplicateDeclarations.values(),
+                declaration ->
+                    declaration instanceof HasContributionType
+                        ? ((HasContributionType) declaration).contributionType()
+                        : ContributionType.UNIQUE);
+        verify(
+            duplicateDeclarationsByType.keySet().size() > 1,
+            "expected multiple contribution types for %s: %s",
+            dependencyRequest().bindingKey(),
+            duplicateDeclarationsByType);
+        ImmutableSortedMap.copyOf(Multimaps.asMap(duplicateDeclarationsByType))
+            .forEach(
+                (contributionType, declarations) -> {
+                  builder.append(INDENT);
+                  builder.append(formatContributionType(contributionType));
+                  builder.append(" bindings and declarations:");
+                  bindingDeclarationFormatter.formatIndentedList(
+                      builder, declarations, 2, DUPLICATE_SIZE_LIMIT);
+                  builder.append('\n');
+                });
+        reportErrorAtEntryPoint(
+            componentTreePath().rootmostGraph(duplicateDeclarations.keySet()), builder.toString());
       }
-      owningReportBuilder(mapBindingsByAnnotationType.values())
-          .addError(builder.toString(), path.entryPointElement());
-    }
 
-    private void reportCycle(DependencyPath path) {
-      if (!providersBreakingCycle(path).isEmpty()) {
-        return;
+      private void reportDuplicateMapKeys(Collection<ContributionBinding> mapBindings) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(duplicateMapKeysError(formatCurrentDependencyRequestKey()));
+        bindingDeclarationFormatter.formatIndentedList(
+            builder, mapBindings, 1, DUPLICATE_SIZE_LIMIT);
+        reportErrorAtEntryPoint(owningGraph(mapBindings), builder.toString());
       }
+
+      private void reportInconsistentMapKeyAnnotations(
+          Multimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
+              mapBindingsByAnnotationType) {
+        StringBuilder builder =
+            new StringBuilder(
+                inconsistentMapKeyAnnotationsError(formatCurrentDependencyRequestKey()));
+        for (Map.Entry<Equivalence.Wrapper<DeclaredType>, Collection<ContributionBinding>> entry :
+            mapBindingsByAnnotationType.asMap().entrySet()) {
+          DeclaredType annotationType = entry.getKey().get();
+          Collection<ContributionBinding> bindings = entry.getValue();
+
+          builder.append('\n').append(INDENT).append(annotationType).append(':');
+
+          bindingDeclarationFormatter.formatIndentedList(
+              builder, bindings, 2, DUPLICATE_SIZE_LIMIT);
+        }
+        reportErrorAtEntryPoint(
+            owningGraph(mapBindingsByAnnotationType.values()), builder.toString());
+      }
+
       // TODO(cgruber): Provide a hint for the start and end of the cycle.
-      owningReportBuilder(
-              path.cycle()
-                  .transform(ResolvedRequest::resolvedBindings)
-                  .transformAndConcat(ResolvedBindings::contributionBindings))
-          .addItem(
-              String.format(
-                  CONTAINS_DEPENDENCY_CYCLE_FORMAT,
-                  dependencyRequestFormatter.toDependencyTrace(path)),
-              ERROR,
-              path.entryPointElement());
-    }
+      private void reportDependencyCycle() {
+        if (!providersBreakingCycle().isEmpty()) {
+          return;
+        }
+        ImmutableList.Builder<ContributionBinding> cycleBindings = ImmutableList.builder();
+        cycleDependencyTrace()
+            .forEach(
+                (dependencyRequest, resolvedBindings) ->
+                    cycleBindings.addAll(resolvedBindings.contributionBindings()));
+        reportErrorAtEntryPoint(
+            owningGraph(cycleBindings.build()),
+            CONTAINS_DEPENDENCY_CYCLE_FORMAT,
+            formatDependencyTrace());
+      }
 
-    /**
-     * Returns any steps in a dependency cycle that "break" the cycle. These are any {@link
-     * Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first request in
-     * the cycle.
-     *
-     * <p>If an implicit {@link Provider} dependency on {@code Map<K, Provider<V>>} is immediately
-     * preceded by a dependency on {@code Map<K, V>}, which means that the map's {@link Provider}s'
-     * {@link Provider#get() get()} methods are called during provision and so the cycle is not
-     * really broken.
-     *
-     * <p>A request for an instance of {@code Optional} breaks the cycle if a request for the {@code
-     * Optional}'s type parameter would.
-     */
-    private ImmutableSet<DependencyRequest> providersBreakingCycle(DependencyPath path) {
-      return path.cycle()
-          .skip(1)
-          .filter(
-              new Predicate<ResolvedRequest>() {
-                @Override
-                public boolean apply(ResolvedRequest resolvedRequest) {
-                  DependencyRequest dependencyRequest = resolvedRequest.dependencyRequest();
-                  if (dependencyRequest.requestElement().isPresent()) {
-                    // Non-synthetic request
-                    return breaksCycle(dependencyRequest.key().type(), dependencyRequest.kind());
-                  } else if (!resolvedRequest
-                      .dependentResolvedBindings()
-                      .transform(ResolvedBindings::optionalBindingDeclarations)
-                      .or(ImmutableSet.of())
-                      .isEmpty()) {
-                    // Synthetic request from a @BindsOptionalOf: test the type inside the Optional.
-                    // Optional<Provider or Lazy or Provider of Lazy> breaks the cycle.
-                    TypeMirror requestedOptionalType =
-                        resolvedRequest.dependentResolvedBindings().get().key().type();
+      /**
+       * Returns any steps in a dependency cycle that "break" the cycle. These are any nonsynthetic
+       * {@link Provider}, {@link Lazy}, or {@code Map<K, Provider<V>>} requests after the first
+       * request in the cycle.
+       *
+       * <p>The synthetic request for a {@code Map<K, Provider<V>>} as a dependency of a multibound
+       * {@code Map<K, V>} does not break cycles because the map's {@link Provider}s' {@link
+       * Provider#get() get()} methods are called during provision.
+       *
+       * <p>A request for an instance of {@code Optional} breaks the cycle if it is resolved to a
+       * {@link BindsOptionalOf} binding and a request for the {@code Optional}'s type parameter
+       * would.
+       */
+      private ImmutableSet<DependencyRequest> providersBreakingCycle() {
+        ImmutableSet.Builder<DependencyRequest> providers = ImmutableSet.builder();
+        AtomicBoolean first = new AtomicBoolean(true);
+        cycleDependencyTrace()
+            .forEach(
+                (dependencyRequest, resolvedBindings) -> {
+                  // Skip the first request in the cycle and any synthetic requests.
+                  if (first.getAndSet(false) || !dependencyRequest.requestElement().isPresent()) {
+                    return;
+                  }
+
+                  if (breaksCycle(dependencyRequest.key().type(), dependencyRequest.kind())) {
+                    providers.add(dependencyRequest);
+                  } else if (!resolvedBindings.optionalBindingDeclarations().isEmpty()) {
+                    /* Request resolved to a @BindsOptionalOf binding, so test the type inside the
+                     * Optional. Optional<Provider or Lazy or Provider of Lazy or Map of Provider>
+                     * breaks the cycle. */
                     DependencyRequest.KindAndType kindAndType =
                         DependencyRequest.extractKindAndType(
-                            OptionalType.from(requestedOptionalType).valueType());
-                    return breaksCycle(kindAndType.type(), kindAndType.kind());
-                  } else {
-                    // Other synthetic requests.
-                    return false;
+                            OptionalType.from(dependencyRequest.key()).valueType());
+                    if (breaksCycle(kindAndType.type(), kindAndType.kind())) {
+                      providers.add(dependencyRequest);
+                    }
                   }
-                }
+                });
+        return providers.build();
+      }
 
-                private boolean breaksCycle(
-                    TypeMirror requestedType, DependencyRequest.Kind requestKind) {
-                  switch (requestKind) {
-                    case PROVIDER:
-                    case LAZY:
-                    case PROVIDER_OF_LAZY:
-                      return true;
+      private boolean breaksCycle(TypeMirror requestedType, DependencyRequest.Kind requestKind) {
+        switch (requestKind) {
+          case PROVIDER:
+          case LAZY:
+          case PROVIDER_OF_LAZY:
+            return true;
 
-                    case INSTANCE:
-                      return MapType.isMap(requestedType)
-                          && MapType.from(requestedType).valuesAreTypeOf(Provider.class);
+          case INSTANCE:
+            return MapType.isMap(requestedType)
+                && MapType.from(requestedType).valuesAreTypeOf(Provider.class);
 
-                    default:
-                      return false;
-                  }
-                }
-              })
-          .transform(ResolvedRequest::dependencyRequest)
-          .toSet();
+          default:
+            return false;
+        }
+      }
+
+      /**
+       * Returns whether the given dependency path would require the most recent request to be
+       * resolved by only provision bindings.
+       */
+      private boolean doesPathRequireProvisionOnly() {
+        // The second-most-recent bindings determine whether the most recent one must be a
+        // provision.
+        if (!atEntryPoint()) {
+          return !provisionsDependingOnLatestRequest().isEmpty();
+        }
+
+        // Check the request kind for entry points.
+        switch (dependencyRequest().kind()) {
+          case INSTANCE:
+          case PROVIDER:
+          case LAZY:
+          case MEMBERS_INJECTOR:
+            return true;
+          case PRODUCER:
+          case PRODUCED:
+          case FUTURE:
+            return false;
+          default:
+            throw new AssertionError();
+        }
+      }
+
+      /**
+       * Returns any provision bindings resolved for the second-most-recent request in the given
+       * path; that is, returns those provision bindings that depend on the latest request in the
+       * path.
+       */
+      private FluentIterable<ContributionBinding> provisionsDependingOnLatestRequest() {
+        return FluentIterable.from(dependentBindings())
+            .filter(ContributionBinding.class)
+            .filter(PROVISION::isOfType);
+      }
+
+      private String formatCurrentDependencyRequestKey() {
+        return keyFormatter.format(dependencyRequest().key());
+      }
     }
   }
 
-  ValidationReport<TypeElement> validate(BindingGraph subject) {
-    Validation validation = new Validation(subject);
-    validation.validateSubgraph();
+  ValidationReport<TypeElement> validate(BindingGraph graph) {
+    ComponentValidation validation = new ComponentValidation(graph);
+    validation.traverseComponents();
     return validation.buildReport();
   }
 
@@ -1264,45 +1063,7 @@ final class BindingGraphValidator {
    * a scoping annotation.
    */
   private ImmutableSet<TypeElement> scopedTypesIn(Set<TypeElement> types) {
-    return FluentIterable.from(types).filter(type -> !Scope.scopesOf(type).isEmpty()).toSet();
-  }
-
-  /**
-   * Returns whether the given dependency path would require the most recent request to be resolved
-   * by only provision bindings.
-   */
-  private boolean doesPathRequireProvisionOnly(DependencyPath path) {
-    if (path.size() == 1) {
-      // if this is an entry-point, then we check the request
-      switch (path.current().dependencyRequest().kind()) {
-        case INSTANCE:
-        case PROVIDER:
-        case LAZY:
-        case MEMBERS_INJECTOR:
-          return true;
-        case PRODUCER:
-        case PRODUCED:
-        case FUTURE:
-          return false;
-        default:
-          throw new AssertionError();
-      }
-    }
-    // otherwise, the second-most-recent bindings determine whether the most recent one must be a
-    // provision
-    return !provisionsDependingOnLatestRequest(path).isEmpty();
-  }
-
-  /**
-   * Returns any provision bindings resolved for the second-most-recent request in the given path;
-   * that is, returns those provision bindings that depend on the latest request in the path.
-   */
-  private FluentIterable<ContributionBinding> provisionsDependingOnLatestRequest(
-      DependencyPath path) {
-    return path.current()
-        .dependentBindings()
-        .filter(ContributionBinding.class)
-        .filter(PROVISION::isOfType);
+    return types.stream().filter(type -> !scopesOf(type).isEmpty()).collect(toImmutableSet());
   }
 
   private String formatContributionType(ContributionType type) {
@@ -1316,42 +1077,6 @@ final class BindingGraphValidator {
         return "Unique";
       default:
         throw new IllegalStateException("Unknown binding type: " + type);
-    }
-  }
-
-  private String formatCurrentDependencyRequestKey(DependencyPath path) {
-    return keyFormatter.format(path.current().dependencyRequest().key());
-  }
-
-  @AutoValue
-  abstract static class ResolvedRequest {
-
-    abstract DependencyRequest dependencyRequest();
-
-    abstract ResolvedBindings resolvedBindings();
-
-    /**
-     * The {@link #resolvedBindings()} of the previous entry in the {@link DependencyPath}. One of
-     * these bindings depends directly on {@link #dependencyRequest()}.
-     */
-    abstract Optional<ResolvedBindings> dependentResolvedBindings();
-
-    /**
-     * Returns the bindings that depend on this {@linkplain #dependencyRequest() dependency
-     * request}.
-     */
-    FluentIterable<? extends Binding> dependentBindings() {
-      return FluentIterable.from(dependentResolvedBindings().asSet())
-          .transformAndConcat(ResolvedBindings::bindings)
-          .filter(binding -> binding.dependencies().contains(dependencyRequest()));
-    }
-
-    private static ResolvedRequest create(
-        DependencyRequest request,
-        ResolvedBindings resolvedBindings,
-        Optional<ResolvedBindings> dependentBindings) {
-      return new AutoValue_BindingGraphValidator_ResolvedRequest(
-          request, resolvedBindings, dependentBindings);
     }
   }
 }

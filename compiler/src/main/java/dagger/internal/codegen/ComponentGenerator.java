@@ -53,8 +53,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
   @Override
   ClassName nameGeneratedType(BindingGraph input) {
-    ClassName componentDefinitionClassName =
-        ClassName.get(input.componentDescriptor().componentDefinitionType());
+    ClassName componentDefinitionClassName = ClassName.get(input.componentType());
     String componentName =
         "Dagger" + Joiner.on('_').join(componentDefinitionClassName.simpleNames());
     return componentDefinitionClassName.topLevelClassName().peerClass(componentName);
@@ -62,7 +61,7 @@ final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
 
   @Override
   Optional<? extends Element> getElementForErrorReporting(BindingGraph input) {
-    return Optional.of(input.componentDescriptor().componentDefinitionType());
+    return Optional.of(input.componentType());
   }
 
   @Override

@@ -35,10 +35,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-/**
- * A validator for {@link Multibinds @Multibinds} methods or methods in {@link Multibindings
- * @Multibindings} interfaces.
- */
+/** A validator for {@link Multibinds} methods or methods in {@link Multibindings} interfaces. */
 class MultibindsMethodValidator extends BindingMethodValidator {
 
   /** Creates a validator for {@link Multibinds @Multibinds} methods. */

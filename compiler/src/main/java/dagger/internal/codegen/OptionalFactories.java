@@ -22,8 +22,8 @@ import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.anonymousClassBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.TypeNames.PROVIDER;
 import static dagger.internal.codegen.TypeNames.listenableFutureOf;
 import static dagger.internal.codegen.TypeNames.providerOf;
@@ -96,7 +96,7 @@ final class OptionalFactories {
   }
 
   /**
-   * Creates a method specification for a {@link Provider<Optional<T>>} that always returns an
+   * Creates a method specification for a {@code Provider<Optional<T>>} that always returns an
    * absent value.
    */
   private MethodSpec absentOptionalProviderMethod(OptionalKind optionalKind) {
@@ -111,7 +111,7 @@ final class OptionalFactories {
             "Returns a {@link $T} that returns {@code $L}.",
             Provider.class,
             optionalKind.absentValueExpression())
-        .addCode("$L // safe covariant cast\n", SUPPRESS_WARNINGS_UNCHECKED)
+        .addCode("$L // safe covariant cast\n", AnnotationSpecs.suppressWarnings(UNCHECKED))
         .addCode(
             "$1T provider = ($1T) $2N;",
             providerOf(optionalKind.of(typeVariable)),
@@ -122,7 +122,7 @@ final class OptionalFactories {
   }
 
   /**
-   * Creates a field specification for a {@link Provider<Optional<T>>} that always returns an absent
+   * Creates a field specification for a {@code Provider<Optional<T>>} that always returns an absent
    * value.
    */
   private FieldSpec absentOptionalProviderField(OptionalKind optionalKind) {
@@ -132,7 +132,7 @@ final class OptionalFactories {
             PRIVATE,
             STATIC,
             FINAL)
-        .addAnnotation(SUPPRESS_WARNINGS_RAWTYPES)
+        .addAnnotation(AnnotationSpecs.suppressWarnings(RAWTYPES))
         .initializer("$T.create($L)", InstanceFactory.class, optionalKind.absentValueExpression())
         .addJavadoc(
             "A {@link $T} that returns {@code $L}.",
@@ -295,7 +295,7 @@ final class OptionalFactories {
         .addModifiers(PRIVATE, STATIC, FINAL)
         .addSuperinterface(spec.factoryType())
         .addJavadoc(
-            "A {@link $T} that uses a delegate {@code $T}.", spec.factoryType(), delegateField.type)
+            "A {@code $T} that uses a delegate {@code $T}.", spec.factoryType(), delegateField.type)
         .addField(delegateField)
         .addMethod(
             constructorBuilder()

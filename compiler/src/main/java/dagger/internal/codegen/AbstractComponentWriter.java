@@ -27,10 +27,11 @@ import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.UNINITIALIZED;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.SINGLETON_INSTANCE;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.MemberSelect.emptyFrameworkMapFactory;
@@ -40,6 +41,7 @@ import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
 import static dagger.internal.codegen.MemberSelect.staticMethod;
 import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.Scope.reusableScope;
+import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.TypeNames.DELEGATE_FACTORY;
@@ -198,12 +200,8 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
         parent.optionalFactories);
   }
 
-  protected final TypeElement componentDefinitionType() {
-    return graph.componentDescriptor().componentDefinitionType();
-  }
-
   protected final ClassName componentDefinitionTypeName() {
-    return ClassName.get(componentDefinitionType());
+    return ClassName.get(graph.componentType());
   }
 
   /**
@@ -374,7 +372,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       if (componentCanMakeNewInstances(builderFieldEntry.getKey())) {
         buildMethod.addCode(
             "if ($1N == null) { this.$1N = new $2T(); }", builderField, builderField.type);
-      } else if (requiresAPassedInstance(elements, builderFieldEntry.getKey())) {
+      } else if (requiresAPassedInstance(elements, types, builderFieldEntry.getKey())) {
         buildMethod.addCode(
             "if ($N == null) { throw new $T($T.class.getCanonicalName() + $S); }",
             builderField,
@@ -537,7 +535,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
             contributionBindingField.name());
     contributionField.addModifiers(PRIVATE);
     if (useRawType) {
-      contributionField.addAnnotation(AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES);
+      contributionField.addAnnotation(AnnotationSpecs.suppressWarnings(RAWTYPES));
     }
 
     FieldSpec field = contributionField.build();
@@ -568,7 +566,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
     switch (bindingKey.kind()) {
       case CONTRIBUTION:
         ContributionBinding contributionBinding = resolvedBindings.contributionBinding();
-        if (contributionBinding.factoryCreationStrategy().equals(ENUM_INSTANCE)
+        if (contributionBinding.factoryCreationStrategy().equals(SINGLETON_INSTANCE)
             && !contributionBinding.scope().isPresent()) {
           switch (contributionBinding.bindingKind()) {
             case SYNTHETIC_MULTIBOUND_MAP:
@@ -589,7 +587,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
             case PROVISION:
               if (bindingKey.key().type().getKind().equals(DECLARED)) {
                 ImmutableList<TypeVariableName> typeVariables =
-                    SourceFiles.bindingTypeElementTypeVariableNames(contributionBinding);
+                    bindingTypeElementTypeVariableNames(contributionBinding);
                 if (!typeVariables.isEmpty()) {
                   List<? extends TypeMirror> typeArguments =
                       ((DeclaredType) bindingKey.key().type()).getTypeArguments();
@@ -696,7 +694,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
         ExecutableType requestType =
             MoreTypes.asExecutable(
                 types.asMemberOf(
-                    MoreTypes.asDeclared(componentDefinitionType().asType()), methodElement));
+                    MoreTypes.asDeclared(graph.componentType().asType()), methodElement));
         MethodSignature signature =
             MethodSignature.fromExecutableType(
                 methodElement.getSimpleName().toString(), requestType);
@@ -795,7 +793,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
                * initializing a raw field in this method, but the structure of this code makes it
                * awkward to pass that bit through.  This will be cleaned up when we no longer
                * separate fields and initilization as we do now. */
-              .addAnnotation(SUPPRESS_WARNINGS_UNCHECKED)
+              .addAnnotation(AnnotationSpecs.suppressWarnings(UNCHECKED))
               .addCode(CodeBlocks.concat(partition));
       if (builderName.isPresent()) {
         initializeMethod.addParameter(builderName.get(), "builder", FINAL);
@@ -856,7 +854,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
                         binding.scope().isPresent()
                             ? decorateForScope(delegatingCodeBlock, binding.scope().get())
                             : delegatingCodeBlock))));
-      case ENUM_INSTANCE:
+      case SINGLETON_INSTANCE:
         if (!binding.scope().isPresent()) {
           return Optional.absent();
         }

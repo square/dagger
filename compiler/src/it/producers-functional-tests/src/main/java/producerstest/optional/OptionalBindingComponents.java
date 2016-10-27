@@ -34,12 +34,10 @@ import dagger.producers.ProductionSubcomponent;
 import java.lang.annotation.Retention;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import javax.inject.Provider;
 import javax.inject.Qualifier;
 
-/**
- * Classes to support {@link OptionalBindingComponentsAbsentTest} and {@link
- * OptionalBindingComponentsPresentTest}.
- */
+/** Classes to support testing {@code BindsOptionalOf} functionality. */
 final class OptionalBindingComponents {
 
   /** A qualifier. */

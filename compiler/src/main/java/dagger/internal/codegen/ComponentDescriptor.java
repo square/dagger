@@ -27,12 +27,15 @@ import static dagger.internal.codegen.ConfigurationAnnotations.getComponentModul
 import static dagger.internal.codegen.ConfigurationAnnotations.isSubcomponent;
 import static dagger.internal.codegen.ConfigurationAnnotations.isSubcomponentBuilder;
 import static dagger.internal.codegen.InjectionAnnotations.getQualifier;
+import static dagger.internal.codegen.Util.getUnimplementedMethods;
+import static dagger.internal.codegen.Util.toImmutableSet;
 import static javax.lang.model.type.TypeKind.DECLARED;
 import static javax.lang.model.type.TypeKind.VOID;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
@@ -292,7 +295,7 @@ abstract class ComponentDescriptor {
   /**
    * All {@linkplain Subcomponent direct child} components that are declared by an entry point
    * method. This is equivalent to the set of values from {@link #subcomponentsByFactoryMethod()}
-   * and {@link #subcomponentsByBuilderMethod().
+   * and {@link #subcomponentsByBuilderMethod()}.
    */
   ImmutableSet<ComponentDescriptor> subcomponentsFromEntryPoints() {
     return ImmutableSet.<ComponentDescriptor>builder()
@@ -301,17 +304,8 @@ abstract class ComponentDescriptor {
         .build();
   }
 
-  // TODO(ronshapiro): convert this to use @Memoized
-  private ImmutableBiMap<TypeElement, ComponentDescriptor> subcomponentsByBuilderType;
-
+  @Memoized
   ImmutableBiMap<TypeElement, ComponentDescriptor> subcomponentsByBuilderType() {
-    if (subcomponentsByBuilderType == null) {
-      subcomponentsByBuilderType = computeSubcomponentsByBuilderType();
-    }
-    return subcomponentsByBuilderType;
-  }
-
-  private ImmutableBiMap<TypeElement, ComponentDescriptor> computeSubcomponentsByBuilderType() {
     ImmutableBiMap.Builder<TypeElement, ComponentDescriptor> subcomponentsByBuilderType =
         ImmutableBiMap.builder();
     for (ComponentDescriptor subcomponent : subcomponents()) {
@@ -324,6 +318,16 @@ abstract class ComponentDescriptor {
   }
 
   abstract ImmutableSet<ComponentMethodDescriptor> componentMethods();
+
+  /** The dependency requests defined by methods on the component type. */
+  ImmutableSet<DependencyRequest> entryPoints() {
+    return componentMethods()
+        .stream()
+        .map(ComponentMethodDescriptor::dependencyRequest)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .collect(toImmutableSet());
+  }
 
   // TODO(gak): Consider making this non-optional and revising the
   // interaction between the spec & generation
@@ -485,7 +489,7 @@ abstract class ComponentDescriptor {
         }
       }
       ImmutableSet<ExecutableElement> unimplementedMethods =
-          Util.getUnimplementedMethods(elements, componentDefinitionType);
+          getUnimplementedMethods(elements, types, componentDefinitionType);
 
       ImmutableSet.Builder<ComponentMethodDescriptor> componentMethodsBuilder =
           ImmutableSet.builder();
@@ -631,7 +635,7 @@ abstract class ComponentDescriptor {
         return Optional.absent();
       }
       TypeElement element = MoreTypes.asTypeElement(builderType.get());
-      ImmutableSet<ExecutableElement> methods = Util.getUnimplementedMethods(elements, element);
+      ImmutableSet<ExecutableElement> methods = getUnimplementedMethods(elements, types, element);
       ImmutableMap.Builder<TypeElement, ExecutableElement> map = ImmutableMap.builder();
       ExecutableElement buildMethod = null;
       for (ExecutableElement method : methods) {

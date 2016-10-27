@@ -22,8 +22,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_RAWTYPES;
-import static dagger.internal.codegen.AnnotationSpecs.SUPPRESS_WARNINGS_UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
+import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
+import static dagger.internal.codegen.AnnotationSpecs.suppressWarnings;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
@@ -171,8 +172,8 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       // parameters' raw-type warnings.
       if (useRawFrameworkType) {
         usesRawFrameworkTypes = true;
-        fieldBuilder.addAnnotation(SUPPRESS_WARNINGS_RAWTYPES);
-        parameterBuilder.addAnnotation(SUPPRESS_WARNINGS_RAWTYPES);
+        fieldBuilder.addAnnotation(suppressWarnings(RAWTYPES));
+        parameterBuilder.addAnnotation(suppressWarnings(RAWTYPES));
       }
       constructorBuilder.addParameter(parameterBuilder.build());
       createMethodBuilder.addParameter(parameterBuilder.build());
@@ -212,7 +213,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     }
 
     if (usesRawFrameworkTypes) {
-      injectMembersBuilder.addAnnotation(SUPPRESS_WARNINGS_UNCHECKED);
+      injectMembersBuilder.addAnnotation(suppressWarnings(UNCHECKED));
     }
 
     injectorTypeBuilder.addMethod(injectMembersBuilder.build());

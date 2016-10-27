@@ -63,7 +63,7 @@ public class MapProviderFactoryTest {
         .put("four", p4)
         .build();
 
-    Map<String, Provider<Integer>> expectedMap = new LinkedHashMap<String, Provider<Integer>>();
+    Map<String, Provider<Integer>> expectedMap = new LinkedHashMap<>();
     expectedMap.put("two", p2);
     expectedMap.put("one", p1);
     expectedMap.put("three", p3);
@@ -75,12 +75,6 @@ public class MapProviderFactoryTest {
   }
 
   private static Provider<Integer> incrementingIntegerProvider(int seed) {
-    final AtomicInteger value = new AtomicInteger(seed);
-    return new Provider<Integer>() {
-      @Override
-      public Integer get() {
-        return value.getAndIncrement();
-      }
-    };
+    return new AtomicInteger(seed)::getAndIncrement;
   }
 }

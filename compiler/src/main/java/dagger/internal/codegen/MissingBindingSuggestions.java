@@ -42,8 +42,9 @@ class MissingBindingSuggestions {
       if ((bindings == null) || bindings.bindings().isEmpty()) {
         graphsToTry.addAll(graph.subgraphs());
       } else {
-        resolutions.add("A binding with matching key exists in component: "
-            + graph.componentDescriptor().componentDefinitionType().getQualifiedName());
+        resolutions.add(
+            "A binding with matching key exists in component: "
+                + graph.componentType().getQualifiedName());
       }
     } while (!graphsToTry.isEmpty());
 

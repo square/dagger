@@ -31,11 +31,7 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Qualifier;
 
-/**
- * Classes to support {@link OptionalBindingComponentsPresentTest}, {@link
- * OptionalBindingComponentsAbsentTest} and {@link
- * test.optional.a.OptionalBindingComponentsWithInaccessibleTypesTest}.
- */
+/** Classes to support testing {@code BindsOptionalOf} functionality. */
 public final class OptionalBindingComponents {
 
   /** A qualifier. */

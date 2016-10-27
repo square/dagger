@@ -19,7 +19,7 @@ package dagger.internal.codegen;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
-import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.ENUM_INSTANCE;
+import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.SINGLETON_INSTANCE;
 import static dagger.internal.codegen.MapKeys.unwrapValue;
 import static dagger.internal.codegen.MoreAnnotationMirrors.unwrapOptionalEquivalence;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -174,8 +174,8 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    * The strategy for getting an instance of a factory for a {@link ContributionBinding}.
    */
   enum FactoryCreationStrategy {
-    /** The factory class is an enum with one value named {@code INSTANCE}. */
-    ENUM_INSTANCE,
+    /** The factory class is a single instance. */
+    SINGLETON_INSTANCE,
     /** The factory must be created by calling the constructor. */
     CLASS_CONSTRUCTOR,
     /** The factory is simply delegated to another. */
@@ -188,7 +188,7 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    * <p>Delegate bindings use the {@link FactoryCreationStrategy#DELEGATE} strategy.
    *
    * <p>Bindings without dependencies that don't require a module instance use the {@link
-   * FactoryCreationStrategy#ENUM_INSTANCE} strategy.
+   * FactoryCreationStrategy#SINGLETON_INSTANCE} strategy.
    *
    * <p>All other bindings use the {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR} strategy.
    */
@@ -198,12 +198,12 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
         return DELEGATE;
       case PROVISION:
         return dependencies().isEmpty() && !requiresModuleInstance()
-            ? ENUM_INSTANCE
+            ? SINGLETON_INSTANCE
             : CLASS_CONSTRUCTOR;
       case INJECTION:
       case SYNTHETIC_MULTIBOUND_SET:
       case SYNTHETIC_MULTIBOUND_MAP:
-        return dependencies().isEmpty() ? ENUM_INSTANCE : CLASS_CONSTRUCTOR;
+        return dependencies().isEmpty() ? SINGLETON_INSTANCE : CLASS_CONSTRUCTOR;
       default:
         return CLASS_CONSTRUCTOR;
     }
@@ -214,7 +214,7 @@ abstract class ContributionBinding extends Binding implements HasContributionTyp
    * for this binding. Uses the binding's key, V in the came of {@code Map<K, FrameworkClass<V>>>},
    * and E {@code Set<E>} for {@link dagger.multibindings.IntoSet @IntoSet} methods.
    */
-  final TypeMirror factoryType() {
+  final TypeMirror contributedType() {
     switch (contributionType()) {
       case MAP:
         return MapType.from(key()).unwrappedValueType(bindingType().frameworkClass());

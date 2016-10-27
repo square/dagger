@@ -144,6 +144,5 @@ public class GenericTest {
     GenericComponent component = DaggerGenericComponent.create();
     assertThat(component.iterableInt()).containsExactly(1, 2).inOrder();
     assertThat(component.iterableDouble()).containsExactly(3d, 4d).inOrder();
-    
   }
 }

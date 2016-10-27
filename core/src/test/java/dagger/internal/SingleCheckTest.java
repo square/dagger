@@ -18,6 +18,7 @@ package dagger.internal;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Provider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,16 +36,8 @@ public class SingleCheckTest {
 
   @Test
   public void get() {
-    Provider<Integer> provider =
-        SingleCheck.provider(
-            new Factory<Integer>() {
-              int i = 0;
-
-              @Override
-              public Integer get() {
-                return i++;
-              }
-            });
+    AtomicInteger integer = new AtomicInteger();
+    Provider<Integer> provider = SingleCheck.provider(integer::getAndIncrement);
     assertThat(provider.get()).isEqualTo(0);
     assertThat(provider.get()).isEqualTo(0);
     assertThat(provider.get()).isEqualTo(0);

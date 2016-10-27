@@ -38,8 +38,8 @@ import javax.lang.model.element.Element;
 import javax.tools.Diagnostic.Kind;
 
 /**
- * Processing step which verifies that {@link IntoSet @IntoSet}, {@link ElementsIntoSet
- * @ElementsIntoSet} and {@link IntoMap @IntoMap} are not present on invalid elements.
+ * Processing step that verifies that {@link IntoSet}, {@link ElementsIntoSet} and {@link IntoMap}
+ * are not present on invalid elements.
  */
 final class MultibindingAnnotationsProcessingStep implements ProcessingStep {
 

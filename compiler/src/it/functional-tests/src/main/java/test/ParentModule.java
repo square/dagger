@@ -25,5 +25,4 @@ abstract class ParentModule<A extends Number & Comparable<A>, B, C extends Itera
   static List<Set<String>> provideStaticGenericTypeWithNoTypeParametersInParameterizedModule() {
     return new ArrayList<>();
   }
-
 }

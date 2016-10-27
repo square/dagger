@@ -37,7 +37,7 @@ import javax.lang.model.util.Elements;
  *   }
  *
  *   {@literal @interface} Bar {
- *     Class<?> baz();
+ *     {@literal Class<?> baz();}
  *   }
  * </pre>
  *
@@ -47,7 +47,7 @@ import javax.lang.model.util.Elements;
  *   public final class FooCreator {
  *     private FooCreator() {}
  *
- *     public static Bar createBar(Class<?> baz) { … }
+ *     public static Bar createBar({@literal Class<?> baz}) { … }
  *   }
  * </pre>
  */

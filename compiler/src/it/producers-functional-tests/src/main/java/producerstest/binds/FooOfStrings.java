@@ -17,12 +17,11 @@
 package producerstest.binds;
 
 /**
- * This is not marked with {@link javax.inject.Inject @Inject} (like the {@link dagger.Provides
- * @Provides} version in {@link test.bind.FooOfStrings}), to test that {@link dagger.Binds @Binds}
- * properly translate to {@link dagger.internal.codegen.ProductionBinding}s when the right-hand-side
- * of the method is also a production binding. We force this by adding a {@link
- * dagger.producers.Produces @Produces} method to add it to the graph instead of relying on the
- * {@link dagger.internal.codegen.ProvisionBinding} that would be created by default with an {@code
- * @Inject} constructor.
+ * This is not marked with {@link javax.inject.Inject @Inject} in order to test that {@link
+ * dagger.Binds @Binds} properly translate to {@link dagger.internal.codegen.ProductionBinding}s
+ * when the right-hand-side of the method is also a production binding. We force this by adding a
+ * {@link dagger.producers.Produces @Produces} method to add it to the graph instead of relying on
+ * the {@link dagger.internal.codegen.ProvisionBinding} that would be created by default with an
+ * {@code @Inject} constructor.
  */
 final class FooOfStrings implements Foo<String> {}

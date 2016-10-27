@@ -109,9 +109,9 @@ abstract class Key {
    * #qualifier()}.
    *
    * <p>Each multibound map and set has a {@linkplain
-   * ProvisionBinding.Factory#syntheticMultibinding(DependencyRequest, Iterable) synthetic
-   * multibinding} that depends on the specific contributions to that map or set using keys that
-   * identify those multibinding contributions.
+   * ProvisionBinding.Factory#syntheticMultibinding(Key, Iterable) synthetic multibinding} that
+   * depends on the specific contributions to that map or set using keys that identify those
+   * multibinding contributions.
    *
    * <p>Absent except for multibinding contributions.
    */
@@ -281,7 +281,7 @@ abstract class Key {
    * {@inheritDoc}
    *
    * <p>The returned string is equal to another key's if and only if this key is {@link
-   * #equal(Object)} to it.
+   * #equals(Object)} to it.
    */
   @Override
   public String toString() {

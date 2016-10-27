@@ -63,9 +63,10 @@ public class GraphValidationScopingTest {
         "  @Provides long integer() { return 0L; }",
         "  @Provides float floatingPoint() { return 0.0f; }",
         "}");
-    String errorMessage = "test.MyComponent (unscoped) may not reference scoped bindings:\n"
-        + "      @Provides @Singleton String test.ScopedModule.string()\n"
-        + "      @Singleton class test.ScopedType";
+    String errorMessage =
+        "test.MyComponent (unscoped) may not reference scoped bindings:\n"
+            + "      @Singleton class test.ScopedType\n"
+            + "      @Provides @Singleton String test.ScopedModule.string()";
     assertAbout(javaSources())
         .that(asList(componentFile, typeFile, moduleFile))
         .processedWith(new ComponentProcessor())
@@ -114,10 +115,11 @@ public class GraphValidationScopingTest {
         "  @Provides long integer() { return 0L; }", // unscoped - valid
         "  @Provides @Singleton float floatingPoint() { return 0.0f; }", // same scope - valid
         "}");
-    String errorMessage = "test.MyComponent scoped with @Singleton "
-        + "may not reference bindings with different scopes:\n"
-        + "      @Provides @test.PerTest String test.ScopedModule.string()\n"
-        + "      @test.PerTest class test.ScopedType";
+    String errorMessage =
+        "test.MyComponent scoped with @Singleton "
+            + "may not reference bindings with different scopes:\n"
+            + "      @test.PerTest class test.ScopedType\n"
+            + "      @Provides @test.PerTest String test.ScopedModule.string()";
     assertAbout(javaSources())
         .that(asList(componentFile, scopeFile, typeFile, moduleFile))
         .processedWith(new ComponentProcessor())
