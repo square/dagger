@@ -47,6 +47,7 @@ import java.lang.annotation.Target;
 @Documented @Target(METHOD) @Retention(RUNTIME)
 public @interface Provides {
   /** The type of binding into which the return type of the annotated method contributes. */
+  @Deprecated
   enum Type {
     /**
      * The method is the only one which can produce the value for the specified return type. This
@@ -88,5 +89,9 @@ public @interface Provides {
     MAP;
   }
 
+  /*
+   * @deprecated Use the multibinding annotations in {@link dagger.multibindings}.
+   */
+  @Deprecated
   Type type() default Type.UNIQUE;
 }
