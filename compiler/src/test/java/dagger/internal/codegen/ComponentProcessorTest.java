@@ -16,21 +16,19 @@
 
 package dagger.internal.codegen;
 
-import static com.google.common.truth.Truth.assertAbout;
-import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
-import static com.google.testing.compile.JavaSourcesSubject.assertThat;
-import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static com.google.testing.compile.CompilationSubject.assertThat;
+import static com.google.testing.compile.Compiler.javac;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
-import static java.util.Arrays.asList;
-import static javax.tools.StandardLocation.SOURCE_OUTPUT;
 
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.testing.compile.Compilation;
+import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.CodeBlock;
 import dagger.MembersInjector;
@@ -65,10 +63,9 @@ public class ComponentProcessorTest {
         "",
         "@Component",
         "final class NotAComponent {}");
-    assertAbout(javaSource()).that(componentFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("interface");
+    Compilation compilation = daggerCompiler().compile(componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("interface");
   }
 
   @Test public void componentOnEnum() {
@@ -81,10 +78,9 @@ public class ComponentProcessorTest {
         "enum NotAComponent {",
         "  INSTANCE",
         "}");
-    assertAbout(javaSource()).that(componentFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("interface");
+    Compilation compilation = daggerCompiler().compile(componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("interface");
   }
 
   @Test public void componentOnAnnotation() {
@@ -95,10 +91,9 @@ public class ComponentProcessorTest {
         "",
         "@Component",
         "@interface NotAComponent {}");
-    assertAbout(javaSource()).that(componentFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("interface");
+    Compilation compilation = daggerCompiler().compile(componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("interface");
   }
 
   @Test public void nonModuleModule() {
@@ -109,10 +104,9 @@ public class ComponentProcessorTest {
         "",
         "@Component(modules = Object.class)",
         "interface NotAComponent {}");
-    assertAbout(javaSource()).that(componentFile)
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("is not annotated with @Module");
+    Compilation compilation = daggerCompiler().compile(componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("is not annotated with @Module");
   }
 
   @Test public void doubleBindingFromResolvedModules() {
@@ -158,14 +152,15 @@ public class ComponentProcessorTest {
         "interface BadComponent {",
         "  List<Integer> listOfInteger();",
         "}");
-    assertAbout(javaSources()).that(ImmutableList.of(parent, child, another, componentFile))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile().withErrorContaining(
-            "java.util.List<java.lang.Integer> is bound multiple times")
-        .and().withErrorContaining(
-            "@Provides List<Integer> test.ChildNumberModule.provideListB(Integer)")
-        .and().withErrorContaining(
-            "@Provides List<Integer> test.AnotherModule.provideListOfInteger()");
+
+    Compilation compilation = daggerCompiler().compile(parent, child, another, componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("java.util.List<java.lang.Integer> is bound multiple times");
+    assertThat(compilation)
+        .hadErrorContaining("@Provides List<Integer> test.ChildNumberModule.provideListB(Integer)");
+    assertThat(compilation)
+        .hadErrorContaining("@Provides List<Integer> test.AnotherModule.provideListOfInteger()");
   }
 
   @Test public void privateNestedClassWithWarningThatIsAnErrorInComponent() {
@@ -190,11 +185,13 @@ public class ComponentProcessorTest {
         "interface BadComponent {",
         "  OuterClass outerClass();",
         "}");
-    assertAbout(javaSources()).that(ImmutableList.of(outerClass, componentFile))
-        .withCompilerOptions("-Adagger.privateMemberValidation=WARNING")
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("Dagger does not support injection into private classes");
+    Compilation compilation =
+        daggerCompiler()
+            .withOptions("-Adagger.privateMemberValidation=WARNING")
+            .compile(outerClass, componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into private classes");
   }
 
   @Test public void simpleComponent() {
@@ -267,10 +264,11 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation = daggerCompiler().compile(injectableTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void componentWithScope() {
@@ -356,10 +354,11 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation = daggerCompiler().compile(injectableTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void simpleComponentWithNesting() {
@@ -433,10 +432,11 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources()).that(ImmutableList.of(nestedTypesFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation = daggerCompiler().compile(nestedTypesFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerOuterType_SimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void componentWithModule() {
@@ -540,11 +540,12 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aFile, bFile, cFile, moduleFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(aFile, bFile, cFile, moduleFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerTestComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test
@@ -647,12 +648,12 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aFile, bFile, cFile, moduleFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and()
-        .generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(aFile, bFile, cFile, moduleFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerTestComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void transitiveModuleDeps() {
@@ -791,19 +792,22 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(always,
-            testModule,
-            parentTest,
-            parentTestIncluded,
-            depModule,
-            refByDep,
-            parentDep,
-            parentDepIncluded,
-            componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler()
+            .compile(
+                always,
+                testModule,
+                parentTest,
+                parentTestIncluded,
+                depModule,
+                refByDep,
+                parentDep,
+                parentDepIncluded,
+                componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerTestComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test
@@ -822,23 +826,19 @@ public class ComponentProcessorTest {
         "",
         "@Component(modules = RootModule.class)",
         "interface TestComponent {}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(rootModule, component))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile();
-    assertAbout(javaSources())
-        .that(ImmutableList.of(rootModule, component))
-        .processedWith(
-            new ComponentProcessor(),
-            new GeneratingProcessor(
-                "test.GeneratedModule",
-                "package test;",
-                "",
-                "import dagger.Module;",
-                "",
-                "@Module",
-                "final class GeneratedModule {}"))
-        .compilesWithoutError();
+    assertThat(daggerCompiler().compile(rootModule, component)).failed();
+    assertThat(
+            daggerCompiler(
+                    new GeneratingProcessor(
+                        "test.GeneratedModule",
+                        "package test;",
+                        "",
+                        "import dagger.Module;",
+                        "",
+                        "@Module",
+                        "final class GeneratedModule {}"))
+                .compile(rootModule, component))
+        .succeeded();
   }
 
   @Test
@@ -863,23 +863,19 @@ public class ComponentProcessorTest {
             "interface TestComponent {",
             "  ChildComponent childComponent();",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(subcomponent, component))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile();
-    assertAbout(javaSources())
-        .that(ImmutableList.of(subcomponent, component))
-        .processedWith(
-            new ComponentProcessor(),
-            new GeneratingProcessor(
-                "test.GeneratedModule",
-                "package test;",
-                "",
-                "import dagger.Module;",
-                "",
-                "@Module",
-                "final class GeneratedModule {}"))
-        .compilesWithoutError();
+    assertThat(daggerCompiler().compile(subcomponent, component)).failed();
+    assertThat(
+            daggerCompiler(
+                    new GeneratingProcessor(
+                        "test.GeneratedModule",
+                        "package test;",
+                        "",
+                        "import dagger.Module;",
+                        "",
+                        "@Module",
+                        "final class GeneratedModule {}"))
+                .compile(subcomponent, component))
+        .succeeded();
   }
 
   @Test
@@ -1023,12 +1019,11 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(parent, parentModule, child))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and()
-        .generatesSources(expected);
+    Compilation compilation = daggerCompiler().compile(parent, parentModule, child);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerParent")
+        .hasSourceEquivalentTo(expected);
   }
 
   @Test
@@ -1117,11 +1112,11 @@ public class ComponentProcessorTest {
             "  }",
             "}");
 
-    assertThat(component, module, subcomponent)
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and()
-        .generatesSources(generatedComponentWithoutSubcomponent);
+    Compilation compilation = daggerCompiler().compile(component, module, subcomponent);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerParent")
+        .hasSourceEquivalentTo(generatedComponentWithoutSubcomponent);
   }
 
   @Test
@@ -1149,10 +1144,7 @@ public class ComponentProcessorTest {
         "interface SomeComponent {",
         "  BClass bClass();",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aModule, aClass, bClass, component))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError();
+    assertThat(daggerCompiler().compile(aModule, aClass, bClass, component)).succeeded();
   }
 
   @Test public void setBindings() {
@@ -1269,11 +1261,12 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(emptySetModuleFile, setModuleFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(emptySetModuleFile, setModuleFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerTestComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void membersInjection() {
@@ -1356,11 +1349,12 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(injectableTypeFile, injectedTypeFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(injectableTypeFile, injectedTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void componentInjection() {
@@ -1431,10 +1425,11 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources()).that(ImmutableList.of(injectableTypeFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation = daggerCompiler().compile(injectableTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void membersInjectionInsideProvision() {
@@ -1512,11 +1507,12 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(injectableTypeFile, injectedTypeFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(injectableTypeFile, injectedTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void injectionWithGenericBaseClass() {
@@ -1587,11 +1583,12 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(genericType, injectableTypeFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(genericType, injectableTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void componentDependency() {
@@ -1693,11 +1690,12 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aFile, bFile, aComponentFile, bComponentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(aFile, bFile, aComponentFile, bComponentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerBComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void moduleNameCollision() {
@@ -1812,11 +1810,12 @@ public class ComponentProcessorTest {
         "    }",
         "  }",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aFile, otherAFile, moduleFile, otherModuleFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler().compile(aFile, otherAFile, moduleFile, otherModuleFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerTestComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void resolutionOrder() {
@@ -1923,11 +1922,11 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aFile, bFile, cFile, xFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation = daggerCompiler().compile(aFile, bFile, cFile, xFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerTestComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void simpleComponent_redundantComponentMethod() {
@@ -2006,11 +2005,17 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources()).that(ImmutableList.of(
-            injectableTypeFile, componentSupertypeAFile, componentSupertypeBFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler()
+            .compile(
+                injectableTypeFile,
+                componentSupertypeAFile,
+                componentSupertypeBFile,
+                componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void simpleComponent_inheritedComponentMethodDep() {
@@ -2089,11 +2094,13 @@ public class ComponentProcessorTest {
             "    }",
             "  }",
             "}");
-    assertAbout(javaSources()).that(ImmutableList.of(
-            injectableTypeFile, componentSupertype, depComponentFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and().generatesSources(generatedComponent);
+    Compilation compilation =
+        daggerCompiler()
+            .compile(injectableTypeFile, componentSupertype, depComponentFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
   }
 
   @Test public void wildcardGenericsRequiresAtProvides() {
@@ -2134,10 +2141,10 @@ public class ComponentProcessorTest {
         "interface SimpleComponent {",
         "  C c();",
         "}");
-    assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, cFile, componentFile))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining(
+    Compilation compilation = daggerCompiler().compile(aFile, bFile, cFile, componentFile);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining(
             "test.B<? extends test.A> cannot be provided without an @Provides-annotated method");
   }
 
@@ -2160,22 +2167,20 @@ public class ComponentProcessorTest {
         "interface SimpleComponent {",
         "  SomeInjectableType someInjectableType();",
         "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(injectableTypeFile, componentFile))
-        .processedWith(
-            new ComponentProcessor(),
-            new GeneratingProcessor(
-                "test.GeneratedType",
-                "package test;",
-                "",
-                "import javax.inject.Inject;",
-                "",
-                "final class GeneratedType {",
-                "  @Inject GeneratedType() {}",
-                "}"))
-        .compilesWithoutError()
-        .and()
-        .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
+    Compilation compilation =
+        daggerCompiler(
+                new GeneratingProcessor(
+                    "test.GeneratedType",
+                    "package test;",
+                    "",
+                    "import javax.inject.Inject;",
+                    "",
+                    "final class GeneratedType {",
+                    "  @Inject GeneratedType() {}",
+                    "}"))
+            .compile(injectableTypeFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation).generatedSourceFile("test.DaggerSimpleComponent");
   }
 
   @Test
@@ -2197,22 +2202,20 @@ public class ComponentProcessorTest {
             "interface SimpleComponentInterface {",
             "  GeneratedType generatedType();",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(componentFile, interfaceFile))
-        .processedWith(
-            new ComponentProcessor(),
-            new GeneratingProcessor(
-                "test.GeneratedType",
-                "package test;",
-                "",
-                "import javax.inject.Inject;",
-                "",
-                "final class GeneratedType {",
-                "  @Inject GeneratedType() {}",
-                "}"))
-        .compilesWithoutError()
-        .and()
-        .generatesFileNamed(SOURCE_OUTPUT, "test", "DaggerSimpleComponent.java");
+    Compilation compilation =
+        daggerCompiler(
+                new GeneratingProcessor(
+                    "test.GeneratedType",
+                    "package test;",
+                    "",
+                    "import javax.inject.Inject;",
+                    "",
+                    "final class GeneratedType {",
+                    "  @Inject GeneratedType() {}",
+                    "}"))
+            .compile(componentFile, interfaceFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation).generatedSourceFile("test.DaggerSimpleComponent");
   }
 
   @Test
@@ -2302,10 +2305,11 @@ public class ComponentProcessorTest {
          "    }",
          "  }",
          "}");
-     assertAbout(javaSources()).that(ImmutableList.of(aFile, bFile, componentFile))
-         .processedWith(new ComponentProcessor())
-         .compilesWithoutError()
-         .and().generatesSources(generatedComponent);
+    Compilation compilation = daggerCompiler().compile(aFile, bFile, componentFile);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerSimpleComponent")
+        .hasSourceEquivalentTo(generatedComponent);
    }
 
   /**
@@ -2318,9 +2322,17 @@ public class ComponentProcessorTest {
    */
   @Test
   public void unprocessedMembersInjectorNotes() {
-    assertAbout(javaSources())
-        .that(
-            ImmutableList.of(
+    Compilation compilation =
+        javac()
+            .withOptions("-Xlint:-processing")
+            .withProcessors(
+                new ElementFilteringComponentProcessor(
+                    Predicates.not(
+                        element ->
+                            MoreElements.getPackage(element)
+                                .getQualifiedName()
+                                .contentEquals("test.inject"))))
+            .compile(
                 JavaFileObjects.forSourceLines(
                     "test.TestComponent",
                     "package test;",
@@ -2400,32 +2412,25 @@ public class ComponentProcessorTest {
                     "public class ParentInjectMemberWithConstructor",
                     "    extends LocalInjectMemberNoConstructor {",
                     "  @Inject ParentInjectMemberWithConstructor() {}",
-                    "}")))
-        .withCompilerOptions("-Xlint:-processing")
-        .processedWith(
-            new ElementFilteringComponentProcessor(
-                Predicates.not(
-                    element ->
-                        MoreElements.getPackage(element)
-                            .getQualifiedName()
-                            .contentEquals("test.inject"))))
-        .compilesWithoutWarnings()
-        .withNoteContaining(
+                    "}"));
+
+    assertThat(compilation).succeededWithoutWarnings();
+    assertThat(compilation)
+        .hadNoteContaining(
             "Generating a MembersInjector for "
                 + "test.inject.LocalInjectMemberNoConstructor. "
-                + "Prefer to run the dagger processor over that class instead.")
-        .and()
-        .withNoteContaining(
+                + "Prefer to run the dagger processor over that class instead.");
+    assertThat(compilation)
+        .hadNoteContaining(
             "Generating a MembersInjector for "
                 + "test.inject.LocalInjectMemberWithConstructor. "
-                + "Prefer to run the dagger processor over that class instead.")
-        .and()
-        .withNoteContaining(
+                + "Prefer to run the dagger processor over that class instead.");
+    assertThat(compilation)
+        .hadNoteContaining(
             "Generating a MembersInjector for "
                 + "test.inject.ParentInjectMemberWithConstructor. "
-                + "Prefer to run the dagger processor over that class instead.")
-        .and()
-        .withNoteCount(3);
+                + "Prefer to run the dagger processor over that class instead.");
+    assertThat(compilation).hadNoteCount(3);
   }
 
   @Test
@@ -2449,12 +2454,11 @@ public class ComponentProcessorTest {
             "final class AClass {",
             "  @Inject @AScope AClass() {}",
             "}");
-    assertAbout(javaSources())
-        .that(ImmutableList.of(aScope, aClass))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("@Scope annotations are not allowed on @Inject constructors.")
-        .in(aClass)
+    Compilation compilation = daggerCompiler().compile(aScope, aClass);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("@Scope annotations are not allowed on @Inject constructors.")
+        .inFile(aClass)
         .onLine(6);
   }
 
@@ -2474,17 +2478,10 @@ public class ComponentProcessorTest {
             "  Lazy<? extends Number> wildcardNumberLazy();",
             "  Provider<? super Number> wildcardNumberProvider();",
             "}");
-    assertAbout(javaSources())
-        .that(asList(testComponent))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("wildcard type")
-        .in(testComponent)
-        .onLine(9)
-        .and()
-        .withErrorContaining("wildcard type")
-        .in(testComponent)
-        .onLine(10);
+    Compilation compilation = daggerCompiler().compile(testComponent);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("wildcard type").inFile(testComponent).onLine(9);
+    assertThat(compilation).hadErrorContaining("wildcard type").inFile(testComponent).onLine(10);
   }
 
   @Test
@@ -2577,11 +2574,11 @@ public class ComponentProcessorTest {
             "  }",
             "}");
 
-    assertThat(foo, module, component, prunedSubcomponent)
-        .processedWith(new ComponentProcessor())
-        .compilesWithoutError()
-        .and()
-        .generatesSources(generated);
+    Compilation compilation = daggerCompiler().compile(foo, module, component, prunedSubcomponent);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerParent")
+        .hasSourceEquivalentTo(generated);
   }
 
   public void invalidComponentDependencies() {
@@ -2594,11 +2591,9 @@ public class ComponentProcessorTest {
             "",
             "@Component(dependencies = int.class)",
             "interface TestComponent {}");
-    assertAbout(javaSources())
-        .that(asList(testComponent))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("int is not a valid component dependency type");
+    Compilation compilation = daggerCompiler().compile(testComponent);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("int is not a valid component dependency type");
   }
 
   @Test
@@ -2612,11 +2607,13 @@ public class ComponentProcessorTest {
             "",
             "@Component(modules = int.class)",
             "interface TestComponent {}");
-    assertAbout(javaSources())
-        .that(asList(testComponent))
-        .processedWith(new ComponentProcessor())
-        .failsToCompile()
-        .withErrorContaining("int is not a valid module type");
+    Compilation compilation = daggerCompiler().compile(testComponent);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorContaining("int is not a valid module type");
+  }
+
+  private static Compiler daggerCompiler(Processor... extraProcessors) {
+    return javac().withProcessors(Lists.asList(new ComponentProcessor(), extraProcessors));
   }
 
   /**
