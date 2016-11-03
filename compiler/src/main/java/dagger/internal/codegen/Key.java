@@ -35,6 +35,7 @@ import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -118,6 +119,10 @@ abstract class Key {
   abstract Optional<MultibindingContributionIdentifier> multibindingContributionIdentifier();
 
   abstract Builder toBuilder();
+
+  @Memoized
+  @Override
+  public abstract int hashCode();
 
   static Builder builder(TypeMirror type) {
     return new AutoValue_Key.Builder().type(type);

@@ -92,25 +92,15 @@ dependencies {
 
 ### Android Gradle
 ```groovy
-// Add plugin https://bitbucket.org/hvisser/android-apt
-buildscript {
-  repositories {
-    mavenCentral()
-  }
-  dependencies {
-    classpath 'com.neenbedankt.gradle.plugins:android-apt:1.8'
-  }
-}
-
-// Apply plugin
-apply plugin: 'com.neenbedankt.android-apt'
-
 // Add Dagger dependencies
 dependencies {
   compile 'com.google.dagger:dagger:2.x'
-  apt 'com.google.dagger:dagger-compiler:2.x'
+  annotationProcessor 'com.google.dagger:dagger-compiler:2.x'
 }
 ```
+
+If you're using a version of the Android gradle plugin below `2.2`, see
+https://bitbucket.org/hvisser/android-apt.
 
 ### Download
 

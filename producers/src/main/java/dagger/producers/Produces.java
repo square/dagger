@@ -39,6 +39,7 @@ import java.lang.annotation.Target;
 @Beta
 public @interface Produces {
   /** The type of binding into which the return type of the annotated method contributes. */
+  @Deprecated
   enum Type {
     /**
      * The method is the only one which can produce the value for the specified type. This is the
@@ -70,5 +71,9 @@ public @interface Produces {
     MAP;
   }
 
+  /*
+   * @deprecated Use the multibinding annotations in {@link dagger.multibindings}.
+   */
+  @Deprecated
   Type type() default Type.UNIQUE;
 }
