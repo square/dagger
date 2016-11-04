@@ -89,7 +89,7 @@ public @interface Provides {
     MAP;
   }
 
-  /*
+  /**
    * @deprecated Use the multibinding annotations in {@link dagger.multibindings}.
    */
   @Deprecated
