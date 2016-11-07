@@ -39,6 +39,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
@@ -144,6 +145,7 @@ abstract class BindingGraph {
    *     the graph
    * </ul>
    */
+  @Memoized
   ImmutableSet<TypeElement> componentRequirements() {
     return SUBGRAPH_TRAVERSER
         .preOrderTraversal(this)
