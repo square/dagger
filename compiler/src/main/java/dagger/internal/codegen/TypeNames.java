@@ -33,8 +33,11 @@ import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
 import dagger.internal.MembersInjectors;
 import dagger.internal.ProviderOfLazy;
+import dagger.internal.ReferenceReleasingProvider;
+import dagger.internal.ReferenceReleasingProviderManager;
 import dagger.internal.SetFactory;
 import dagger.internal.SingleCheck;
+import dagger.internal.TypedReleasableReferenceManagerDecorator;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
 import dagger.producers.internal.AbstractProducer;
@@ -46,6 +49,8 @@ import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
 import dagger.producers.monitoring.ProducerToken;
 import dagger.producers.monitoring.ProductionComponentMonitor;
+import dagger.releasablereferences.ReleasableReferenceManager;
+import dagger.releasablereferences.TypedReleasableReferenceManager;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Provider;
@@ -82,13 +87,22 @@ final class TypeNames {
       ClassName.get(ProductionComponentMonitor.Factory.class);
   static final ClassName PROVIDER = ClassName.get(Provider.class);
   static final ClassName PROVIDER_OF_LAZY = ClassName.get(ProviderOfLazy.class);
-
+  static final ClassName REFERENCE_RELEASING_PROVIDER =
+      ClassName.get(ReferenceReleasingProvider.class);
+  static final ClassName REFERENCE_RELEASING_PROVIDER_MANAGER =
+      ClassName.get(ReferenceReleasingProviderManager.class);
+  static final ClassName RELEASABLE_REFERENCE_MANAGER =
+      ClassName.get(ReleasableReferenceManager.class);
   static final ClassName SET = ClassName.get(Set.class);
   static final ClassName SET_FACTORY = ClassName.get(SetFactory.class);
   static final ClassName SET_OF_PRODUCED_PRODUCER = ClassName.get(SetOfProducedProducer.class);
   static final ClassName SET_PRODUCER = ClassName.get(SetProducer.class);
   static final ClassName SINGLE_CHECK = ClassName.get(SingleCheck.class);
   static final ClassName STRING = ClassName.get(String.class);
+  static final ClassName TYPED_RELEASABLE_REFERENCE_MANAGER =
+      ClassName.get(TypedReleasableReferenceManager.class);
+  static final ClassName TYPED_RELEASABLE_REFERENCE_MANAGER_DECORATOR =
+      ClassName.get(TypedReleasableReferenceManagerDecorator.class);
 
   static final ClassName UNSUPPORTED_OPERATION_EXCEPTION =
       ClassName.get(UnsupportedOperationException.class);
@@ -142,6 +156,6 @@ final class TypeNames {
   static ParameterizedTypeName setOf(TypeName elementType) {
     return ParameterizedTypeName.get(SET, elementType);
   }
-
+  
   private TypeNames() {}
 }

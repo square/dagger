@@ -82,7 +82,7 @@ abstract class ProvisionBinding extends ContributionBinding {
     return new AutoValue_ProvisionBinding.Builder()
         .explicitDependencies(ImmutableSet.<DependencyRequest>of());
   }
-
+  
   abstract Builder toBuilder();
 
   @AutoValue.Builder
@@ -311,6 +311,50 @@ abstract class ProvisionBinding extends ContributionBinding {
           .wrappedMapKey(delegateDeclaration.wrappedMapKey())
           .bindingKind(Kind.SYNTHETIC_DELEGATE_BINDING)
           .scope(Scope.uniqueScopeOf(delegateDeclaration.bindingElement().get()));
+    }
+
+    /**
+     * Returns a synthetic binding for a {@code @ForReleasableReferences(scope)
+     * ReleasableReferenceManager} that provides the component-instantiated object.
+     */
+    ProvisionBinding provideReleasableReferenceManager(Scope scope) {
+      return ProvisionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .key(keyFactory.forReleasableReferenceManager(scope))
+          .bindingKind(Kind.SYNTHETIC_RELEASABLE_REFERENCE_MANAGER)
+          .build();
+    }
+
+    /**
+     * Returns a synthetic binding for a {@code @ForReleasableReferences(scope)
+     * TypedReleasableReferenceManager<metadataType>} that provides the component-instantiated
+     * object.
+     */
+    ContributionBinding provideTypedReleasableReferenceManager(
+        Scope scope, DeclaredType metadataType) {
+      return provideReleasableReferenceManager(scope)
+          .toBuilder()
+          .key(keyFactory.forTypedReleasableReferenceManager(scope, metadataType))
+          .build();
+    }
+
+    /** Returns a synthetic binding for {@code Set<ReleasableReferenceManager>}. */
+    ProvisionBinding provideSetOfReleasableReferenceManagers() {
+      return ProvisionBinding.builder()
+          .contributionType(ContributionType.UNIQUE)
+          .key(keyFactory.forSetOfReleasableReferenceManagers())
+          .bindingKind(Kind.SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS)
+          .build();
+    }
+
+    /**
+     * Returns a synthetic binding for {@code Set<TypedReleasableReferenceManager<metadataType>}.
+     */
+    ContributionBinding provideSetOfTypedReleasableReferenceManagers(DeclaredType metadataType) {
+      return provideSetOfReleasableReferenceManagers()
+          .toBuilder()
+          .key(keyFactory.forSetOfTypedReleasableReferenceManagers(metadataType))
+          .build();
     }
 
     /**

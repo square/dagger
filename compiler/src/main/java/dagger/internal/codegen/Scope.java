@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen;
 
+import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
@@ -32,11 +33,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import dagger.Reusable;
 import dagger.producers.ProductionScope;
+import dagger.releasablereferences.CanReleaseReferences;
 import java.lang.annotation.Annotation;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
 /** A javax.inject.Scope. */
@@ -65,7 +68,7 @@ abstract class Scope {
   static boolean isScope(TypeElement scopeAnnotationType) {
     return isAnnotationPresent(scopeAnnotationType, javax.inject.Scope.class);
   }
-
+  
   /**
    * Creates a {@link Scope} object from the {@link javax.inject.Scope}-annotated annotation type.
    */
@@ -113,6 +116,37 @@ abstract class Scope {
    */
   static Scope reusableScope(Elements elements) {
     return scope(elements, Reusable.class);
+  }
+
+  /**
+   * Returns {@code true} for scopes that are annotated with {@link CanReleaseReferences} or some
+   * other annotation that is itself annotated with {@link CanReleaseReferences}.
+   */
+  boolean canReleaseReferences() {
+    return isAnnotationPresent(scopeAnnotationElement(), CanReleaseReferences.class)
+        || !releasableReferencesMetadata().isEmpty();
+  }
+
+  /**
+   * Returns the set of annotations on the scope that are themselves annotated with {@link
+   * CanReleaseReferences}. These annotations are used as metadata for {@link
+   * dagger.releasablereferences.TypedReleasableReferenceManager}.
+   */
+  ImmutableSet<? extends AnnotationMirror> releasableReferencesMetadata() {
+    return getAnnotatedAnnotations(scopeAnnotationElement(), CanReleaseReferences.class);
+  }
+
+  /**
+   * Returns the {@linkplain #releasableReferencesMetadata() releasable references metadata}
+   * annotation of the given type, if there is one for this scope.
+   */
+  Optional<AnnotationMirror> releasableReferencesMetadata(TypeMirror metadataType) {
+    for (AnnotationMirror metadata : releasableReferencesMetadata()) {
+      if (MoreTypes.equivalence().equivalent(metadata.getAnnotationType(), metadataType)) {
+        return Optional.of(metadata);
+      }
+    }
+    return Optional.absent();
   }
 
   /**

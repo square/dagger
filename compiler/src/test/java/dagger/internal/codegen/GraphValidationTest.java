@@ -2259,6 +2259,275 @@ public class GraphValidationTest {
         .onLine(4);
   }
 
+  @Test
+  public void missingReleasableReferenceManager() {
+    JavaFileObject testScope =
+        JavaFileObjects.forSourceLines(
+            "test.TestScope",
+            "package test;",
+            "",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "",
+            "import dagger.releasablereferences.CanReleaseReferences;",
+            "import java.lang.annotation.Retention;",
+            "import javax.inject.Scope;",
+            "",
+            "@CanReleaseReferences",
+            "@BadMetadata",
+            "@Scope",
+            "@Retention(RUNTIME)",
+            "@interface TestScope {}");
+    JavaFileObject otherScope =
+        JavaFileObjects.forSourceLines(
+            "test.OtherScope",
+            "package test;",
+            "",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "",
+            "import dagger.releasablereferences.CanReleaseReferences;",
+            "import java.lang.annotation.Retention;",
+            "import javax.inject.Scope;",
+            "",
+            "@CanReleaseReferences",
+            "@Scope",
+            "@Retention(RUNTIME)",
+            "@interface OtherScope {}");
+    JavaFileObject yetAnotherScope =
+        JavaFileObjects.forSourceLines(
+            "test.YetAnotherScope",
+            "package test;",
+            "",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "",
+            "import dagger.releasablereferences.CanReleaseReferences;",
+            "import java.lang.annotation.Retention;",
+            "import javax.inject.Scope;",
+            "",
+            "@CanReleaseReferences",
+            "@Scope",
+            "@Retention(RUNTIME)",
+            "@interface YetAnotherScope {}");
+    JavaFileObject testMetadata =
+        JavaFileObjects.forSourceLines(
+            "test.TestMetadata",
+            "package test;",
+            "",
+            "import dagger.releasablereferences.CanReleaseReferences;",
+            "",
+            "@CanReleaseReferences",
+            "@interface TestMetadata {}");
+    JavaFileObject badMetadata =
+        JavaFileObjects.forSourceLines(
+            "test.BadMetadata", // force one-string-per-line format
+            "package test;",
+            "",
+            "@interface BadMetadata {}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.releasablereferences.ForReleasableReferences;",
+            "import dagger.releasablereferences.ReleasableReferenceManager;",
+            "import dagger.releasablereferences.TypedReleasableReferenceManager;",
+            "",
+            "@TestScope",
+            "@YetAnotherScope",
+            "@Component",
+            "interface TestComponent {",
+            "  @ForReleasableReferences(OtherScope.class)",
+            "  ReleasableReferenceManager otherManager();",
+            "",
+            "  @ForReleasableReferences(TestScope.class)",
+            "  TypedReleasableReferenceManager<TestMetadata> typedManager();",
+            "",
+            "  @ForReleasableReferences(TestScope.class)",
+            "  TypedReleasableReferenceManager<BadMetadata> badManager();",
+            "}");
+    assertAbout(javaSources())
+        .that(
+            ImmutableList.of(
+                testScope, otherScope, yetAnotherScope, testMetadata, badMetadata, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "There is no binding for "
+                + "@dagger.releasablereferences.ForReleasableReferences(test.OtherScope.class) "
+                + "dagger.releasablereferences.ReleasableReferenceManager "
+                + "because no component in test.TestComponent's component hierarchy is annotated "
+                + "with @test.OtherScope. "
+                + "The available reference-releasing scopes are "
+                + "[@test.TestScope, @test.YetAnotherScope].")
+        .in(component)
+        .onLine(13)
+        .and()
+        .withErrorContaining(
+            "There is no binding for "
+                + "@dagger.releasablereferences.ForReleasableReferences(test.TestScope.class) "
+                + "dagger.releasablereferences.TypedReleasableReferenceManager<test.TestMetadata> "
+                + "because test.TestScope is not annotated with @test.TestMetadata")
+        .in(component)
+        .onLine(16)
+        .and()
+        .withErrorContaining(
+            "There is no binding for "
+                + "@dagger.releasablereferences.ForReleasableReferences(test.TestScope.class) "
+                + "dagger.releasablereferences.TypedReleasableReferenceManager<test.BadMetadata> "
+                + "because test.BadMetadata is not annotated with "
+                + "@dagger.releasablereferences.CanReleaseReferences")
+        .in(component)
+        .onLine(19);
+  }
+
+  @Test
+  public void releasableReferenceManagerConflict() {
+    JavaFileObject testScope =
+        JavaFileObjects.forSourceLines(
+            "test.TestScope",
+            "package test;",
+            "",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "",
+            "import dagger.releasablereferences.CanReleaseReferences;",
+            "import java.lang.annotation.Retention;",
+            "import javax.inject.Scope;",
+            "",
+            "@TestMetadata",
+            "@CanReleaseReferences",
+            "@Scope",
+            "@Retention(RUNTIME)",
+            "@interface TestScope {}");
+    JavaFileObject testMetadata =
+        JavaFileObjects.forSourceLines(
+            "test.TestMetadata",
+            "package test;",
+            "",
+            "import dagger.releasablereferences.CanReleaseReferences;",
+            "",
+            "@CanReleaseReferences",
+            "@interface TestMetadata {}");
+
+    JavaFileObject testModule =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.releasablereferences.ForReleasableReferences;",
+            "import dagger.releasablereferences.ReleasableReferenceManager;",
+            "import dagger.releasablereferences.TypedReleasableReferenceManager;",
+            "import java.util.Set;",
+            "",
+            "@Module",
+            "abstract class TestModule {",
+            "  @Provides @ForReleasableReferences(TestScope.class)",
+            "  static ReleasableReferenceManager rrm() {",
+            "    return null;",
+            "  }",
+            "",
+            "  @Provides @ForReleasableReferences(TestScope.class)",
+            "  static TypedReleasableReferenceManager<TestMetadata> typedRrm() {",
+            "    return null;",
+            "  }",
+            "",
+            "  @Provides",
+            "  static Set<ReleasableReferenceManager> rrmSet() {",
+            "    return null;",
+            "  }",
+            "",
+            "  @Provides",
+            "  static Set<TypedReleasableReferenceManager<TestMetadata>> typedRrmSet() {",
+            "    return null;",
+            "  }",
+            "}");
+
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.releasablereferences.ForReleasableReferences;",
+            "import dagger.releasablereferences.ReleasableReferenceManager;",
+            "import dagger.releasablereferences.TypedReleasableReferenceManager;",
+            "import java.util.Set;",
+            "",
+            "@TestScope",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  @ForReleasableReferences(TestScope.class)",
+            "  ReleasableReferenceManager testManager();",
+            "",
+            "  @ForReleasableReferences(TestScope.class)",
+            "  TypedReleasableReferenceManager<TestMetadata> typedManager();",
+            "",
+            "  Set<ReleasableReferenceManager> managers();",
+            "  Set<TypedReleasableReferenceManager<TestMetadata>> typedManagers();",
+            "}");
+    assertAbout(javaSources())
+        .that(ImmutableList.of(testScope, testMetadata, testModule, component))
+        .processedWith(new ComponentProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            String.format(
+                error(
+                    "@%1$s.ForReleasableReferences(test.TestScope.class) "
+                        + "%1$s.ReleasableReferenceManager is bound multiple times:",
+                    "@Provides @%1$s.ForReleasableReferences(test.TestScope.class) "
+                        + "%1$s.ReleasableReferenceManager test.TestModule.rrm()",
+                    "binding for "
+                        + "@%1$s.ForReleasableReferences(value = test.TestScope.class) "
+                        + "%1$s.ReleasableReferenceManager from the scope declaration"),
+                "dagger.releasablereferences"))
+        .in(component)
+        .onLine(13)
+        .and()
+        .withErrorContaining(
+            String.format(
+                error(
+                    "@%1$s.ForReleasableReferences(test.TestScope.class) "
+                        + "%1$s.TypedReleasableReferenceManager<test.TestMetadata> "
+                        + "is bound multiple times:",
+                    "@Provides @%1$s.ForReleasableReferences(test.TestScope.class) "
+                        + "%1$s.TypedReleasableReferenceManager<test.TestMetadata> "
+                        + "test.TestModule.typedRrm()",
+                    "binding for "
+                        + "@%1$s.ForReleasableReferences(value = test.TestScope.class) "
+                        + "%1$s.TypedReleasableReferenceManager<test.TestMetadata> "
+                        + "from the scope declaration"),
+                "dagger.releasablereferences"))
+        .in(component)
+        .onLine(16)
+        .and()
+        .withErrorContaining(
+            error(
+                "java.util.Set<dagger.releasablereferences.ReleasableReferenceManager> "
+                    + "is bound multiple times:",
+                "@Provides "
+                    + "Set<dagger.releasablereferences.ReleasableReferenceManager> "
+                    + "test.TestModule.rrmSet()",
+                "Dagger-generated binding for "
+                    + "Set<dagger.releasablereferences.ReleasableReferenceManager>"))
+        .in(component)
+        .onLine(18)
+        .and()
+        .withErrorContaining(
+            String.format(
+                error(
+                    "java.util.Set<%1$s.TypedReleasableReferenceManager<test.TestMetadata>> "
+                        + "is bound multiple times:",
+                    "@Provides "
+                        + "Set<%1$s.TypedReleasableReferenceManager<test.TestMetadata>> "
+                        + "test.TestModule.typedRrmSet()",
+                    "Dagger-generated binding for "
+                        + "Set<%1$s.TypedReleasableReferenceManager<test.TestMetadata>>"),
+                "dagger.releasablereferences"))
+        .in(component)
+        .onLine(19);
+  }
+
   private String error(String... lines) {
     return Joiner.on("\n      ").join(lines);
   }

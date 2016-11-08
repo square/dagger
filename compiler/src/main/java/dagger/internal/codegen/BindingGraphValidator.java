@@ -17,9 +17,12 @@
 package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.getAnnotationMirror;
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.MoreTypes.asDeclared;
 import static com.google.auto.common.MoreTypes.asExecutable;
 import static com.google.auto.common.MoreTypes.asTypeElements;
+import static com.google.auto.common.MoreTypes.isType;
+import static com.google.auto.common.MoreTypes.isTypeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -27,6 +30,7 @@ import static dagger.internal.codegen.BindingType.PRODUCTION;
 import static dagger.internal.codegen.BindingType.PROVISION;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentAnnotation;
 import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
+import static dagger.internal.codegen.ConfigurationAnnotations.typeValue;
 import static dagger.internal.codegen.ContributionBinding.Kind.INJECTION;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MAP;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_KINDS;
@@ -51,10 +55,14 @@ import static dagger.internal.codegen.ErrorMessages.REQUIRES_PROVIDER_OR_PRODUCE
 import static dagger.internal.codegen.ErrorMessages.duplicateMapKeysError;
 import static dagger.internal.codegen.ErrorMessages.inconsistentMapKeyAnnotationsError;
 import static dagger.internal.codegen.ErrorMessages.nullableToNonNullable;
+import static dagger.internal.codegen.ErrorMessages.referenceReleasingScopeMetadataMissingCanReleaseReferences;
+import static dagger.internal.codegen.ErrorMessages.referenceReleasingScopeNotAnnotatedWithMetadata;
+import static dagger.internal.codegen.ErrorMessages.referenceReleasingScopeNotInComponentHierarchy;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.Scope.reusableScope;
 import static dagger.internal.codegen.Scope.scopesOf;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
+import static dagger.internal.codegen.Util.isAnnotationPresent;
 import static dagger.internal.codegen.Util.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
@@ -83,11 +91,16 @@ import dagger.Lazy;
 import dagger.MapKey;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ContributionType.HasContributionType;
+import dagger.releasablereferences.CanReleaseReferences;
+import dagger.releasablereferences.ForReleasableReferences;
+import dagger.releasablereferences.ReleasableReferenceManager;
+import dagger.releasablereferences.TypedReleasableReferenceManager;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Formatter;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -820,12 +833,79 @@ final class BindingGraphValidator {
       }
 
       private void reportMissingBinding() {
+        if (reportMissingReleasableReferenceManager()) {
+          return;
+        }
         StringBuilder errorMessage = requiresErrorMessageBase().append(formatDependencyTrace());
         for (String suggestion :
             MissingBindingSuggestions.forKey(rootGraph, dependencyRequest().bindingKey())) {
           errorMessage.append('\n').append(suggestion);
         }
         reportErrorAtEntryPoint(rootGraph, errorMessage.toString());
+      }
+
+      /**
+       * If the current dependency request is missing a binding because it's an invalid
+       * {@code @ForReleasableReferences} request, reports that.
+       *
+       * <p>An invalid request is one whose type is either {@link ReleasableReferenceManager} or
+       * {@link TypedReleasableReferenceManager}, and whose scope:
+       *
+       * <ul>
+       *   <li>does not annotate any component in the hierarchy, or
+       *   <li>is not annotated with the metadata annotation type that is the {@link
+       *       TypedReleasableReferenceManager}'s type argument
+       * </ul>
+       *
+       * @return {@code true} if the request was invalid and an error was reported
+       */
+      private boolean reportMissingReleasableReferenceManager() {
+        Key key = dependencyRequest().key();
+        if (!key.qualifier().isPresent()
+            || !isTypeOf(ForReleasableReferences.class, key.qualifier().get().getAnnotationType())
+            || !isType(key.type())) {
+          return false;
+        }
+
+        Optional<DeclaredType> metadataType;
+        if (isTypeOf(ReleasableReferenceManager.class, key.type())) {
+          metadataType = Optional.absent();
+        } else if (isTypeOf(TypedReleasableReferenceManager.class, key.type())) {
+          List<? extends TypeMirror> typeArguments =
+              MoreTypes.asDeclared(key.type()).getTypeArguments();
+          if (typeArguments.size() != 1
+              || !typeArguments.get(0).getKind().equals(TypeKind.DECLARED)) {
+            return false;
+          }
+          metadataType = Optional.of(MoreTypes.asDeclared(typeArguments.get(0)));
+        } else {
+          return false;
+        }
+
+        Scope scope =
+            Scope.scope(MoreTypes.asTypeElement(typeValue(key.qualifier().get(), "value")));
+        String missingRequestKey = formatCurrentDependencyRequestKey();
+        if (!rootGraph.componentDescriptor().releasableReferencesScopes().contains(scope)) {
+          reportErrorAtEntryPoint(
+              rootGraph,
+              referenceReleasingScopeNotInComponentHierarchy(missingRequestKey, scope, rootGraph));
+          return true;
+        }
+        if (metadataType.isPresent()) {
+          if (!isAnnotationPresent(scope.scopeAnnotationElement(), metadataType.get())) {
+            reportErrorAtEntryPoint(
+                rootGraph,
+                referenceReleasingScopeNotAnnotatedWithMetadata(
+                    missingRequestKey, scope, metadataType.get()));
+          }
+          if (!isAnnotationPresent(metadataType.get().asElement(), CanReleaseReferences.class)) {
+            reportErrorAtEntryPoint(
+                rootGraph,
+                referenceReleasingScopeMetadataMissingCanReleaseReferences(
+                    missingRequestKey, metadataType.get()));
+          }
+        }
+        return false;
       }
 
       @SuppressWarnings("resource") // Appendable is a StringBuilder.

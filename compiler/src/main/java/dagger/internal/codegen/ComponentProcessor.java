@@ -173,6 +173,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
         new AnnotationCreatorGenerator(filer, elements);
     UnwrappedMapKeyGenerator unwrappedMapKeyGenerator =
         new UnwrappedMapKeyGenerator(filer, elements);
+    CanReleaseReferencesValidator canReleaseReferencesValidator =
+        new CanReleaseReferencesValidator();
     ComponentHierarchyValidator componentHierarchyValidator =
         new ComponentHierarchyValidator(compilerOptions, elements);
     BindingGraphValidator bindingGraphValidator =
@@ -191,6 +193,9 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     return ImmutableList.of(
         new MapKeyProcessingStep(
             messager, types, mapKeyValidator, annotationCreatorGenerator, unwrappedMapKeyGenerator),
+        new ForReleasableReferencesValidator(messager),
+        new CanReleaseReferencesProcessingStep(
+            messager, canReleaseReferencesValidator, annotationCreatorGenerator),
         new InjectProcessingStep(injectBindingRegistry),
         new MonitoringModuleProcessingStep(messager, monitoringModuleGenerator),
         new ProductionExecutorModuleProcessingStep(messager, productionExecutorModuleGenerator),

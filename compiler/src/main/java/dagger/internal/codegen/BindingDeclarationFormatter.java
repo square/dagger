@@ -19,6 +19,8 @@ package dagger.internal.codegen;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.internal.codegen.ConfigurationAnnotations.getModuleSubcomponents;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_RELEASABLE_REFERENCE_MANAGER;
+import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS;
 import static dagger.internal.codegen.ErrorMessages.stripCommonTypePrefixes;
 import static dagger.internal.codegen.MoreAnnotationMirrors.simpleName;
 import static dagger.internal.codegen.Util.AS_DECLARED_TYPE;
@@ -41,6 +43,11 @@ final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
   private static final ImmutableSet<TypeKind> FORMATTABLE_ELEMENT_TYPE_KINDS =
       immutableEnumSet(EXECUTABLE, DECLARED);
 
+  private static final ImmutableSet<ContributionBinding.Kind>
+      FORMATTABLE_ELEMENTLESS_BINDING_KINDS =
+          immutableEnumSet(
+              SYNTHETIC_RELEASABLE_REFERENCE_MANAGER, SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS);
+
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final KeyFormatter keyFormatter;
 
@@ -56,12 +63,18 @@ final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
    * <ul>
    * <li>Those with {@linkplain BindingDeclaration#bindingElement() binding elements} that are
    *     methods, constructors, or types.
+   * <li>{@link ContributionBinding.Kind#SYNTHETIC_RELEASABLE_REFERENCE_MANAGER} bindings.
+   * <li>{@link ContributionBinding.Kind#SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS} bindings.
    * </ul>
    */
   boolean canFormat(BindingDeclaration bindingDeclaration) {
     if (bindingDeclaration.bindingElement().isPresent()) {
       return FORMATTABLE_ELEMENT_TYPE_KINDS.contains(
           bindingDeclaration.bindingElement().get().asType().getKind());
+    }
+    if (bindingDeclaration instanceof ContributionBinding) {
+      ContributionBinding contributionBinding = (ContributionBinding) bindingDeclaration;
+      return FORMATTABLE_ELEMENTLESS_BINDING_KINDS.contains(contributionBinding.bindingKind());
     }
     return false;
   }
@@ -71,6 +84,23 @@ final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
     if (bindingDeclaration instanceof SubcomponentDeclaration) {
       return formatSubcomponentDeclaration((SubcomponentDeclaration) bindingDeclaration);
     }
+
+    if (bindingDeclaration instanceof ContributionBinding) {
+      ContributionBinding binding = (ContributionBinding) bindingDeclaration;
+      switch (binding.bindingKind()) {
+        case SYNTHETIC_RELEASABLE_REFERENCE_MANAGER:
+          return String.format(
+              "binding for %s from the scope declaration",
+              stripCommonTypePrefixes(keyFormatter.format(binding.key())));
+        case SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS:
+          return String.format(
+              "Dagger-generated binding for %s",
+              stripCommonTypePrefixes(keyFormatter.format(binding.key())));
+        default:
+          break;
+      }
+    }
+
     checkArgument(
         bindingDeclaration.bindingElement().isPresent(),
         "Cannot format bindings without source elements: %s",

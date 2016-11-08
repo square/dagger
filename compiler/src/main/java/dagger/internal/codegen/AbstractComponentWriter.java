@@ -18,11 +18,13 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.TypeSpec.anonymousClassBuilder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.DELEGATED;
 import static dagger.internal.codegen.AbstractComponentWriter.InitializationState.INITIALIZED;
@@ -31,6 +33,7 @@ import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.ConfigurationAnnotations.typeValue;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.SINGLETON_INSTANCE;
 import static dagger.internal.codegen.ErrorMessages.CANNOT_RETURN_NULL_FROM_NON_NULLABLE_COMPONENT_METHOD;
 import static dagger.internal.codegen.MapKeys.getMapKeyExpression;
@@ -58,12 +61,16 @@ import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
 import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
 import static dagger.internal.codegen.TypeNames.PRODUCER;
 import static dagger.internal.codegen.TypeNames.PRODUCERS;
+import static dagger.internal.codegen.TypeNames.REFERENCE_RELEASING_PROVIDER;
+import static dagger.internal.codegen.TypeNames.REFERENCE_RELEASING_PROVIDER_MANAGER;
 import static dagger.internal.codegen.TypeNames.SET_FACTORY;
 import static dagger.internal.codegen.TypeNames.SET_OF_PRODUCED_PRODUCER;
 import static dagger.internal.codegen.TypeNames.SET_PRODUCER;
 import static dagger.internal.codegen.TypeNames.SINGLE_CHECK;
 import static dagger.internal.codegen.TypeNames.STRING;
+import static dagger.internal.codegen.TypeNames.TYPED_RELEASABLE_REFERENCE_MANAGER_DECORATOR;
 import static dagger.internal.codegen.TypeNames.UNSUPPORTED_OPERATION_EXCEPTION;
+import static dagger.internal.codegen.TypeNames.providerOf;
 import static dagger.internal.codegen.TypeSpecs.addSupertype;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.Util.requiresAPassedInstance;
@@ -91,6 +98,7 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
@@ -99,6 +107,7 @@ import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
 import dagger.internal.Preconditions;
 import dagger.internal.SetFactory;
+import dagger.internal.TypedReleasableReferenceManagerDecorator;
 import dagger.internal.codegen.ComponentDescriptor.BuilderSpec;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.producers.Produced;
@@ -107,12 +116,19 @@ import dagger.producers.internal.MapOfProducerProducer;
 import dagger.producers.internal.MapProducer;
 import dagger.producers.internal.SetOfProducedProducer;
 import dagger.producers.internal.SetProducer;
+import dagger.releasablereferences.CanReleaseReferences;
+import dagger.releasablereferences.ForReleasableReferences;
+import dagger.releasablereferences.ReleasableReferenceManager;
+import dagger.releasablereferences.TypedReleasableReferenceManager;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -164,6 +180,12 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
    * any requirement that is reused from a subcomponent of this component.
    */
   protected final Map<TypeElement, MemberSelect> componentContributionFields = Maps.newHashMap();
+
+  /**
+   * The member-selects for {@link dagger.internal.ReferenceReleasingProviderManager} fields,
+   * indexed by their {@link CanReleaseReferences @CanReleaseReferences} scope.
+   */
+  private ImmutableMap<Scope, MemberSelect> referenceReleasingProviderManagerFields;
 
   AbstractComponentWriter(
       Types types,
@@ -273,6 +295,14 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
   }
 
   /**
+   * The member-select expression for the {@link dagger.internal.ReferenceReleasingProviderManager}
+   * object for a scope.
+   */
+  protected CodeBlock getReferenceReleasingProviderManagerExpression(Scope scope) {
+    return referenceReleasingProviderManagerFields.get(scope).getExpressionFor(name);
+  }
+
+  /**
    * Constructs a {@link TypeSpec.Builder} that models the {@link BindingGraph} for this component.
    * This is only intended to be called once (and will throw on successive invocations). If the
    * component must be regenerated, use a new instance.
@@ -282,6 +312,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
     decorateComponent();
     addBuilder();
     addFactoryMethods();
+    addReferenceReleasingProviderManagerFields();
     addFrameworkFields();
     initializeFrameworkTypes();
     implementInterfaceMethods();
@@ -487,8 +518,76 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
    */
   protected abstract void addFactoryMethods();
 
+  /**
+   * Adds a {@link dagger.internal.ReferenceReleasingProviderManager} field for every {@link
+   * CanReleaseReferences @ReleasableReferences} scope for which {@linkplain
+   * #requiresReleasableReferences(Scope) one is required}.
+   */
+  private void addReferenceReleasingProviderManagerFields() {
+    ImmutableMap.Builder<Scope, MemberSelect> fields = ImmutableMap.builder();
+    for (Scope scope : graph.componentDescriptor().releasableReferencesScopes()) {
+      if (requiresReleasableReferences(scope)) {
+        FieldSpec field = referenceReleasingProxyManagerField(scope);
+        component.addField(field);
+        fields.put(scope, localField(name, field.name));
+      }
+    }
+    referenceReleasingProviderManagerFields = fields.build();
+  }
+
+  /**
+   * Returns {@code true} if {@code scope} {@linkplain CanReleaseReferences can release its
+   * references} and there is a dependency request in the component for any of
+   *
+   * <ul>
+   * <li>{@code @ForReleasableReferences(scope)} {@link ReleasableReferenceManager}
+   * <li>{@code @ForReleasableReferences(scope)} {@code TypedReleasableReferenceManager<M>}, where
+   *     {@code M} is the releasable-references metatadata type for {@code scope}
+   * <li>{@code Set<ReleasableReferenceManager>}
+   * <li>{@code Set<TypedReleasableReferenceManager<M>>}, where {@code M} is the metadata type for
+   *     the scope
+   * </ul>
+   */
+  private boolean requiresReleasableReferences(Scope scope) {
+    if (!scope.canReleaseReferences()) {
+      return false;
+    }
+
+    if (graphHasContributionBinding(keyFactory.forReleasableReferenceManager(scope))
+        || graphHasContributionBinding(keyFactory.forSetOfReleasableReferenceManagers())) {
+      return true;
+    }
+
+    for (AnnotationMirror metadata : scope.releasableReferencesMetadata()) {
+      if (graphHasContributionBinding(
+              keyFactory.forTypedReleasableReferenceManager(scope, metadata.getAnnotationType()))
+          || graphHasContributionBinding(
+              keyFactory.forSetOfTypedReleasableReferenceManagers(metadata.getAnnotationType()))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private boolean graphHasContributionBinding(Key key) {
     return graph.resolvedBindings().containsKey(contribution(key));
+  }
+
+  private FieldSpec referenceReleasingProxyManagerField(Scope scope) {
+    return componentField(
+            REFERENCE_RELEASING_PROVIDER_MANAGER,
+            UPPER_CAMEL.to(
+                LOWER_CAMEL, scope.scopeAnnotationElement().getSimpleName() + "References"))
+        .addModifiers(PRIVATE, FINAL)
+        .initializer(
+            "new $T($T.class)",
+            REFERENCE_RELEASING_PROVIDER_MANAGER,
+            scope.scopeAnnotationElement())
+        .addJavadoc(
+            "The manager that releases references for the {@link $T} scope.\n",
+            scope.scopeAnnotationElement())
+        .build();
   }
 
   private void addFrameworkFields() {
@@ -1110,6 +1209,12 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       case SYNTHETIC_MULTIBOUND_MAP:
         return initializeFactoryForMapMultibinding(binding);
 
+      case SYNTHETIC_RELEASABLE_REFERENCE_MANAGER:
+        return initializeFactoryForSyntheticReleasableReferenceManagerBinding(binding);
+
+      case SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS:
+        return initializeFactoryForSyntheticSetOfReleasableReferenceManagers(binding);
+
       case SYNTHETIC_OPTIONAL_BINDING:
         return initializeFactoryForSyntheticOptionalBinding(binding);
 
@@ -1123,10 +1228,18 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
   }
 
   private CodeBlock decorateForScope(CodeBlock factoryCreate, Scope scope) {
+    if (requiresReleasableReferences(scope)) {
+      return CodeBlock.of(
+          "$T.create($L, $L)",
+          REFERENCE_RELEASING_PROVIDER,
+          factoryCreate,
+          getReferenceReleasingProviderManagerExpression(scope));
+    } else {
       return CodeBlock.of(
           "$T.provider($L)",
           scope.equals(reusableScope(elements)) ? SINGLE_CHECK : DOUBLE_CHECK,
           factoryCreate);
+    }
   }
 
   private CodeBlock nullableAnnotation(Optional<DeclaredType> nullableType) {
@@ -1256,6 +1369,122 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       return notCasted;
     }
     return CodeBlock.of("($T) $L", classToCast, notCasted);
+  }
+
+  /**
+   * Initializes the factory for a {@link
+   * ContributionBinding.Kind#SYNTHETIC_RELEASABLE_REFERENCE_MANAGER} binding.
+   *
+   * <p>The {@code get()} method just returns the component field with the {@link
+   * dagger.internal.ReferenceReleasingProviderManager} object.
+   */
+  private CodeBlock initializeFactoryForSyntheticReleasableReferenceManagerBinding(
+      ContributionBinding binding) {
+    // The scope is the value of the @ForReleasableReferences annotation.
+    Scope scope = forReleasableReferencesAnnotationValue(binding.key().qualifier().get());
+
+    CodeBlock managerExpression;
+    if (MoreTypes.isTypeOf(TypedReleasableReferenceManager.class, binding.key().type())) {
+      /* The key's type is TypedReleasableReferenceManager<M>, so return
+       * new TypedReleasableReferenceManager(field, metadata). */
+      TypeMirror metadataType =
+          MoreTypes.asDeclared(binding.key().type()).getTypeArguments().get(0);
+      managerExpression =
+          typedReleasableReferenceManagerDecoratorExpression(
+              getReferenceReleasingProviderManagerExpression(scope),
+              scope.releasableReferencesMetadata(metadataType).get());
+    } else {
+      // The key's type is ReleasableReferenceManager, so return the field as is.
+      managerExpression = getReferenceReleasingProviderManagerExpression(scope);
+    }
+
+    TypeName keyType = TypeName.get(binding.key().type());
+    return CodeBlock.of(
+        "$L",
+        anonymousClassBuilder("")
+            .addSuperinterface(providerOf(keyType))
+            .addMethod(
+                methodBuilder("get")
+                    .addAnnotation(Override.class)
+                    .addModifiers(PUBLIC)
+                    .returns(keyType)
+                    .addCode("return $L;", managerExpression)
+                    .build())
+            .build());
+  }
+
+  /**
+   * Initializes the factory for a {@link
+   * ContributionBinding.Kind#SYNTHETIC_RELEASABLE_REFERENCE_MANAGERS} binding.
+   *
+   * <p>A binding for {@code Set<ReleasableReferenceManager>} will include managers for all
+   * reference-releasing scopes. A binding for {@code Set<TypedReleasableReferenceManager<M>>} will
+   * include managers for all reference-releasing scopes whose metadata type is {@code M}.
+   */
+  private CodeBlock initializeFactoryForSyntheticSetOfReleasableReferenceManagers(
+      ContributionBinding binding) {
+    Key key = binding.key();
+    SetType keyType = SetType.from(key);
+    ImmutableList.Builder<CodeBlock> managerExpressions = ImmutableList.builder();
+    for (Map.Entry<Scope, MemberSelect> entry :
+        referenceReleasingProviderManagerFields.entrySet()) {
+      Scope scope = entry.getKey();
+      CodeBlock releasableReferenceManagerExpression = entry.getValue().getExpressionFor(name);
+
+      if (keyType.elementsAreTypeOf(ReleasableReferenceManager.class)) {
+        managerExpressions.add(releasableReferenceManagerExpression);
+      } else if (keyType.elementsAreTypeOf(TypedReleasableReferenceManager.class)) {
+        TypeMirror metadataType =
+            keyType.unwrappedElementType(TypedReleasableReferenceManager.class);
+        Optional<AnnotationMirror> metadata = scope.releasableReferencesMetadata(metadataType);
+        if (metadata.isPresent()) {
+          managerExpressions.add(
+              typedReleasableReferenceManagerDecoratorExpression(
+                  releasableReferenceManagerExpression, metadata.get()));
+        }
+      } else {
+        throw new IllegalArgumentException("inappropriate key: " + binding);
+      }
+    }
+    TypeName keyTypeName = TypeName.get(key.type());
+    return CodeBlock.of(
+        "$L",
+        anonymousClassBuilder("")
+            .addSuperinterface(providerOf(keyTypeName))
+            .addMethod(
+                methodBuilder("get")
+                    .addAnnotation(Override.class)
+                    .addModifiers(PUBLIC)
+                    .returns(keyTypeName)
+                    .addCode(
+                        "return new $T($T.asList($L));",
+                        HashSet.class,
+                        Arrays.class,
+                        makeParametersCodeBlock(managerExpressions.build()))
+                    .build())
+            .build());
+  }
+
+  /**
+   * Returns an expression that evaluates to a {@link TypedReleasableReferenceManagerDecorator} that
+   * decorates the {@code managerExpression} to supply {@code metadata}.
+   */
+  private CodeBlock typedReleasableReferenceManagerDecoratorExpression(
+      CodeBlock managerExpression, AnnotationMirror metadata) {
+    return CodeBlock.of(
+        "new $T($L, $L)",
+        ParameterizedTypeName.get(
+            TYPED_RELEASABLE_REFERENCE_MANAGER_DECORATOR,
+            TypeName.get(metadata.getAnnotationType())),
+        managerExpression,
+        new AnnotationExpression(metadata).getAnnotationInstanceExpression());
+  }
+
+  private Scope forReleasableReferencesAnnotationValue(AnnotationMirror annotation) {
+    checkArgument(
+        MoreTypes.isTypeOf(ForReleasableReferences.class, annotation.getAnnotationType()));
+    return Scope.scope(
+        MoreElements.asType(MoreTypes.asDeclared(typeValue(annotation, "value")).asElement()));
   }
 
   /**

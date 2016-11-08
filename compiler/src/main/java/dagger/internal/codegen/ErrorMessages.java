@@ -18,16 +18,20 @@ package dagger.internal.codegen;
 
 import static dagger.internal.codegen.ConfigurationAnnotations.getSubcomponentAnnotation;
 import static dagger.internal.codegen.MoreAnnotationMirrors.simpleName;
+import static java.util.stream.Collectors.toList;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import dagger.Multibindings;
 import dagger.Provides;
 import dagger.multibindings.Multibinds;
+import dagger.releasablereferences.CanReleaseReferences;
+import dagger.releasablereferences.ForReleasableReferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -326,6 +330,61 @@ final class ErrorMessages {
       default:
         throw new IllegalStateException(kind.toString());
     }
+  }
+
+  static final String CAN_RELEASE_REFERENCES_ANNOTATIONS_MUST_NOT_HAVE_SOURCE_RETENTION =
+      "@CanReleaseReferences annotations must not have SOURCE retention";
+
+  static String forReleasableReferencesValueNotAScope(TypeElement scopeType) {
+    return forReleasableReferencesValueNeedsAnnotation(
+        scopeType,
+        String.format(
+            "@%s and @%s",
+            javax.inject.Scope.class.getCanonicalName(),
+            CanReleaseReferences.class.getCanonicalName()));
+  }
+
+  static String forReleasableReferencesValueCannotReleaseReferences(TypeElement scopeType) {
+    return forReleasableReferencesValueNeedsAnnotation(
+        scopeType, "@" + CanReleaseReferences.class.getCanonicalName());
+  }
+
+  private static String forReleasableReferencesValueNeedsAnnotation(
+      TypeElement scopeType, String annotations) {
+    return String.format(
+        "The value of @%s must be a reference-releasing scope. "
+            + "Did you mean to annotate %s with %s? Or did you mean to use a different class here?",
+        ForReleasableReferences.class.getSimpleName(), scopeType.getQualifiedName(), annotations);
+  }
+
+  static String referenceReleasingScopeNotInComponentHierarchy(
+      String formattedKey, Scope scope, BindingGraph topLevelGraph) {
+    return String.format(
+        "There is no binding for %s because no component in %s's component hierarchy is "
+            + "annotated with %s. The available reference-releasing scopes are %s.",
+        formattedKey,
+        topLevelGraph.componentType().getQualifiedName(),
+        scope.getReadableSource(),
+        topLevelGraph
+            .componentDescriptor()
+            .releasableReferencesScopes()
+            .stream()
+            .map(Scope::getReadableSource)
+            .collect(toList()));
+  }
+
+  static String referenceReleasingScopeMetadataMissingCanReleaseReferences(
+      String formattedKey, DeclaredType metadataType) {
+    return String.format(
+        "There is no binding for %s because %s is not annotated with @%s.",
+        formattedKey, metadataType, CanReleaseReferences.class.getCanonicalName());
+  }
+
+  static String referenceReleasingScopeNotAnnotatedWithMetadata(
+      String formattedKey, Scope scope, TypeMirror metadataType) {
+    return String.format(
+        "There is no binding for %s because %s is not annotated with @%s.",
+        formattedKey, scope.getQualifiedName(), metadataType);
   }
 
   static class ComponentBuilderMessages {

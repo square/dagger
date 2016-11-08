@@ -41,6 +41,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -53,6 +54,9 @@ import dagger.producers.Producer;
 import dagger.producers.Production;
 import dagger.producers.internal.ProductionImplementation;
 import dagger.producers.monitoring.ProductionComponentMonitor;
+import dagger.releasablereferences.ForReleasableReferences;
+import dagger.releasablereferences.ReleasableReferenceManager;
+import dagger.releasablereferences.TypedReleasableReferenceManager;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -117,7 +121,7 @@ abstract class Key {
    * <p>Absent except for multibinding contributions.
    */
   abstract Optional<MultibindingContributionIdentifier> multibindingContributionIdentifier();
-
+  
   abstract Builder toBuilder();
 
   @Memoized
@@ -161,7 +165,7 @@ abstract class Key {
 
     abstract Key build();
   }
-
+  
   /**
    * An object that identifies a multibinding contribution method and the module class that
    * contributes it to the graph.
@@ -305,7 +309,7 @@ abstract class Key {
   static final class Factory {
     private final Types types;
     private final Elements elements;
-
+    
     Factory(Types types, Elements elements) {
       this.types = checkNotNull(types);
       this.elements = checkNotNull(elements);
@@ -332,6 +336,11 @@ abstract class Key {
     private TypeMirror mapOfFrameworkType(
         TypeMirror keyType, TypeElement frameworkType, TypeMirror valueType) {
       return mapOf(keyType, types.getDeclaredType(frameworkType, boxPrimitives(valueType)));
+    }
+
+    private DeclaredType typedReleasableReferenceManagerOf(DeclaredType metadataType) {
+      return types.getDeclaredType(
+          getClassElement(TypedReleasableReferenceManager.class), metadataType);
     }
 
     Key forComponentMethod(ExecutableElement componentMethod) {
@@ -676,6 +685,42 @@ abstract class Key {
       TypeMirror underlyingType =
           DependencyRequest.extractKindAndType(OptionalType.from(key).valueType()).type();
       return Optional.of(key.toBuilder().type(underlyingType).build());
+    }
+
+    /** Returns a key for a {@code @ForReleasableReferences(scope) ReleasableReferenceManager}. */
+    Key forReleasableReferenceManager(Scope scope) {
+      return forQualifiedType(
+          Optional.of(forReleasableReferencesAnnotationMirror(scope)),
+          getClassElement(ReleasableReferenceManager.class).asType());
+    }
+
+    /**
+     * Returns a key for a {@code @ForReleasableReferences(scope)
+     * TypedReleasableReferenceManager<metadataType>}
+     */
+    Key forTypedReleasableReferenceManager(Scope scope, DeclaredType metadataType) {
+      return builder(typedReleasableReferenceManagerOf(metadataType))
+          .qualifier(forReleasableReferencesAnnotationMirror(scope))
+          .build();
+    }
+
+    /** Returns a key for a {@code Set<ReleasableReferenceManager>}. */
+    Key forSetOfReleasableReferenceManagers() {
+      return builder(setOf(getClassElement(ReleasableReferenceManager.class).asType())).build();
+    }
+
+    /** Returns a key for a {@code Set<TypedReleasableReferenceManager<metadataType>}. */
+    Key forSetOfTypedReleasableReferenceManagers(DeclaredType metadataType) {
+      return forQualifiedType(
+          Optional.<AnnotationMirror>absent(),
+          setOf(typedReleasableReferenceManagerOf(metadataType)));
+    }
+
+    private AnnotationMirror forReleasableReferencesAnnotationMirror(Scope scope) {
+      return SimpleAnnotationMirror.of(
+          getClassElement(ForReleasableReferences.class),
+          ImmutableMap.of(
+              "value", new SimpleTypeAnnotationValue(scope.scopeAnnotationElement().asType())));
     }
   }
 }
