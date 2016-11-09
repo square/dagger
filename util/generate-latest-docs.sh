@@ -1,7 +1,7 @@
 # see http://benlimmer.com/2013/12/26/automatically-publish-javadoc-to-gh-pages-with-travis-ci/ for details
 
 if [ "$TRAVIS_REPO_SLUG" == "google/dagger" ] && \
-   [ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ] && \
+   [ "$TRAVIS_JDK_VERSION" == "$JDK_FOR_PUBLISHING" ] && \
    [ "$TRAVIS_PULL_REQUEST" == "false" ] && \
    [ "$TRAVIS_BRANCH" == "master" ]; then
   echo -e "Publishing javadoc...\n"
@@ -22,4 +22,6 @@ if [ "$TRAVIS_REPO_SLUG" == "google/dagger" ] && \
   git push -fq origin gh-pages > /dev/null
 
   echo -e "Published Javadoc to gh-pages.\n"
+else
+  echo -e "Not publishing docs for jdk=${TRAVIS_JDK_VERSION} and branch=${TRAVIS_BRANCH}"
 fi
