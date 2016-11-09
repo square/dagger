@@ -97,6 +97,11 @@ final class SubcomponentWriter extends AbstractComponentWriter {
     return memberSelect == null ? parent.getMemberSelect(key) : memberSelect;
   }
 
+  @Override
+  protected CodeBlock getReferenceReleasingProviderManagerExpression(Scope scope) {
+    return parent.getReferenceReleasingProviderManagerExpression(scope);
+  }
+
   private ExecutableType resolvedSubcomponentFactoryMethod() {
     checkState(
         subcomponentFactoryMethod.isPresent(),

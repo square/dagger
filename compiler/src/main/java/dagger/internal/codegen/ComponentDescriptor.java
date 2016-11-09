@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.TreeTraverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.squareup.javapoet.ClassName;
 import dagger.Component;
@@ -52,6 +53,7 @@ import dagger.Module;
 import dagger.Subcomponent;
 import dagger.producers.ProductionComponent;
 import dagger.producers.ProductionSubcomponent;
+import dagger.releasablereferences.CanReleaseReferences;
 import java.lang.annotation.Annotation;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -332,6 +334,29 @@ abstract class ComponentDescriptor {
   // TODO(gak): Consider making this non-optional and revising the
   // interaction between the spec & generation
   abstract Optional<BuilderSpec> builderSpec();
+
+  /**
+   * For {@link Component @Component}s, all {@link CanReleaseReferences @CanReleaseReferences}
+   * scopes associated with this component or any subcomponent. Otherwise empty.
+   */
+  ImmutableSet<Scope> releasableReferencesScopes() {
+    return kind().equals(Kind.COMPONENT)
+        ? SUBCOMPONENT_TRAVERSER
+            .breadthFirstTraversal(this)
+            .transformAndConcat(ComponentDescriptor::scopes)
+            .filter(Scope::canReleaseReferences)
+            .toSet()
+        : ImmutableSet.<Scope>of();
+  }
+
+  /** {@link TreeTraverser} for the subcomponent tree. */
+  private static final TreeTraverser<ComponentDescriptor> SUBCOMPONENT_TRAVERSER =
+      new TreeTraverser<ComponentDescriptor>() {
+        @Override
+        public Iterable<ComponentDescriptor> children(ComponentDescriptor node) {
+          return node.subcomponents();
+        }
+      };
 
   /** A function that returns all {@link #scopes()} of its input. */
   @AutoValue

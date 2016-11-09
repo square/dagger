@@ -39,6 +39,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
@@ -144,6 +145,7 @@ abstract class BindingGraph {
    *     the graph
    * </ul>
    */
+  @Memoized
   ImmutableSet<TypeElement> componentRequirements() {
     return SUBGRAPH_TRAVERSER
         .preOrderTraversal(this)
@@ -254,6 +256,34 @@ abstract class BindingGraph {
         subcomponentDeclarations.addAll(moduleDescriptor.subcomponentDeclarations());
         delegatesBuilder.addAll(moduleDescriptor.delegateDeclarations());
         optionalsBuilder.addAll(moduleDescriptor.optionalDeclarations());
+      }
+
+      // TODO(dpb,gak): Do we need to bind an empty Set<ReleasableReferenceManager> if there are
+      // none?
+      for (Scope scope : componentDescriptor.releasableReferencesScopes()) {
+        // Add a binding for @ForReleasableReferences(scope) ReleasableReferenceManager.
+        explicitBindingsBuilder.add(
+            provisionBindingFactory.provideReleasableReferenceManager(scope));
+
+        /* Add a binding for Set<ReleasableReferenceManager>. Even if these are added more than
+         * once, each instance will be equal to the rest. Since they're being added to a set, there
+         * will be only one instance. */
+        explicitBindingsBuilder.add(
+            provisionBindingFactory.provideSetOfReleasableReferenceManagers());
+
+        for (AnnotationMirror metadata : scope.releasableReferencesMetadata()) {
+          // Add a binding for @ForReleasableReferences(scope) TypedReleasableReferenceManager<M>.
+          explicitBindingsBuilder.add(
+              provisionBindingFactory.provideTypedReleasableReferenceManager(
+                  scope, metadata.getAnnotationType()));
+
+          /* Add a binding for Set<TypedReleasableReferenceManager<M>>. Even if these are added more
+           * than once, each instance will be equal to the rest. Since they're being added to a set,
+           * there will be only one instance. */
+          explicitBindingsBuilder.add(
+              provisionBindingFactory.provideSetOfTypedReleasableReferenceManagers(
+                  metadata.getAnnotationType()));
+        }
       }
 
       final Resolver requestResolver =
