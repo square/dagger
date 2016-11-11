@@ -16,7 +16,6 @@
 
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
 import static com.google.auto.common.MoreElements.hasModifiers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -28,7 +27,6 @@ import static dagger.internal.codegen.BindingKey.contribution;
 import static dagger.internal.codegen.ComponentDescriptor.Kind.PRODUCTION_COMPONENT;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentContributionMethod;
 import static dagger.internal.codegen.ComponentDescriptor.isComponentProductionMethod;
-import static dagger.internal.codegen.ConfigurationAnnotations.getComponentDependencies;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_MULTIBOUND_KINDS;
 import static dagger.internal.codegen.ContributionBinding.Kind.SYNTHETIC_OPTIONAL_BINDING;
 import static dagger.internal.codegen.Key.indexByKey;
@@ -54,7 +52,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeTraverser;
-import dagger.Component;
 import dagger.Reusable;
 import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
@@ -62,7 +59,6 @@ import dagger.internal.codegen.ContributionBinding.Kind;
 import dagger.internal.codegen.Key.HasKey;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
-import dagger.producers.ProductionComponent;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -117,8 +113,8 @@ abstract class BindingGraph {
 
   /**
    * Returns the set of modules that are owned by this graph regardless of whether or not any of
-   * their bindings are used in this graph. For graphs representing top-level {@link Component
-   * components}, this set will be the same as
+   * their bindings are used in this graph. For graphs representing top-level {@link
+   * dagger.Component components}, this set will be the same as
    * {@linkplain ComponentDescriptor#transitiveModules the component's transitive modules}. For
    * {@linkplain Subcomponent subcomponents}, this set will be the transitive modules that are not
    * owned by any of their ancestors.
@@ -205,17 +201,11 @@ abstract class BindingGraph {
       ImmutableSet.Builder<OptionalBindingDeclaration> optionalsBuilder = ImmutableSet.builder();
 
       // binding for the component itself
-      TypeElement componentDefinitionType = componentDescriptor.componentDefinitionType();
-      explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDefinitionType));
+      explicitBindingsBuilder.add(
+          provisionBindingFactory.forComponent(componentDescriptor.componentDefinitionType()));
 
       // Collect Component dependencies.
-      Optional<AnnotationMirror> componentMirror =
-          getAnnotationMirror(componentDefinitionType, Component.class)
-              .or(getAnnotationMirror(componentDefinitionType, ProductionComponent.class));
-      ImmutableSet<TypeElement> componentDependencyTypes = componentMirror.isPresent()
-          ? MoreTypes.asTypeElements(getComponentDependencies(componentMirror.get()))
-          : ImmutableSet.<TypeElement>of();
-      for (TypeElement componentDependency : componentDependencyTypes) {
+      for (TypeElement componentDependency : componentDescriptor.dependencies()) {
         explicitBindingsBuilder.add(provisionBindingFactory.forComponent(componentDependency));
         List<ExecutableElement> dependencyMethods =
             ElementFilter.methodsIn(elements.getAllMembers(componentDependency));
