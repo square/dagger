@@ -44,6 +44,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <android.support.version>24.2.0</android.support.version>
+    <android.latest.version>25</android.latest.version>
   </properties>
 
   <scm>
