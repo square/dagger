@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.InjectionAnnotations.injectedConstructors;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.INJECT_MEMBERS;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 
 import com.google.auto.common.MoreElements;
@@ -235,7 +234,7 @@ final class InjectBindingRegistry {
       ProvisionBinding binding =
           provisionBindingFactory.forInjectConstructor(constructorElement, resolvedType);
       registerBinding(binding, warnIfNotAlreadyGenerated);
-      if (membersInjectionBindingFactory.hasInjectedMembers(type)) {
+      if (membersInjectionBindingFactory.hasInjectedMembersIn(type)) {
         tryRegisterMembersInjectedType(typeElement, resolvedType, warnIfNotAlreadyGenerated);
       }
       return Optional.of(binding);
@@ -267,7 +266,7 @@ final class InjectBindingRegistry {
       MembersInjectionBinding binding =
           membersInjectionBindingFactory.forInjectedType(type, resolvedType);
       registerBinding(binding, warnIfNotAlreadyGenerated);
-      if (binding.parentKey().isPresent() && binding.injectionStrategy().equals(INJECT_MEMBERS)) {
+      if (binding.parentKey().isPresent() && !binding.injectionSites().isEmpty()) {
         getOrFindMembersInjectionBinding(binding.parentKey().get());
       }
       return Optional.of(binding);
