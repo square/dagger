@@ -62,9 +62,8 @@ public final class ComponentProcessor extends BasicAnnotationProcessor {
     Messager messager = processingEnv.getMessager();
     Types types = processingEnv.getTypeUtils();
     Elements elements = processingEnv.getElementUtils();
-    Filer filer = new FormattingFiler(processingEnv.getFiler());
-
     CompilerOptions compilerOptions = CompilerOptions.create(processingEnv, elements);
+    Filer filer =  new FormattingFiler(processingEnv.getFiler());
 
     KeyFormatter keyFormatter = new KeyFormatter();
     MethodSignatureFormatter methodSignatureFormatter = new MethodSignatureFormatter(types);
