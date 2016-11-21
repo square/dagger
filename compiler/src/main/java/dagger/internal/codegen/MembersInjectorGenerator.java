@@ -16,18 +16,21 @@
 
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.getPackage;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static com.squareup.javapoet.TypeName.VOID;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
+import static dagger.internal.codegen.Accessibility.isElementAccessibleFrom;
+import static dagger.internal.codegen.Accessibility.isTypeAccessibleFrom;
 import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.AnnotationSpecs.suppressWarnings;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
+import static dagger.internal.codegen.SourceFiles.generateBindingFieldsForDependencies;
 import static dagger.internal.codegen.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.SourceFiles.parameterizedGeneratedTypeNameForBinding;
 import static dagger.internal.codegen.TypeNames.membersInjectorOf;
@@ -62,12 +65,7 @@ import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.inject.Provider;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.type.ArrayType;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeVisitor;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.SimpleTypeVisitor7;
 
 /**
  * Generates {@link MembersInjector} implementations from {@link MembersInjectionBinding} instances.
@@ -103,7 +101,10 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       return Optional.absent();
     }
     // We don't want to write out resolved bindings -- we want to write out the generic version.
-    checkState(!binding.unresolved().isPresent());
+    checkState(
+        !binding.unresolved().isPresent(),
+        "tried to generate a MembersInjector for a binding of a resolved generic type: %s",
+        binding);
 
     ImmutableList<TypeVariableName> typeParameters = bindingTypeElementTypeVariableNames(binding);
     TypeSpec.Builder injectorTypeBuilder =
@@ -117,7 +118,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
 
     MethodSpec.Builder injectMembersBuilder =
         methodBuilder("injectMembers")
-            .returns(TypeName.VOID)
+            .returns(VOID)
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(injectedTypeName, "instance")
@@ -128,8 +129,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
                 "Cannot inject members into a null reference")
             .addCode("}");
 
-    ImmutableMap<BindingKey, FrameworkField> fields =
-        SourceFiles.generateBindingFieldsForDependencies(binding);
+    ImmutableMap<BindingKey, FrameworkField> fields = generateBindingFieldsForDependencies(binding);
 
     ImmutableMap.Builder<BindingKey, FieldSpec> dependencyFieldsBuilder = ImmutableMap.builder();
 
@@ -141,7 +141,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     MethodSpec.Builder createMethodBuilder =
         methodBuilder("create")
             .returns(implementedType)
-            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+            .addModifiers(PUBLIC, STATIC)
             .addTypeVariables(typeParameters);
 
     createMethodBuilder.addCode(
@@ -151,13 +151,13 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     boolean usesRawFrameworkTypes = false;
     UniqueNameSet fieldNames = new UniqueNameSet();
     for (Entry<BindingKey, FrameworkField> fieldEntry : fields.entrySet()) {
-      BindingKey bindingKey = fieldEntry.getKey();
+      BindingKey dependencyBindingKey = fieldEntry.getKey();
       FrameworkField bindingField = fieldEntry.getValue();
 
       // If the dependency type is not visible to this members injector, then use the raw framework
       // type for the field.
       boolean useRawFrameworkType =
-          !VISIBLE_TO_MEMBERS_INJECTOR.visit(bindingKey.key().type(), binding);
+          !isTypeAccessibleFrom(dependencyBindingKey.key().type(), generatedTypeName.packageName());
 
       String fieldName = fieldNames.getUniqueName(bindingField.name());
       TypeName fieldType =
@@ -182,7 +182,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       injectorTypeBuilder.addField(field);
       constructorBuilder.addStatement("assert $N != null", field);
       constructorBuilder.addStatement("this.$N = $N", field, field);
-      dependencyFieldsBuilder.put(bindingKey, field);
+      dependencyFieldsBuilder.put(dependencyBindingKey, field);
       constructorInvocationParameters.add(CodeBlock.of("$N", field));
     }
     createMethodBuilder.addCode(CodeBlocks.join(constructorInvocationParameters.build(), ", "));
@@ -196,7 +196,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     List<MethodSpec> injectMethodsForSubclasses = new ArrayList<>();
     for (InjectionSite injectionSite : binding.injectionSites()) {
       injectMembersBuilder.addCode(
-          visibleToMembersInjector(binding, injectionSite.element())
+          isElementAccessibleFrom(injectionSite.element(), generatedTypeName.packageName())
               ? directInjectMemberCodeBlock(binding, dependencyFields, injectionSite)
               : delegateInjectMemberCodeBlock(dependencyFields, injectionSite));
       if (!injectionSite.element().getModifiers().contains(PUBLIC)
@@ -217,22 +217,9 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     }
 
     injectorTypeBuilder.addMethod(injectMembersBuilder.build());
-    for (MethodSpec methodSpec : injectMethodsForSubclasses) {
-      injectorTypeBuilder.addMethod(methodSpec);
-    }
+    injectMethodsForSubclasses.forEach(injectorTypeBuilder::addMethod);
 
     return Optional.of(injectorTypeBuilder);
-  }
-
-  /**
-   * Returns {@code true} if {@code element} is visible to the members injector for {@code binding}.
-   */
-  // TODO(dpb,gak): Make sure that all cases are covered here. E.g., what if element is public but
-  // enclosed in a package-private element?
-  private static boolean visibleToMembersInjector(
-      MembersInjectionBinding binding, Element element) {
-    return getPackage(element).equals(getPackage(binding.membersInjectedType()))
-        || element.getModifiers().contains(PUBLIC);
   }
 
   /**
@@ -304,7 +291,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     return CodeBlock.of("(($T) instance)", injectionSiteName);
   }
 
-  private String injectionSiteDelegateMethodName(Element injectionSiteElement) {
+  private static String injectionSiteDelegateMethodName(Element injectionSiteElement) {
     return "inject"
         + CaseFormat.LOWER_CAMEL.to(
             CaseFormat.UPPER_CAMEL, injectionSiteElement.getSimpleName().toString());
@@ -379,17 +366,4 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     }
     return parameterName.toString();
   }
-
-  private static final TypeVisitor<Boolean, MembersInjectionBinding> VISIBLE_TO_MEMBERS_INJECTOR =
-      new SimpleTypeVisitor7<Boolean, MembersInjectionBinding>(true) {
-        @Override
-        public Boolean visitArray(ArrayType t, MembersInjectionBinding p) {
-          return visit(t.getComponentType(), p);
-        }
-
-        @Override
-        public Boolean visitDeclared(DeclaredType t, MembersInjectionBinding p) {
-          return visibleToMembersInjector(p, t.asElement());
-        }
-      };
 }

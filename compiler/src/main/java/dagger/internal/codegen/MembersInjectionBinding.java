@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreTypes.nonObjectSuperclass;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -61,7 +62,7 @@ import javax.lang.model.util.Types;
 abstract class MembersInjectionBinding extends Binding {
   @Override
   Optional<Element> bindingElement() {
-    return Optional.<Element>of(membersInjectedType());
+    return Optional.of(membersInjectedType());
   }
 
   abstract TypeElement membersInjectedType();
@@ -83,15 +84,6 @@ abstract class MembersInjectionBinding extends Binding {
    */
   abstract Optional<Key> parentKey();
 
-  enum Strategy {
-    NO_OP,
-    INJECT_MEMBERS,
-  }
-
-  Strategy injectionStrategy() {
-    return injectionSites().isEmpty() ? Strategy.NO_OP : Strategy.INJECT_MEMBERS;
-  }
-
   @Override
   public BindingType bindingType() {
     return BindingType.MEMBERS_INJECTION;
@@ -101,7 +93,8 @@ abstract class MembersInjectionBinding extends Binding {
    * Returns {@code true} if any of this binding's injection sites are directly on the bound type.
    */
   boolean hasLocalInjectionSites() {
-    return FluentIterable.from(injectionSites())
+    return injectionSites()
+        .stream()
         .anyMatch(
             injectionSite ->
                 injectionSite.element().getEnclosingElement().equals(membersInjectedType()));
@@ -170,7 +163,7 @@ abstract class MembersInjectionBinding extends Binding {
     }
 
     /** Returns true if the type has some injected members in itself or any of its super classes. */
-    boolean hasInjectedMembers(DeclaredType declaredType) {
+    boolean hasInjectedMembersIn(DeclaredType declaredType) {
       return !getInjectionSites(declaredType).isEmpty();
     }
 
@@ -199,7 +192,7 @@ abstract class MembersInjectionBinding extends Binding {
               .toSet();
 
       Optional<Key> parentKey =
-          MoreTypes.nonObjectSuperclass(types, elements, declaredType)
+          nonObjectSuperclass(types, elements, declaredType)
               .transform(keyFactory::forMembersInjectedType);
 
       Key key = keyFactory.forMembersInjectedType(declaredType);
@@ -210,9 +203,8 @@ abstract class MembersInjectionBinding extends Binding {
           typeElement,
           hasNonDefaultTypeParameters(typeElement, key.type(), types)
               ? Optional.of(
-                  forInjectedType(
-                      MoreTypes.asDeclared(typeElement.asType()), Optional.<TypeMirror>absent()))
-              : Optional.<MembersInjectionBinding>absent(),
+                  forInjectedType(MoreTypes.asDeclared(typeElement.asType()), Optional.absent()))
+              : Optional.absent(),
           injectionSites,
           parentKey);
     }
@@ -223,7 +215,7 @@ abstract class MembersInjectionBinding extends Binding {
       SetMultimap<String, ExecutableElement> overriddenMethodMap = LinkedHashMultimap.create();
       for (Optional<DeclaredType> currentType = Optional.of(declaredType);
           currentType.isPresent();
-          currentType = MoreTypes.nonObjectSuperclass(types, elements, currentType.get())) {
+          currentType = nonObjectSuperclass(types, elements, currentType.get())) {
         final DeclaredType type = currentType.get();
         ancestors.add(MoreElements.asType(type.asElement()));
         for (Element enclosedElement : type.asElement().getEnclosedElements()) {
@@ -234,7 +226,7 @@ abstract class MembersInjectionBinding extends Binding {
             if (shouldBeInjected(injectionSite.element(), overriddenMethodMap)) {
               injectionSites.add(injectionSite);
             }
-            if (injectionSite.kind() == InjectionSite.Kind.METHOD) {
+            if (injectionSite.kind().equals(InjectionSite.Kind.METHOD)) {
               ExecutableElement injectionSiteMethod =
                   MoreElements.asExecutable(injectionSite.element());
               overriddenMethodMap.put(

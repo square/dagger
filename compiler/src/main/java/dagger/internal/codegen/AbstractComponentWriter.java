@@ -42,7 +42,6 @@ import static dagger.internal.codegen.MemberSelect.emptySetProvider;
 import static dagger.internal.codegen.MemberSelect.localField;
 import static dagger.internal.codegen.MemberSelect.noOpMembersInjector;
 import static dagger.internal.codegen.MemberSelect.staticMethod;
-import static dagger.internal.codegen.MembersInjectionBinding.Strategy.NO_OP;
 import static dagger.internal.codegen.Scope.reusableScope;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
@@ -708,7 +707,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
         Optional<MembersInjectionBinding> membersInjectionBinding =
             resolvedBindings.membersInjectionBinding();
         if (membersInjectionBinding.isPresent()
-            && membersInjectionBinding.get().injectionStrategy().equals(NO_OP)) {
+            && membersInjectionBinding.get().injectionSites().isEmpty()) {
           return Optional.of(noOpMembersInjector(membersInjectionBinding.get().key().type()));
         }
         break;
@@ -974,7 +973,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
     MembersInjectionBinding binding =
         graph.resolvedBindings().get(bindingKey).membersInjectionBinding().get();
 
-    if (binding.injectionStrategy().equals(MembersInjectionBinding.Strategy.NO_OP)) {
+    if (binding.injectionSites().isEmpty()) {
       return Optional.absent();
     }
 
@@ -1249,17 +1248,12 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
   }
 
   private CodeBlock initializeMembersInjectorForBinding(MembersInjectionBinding binding) {
-    switch (binding.injectionStrategy()) {
-      case NO_OP:
-        return CodeBlock.of("$T.noOp()", MEMBERS_INJECTORS);
-      case INJECT_MEMBERS:
-        return CodeBlock.of(
+    return binding.injectionSites().isEmpty()
+        ? CodeBlock.of("$T.noOp()", MEMBERS_INJECTORS)
+        : CodeBlock.of(
             "$T.create($L)",
             membersInjectorNameForType(binding.membersInjectedType()),
             makeParametersCodeBlock(getDependencyArguments(binding)));
-      default:
-        throw new AssertionError();
-    }
   }
 
   /**
