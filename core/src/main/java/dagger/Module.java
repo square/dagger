@@ -15,10 +15,12 @@
  */
 package dagger;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import javax.inject.Singleton;
 
 /**
  * Annotates a class that contributes to the object graph.
@@ -52,6 +54,9 @@ public @interface Module {
    */
   Class<?>[] injects() default { };
   Class<?>[] staticInjections() default { };
+
+  /** TODO doc this fool */
+  Class<? extends Annotation> scope() default Singleton.class;
 
   /**
    * True if {@code @Provides} methods from this module are permitted to
