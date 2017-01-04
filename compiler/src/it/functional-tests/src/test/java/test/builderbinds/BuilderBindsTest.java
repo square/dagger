@@ -33,6 +33,7 @@ public final class BuilderBindsTest {
     TestComponent component =
         DaggerTestComponent.builder()
             .count(5)
+            .l(10L)
             .input("foo")
             .nullableInput("bar")
             .listOfString(Arrays.asList("x", "y", "z"))
@@ -48,6 +49,7 @@ public final class BuilderBindsTest {
     TestComponent component =
         DaggerTestComponent.builder()
             .count(5)
+            .l(10L)
             .input("foo")
             .nullableInput(null)
             .listOfString(Collections.<String>emptyList())
@@ -61,7 +63,7 @@ public final class BuilderBindsTest {
   @Test
   public void builderBindsNonNullableWithNull() {
     try {
-      DaggerTestComponent.builder().count(5).input(null);
+      DaggerTestComponent.builder().count(5).l(10L).input(null);
       fail("expected NullPointerException");
     } catch (NullPointerException expected) {
     }
@@ -71,6 +73,7 @@ public final class BuilderBindsTest {
   public void builderBindsPrimitiveNotSet() {
     try {
       DaggerTestComponent.builder()
+          .l(10L)
           .input("foo")
           .nullableInput("bar")
           .listOfString(Collections.<String>emptyList())
@@ -85,6 +88,7 @@ public final class BuilderBindsTest {
     try {
       DaggerTestComponent.builder()
           .count(5)
+          .l(10L)
           .nullableInput("foo")
           .listOfString(Collections.<String>emptyList())
           .build();
@@ -98,6 +102,7 @@ public final class BuilderBindsTest {
     TestComponent component =
         DaggerTestComponent.builder()
             .count(5)
+            .l(10L)
             .input("foo")
             .listOfString(Collections.<String>emptyList())
             .build();

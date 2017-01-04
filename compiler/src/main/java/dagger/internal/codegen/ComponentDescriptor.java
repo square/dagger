@@ -698,7 +698,8 @@ abstract class ComponentDescriptor {
             dependencyRequestFactory.forRequiredResolvedVariable(
                 getOnlyElement(method.getParameters()),
                 getOnlyElement(resolvedType.getParameterTypes()));
-        return ComponentRequirement.forBinding(request.key(), request.isNullable());
+        return ComponentRequirement.forBinding(
+            request.key(), request.isNullable(), method.getSimpleName().toString());
       }
 
       TypeMirror type = getOnlyElement(resolvedType.getParameterTypes());

@@ -25,6 +25,8 @@ import javax.inject.Named;
 interface TestComponent {
   int count();
 
+  long l();
+
   @Named("input")
   String input();
 
@@ -38,6 +40,9 @@ interface TestComponent {
   interface Builder {
     @BindsInstance
     Builder count(int count);
+
+    @BindsInstance
+    Builder l(long l);
 
     @BindsInstance
     Builder input(@Named("input") String input);

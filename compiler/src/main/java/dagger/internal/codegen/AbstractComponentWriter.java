@@ -375,7 +375,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
     ImmutableMap.Builder<ComponentRequirement, FieldSpec> builderFields = ImmutableMap.builder();
     for (ComponentRequirement componentRequirement : graph.componentRequirements()) {
       String contributionName =
-          builderFieldNames.getUniqueName(simpleVariableName(componentRequirement.typeElement()));
+          builderFieldNames.getUniqueName(componentRequirement.variableName());
       FieldSpec builderField =
           FieldSpec.builder(TypeName.get(componentRequirement.type()), contributionName, PRIVATE)
               .build();

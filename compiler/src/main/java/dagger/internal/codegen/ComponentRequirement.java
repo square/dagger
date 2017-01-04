@@ -16,7 +16,9 @@
 
 package dagger.internal.codegen;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static dagger.internal.codegen.SourceFiles.simpleVariableName;
 import static dagger.internal.codegen.Util.componentCanMakeNewInstances;
 import static dagger.internal.codegen.Util.requiresAPassedInstance;
 
@@ -103,12 +105,16 @@ abstract class ComponentRequirement {
   /** The key for this requirement, if one is available. */
   abstract Optional<Key> key();
 
+  /** Returns the name for this requirement that could be used as a variable. */
+  abstract String variableName();
+
   static ComponentRequirement forDependency(TypeMirror type) {
     return new AutoValue_ComponentRequirement(
         Kind.DEPENDENCY,
         MoreTypes.equivalence().wrap(checkNotNull(type)),
         Optional.empty(),
-        Optional.empty());
+        Optional.empty(),
+        simpleVariableName(MoreTypes.asTypeElement(type)));
   }
 
   static ComponentRequirement forModule(TypeMirror type) {
@@ -116,18 +122,24 @@ abstract class ComponentRequirement {
         Kind.MODULE,
         MoreTypes.equivalence().wrap(checkNotNull(type)),
         Optional.empty(),
-        Optional.empty());
+        Optional.empty(),
+        simpleVariableName(MoreTypes.asTypeElement(type)));
   }
 
-  static ComponentRequirement forBinding(Key key, boolean nullable) {
+  static ComponentRequirement forBinding(Key key, boolean nullable, String variableName) {
     return new AutoValue_ComponentRequirement(
         Kind.BINDING,
         key.wrappedType(),
         nullable ? Optional.of(NullPolicy.ALLOW) : Optional.empty(),
-        Optional.of(key));
+        Optional.of(key),
+        variableName);
   }
 
   static ComponentRequirement forBinding(ContributionBinding binding) {
-    return forBinding(binding.key(), binding.nullableType().isPresent());
+    checkArgument(binding.bindingKind().equals(ContributionBinding.Kind.BUILDER_BINDING));
+    return forBinding(
+        binding.key(),
+        binding.nullableType().isPresent(),
+        binding.bindingElement().get().getSimpleName().toString());
   }
 }
