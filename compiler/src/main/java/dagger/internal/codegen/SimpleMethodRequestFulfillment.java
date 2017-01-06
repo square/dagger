@@ -77,6 +77,12 @@ final class SimpleMethodRequestFulfillment extends RequestFulfillment {
     }
   }
 
+  @Override
+  CodeBlock getSnippetForFrameworkDependency(
+      FrameworkDependency frameworkDependency, ClassName requestingClass) {
+    return providerDelegate.getSnippetForFrameworkDependency(frameworkDependency, requestingClass);
+  }
+
   private CodeBlock invokeMethodOrProxy(ClassName requestingClass) {
     ExecutableElement bindingElement = asExecutable(provisionBinding.bindingElement().get());
     return requiresProxyAccess(bindingElement, requestingClass.packageName())

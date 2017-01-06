@@ -301,16 +301,28 @@ abstract class DependencyRequest {
     }
 
     /**
-     * Creates a implicit {@link DependencyRequest} for {@code mapOfFactoryKey}.
+     * Creates a implicit {@link DependencyRequest} for a {@link Provider} of {@code
+     * mapOfFactoryKey}.
      *
      * @param mapOfFactoryKey a key equivalent to {@code mapOfValueRequest}'s key, whose type is
      *     {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}
      */
-    DependencyRequest forImplicitMapBinding(Key mapOfFactoryKey) {
+    DependencyRequest providerForImplicitMapBinding(Key mapOfFactoryKey) {
       return DependencyRequest.builder()
           .kind(Kind.PROVIDER)
           .key(mapOfFactoryKey)
           .build();
+    }
+
+    /**
+     * Creates a implicit {@link DependencyRequest} for a {@link Producer} of {@code
+     * mapOfFactoryKey}.
+     *
+     * @param mapOfFactoryKey a key equivalent to {@code mapOfValueRequest}'s key, whose type is
+     *     {@code Map<K, Provider<V>>} or {@code Map<K, Producer<V>>}
+     */
+    DependencyRequest producerForImplicitMapBinding(Key mapOfFactoryKey) {
+      return DependencyRequest.builder().kind(Kind.PRODUCER).key(mapOfFactoryKey).build();
     }
 
     /**

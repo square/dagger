@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
+import static dagger.internal.codegen.BindingType.PRODUCTION;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -37,5 +38,15 @@ final class ProducerFieldRequestFulfillment extends RequestFulfillment {
       DependencyRequest request, ClassName requestingClass) {
     return FrameworkType.PRODUCER.to(
         request.kind(), producerFieldSelect.getExpressionFor(requestingClass));
+  }
+
+  @Override
+  CodeBlock getSnippetForFrameworkDependency(
+      FrameworkDependency frameworkDependency, ClassName requestingClass) {
+    checkArgument(
+        frameworkDependency.bindingType().equals(PRODUCTION),
+        "%s is not a production dependency",
+        frameworkDependency);
+    return producerFieldSelect.getExpressionFor(requestingClass);
   }
 }

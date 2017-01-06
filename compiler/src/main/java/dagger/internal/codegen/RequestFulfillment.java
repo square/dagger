@@ -43,4 +43,11 @@ abstract class RequestFulfillment {
    */
   abstract CodeBlock getSnippetForDependencyRequest(
       DependencyRequest request, ClassName requestingClass);
+
+  /**
+   * Returns the {@link CodeBlock} that references the {@link FrameworkDependency} as accessed from
+   * the {@code requestingClass}.
+   */
+  abstract CodeBlock getSnippetForFrameworkDependency(
+      FrameworkDependency frameworkDependency, ClassName requestingClass);
 }

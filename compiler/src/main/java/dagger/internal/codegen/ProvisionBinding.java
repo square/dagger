@@ -217,7 +217,7 @@ abstract class ProvisionBinding extends ContributionBinding {
       Optional<Key> mapOfProvidersKey = keyFactory.implicitMapProviderKeyFrom(mapOfValuesKey);
       checkArgument(mapOfProvidersKey.isPresent(), "%s is not a key for Map<K, V>", mapOfValuesKey);
       DependencyRequest requestForMapOfProviders =
-          dependencyRequestFactory.forImplicitMapBinding(mapOfProvidersKey.get());
+          dependencyRequestFactory.providerForImplicitMapBinding(mapOfProvidersKey.get());
       return ProvisionBinding.builder()
           .contributionType(ContributionType.UNIQUE)
           .key(mapOfValuesKey)

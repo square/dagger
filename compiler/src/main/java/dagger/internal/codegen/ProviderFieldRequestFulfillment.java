@@ -21,6 +21,7 @@ import static dagger.internal.codegen.BindingKey.Kind.CONTRIBUTION;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import dagger.producers.internal.Producers;
 
 /** Fulfills requests for {@link ProvisionBinding} instances. */
 final class ProviderFieldRequestFulfillment extends RequestFulfillment {
@@ -37,5 +38,23 @@ final class ProviderFieldRequestFulfillment extends RequestFulfillment {
       DependencyRequest request, ClassName requestingClass) {
     return FrameworkType.PROVIDER.to(
         request.kind(), providerFieldSelect.getExpressionFor(requestingClass));
+  }
+
+  @Override
+  CodeBlock getSnippetForFrameworkDependency(
+      FrameworkDependency frameworkDependency, ClassName requestingClass) {
+    switch (frameworkDependency.bindingType()) {
+      case PROVISION:
+        return providerFieldSelect.getExpressionFor(requestingClass);
+      case MEMBERS_INJECTION:
+        throw new IllegalArgumentException();
+      case PRODUCTION:
+        return CodeBlock.of(
+            "$T.producerFromProvider($L)",
+            Producers.class,
+            providerFieldSelect.getExpressionFor(requestingClass));
+      default:
+        throw new AssertionError();
+    }
   }
 }

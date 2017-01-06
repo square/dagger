@@ -40,4 +40,11 @@ final class MembersInjectorRequestFulfillment extends RequestFulfillment {
     checkArgument(request.kind().equals(Kind.MEMBERS_INJECTOR));
     return membersInjectorFieldSelect.getExpressionFor(requestingClass);
   }
+
+  @Override
+  CodeBlock getSnippetForFrameworkDependency(
+      FrameworkDependency frameworkDependency, ClassName requestingClass) {
+    checkArgument(frameworkDependency.bindingType().equals(BindingType.MEMBERS_INJECTION));
+    return membersInjectorFieldSelect.getExpressionFor(requestingClass);
+  }
 }
