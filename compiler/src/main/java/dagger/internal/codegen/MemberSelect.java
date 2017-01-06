@@ -18,8 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.Accessibility.isTypeAccessibleFrom;
-import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.CodeBlocks.toCodeBlocks;
+import static dagger.internal.codegen.CodeBlocks.toTypeNamesCodeBlock;
 import static dagger.internal.codegen.TypeNames.FACTORY;
 import static dagger.internal.codegen.TypeNames.MAP_OF_PRODUCER_PRODUCER;
 import static dagger.internal.codegen.TypeNames.MAP_PROVIDER_FACTORY;
@@ -29,6 +28,7 @@ import static dagger.internal.codegen.TypeNames.MEMBERS_INJECTORS;
 import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.TypeName;
 import dagger.MembersInjector;
 import java.util.List;
 import java.util.Set;
@@ -174,7 +174,7 @@ abstract class MemberSelect {
         return CodeBlock.of(
             "$T.<$L>$L",
             owningClass(),
-            makeParametersCodeBlock(toCodeBlocks(typeParameters)),
+            typeParameters.stream().map(TypeName::get).collect(toTypeNamesCodeBlock()),
             methodCodeBlock);
       } else {
         return CodeBlock.of("(($T) $T.$L)", rawReturnType, owningClass(), methodCodeBlock);

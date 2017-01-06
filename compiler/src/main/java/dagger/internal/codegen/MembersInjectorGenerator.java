@@ -28,6 +28,7 @@ import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.AnnotationSpecs.suppressWarnings;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
+import static dagger.internal.codegen.CodeBlocks.toParametersCodeBlock;
 import static dagger.internal.codegen.SourceFiles.bindingTypeElementTypeVariableNames;
 import static dagger.internal.codegen.SourceFiles.frameworkTypeUsageStatement;
 import static dagger.internal.codegen.SourceFiles.generateBindingFieldsForDependencies;
@@ -160,10 +161,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
           !isTypeAccessibleFrom(dependencyBindingKey.key().type(), generatedTypeName.packageName());
 
       String fieldName = fieldNames.getUniqueName(bindingField.name());
-      TypeName fieldType =
-          useRawFrameworkType
-              ? bindingField.type().rawType
-              : bindingField.type();
+      TypeName fieldType = useRawFrameworkType ? bindingField.type().rawType : bindingField.type();
       FieldSpec.Builder fieldBuilder = FieldSpec.builder(fieldType, fieldName, PRIVATE, FINAL);
       ParameterSpec.Builder parameterBuilder = ParameterSpec.builder(fieldType, fieldName);
 
@@ -185,7 +183,9 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
       dependencyFieldsBuilder.put(dependencyBindingKey, field);
       constructorInvocationParameters.add(CodeBlock.of("$N", field));
     }
-    createMethodBuilder.addCode(CodeBlocks.join(constructorInvocationParameters.build(), ", "));
+
+    createMethodBuilder.addCode(
+        constructorInvocationParameters.build().stream().collect(toParametersCodeBlock()));
     createMethodBuilder.addCode(");");
 
     injectorTypeBuilder.addMethod(constructorBuilder.build());
@@ -222,9 +222,7 @@ final class MembersInjectorGenerator extends SourceFileGenerator<MembersInjectio
     return Optional.of(injectorTypeBuilder);
   }
 
-  /**
-   * Returns a code block that directly injects the instance's field or method.
-   */
+  /** Returns a code block that directly injects the instance's field or method. */
   private CodeBlock directInjectMemberCodeBlock(
       MembersInjectionBinding binding,
       ImmutableMap<BindingKey, FieldSpec> dependencyFields,

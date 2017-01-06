@@ -16,20 +16,114 @@
 
 package dagger.internal.codegen;
 
-import com.google.common.collect.FluentIterable;
+import static java.util.stream.StreamSupport.stream;
+
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.CodeBlock.Builder;
 import com.squareup.javapoet.TypeName;
-import java.util.Iterator;
-import java.util.Spliterator;
+import java.util.stream.Collector;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 
 final class CodeBlocks {
+  /**
+   * A {@link Collector} implementation that joins {@link CodeBlock} instances together into one
+   * separated by {@code delimiter}. For example, joining {@code String s}, {@code Object o} and
+   * {@code int i} using {@code ", "} would produce {@code String s, Object o, int i}.
+   */
+  static Collector<CodeBlock, ?, CodeBlock> joiningCodeBlocks(String delimiter) {
+    return Collector.of(
+        () -> new CodeBlockJoiner(delimiter, CodeBlock.builder()),
+        CodeBlockJoiner::add,
+        CodeBlockJoiner::merge,
+        CodeBlockJoiner::join);
+  }
+
+  /**
+   * Joins {@link CodeBlock} instances in a manner suitable for use as method parameters (or
+   * arguments). This is equivalent to {@code joiningCodeBlocks(", ")}.
+   */
+  static Collector<CodeBlock, ?, CodeBlock> toParametersCodeBlock() {
+    return joiningCodeBlocks(", ");
+  }
+
+  /**
+   * Joins {@link TypeName} instances into a {@link CodeBlock} that is a comma-separated list for
+   * use as type parameters or javadoc method arguments.
+   */
+  static Collector<TypeName, ?, CodeBlock> toTypeNamesCodeBlock() {
+    return typeNamesIntoCodeBlock(CodeBlock.builder());
+  }
+
+  /**
+   * Adds {@link TypeName} instances to the given {@link CodeBlock.Builder} in a comma-separated
+   * list for use as type parameters or javadoc method arguments.
+   */
+  static Collector<TypeName, ?, CodeBlock> typeNamesIntoCodeBlock(CodeBlock.Builder builder) {
+    return Collector.of(
+        () -> new CodeBlockJoiner(", ", builder),
+        CodeBlockJoiner::addTypeName,
+        CodeBlockJoiner::merge,
+        CodeBlockJoiner::join);
+  }
+
+  /**
+   * Concatenates {@link CodeBlock} instances separated by newlines for readability. This is
+   * equivalent to {@code joiningCodeBlocks("\n")}.
+   */
+  static Collector<CodeBlock, ?, CodeBlock> toConcatenatedCodeBlock() {
+    return joiningCodeBlocks("\n");
+  }
 
   /** Returns a comma-separated version of {@code codeBlocks} as one unified {@link CodeBlock}. */
   static CodeBlock makeParametersCodeBlock(Iterable<CodeBlock> codeBlocks) {
-    return join(codeBlocks, ", ");
+    return stream(codeBlocks.spliterator(), false).collect(toParametersCodeBlock());
+  }
+
+  private static final class CodeBlockJoiner {
+    private final String delimiter;
+    private final CodeBlock.Builder builder;
+    private boolean first = true;
+
+    CodeBlockJoiner(String delimiter, Builder builder) {
+      this.delimiter = delimiter;
+      this.builder = builder;
+    }
+
+    @CanIgnoreReturnValue
+    CodeBlockJoiner add(CodeBlock codeBlock) {
+      maybeAddDelimiter();
+      builder.add(codeBlock);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    CodeBlockJoiner addTypeName(TypeName typeName) {
+      maybeAddDelimiter();
+      builder.add("$T", typeName);
+      return this;
+    }
+
+    private void maybeAddDelimiter() {
+      if (!first) {
+        builder.add(delimiter);
+      }
+      first = false;
+    }
+
+    @CanIgnoreReturnValue
+    CodeBlockJoiner merge(CodeBlockJoiner other) {
+      CodeBlock otherBlock = other.builder.build();
+      if (!otherBlock.isEmpty()) {
+        add(otherBlock);
+      }
+      return this;
+    }
+
+    CodeBlock join() {
+      return builder.build();
+    }
   }
 
   /**
@@ -37,27 +131,7 @@ final class CodeBlocks {
    * newline.
    */
   static CodeBlock concat(Iterable<CodeBlock> codeBlocks) {
-    return join(codeBlocks, "\n");
-  }
-
-  static CodeBlock.Builder join(
-      CodeBlock.Builder builder, Iterable<CodeBlock> codeBlocks, String delimiter) {
-    Iterator<CodeBlock> iterator = codeBlocks.iterator();
-    while (iterator.hasNext()) {
-      builder.add(iterator.next());
-      if (iterator.hasNext()) {
-        builder.add(delimiter);
-      }
-    }
-    return builder;
-  }
-
-  static CodeBlock join(Iterable<CodeBlock> codeBlocks, String delimiter) {
-    return join(CodeBlock.builder(), codeBlocks, delimiter).build();
-  }
-
-  static FluentIterable<CodeBlock> toCodeBlocks(Iterable<? extends TypeMirror> typeMirrors) {
-    return FluentIterable.from(typeMirrors).transform(typeMirror -> CodeBlock.of("$T", typeMirror));
+    return stream(codeBlocks.spliterator(), false).collect(toConcatenatedCodeBlock());
   }
 
   static CodeBlock stringLiteral(String toWrap) {
@@ -83,16 +157,13 @@ final class CodeBlocks {
         throw new AssertionError(executableElement.toString());
     }
     builder.add("(");
-    Spliterator<TypeName> rawTypesSpliterator =
-        executableElement
-            .getParameters()
-            .stream()
-            .map(VariableElement::asType)
-            .map(TypeName::get)
-            .map(TypeNames::rawTypeName)
-            .spliterator();
-    rawTypesSpliterator.tryAdvance(first -> builder.add("$T", first));
-    rawTypesSpliterator.forEachRemaining(remaining -> builder.add(", $T", remaining));
+    executableElement
+        .getParameters()
+        .stream()
+        .map(VariableElement::asType)
+        .map(TypeName::get)
+        .map(TypeNames::rawTypeName)
+        .collect(typeNamesIntoCodeBlock(builder));
     return builder.add(")}").build();
   }
 
