@@ -376,7 +376,7 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
       String contributionName =
           builderFieldNames.getUniqueName(componentRequirement.variableName());
       FieldSpec builderField =
-          FieldSpec.builder(TypeName.get(componentRequirement.type()), contributionName, PRIVATE)
+          FieldSpec.builder(TypeName.get(componentRequirement.type()), contributionName)
               .build();
       componentBuilder.addField(builderField);
       builderFields.put(componentRequirement, builderField);
@@ -650,7 +650,6 @@ abstract class AbstractComponentWriter implements HasBindingMembers {
                 ? contributionBindingField.type().rawType
                 : contributionBindingField.type(),
             contributionBindingField.name());
-    contributionField.addModifiers(PRIVATE);
     if (useRawType) {
       contributionField.addAnnotation(AnnotationSpecs.suppressWarnings(RAWTYPES));
     }
