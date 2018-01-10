@@ -8,7 +8,7 @@ Deprecated – Please upgrade to Dagger 2
 ---------------------------------------
 
 Square's Dagger 1.x is deprecated in favor of [Google's Dagger 2](https://github.com/google/dagger).
-Please see [the migration guide](http://google.github.io/dagger/dagger-1-migration.html) for help
+Please see [the migration guide](https://google.github.io/dagger/dagger-1-migration.html) for help
 with the upgrade.
 
 
