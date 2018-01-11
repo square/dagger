@@ -123,30 +123,34 @@ final class ComponentProcessingStep implements ProcessingStep {
             componentValidator.validate(
                 componentTypeElement, subcomponentElements, subcomponentBuilderElements);
         validationReport.report().printMessagesTo(messager);
-        if (isClean(
+        if (!isClean(
             validationReport,
             builderReportsByComponent,
             reportsBySubcomponent,
             builderReportsBySubcomponent)) {
-          ComponentDescriptor componentDescriptor =
-              componentDescriptorFactory.forComponent(componentTypeElement);
-          ValidationReport<TypeElement> hierarchyReport =
-              componentHierarchyValidator.validate(componentDescriptor);
-          hierarchyReport.printMessagesTo(messager);
-          if (hierarchyReport.isClean()) {
-            BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
-            ValidationReport<TypeElement> graphReport =
-                bindingGraphValidator.validate(bindingGraph);
-            graphReport.printMessagesTo(messager);
-            if (graphReport.isClean()) {
-              if (!bindingGraphPlugins.isEmpty()) {
-                BindingNetwork bindingNetwork = BindingNetwork.create(bindingGraph);
-                bindingGraphPlugins.forEach(plugin -> plugin.visitGraph(bindingNetwork));
-              }
-              generateComponent(bindingGraph);
-            }
-          }
+          continue;
         }
+        ComponentDescriptor componentDescriptor =
+            componentDescriptorFactory.forComponent(componentTypeElement);
+        ValidationReport<TypeElement> hierarchyReport =
+            componentHierarchyValidator.validate(componentDescriptor);
+        hierarchyReport.printMessagesTo(messager);
+        if (!hierarchyReport.isClean()) {
+          continue;
+        }
+        BindingGraph bindingGraph = bindingGraphFactory.create(componentDescriptor);
+        ValidationReport<TypeElement> graphReport = bindingGraphValidator.validate(bindingGraph);
+        graphReport.printMessagesTo(messager);
+        if (!graphReport.isClean()) {
+          continue;
+        }
+
+        if (!bindingGraphPlugins.isEmpty()) {
+          BindingNetwork bindingNetwork = BindingNetwork.create(bindingGraph);
+          bindingGraphPlugins.forEach(plugin -> plugin.visitGraph(bindingNetwork));
+        }
+
+        generateComponent(bindingGraph);
       } catch (TypeNotPresentException e) {
         rejectedElements.add(componentTypeElement);
       }
