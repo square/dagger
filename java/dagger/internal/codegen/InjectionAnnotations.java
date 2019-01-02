@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.lang.model.util.ElementFilter.constructorsIn;
 
 import com.google.auto.common.AnnotationMirrors;
+import com.google.auto.common.SuperficialValidation;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
@@ -36,6 +37,9 @@ import javax.lang.model.element.TypeElement;
  */
 final class InjectionAnnotations {
   static Optional<AnnotationMirror> getQualifier(Element e) {
+    if (!SuperficialValidation.validateElement(e)) {
+      throw new TypeNotPresentException(e.toString(), null);
+    }
     checkNotNull(e);
     ImmutableSet<? extends AnnotationMirror> qualifierAnnotations = getQualifiers(e);
     switch (qualifierAnnotations.size()) {
