@@ -25,7 +25,7 @@ import java.util.Optional;
 import javax.inject.Qualifier;
 
 /**
- * Breaks the initialization cycle between {@link ComponentImplementation} and it's optional {@link
+ * Breaks the initialization cycle between {@link ComponentImplementation} and its optional {@link
  * ComponentCreatorImplementation}, which itself needs a {@link ComponentImplementation}.
  *
  * <p>This module takes the component implementation that is bound elsewhere with the {@link
