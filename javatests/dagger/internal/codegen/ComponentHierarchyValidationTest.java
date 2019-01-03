@@ -18,6 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
+import static dagger.internal.codegen.TestUtils.message;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
@@ -122,6 +123,48 @@ public class ComponentHierarchyValidationTest {
     Compilation compilation =
         daggerCompiler().compile(component, subcomponent, parentModule, childModule);
     assertThat(compilation).succeeded();
+  }
+
+  @Test
+  public void producerModuleRepeated() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.producers.ProductionComponent;",
+            "",
+            "@ProductionComponent(modules = RepeatedProducerModule.class)",
+            "interface Parent {",
+            "  Child child();",
+            "}");
+    JavaFileObject repeatedModule =
+        JavaFileObjects.forSourceLines(
+            "test.RepeatedProducerModule",
+            "package test;",
+            "",
+            "import dagger.producers.ProducerModule;",
+            "",
+            "@ProducerModule",
+            "interface RepeatedProducerModule {}");
+    JavaFileObject subcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.Child",
+            "package test;",
+            "",
+            "import dagger.producers.ProductionSubcomponent;",
+            "",
+            "@ProductionSubcomponent(modules = RepeatedProducerModule.class)",
+            "interface Child {}");
+    Compilation compilation = daggerCompiler().compile(component, subcomponent, repeatedModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining(
+            message(
+                "test.Child repeats @ProducerModules:",
+                "  test.Parent also installs: test.RepeatedProducerModule"))
+        .inFile(component)
+        .onLineContaining("interface Parent");
   }
 
   @Test
