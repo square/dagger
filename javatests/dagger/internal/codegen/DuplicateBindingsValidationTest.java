@@ -818,6 +818,130 @@ public class DuplicateBindingsValidationTest {
   }
 
   @Test
+  public void childProvidesConflictsWithParentInjects() {
+    assumeFalse(moduleBindingValidation);
+
+    JavaFileObject foo =
+        JavaFileObjects.forSourceLines(
+            "test.Foo",
+            "package test;",
+            "",
+            "import java.util.Set;",
+            "import javax.inject.Inject;",
+            "",
+            "final class Foo {",
+            "  @Inject Foo(Set<String> strings) {}",
+            "}");
+    JavaFileObject injected1 =
+        JavaFileObjects.forSourceLines(
+            "test.Injected1",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
+            "import java.util.Set;",
+            "",
+            "@Component(modules = Injected1.Injected1Module.class)",
+            "interface Injected1 {",
+            "  Foo foo();",
+            "  Injected2 injected2();",
+            "",
+            "  @Module",
+            "  interface Injected1Module {",
+            "    @Provides @IntoSet static String string() {",
+            "      return \"injected1\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject injected2 =
+        JavaFileObjects.forSourceLines(
+            "test.Injected2",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "import dagger.multibindings.IntoSet;",
+            "import java.util.Set;",
+            "",
+            "@Subcomponent(modules = Injected2.Injected2Module.class)",
+            "interface Injected2 {",
+            "  Foo foo();",
+            "  Provided1 provided1();",
+            "",
+            "  @Module",
+            "  interface Injected2Module {",
+            "    @Provides @IntoSet static String string() {",
+            "      return \"injected2\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject provided1 =
+        JavaFileObjects.forSourceLines(
+            "test.Provided1",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "import dagger.multibindings.IntoSet;",
+            "import java.util.Set;",
+            "",
+            "@Subcomponent(modules = Provided1.Provided1Module.class)",
+            "interface Provided1 {",
+            "  Foo foo();",
+            "  Provided2 provided2();",
+            "",
+            "  @Module",
+            "  static class Provided1Module {",
+            "    @Provides static Foo provideFoo(Set<String> strings) {",
+            "      return new Foo(strings);",
+            "    }",
+            "",
+            "    @Provides @IntoSet static String string() {",
+            "      return \"provided1\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject provided2 =
+        JavaFileObjects.forSourceLines(
+            "test.Provided2",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.Subcomponent;",
+            "import dagger.multibindings.IntoSet;",
+            "",
+            "@Subcomponent(modules = Provided2.Provided2Module.class)",
+            "interface Provided2 {",
+            "  Foo foo();",
+            "",
+            "  @Module",
+            "  static class Provided2Module {",
+            "    @Provides @IntoSet static String string() {",
+            "      return \"provided2\";",
+            "    }",
+            "  }",
+            "}");
+
+    Compilation compilation =
+        daggerCompiler().compile(foo, injected1, injected2, provided1, provided2);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .hadWarningContaining(
+            message(
+                "test.Foo is bound multiple times:",
+                "    @Inject test.Foo(Set<String>) [test.Injected1]",
+                "    @Provides test.Foo test.Provided1.Provided1Module.provideFoo(Set<String>) "
+                    + "[test.Injected1 → test.Injected2 → test.Provided1]"))
+        .inFile(injected1)
+        .onLineContaining("interface Injected1 {");
+  }
+
+  @Test
   public void grandchildBindingConflictsWithParentWithNullableViolationAsWarning() {
     JavaFileObject parentConflictsWithChild =
         JavaFileObjects.forSourceLines(

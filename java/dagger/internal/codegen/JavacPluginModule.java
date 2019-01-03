@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.ValidationType.NONE;
+import static javax.tools.Diagnostic.Kind.NOTE;
+
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.model.JavacTypes;
 import com.sun.tools.javac.util.Context;
@@ -42,17 +45,18 @@ abstract class JavacPluginModule {
     return CompilerOptions.builder()
         .usesProducers(true)
         .writeProducerNameInToken(true)
-        .nullableValidationKind(Diagnostic.Kind.NOTE)
-        .privateMemberValidationKind(Diagnostic.Kind.NOTE)
-        .staticMemberValidationKind(Diagnostic.Kind.NOTE)
+        .nullableValidationKind(NOTE)
+        .privateMemberValidationKind(NOTE)
+        .staticMemberValidationKind(NOTE)
         .ignorePrivateAndStaticInjectionForComponent(false)
-        .scopeCycleValidationType(ValidationType.NONE)
+        .scopeCycleValidationType(NONE)
         .warnIfInjectionFactoryNotGeneratedUpstream(false)
         .fastInit(false)
         .experimentalAndroidMode2(false)
         .aheadOfTimeSubcomponents(false)
-        .moduleBindingValidationType(ValidationType.NONE)
-        .moduleHasDifferentScopesDiagnosticKind(Diagnostic.Kind.NOTE)
+        .moduleBindingValidationType(NONE)
+        .moduleHasDifferentScopesDiagnosticKind(NOTE)
+        .explicitBindingConflictsWithInjectValidationType(NONE)
         .build()
         .validate();
   }

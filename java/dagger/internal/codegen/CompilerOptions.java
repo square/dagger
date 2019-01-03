@@ -109,6 +109,8 @@ abstract class CompilerOptions {
 
   abstract Diagnostic.Kind moduleHasDifferentScopesDiagnosticKind();
 
+  abstract ValidationType explicitBindingConflictsWithInjectValidationType();
+
   static Builder builder() {
     return new AutoValue_CompilerOptions.Builder()
         .headerCompilation(false)
@@ -166,6 +168,8 @@ abstract class CompilerOptions {
     Builder moduleBindingValidationType(ValidationType validationType);
 
     Builder moduleHasDifferentScopesDiagnosticKind(Diagnostic.Kind kind);
+
+    Builder explicitBindingConflictsWithInjectValidationType(ValidationType validationType);
 
     @CheckReturnValue
     CompilerOptions build();
@@ -318,6 +322,13 @@ abstract class CompilerOptions {
      */
     MODULE_HAS_DIFFERENT_SCOPES_VALIDATION(
         kindSetter(Builder::moduleHasDifferentScopesDiagnosticKind), ERROR, WARNING),
+
+    /**
+     * How to report that an explicit binding in a subcomponent conflicts with an {@code @Inject}
+     * constructor used in an ancestor component.
+     */
+    EXPLICIT_BINDING_CONFLICTS_WITH_INJECT(
+        Builder::explicitBindingConflictsWithInjectValidationType, WARNING, ERROR, NONE),
     ;
 
     static BiConsumer<Builder, ValidationType> kindSetter(
