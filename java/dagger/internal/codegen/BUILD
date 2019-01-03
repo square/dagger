@@ -340,6 +340,7 @@ java_library(
         "BindingMethodValidatorsModule.java",
         "ComponentGenerator.java",
         "ComponentHjarProcessingStep.java",
+        "ComponentImplementationBuilder.java",
         "ComponentImplementationFactory.java",
         "ComponentProcessingStep.java",
         "ComponentProcessor.java",

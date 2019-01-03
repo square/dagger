@@ -18,9 +18,8 @@ package dagger.internal.codegen;
 
 import dagger.BindsInstance;
 import dagger.Subcomponent;
-import dagger.internal.codegen.ComponentImplementationFactory.ComponentImplementationBuilder;
-import dagger.internal.codegen.ComponentImplementationFactory.RootComponentImplementationBuilder;
-import dagger.internal.codegen.ComponentImplementationFactory.SubcomponentImplementationBuilder;
+import dagger.internal.codegen.ComponentImplementationBuilder.RootComponentImplementationBuilder;
+import dagger.internal.codegen.ComponentImplementationBuilder.SubcomponentImplementationBuilder;
 import dagger.internal.codegen.ConfigureCreatorImplementationModule.Unconfigured;
 import java.util.Optional;
 
