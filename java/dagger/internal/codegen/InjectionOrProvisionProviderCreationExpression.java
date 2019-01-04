@@ -21,9 +21,7 @@ import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 import static dagger.model.BindingKind.INJECTION;
 
 import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.TypeName;
 import dagger.internal.codegen.FrameworkFieldInitializer.FrameworkInstanceCreationExpression;
-import java.util.Optional;
 import javax.inject.Provider;
 
 /**
@@ -60,10 +58,5 @@ final class InjectionOrProvisionProviderCreationExpression
     } else {
       return createFactory;
     }
-  }
-
-  @Override
-  public Optional<TypeName> specificType() {
-    return Optional.of(generatedClassNameForBinding(binding));
   }
 }

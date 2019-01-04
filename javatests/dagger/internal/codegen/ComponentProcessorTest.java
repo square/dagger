@@ -1201,7 +1201,7 @@ public class ComponentProcessorTest {
                 "public final class DaggerBComponent implements BComponent {")
             .addLinesIn(
                 DEFAULT_MODE,
-                "  private test_AComponent_a aProvider;")
+                "  private Provider<A> aProvider;")
             .addLinesIn(
                 FAST_INIT_MODE,
                 "  private volatile Provider<A> aProvider;",

@@ -20,9 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.SourceFiles.generatedClassNameForBinding;
 
 import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.TypeName;
 import dagger.internal.codegen.FrameworkFieldInitializer.FrameworkInstanceCreationExpression;
-import java.util.Optional;
 
 /**
  * A {@link dagger.producers.Producer} creation expression for a {@link
@@ -46,10 +44,5 @@ final class ProducerCreationExpression implements FrameworkInstanceCreationExpre
         "$T.create($L)",
         generatedClassNameForBinding(binding),
         componentBindingExpressions.getCreateMethodArgumentsCodeBlock(binding));
-  }
-
-  @Override
-  public Optional<TypeName> specificType() {
-    return Optional.of(generatedClassNameForBinding(binding));
   }
 }

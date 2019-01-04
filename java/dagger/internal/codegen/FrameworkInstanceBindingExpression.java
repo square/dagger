@@ -54,8 +54,7 @@ abstract class FrameworkInstanceBindingExpression extends BindingExpression {
     MemberSelect memberSelect = frameworkInstanceSupplier.memberSelect();
     TypeMirror contributedType = resolvedBindings.contributionBinding().contributedType();
     TypeMirror expressionType =
-        frameworkInstanceSupplier.specificType().isPresent()
-                || isTypeAccessibleFrom(contributedType, requestingClass.packageName())
+        isTypeAccessibleFrom(contributedType, requestingClass.packageName())
                 || isInlinedFactoryCreation(memberSelect)
             ? types.wrapType(contributedType, frameworkType().frameworkClass())
             : rawFrameworkType();

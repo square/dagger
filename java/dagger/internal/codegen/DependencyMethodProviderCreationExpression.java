@@ -33,7 +33,6 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import dagger.internal.codegen.FrameworkFieldInitializer.FrameworkInstanceCreationExpression;
-import java.util.Optional;
 import javax.lang.model.element.Element;
 
 /**
@@ -122,10 +121,5 @@ final class DependencyMethodProviderCreationExpression
 
   private Element provisionMethod() {
     return binding.bindingElement().get();
-  }
-
-  @Override
-  public Optional<TypeName> specificType() {
-    return Optional.of(factoryClassName());
   }
 }

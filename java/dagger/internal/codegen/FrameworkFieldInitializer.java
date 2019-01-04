@@ -44,14 +44,6 @@ class FrameworkFieldInitializer implements FrameworkInstanceSupplier {
     CodeBlock creationExpression();
 
     /**
-     * Returns the type of the creation expression when it is a specific factory type. This
-     * implementation returns {@link Optional#empty()}.
-     */
-    default Optional<TypeName> specificType() {
-      return Optional.empty();
-    }
-
-    /**
      * Returns the framework class to use for the field, if different from the one implied by the
      * binding. This implementation returns {@link Optional#empty()}.
      */
@@ -148,26 +140,14 @@ class FrameworkFieldInitializer implements FrameworkInstanceSupplier {
         FrameworkField.forResolvedBindings(
             resolvedBindings, frameworkInstanceCreationExpression.alternativeFrameworkClass());
 
-    TypeName fieldType;
-    boolean rawTypeUsed = false;
-    if (!isReplacingSuperclassFrameworkInstance()
-        && !fieldInitializationState.equals(InitializationState.DELEGATED)
-        && specificType().isPresent()) {
-      // For some larger components, this causes javac to compile much faster by getting the
-      // field type to exactly match the type of the expression being assigned to it.
-      fieldType = specificType().get();
-    } else if (useRawType) {
-      fieldType = contributionBindingField.type().rawType;
-      rawTypeUsed = true;
-    } else {
-      fieldType = contributionBindingField.type();
-    }
+    TypeName fieldType =
+        useRawType ? contributionBindingField.type().rawType : contributionBindingField.type();
 
     FieldSpec.Builder contributionField =
         FieldSpec.builder(
             fieldType, componentImplementation.getUniqueFieldName(contributionBindingField.name()));
     contributionField.addModifiers(PRIVATE);
-    if (rawTypeUsed) {
+    if (useRawType) {
       contributionField.addAnnotation(AnnotationSpecs.suppressWarnings(RAWTYPES));
     }
 
@@ -213,12 +193,6 @@ class FrameworkFieldInitializer implements FrameworkInstanceSupplier {
             .alternativeFrameworkClass()
             .map(TypeNames.PROVIDER::equals)
             .orElse(true);
-  }
-
-  /** Returns the type of the instance when it is a specific factory type. */
-  @Override
-  public Optional<TypeName> specificType() {
-    return frameworkInstanceCreationExpression.specificType();
   }
 
   /** Initialization state for a factory field. */
