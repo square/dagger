@@ -53,7 +53,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * Utility methods related to dagger configuration annotations (e.g.: {@link Component}
@@ -174,7 +173,7 @@ final class ConfigurationAnnotations {
    */
   @Deprecated
   static ImmutableSet<TypeElement> getTransitiveModules(
-      Types types, DaggerElements elements, Iterable<TypeElement> seedModules) {
+      DaggerTypes types, DaggerElements elements, Iterable<TypeElement> seedModules) {
     TypeMirror objectType = elements.getTypeElement(Object.class).asType();
     Queue<TypeElement> moduleQueue = new ArrayDeque<>();
     Iterables.addAll(moduleQueue, seedModules);
@@ -216,8 +215,11 @@ final class ConfigurationAnnotations {
   }
 
   /** Traverses includes from superclasses and adds them into the builder. */
-  private static void addIncludesFromSuperclasses(Types types, TypeElement element,
-      ImmutableSet.Builder<TypeElement> builder, TypeMirror objectType) {
+  private static void addIncludesFromSuperclasses(
+      DaggerTypes types,
+      TypeElement element,
+      ImmutableSet.Builder<TypeElement> builder,
+      TypeMirror objectType) {
     // Also add the superclass to the queue, in case any @Module definitions were on that.
     TypeMirror superclass = element.getSuperclass();
     while (!types.isSameType(objectType, superclass)

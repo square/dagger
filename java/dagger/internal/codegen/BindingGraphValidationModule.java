@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.inject.Singleton;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** Binds the set of {@link BindingGraphPlugin}s used to implement Dagger validation. */
 @Module
@@ -89,8 +87,8 @@ interface BindingGraphValidationModule {
   static BindingGraphPlugins validationPlugins(
       @Validation Set<BindingGraphPlugin> validationPlugins,
       Filer filer,
-      Types types,
-      Elements elements,
+      DaggerTypes types,
+      DaggerElements elements,
       @ProcessingOptions Map<String, String> processingOptions,
       DiagnosticReporterFactory diagnosticReporterFactory) {
     return new BindingGraphPlugins(
@@ -103,8 +101,8 @@ interface BindingGraphValidationModule {
   static BindingGraphPlugins moduleValidationPlugins(
       @Validation Set<BindingGraphPlugin> validationPlugins,
       Filer filer,
-      Types types,
-      Elements elements,
+      DaggerTypes types,
+      DaggerElements elements,
       @ProcessingOptions Map<String, String> processingOptions,
       DiagnosticReporterFactory diagnosticReporterFactory,
       CompilerOptions compilerOptions) {

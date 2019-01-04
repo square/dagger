@@ -70,7 +70,6 @@ import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 
 /**
  * Generates {@link Producer} implementations from {@link ProductionBinding} instances.
@@ -82,7 +81,7 @@ final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBindi
   @Inject
   ProducerFactoryGenerator(
       Filer filer,
-      Elements elements,
+      DaggerElements elements,
       SourceVersion sourceVersion,
       CompilerOptions compilerOptions,
       KeyFactory keyFactory) {

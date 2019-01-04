@@ -29,7 +29,6 @@ import java.util.Optional;
 import javax.inject.Singleton;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 
 /** Common names and convenience methods for {@link Scope}s. */
 final class Scopes {
@@ -41,17 +40,18 @@ final class Scopes {
   }
 
   /** Returns a representation for {@link ProductionScope @ProductionScope} scope. */
-  static Scope productionScope(Elements elements) {
+  static Scope productionScope(DaggerElements elements) {
     return scope(elements, ProductionScope.class);
   }
 
   /** Returns a representation for {@link Singleton @Singleton} scope. */
-  static Scope singletonScope(Elements elements) {
+  static Scope singletonScope(DaggerElements elements) {
     return scope(elements, Singleton.class);
   }
 
-  private static Scope scope(Elements elements, Class<? extends Annotation> scopeAnnotationClass) {
-    return scope(elements.getTypeElement(scopeAnnotationClass.getCanonicalName()));
+  private static Scope scope(
+      DaggerElements elements, Class<? extends Annotation> scopeAnnotationClass) {
+    return scope(elements.getTypeElement(scopeAnnotationClass));
   }
 
   /**

@@ -43,7 +43,6 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
-import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
 
@@ -52,7 +51,7 @@ import javax.tools.Diagnostic.Kind;
  * that contain them.
  */
 final class InjectValidator {
-  private final Types types;
+  private final DaggerTypes types;
   private final DaggerElements elements;
   private final CompilerOptions compilerOptions;
   private final DependencyRequestValidator dependencyRequestValidator;
@@ -60,7 +59,7 @@ final class InjectValidator {
 
   @Inject
   InjectValidator(
-      Types types,
+      DaggerTypes types,
       DaggerElements elements,
       DependencyRequestValidator dependencyRequestValidator,
       CompilerOptions compilerOptions) {
@@ -68,7 +67,7 @@ final class InjectValidator {
   }
 
   private InjectValidator(
-      Types types,
+      DaggerTypes types,
       DaggerElements elements,
       CompilerOptions compilerOptions,
       DependencyRequestValidator dependencyRequestValidator,

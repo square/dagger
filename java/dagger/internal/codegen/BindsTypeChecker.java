@@ -29,7 +29,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * Checks the assignability of one type to another, given a {@link ContributionType} context. This
@@ -38,11 +37,11 @@ import javax.lang.model.util.Types;
  * right-hand-side in generated code might be an erased type due to accessibility.
  */
 final class BindsTypeChecker {
-  private final Types types;
+  private final DaggerTypes types;
   private final DaggerElements elements;
 
   @Inject
-  BindsTypeChecker(Types types, DaggerElements elements) {
+  BindsTypeChecker(DaggerTypes types, DaggerElements elements) {
     this.types = types;
     this.elements = elements;
   }

@@ -49,7 +49,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic.Kind;
 
 /**
@@ -60,7 +59,7 @@ import javax.tools.Diagnostic.Kind;
  */
 @Singleton
 final class InjectBindingRegistryImpl implements InjectBindingRegistry {
-  private final Elements elements;
+  private final DaggerElements elements;
   private final DaggerTypes types;
   private final Messager messager;
   private final InjectValidator injectValidator;
@@ -128,7 +127,7 @@ final class InjectBindingRegistryImpl implements InjectBindingRegistry {
     /** Returns true if the binding needs to be generated. */
     private boolean shouldGenerateBinding(B binding, ClassName factoryName) {
       return !binding.unresolved().isPresent()
-          && elements.getTypeElement(factoryName.toString()) == null
+          && elements.getTypeElement(factoryName) == null
           && !materializedBindingKeys.contains(binding.key())
           && !bindingsRequiringGeneration.contains(binding);
     }
@@ -155,7 +154,7 @@ final class InjectBindingRegistryImpl implements InjectBindingRegistry {
 
   @Inject
   InjectBindingRegistryImpl(
-      Elements elements,
+      DaggerElements elements,
       DaggerTypes types,
       Messager messager,
       InjectValidator injectValidator,

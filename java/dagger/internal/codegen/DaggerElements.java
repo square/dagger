@@ -35,6 +35,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.graph.Traverser;
+import com.squareup.javapoet.ClassName;
 import dagger.Reusable;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
@@ -103,6 +104,11 @@ final class DaggerElements implements Elements {
   @Override
   public TypeElement getTypeElement(CharSequence name) {
     return elements.getTypeElement(name);
+  }
+
+  /** Returns the type element for a class name. */
+  TypeElement getTypeElement(ClassName className) {
+    return getTypeElement(className.withoutAnnotations().toString());
   }
 
   /**

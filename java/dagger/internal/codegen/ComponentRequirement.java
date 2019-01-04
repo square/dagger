@@ -40,8 +40,6 @@ import java.util.Optional;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** A type that a component needs an instance of. */
 @AutoValue
@@ -114,7 +112,7 @@ abstract class ComponentRequirement {
   abstract Optional<NullPolicy> overrideNullPolicy();
 
   /** The requirement's null policy. */
-  NullPolicy nullPolicy(Elements elements, Types types) {
+  NullPolicy nullPolicy(DaggerElements elements, DaggerTypes types) {
     if (overrideNullPolicy().isPresent()) {
       return overrideNullPolicy().get();
     }
@@ -131,10 +129,10 @@ abstract class ComponentRequirement {
   }
 
   /**
-   * Returns true if the passed {@link ComponentRequirement} requires a passed instance in order
-   * to be used within a component.
+   * Returns true if the passed {@link ComponentRequirement} requires a passed instance in order to
+   * be used within a component.
    */
-  boolean requiresAPassedInstance(Elements elements, Types types) {
+  boolean requiresAPassedInstance(DaggerElements elements, DaggerTypes types) {
     if (isBoundInstance()) {
       // A user has explicitly defined in their component builder they will provide an instance.
       return true;

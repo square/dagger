@@ -33,16 +33,15 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * Formats the signature of an {@link ExecutableElement} suitable for use in error messages.
  */
 final class MethodSignatureFormatter extends Formatter<ExecutableElement> {
-  private final Types types;
+  private final DaggerTypes types;
 
   @Inject
-  MethodSignatureFormatter(Types types) {
+  MethodSignatureFormatter(DaggerTypes types) {
     this.types = types;
   }
 

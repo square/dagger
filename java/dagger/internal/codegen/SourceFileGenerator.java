@@ -29,7 +29,6 @@ import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.util.Elements;
 
 /**
  * A template class that provides a framework for properly handling IO while generating source files
@@ -42,10 +41,10 @@ abstract class SourceFileGenerator<T> {
   private static final String GENERATED_COMMENTS = "https://google.github.io/dagger";
 
   private final Filer filer;
-  private final Elements elements;
+  private final DaggerElements elements;
   private final SourceVersion sourceVersion;
 
-  SourceFileGenerator(Filer filer, Elements elements, SourceVersion sourceVersion) {
+  SourceFileGenerator(Filer filer, DaggerElements elements, SourceVersion sourceVersion) {
     this.filer = checkNotNull(filer);
     this.elements = checkNotNull(elements);
     this.sourceVersion = checkNotNull(sourceVersion);

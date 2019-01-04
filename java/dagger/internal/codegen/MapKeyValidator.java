@@ -25,17 +25,16 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
-import javax.lang.model.util.Elements;
 
 /**
  * A validator for {@link MapKey} annotations.
  */
 // TODO(dpb,gak): Should unwrapped MapKeys be required to have their single member be named "value"?
 final class MapKeyValidator {
-  private final Elements elements;
+  private final DaggerElements elements;
 
   @Inject
-  MapKeyValidator(Elements elements) {
+  MapKeyValidator(DaggerElements elements) {
     this.elements = elements;
   }
 

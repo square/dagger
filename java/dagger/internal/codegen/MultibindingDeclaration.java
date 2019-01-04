@@ -33,7 +33,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * A declaration that a multibinding with a certain key is available to be injected in a component
@@ -61,11 +60,11 @@ abstract class MultibindingDeclaration extends BindingDeclaration implements Has
    * A factory for {@link MultibindingDeclaration}s.
    */
   static final class Factory {
-    private final Types types;
+    private final DaggerTypes types;
     private final KeyFactory keyFactory;
 
     @Inject
-    Factory(Types types, KeyFactory keyFactory) {
+    Factory(DaggerTypes types, KeyFactory keyFactory) {
       this.types = types;
       this.keyFactory = keyFactory;
     }

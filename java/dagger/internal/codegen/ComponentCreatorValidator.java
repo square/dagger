@@ -42,16 +42,15 @@ import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
-import javax.lang.model.util.Types;
 
 /** Validates {@link dagger.Component.Builder} annotations. */
 class ComponentCreatorValidator {
 
   private final DaggerElements elements;
-  private final Types types;
+  private final DaggerTypes types;
 
   @Inject
-  ComponentCreatorValidator(DaggerElements elements, Types types) {
+  ComponentCreatorValidator(DaggerElements elements, DaggerTypes types) {
     this.elements = elements;
     this.types = types;
   }

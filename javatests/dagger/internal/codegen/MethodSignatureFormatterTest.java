@@ -26,7 +26,6 @@ import dagger.internal.codegen.MethodSignatureFormatterTest.OuterClass.InnerClas
 import javax.inject.Singleton;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,10 +52,12 @@ public class MethodSignatureFormatterTest {
   }
 
   @Test public void methodSignatureTest() {
-    Elements elements = compilationRule.getElements();
-    TypeElement inner = elements.getTypeElement(InnerClass.class.getCanonicalName());
+    DaggerElements elements =
+        new DaggerElements(compilationRule.getElements(), compilationRule.getTypes());
+    DaggerTypes types = new DaggerTypes(compilationRule.getTypes(), elements);
+    TypeElement inner = elements.getTypeElement(InnerClass.class);
     ExecutableElement method = Iterables.getOnlyElement(methodsIn(inner.getEnclosedElements()));
-    String formatted = new MethodSignatureFormatter(compilationRule.getTypes()).format(method);
+    String formatted = new MethodSignatureFormatter(types).format(method);
     // This is gross, but it turns out that annotation order is not guaranteed when getting
     // all the AnnotationMirrors from an Element, so I have to test this chopped-up to make it
     // less brittle.

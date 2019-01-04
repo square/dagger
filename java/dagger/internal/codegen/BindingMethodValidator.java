@@ -49,13 +49,12 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /** A validator for methods that represent binding declarations. */
 abstract class BindingMethodValidator {
 
   private final DaggerElements elements;
-  private final Types types;
+  private final DaggerTypes types;
   private final DependencyRequestValidator dependencyRequestValidator;
   private final Class<? extends Annotation> methodAnnotation;
   private final ImmutableSet<? extends Class<? extends Annotation>> enclosingElementAnnotations;
@@ -73,7 +72,7 @@ abstract class BindingMethodValidator {
    */
   protected BindingMethodValidator(
       DaggerElements elements,
-      Types types,
+      DaggerTypes types,
       DependencyRequestValidator dependencyRequestValidator,
       Class<? extends Annotation> methodAnnotation,
       Class<? extends Annotation> enclosingElementAnnotation,
@@ -100,7 +99,7 @@ abstract class BindingMethodValidator {
    */
   protected BindingMethodValidator(
       DaggerElements elements,
-      Types types,
+      DaggerTypes types,
       Class<? extends Annotation> methodAnnotation,
       Iterable<? extends Class<? extends Annotation>> enclosingElementAnnotations,
       DependencyRequestValidator dependencyRequestValidator,
@@ -491,8 +490,7 @@ abstract class BindingMethodValidator {
      */
     protected void checkThrows(
         BindingMethodValidator validator, ValidationReport.Builder<ExecutableElement> builder) {
-      TypeMirror exceptionSupertype =
-          validator.elements.getTypeElement(superclass.getCanonicalName()).asType();
+      TypeMirror exceptionSupertype = validator.elements.getTypeElement(superclass).asType();
       TypeMirror errorType = validator.elements.getTypeElement(Error.class).asType();
       for (TypeMirror thrownType : builder.getSubject().getThrownTypes()) {
         if (!validator.types.isSubtype(thrownType, exceptionSupertype)

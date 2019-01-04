@@ -22,7 +22,6 @@ import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 
 /**
  * Generates classes that create annotation instances for an unwrapped {@link MapKey} annotation
@@ -56,7 +55,7 @@ import javax.lang.model.util.Elements;
 final class UnwrappedMapKeyGenerator extends AnnotationCreatorGenerator {
 
   @Inject
-  UnwrappedMapKeyGenerator(Filer filer, Elements elements, SourceVersion sourceVersion) {
+  UnwrappedMapKeyGenerator(Filer filer, DaggerElements elements, SourceVersion sourceVersion) {
     super(filer, elements, sourceVersion);
   }
 

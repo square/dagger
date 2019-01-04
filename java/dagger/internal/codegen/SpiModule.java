@@ -26,8 +26,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import javax.annotation.processing.Filer;
 import javax.inject.Singleton;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** Contains the bindings for {@link BindingGraphPlugins} from external SPI providers. */
 @Module
@@ -39,8 +37,8 @@ abstract class SpiModule {
   static BindingGraphPlugins spiPlugins(
       @TestingPlugins Optional<ImmutableSet<BindingGraphPlugin>> testingPlugins,
       Filer filer,
-      Types types,
-      Elements elements,
+      DaggerTypes types,
+      DaggerElements elements,
       @ProcessingOptions Map<String, String> processingOptions,
       DiagnosticReporterFactory diagnosticReporterFactory) {
     return new BindingGraphPlugins(

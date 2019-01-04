@@ -31,7 +31,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.util.Types;
 
 /**
  * The annotation processor responsible for validating the mapKey annotation and auto-generate
@@ -39,7 +38,7 @@ import javax.lang.model.util.Types;
  */
 public class MapKeyProcessingStep extends TypeCheckingProcessingStep<TypeElement> {
   private final Messager messager;
-  private final Types types;
+  private final DaggerTypes types;
   private final MapKeyValidator mapKeyValidator;
   private final AnnotationCreatorGenerator annotationCreatorGenerator;
   private final UnwrappedMapKeyGenerator unwrappedMapKeyGenerator;
@@ -47,7 +46,7 @@ public class MapKeyProcessingStep extends TypeCheckingProcessingStep<TypeElement
   @Inject
   MapKeyProcessingStep(
       Messager messager,
-      Types types,
+      DaggerTypes types,
       MapKeyValidator mapKeyValidator,
       AnnotationCreatorGenerator annotationCreatorGenerator,
       UnwrappedMapKeyGenerator unwrappedMapKeyGenerator) {

@@ -25,7 +25,6 @@ import com.sun.tools.javac.util.Context;
 import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
-import dagger.internal.codegen.ProcessingEnvironmentModule.ElementsModule;
 import javax.annotation.processing.Messager;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -38,7 +37,7 @@ import javax.tools.Diagnostic;
  * A module that provides a {@link BindingGraphFactory} and {@link ComponentDescriptor.Factory} for
  * use in {@code javac} plugins. Requires a binding for the {@code javac} {@link Context}.
  */
-@Module(includes = {InjectBindingRegistryModule.class, ElementsModule.class})
+@Module(includes = InjectBindingRegistryModule.class)
 abstract class JavacPluginModule {
   @Provides
   static CompilerOptions compilerOptions() {

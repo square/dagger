@@ -19,21 +19,18 @@ package dagger.internal.codegen;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.googlejavaformat.java.filer.FormattingFiler;
-import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 import dagger.Reusable;
-import dagger.internal.codegen.ProcessingEnvironmentModule.ElementsModule;
 import java.util.Map;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 /** Bindings that depend on the {@link ProcessingEnvironment}. */
-@Module(includes = ElementsModule.class)
+@Module
 final class ProcessingEnvironmentModule {
 
   private final ProcessingEnvironment processingEnvironment;
@@ -81,11 +78,5 @@ final class ProcessingEnvironmentModule {
   @Reusable // to avoid parsing options more than once
   CompilerOptions compilerOptions() {
     return CompilerOptions.create(processingEnvironment);
-  }
-
-  @Module
-  interface ElementsModule {
-    @Binds
-    Elements elements(DaggerElements daggerElements);
   }
 }

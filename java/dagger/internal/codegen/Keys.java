@@ -28,7 +28,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
-import javax.lang.model.util.Types;
 
 /** Utility methods related to {@link Key}s. */
 final class Keys {
@@ -42,7 +41,7 @@ final class Keys {
    * Returns {@code true} if this is valid as an implicit key (that is, if it's valid for a
    * just-in-time binding by discovering an {@code @Inject} constructor).
    */
-  static boolean isValidImplicitProvisionKey(Key key, Types types) {
+  static boolean isValidImplicitProvisionKey(Key key, DaggerTypes types) {
     return isValidImplicitProvisionKey(key.qualifier(), key.type(), types);
   }
 
@@ -52,7 +51,7 @@ final class Keys {
    * constructor).
    */
   static boolean isValidImplicitProvisionKey(
-      Optional<? extends AnnotationMirror> qualifier, TypeMirror type, final Types types) {
+      Optional<? extends AnnotationMirror> qualifier, TypeMirror type, final DaggerTypes types) {
     // Qualifiers disqualify implicit provisioning.
     if (qualifier.isPresent()) {
       return false;

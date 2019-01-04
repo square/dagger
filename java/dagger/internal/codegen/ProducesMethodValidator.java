@@ -33,7 +33,6 @@ import javax.inject.Inject;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * A validator for {@link Produces} methods.
@@ -42,7 +41,9 @@ final class ProducesMethodValidator extends BindingMethodValidator {
 
   @Inject
   ProducesMethodValidator(
-      DaggerElements elements, Types types, DependencyRequestValidator dependencyRequestValidator) {
+      DaggerElements elements,
+      DaggerTypes types,
+      DependencyRequestValidator dependencyRequestValidator) {
     super(
         elements,
         types,

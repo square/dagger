@@ -27,7 +27,6 @@ import dagger.producers.ProducerModule;
 import javax.inject.Inject;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.util.Types;
 
 /**
  * A validator for {@link Provides} methods.
@@ -38,7 +37,9 @@ final class ProvidesMethodValidator extends BindingMethodValidator {
 
   @Inject
   ProvidesMethodValidator(
-      DaggerElements elements, Types types, DependencyRequestValidator dependencyRequestValidator) {
+      DaggerElements elements,
+      DaggerTypes types,
+      DependencyRequestValidator dependencyRequestValidator) {
     super(
         elements,
         types,

@@ -37,8 +37,6 @@ import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.inject.Qualifier;
 import javax.inject.Singleton;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 /** The set of SPI and validation plugins. */
@@ -52,16 +50,16 @@ final class BindingGraphPlugins {
 
   private final ImmutableSet<BindingGraphPlugin> plugins;
   private final Filer filer;
-  private final Types types;
-  private final Elements elements;
+  private final DaggerTypes types;
+  private final DaggerElements elements;
   private final Map<String, String> processingOptions;
   private final DiagnosticReporterFactory diagnosticReporterFactory;
 
   BindingGraphPlugins(
       Iterable<BindingGraphPlugin> plugins,
       Filer filer,
-      Types types,
-      Elements elements,
+      DaggerTypes types,
+      DaggerElements elements,
       Map<String, String> processingOptions,
       DiagnosticReporterFactory diagnosticReporterFactory) {
     this.plugins = ImmutableSet.copyOf(plugins);

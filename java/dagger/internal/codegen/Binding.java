@@ -48,7 +48,6 @@ import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
-import javax.lang.model.util.Types;
 
 /**
  * An abstract type for classes representing a Dagger binding. Particularly, contains the {@link
@@ -266,7 +265,8 @@ abstract class Binding extends BindingDeclaration {
   }
 
   // TODO(sameb): Remove the TypeElement parameter and pull it from the TypeMirror.
-  static boolean hasNonDefaultTypeParameters(TypeElement element, TypeMirror type, Types types) {
+  static boolean hasNonDefaultTypeParameters(
+      TypeElement element, TypeMirror type, DaggerTypes types) {
     // If the element has no type parameters, nothing can be wrong.
     if (element.getTypeParameters().isEmpty()) {
       return false;

@@ -41,13 +41,12 @@ import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 
 /** Generates a monitoring module for use with production components. */
 final class MonitoringModuleGenerator extends SourceFileGenerator<TypeElement> {
 
   @Inject
-  MonitoringModuleGenerator(Filer filer, Elements elements, SourceVersion sourceVersion) {
+  MonitoringModuleGenerator(Filer filer, DaggerElements elements, SourceVersion sourceVersion) {
     super(filer, elements, sourceVersion);
   }
 

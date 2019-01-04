@@ -54,7 +54,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /** Convenience methods for creating and invoking {@link InjectionMethod}s. */
 final class InjectionMethods {
@@ -270,7 +269,7 @@ final class InjectionMethods {
         ClassName generatedTypeName,
         CodeBlock instanceCodeBlock,
         TypeMirror instanceType,
-        Types types,
+        DaggerTypes types,
         Function<DependencyRequest, CodeBlock> dependencyUsage,
         DaggerElements elements) {
       return injectionSites

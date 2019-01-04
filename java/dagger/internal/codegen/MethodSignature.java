@@ -27,7 +27,6 @@ import java.util.List;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 @AutoValue
 abstract class MethodSignature {
@@ -39,7 +38,7 @@ abstract class MethodSignature {
   abstract ImmutableList<? extends Equivalence.Wrapper<? extends TypeMirror>> thrownTypes();
 
   static MethodSignature forComponentMethod(
-      ComponentMethodDescriptor componentMethod, DeclaredType componentType, Types types) {
+      ComponentMethodDescriptor componentMethod, DeclaredType componentType, DaggerTypes types) {
     ExecutableType methodType =
         MoreTypes.asExecutable(types.asMemberOf(componentType, componentMethod.methodElement()));
     return new AutoValue_MethodSignature(

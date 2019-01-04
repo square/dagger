@@ -82,7 +82,6 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.SimpleTypeVisitor8;
-import javax.lang.model.util.Types;
 
 /**
  * A {@linkplain ValidationReport validator} for {@link Module}s or {@link ProducerModule}s.
@@ -108,7 +107,7 @@ final class ModuleValidator {
     ANDROID_PROCESSOR = Optional.ofNullable(clazz);
   }
 
-  private final Types types;
+  private final DaggerTypes types;
   private final DaggerElements elements;
   private final AnyBindingMethodValidator anyBindingMethodValidator;
   private final MethodSignatureFormatter methodSignatureFormatter;
@@ -123,7 +122,7 @@ final class ModuleValidator {
 
   @Inject
   ModuleValidator(
-      Types types,
+      DaggerTypes types,
       DaggerElements elements,
       AnyBindingMethodValidator anyBindingMethodValidator,
       MethodSignatureFormatter methodSignatureFormatter,

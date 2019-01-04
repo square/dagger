@@ -35,7 +35,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ExecutableType;
-import javax.lang.model.util.Types;
 
 /**
  * The declaration for a delegate binding established by a {@link Binds} method.
@@ -47,12 +46,15 @@ abstract class DelegateDeclaration extends BindingDeclaration implements HasCont
   abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKey();
 
   static final class Factory {
-    private final Types types;
+    private final DaggerTypes types;
     private final KeyFactory keyFactory;
     private final DependencyRequestFactory dependencyRequestFactory;
 
     @Inject
-    Factory(Types types, KeyFactory keyFactory, DependencyRequestFactory dependencyRequestFactory) {
+    Factory(
+        DaggerTypes types,
+        KeyFactory keyFactory,
+        DependencyRequestFactory dependencyRequestFactory) {
       this.types = types;
       this.keyFactory = keyFactory;
       this.dependencyRequestFactory = dependencyRequestFactory;

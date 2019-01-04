@@ -72,7 +72,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
-import javax.lang.model.util.Types;
 
 /**
  * Performs superficial validation of the contract of the {@link Component} and {@link
@@ -80,7 +79,7 @@ import javax.lang.model.util.Types;
  */
 final class ComponentValidator {
   private final DaggerElements elements;
-  private final Types types;
+  private final DaggerTypes types;
   private final ModuleValidator moduleValidator;
   private final ComponentCreatorValidator creatorValidator;
   private final DependencyRequestValidator dependencyRequestValidator;
@@ -91,7 +90,7 @@ final class ComponentValidator {
   @Inject
   ComponentValidator(
       DaggerElements elements,
-      Types types,
+      DaggerTypes types,
       ModuleValidator moduleValidator,
       ComponentCreatorValidator creatorValidator,
       DependencyRequestValidator dependencyRequestValidator,

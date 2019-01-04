@@ -48,7 +48,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor6;
-import javax.lang.model.util.Types;
 
 /**
  * Methods for extracting {@link MapKey} annotations and key code blocks from binding elements.
@@ -91,7 +90,7 @@ final class MapKeys {
         : Optional.empty();
   }
 
-  static TypeMirror mapKeyType(AnnotationMirror mapKeyAnnotation, Types types) {
+  static TypeMirror mapKeyType(AnnotationMirror mapKeyAnnotation, DaggerTypes types) {
     return unwrapValue(mapKeyAnnotation).isPresent()
         ? getUnwrappedMapKeyType(mapKeyAnnotation.getAnnotationType(), types)
         : mapKeyAnnotation.getAnnotationType();
@@ -106,7 +105,7 @@ final class MapKeys {
    * @throws NoSuchElementException if the annotation has no members
    */
   static DeclaredType getUnwrappedMapKeyType(
-      final DeclaredType mapKeyAnnotationType, final Types types) {
+      final DeclaredType mapKeyAnnotationType, final DaggerTypes types) {
     checkArgument(
         MoreTypes.asTypeElement(mapKeyAnnotationType).getKind() == ElementKind.ANNOTATION_TYPE,
         "%s is not an annotation type",
@@ -193,8 +192,8 @@ final class MapKeys {
   }
 
   /**
-   * Returns the {@link ClassName} in which {@link #mapKeyFactoryMethod(ContributionBinding, Types,
-   * DaggerElements)} is generated.
+   * Returns the {@link ClassName} in which {@link #mapKeyFactoryMethod(ContributionBinding,
+   * DaggerTypes, DaggerElements)} is generated.
    */
   static ClassName mapKeyProxyClassName(ContributionBinding binding) {
     return elementBasedClassName(
@@ -207,7 +206,7 @@ final class MapKeys {
    * accessible.
    */
   static Optional<MethodSpec> mapKeyFactoryMethod(
-      ContributionBinding binding, Types types, DaggerElements elements) {
+      ContributionBinding binding, DaggerTypes types, DaggerElements elements) {
     return binding
         .mapKeyAnnotation()
         .filter(mapKey -> !isMapKeyPubliclyAccessible(mapKey))

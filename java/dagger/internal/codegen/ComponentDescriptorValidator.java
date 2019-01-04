@@ -59,7 +59,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 
 /**
  * Reports errors in the component hierarchy.
@@ -74,7 +73,7 @@ import javax.lang.model.util.Elements;
 // TODO(dpb): Combine with ComponentHierarchyValidator.
 final class ComponentDescriptorValidator {
 
-  private final Elements elements;
+  private final DaggerElements elements;
   private final DaggerTypes types;
   private final CompilerOptions compilerOptions;
   private final MethodSignatureFormatter methodSignatureFormatter;
@@ -82,7 +81,7 @@ final class ComponentDescriptorValidator {
 
   @Inject
   ComponentDescriptorValidator(
-      Elements elements,
+      DaggerElements elements,
       DaggerTypes types,
       CompilerOptions compilerOptions,
       MethodSignatureFormatter methodSignatureFormatter,

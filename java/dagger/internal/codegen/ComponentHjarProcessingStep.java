@@ -56,8 +56,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /**
  * A processing step that emits the API of a generated component, without any actual implementation.
@@ -73,9 +71,9 @@ import javax.lang.model.util.Types;
  * normal step. Method bodies are omitted as Turbine ignores them entirely.
  */
 final class ComponentHjarProcessingStep extends TypeCheckingProcessingStep<TypeElement> {
-  private final Elements elements;
   private final SourceVersion sourceVersion;
-  private final Types types;
+  private final DaggerElements elements;
+  private final DaggerTypes types;
   private final Filer filer;
   private final Messager messager;
   private final ComponentValidator componentValidator;
@@ -83,16 +81,16 @@ final class ComponentHjarProcessingStep extends TypeCheckingProcessingStep<TypeE
 
   @Inject
   ComponentHjarProcessingStep(
-      Elements elements,
       SourceVersion sourceVersion,
-      Types types,
+      DaggerElements elements,
+      DaggerTypes types,
       Filer filer,
       Messager messager,
       ComponentValidator componentValidator,
       Factory componentDescriptorFactory) {
     super(MoreElements::asType);
-    this.elements = elements;
     this.sourceVersion = sourceVersion;
+    this.elements = elements;
     this.types = types;
     this.filer = filer;
     this.messager = messager;
@@ -122,7 +120,7 @@ final class ComponentHjarProcessingStep extends TypeCheckingProcessingStep<TypeE
   }
 
   private final class EmptyComponentGenerator extends SourceFileGenerator<ComponentDescriptor> {
-    EmptyComponentGenerator(Filer filer, Elements elements, SourceVersion sourceVersion) {
+    EmptyComponentGenerator(Filer filer, DaggerElements elements, SourceVersion sourceVersion) {
       super(filer, elements, sourceVersion);
     }
 

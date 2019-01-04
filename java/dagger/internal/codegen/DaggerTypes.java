@@ -118,7 +118,7 @@ final class DaggerTypes implements Types {
    * Set.class}, this will return {@code Set<List<Number>>}.
    */
   DeclaredType wrapType(TypeMirror type, Class<?> wrappingClass) {
-    return types.getDeclaredType(elements.getTypeElement(wrappingClass.getCanonicalName()), type);
+    return types.getDeclaredType(elements.getTypeElement(wrappingClass), type);
   }
 
   /**
@@ -134,7 +134,7 @@ final class DaggerTypes implements Types {
    */
   DeclaredType rewrapType(TypeMirror type, Class<?> wrappingClass) {
     List<? extends TypeMirror> typeArguments = MoreTypes.asDeclared(type).getTypeArguments();
-    TypeElement wrappingType = elements.getTypeElement(wrappingClass.getCanonicalName());
+    TypeElement wrappingType = elements.getTypeElement(wrappingClass);
     switch (typeArguments.size()) {
       case 0:
         return getDeclaredType(wrappingType);
