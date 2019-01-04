@@ -52,7 +52,6 @@ import dagger.Lazy;
 import dagger.Module;
 import dagger.Subcomponent;
 import dagger.model.DependencyRequest;
-import dagger.model.RequestKind;
 import dagger.model.Scope;
 import dagger.producers.CancellationPolicy;
 import dagger.producers.ProductionComponent;
@@ -220,47 +219,12 @@ abstract class ComponentDescriptor {
         .isPresent();
   }
 
-  /** The entry point methods on the component type. */
+  /** The entry point methods on the component type. Each has a {@link DependencyRequest}. */
   final ImmutableSet<ComponentMethodDescriptor> entryPointMethods() {
     return componentMethods()
         .stream()
         .filter(method -> method.dependencyRequest().isPresent())
         .collect(toImmutableSet());
-  }
-
-  /**
-   * The entry points.
-   *
-   * <p>For descriptors that are generated from a module in order to validate the module's bindings,
-   * these will be requests for every key for every binding declared in the module (erasing
-   * multibinding contribution identifiers so that we get the multibinding key).
-   *
-   * <p>In order not to trigger a validation error if the requested binding is nullable, each
-   * request will be nullable.
-   *
-   * <p>In order not to trigger a validation error if the requested binding is a production binding,
-   * each request will be for a {@link com.google.common.util.concurrent.ListenableFuture} of the
-   * key type.
-   */
-  final ImmutableSet<DependencyRequest> entryPoints() {
-    if (kind().isForModuleValidation()) {
-      return modules().stream()
-          .flatMap(module -> module.allBindingKeys().stream())
-          .map(key -> key.toBuilder().multibindingContributionIdentifier(Optional.empty()).build())
-          .map(
-              key ->
-                  DependencyRequest.builder()
-                      .key(key)
-                      // TODO(dpb): Futures only in ProducerModules, instances elsewhere?
-                      .kind(RequestKind.FUTURE)
-                      .isNullable(true)
-                      .build())
-          .collect(toImmutableSet());
-    } else {
-      return entryPointMethods().stream()
-          .map(method -> method.dependencyRequest().get())
-          .collect(toImmutableSet());
-    }
   }
 
   // TODO(gak): Consider making this non-optional and revising the

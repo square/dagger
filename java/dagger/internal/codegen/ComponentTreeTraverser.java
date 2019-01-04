@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultiset;
+import dagger.internal.codegen.ComponentDescriptor.ComponentMethodDescriptor;
 import dagger.model.ComponentPath;
 import dagger.model.DependencyRequest;
 import dagger.model.Key;
@@ -125,8 +126,9 @@ public class ComponentTreeTraverser {
                       graph, parent, childFactoryMethod.methodElement()));
     }
 
-    for (DependencyRequest entryPoint : graph.componentDescriptor().entryPoints()) {
-      visitEntryPoint(entryPoint, graph);
+    for (ComponentMethodDescriptor entryPointMethod :
+        graph.componentDescriptor().entryPointMethods()) {
+      visitEntryPoint(entryPointMethod.dependencyRequest().get(), graph);
     }
 
     for (BindingGraph child : graph.subgraphs()) {

@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen;
 
+import static dagger.internal.codegen.DaggerStreams.toImmutableSet;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import dagger.model.BindingGraph.ComponentNode;
@@ -33,7 +35,9 @@ abstract class ComponentNodeImpl implements ComponentNode {
 
   @Override
   public ImmutableSet<DependencyRequest> entryPoints() {
-    return componentDescriptor().entryPoints();
+    return componentDescriptor().entryPointMethods().stream()
+        .map(method -> method.dependencyRequest().get())
+        .collect(toImmutableSet());
   }
 
   @Override

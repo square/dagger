@@ -92,9 +92,7 @@ public class DependencyCycleValidationTest {
                 "    test.Outer.A is injected at",
                 "        test.Outer.B(aParam)",
                 "    test.Outer.B is injected at",
-                "        test.Outer.C(bParam)",
-                "It is requested at:",
-                "    test.Outer.MModule.object(c)"))
+                "        test.Outer.C(bParam)"))
         .inFile(component)
         .onLineContaining("interface MModule");
   }

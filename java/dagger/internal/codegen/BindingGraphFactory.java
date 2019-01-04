@@ -31,6 +31,7 @@ import static dagger.model.BindingKind.DELEGATE;
 import static dagger.model.BindingKind.INJECTION;
 import static dagger.model.BindingKind.OPTIONAL;
 import static dagger.model.BindingKind.SUBCOMPONENT_BUILDER;
+import static dagger.model.RequestKind.MEMBERS_INJECTION;
 import static java.util.function.Predicate.isEqual;
 import static javax.lang.model.util.ElementFilter.methodsIn;
 
@@ -47,7 +48,6 @@ import dagger.MembersInjector;
 import dagger.Reusable;
 import dagger.model.DependencyRequest;
 import dagger.model.Key;
-import dagger.model.RequestKind;
 import dagger.model.Scope;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
@@ -174,12 +174,25 @@ final class BindingGraphFactory {
             indexBindingDeclarationsByKey(subcomponentDeclarations.build()),
             indexBindingDeclarationsByKey(delegatesBuilder.build()),
             indexBindingDeclarationsByKey(optionalsBuilder.build()));
-    for (DependencyRequest entryPoint : componentDescriptor.entryPoints()) {
-      if (entryPoint.kind().equals(RequestKind.MEMBERS_INJECTION)) {
-        requestResolver.resolveMembersInjection(entryPoint.key());
-      } else {
-        requestResolver.resolve(entryPoint.key());
-      }
+
+    componentDescriptor.entryPointMethods().stream()
+        .map(method -> method.dependencyRequest().get())
+        .forEach(
+            entryPoint -> {
+              if (entryPoint.kind().equals(MEMBERS_INJECTION)) {
+                requestResolver.resolveMembersInjection(entryPoint.key());
+              } else {
+                requestResolver.resolve(entryPoint.key());
+              }
+            });
+
+    if (componentDescriptor.kind().isForModuleValidation()) {
+      // For module-binding validation, resolve the keys for all bindings in all modules, stripping
+      // any multibinding contribution identifier so that the multibinding itself is resolved.
+      componentDescriptor.modules().stream()
+          .flatMap(module -> module.allBindingKeys().stream())
+          .map(key -> key.toBuilder().multibindingContributionIdentifier(Optional.empty()).build())
+          .forEach(requestResolver::resolve);
     }
 
     // Resolve all bindings for subcomponents, creating subgraphs for all subcomponents that have

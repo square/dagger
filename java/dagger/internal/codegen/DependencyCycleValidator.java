@@ -106,10 +106,14 @@ final class DependencyCycleValidator implements BindingGraphPlugin {
   /**
    * Reports a dependency cycle at the dependency into the cycle that is closest to an entry point.
    *
-   * <p>Looks for the shortest path from the component that contains the cycle (all bindings in a
-   * cycle must be in the same component; see below) to some binding in the cycle. Then looks for
-   * the last dependency in that path that is not in the cycle; that is the dependency that will be
-   * reported, so that the dependency trace will end just before the cycle.
+   * <p>For cycles found in standard components, looks for the shortest path from the component that
+   * contains the cycle (all bindings in a cycle must be in the same component; see below) to some
+   * binding in the cycle. Then looks for the last dependency in that path that is not in the cycle;
+   * that is the dependency that will be reported, so that the dependency trace will end just before
+   * the cycle.
+   *
+   * <p>For cycles found during module binding validation, just reports the component that contains
+   * the cycle.
    *
    * <p>Proof (by counterexample) that all bindings in a cycle must be in the same component: Assume
    * one binding in the cycle is in a parent component. Bindings cannot depend on bindings in child
@@ -117,6 +121,14 @@ final class DependencyCycleValidator implements BindingGraphPlugin {
    */
   private void reportCycle(
       Cycle<Node> cycle, BindingGraph bindingGraph, DiagnosticReporter diagnosticReporter) {
+    if (bindingGraph.isModuleBindingGraph()) {
+      diagnosticReporter.reportComponent(
+          ERROR,
+          bindingGraph.componentNode(cycle.nodes().asList().get(0).componentPath()).get(),
+          errorMessage(cycle, bindingGraph));
+      return;
+    }
+
     ImmutableList<Node> path = shortestPathToCycleFromAnEntryPoint(cycle, bindingGraph);
     Node cycleStartNode = path.get(path.size() - 1);
     Node previousNode = path.get(path.size() - 2);
@@ -224,6 +236,7 @@ final class DependencyCycleValidator implements BindingGraphPlugin {
   }
 
   /** Returns the subgraph containing only {@link DependencyEdge}s that would not break a cycle. */
+  // TODO(dpb): Return a network containing only Binding nodes.
   private ImmutableNetwork<Node, DependencyEdge> nonCycleBreakingDependencyGraph(
       BindingGraph bindingGraph) {
     MutableNetwork<Node, DependencyEdge> dependencyNetwork =

@@ -30,6 +30,7 @@ import static dagger.internal.codegen.DaggerElements.elementEncloses;
 import static dagger.internal.codegen.DaggerElements.elementToString;
 import static dagger.internal.codegen.DaggerGraphs.shortestPath;
 import static dagger.internal.codegen.DaggerStreams.instancesOf;
+import static dagger.internal.codegen.DaggerStreams.presentValues;
 import static dagger.internal.codegen.DaggerStreams.toImmutableSet;
 import static java.util.Collections.min;
 import static java.util.Comparator.comparing;
@@ -320,21 +321,21 @@ final class DiagnosticReporterFactory {
           dependencyTrace.forEach(
               edge ->
                   dependencyRequestFormatter.appendFormatLine(message, edge.dependencyRequest()));
-          appendComponentPathUnlessAtRoot(message, source(getLast(dependencyTrace)));
+          if (!dependencyTrace.isEmpty()) {
+            appendComponentPathUnlessAtRoot(message, source(getLast(dependencyTrace)));
+          }
         }
 
         // Print any dependency requests that aren't shown as part of the dependency trace.
         ImmutableSet<Element> requestsToPrint =
             requests.stream()
+                // if printing entry points, skip entry points and the traced request
                 .filter(
-                    // if printing entry points, skip them and the request at the head of the
-                    // dependency trace here.
-                    printingEntryPoints
-                        ? request ->
-                            !request.isEntryPoint() && !request.equals(dependencyTrace.get(0))
-                        : request -> true)
-                .filter(request -> request.dependencyRequest().requestElement().isPresent())
-                .map(request -> request.dependencyRequest().requestElement().get())
+                    request ->
+                        !printingEntryPoints
+                            || (!request.isEntryPoint() && !isTracedRequest(request)))
+                .map(request -> request.dependencyRequest().requestElement())
+                .flatMap(presentValues())
                 .collect(toImmutableSet());
         if (!requestsToPrint.isEmpty()) {
           message
@@ -379,6 +380,10 @@ final class DiagnosticReporterFactory {
         return message.toString();
       }
 
+      private boolean isTracedRequest(DependencyEdge request) {
+        return !dependencyTrace.isEmpty() && request.equals(dependencyTrace.get(0));
+      }
+
       /**
        * Returns the dependency trace from one of the {@code entryPoints} to {@code binding} to
        * {@code message} as a list <i>ending with</i> the entry point.
@@ -387,6 +392,11 @@ final class DiagnosticReporterFactory {
       // bindingGraph.shortestPathFromEntryPoint(DependencyEdge, MaybeBindingNode)
       ImmutableList<DependencyEdge> dependencyTrace(
           MaybeBinding binding, ImmutableSet<DependencyEdge> entryPoints) {
+        // Module binding graphs may have bindings unreachable from any entry points. If there are
+        // no entry points for this DiagnosticInfo, don't try to print a dependency trace.
+        if (entryPoints.isEmpty()) {
+          return ImmutableList.of();
+        }
         // Show the full dependency trace for one entry point.
         DependencyEdge entryPointForTrace =
             min(

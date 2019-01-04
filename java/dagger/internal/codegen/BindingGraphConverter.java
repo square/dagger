@@ -66,9 +66,11 @@ final class BindingGraphConverter {
     // multibindings or optional bindings, the parent-owned binding is still there. If that
     // parent-owned binding is not reachable from its component, it doesn't need to be in the graph
     // because it will never be used. So remove all nodes that are not reachable from the root
-    // component.
-    unreachableNodes(traverser.network.asGraph(), rootComponentNode(traverser.network))
-        .forEach(traverser.network::removeNode);
+    // component—unless the component is a module-binding validation component.
+    if (!bindingGraph.componentDescriptor().kind().isForModuleValidation()) {
+      unreachableNodes(traverser.network.asGraph(), rootComponentNode(traverser.network))
+          .forEach(traverser.network::removeNode);
+    }
 
     ComponentKind componentKind = bindingGraph.componentDescriptor().kind();
     return BindingGraphProxies.bindingGraph(

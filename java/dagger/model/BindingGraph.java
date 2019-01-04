@@ -16,7 +16,6 @@
 
 package dagger.model;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.graph.Graphs.inducedSubgraph;
 import static com.google.common.graph.Graphs.reachableNodes;
@@ -220,7 +219,7 @@ public abstract class BindingGraph {
 
   /**
    * Returns the edges for entry points that transitively depend on a binding or missing binding for
-   * a key. Never returns an empty set.
+   * a key.
    */
   public final ImmutableSet<DependencyEdge> entryPointEdgesDependingOnBinding(
       MaybeBinding binding) {
@@ -228,10 +227,7 @@ public abstract class BindingGraph {
     Network<Node, DependencyEdge> subgraphDependingOnBinding =
         inducedSubgraph(
             dependencyGraph, reachableNodes(transpose(dependencyGraph).asGraph(), binding));
-    ImmutableSet<DependencyEdge> entryPointEdges =
-        intersection(entryPointEdges(), subgraphDependingOnBinding.edges()).immutableCopy();
-    verify(!entryPointEdges.isEmpty(), "No entry points depend on binding %s", binding);
-    return entryPointEdges;
+    return intersection(entryPointEdges(), subgraphDependingOnBinding.edges()).immutableCopy();
   }
 
   /** Returns the bindings that directly request a given binding as a dependency. */
@@ -265,6 +261,7 @@ public abstract class BindingGraph {
         .collect(toImmutableSet());
   }
 
+  /** Returns a subnetwork that contains all nodes but only {@link DependencyEdge}s. */
   // TODO(dpb): Make public. Cache.
   private ImmutableNetwork<Node, DependencyEdge> dependencyGraph() {
     MutableNetwork<Node, DependencyEdge> dependencyGraph =
@@ -272,6 +269,7 @@ public abstract class BindingGraph {
             .expectedNodeCount(network().nodes().size())
             .expectedEdgeCount((int) dependencyEdgeStream().count())
             .build();
+    network().nodes().forEach(dependencyGraph::addNode); // include disconnected nodes
     dependencyEdgeStream()
         .forEach(
             edge -> {
