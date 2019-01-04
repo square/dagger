@@ -24,7 +24,6 @@ import static dagger.internal.codegen.AnnotationSpecs.Suppression.RAWTYPES;
 import static dagger.internal.codegen.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.AnnotationSpecs.suppressWarnings;
 import static dagger.internal.codegen.CodeBlocks.makeParametersCodeBlock;
-import static dagger.internal.codegen.CodeBlocks.toParametersCodeBlock;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.DELEGATE;
 import static dagger.internal.codegen.ContributionBinding.FactoryCreationStrategy.SINGLETON_INSTANCE;
 import static dagger.internal.codegen.GwtCompatibility.gwtIncompatibleAnnotation;
@@ -116,7 +115,6 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
 
     addConstructorAndFields(binding, factoryBuilder);
     factoryBuilder.addMethod(getMethod(binding));
-    factoryBuilder.addMethod(provideInstanceMethod(binding));
     addCreateMethod(binding, factoryBuilder);
 
     factoryBuilder.addMethod(
@@ -214,33 +212,12 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
   }
 
   private MethodSpec getMethod(ProvisionBinding binding) {
-    MethodSpec.Builder methodBuilder =
+    TypeName providedTypeName = providedTypeName(binding);
+    MethodSpec.Builder getMethod =
         methodBuilder("get")
             .addAnnotation(Override.class)
             .addModifiers(PUBLIC)
-            .returns(providedTypeName(binding))
-            .addStatement(
-                "return provideInstance($L)",
-                constructorParams(binding)
-                    .stream()
-                    .map(parameter -> CodeBlock.of("$N", parameter))
-                    .collect(toParametersCodeBlock()));
-
-    binding
-        .nullableType()
-        .ifPresent(nullableType -> CodeBlocks.addAnnotation(methodBuilder, nullableType));
-
-    return methodBuilder.build();
-  }
-
-  private MethodSpec provideInstanceMethod(ProvisionBinding binding) {
-    TypeName providedTypeName = providedTypeName(binding);
-    MethodSpec.Builder provideInstanceMethod =
-        methodBuilder("provideInstance")
-            .returns(providedTypeName)
-            .addTypeVariables(bindingTypeElementTypeVariableNames(binding))
-            .addParameters(constructorParams(binding))
-            .addModifiers(PUBLIC, STATIC);
+            .returns(providedTypeName);
 
     ImmutableMap<Key, FieldSpec> frameworkFields = frameworkFields(binding);
     CodeBlock parametersCodeBlock =
@@ -250,8 +227,8 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
     if (binding.kind().equals(PROVISION)) {
       binding
           .nullableType()
-          .ifPresent(nullableType -> CodeBlocks.addAnnotation(provideInstanceMethod, nullableType));
-      provideInstanceMethod.addStatement(
+          .ifPresent(nullableType -> CodeBlocks.addAnnotation(getMethod, nullableType));
+      getMethod.addStatement(
           "return $L",
           ProvisionMethod.invoke(
               binding,
@@ -266,7 +243,7 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
               elements));
     } else if (!binding.injectionSites().isEmpty()) {
       CodeBlock instance = CodeBlock.of("instance");
-      provideInstanceMethod
+      getMethod
           .addStatement("$1T $2L = new $1T($3L)", providedTypeName, instance, parametersCodeBlock)
           .addCode(
               InjectionSiteMethod.invokeAll(
@@ -279,10 +256,10 @@ final class FactoryGenerator extends SourceFileGenerator<ProvisionBinding> {
                   elements))
           .addStatement("return $L", instance);
     } else {
-      provideInstanceMethod.addStatement(
+      getMethod.addStatement(
           "return new $T($L)", providedTypeName, parametersCodeBlock);
     }
-    return provideInstanceMethod.build();
+    return getMethod.build();
   }
 
   private static TypeName providedTypeName(ProvisionBinding binding) {

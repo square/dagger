@@ -18,7 +18,6 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.internal.codegen.DaggerStreams.toImmutableSet;
@@ -58,19 +57,6 @@ abstract class CompilerOptions {
    * per-provision instantiation time.
    */
   abstract boolean fastInit();
-
-  /**
-   * Returns true if the experimental Android mode 2 is enabled.
-   *
-   * <p><b>Warning: Do Not use! This flag is for internal, experimental use only!</b>
-   *
-   * <p>Issues related to this flag will not be supported. This flag could break your build,
-   * or cause other unknown issues at runtime.
-   *
-   * <p>If enabled, the generated code will try to reduce class loading due to providers by using
-   * a single {@code Provider} class to replace all factory classes.
-   */
-  abstract boolean experimentalAndroidMode2();
 
   abstract boolean formatGeneratedSource();
 
@@ -122,14 +108,7 @@ abstract class CompilerOptions {
     for (Option option : concat(allOf(Feature.class), allOf(Validation.class))) {
       option.set(builder, processingEnv);
     }
-    return builder.build().validate();
-  }
-
-  CompilerOptions validate() {
-    checkState(
-        !(fastInit() && experimentalAndroidMode2()),
-        "fastInit and experimentalAndroidMode2 cannot be used together.");
-    return this;
+    return builder.build();
   }
 
   @AutoValue.Builder
@@ -140,8 +119,6 @@ abstract class CompilerOptions {
     Builder headerCompilation(boolean headerCompilation);
 
     Builder fastInit(boolean fastInit);
-
-    Builder experimentalAndroidMode2(boolean experimentalAndroidMode2);
 
     Builder formatGeneratedSource(boolean formatGeneratedSource);
 
@@ -212,8 +189,6 @@ abstract class CompilerOptions {
         noLongerRecognizedWarning(processingEnvironment);
       }
     },
-
-    EXPERIMENTAL_ANDROID_MODE2(Builder::experimentalAndroidMode2),
 
     FORMAT_GENERATED_SOURCE(Builder::formatGeneratedSource, ENABLED),
 

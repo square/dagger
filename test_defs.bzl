@@ -17,7 +17,6 @@
 # The key will be appended to the generated test names to ensure uniqueness.
 BUILD_VARIANTS = {
     "FastInit": ["-Adagger.fastInit=enabled"],
-    "ExperimentalAndroidMode2": ["-Adagger.experimentalAndroidMode2=enabled"],
     "AheadOfTimeSubcomponents": ["-Adagger.experimentalAheadOfTimeSubcomponents=enabled"],
     "FastInitAndAheadOfTimeSubcomponents": [
         "-Adagger.fastInit=enabled",

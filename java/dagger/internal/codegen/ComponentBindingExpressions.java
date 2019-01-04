@@ -66,7 +66,6 @@ final class ComponentBindingExpressions {
   private final CompilerOptions compilerOptions;
   private final MembersInjectionMethods membersInjectionMethods;
   private final InnerSwitchingProviders innerSwitchingProviders;
-  private final StaticSwitchingProviders staticSwitchingProviders;
   private final ModifiableBindingExpressions modifiableBindingExpressions;
   private final Map<BindingRequest, BindingExpression> expressions = new HashMap<>();
 
@@ -75,7 +74,6 @@ final class ComponentBindingExpressions {
       BindingGraph graph,
       ComponentImplementation componentImplementation,
       ComponentRequirementExpressions componentRequirementExpressions,
-      StaticSwitchingProviders staticSwitchingProviders,
       OptionalFactories optionalFactories,
       DaggerTypes types,
       DaggerElements elements,
@@ -92,7 +90,6 @@ final class ComponentBindingExpressions {
         new MembersInjectionMethods(componentImplementation, this, graph, elements, types);
     this.innerSwitchingProviders =
         new InnerSwitchingProviders(componentImplementation, this, types);
-    this.staticSwitchingProviders = staticSwitchingProviders;
     this.modifiableBindingExpressions =
         new ModifiableBindingExpressions(
             parent.map(cbe -> cbe.modifiableBindingExpressions),
@@ -328,9 +325,7 @@ final class ComponentBindingExpressions {
 
       case INJECTION:
       case PROVISION:
-        return compilerOptions.experimentalAndroidMode2()
-            ? staticSwitchingProviders.newCreationExpression(binding, this)
-            : new InjectionOrProvisionProviderCreationExpression(binding, this);
+        return new InjectionOrProvisionProviderCreationExpression(binding, this);
 
       case COMPONENT_PRODUCTION:
         return new DependencyMethodProducerCreationExpression(
@@ -584,7 +579,7 @@ final class ComponentBindingExpressions {
    * MapFactory} or {@code SetFactory}.
    */
   private boolean useStaticFactoryCreation(ContributionBinding binding) {
-    return !(compilerOptions.experimentalAndroidMode2() || compilerOptions.fastInit())
+    return !compilerOptions.fastInit()
         || binding.kind().equals(MULTIBOUND_MAP)
         || binding.kind().equals(MULTIBOUND_SET);
   }

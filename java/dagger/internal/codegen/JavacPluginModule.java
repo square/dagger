@@ -52,13 +52,11 @@ abstract class JavacPluginModule {
         .scopeCycleValidationType(NONE)
         .warnIfInjectionFactoryNotGeneratedUpstream(false)
         .fastInit(false)
-        .experimentalAndroidMode2(false)
         .aheadOfTimeSubcomponents(false)
         .moduleBindingValidationType(NONE)
         .moduleHasDifferentScopesDiagnosticKind(NOTE)
         .explicitBindingConflictsWithInjectValidationType(NONE)
-        .build()
-        .validate();
+        .build();
   }
 
   @Binds

@@ -47,6 +47,8 @@ import java.util.TreeMap;
  * <p>The provider expression request will be satisfied by a single generated {@code Provider} inner
  * class that can provide instances for all types by switching on an id.
  */
+// TODO(ronshapiro): either merge this with InnerSwitchingProviders, or repurpose this for
+// SwitchingProducers
 abstract class SwitchingProviders {
   /**
    * Defines the {@linkplain Expression expressions} for a switch case in a {@code SwitchProvider}

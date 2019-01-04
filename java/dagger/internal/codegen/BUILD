@@ -311,7 +311,6 @@ java_library(
         "SimpleInvocationBindingExpression.java",
         "SimpleMethodBindingExpression.java",
         "SingleCheckedMethodImplementation.java",
-        "StaticSwitchingProviders.java",
         "SubcomponentBuilderBindingExpression.java",
         "SubcomponentBuilderProviderCreationExpression.java",
         "SubcomponentNames.java",
