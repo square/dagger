@@ -343,7 +343,6 @@ java_library(
         "ComponentImplementationFactory.java",
         "ComponentProcessingStep.java",
         "ComponentProcessor.java",
-        "ConfigureCreatorImplementationModule.java",
         "CurrentImplementationSubcomponent.java",
         "InjectBindingRegistryImpl.java",
         "InjectBindingRegistryModule.java",

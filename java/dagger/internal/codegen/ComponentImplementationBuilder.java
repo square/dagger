@@ -84,7 +84,7 @@ abstract class ComponentImplementationBuilder {
   @Inject ComponentBindingExpressions bindingExpressions;
   @Inject ComponentRequirementExpressions componentRequirementExpressions;
   @Inject ComponentImplementation componentImplementation;
-  @Inject BindingGraphFactory bindingGraphFactory;
+  @Inject ComponentCreatorImplementation.Factory componentCreatorImplementationFactory;
   @Inject DaggerTypes types;
   @Inject DaggerElements elements;
   @Inject CompilerOptions compilerOptions;
@@ -103,6 +103,8 @@ abstract class ComponentImplementationBuilder {
         "ComponentImplementationBuilder has already built the ComponentImplementation for [%s].",
         componentImplementation.name());
     setSupertype();
+    componentImplementation.setCreatorImplementation(
+        componentCreatorImplementationFactory.create(componentImplementation, graph));
     componentImplementation
         .creatorImplementation()
         .map(ComponentCreatorImplementation::componentCreatorClass)
@@ -479,12 +481,9 @@ abstract class ComponentImplementationBuilder {
 
   /** Builds a root component implementation. */
   static final class RootComponentImplementationBuilder extends ComponentImplementationBuilder {
-    private final ClassName componentCreatorName;
-
     @Inject
     RootComponentImplementationBuilder(ComponentImplementation componentImplementation) {
       checkArgument(!componentImplementation.superclassImplementation().isPresent());
-      this.componentCreatorName = componentImplementation.creatorImplementation().get().name();
     }
 
     @Override
@@ -502,8 +501,8 @@ abstract class ComponentImplementationBuilder {
               .returns(
                   creatorDescriptor()
                       .map(creatorDescriptor -> ClassName.get(creatorDescriptor.typeElement()))
-                      .orElse(componentCreatorName))
-              .addStatement("return new $T()", componentCreatorName)
+                      .orElse(componentCreatorName()))
+              .addStatement("return new $T()", componentCreatorName())
               .build();
       componentImplementation.addMethod(BUILDER_METHOD, creatorFactoryMethod);
       if (canInstantiateAllRequirements()) {
@@ -530,6 +529,10 @@ abstract class ComponentImplementationBuilder {
       return !Iterables.any(
           graph.componentRequirements(),
           dependency -> dependency.requiresAPassedInstance(elements, types));
+    }
+
+    ClassName componentCreatorName() {
+      return componentImplementation.creatorImplementation().get().name();
     }
   }
 

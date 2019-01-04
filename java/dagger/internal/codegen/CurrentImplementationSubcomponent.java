@@ -20,7 +20,6 @@ import dagger.BindsInstance;
 import dagger.Subcomponent;
 import dagger.internal.codegen.ComponentImplementationBuilder.RootComponentImplementationBuilder;
 import dagger.internal.codegen.ComponentImplementationBuilder.SubcomponentImplementationBuilder;
-import dagger.internal.codegen.ConfigureCreatorImplementationModule.Unconfigured;
 import java.util.Optional;
 
 /**
@@ -28,7 +27,7 @@ import java.util.Optional;
  * ComponentImplementation} instance. Each child {@link ComponentImplementation} will have its own
  * instance of {@link CurrentImplementationSubcomponent}.
  */
-@Subcomponent(modules = ConfigureCreatorImplementationModule.class)
+@Subcomponent
 @PerComponentImplementation
 interface CurrentImplementationSubcomponent {
   RootComponentImplementationBuilder rootComponentBuilder();
@@ -38,7 +37,7 @@ interface CurrentImplementationSubcomponent {
   @Subcomponent.Builder
   interface Builder {
     @BindsInstance
-    Builder componentImplementation(@Unconfigured ComponentImplementation componentImplementation);
+    Builder componentImplementation(ComponentImplementation componentImplementation);
 
     @BindsInstance
     Builder bindingGraph(BindingGraph bindingGraph);
