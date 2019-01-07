@@ -68,7 +68,6 @@ final class OptionalBindingExpression extends SimpleInvocationBindingExpression 
 
     // If the dependency type is inaccessible, then we have to use Optional.<Object>of(...), or else
     // we will get "incompatible types: inference variable has incompatible bounds.
-    // TODO(user): Do we need presentObjectExpression in androidExperimentalMode?
     return isTypeAccessibleFrom(dependency.key().type(), requestingClass.packageName())
         ? Expression.create(
             binding.key().type(), optionalKind.presentExpression(dependencyExpression))
