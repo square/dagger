@@ -1338,11 +1338,11 @@ public class ModuleFactoryGeneratorTest {
     Compilation compilation = daggerCompiler().compile(moduleFile, SCOPE_A, SCOPE_B);
     assertThat(compilation).failed();
     assertThat(compilation)
-        .hadErrorContaining("Cannot use more than one @Scope")
+        .hadErrorContaining("cannot use more than one @Scope")
         .inFile(moduleFile)
         .onLineContaining("@ScopeA");
     assertThat(compilation)
-        .hadErrorContaining("Cannot use more than one @Scope")
+        .hadErrorContaining("cannot use more than one @Scope")
         .inFile(moduleFile)
         .onLineContaining("@ScopeB");
   }

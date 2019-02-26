@@ -204,7 +204,7 @@ public class ProducerModuleFactoryGeneratorTest {
 
   @Test public void producesMethodWithScope() {
     assertThatProductionModuleMethod("@Produces @Singleton String str() { return \"\"; }")
-        .hasError("@Produces methods may not have scope annotations");
+        .hasError("@Produces methods cannot be scoped");
   }
 
   @Test
