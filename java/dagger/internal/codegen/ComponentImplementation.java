@@ -67,8 +67,6 @@ import javax.lang.model.type.TypeMirror;
 /** The implementation of a component type. */
 final class ComponentImplementation {
   /** A type of field that this component can contain. */
-  // TODO(user, dpb): Move component requirements and reference managers to top? The order should
-  // be component requirements, reference managers, framework fields, private method fields, ... etc
   enum FieldSpecKind {
 
     /** A field required by the component, e.g. module instances. */
