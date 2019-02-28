@@ -68,6 +68,7 @@ import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
+import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 
 /** A factory for {@link DiagnosticReporter}s. */
 // TODO(ronshapiro): If multiple plugins print errors on the same node/edge, should we condense the
@@ -229,7 +230,9 @@ final class DiagnosticReporterFactory {
     }
 
     void printMessage(
-        Diagnostic.Kind diagnosticKind, CharSequence message, Element elementToReport) {
+        Diagnostic.Kind diagnosticKind,
+        CharSequence message,
+        @NullableDecl Element elementToReport) {
       if (graph.isModuleBindingGraph()) {
         if (compilerOptions.moduleBindingValidationType().equals(NONE)) {
           return;
@@ -244,7 +247,7 @@ final class DiagnosticReporterFactory {
 
       // TODO(ronshapiro): should we create a HashSet out of elementEncloses() so we don't
       // need to do an O(n) contains() each time?
-      if (!elementEncloses(rootComponent, elementToReport)) {
+      if (elementToReport != null && !elementEncloses(rootComponent, elementToReport)) {
         appendBracketPrefix(fullMessage, elementToString(elementToReport));
         elementToReport = rootComponent;
       }

@@ -39,6 +39,7 @@ CODEGEN_SHARED_DEPS = [
     "@google_bazel_common//third_party/java/auto:service",
     "@google_bazel_common//third_party/java/auto:value",
     "@google_bazel_common//third_party/java/auto:common",
+    "@google_bazel_common//third_party/java/checker_framework_annotations",
     "@google_bazel_common//third_party/java/error_prone:annotations",
     "@google_bazel_common//third_party/java/google_java_format",
     "@google_bazel_common//third_party/java/javapoet",
