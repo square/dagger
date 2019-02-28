@@ -133,6 +133,34 @@ abstract class ComponentDescriptor {
   }
 
   /**
+   * The types for which the component will need instances if all of its bindings are used. For the
+   * types the component will need in a given binding graph, use {@link
+   * BindingGraph#componentRequirements()}.
+   *
+   * <ul>
+   *   <li>{@linkplain #modules()} modules} with concrete instance bindings
+   *   <li>Bound instances
+   *   <li>{@linkplain #dependencies() dependencies}
+   * </ul>
+   */
+  @Memoized
+  ImmutableSet<ComponentRequirement> requirements() {
+    ImmutableSet.Builder<ComponentRequirement> requirements = ImmutableSet.builder();
+    modules().stream()
+        .filter(
+            module ->
+                module.bindings().stream().anyMatch(ContributionBinding::requiresModuleInstance))
+        .map(module -> ComponentRequirement.forModule(module.moduleElement().asType()))
+        .forEach(requirements::add);
+    requirements.addAll(dependencies());
+    requirements.addAll(
+        creatorDescriptor()
+            .map(ComponentCreatorDescriptor::boundInstanceRequirements)
+            .orElse(ImmutableSet.of()));
+    return requirements.build();
+  }
+
+  /**
    * This component's {@linkplain #dependencies() dependencies} keyed by each provision or
    * production method defined by that dependency. Note that the dependencies' types are not simply
    * the enclosing type of the method; a method may be declared by a supertype of the actual

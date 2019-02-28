@@ -18,6 +18,8 @@ package dagger.internal.codegen;
 
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.DaggerStreams.presentValues;
+import static dagger.internal.codegen.DaggerStreams.stream;
+import static dagger.internal.codegen.DaggerStreams.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
@@ -35,15 +37,11 @@ import dagger.model.RequestKind;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
-/**
- * The canonical representation of a full-resolved graph.
- */
+/** The canonical representation of a full-resolved graph. */
 @AutoValue
 abstract class BindingGraph {
   abstract ComponentDescriptor componentDescriptor();
@@ -156,65 +154,29 @@ abstract class BindingGraph {
    */
   @Memoized
   ImmutableSet<ComponentRequirement> componentRequirements() {
-    return componentRequirements(
-        StreamSupport.stream(SUBGRAPH_TRAVERSER.depthFirstPreOrder(this).spliterator(), false)
-            .flatMap(graph -> graph.contributionBindings().values().stream())
-            .flatMap(bindings -> bindings.contributionBindings().stream()));
-  }
-
-  /**
-   * The types for which the component may need instances, depending on how it is resolved in a
-   * parent component.
-   *
-   * <ul>
-   *   <li>{@linkplain #ownedModules() Owned modules} with concrete instance bindings. If the module
-   *       is never used in the fully resolved binding graph, the instance will not be required
-   *       unless a component builder requests it.
-   *   <li>Bound instances (always required)
-   * </ul>
-   */
-  @Memoized
-  ImmutableSet<ComponentRequirement> possiblyNecessaryRequirements() {
-    checkState(componentDescriptor().isSubcomponent());
-    return componentRequirements(
-        StreamSupport.stream(SUBGRAPH_TRAVERSER.depthFirstPreOrder(this).spliterator(), false)
-            .flatMap(graph -> graph.ownedModules().stream())
-            .flatMap(module -> module.bindings().stream()));
-  }
-
-  /**
-   * The types for which the component needs instances.
-   *
-   * <ul>
-   *   <li>component dependencies
-   *   <li>The modules of {@code bindings} that require a module instance
-   *   <li>bound instances
-   * </ul>
-   */
-  private ImmutableSet<ComponentRequirement> componentRequirements(
-      // accept Stream instead of ImmutableSet so the binding instances don't need to be
-      // materialized in a large set + hashed. Even though this is in support of implementing
-      // methods that are themselves memoized, they still have a measurable impact on performance
-      Stream<ContributionBinding> bindings) {
+    ImmutableSet<TypeElement> requiredModules = requiredModuleElements();
     ImmutableSet.Builder<ComponentRequirement> requirements = ImmutableSet.builder();
-    bindings
-        .filter(ContributionBinding::requiresModuleInstance)
-        .map(ContributionBinding::contributingModule)
-        .distinct()
-        .flatMap(presentValues())
-        .filter(ownedModuleTypes()::contains)
-        .map(module -> ComponentRequirement.forModule(module.asType()))
+    componentDescriptor().requirements().stream()
+        .filter(
+            requirement ->
+                !requirement.kind().isModule()
+                    || requiredModules.contains(requirement.typeElement()))
         .forEach(requirements::add);
     if (factoryMethod().isPresent()) {
       requirements.addAll(factoryMethodParameters().keySet());
     }
-    requirements.addAll(componentDescriptor().dependencies());
-    componentDescriptor()
-        .creatorDescriptor()
-        .ifPresent(
-            creatorDescriptor ->
-                requirements.addAll(creatorDescriptor.boundInstanceRequirements()));
     return requirements.build();
+  }
+
+  private ImmutableSet<TypeElement> requiredModuleElements() {
+    return stream(SUBGRAPH_TRAVERSER.depthFirstPostOrder(this))
+        .flatMap(graph -> graph.contributionBindings().values().stream())
+        .flatMap(bindings -> bindings.contributionBindings().stream())
+        .map(ContributionBinding::contributingModule)
+        .distinct()
+        .flatMap(presentValues())
+        .filter(ownedModuleTypes()::contains)
+        .collect(toImmutableSet());
   }
 
   /** Returns the {@link ComponentDescriptor}s for this component and its subcomponents. */

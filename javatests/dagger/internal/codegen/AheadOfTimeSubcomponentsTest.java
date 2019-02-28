@@ -4812,11 +4812,11 @@ public final class AheadOfTimeSubcomponentsTest {
 
   /**
    * This tests a regression case where the component builder in the base implementation used one
-   * set of disambiguated names from all of the {@link
-   * BindingGraph#possiblyNecessaryRequirements()}, and the final implementation used a different
-   * set of disambiguated names from the resolved {@link BindingGraph#componentRequirements()}. This
-   * resulted in generated output that didn't compile, as the builder implementation attempted to
-   * use the new names in validation, which didn't line up with the old names.
+   * set of disambiguated names from all of the {@link ComponentDescriptor#requirements()}, and the
+   * final implementation used a different set of disambiguated names from the resolved {@link
+   * BindingGraph#componentRequirements()}. This resulted in generated output that didn't compile,
+   * as the builder implementation attempted to use the new names in validation, which didn't line
+   * up with the old names.
    */
   @Test
   public void componentBuilderFields_consistencyAcrossImplementations() {

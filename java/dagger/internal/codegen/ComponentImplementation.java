@@ -307,17 +307,20 @@ final class ComponentImplementation {
   }
 
   /**
-   * The possible requirements for creating an instance of this component implementation type.
+   * The requirements for creating an instance of this component implementation type.
    *
    * <p>If this component implementation is concrete, these requirements will be in the order that
    * the implementation's constructor takes them as parameters.
    */
   ImmutableSet<ComponentRequirement> requirements() {
     // If the base implementation's creator is being generated in ahead-of-time-subcomponents
-    // mode, this uses possiblyNecessaryRequirements() since Dagger doesn't know what modules may
-    // end up being unused. Otherwise, we use the necessary component requirements.
+    // mode, this uses the ComponentDescriptor's requirements() since Dagger doesn't know what
+    // modules may end being unused or owned by an ancestor component. Otherwise, we use the
+    // necessary component requirements.
+    // TODO(ronshapiro): can we remove the second condition here? Or, is it never going to be
+    // called, so we should enforce that invariant?
     return isAbstract() && !superclassImplementation().isPresent()
-        ? graph().possiblyNecessaryRequirements()
+        ? componentDescriptor().requirements()
         : graph().componentRequirements();
   }
 
