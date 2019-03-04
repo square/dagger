@@ -40,63 +40,55 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ProducerModuleFactoryGeneratorTest {
 
-  private String formatErrorMessage(String msg) {
-    return String.format(msg, "Produces");
-  }
-
-  private String formatModuleErrorMessage(String msg) {
-    return String.format(msg, "Produces", "ProducerModule");
-  }
-
   @Test public void producesMethodNotInModule() {
     assertThatMethodInUnannotatedClass("@Produces String produceString() { return null; }")
-        .hasError(formatModuleErrorMessage("@%s methods can only be present within a @%s"));
+        .hasError("@Produces methods can only be present within a @ProducerModule");
   }
 
   @Test public void producesMethodAbstract() {
     assertThatProductionModuleMethod("@Produces abstract String produceString();")
-        .hasError(formatErrorMessage("@%s methods cannot be abstract"));
+        .hasError("@Produces methods cannot be abstract");
   }
 
   @Test public void producesMethodPrivate() {
     assertThatProductionModuleMethod("@Produces private String produceString() { return null; }")
-        .hasError(formatErrorMessage("@%s methods cannot be private"));
+        .hasError("@Produces methods cannot be private");
   }
 
   @Test public void producesMethodReturnVoid() {
     assertThatProductionModuleMethod("@Produces void produceNothing() {}")
-        .hasError(formatErrorMessage("@%s methods must return a value (not void)"));
+        .hasError("@Produces methods must return a value (not void)");
   }
 
   @Test
   public void producesProvider() {
     assertThatProductionModuleMethod("@Produces Provider<String> produceProvider() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Produces methods must not return framework types");
   }
 
   @Test
   public void producesLazy() {
     assertThatProductionModuleMethod("@Produces Lazy<String> produceLazy() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Produces methods must not return framework types");
   }
 
   @Test
   public void producesMembersInjector() {
     assertThatProductionModuleMethod(
             "@Produces MembersInjector<String> produceMembersInjector() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Produces methods must not return framework types");
   }
 
   @Test
   public void producesProducer() {
     assertThatProductionModuleMethod("@Produces Producer<String> produceProducer() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Produces methods must not return framework types");
   }
 
   @Test
   public void producesProduced() {
     assertThatProductionModuleMethod("@Produces Produced<String> produceProduced() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Produces methods must not return framework types");
   }
 
   @Test public void producesMethodReturnRawFuture() {
@@ -115,7 +107,7 @@ public class ProducerModuleFactoryGeneratorTest {
 
   @Test public void producesMethodWithTypeParameter() {
     assertThatProductionModuleMethod("@Produces <T> String produceString() { return null; }")
-        .hasError(formatErrorMessage("@%s methods may not have type parameters"));
+        .hasError("@Produces methods may not have type parameters");
   }
 
   @Test public void producesMethodSetValuesWildcard() {
@@ -129,9 +121,7 @@ public class ProducerModuleFactoryGeneratorTest {
   @Test public void producesMethodSetValuesRawSet() {
     assertThatProductionModuleMethod(
             "@Produces @ElementsIntoSet Set produceSomething() { return null; }")
-        .hasError(
-            formatErrorMessage(
-                "@%s methods annotated with @ElementsIntoSet cannot return a raw Set"));
+        .hasError("@Produces methods annotated with @ElementsIntoSet cannot return a raw Set");
   }
 
   @Test public void producesMethodSetValuesNotASet() {
@@ -155,9 +145,7 @@ public class ProducerModuleFactoryGeneratorTest {
     assertThatProductionModuleMethod(
             "@Produces @ElementsIntoSet ListenableFuture<Set> produceSomething() { return null; }")
         .importing(ListenableFuture.class)
-        .hasError(
-            formatErrorMessage(
-                "@%s methods annotated with @ElementsIntoSet cannot return a raw Set"));
+        .hasError("@Produces methods annotated with @ElementsIntoSet cannot return a raw Set");
   }
 
   @Test public void producesMethodSetValuesFutureNotASet() {

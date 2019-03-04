@@ -46,89 +46,77 @@ public class ModuleFactoryGeneratorTest {
   // TODO(gak): add tests for invalid combinations of scope and qualifier annotations like we have
   // for @Inject
 
-  private String formatErrorMessage(String msg) {
-    return String.format(msg, "Provides");
-  }
-
-  private String formatModuleErrorMessage(String msg) {
-    return String.format(msg, "Provides", "Module");
-  }
-
   @Test public void providesMethodNotInModule() {
     assertThatMethodInUnannotatedClass("@Provides String provideString() { return null; }")
-        .hasError(formatModuleErrorMessage("@%s methods can only be present within a @%s"));
+        .hasError("@Provides methods can only be present within a @Module or @ProducerModule");
   }
 
   @Test public void providesMethodAbstract() {
     assertThatModuleMethod("@Provides abstract String abstractMethod();")
-        .hasError(formatErrorMessage("@%s methods cannot be abstract"));
+        .hasError("@Provides methods cannot be abstract");
   }
 
   @Test public void providesMethodPrivate() {
     assertThatModuleMethod("@Provides private String privateMethod() { return null; }")
-        .hasError(formatErrorMessage("@%s methods cannot be private"));
+        .hasError("@Provides methods cannot be private");
   }
 
   @Test public void providesMethodReturnVoid() {
     assertThatModuleMethod("@Provides void voidMethod() {}")
-        .hasError(formatErrorMessage("@%s methods must return a value (not void)"));
+        .hasError("@Provides methods must return a value (not void)");
   }
 
   @Test
   public void providesMethodReturnsProvider() {
     assertThatModuleMethod("@Provides Provider<String> provideProvider() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Provides methods must not return framework types");
   }
 
   @Test
   public void providesMethodReturnsLazy() {
     assertThatModuleMethod("@Provides Lazy<String> provideLazy() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Provides methods must not return framework types");
   }
 
   @Test
   public void providesMethodReturnsMembersInjector() {
     assertThatModuleMethod("@Provides MembersInjector<String> provideMembersInjector() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Provides methods must not return framework types");
   }
 
   @Test
   public void providesMethodReturnsProducer() {
     assertThatModuleMethod("@Provides Producer<String> provideProducer() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Provides methods must not return framework types");
   }
 
   @Test
   public void providesMethodReturnsProduced() {
     assertThatModuleMethod("@Provides Produced<String> provideProduced() {}")
-        .hasError(formatErrorMessage("@%s methods must not return framework types"));
+        .hasError("@Provides methods must not return framework types");
   }
 
   @Test public void providesMethodWithTypeParameter() {
     assertThatModuleMethod("@Provides <T> String typeParameter() { return null; }")
-        .hasError(formatErrorMessage("@%s methods may not have type parameters"));
+        .hasError("@Provides methods may not have type parameters");
   }
 
   @Test public void providesMethodSetValuesWildcard() {
     assertThatModuleMethod("@Provides @ElementsIntoSet Set<?> provideWildcard() { return null; }")
         .hasError(
-            formatErrorMessage(
-                "@%s methods must return a primitive, an array, a type variable, "
-                    + "or a declared type"));
+            "@Provides methods must return a primitive, an array, a type variable, "
+                + "or a declared type");
   }
 
   @Test public void providesMethodSetValuesRawSet() {
     assertThatModuleMethod("@Provides @ElementsIntoSet Set provideSomething() { return null; }")
-        .hasError(
-            formatErrorMessage(
-                "@%s methods annotated with @ElementsIntoSet cannot return a raw Set"));
+        .hasError("@Provides methods annotated with @ElementsIntoSet cannot return a raw Set");
   }
 
   @Test public void providesMethodSetValuesNotASet() {
     assertThatModuleMethod(
             "@Provides @ElementsIntoSet List<String> provideStrings() { return null; }")
-        .hasError(
-            formatErrorMessage("@%s methods annotated with @ElementsIntoSet must return a Set"));
+        .hasError("@Provides methods annotated with @ElementsIntoSet must return a Set");
   }
 
   @Test public void modulesWithTypeParamsMustBeAbstract() {
@@ -668,11 +656,11 @@ public class ModuleFactoryGeneratorTest {
     Compilation compilation = daggerCompiler().compile(moduleFile);
     assertThat(compilation).failed();
     assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage("@%s methods may only throw unchecked exceptions"))
+        .hadErrorContaining("@Provides methods may only throw unchecked exceptions")
         .inFile(moduleFile)
         .onLine(8);
     assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage("@%s methods may only throw unchecked exceptions"))
+        .hadErrorContaining("@Provides methods may only throw unchecked exceptions")
         .inFile(moduleFile)
         .onLine(12);
   }
