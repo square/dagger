@@ -17,7 +17,6 @@
 package dagger.internal.codegen;
 
 import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.auto.common.Visibility.PRIVATE;
 import static com.google.auto.common.Visibility.PUBLIC;
 import static com.google.auto.common.Visibility.effectiveVisibilityOfElement;
@@ -47,11 +46,9 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
-import dagger.Binds;
 import dagger.Module;
 import dagger.Subcomponent;
 import dagger.model.BindingGraph;
-import dagger.multibindings.Multibinds;
 import dagger.producers.ProducerModule;
 import dagger.producers.ProductionSubcomponent;
 import java.lang.annotation.Annotation;
@@ -75,7 +72,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.lang.model.util.SimpleTypeVisitor8;
 
@@ -186,10 +182,6 @@ final class ModuleValidator {
     for (ExecutableElement moduleMethod : methodsIn(module.getEnclosedElements())) {
       if (anyBindingMethodValidator.isBindingMethod(moduleMethod)) {
         builder.addSubreport(anyBindingMethodValidator.validate(moduleMethod));
-      }
-      if (isAnyAnnotationPresent(
-          moduleMethod,
-          ImmutableSet.of(moduleKind.methodAnnotation(), Binds.class, Multibinds.class))) {
         bindingMethodsByName.put(moduleMethod.getSimpleName().toString(), moduleMethod);
         methodKinds.add(ModuleMethodKind.ofMethod(moduleMethod));
       }
@@ -215,17 +207,14 @@ final class ModuleValidator {
         EnumSet.of(ModuleMethodKind.ABSTRACT_DECLARATION, ModuleMethodKind.INSTANCE_BINDING))) {
       builder.addError(
           String.format(
-              "A @%s may not contain both non-static @%s methods and "
-                  + "abstract @Binds or @Multibinds declarations",
-              moduleKind.annotation().getSimpleName(),
-              moduleKind.methodAnnotation().getSimpleName()));
+              "A @%s may not contain both non-static and abstract binding methods",
+              moduleKind.annotation().getSimpleName()));
     }
 
     validateModuleVisibility(module, moduleKind, builder);
-    validateMethodsWithSameName(moduleKind, builder, bindingMethodsByName);
+    validateMethodsWithSameName(builder, bindingMethodsByName);
     if (module.getKind() != ElementKind.INTERFACE) {
-      validateProvidesOverrides(
-          module, moduleKind, builder, allMethodsByName, bindingMethodsByName);
+      validateBindingMethodOverrides(module, builder, allMethodsByName, bindingMethodsByName);
     }
     validateModifiers(module, builder);
     validateReferencedModules(module, moduleKind, visitedModules, builder);
@@ -357,7 +346,6 @@ final class ModuleValidator {
   }
 
   private void validateMethodsWithSameName(
-      ModuleKind moduleKind,
       ValidationReport.Builder<TypeElement> builder,
       ListMultimap<String, ExecutableElement> bindingMethodsByName) {
     for (Entry<String, Collection<ExecutableElement>> entry :
@@ -366,8 +354,7 @@ final class ModuleValidator {
         for (ExecutableElement offendingMethod : entry.getValue()) {
           builder.addError(
               String.format(
-                  "Cannot have more than one @%s method with the same name in a single module",
-                  moduleKind.methodAnnotation().getSimpleName()),
+                  "Cannot have more than one binding method with the same name in a single module"),
               offendingMethod);
         }
       }
@@ -454,13 +441,12 @@ final class ModuleValidator {
     return subreport.build();
   }
 
-  private void validateProvidesOverrides(
+  private void validateBindingMethodOverrides(
       TypeElement subject,
-      ModuleKind moduleKind,
       ValidationReport.Builder<TypeElement> builder,
       ListMultimap<String, ExecutableElement> allMethodsByName,
       ListMultimap<String, ExecutableElement> bindingMethodsByName) {
-    // For every @Provides method, confirm it overrides nothing *and* nothing overrides it.
+    // For every binding method, confirm it overrides nothing *and* nothing overrides it.
     // Consider the following hierarchy:
     // class Parent {
     //    @Provides Foo a() {}
@@ -473,41 +459,36 @@ final class ModuleValidator {
     //    @Provides Foo c() {}
     // }
     // In each of those cases, we want to fail.  "a" is clear, "b" because Child is overriding
-    // a method marked @Provides in Parent, and "c" because Child is defining an @Provides
-    // method that overrides Parent.
+    // a binding method in Parent, and "c" because Child is defining a binding method that overrides
+    // Parent.
     TypeElement currentClass = subject;
     TypeMirror objectType = elements.getTypeElement(Object.class).asType();
     // We keep track of methods that failed so we don't spam with multiple failures.
     Set<ExecutableElement> failedMethods = Sets.newHashSet();
     while (!types.isSameType(currentClass.getSuperclass(), objectType)) {
       currentClass = MoreElements.asType(types.asElement(currentClass.getSuperclass()));
-      List<ExecutableElement> superclassMethods =
-          ElementFilter.methodsIn(currentClass.getEnclosedElements());
+      List<ExecutableElement> superclassMethods = methodsIn(currentClass.getEnclosedElements());
       for (ExecutableElement superclassMethod : superclassMethods) {
         String name = superclassMethod.getSimpleName().toString();
-        // For each method in the superclass, confirm our @Provides methods don't override it
-        for (ExecutableElement providesMethod : bindingMethodsByName.get(name)) {
-          if (!failedMethods.contains(providesMethod)
-              && elements.overrides(providesMethod, superclassMethod, subject)) {
-            failedMethods.add(providesMethod);
+        // For each method in the superclass, confirm our binding methods don't override it
+        for (ExecutableElement bindingMethod : bindingMethodsByName.get(name)) {
+          if (failedMethods.add(bindingMethod)
+              && elements.overrides(bindingMethod, superclassMethod, subject)) {
             builder.addError(
                 String.format(
-                    "@%s methods may not override another method. Overrides: %s",
-                    moduleKind.methodAnnotation().getSimpleName(),
+                    "Binding methods may not override another method. Overrides: %s",
                     methodSignatureFormatter.format(superclassMethod)),
-                providesMethod);
+                bindingMethod);
           }
         }
-        // For each @Provides method in superclass, confirm our methods don't override it.
-        if (isAnnotationPresent(superclassMethod, moduleKind.methodAnnotation())) {
+        // For each binding method in superclass, confirm our methods don't override it.
+        if (anyBindingMethodValidator.isBindingMethod(superclassMethod)) {
           for (ExecutableElement method : allMethodsByName.get(name)) {
-            if (!failedMethods.contains(method)
+            if (failedMethods.add(method)
                 && elements.overrides(method, superclassMethod, subject)) {
-              failedMethods.add(method);
               builder.addError(
                   String.format(
-                      "@%s methods may not be overridden in modules. Overrides: %s",
-                      moduleKind.methodAnnotation().getSimpleName(),
+                      "Binding methods may not be overridden in modules. Overrides: %s",
                       methodSignatureFormatter.format(superclassMethod)),
                   method);
             }
@@ -541,7 +522,7 @@ final class ModuleValidator {
         if (moduleVisibility.equals(PUBLIC)) {
           ImmutableSet<Element> nonPublicModules =
               moduleAnnotation.includes().stream()
-                  .filter(element -> effectiveVisibilityOfElement(element).compareTo(PUBLIC) < 0)
+                  .filter(element -> !effectiveVisibilityOfElement(element).equals(PUBLIC))
                   .collect(toImmutableSet());
           if (!nonPublicModules.isEmpty()) {
             reportBuilder.addError(

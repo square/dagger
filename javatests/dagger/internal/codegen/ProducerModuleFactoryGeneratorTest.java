@@ -187,7 +187,7 @@ public class ProducerModuleFactoryGeneratorTest {
         "  }",
         "}");
     String errorMessage =
-        "Cannot have more than one @Produces method with the same name in a single module";
+        "Cannot have more than one binding method with the same name in a single module";
     Compilation compilation = daggerCompiler().compile(moduleFile);
     assertThat(compilation).failed();
     assertThat(compilation).hadErrorContaining(errorMessage).inFile(moduleFile).onLine(8);

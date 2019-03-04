@@ -162,9 +162,8 @@ public class ModuleFactoryGeneratorTest {
         .withDeclaration("@Module class %s extends Parent { %s }")
         .withAdditionalSources(parent)
         .hasError(
-            String.format(
-                "@%s methods may not be overridden in modules. Overrides: %s",
-                "Provides", "@Provides String test.Parent.foo()"));
+            "Binding methods may not be overridden in modules. Overrides: "
+                + "@Provides String test.Parent.foo()");
   }
 
   @Test public void provideOverriddenByProvide() {
@@ -182,9 +181,8 @@ public class ModuleFactoryGeneratorTest {
         .withDeclaration("@Module class %s extends Parent { %s }")
         .withAdditionalSources(parent)
         .hasError(
-            String.format(
-                "@%s methods may not override another method. Overrides: %s",
-                "Provides", "@Provides String test.Parent.foo()"));
+            "Binding methods may not override another method. Overrides: "
+                + "@Provides String test.Parent.foo()");
   }
 
   @Test public void providesOverridesNonProvides() {
@@ -201,9 +199,8 @@ public class ModuleFactoryGeneratorTest {
         .withDeclaration("@Module class %s extends Parent { %s }")
         .withAdditionalSources(parent)
         .hasError(
-            String.format(
-                "@%s methods may not override another method. Overrides: %s",
-                "Provides", "String test.Parent.foo()"));
+            "Binding methods may not override another method. Overrides: "
+                + "String test.Parent.foo()");
   }
 
   @Test public void validatesIncludedModules() {
@@ -638,14 +635,12 @@ public class ModuleFactoryGeneratorTest {
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
-            formatErrorMessage(
-                "Cannot have more than one @%s method with the same name in a single module"))
+            "Cannot have more than one binding method with the same name in a single module")
         .inFile(moduleFile)
         .onLine(8);
     assertThat(compilation)
         .hadErrorContaining(
-            formatErrorMessage(
-                "Cannot have more than one @%s method with the same name in a single module"))
+            "Cannot have more than one binding method with the same name in a single module")
         .inFile(moduleFile)
         .onLine(12);
   }
@@ -1469,8 +1464,7 @@ public class ModuleFactoryGeneratorTest {
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
-            "A @Module may not contain both non-static @Provides methods and "
-                + "abstract @Binds or @Multibinds declarations");
+            "A @Module may not contain both non-static and abstract binding methods");
   }
 
   @Test
@@ -1479,8 +1473,7 @@ public class ModuleFactoryGeneratorTest {
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
-            "A @Module may not contain both non-static @Provides methods and "
-                + "abstract @Binds or @Multibinds declarations");
+            "A @Module may not contain both non-static and abstract binding methods");
   }
 
   @Test
