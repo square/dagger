@@ -382,12 +382,7 @@ final class ModifiableBindingExpressions {
           // if the binding is modifiable and is resolved as a provision binding in a superclass
           // but later resolved as a production binding, we can't take the same shortcut as before.
           if (componentImplementation.superclassImplementation().isPresent()) {
-            BindingGraph superclassGraph =
-                componentImplementation.superclassImplementation().get().graph();
-            ResolvedBindings superclassBindings = superclassGraph.resolvedBindings(request);
-            return superclassBindings != null
-                && resolvedBindings != null
-                && !superclassBindings.bindingType().equals(resolvedBindings.bindingType());
+            return bindingTypeChanged(request, resolvedBindings);
           }
           return false;
 
@@ -458,6 +453,19 @@ final class ModifiableBindingExpressions {
                 "Overriding modifiable binding method with unsupported ModifiableBindingType [%s].",
                 modifiableBindingType));
     }
+  }
+
+  /**
+   * Returns {@code true} if the {@link BindingType} for {@code request} is not the same in this
+   * implementation and it's superclass implementation.
+   */
+  private boolean bindingTypeChanged(BindingRequest request, ResolvedBindings resolvedBindings) {
+    BindingGraph superclassGraph =
+        componentImplementation.superclassImplementation().get().graph();
+    ResolvedBindings superclassBindings = superclassGraph.resolvedBindings(request);
+    return superclassBindings != null
+        && resolvedBindings != null
+        && !superclassBindings.bindingType().equals(resolvedBindings.bindingType());
   }
 
   /**
