@@ -364,8 +364,7 @@ abstract class ComponentImplementationBuilder {
 
   /** Creates an inner abstract subcomponent implementation. */
   private ComponentImplementation abstractInnerSubcomponent(BindingGraph childGraph) {
-    return new ComponentImplementation(
-        componentImplementation,
+    return componentImplementation.childComponentImplementation(
         childGraph,
         Optional.of(
             componentImplementationFactory.findChildSuperclassImplementation(
@@ -376,8 +375,7 @@ abstract class ComponentImplementationBuilder {
 
   /** Creates a concrete inner subcomponent implementation. */
   private ComponentImplementation concreteSubcomponent(BindingGraph childGraph) {
-    return new ComponentImplementation(
-        componentImplementation,
+    return componentImplementation.childComponentImplementation(
         childGraph,
         Optional.empty(), // superclassImplementation
         PRIVATE,

@@ -27,6 +27,8 @@ import static dagger.internal.codegen.Accessibility.isTypeAccessibleFrom;
 import static dagger.internal.codegen.ComponentCreatorKind.BUILDER;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Supplier;
@@ -170,6 +172,7 @@ final class ComponentImplementation {
     abstract ImmutableSet<ComponentRequirement> parameters();
   }
 
+  private final ComponentDescriptor componentDescriptor;
   private final BindingGraph graph;
   private final ClassName name;
   private final NestingKind nestingKind;
@@ -200,7 +203,8 @@ final class ComponentImplementation {
   private Optional<ConfigureInitializationMethod> configureInitializationMethod = Optional.empty();
   private final Map<ComponentRequirement, String> modifiableModuleMethods = new LinkedHashMap<>();
 
-  ComponentImplementation(
+  private ComponentImplementation(
+      ComponentDescriptor componentDescriptor,
       BindingGraph graph,
       ClassName name,
       NestingKind nestingKind,
@@ -208,6 +212,7 @@ final class ComponentImplementation {
       SubcomponentNames subcomponentNames,
       Modifier... modifiers) {
     checkName(name, nestingKind);
+    this.componentDescriptor = componentDescriptor;
     this.graph = graph;
     this.name = name;
     this.nestingKind = nestingKind;
@@ -217,17 +222,34 @@ final class ComponentImplementation {
     this.subcomponentNames = subcomponentNames;
   }
 
-  ComponentImplementation(
-      ComponentImplementation parent,
+  /** Returns a component implementation for a top-level component. */
+  static ComponentImplementation topLevelComponentImplementation(
+      BindingGraph graph,
+      ClassName name,
+      SubcomponentNames subcomponentNames) {
+    return new ComponentImplementation(
+        graph.componentDescriptor(),
+        graph,
+        name,
+        NestingKind.TOP_LEVEL,
+        Optional.empty(), // superclass implementation
+        subcomponentNames,
+        PUBLIC,
+        graph.componentDescriptor().isSubcomponent() ? ABSTRACT : FINAL);
+  }
+
+  /** Returns a component implementation that is a child of the current implementation. */
+  ComponentImplementation childComponentImplementation(
       BindingGraph graph,
       Optional<ComponentImplementation> superclassImplementation,
       Modifier... modifiers) {
-    this(
+    return new ComponentImplementation(
+        graph.componentDescriptor(),
         graph,
-        parent.getSubcomponentName(graph.componentDescriptor()),
+        getSubcomponentName(graph.componentDescriptor()),
         NestingKind.MEMBER,
         superclassImplementation,
-        parent.subcomponentNames,
+        subcomponentNames,
         modifiers);
   }
 
@@ -256,7 +278,7 @@ final class ComponentImplementation {
 
   /** Returns the descriptor for the component being generated. */
   ComponentDescriptor componentDescriptor() {
-    return graph.componentDescriptor();
+    return componentDescriptor;
   }
 
   /** Returns the name of the component. */
