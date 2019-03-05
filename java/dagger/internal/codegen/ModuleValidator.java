@@ -66,7 +66,6 @@ import javax.inject.Scope;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -520,24 +519,46 @@ final class ModuleValidator {
       case MEMBER:
       case TOP_LEVEL:
         if (moduleVisibility.equals(PUBLIC)) {
-          ImmutableSet<Element> nonPublicModules =
-              moduleAnnotation.includes().stream()
-                  .filter(element -> !effectiveVisibilityOfElement(element).equals(PUBLIC))
-                  .collect(toImmutableSet());
-          if (!nonPublicModules.isEmpty()) {
+          ImmutableSet<TypeElement> invalidVisibilityIncludes =
+              getModuleIncludesWithInvalidVisibility(moduleAnnotation);
+          if (!invalidVisibilityIncludes.isEmpty()) {
             reportBuilder.addError(
                 String.format(
-                    "This module is public, but it includes non-public "
-                        + "(or effectively non-public) modules. "
-                        + "Either reduce the visibility of this module or make %s public.",
-                    formatListForErrorMessage(nonPublicModules.asList())),
+                    "This module is public, but it includes non-public (or effectively non-public) "
+                        + "modules (%s) that have non-static, non-abstract binding methods. Either "
+                        + "reduce the visibility of this module, make the included modules "
+                        + "public, or make all of the binding methods on the included modules "
+                        + "abstract or static.",
+                    formatListForErrorMessage(invalidVisibilityIncludes.asList())),
                 moduleElement);
           }
         }
-        break;
-      default:
-        throw new AssertionError();
     }
+  }
+
+  private ImmutableSet<TypeElement> getModuleIncludesWithInvalidVisibility(
+      ModuleAnnotation moduleAnnotation) {
+    return moduleAnnotation.includes().stream()
+        .filter(include -> !effectiveVisibilityOfElement(include).equals(PUBLIC))
+        .filter(this::requiresModuleInstance)
+        .collect(toImmutableSet());
+  }
+
+  /**
+   * Returns {@code true} if a module instance is needed for any of the binding methods on the
+   * given {@code module}. This is the case when the module has any binding methods that are neither
+   * {@code abstract} nor {@code static}.
+   */
+  private boolean requiresModuleInstance(TypeElement module) {
+    // Note elements.getAllMembers(module) rather than module.getEnclosedElements() here: we need to
+    // include binding methods declared in supertypes because unlike most other validations being
+    // done in this class, which assume that supertype binding methods will be validated in a
+    // separate call to the validator since the supertype itself must be a @Module, we need to look
+    // at all the binding methods in the module's type hierarchy here.
+    return methodsIn(elements.getAllMembers(module)).stream()
+        .filter(method -> anyBindingMethodValidator.isBindingMethod(method))
+        .map(ExecutableElement::getModifiers)
+        .anyMatch(modifiers -> !modifiers.contains(ABSTRACT) && !modifiers.contains(STATIC));
   }
 
   private void validateNoScopeAnnotationsOnModuleElement(

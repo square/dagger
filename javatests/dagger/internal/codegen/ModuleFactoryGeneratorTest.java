@@ -753,25 +753,37 @@ public class ModuleFactoryGeneratorTest {
         "import dagger.Module;",
         "",
         "@Module(includes = {",
-        "    NonPublicModule1.class, OtherPublicModule.class, NonPublicModule2.class",
+        "    BadNonPublicModule.class, OtherPublicModule.class, OkNonPublicModule.class",
         "})",
         "public final class PublicModule {",
         "}");
-    JavaFileObject nonPublicModule1File = JavaFileObjects.forSourceLines("test.NonPublicModule1",
+    JavaFileObject badNonPublicModuleFile =
+        JavaFileObjects.forSourceLines(
+            "test.BadNonPublicModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "",
+            "@Module",
+            "final class BadNonPublicModule {",
+            "  @Provides",
+            "  int provideInt() {",
+            "    return 42;",
+            "  }",
+            "}");
+    JavaFileObject okNonPublicModuleFile = JavaFileObjects.forSourceLines("test.OkNonPublicModule",
         "package test;",
         "",
         "import dagger.Module;",
+        "import dagger.Provides;",
         "",
         "@Module",
-        "final class NonPublicModule1 {",
-        "}");
-    JavaFileObject nonPublicModule2File = JavaFileObjects.forSourceLines("test.NonPublicModule2",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "",
-        "@Module",
-        "final class NonPublicModule2 {",
+        "final class OkNonPublicModule {",
+        "  @Provides",
+        "  static String provideString() {",
+        "    return \"foo\";",
+        "  }",
         "}");
     JavaFileObject otherPublicModuleFile = JavaFileObjects.forSourceLines("test.OtherPublicModule",
         "package test;",
@@ -785,16 +797,16 @@ public class ModuleFactoryGeneratorTest {
         daggerCompiler()
             .compile(
                 publicModuleFile,
-                nonPublicModule1File,
-                nonPublicModule2File,
+                badNonPublicModuleFile,
+                okNonPublicModuleFile,
                 otherPublicModuleFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
-            "This module is public, but it includes non-public "
-                + "(or effectively non-public) modules. "
-                + "Either reduce the visibility of this module or make "
-                + "test.NonPublicModule1 and test.NonPublicModule2 public.")
+            "This module is public, but it includes non-public (or effectively non-public) modules "
+                + "(test.BadNonPublicModule) that have non-static, non-abstract binding methods. "
+                + "Either reduce the visibility of this module, make the included modules public, "
+                + "or make all of the binding methods on the included modules abstract or static.")
         .inFile(publicModuleFile)
         .onLine(8);
   }

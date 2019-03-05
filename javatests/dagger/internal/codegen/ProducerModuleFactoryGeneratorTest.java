@@ -256,6 +256,8 @@ public class ProducerModuleFactoryGeneratorTest {
             "X is listed as a module, but is not annotated with one of @Module, @ProducerModule");
   }
 
+  // TODO(ronshapiro): merge this with the equivalent test in ModuleFactoryGeneratorTest and make it
+  // parameterized
   @Test
   public void publicModuleNonPublicIncludes() {
     JavaFileObject publicModuleFile = JavaFileObjects.forSourceLines("test.PublicModule",
@@ -264,25 +266,37 @@ public class ProducerModuleFactoryGeneratorTest {
         "import dagger.producers.ProducerModule;",
         "",
         "@ProducerModule(includes = {",
-        "    NonPublicModule1.class, OtherPublicModule.class, NonPublicModule2.class",
+        "    BadNonPublicModule.class, OtherPublicModule.class, OkNonPublicModule.class",
         "})",
         "public final class PublicModule {",
         "}");
-    JavaFileObject nonPublicModule1File = JavaFileObjects.forSourceLines("test.NonPublicModule1",
+    JavaFileObject badNonPublicModuleFile =
+        JavaFileObjects.forSourceLines(
+            "test.BadNonPublicModule",
+            "package test;",
+            "",
+            "import dagger.producers.ProducerModule;",
+            "import dagger.producers.Produces;",
+            "",
+            "@ProducerModule",
+            "final class BadNonPublicModule {",
+            "  @Produces",
+            "  int produceInt() {",
+            "    return 42;",
+            "  }",
+            "}");
+    JavaFileObject okNonPublicModuleFile = JavaFileObjects.forSourceLines("test.OkNonPublicModule",
         "package test;",
         "",
         "import dagger.producers.ProducerModule;",
+        "import dagger.producers.Produces;",
         "",
         "@ProducerModule",
-        "final class NonPublicModule1 {",
-        "}");
-    JavaFileObject nonPublicModule2File = JavaFileObjects.forSourceLines("test.NonPublicModule2",
-        "package test;",
-        "",
-        "import dagger.producers.ProducerModule;",
-        "",
-        "@ProducerModule",
-        "final class NonPublicModule2 {",
+        "final class OkNonPublicModule {",
+        "  @Produces",
+        "  static String produceString() {",
+        "    return \"foo\";",
+        "  }",
         "}");
     JavaFileObject otherPublicModuleFile = JavaFileObjects.forSourceLines("test.OtherPublicModule",
         "package test;",
@@ -296,16 +310,16 @@ public class ProducerModuleFactoryGeneratorTest {
         daggerCompiler()
             .compile(
                 publicModuleFile,
-                nonPublicModule1File,
-                nonPublicModule2File,
+                badNonPublicModuleFile,
+                okNonPublicModuleFile,
                 otherPublicModuleFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
-            "This module is public, but it includes non-public "
-                + "(or effectively non-public) modules. "
-                + "Either reduce the visibility of this module or make "
-                + "test.NonPublicModule1 and test.NonPublicModule2 public.")
+            "This module is public, but it includes non-public (or effectively non-public) modules "
+                + "(test.BadNonPublicModule) that have non-static, non-abstract binding methods. "
+                + "Either reduce the visibility of this module, make the included modules public, "
+                + "or make all of the binding methods on the included modules abstract or static.")
         .inFile(publicModuleFile)
         .onLine(8);
   }
