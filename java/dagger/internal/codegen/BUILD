@@ -412,10 +412,10 @@ java_library(
     ],
 )
 
-# A _deploy.jar consisting of the java_librarys in https://github.com/google/kythe needed to build a
+# A _deploy.jar consisting of the java_librarys in https://github.com/kythe/kythe needed to build a
 # Kythe plugin
 # TODO(ronshapiro): replace this with a http_archive of the next release in
-# https://github.com/google/kythe/releases
+# https://github.com/kythe/kythe/releases
 java_import(
     name = "kythe_plugin",
     jars = ["kythe_plugin_deploy.jar"],
