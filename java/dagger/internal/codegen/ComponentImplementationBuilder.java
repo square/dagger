@@ -115,7 +115,8 @@ abstract class ComponentImplementationBuilder {
         componentImplementation.name());
     setSupertype();
     componentImplementation.setCreatorImplementation(
-        componentCreatorImplementationFactory.create(componentImplementation));
+        componentCreatorImplementationFactory.create(
+            componentImplementation, componentImplementation.graph()));
     componentImplementation
         .creatorImplementation()
         .map(ComponentCreatorImplementation::spec)

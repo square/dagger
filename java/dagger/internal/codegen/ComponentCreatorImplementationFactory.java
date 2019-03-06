@@ -67,13 +67,14 @@ final class ComponentCreatorImplementationFactory {
   }
 
   /** Returns a new creator implementation for the given component, if necessary. */
-  Optional<ComponentCreatorImplementation> create(ComponentImplementation componentImplementation) {
-    if (!componentImplementation.graph().componentDescriptor().hasCreator()) {
+  Optional<ComponentCreatorImplementation> create(
+      ComponentImplementation componentImplementation, BindingGraph graph) {
+    if (!componentImplementation.componentDescriptor().hasCreator()) {
       return Optional.empty();
     }
 
     Optional<ComponentCreatorDescriptor> creatorDescriptor =
-        componentImplementation.graph().componentDescriptor().creatorDescriptor();
+        componentImplementation.componentDescriptor().creatorDescriptor();
 
     if (componentImplementation.isAbstract()
         && (hasNoSetterMethods(creatorDescriptor)
@@ -91,7 +92,8 @@ final class ComponentCreatorImplementationFactory {
 
     Builder builder =
         creatorDescriptor.isPresent()
-            ? new BuilderForCreatorDescriptor(componentImplementation, creatorDescriptor.get())
+            ? new BuilderForCreatorDescriptor(
+                componentImplementation, creatorDescriptor.get(), graph)
             : new BuilderForGeneratedRootComponentBuilder(componentImplementation);
     return Optional.of(builder.build());
   }
@@ -126,9 +128,9 @@ final class ComponentCreatorImplementationFactory {
       return ComponentCreatorImplementation.create(classBuilder.build(), className, fields);
     }
 
-    /** Returns the binding graph for the component. */
-    final BindingGraph graph() {
-      return componentImplementation.graph();
+    /** Returns the descriptor for the component. */
+    final ComponentDescriptor componentDescriptor() {
+      return componentImplementation.componentDescriptor();
     }
 
     /**
@@ -286,7 +288,9 @@ final class ComponentCreatorImplementationFactory {
 
     MethodSpec factoryMethod() {
       MethodSpec.Builder factoryMethod = factoryMethodBuilder();
-      factoryMethod.returns(ClassName.get(graph().componentTypeElement())).addModifiers(PUBLIC);
+      factoryMethod
+          .returns(ClassName.get(componentDescriptor().typeElement()))
+          .addModifiers(PUBLIC);
 
       ImmutableMap<ComponentRequirement, String> factoryMethodParameters =
           factoryMethodParameters();
@@ -374,12 +378,15 @@ final class ComponentCreatorImplementationFactory {
   /** Builder for a creator type defined by a {@code ComponentCreatorDescriptor}. */
   private final class BuilderForCreatorDescriptor extends Builder {
     final ComponentCreatorDescriptor creatorDescriptor;
+    private final BindingGraph graph;
 
     BuilderForCreatorDescriptor(
         ComponentImplementation componentImplementation,
-        ComponentCreatorDescriptor creatorDescriptor) {
+        ComponentCreatorDescriptor creatorDescriptor,
+        BindingGraph graph) {
       super(componentImplementation);
       this.creatorDescriptor = creatorDescriptor;
+      this.graph = graph;
     }
 
     @Override
@@ -469,7 +476,7 @@ final class ComponentCreatorImplementationFactory {
      * Returns whether the given {@code requirement} is for a module type owned by the component.
      */
     private boolean isOwnedModule(ComponentRequirement requirement) {
-      return graph().ownedModuleTypes().contains(requirement.typeElement());
+      return graph.ownedModuleTypes().contains(requirement.typeElement());
     }
 
     private boolean hasBaseCreatorImplementation() {
@@ -525,7 +532,7 @@ final class ComponentCreatorImplementationFactory {
 
     @Override
     protected ImmutableSet<ComponentRequirement> setterMethods() {
-      return graph().componentDescriptor().dependenciesAndConcreteModules();
+      return componentDescriptor().dependenciesAndConcreteModules();
     }
 
     @Override
