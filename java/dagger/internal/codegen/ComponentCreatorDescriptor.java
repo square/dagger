@@ -208,10 +208,7 @@ abstract class ComponentCreatorDescriptor {
           dependencyRequestFactory.forRequiredResolvedVariable(parameter, type);
       // Validation already ensured that only setter methods have @BindsInstance, so name the
       // variable for the method in that case. Otherwise, name the variable for the parameter.
-      String variableName =
-          methodIsBindsInstance
-              ? method.getSimpleName().toString()
-              : parameter.getSimpleName().toString();
+      String variableName = (methodIsBindsInstance ? method : parameter).getSimpleName().toString();
       return ComponentRequirement.forBoundInstance(
           request.key(), request.isNullable(), variableName);
     }
