@@ -47,7 +47,7 @@
     <guava.version>19.0</guava.version>
 
     <!-- Test Dependencies -->
-    <junit.version>4.12</junit.version>
+    <junit.version>4.13.1</junit.version>
     <truth.version>0.28</truth.version>
     <compile-testing.version>0.8</compile-testing.version>
     <mockito.version>1.10.19</mockito.version>
