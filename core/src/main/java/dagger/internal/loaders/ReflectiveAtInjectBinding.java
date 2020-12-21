@@ -25,7 +25,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
@@ -148,7 +150,14 @@ public final class ReflectiveAtInjectBinding<T> extends Binding<T> {
     // Lookup the injectable fields and their corresponding keys.
     List<Field> injectedFields = new ArrayList<Field>();
     for (Class<?> c = type; c != Object.class; c = c.getSuperclass()) {
-      for (Field field : c.getDeclaredFields()) {
+      Field[] fields = c.getDeclaredFields();
+      Arrays.sort(fields, new Comparator<Object>() {
+        @Override
+        public int compare(Object a, Object b) {
+          return a.toString().compareTo(b.toString());
+        }
+      });
+      for (Field field : fields) {
         if (!field.isAnnotationPresent(Inject.class) || Modifier.isStatic(field.getModifiers())) {
           continue;
         }
