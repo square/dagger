@@ -40,6 +40,38 @@ dependency:
 </dependencies>
 ```
 
+In a Gradle Android project:
+
+```groovy
+apply plugin: 'com.android.application'
+
+dependencies {
+    compile 'com.squareup.dagger:dagger:${dagger.version}'
+    provided 'com.squareup.dagger:dagger-compiler:${dagger.version}'
+}
+```
+
+In a Gradle Java project:
+
+```groovy
+apply plugin: 'java'
+
+configurations {
+    provided
+}
+
+sourceSets {
+    main.compileClasspath += configurations.provided
+    test.compileClasspath += configurations.provided
+    test.runtimeClasspath += configurations.provided
+} 
+
+dependencies {
+    compile 'com.squareup.dagger:dagger:${dagger.version}'
+    provided 'com.squareup.dagger:dagger-compiler:${dagger.version}'
+}
+```
+
 You can also find downloadable .jars on Maven Central. You'll need
 [Dagger][dl-dagger], [JavaPoet][dl-javapoet], and [javax.inject][dl-inject].
 
