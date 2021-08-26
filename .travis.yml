@@ -11,9 +11,9 @@ jdk:
   - oraclejdk7
   # - oraclejdk8 Dagger integration tests fail with JDK 8 :(
 
-install: mvn install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
+install: mvn -T 1C install clean --fail-never --quiet -DskipTests=true -Dinvoker.skip=true
 
-script: mvn verify
+script: mvn -T 1C verify
 
 after_success:
   - .buildscript/deploy_snapshot.sh
